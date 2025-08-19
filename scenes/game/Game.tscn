@@ -1,0 +1,78 @@
+[gd_scene load_steps=5 format=3 uid="uid://c3h4k5l6m7n8p"]
+
+[ext_resource type="Script" path="res://scripts/game/GameManager.cs" id="1_game_manager"]
+[ext_resource type="Script" path="res://scripts/game/GridMap.cs" id="2_grid_map"]
+[ext_resource type="Script" path="res://scripts/game/PlayerController.cs" id="3_player_controller"]
+[ext_resource type="Script" path="res://scripts/game/Game.cs" id="4_game_script"]
+
+[node name="Game" type="Node2D"]
+script = ExtResource("4_game_script")
+
+[node name="GameManager" type="Node" parent="."]
+script = ExtResource("1_game_manager")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(320, 320)
+
+[node name="GridMap" type="Node2D" parent="."]
+script = ExtResource("2_grid_map")
+GridWidth = 10
+GridHeight = 10
+CellSize = 64
+
+[node name="PlayerController" type="Node" parent="."]
+script = ExtResource("3_player_controller")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="GameUI" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="TopPanel" type="Panel" parent="UI/GameUI"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_bottom = 100.0
+
+[node name="PlayerStats" type="VBoxContainer" parent="UI/GameUI/TopPanel"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 20.0
+offset_top = -30.0
+offset_right = 300.0
+offset_bottom = 30.0
+
+[node name="PlayerName" type="Label" parent="UI/GameUI/TopPanel/PlayerStats"]
+layout_mode = 2
+text = "Hero"
+
+[node name="PlayerLevel" type="Label" parent="UI/GameUI/TopPanel/PlayerStats"]
+layout_mode = 2
+text = "Level: 1"
+
+[node name="PlayerHealth" type="Label" parent="UI/GameUI/TopPanel/PlayerStats"]
+layout_mode = 2
+text = "HP: 100/100"
+
+[node name="Instructions" type="Label" parent="UI/GameUI"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = -200.0
+offset_top = 20.0
+offset_bottom = 120.0
+text = "Use WASD or Arrow Keys to move
+Red squares = Enemies
+Blue square = You
+ESC = Return to Menu"
+horizontal_alignment = 2

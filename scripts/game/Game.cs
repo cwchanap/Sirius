@@ -121,6 +121,6 @@ public partial class Game : Node2D
     private void ReturnToMainMenu()
     {
         GD.Print("Returning to main menu");
-        GetTree().ChangeSceneToFile("res://MainMenu.tscn");
+        GetTree().ChangeSceneToFile("res://scenes/ui/MainMenu.tscn");
     }
 }

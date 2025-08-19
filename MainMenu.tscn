@@ -1,0 +1,68 @@
+[gd_scene load_steps=3 format=3 uid="uid://b8jl7xj5x4j0h"]
+
+[ext_resource type="Script" uid="uid://c6wtpu685pwb2" path="res://MainMenu.cs" id="1_1x2y3"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_1x2y3"]
+font_size = 48
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_1x2y3")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -98.0
+offset_top = 475.0
+offset_right = -98.0
+offset_bottom = 475.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.1, 0.1, 0.2, 1)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = -150.0
+offset_right = 100.0
+offset_bottom = 150.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TitleLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "SIRIUS"
+label_settings = SubResource("LabelSettings_1x2y3")
+horizontal_alignment = 1
+
+[node name="VSeparator" type="VSeparator" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+
+[node name="StartButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Start Game"
+
+[node name="SettingsButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Settings"
+
+[node name="QuitButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Quit"
+
+[connection signal="pressed" from="VBoxContainer/StartButton" to="." method="_on_start_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/SettingsButton" to="." method="_on_settings_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/QuitButton" to="." method="_on_quit_button_pressed"]

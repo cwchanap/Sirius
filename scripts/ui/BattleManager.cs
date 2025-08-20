@@ -2,7 +2,7 @@ using Godot;
 
 public partial class BattleManager : Control
 {
-    [Signal] public delegate void BattleFinishedEventHandler(bool playerWon);
+    [Signal] public delegate void BattleFinishedEventHandler(bool playerWon, bool playerEscaped);
     
     private Character _player;
     private Enemy _enemy;
@@ -91,6 +91,8 @@ public partial class BattleManager : Control
     
     public void StartBattle(Character player, Enemy enemy)
     {
+        GD.Print($"BattleManager.StartBattle called: {player.Name} vs {enemy.Name}");
+        
         _player = player;
         _enemy = enemy;
         _playerTurn = _player.Speed >= _enemy.Speed; // Faster character goes first
@@ -167,7 +169,7 @@ public partial class BattleManager : Control
         if (GD.Randf() < 0.5f)
         {
             AddToBattleLog($"{_player.Name} successfully ran away!");
-            EndBattle(false);
+            EndBattleWithEscape();
         }
         else
         {
@@ -214,6 +216,8 @@ public partial class BattleManager : Control
     
     private void EndBattle(bool playerWon)
     {
+        GD.Print($"BattleManager.EndBattle called: playerWon = {playerWon}");
+        
         if (playerWon)
         {
             AddToBattleLog($"{_player.Name} wins the battle!");
@@ -225,13 +229,32 @@ public partial class BattleManager : Control
         }
         
         // Disable all buttons
-        _attackButton.Disabled = true;
-        _defendButton.Disabled = true;
-        _runButton.Disabled = true;
+        if (_attackButton != null) _attackButton.Disabled = true;
+        if (_defendButton != null) _defendButton.Disabled = true;
+        if (_runButton != null) _runButton.Disabled = true;
         
         // Wait a moment then end battle
         GetTree().CreateTimer(3.0).Timeout += () => {
-            EmitSignal(SignalName.BattleFinished, playerWon);
+            GD.Print("BattleManager emitting BattleFinished signal");
+            EmitSignal(SignalName.BattleFinished, playerWon, false); // false for not escaped
+        };
+    }
+    
+    private void EndBattleWithEscape()
+    {
+        GD.Print("BattleManager.EndBattleWithEscape called: Player escaped");
+        
+        AddToBattleLog($"{_player.Name} escaped from battle!");
+        
+        // Disable all buttons
+        if (_attackButton != null) _attackButton.Disabled = true;
+        if (_defendButton != null) _defendButton.Disabled = true;
+        if (_runButton != null) _runButton.Disabled = true;
+        
+        // Wait a moment then end battle - indicate escape
+        GetTree().CreateTimer(2.0).Timeout += () => {
+            GD.Print("BattleManager emitting BattleFinished signal with escape");
+            EmitSignal(SignalName.BattleFinished, false, true); // false for not won, true for escaped
         };
     }
     

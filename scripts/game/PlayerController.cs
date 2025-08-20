@@ -4,22 +4,18 @@ public partial class PlayerController : Node
 {
     private GridMap _gridMap;
     private GameManager _gameManager;
+    private bool _isProcessingMove = false;
     
     public override void _Ready()
     {
         _gridMap = GetNode<GridMap>("../GridMap");
         _gameManager = GameManager.Instance;
-        
-        if (_gridMap != null)
-        {
-            _gridMap.EnemyEncountered += OnEnemyEncountered;
-        }
     }
     
     public override void _UnhandledInput(InputEvent @event)
     {
-        // Don't handle input during battle
-        if (_gameManager.IsInBattle) return;
+        // Don't handle input during battle or while processing a move
+        if (_gameManager.IsInBattle || _isProcessingMove) return;
         
         if (@event is InputEventKey keyEvent && keyEvent.Pressed)
         {
@@ -43,39 +39,19 @@ public partial class PlayerController : Node
                 case Key.Right:
                     direction = Vector2I.Right;
                     break;
-                case Key.Escape:
-                    GetTree().ChangeSceneToFile("res://MainMenu.tscn");
-                    return;
+                // ESC handling is now in Game.cs to check battle state properly
             }
             
             if (direction != Vector2I.Zero)
             {
-                _gridMap.TryMovePlayer(direction);
+                _isProcessingMove = true;
+                bool moveSuccessful = _gridMap.TryMovePlayer(direction);
+                
+                // Reset processing flag after a short delay to prevent rapid inputs
+                GetTree().CreateTimer(0.1).Timeout += () => {
+                    _isProcessingMove = false;
+                };
             }
         }
-    }
-    
-    private void OnEnemyEncountered(Vector2I enemyPosition)
-    {
-        GD.Print($"Enemy encountered at position: {enemyPosition}");
-        
-        // Create enemy based on position (simple logic for now)
-        Enemy enemy;
-        
-        // Vary enemies based on position
-        if (enemyPosition.X < 5)
-        {
-            enemy = Enemy.CreateGoblin();
-        }
-        else if (enemyPosition.Y < 5)
-        {
-            enemy = Enemy.CreateOrc();
-        }
-        else
-        {
-            enemy = Enemy.CreateDragon();
-        }
-        
-        _gameManager.StartBattle(enemy);
     }
 }

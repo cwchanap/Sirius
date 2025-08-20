@@ -9,6 +9,7 @@ public partial class Game : Node2D
     private Label _playerLevelLabel;
     private Label _playerHealthLabel;
     private BattleManager _battleManager;
+    private Vector2I _lastEnemyPosition; // Store enemy position for after battle
 
     public override void _Ready()
     {
@@ -28,6 +29,9 @@ public partial class Game : Node2D
         _gameManager.BattleStarted += OnBattleStarted;
         _gameManager.BattleEnded += OnBattleEnded;
         
+        // Connect to grid map for enemy encounters
+        _gridMap.EnemyEncountered += OnEnemyEncountered;
+        
         // Update UI
         UpdatePlayerUI();
     }
@@ -42,6 +46,40 @@ public partial class Game : Node2D
                 ReturnToMainMenu();
             }
         }
+    }
+
+    private void OnEnemyEncountered(Vector2I enemyPosition)
+    {
+        GD.Print($"Enemy encountered at position: {enemyPosition}");
+        
+        // Check if player is alive
+        if (!_gameManager.Player.IsAlive)
+        {
+            GD.Print("Player is dead, cannot start battle");
+            ReturnToMainMenu();
+            return;
+        }
+        
+        _lastEnemyPosition = enemyPosition;
+        
+        // Create enemy based on position (simple logic for now)
+        Enemy enemy;
+        
+        // Vary enemies based on position
+        if (enemyPosition.X < 5)
+        {
+            enemy = Enemy.CreateGoblin();
+        }
+        else if (enemyPosition.Y < 5)
+        {
+            enemy = Enemy.CreateOrc();
+        }
+        else
+        {
+            enemy = Enemy.CreateDragon();
+        }
+        
+        _gameManager.StartBattle(enemy);
     }
 
     private void OnBattleStarted(Enemy enemy)
@@ -65,40 +103,41 @@ public partial class Game : Node2D
 
     private void OnBattleEnded(bool playerWon)
     {
-        GD.Print($"Battle ended. Player won: {playerWon}");
-        
-        if (!playerWon)
-        {
-            // Game over - return to main menu
-            GetTree().CreateTimer(2.0).Timeout += ReturnToMainMenu;
-        }
+        GD.Print($"Battle ended in GameManager. Player won: {playerWon}");
+        // Battle logic is now handled in OnBattleFinished
     }
 
-    private void OnBattleFinished(bool playerWon)
+    private void OnBattleFinished(bool playerWon, bool playerEscaped)
     {
-        // Clean up battle UI
-        if (_battleManager != null)
+        GD.Print($"OnBattleFinished called. Player won: {playerWon}, Player escaped: {playerEscaped}");
+        
+        // Prevent multiple calls
+        if (_battleManager == null)
         {
-            _battleManager.QueueFree();
-            _battleManager = null;
+            GD.Print("BattleManager is null, battle already finished");
+            return;
         }
+        
+        // Disconnect signal to prevent multiple calls
+        _battleManager.BattleFinished -= OnBattleFinished;
+        
+        // Clean up battle UI
+        _battleManager.QueueFree();
+        _battleManager = null;
         
         // Show game UI again
         _gameUI.Visible = true;
         
         if (playerWon)
         {
-            // Remove enemy from grid
-            var playerPos = _gridMap.GetPlayerPosition();
-            // Find and remove nearby enemy (this is simplified)
-            for (int dx = -1; dx <= 1; dx++)
-            {
-                for (int dy = -1; dy <= 1; dy++)
-                {
-                    var checkPos = new Vector2I(playerPos.X + dx, playerPos.Y + dy);
-                    _gridMap.RemoveEnemy(checkPos);
-                }
-            }
+            // Remove enemy from grid at the exact position where it was encountered
+            _gridMap.RemoveEnemy(_lastEnemyPosition);
+            GD.Print($"Enemy removed from position: {_lastEnemyPosition}");
+        }
+        else if (playerEscaped)
+        {
+            // Player escaped, don't remove enemy but don't end the game either
+            GD.Print("Player escaped successfully, continuing game");
         }
         
         // Update UI
@@ -106,6 +145,12 @@ public partial class Game : Node2D
         
         // End the battle in game manager
         _gameManager.EndBattle(playerWon);
+        
+        // Only return to main menu if player was actually defeated (not escaped)
+        if (!playerWon && !playerEscaped)
+        {
+            GetTree().CreateTimer(2.0).Timeout += ReturnToMainMenu;
+        }
     }
 
     private void UpdatePlayerUI()

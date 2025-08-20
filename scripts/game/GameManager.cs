@@ -43,17 +43,27 @@ public partial class GameManager : Node
     
     public void StartBattle(Enemy enemy)
     {
-        if (IsInBattle) return;
+        if (IsInBattle) 
+        {
+            GD.Print("Warning: Already in battle, ignoring StartBattle call");
+            return;
+        }
         
         IsInBattle = true;
-        GD.Print($"Battle started against {enemy.Name}!");
+        GD.Print($"Battle started against {enemy.Name}! IsInBattle: {IsInBattle}");
         EmitSignal(SignalName.BattleStarted, enemy);
     }
     
     public void EndBattle(bool playerWon)
     {
+        if (!IsInBattle)
+        {
+            GD.Print("Warning: Not in battle, ignoring EndBattle call");
+            return;
+        }
+        
         IsInBattle = false;
-        GD.Print($"Battle ended. Player won: {playerWon}");
+        GD.Print($"Battle ended. Player won: {playerWon}. IsInBattle: {IsInBattle}");
         EmitSignal(SignalName.BattleEnded, playerWon);
     }
 }

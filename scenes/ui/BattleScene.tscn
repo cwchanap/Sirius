@@ -1,12 +1,14 @@
-[gd_scene load_steps=2 format=3 uid="uid://b5k8j9l2m3n4o"]
+[gd_scene load_steps=2 format=3 uid="uid://b5k8kal2m3n4o"]
 
-[ext_resource type="Script" path="res://scripts/ui/BattleManager.cs" id="1_battle_manager"]
+[ext_resource type="Script" uid="uid://d1ag5wb7all3y" path="res://scripts/ui/BattleManager.cs" id="1_battle_manager"]
 
 [node name="BattleScene" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_battle_manager")
 
 [node name="Background" type="ColorRect" parent="."]
@@ -14,4 +16,6 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 color = Color(0.2, 0.1, 0.1, 1)

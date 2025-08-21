@@ -2,20 +2,65 @@
 
 [ext_resource type="Script" uid="uid://d1ag5wb7all3y" path="res://scripts/ui/BattleManager.cs" id="1_battle_manager"]
 
-[node name="BattleScene" type="Control"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="BattleDialog" type="AcceptDialog"]
+initial_position = 2
+size = Vector2i(600, 500)
 script = ExtResource("1_battle_manager")
 
-[node name="Background" type="ColorRect" parent="."]
-layout_mode = 1
+[node name="BattleContent" type="VBoxContainer" parent="."]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -50.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.2, 0.1, 0.1, 1)
+
+[node name="EnemyInfo" type="HBoxContainer" parent="BattleContent"]
+layout_mode = 2
+
+[node name="EnemyLabel" type="Label" parent="BattleContent/EnemyInfo"]
+layout_mode = 2
+text = "Enemy: "
+
+[node name="EnemyHealth" type="Label" parent="BattleContent/EnemyInfo"]
+layout_mode = 2
+text = "Goblin HP: 50/50"
+
+[node name="PlayerInfo" type="HBoxContainer" parent="BattleContent"]
+layout_mode = 2
+
+[node name="PlayerLabel" type="Label" parent="BattleContent/PlayerInfo"]
+layout_mode = 2
+text = "Player: "
+
+[node name="PlayerHealth" type="Label" parent="BattleContent/PlayerInfo"]
+layout_mode = 2
+text = "Hero HP: 100/100"
+
+[node name="BattleLog" type="Label" parent="BattleContent"]
+layout_mode = 2
+size_flags_vertical = 3
+text = "Battle begins!"
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="ActionButtons" type="HBoxContainer" parent="BattleContent"]
+layout_mode = 2
+
+[node name="AttackButton" type="Button" parent="BattleContent/ActionButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Attack"
+
+[node name="DefendButton" type="Button" parent="BattleContent/ActionButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Defend"
+
+[node name="RunButton" type="Button" parent="BattleContent/ActionButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Run"

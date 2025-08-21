@@ -31,9 +31,10 @@ public partial class Character : Resource
     public void GainExperience(int exp)
     {
         Experience += exp;
-        GD.Print($"{Name} gains {exp} experience!");
+        GD.Print($"{Name} gains {exp} experience! ({Experience}/{ExperienceToNext})");
         
-        if (Experience >= ExperienceToNext)
+        // Check for level up(s) - can potentially level up multiple times
+        while (Experience >= ExperienceToNext)
         {
             LevelUp();
         }
@@ -41,13 +42,15 @@ public partial class Character : Resource
 
     private void LevelUp()
     {
-        Level++;
         Experience -= ExperienceToNext;
-        ExperienceToNext = (int)(ExperienceToNext * 1.2f);
+        Level++;
         
-        int healthGain = 15;
-        int attackGain = 3;
-        int defenseGain = 2;
+        // Calculate new experience requirement: 100 * level + 10 * level^2
+        ExperienceToNext = 100 * Level + 10 * (Level * Level);
+        
+        int healthGain = 15 + (Level - 1) * 2; // More health per level as you get higher
+        int attackGain = 3 + (Level - 1) / 3; // Gradually increase attack gains
+        int defenseGain = 2 + (Level - 1) / 4; // Gradually increase defense gains
         int speedGain = 1;
         
         MaxHealth += healthGain;
@@ -58,5 +61,6 @@ public partial class Character : Resource
         
         GD.Print($"{Name} levels up to Level {Level}!");
         GD.Print($"Stats increased: +{healthGain} HP, +{attackGain} ATK, +{defenseGain} DEF, +{speedGain} SPD");
+        GD.Print($"Experience required for next level: {ExperienceToNext}");
     }
 }

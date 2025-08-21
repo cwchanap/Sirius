@@ -1,6 +1,6 @@
 using Godot;
 
-public partial class BattleManager : Control
+public partial class BattleManager : AcceptDialog
 {
     [Signal] public delegate void BattleFinishedEventHandler(bool playerWon, bool playerEscaped);
     
@@ -20,73 +20,36 @@ public partial class BattleManager : Control
     
     public override void _Ready()
     {
-        // This will be called when the battle scene is instantiated
-        SetupUI();
+        // Get references to UI elements defined in the scene
+        _enemyHealthLabel = GetNode<Label>("BattleContent/EnemyInfo/EnemyHealth");
+        _playerHealthLabel = GetNode<Label>("BattleContent/PlayerInfo/PlayerHealth");
+        _battleLogLabel = GetNode<Label>("BattleContent/BattleLog");
+        _attackButton = GetNode<Button>("BattleContent/ActionButtons/AttackButton");
+        _defendButton = GetNode<Button>("BattleContent/ActionButtons/DefendButton");
+        _runButton = GetNode<Button>("BattleContent/ActionButtons/RunButton");
+        
+        // Connect button signals
+        _attackButton.Pressed += OnAttackPressed;
+        _defendButton.Pressed += OnDefendPressed;
+        _runButton.Pressed += OnRunPressed;
+        
+        // Set dialog title and properties
+        Title = "Battle!";
+        GetOkButton().Text = "Close";
+        GetOkButton().Visible = false; // Hide the OK button initially
+        
+        // Connect the close request signal
+        CloseRequested += OnCloseRequested;
     }
     
-    private void SetupUI()
+    private void OnCloseRequested()
     {
-        // Create UI elements
-        var vbox = new VBoxContainer();
-        AddChild(vbox);
-        
-        // Set full rect manually
-        vbox.AnchorLeft = 0;
-        vbox.AnchorTop = 0;
-        vbox.AnchorRight = 1;
-        vbox.AnchorBottom = 1;
-        vbox.OffsetLeft = 0;
-        vbox.OffsetTop = 0;
-        vbox.OffsetRight = 0;
-        vbox.OffsetBottom = 0;
-        
-        // Enemy info
-        var enemyInfo = new HBoxContainer();
-        vbox.AddChild(enemyInfo);
-        
-        var enemyLabel = new Label();
-        enemyLabel.Text = "Enemy: ";
-        enemyInfo.AddChild(enemyLabel);
-        
-        _enemyHealthLabel = new Label();
-        enemyInfo.AddChild(_enemyHealthLabel);
-        
-        // Player info
-        var playerInfo = new HBoxContainer();
-        vbox.AddChild(playerInfo);
-        
-        var playerLabel = new Label();
-        playerLabel.Text = "Player: ";
-        playerInfo.AddChild(playerLabel);
-        
-        _playerHealthLabel = new Label();
-        playerInfo.AddChild(_playerHealthLabel);
-        
-        // Battle log
-        _battleLogLabel = new Label();
-        _battleLogLabel.VerticalAlignment = VerticalAlignment.Top;
-        _battleLogLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _battleLogLabel.CustomMinimumSize = new Vector2(0, 200);
-        vbox.AddChild(_battleLogLabel);
-        
-        // Action buttons
-        var buttonContainer = new HBoxContainer();
-        vbox.AddChild(buttonContainer);
-        
-        _attackButton = new Button();
-        _attackButton.Text = "Attack";
-        _attackButton.Pressed += OnAttackPressed;
-        buttonContainer.AddChild(_attackButton);
-        
-        _defendButton = new Button();
-        _defendButton.Text = "Defend";
-        _defendButton.Pressed += OnDefendPressed;
-        buttonContainer.AddChild(_defendButton);
-        
-        _runButton = new Button();
-        _runButton.Text = "Run";
-        _runButton.Pressed += OnRunPressed;
-        buttonContainer.AddChild(_runButton);
+        // Handle dialog close - treat as escape/run away
+        if (_player != null && _enemy != null && _player.IsAlive && _enemy.IsAlive)
+        {
+            AddToBattleLog($"{_player.Name} fled from battle!");
+            EndBattleWithEscape();
+        }
     }
     
     public void StartBattle(Character player, Enemy enemy)
@@ -113,12 +76,12 @@ public partial class BattleManager : Control
     {
         if (_playerHealthLabel != null && _player != null)
         {
-            _playerHealthLabel.Text = $"{_player.Name} HP: {_player.CurrentHealth}/{_player.MaxHealth}";
+            _playerHealthLabel.Text = $"{_player.Name} (Lv.{_player.Level}) HP: {_player.CurrentHealth}/{_player.MaxHealth}";
         }
         
         if (_enemyHealthLabel != null && _enemy != null)
         {
-            _enemyHealthLabel.Text = $"{_enemy.Name} HP: {_enemy.CurrentHealth}/{_enemy.MaxHealth}";
+            _enemyHealthLabel.Text = $"{_enemy.Name} (Lv.{_enemy.Level}) HP: {_enemy.CurrentHealth}/{_enemy.MaxHealth}";
         }
         
         if (_battleLogLabel != null)
@@ -233,6 +196,10 @@ public partial class BattleManager : Control
         if (_defendButton != null) _defendButton.Disabled = true;
         if (_runButton != null) _runButton.Disabled = true;
         
+        // Show the close button
+        GetOkButton().Visible = true;
+        GetOkButton().Text = "Continue";
+        
         // Wait a moment then end battle
         GetTree().CreateTimer(3.0).Timeout += () => {
             GD.Print("BattleManager emitting BattleFinished signal");
@@ -250,6 +217,10 @@ public partial class BattleManager : Control
         if (_attackButton != null) _attackButton.Disabled = true;
         if (_defendButton != null) _defendButton.Disabled = true;
         if (_runButton != null) _runButton.Disabled = true;
+        
+        // Show the close button
+        GetOkButton().Visible = true;
+        GetOkButton().Text = "Continue";
         
         // Wait a moment then end battle - indicate escape
         GetTree().CreateTimer(2.0).Timeout += () => {

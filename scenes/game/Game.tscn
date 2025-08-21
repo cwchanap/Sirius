@@ -12,7 +12,8 @@ script = ExtResource("4_game_script")
 script = ExtResource("1_game_manager")
 
 [node name="Camera2D" type="Camera2D" parent="."]
-position = Vector2(320, 320)
+position = Vector2(16, 2560)
+zoom = Vector2(0.5, 0.5)
 
 [node name="GridMap" type="Node2D" parent="."]
 script = ExtResource("2_grid_map")
@@ -35,6 +36,7 @@ layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_bottom = 100.0
+grow_horizontal = 2
 grow_vertical = 0
 
 [node name="PlayerStats" type="VBoxContainer" parent="UI/GameUI/TopPanel"]
@@ -59,6 +61,10 @@ text = "Level: 1"
 [node name="PlayerHealth" type="Label" parent="UI/GameUI/TopPanel/PlayerStats"]
 layout_mode = 2
 text = "HP: 100/100"
+
+[node name="PlayerExperience" type="Label" parent="UI/GameUI/TopPanel/PlayerStats"]
+layout_mode = 2
+text = "EXP: 0/110"
 
 [node name="Instructions" type="Label" parent="UI/GameUI"]
 layout_mode = 1

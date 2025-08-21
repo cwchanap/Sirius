@@ -47,7 +47,7 @@ public partial class Enemy : Resource
             Attack = 22,
             Defense = 8,
             Speed = 8,
-            ExperienceReward = 40
+            ExperienceReward = 45
         };
     }
 
@@ -62,7 +62,83 @@ public partial class Enemy : Resource
             Attack = 45,
             Defense = 20,
             Speed = 12,
-            ExperienceReward = 150
+            ExperienceReward = 180
+        };
+    }
+    
+    // Additional enemy types for the larger world
+    public static Enemy CreateSkeletonWarrior()
+    {
+        return new Enemy
+        {
+            Name = "Skeleton Warrior",
+            Level = 3,
+            MaxHealth = 120,
+            CurrentHealth = 120,
+            Attack = 28,
+            Defense = 12,
+            Speed = 9,
+            ExperienceReward = 70
+        };
+    }
+    
+    public static Enemy CreateTroll()
+    {
+        return new Enemy
+        {
+            Name = "Troll",
+            Level = 4,
+            MaxHealth = 150,
+            CurrentHealth = 150,
+            Attack = 35,
+            Defense = 15,
+            Speed = 6,
+            ExperienceReward = 120
+        };
+    }
+    
+    public static Enemy CreateDarkMage()
+    {
+        return new Enemy
+        {
+            Name = "Dark Mage",
+            Level = 6,
+            MaxHealth = 180,
+            CurrentHealth = 180,
+            Attack = 50,
+            Defense = 18,
+            Speed = 14,
+            ExperienceReward = 220
+        };
+    }
+    
+    public static Enemy CreateDemonLord()
+    {
+        return new Enemy
+        {
+            Name = "Demon Lord",
+            Level = 8,
+            MaxHealth = 300,
+            CurrentHealth = 300,
+            Attack = 65,
+            Defense = 25,
+            Speed = 15,
+            ExperienceReward = 400
+        };
+    }
+    
+    public static Enemy CreateBoss()
+    {
+        return new Enemy
+        {
+            Name = "Ancient Dragon King",
+            Level = 10,
+            MaxHealth = 500,
+            CurrentHealth = 500,
+            Attack = 80,
+            Defense = 35,
+            Speed = 18,
+            ExperienceReward = 800
         };
     }
 }

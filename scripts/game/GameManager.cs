@@ -35,7 +35,7 @@ public partial class GameManager : Node
             Defense = 10,
             Speed = 15,
             Experience = 0,
-            ExperienceToNext = 100
+            ExperienceToNext = 100 * 1 + 10 * (1 * 1) // 100 + 10 = 110 for level 1
         };
         
         GD.Print("Player character initialized!");

@@ -5,9 +5,11 @@ public partial class Game : Node2D
     private GameManager _gameManager;
     private GridMap _gridMap;
     private Control _gameUI;
+    private Camera2D _camera;
     private Label _playerNameLabel;
     private Label _playerLevelLabel;
     private Label _playerHealthLabel;
+    private Label _playerExperienceLabel;
     private BattleManager _battleManager;
     private Vector2I _lastEnemyPosition; // Store enemy position for after battle
 
@@ -19,11 +21,13 @@ public partial class Game : Node2D
         _gameManager = GetNode<GameManager>("GameManager");
         _gridMap = GetNode<GridMap>("GridMap");
         _gameUI = GetNode<Control>("UI/GameUI");
+        _camera = GetNode<Camera2D>("Camera2D");
         
         // Get UI labels
         _playerNameLabel = GetNode<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerName");
         _playerLevelLabel = GetNode<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerLevel");
         _playerHealthLabel = GetNode<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerHealth");
+        _playerExperienceLabel = GetNode<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerExperience");
         
         // Connect signals
         _gameManager.BattleStarted += OnBattleStarted;
@@ -31,9 +35,21 @@ public partial class Game : Node2D
         
         // Connect to grid map for enemy encounters
         _gridMap.EnemyEncountered += OnEnemyEncountered;
+        _gridMap.PlayerMoved += OnPlayerMoved;
         
         // Update UI
         UpdatePlayerUI();
+        
+        // Use a deferred call to set camera position after grid is ready
+        CallDeferred(nameof(SetInitialCameraPosition));
+    }
+    
+    private void SetInitialCameraPosition()
+    {
+        // Set initial camera position to follow player
+        Vector2 playerWorldPos = _gridMap.GetWorldPosition(_gridMap.GetPlayerPosition());
+        _camera.Position = playerWorldPos;
+        GD.Print($"Camera positioned at: {_camera.Position}, Player at: {playerWorldPos}");
     }
 
     public override void _Input(InputEvent @event)
@@ -46,6 +62,16 @@ public partial class Game : Node2D
                 ReturnToMainMenu();
             }
         }
+    }
+
+    private void OnPlayerMoved(Vector2I newPosition)
+    {
+        // Update camera to follow player
+        Vector2 worldPos = _gridMap.GetWorldPosition(newPosition);
+        _camera.Position = worldPos;
+        
+        // Force redraw since we're using viewport culling
+        _gridMap.QueueRedraw();
     }
 
     private void OnEnemyEncountered(Vector2I enemyPosition)
@@ -62,21 +88,64 @@ public partial class Game : Node2D
         
         _lastEnemyPosition = enemyPosition;
         
-        // Create enemy based on position (simple logic for now)
+        // Create enemy based on position - different areas have different enemy levels
         Enemy enemy;
         
-        // Vary enemies based on position
-        if (enemyPosition.X < 5)
+        // Calculate distance from starting area to determine enemy difficulty
+        int distanceFromStart = Mathf.Abs(enemyPosition.X - 1) + Mathf.Abs(enemyPosition.Y - 80);
+        
+        if (distanceFromStart < 30)
         {
+            // Starting area - weak enemies
             enemy = Enemy.CreateGoblin();
         }
-        else if (enemyPosition.Y < 5)
+        else if (distanceFromStart < 60)
         {
-            enemy = Enemy.CreateOrc();
+            // Early area - mix of weak and medium enemies
+            enemy = GD.Randf() < 0.7f ? Enemy.CreateGoblin() : Enemy.CreateOrc();
+        }
+        else if (distanceFromStart < 90)
+        {
+            // Medium area - medium enemies
+            enemy = GD.Randf() < 0.5f ? Enemy.CreateOrc() : Enemy.CreateSkeletonWarrior();
+        }
+        else if (distanceFromStart < 120)
+        {
+            // Advanced area - strong enemies
+            int rand = GD.RandRange(0, 2);
+            enemy = rand switch
+            {
+                0 => Enemy.CreateSkeletonWarrior(),
+                1 => Enemy.CreateTroll(),
+                _ => Enemy.CreateDragon()
+            };
+        }
+        else if (distanceFromStart < 150)
+        {
+            // High level area - very strong enemies
+            int rand = GD.RandRange(0, 2);
+            enemy = rand switch
+            {
+                0 => Enemy.CreateTroll(),
+                1 => Enemy.CreateDragon(),
+                _ => Enemy.CreateDarkMage()
+            };
+        }
+        else if (distanceFromStart < 200)
+        {
+            // Elite area - top tier enemies
+            int rand = GD.RandRange(0, 2);
+            enemy = rand switch
+            {
+                0 => Enemy.CreateDarkMage(),
+                1 => Enemy.CreateDemonLord(),
+                _ => Enemy.CreateDragon()
+            };
         }
         else
         {
-            enemy = Enemy.CreateDragon();
+            // Boss area - ultimate enemies
+            enemy = GD.Randf() < 0.8f ? Enemy.CreateDemonLord() : Enemy.CreateBoss();
         }
         
         _gameManager.StartBattle(enemy);
@@ -86,8 +155,7 @@ public partial class Game : Node2D
     {
         GD.Print($"Starting battle with {enemy.Name}");
         
-        // Hide game UI
-        _gameUI.Visible = false;
+        // Don't hide game UI - battle will be shown as a popup dialog
         
         // Load battle scene
         var battleScene = GD.Load<PackedScene>("res://scenes/ui/BattleScene.tscn");
@@ -96,6 +164,10 @@ public partial class Game : Node2D
         
         // Connect battle signals
         _battleManager.BattleFinished += OnBattleFinished;
+        _battleManager.Confirmed += OnBattleDialogConfirmed; // Handle OK button press
+        
+        // Show the battle dialog
+        _battleManager.PopupCentered();
         
         // Start the battle
         _battleManager.StartBattle(_gameManager.Player, enemy);
@@ -105,6 +177,17 @@ public partial class Game : Node2D
     {
         GD.Print($"Battle ended in GameManager. Player won: {playerWon}");
         // Battle logic is now handled in OnBattleFinished
+    }
+
+    private void OnBattleDialogConfirmed()
+    {
+        GD.Print("Battle dialog confirmed (OK button pressed)");
+        // Just close the dialog - the actual battle result was already handled
+        if (_battleManager != null)
+        {
+            _battleManager.QueueFree();
+            _battleManager = null;
+        }
     }
 
     private void OnBattleFinished(bool playerWon, bool playerEscaped)
@@ -118,15 +201,12 @@ public partial class Game : Node2D
             return;
         }
         
-        // Disconnect signal to prevent multiple calls
+        // Disconnect signals to prevent multiple calls
         _battleManager.BattleFinished -= OnBattleFinished;
+        _battleManager.Confirmed -= OnBattleDialogConfirmed;
         
-        // Clean up battle UI
-        _battleManager.QueueFree();
-        _battleManager = null;
-        
-        // Show game UI again
-        _gameUI.Visible = true;
+        // Don't immediately clean up battle UI - let the dialog handle its own cleanup
+        // when the player clicks OK or closes the dialog
         
         if (playerWon)
         {
@@ -160,6 +240,7 @@ public partial class Game : Node2D
             _playerNameLabel.Text = _gameManager.Player.Name;
             _playerLevelLabel.Text = $"Level: {_gameManager.Player.Level}";
             _playerHealthLabel.Text = $"HP: {_gameManager.Player.CurrentHealth}/{_gameManager.Player.MaxHealth}";
+            _playerExperienceLabel.Text = $"EXP: {_gameManager.Player.Experience}/{_gameManager.Player.ExperienceToNext}";
         }
     }
 

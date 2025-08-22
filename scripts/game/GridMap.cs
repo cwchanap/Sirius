@@ -45,33 +45,24 @@ public partial class GridMap : Node2D
             }
         }
         
-        // Create main pathways - horizontal and vertical corridors
-        for (int x = 1; x < GridWidth - 1; x++)
-        {
-            // Main horizontal corridors
-            _grid[x, GridHeight / 4] = (int)CellType.Empty;
-            _grid[x, GridHeight / 2] = (int)CellType.Empty;
-            _grid[x, 3 * GridHeight / 4] = (int)CellType.Empty;
-        }
+        // Generate a complex maze structure
+        GenerateComplexMaze();
         
-        for (int y = 1; y < GridHeight - 1; y++)
-        {
-            // Main vertical corridors
-            _grid[GridWidth / 4, y] = (int)CellType.Empty;
-            _grid[GridWidth / 2, y] = (int)CellType.Empty;
-            _grid[3 * GridWidth / 4, y] = (int)CellType.Empty;
-        }
+        // Create themed areas with different enemy types and densities
+        CreateStartingArea();
+        CreateForestZone();
+        CreateCaveSystem();
+        CreateDesertArea();
+        CreateSwampLands();
+        CreateMountainPeak();
+        CreateDungeonComplex();
+        CreateBossArena();
         
-        // Create room-like areas with enemies
-        CreateRoom(10, 10, 30, 30, 3); // Small room with low-level enemies
-        CreateRoom(50, 20, 30, 30, 5); // Medium room with mid-level enemies
-        CreateRoom(90, 50, 40, 40, 8); // Large room with high-level enemies
-        CreateRoom(20, 80, 35, 35, 4); // Another medium room
-        CreateRoom(70, 100, 45, 45, 6); // High-level area
-        CreateRoom(120, 120, 30, 30, 10); // Boss area
+        // Add additional scattered enemies in corridors
+        AddCorridorEnemies();
         
         // Set player starting position
-        _playerPosition = new Vector2I(1, GridHeight / 2);
+        _playerPosition = new Vector2I(5, GridHeight / 2);
         _grid[_playerPosition.X, _playerPosition.Y] = (int)CellType.Player;
     }
     
@@ -100,6 +91,296 @@ public partial class GridMap : Node2D
                 {
                     _grid[x, y] = (int)CellType.Enemy;
                     break;
+                }
+                attempts++;
+            }
+        }
+    }
+    
+    private void GenerateComplexMaze()
+    {
+        // Create a main pathway system with multiple routes
+        CreateMainPathways();
+        
+        // Add winding corridors
+        CreateWindingPaths();
+        
+        // Create interconnected chambers
+        CreateInterconnectedChambers();
+        
+        // Add secret passages
+        CreateSecretPassages();
+    }
+    
+    private void CreateMainPathways()
+    {
+        // Primary horizontal corridor
+        for (int x = 1; x < GridWidth - 1; x++)
+        {
+            _grid[x, GridHeight / 2] = (int)CellType.Empty;
+        }
+        
+        // Primary vertical corridor
+        for (int y = 1; y < GridHeight - 1; y++)
+        {
+            _grid[GridWidth / 2, y] = (int)CellType.Empty;
+        }
+        
+        // Secondary pathways at quarters
+        for (int x = 1; x < GridWidth - 1; x++)
+        {
+            _grid[x, GridHeight / 4] = (int)CellType.Empty;
+            _grid[x, 3 * GridHeight / 4] = (int)CellType.Empty;
+        }
+        
+        for (int y = 1; y < GridHeight - 1; y++)
+        {
+            _grid[GridWidth / 4, y] = (int)CellType.Empty;
+            _grid[3 * GridWidth / 4, y] = (int)CellType.Empty;
+        }
+    }
+    
+    private void CreateWindingPaths()
+    {
+        var random = new Random();
+        
+        // Create winding paths connecting different areas
+        for (int i = 0; i < 10; i++)
+        {
+            int startX = random.Next(10, GridWidth - 10);
+            int startY = random.Next(10, GridHeight - 10);
+            int endX = random.Next(10, GridWidth - 10);
+            int endY = random.Next(10, GridHeight - 10);
+            
+            CreateWindingPath(startX, startY, endX, endY);
+        }
+    }
+    
+    private void CreateWindingPath(int startX, int startY, int endX, int endY)
+    {
+        int currentX = startX;
+        int currentY = startY;
+        var random = new Random();
+        
+        while (currentX != endX || currentY != endY)
+        {
+            _grid[currentX, currentY] = (int)CellType.Empty;
+            
+            // Randomly choose direction, biased toward target
+            if (random.NextDouble() < 0.7) // 70% chance to move toward target
+            {
+                if (currentX < endX) currentX++;
+                else if (currentX > endX) currentX--;
+                else if (currentY < endY) currentY++;
+                else if (currentY > endY) currentY--;
+            }
+            else // 30% chance for random movement
+            {
+                int direction = random.Next(4);
+                switch (direction)
+                {
+                    case 0: if (currentX > 1) currentX--; break;
+                    case 1: if (currentX < GridWidth - 2) currentX++; break;
+                    case 2: if (currentY > 1) currentY--; break;
+                    case 3: if (currentY < GridHeight - 2) currentY++; break;
+                }
+            }
+        }
+    }
+    
+    private void CreateInterconnectedChambers()
+    {
+        // Create larger chamber areas connected by corridors
+        var chambers = new (int x, int y, int w, int h)[]
+        {
+            (20, 20, 15, 15),
+            (50, 30, 20, 18),
+            (90, 25, 25, 20),
+            (25, 60, 18, 22),
+            (70, 70, 30, 25),
+            (110, 80, 20, 15),
+            (30, 110, 25, 20),
+            (80, 120, 35, 25),
+            (130, 130, 20, 20)
+        };
+        
+        foreach (var (x, y, w, h) in chambers)
+        {
+            CreateChamber(x, y, w, h);
+        }
+    }
+    
+    private void CreateChamber(int startX, int startY, int width, int height)
+    {
+        for (int x = startX; x < startX + width && x < GridWidth - 1; x++)
+        {
+            for (int y = startY; y < startY + height && y < GridHeight - 1; y++)
+            {
+                _grid[x, y] = (int)CellType.Empty;
+            }
+        }
+    }
+    
+    private void CreateSecretPassages()
+    {
+        var random = new Random();
+        
+        // Add some hidden shortcuts
+        for (int i = 0; i < 5; i++)
+        {
+            int x1 = random.Next(20, GridWidth - 20);
+            int y1 = random.Next(20, GridHeight - 20);
+            int x2 = random.Next(20, GridWidth - 20);
+            int y2 = random.Next(20, GridHeight - 20);
+            
+            // Create a narrow secret passage
+            CreateStraightPath(x1, y1, x2, y2);
+        }
+    }
+    
+    private void CreateStraightPath(int startX, int startY, int endX, int endY)
+    {
+        // Create straight line paths for secret passages
+        int dx = Math.Sign(endX - startX);
+        int dy = Math.Sign(endY - startY);
+        
+        int currentX = startX;
+        int currentY = startY;
+        
+        while (currentX != endX)
+        {
+            _grid[currentX, currentY] = (int)CellType.Empty;
+            currentX += dx;
+        }
+        
+        while (currentY != endY)
+        {
+            _grid[currentX, currentY] = (int)CellType.Empty;
+            currentY += dy;
+        }
+    }
+    
+    private void CreateStartingArea()
+    {
+        // Safe starting zone with weak enemies
+        CreateThematicArea(5, GridHeight / 2 - 10, 30, 20, 3, "starting");
+    }
+    
+    private void CreateForestZone()
+    {
+        // Forest area with goblins and orcs
+        CreateThematicArea(40, 15, 35, 30, 12, "forest");
+        CreateThematicArea(45, 50, 25, 25, 8, "forest");
+    }
+    
+    private void CreateCaveSystem()
+    {
+        // Underground cave system with skeleton warriors
+        CreateThematicArea(20, 90, 40, 35, 15, "cave");
+        CreateThematicArea(70, 95, 30, 30, 10, "cave");
+    }
+    
+    private void CreateDesertArea()
+    {
+        // Desert region with varied enemies
+        CreateThematicArea(90, 40, 45, 40, 18, "desert");
+    }
+    
+    private void CreateSwampLands()
+    {
+        // Swamp area with trolls and dark creatures
+        CreateThematicArea(25, 130, 35, 25, 14, "swamp");
+        CreateThematicArea(70, 135, 25, 20, 10, "swamp");
+    }
+    
+    private void CreateMountainPeak()
+    {
+        // High-altitude area with dragons and powerful enemies
+        CreateThematicArea(110, 15, 40, 35, 16, "mountain");
+    }
+    
+    private void CreateDungeonComplex()
+    {
+        // Multi-level dungeon with various high-level enemies
+        CreateThematicArea(120, 90, 35, 40, 20, "dungeon");
+    }
+    
+    private void CreateBossArena()
+    {
+        // Final boss area
+        CreateThematicArea(140, 140, 15, 15, 3, "boss");
+    }
+    
+    private void CreateThematicArea(int startX, int startY, int width, int height, int enemyCount, string theme)
+    {
+        // Clear the area
+        for (int x = startX; x < startX + width && x < GridWidth - 1; x++)
+        {
+            for (int y = startY; y < startY + height && y < GridHeight - 1; y++)
+            {
+                if (x > 0 && y > 0)
+                    _grid[x, y] = (int)CellType.Empty;
+            }
+        }
+        
+        // Add enemies based on theme
+        var random = new Random();
+        for (int i = 0; i < enemyCount; i++)
+        {
+            int attempts = 0;
+            while (attempts < 100)
+            {
+                int x = random.Next(startX + 1, Math.Min(startX + width - 1, GridWidth - 1));
+                int y = random.Next(startY + 1, Math.Min(startY + height - 1, GridHeight - 1));
+                
+                if (x > 0 && y > 0 && x < GridWidth && y < GridHeight && _grid[x, y] == (int)CellType.Empty)
+                {
+                    _grid[x, y] = (int)CellType.Enemy;
+                    break;
+                }
+                attempts++;
+            }
+        }
+    }
+    
+    private void AddCorridorEnemies()
+    {
+        var random = new Random();
+        int corridorEnemies = 30; // Add scattered enemies in corridors
+        
+        for (int i = 0; i < corridorEnemies; i++)
+        {
+            int attempts = 0;
+            while (attempts < 200)
+            {
+                int x = random.Next(1, GridWidth - 1);
+                int y = random.Next(1, GridHeight - 1);
+                
+                if (_grid[x, y] == (int)CellType.Empty)
+                {
+                    // Only place in corridors (areas with limited adjacent empty spaces)
+                    int emptyNeighbors = 0;
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        for (int dy = -1; dy <= 1; dy++)
+                        {
+                            if (dx == 0 && dy == 0) continue;
+                            int nx = x + dx;
+                            int ny = y + dy;
+                            if (nx >= 0 && nx < GridWidth && ny >= 0 && ny < GridHeight &&
+                                _grid[nx, ny] == (int)CellType.Empty)
+                            {
+                                emptyNeighbors++;
+                            }
+                        }
+                    }
+                    
+                    // Place enemy in narrow corridors (2-4 empty neighbors)
+                    if (emptyNeighbors >= 2 && emptyNeighbors <= 4)
+                    {
+                        _grid[x, y] = (int)CellType.Enemy;
+                        break;
+                    }
                 }
                 attempts++;
             }
@@ -152,14 +433,7 @@ public partial class GridMap : Node2D
                 Vector2 cellSize = new Vector2(CellSize, CellSize);
                 Rect2 cellRect = new Rect2(cellPos, cellSize);
                 
-                Color cellColor = (CellType)_grid[x, y] switch
-                {
-                    CellType.Empty => Colors.LightGray,
-                    CellType.Wall => Colors.DarkGray,
-                    CellType.Enemy => Colors.Red,
-                    CellType.Player => Colors.Blue,
-                    _ => Colors.White
-                };
+                Color cellColor = GetCellColor(x, y, (CellType)_grid[x, y]);
                 
                 // Draw cell
                 DrawRect(cellRect, cellColor);
@@ -168,6 +442,51 @@ public partial class GridMap : Node2D
                 DrawRect(cellRect, Colors.Black, false, 1.0f);
             }
         }
+    }
+    
+    private Color GetCellColor(int x, int y, CellType cellType)
+    {
+        if (cellType == CellType.Player) return Colors.Blue;
+        if (cellType == CellType.Enemy) return GetEnemyColor(x, y);
+        if (cellType == CellType.Wall) return Colors.DarkGray;
+        
+        // Empty cells get themed colors based on area
+        return GetAreaColor(x, y);
+    }
+    
+    private Color GetEnemyColor(int x, int y)
+    {
+        // Different enemy colors based on area theme
+        if (IsInAreaBounds(x, y, 5, GridHeight / 2 - 10, 30, 20)) return Colors.Pink; // Starting area - weak
+        if (IsInAreaBounds(x, y, 40, 15, 35, 30) || IsInAreaBounds(x, y, 45, 50, 25, 25)) return Colors.Green; // Forest
+        if (IsInAreaBounds(x, y, 20, 90, 40, 35) || IsInAreaBounds(x, y, 70, 95, 30, 30)) return Colors.Brown; // Caves
+        if (IsInAreaBounds(x, y, 90, 40, 45, 40)) return Colors.Yellow; // Desert
+        if (IsInAreaBounds(x, y, 25, 130, 35, 25) || IsInAreaBounds(x, y, 70, 135, 25, 20)) return Colors.Purple; // Swamp
+        if (IsInAreaBounds(x, y, 110, 15, 40, 35)) return Colors.White; // Mountain
+        if (IsInAreaBounds(x, y, 120, 90, 35, 40)) return Colors.DarkRed; // Dungeon
+        if (IsInAreaBounds(x, y, 140, 140, 15, 15)) return Colors.Gold; // Boss arena
+        
+        return Colors.Red; // Default corridor enemies
+    }
+    
+    private Color GetAreaColor(int x, int y)
+    {
+        // Themed background colors for different areas
+        if (IsInAreaBounds(x, y, 5, GridHeight / 2 - 10, 30, 20)) return new Color(0.9f, 0.9f, 0.9f); // Starting - light gray
+        if (IsInAreaBounds(x, y, 40, 15, 35, 30) || IsInAreaBounds(x, y, 45, 50, 25, 25)) return new Color(0.8f, 0.9f, 0.8f); // Forest - light green
+        if (IsInAreaBounds(x, y, 20, 90, 40, 35) || IsInAreaBounds(x, y, 70, 95, 30, 30)) return new Color(0.7f, 0.7f, 0.7f); // Caves - darker gray
+        if (IsInAreaBounds(x, y, 90, 40, 45, 40)) return new Color(0.9f, 0.9f, 0.7f); // Desert - sandy
+        if (IsInAreaBounds(x, y, 25, 130, 35, 25) || IsInAreaBounds(x, y, 70, 135, 25, 20)) return new Color(0.7f, 0.8f, 0.7f); // Swamp - murky green
+        if (IsInAreaBounds(x, y, 110, 15, 40, 35)) return new Color(0.9f, 0.9f, 1.0f); // Mountain - light blue
+        if (IsInAreaBounds(x, y, 120, 90, 35, 40)) return new Color(0.6f, 0.6f, 0.6f); // Dungeon - dark gray
+        if (IsInAreaBounds(x, y, 140, 140, 15, 15)) return new Color(1.0f, 0.9f, 0.7f); // Boss arena - golden
+        
+        return Colors.LightGray; // Default corridor color
+    }
+    
+    private bool IsInAreaBounds(int x, int y, int areaX, int areaY, int width, int height)
+    {
+        return x >= areaX && x < areaX + width && y >= areaY && y < areaY + height;
     }
     
     public bool TryMovePlayer(Vector2I direction)

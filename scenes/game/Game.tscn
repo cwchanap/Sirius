@@ -71,13 +71,23 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -200.0
+offset_left = -280.0
 offset_top = 20.0
-offset_bottom = 120.0
+offset_bottom = 180.0
 grow_horizontal = 0
 grow_vertical = 0
 text = "Use WASD or Arrow Keys to move
-Red squares = Enemies
-Blue square = You
+
+Themed Areas:
+• Light Gray = Starting Area (weak enemies)
+• Light Green = Forest (goblins & orcs)
+• Dark Gray = Caves (skeleton warriors)
+• Sandy = Desert (varied enemies)
+• Murky Green = Swamp (trolls & dark mages)
+• Light Blue = Mountain (dragons)
+• Very Dark = Dungeon (high-level enemies)
+• Golden = Boss Arena (ultimate foes)
+
+Enemy Colors indicate area difficulty
 ESC = Return to Menu"
 horizontal_alignment = 2

@@ -88,68 +88,141 @@ public partial class Game : Node2D
         
         _lastEnemyPosition = enemyPosition;
         
-        // Create enemy based on position - different areas have different enemy levels
-        Enemy enemy;
-        
-        // Calculate distance from starting area to determine enemy difficulty
-        int distanceFromStart = Mathf.Abs(enemyPosition.X - 1) + Mathf.Abs(enemyPosition.Y - 80);
-        
-        if (distanceFromStart < 30)
-        {
-            // Starting area - weak enemies
-            enemy = Enemy.CreateGoblin();
-        }
-        else if (distanceFromStart < 60)
-        {
-            // Early area - mix of weak and medium enemies
-            enemy = GD.Randf() < 0.7f ? Enemy.CreateGoblin() : Enemy.CreateOrc();
-        }
-        else if (distanceFromStart < 90)
-        {
-            // Medium area - medium enemies
-            enemy = GD.Randf() < 0.5f ? Enemy.CreateOrc() : Enemy.CreateSkeletonWarrior();
-        }
-        else if (distanceFromStart < 120)
-        {
-            // Advanced area - strong enemies
-            int rand = GD.RandRange(0, 2);
-            enemy = rand switch
-            {
-                0 => Enemy.CreateSkeletonWarrior(),
-                1 => Enemy.CreateTroll(),
-                _ => Enemy.CreateDragon()
-            };
-        }
-        else if (distanceFromStart < 150)
-        {
-            // High level area - very strong enemies
-            int rand = GD.RandRange(0, 2);
-            enemy = rand switch
-            {
-                0 => Enemy.CreateTroll(),
-                1 => Enemy.CreateDragon(),
-                _ => Enemy.CreateDarkMage()
-            };
-        }
-        else if (distanceFromStart < 200)
-        {
-            // Elite area - top tier enemies
-            int rand = GD.RandRange(0, 2);
-            enemy = rand switch
-            {
-                0 => Enemy.CreateDarkMage(),
-                1 => Enemy.CreateDemonLord(),
-                _ => Enemy.CreateDragon()
-            };
-        }
-        else
-        {
-            // Boss area - ultimate enemies
-            enemy = GD.Randf() < 0.8f ? Enemy.CreateDemonLord() : Enemy.CreateBoss();
-        }
+        // Create enemy based on area/theme rather than just distance
+        Enemy enemy = CreateEnemyByArea(enemyPosition);
         
         _gameManager.StartBattle(enemy);
     }
+    
+    private Enemy CreateEnemyByArea(Vector2I position)
+    {
+        int x = position.X;
+        int y = position.Y;
+        
+        // Starting area (safe zone)
+        if (IsInArea(x, y, 5, GridHeight / 2 - 10, 30, 20))
+        {
+            return GD.Randf() < 0.8f ? Enemy.CreateGoblin() : Enemy.CreateOrc();
+        }
+        
+        // Forest zones
+        if (IsInArea(x, y, 40, 15, 35, 30) || IsInArea(x, y, 45, 50, 25, 25))
+        {
+            float rand = GD.Randf();
+            if (rand < 0.4f) return Enemy.CreateGoblin();
+            else if (rand < 0.7f) return Enemy.CreateOrc();
+            else if (rand < 0.9f) return Enemy.CreateForestSpirit();
+            else return Enemy.CreateSkeletonWarrior();
+        }
+        
+        // Cave systems
+        if (IsInArea(x, y, 20, 90, 40, 35) || IsInArea(x, y, 70, 95, 30, 30))
+        {
+            float rand = GD.Randf();
+            if (rand < 0.3f) return Enemy.CreateSkeletonWarrior();
+            else if (rand < 0.6f) return Enemy.CreateCaveSpider();
+            else if (rand < 0.8f) return Enemy.CreateOrc();
+            else return Enemy.CreateTroll();
+        }
+        
+        // Desert area
+        if (IsInArea(x, y, 90, 40, 45, 40))
+        {
+            float rand = GD.Randf();
+            if (rand < 0.3f) return Enemy.CreateDesertScorpion();
+            else if (rand < 0.5f) return Enemy.CreateOrc();
+            else if (rand < 0.7f) return Enemy.CreateSkeletonWarrior();
+            else if (rand < 0.9f) return Enemy.CreateTroll();
+            else return Enemy.CreateDragon();
+        }
+        
+        // Swamp lands
+        if (IsInArea(x, y, 25, 130, 35, 25) || IsInArea(x, y, 70, 135, 25, 20))
+        {
+            float rand = GD.Randf();
+            if (rand < 0.3f) return Enemy.CreateSwampWretch();
+            else if (rand < 0.5f) return Enemy.CreateTroll();
+            else if (rand < 0.7f) return Enemy.CreateSkeletonWarrior();
+            else return Enemy.CreateDarkMage();
+        }
+        
+        // Mountain peak
+        if (IsInArea(x, y, 110, 15, 40, 35))
+        {
+            float rand = GD.Randf();
+            if (rand < 0.3f) return Enemy.CreateMountainWyvern();
+            else if (rand < 0.6f) return Enemy.CreateDragon();
+            else if (rand < 0.8f) return Enemy.CreateTroll();
+            else return Enemy.CreateDarkMage();
+        }
+        
+        // Dungeon complex
+        if (IsInArea(x, y, 120, 90, 35, 40))
+        {
+            float rand = GD.Randf();
+            if (rand < 0.3f) return Enemy.CreateDungeonGuardian();
+            else if (rand < 0.5f) return Enemy.CreateDarkMage();
+            else if (rand < 0.7f) return Enemy.CreateDragon();
+            else return Enemy.CreateDemonLord();
+        }
+        
+        // Boss arena
+        if (IsInArea(x, y, 140, 140, 15, 15))
+        {
+            return GD.Randf() < 0.7f ? Enemy.CreateDemonLord() : Enemy.CreateBoss();
+        }
+        
+        // Default corridor enemies based on distance from start
+        int distanceFromStart = Mathf.Abs(x - 5) + Mathf.Abs(y - GridHeight / 2);
+        
+        if (distanceFromStart < 30)
+        {
+            return GD.Randf() < 0.7f ? Enemy.CreateGoblin() : Enemy.CreateOrc();
+        }
+        else if (distanceFromStart < 60)
+        {
+            float rand = GD.Randf();
+            if (rand < 0.4f) return Enemy.CreateGoblin();
+            else if (rand < 0.7f) return Enemy.CreateOrc();
+            else return Enemy.CreateSkeletonWarrior();
+        }
+        else if (distanceFromStart < 90)
+        {
+            float rand = GD.Randf();
+            if (rand < 0.3f) return Enemy.CreateOrc();
+            else if (rand < 0.6f) return Enemy.CreateSkeletonWarrior();
+            else return Enemy.CreateTroll();
+        }
+        else if (distanceFromStart < 120)
+        {
+            float rand = GD.Randf();
+            if (rand < 0.3f) return Enemy.CreateSkeletonWarrior();
+            else if (rand < 0.6f) return Enemy.CreateTroll();
+            else return Enemy.CreateDragon();
+        }
+        else if (distanceFromStart < 180)
+        {
+            float rand = GD.Randf();
+            if (rand < 0.3f) return Enemy.CreateTroll();
+            else if (rand < 0.6f) return Enemy.CreateDragon();
+            else return Enemy.CreateDarkMage();
+        }
+        else
+        {
+            float rand = GD.Randf();
+            if (rand < 0.4f) return Enemy.CreateDarkMage();
+            else if (rand < 0.7f) return Enemy.CreateDemonLord();
+            else return Enemy.CreateBoss();
+        }
+    }
+    
+    private bool IsInArea(int x, int y, int areaX, int areaY, int width, int height)
+    {
+        return x >= areaX && x < areaX + width && y >= areaY && y < areaY + height;
+    }
+    
+    // Helper property to access grid size
+    private int GridHeight => 160;
 
     private void OnBattleStarted(Enemy enemy)
     {

@@ -141,4 +141,95 @@ public partial class Enemy : Resource
             ExperienceReward = 800
         };
     }
+    
+    // Additional enemy types for specific areas
+    public static Enemy CreateForestSpirit()
+    {
+        return new Enemy
+        {
+            Name = "Forest Spirit",
+            Level = 2,
+            MaxHealth = 90,
+            CurrentHealth = 90,
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            ExperienceReward = 50
+        };
+    }
+    
+    public static Enemy CreateCaveSpider()
+    {
+        return new Enemy
+        {
+            Name = "Giant Cave Spider",
+            Level = 3,
+            MaxHealth = 110,
+            CurrentHealth = 110,
+            Attack = 25,
+            Defense = 8,
+            Speed = 18,
+            ExperienceReward = 65
+        };
+    }
+    
+    public static Enemy CreateDesertScorpion()
+    {
+        return new Enemy
+        {
+            Name = "Desert Scorpion",
+            Level = 4,
+            MaxHealth = 130,
+            CurrentHealth = 130,
+            Attack = 32,
+            Defense = 14,
+            Speed = 11,
+            ExperienceReward = 95
+        };
+    }
+    
+    public static Enemy CreateSwampWretch()
+    {
+        return new Enemy
+        {
+            Name = "Swamp Wretch",
+            Level = 5,
+            MaxHealth = 160,
+            CurrentHealth = 160,
+            Attack = 38,
+            Defense = 16,
+            Speed = 7,
+            ExperienceReward = 140
+        };
+    }
+    
+    public static Enemy CreateMountainWyvern()
+    {
+        return new Enemy
+        {
+            Name = "Mountain Wyvern",
+            Level = 6,
+            MaxHealth = 220,
+            CurrentHealth = 220,
+            Attack = 48,
+            Defense = 22,
+            Speed = 16,
+            ExperienceReward = 200
+        };
+    }
+    
+    public static Enemy CreateDungeonGuardian()
+    {
+        return new Enemy
+        {
+            Name = "Dungeon Guardian",
+            Level = 7,
+            MaxHealth = 280,
+            CurrentHealth = 280,
+            Attack = 55,
+            Defense = 28,
+            Speed = 10,
+            ExperienceReward = 300
+        };
+    }
 }

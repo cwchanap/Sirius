@@ -1,14 +1,21 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 public partial class GridMap : Node2D
 {
     [Export] public int GridWidth { get; set; } = 160;
     [Export] public int GridHeight { get; set; } = 160;
     [Export] public int CellSize { get; set; } = 32; // Reduced cell size to fit larger grid
+    [Export] public bool UseSprites { get; set; } = true; // Toggle for sprite rendering
     
     private int[,] _grid;
     private Vector2I _playerPosition;
+    
+    // Sprite dictionaries for different asset types
+    private Dictionary<CellType, Texture2D> _cellSprites = new();
+    private Dictionary<string, Texture2D> _enemySprites = new();
+    private Dictionary<string, Texture2D> _terrainSprites = new();
     
     // Grid cell types
     public enum CellType
@@ -24,11 +31,102 @@ public partial class GridMap : Node2D
     
     public override void _Ready()
     {
+        // Load sprites first
+        LoadSprites();
+        
         InitializeGrid();
         DrawGrid();
         
         // Connect to camera movement to trigger redraws when needed
         GetViewport().SizeChanged += () => QueueRedraw();
+    }
+    
+    private void LoadSprites()
+    {
+        try
+        {
+            // Load character sprites
+            var playerTexture = GD.Load<Texture2D>("res://assets/sprites/characters/player_hero.png");
+            if (playerTexture != null)
+                _cellSprites[CellType.Player] = playerTexture;
+
+            // Load basic terrain sprites
+            var floorTexture = GD.Load<Texture2D>("res://assets/sprites/terrain/floor_starting_area.png");
+            if (floorTexture != null)
+                _terrainSprites["starting"] = floorTexture;
+                
+            var wallTexture = GD.Load<Texture2D>("res://assets/sprites/terrain/wall_generic.png");
+            if (wallTexture != null)
+                _cellSprites[CellType.Wall] = wallTexture;
+
+            // Load enemy sprites
+            LoadEnemySprites();
+            
+            // Load themed terrain
+            LoadThemedTerrain();
+            
+            GD.Print("Sprites loaded successfully!");
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"Error loading sprites: {ex.Message}");
+            UseSprites = false; // Fallback to colored rectangles
+        }
+    }
+
+    private void LoadEnemySprites()
+    {
+        var enemyFiles = new string[]
+        {
+            "enemy_goblin.png",
+            "enemy_orc.png", 
+            "enemy_skeleton_warrior.png",
+            "enemy_troll.png",
+            "enemy_dragon.png",
+            "enemy_forest_spirit.png",
+            "enemy_cave_spider.png",
+            "enemy_desert_scorpion.png",
+            "enemy_swamp_wretch.png",
+            "enemy_mountain_wyvern.png",
+            "enemy_dark_mage.png",
+            "enemy_dungeon_guardian.png",
+            "enemy_demon_lord.png",
+            "enemy_ancient_dragon_king.png"
+        };
+        
+        foreach (var filename in enemyFiles)
+        {
+            var texture = GD.Load<Texture2D>($"res://assets/sprites/enemies/{filename}");
+            if (texture != null)
+            {
+                var enemyType = filename.Replace("enemy_", "").Replace(".png", "");
+                _enemySprites[enemyType] = texture;
+            }
+        }
+    }
+
+    private void LoadThemedTerrain()
+    {
+        var terrainTypes = new string[]
+        {
+            "floor_forest.png",
+            "floor_cave.png", 
+            "floor_desert.png",
+            "floor_swamp.png",
+            "floor_mountain.png",
+            "floor_dungeon.png",
+            "floor_boss_arena.png"
+        };
+        
+        foreach (var filename in terrainTypes)
+        {
+            var texture = GD.Load<Texture2D>($"res://assets/sprites/terrain/{filename}");
+            if (texture != null)
+            {
+                var terrainType = filename.Replace("floor_", "").Replace(".png", "");
+                _terrainSprites[terrainType] = texture;
+            }
+        }
     }
     
     private void InitializeGrid()
@@ -430,18 +528,154 @@ public partial class GridMap : Node2D
             for (int y = startY; y < endY; y++)
             {
                 Vector2 cellPos = new Vector2(x * CellSize, y * CellSize);
-                Vector2 cellSize = new Vector2(CellSize, CellSize);
-                Rect2 cellRect = new Rect2(cellPos, cellSize);
+                CellType cellType = (CellType)_grid[x, y];
                 
-                Color cellColor = GetCellColor(x, y, (CellType)_grid[x, y]);
-                
-                // Draw cell
-                DrawRect(cellRect, cellColor);
-                
-                // Draw border
-                DrawRect(cellRect, Colors.Black, false, 1.0f);
+                if (UseSprites)
+                {
+                    DrawCellWithSprite(cellPos, x, y, cellType);
+                }
+                else
+                {
+                    DrawCellWithColor(cellPos, x, y, cellType);
+                }
             }
         }
+    }
+
+    private void DrawCellWithSprite(Vector2 cellPos, int x, int y, CellType cellType)
+    {
+        // Draw terrain background first
+        DrawTerrainSprite(cellPos, x, y);
+        
+        // Draw entity sprite on top
+        if (cellType == CellType.Player && _cellSprites.ContainsKey(CellType.Player))
+        {
+            DrawTexture(_cellSprites[CellType.Player], cellPos);
+        }
+        else if (cellType == CellType.Enemy)
+        {
+            DrawEnemySprite(cellPos, x, y);
+        }
+        else if (cellType == CellType.Wall && _cellSprites.ContainsKey(CellType.Wall))
+        {
+            DrawTexture(_cellSprites[CellType.Wall], cellPos);
+        }
+    }
+
+    private void DrawTerrainSprite(Vector2 cellPos, int x, int y)
+    {
+        string terrainType = GetTerrainType(x, y);
+        
+        if (_terrainSprites.ContainsKey(terrainType))
+        {
+            DrawTexture(_terrainSprites[terrainType], cellPos);
+        }
+        else if (_terrainSprites.ContainsKey("starting"))
+        {
+            // Fallback to starting area texture
+            DrawTexture(_terrainSprites["starting"], cellPos);
+        }
+        else
+        {
+            // Fallback to colored rectangle
+            Vector2 cellSize = new Vector2(CellSize, CellSize);
+            DrawRect(new Rect2(cellPos, cellSize), GetAreaColor(x, y));
+        }
+    }
+
+    private void DrawEnemySprite(Vector2 cellPos, int x, int y)
+    {
+        string enemyType = GetEnemyTypeForPosition(x, y);
+        
+        if (_enemySprites.ContainsKey(enemyType))
+        {
+            DrawTexture(_enemySprites[enemyType], cellPos);
+        }
+        else
+        {
+            // Fallback to colored rectangle
+            Vector2 cellSize = new Vector2(CellSize, CellSize);
+            DrawRect(new Rect2(cellPos, cellSize), GetEnemyColor(x, y));
+        }
+    }
+
+    private void DrawCellWithColor(Vector2 cellPos, int x, int y, CellType cellType)
+    {
+        // Original colored rectangle drawing (fallback)
+        Vector2 cellSize = new Vector2(CellSize, CellSize);
+        Rect2 cellRect = new Rect2(cellPos, cellSize);
+        
+        Color cellColor = GetCellColor(x, y, cellType);
+        DrawRect(cellRect, cellColor);
+        DrawRect(cellRect, Colors.Black, false, 1.0f);
+    }
+
+    private string GetTerrainType(int x, int y)
+    {
+        // Determine terrain type based on area
+        if (IsInAreaBounds(x, y, 5, GridHeight / 2 - 10, 30, 20)) return "starting";
+        if (IsInAreaBounds(x, y, 40, 15, 35, 30) || IsInAreaBounds(x, y, 45, 50, 25, 25)) return "forest";
+        if (IsInAreaBounds(x, y, 20, 90, 40, 35) || IsInAreaBounds(x, y, 70, 95, 30, 30)) return "cave";
+        if (IsInAreaBounds(x, y, 90, 40, 45, 40)) return "desert";
+        if (IsInAreaBounds(x, y, 25, 130, 35, 25) || IsInAreaBounds(x, y, 70, 135, 25, 20)) return "swamp";
+        if (IsInAreaBounds(x, y, 110, 15, 40, 35)) return "mountain";
+        if (IsInAreaBounds(x, y, 120, 90, 35, 40)) return "dungeon";
+        if (IsInAreaBounds(x, y, 140, 140, 15, 15)) return "boss_arena";
+        
+        return "starting"; // Default fallback
+    }
+
+    private string GetEnemyTypeForPosition(int x, int y)
+    {
+        // Return appropriate enemy sprite based on area
+        if (IsInAreaBounds(x, y, 5, GridHeight / 2 - 10, 30, 20)) 
+            return GD.Randf() < 0.8f ? "goblin" : "orc";
+        
+        if (IsInAreaBounds(x, y, 40, 15, 35, 30) || IsInAreaBounds(x, y, 45, 50, 25, 25))
+        {
+            float rand = GD.Randf();
+            if (rand < 0.4f) return "goblin";
+            else if (rand < 0.7f) return "orc";
+            else return "forest_spirit";
+        }
+        
+        if (IsInAreaBounds(x, y, 20, 90, 40, 35) || IsInAreaBounds(x, y, 70, 95, 30, 30))
+        {
+            float rand = GD.Randf();
+            if (rand < 0.4f) return "skeleton_warrior";
+            else if (rand < 0.7f) return "cave_spider";
+            else return "troll";
+        }
+        
+        if (IsInAreaBounds(x, y, 90, 40, 45, 40))
+        {
+            float rand = GD.Randf();
+            if (rand < 0.5f) return "desert_scorpion";
+            else return "orc";
+        }
+        
+        if (IsInAreaBounds(x, y, 25, 130, 35, 25) || IsInAreaBounds(x, y, 70, 135, 25, 20))
+        {
+            return GD.Randf() < 0.6f ? "swamp_wretch" : "troll";
+        }
+        
+        if (IsInAreaBounds(x, y, 110, 15, 40, 35))
+        {
+            return GD.Randf() < 0.6f ? "mountain_wyvern" : "dragon";
+        }
+        
+        if (IsInAreaBounds(x, y, 120, 90, 35, 40))
+        {
+            return GD.Randf() < 0.5f ? "dungeon_guardian" : "dark_mage";
+        }
+        
+        if (IsInAreaBounds(x, y, 140, 140, 15, 15))
+        {
+            return GD.Randf() < 0.7f ? "demon_lord" : "ancient_dragon_king";
+        }
+        
+        // Default corridor enemies
+        return "goblin";
     }
     
     private Color GetCellColor(int x, int y, CellType cellType)

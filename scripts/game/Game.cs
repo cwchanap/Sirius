@@ -157,7 +157,7 @@ public partial class Game : Node2D
         }
         
         // Dungeon complex
-        if (IsInArea(x, y, 120, 90, 35, 40))
+        if (IsInArea(x, y, 115, 85, 30, 35))
         {
             float rand = GD.Randf();
             if (rand < 0.3f) return Enemy.CreateDungeonGuardian();
@@ -167,7 +167,7 @@ public partial class Game : Node2D
         }
         
         // Boss arena
-        if (IsInArea(x, y, 140, 140, 15, 15))
+        if (IsInArea(x, y, 135, 135, 20, 20))
         {
             return GD.Randf() < 0.7f ? Enemy.CreateDemonLord() : Enemy.CreateBoss();
         }

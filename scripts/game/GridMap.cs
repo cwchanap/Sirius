@@ -422,24 +422,28 @@ public partial class GridMap : Node2D
     
     private void CreateDungeonComplex()
     {
-        // Multi-level dungeon with various high-level enemies
-        CreateThematicArea(120, 90, 35, 40, 20, "dungeon");
+        // Multi-level dungeon with various high-level enemies - adjusted bounds
+        CreateThematicArea(115, 85, 30, 35, 18, "dungeon");
     }
     
     private void CreateBossArena()
     {
-        // Final boss area
-        CreateThematicArea(140, 140, 15, 15, 3, "boss");
+        // Final boss area - moved slightly inward from edge
+        CreateThematicArea(135, 135, 20, 20, 3, "boss");
     }
     
     private void CreateThematicArea(int startX, int startY, int width, int height, int enemyCount, string theme)
     {
+        // Ensure area bounds are within grid limits
+        int endX = Math.Min(startX + width, GridWidth);
+        int endY = Math.Min(startY + height, GridHeight);
+        
         // Clear the area
-        for (int x = startX; x < startX + width && x < GridWidth - 1; x++)
+        for (int x = startX; x < endX; x++)
         {
-            for (int y = startY; y < startY + height && y < GridHeight - 1; y++)
+            for (int y = startY; y < endY; y++)
             {
-                if (x > 0 && y > 0)
+                if (x > 0 && y > 0 && x < GridWidth && y < GridHeight)
                     _grid[x, y] = (int)CellType.Empty;
             }
         }
@@ -451,8 +455,15 @@ public partial class GridMap : Node2D
             int attempts = 0;
             while (attempts < 100)
             {
-                int x = random.Next(startX + 1, Math.Min(startX + width - 1, GridWidth - 1));
-                int y = random.Next(startY + 1, Math.Min(startY + height - 1, GridHeight - 1));
+                // Ensure enemy placement is within both area bounds and grid bounds
+                int maxX = Math.Min(endX - 1, GridWidth - 1);
+                int maxY = Math.Min(endY - 1, GridHeight - 1);
+                
+                if (startX + 1 >= maxX || startY + 1 >= maxY)
+                    break; // Area too small for enemy placement
+                    
+                int x = random.Next(startX + 1, maxX);
+                int y = random.Next(startY + 1, maxY);
                 
                 if (x > 0 && y > 0 && x < GridWidth && y < GridHeight && _grid[x, y] == (int)CellType.Empty)
                 {
@@ -474,8 +485,9 @@ public partial class GridMap : Node2D
             int attempts = 0;
             while (attempts < 200)
             {
-                int x = random.Next(1, GridWidth - 1);
-                int y = random.Next(1, GridHeight - 1);
+                // Ensure we stay well within grid boundaries (leave 1-cell border)
+                int x = random.Next(2, GridWidth - 2);
+                int y = random.Next(2, GridHeight - 2);
                 
                 if (_grid[x, y] == (int)CellType.Empty)
                 {
@@ -671,8 +683,8 @@ public partial class GridMap : Node2D
         if (IsInAreaBounds(x, y, 90, 40, 45, 40)) return "desert";
         if (IsInAreaBounds(x, y, 25, 130, 35, 25) || IsInAreaBounds(x, y, 70, 135, 25, 20)) return "swamp";
         if (IsInAreaBounds(x, y, 110, 15, 40, 35)) return "mountain";
-        if (IsInAreaBounds(x, y, 120, 90, 35, 40)) return "dungeon";
-        if (IsInAreaBounds(x, y, 140, 140, 15, 15)) return "boss_arena";
+        if (IsInAreaBounds(x, y, 115, 85, 30, 35)) return "dungeon";
+        if (IsInAreaBounds(x, y, 135, 135, 20, 20)) return "boss_arena";
         
         return "starting"; // Default fallback
     }
@@ -717,12 +729,12 @@ public partial class GridMap : Node2D
             return pseudoRand < 0.6f ? "mountain_wyvern" : "dragon";
         }
         
-        if (IsInAreaBounds(x, y, 120, 90, 35, 40))
+        if (IsInAreaBounds(x, y, 115, 85, 30, 35))
         {
             return pseudoRand < 0.5f ? "dungeon_guardian" : "dark_mage";
         }
         
-        if (IsInAreaBounds(x, y, 140, 140, 15, 15))
+        if (IsInAreaBounds(x, y, 135, 135, 20, 20))
         {
             return pseudoRand < 0.7f ? "demon_lord" : "ancient_dragon_king";
         }
@@ -750,8 +762,8 @@ public partial class GridMap : Node2D
         if (IsInAreaBounds(x, y, 90, 40, 45, 40)) return Colors.Yellow; // Desert
         if (IsInAreaBounds(x, y, 25, 130, 35, 25) || IsInAreaBounds(x, y, 70, 135, 25, 20)) return Colors.Purple; // Swamp
         if (IsInAreaBounds(x, y, 110, 15, 40, 35)) return Colors.White; // Mountain
-        if (IsInAreaBounds(x, y, 120, 90, 35, 40)) return Colors.DarkRed; // Dungeon
-        if (IsInAreaBounds(x, y, 140, 140, 15, 15)) return Colors.Gold; // Boss arena
+        if (IsInAreaBounds(x, y, 115, 85, 30, 35)) return Colors.DarkRed; // Dungeon
+        if (IsInAreaBounds(x, y, 135, 135, 20, 20)) return Colors.Gold; // Boss arena
         
         return Colors.Red; // Default corridor enemies
     }
@@ -765,8 +777,8 @@ public partial class GridMap : Node2D
         if (IsInAreaBounds(x, y, 90, 40, 45, 40)) return new Color(0.9f, 0.9f, 0.7f); // Desert - sandy
         if (IsInAreaBounds(x, y, 25, 130, 35, 25) || IsInAreaBounds(x, y, 70, 135, 25, 20)) return new Color(0.7f, 0.8f, 0.7f); // Swamp - murky green
         if (IsInAreaBounds(x, y, 110, 15, 40, 35)) return new Color(0.9f, 0.9f, 1.0f); // Mountain - light blue
-        if (IsInAreaBounds(x, y, 120, 90, 35, 40)) return new Color(0.6f, 0.6f, 0.6f); // Dungeon - dark gray
-        if (IsInAreaBounds(x, y, 140, 140, 15, 15)) return new Color(1.0f, 0.9f, 0.7f); // Boss arena - golden
+        if (IsInAreaBounds(x, y, 115, 85, 30, 35)) return new Color(0.6f, 0.6f, 0.6f); // Dungeon - dark gray
+        if (IsInAreaBounds(x, y, 135, 135, 20, 20)) return new Color(1.0f, 0.9f, 0.7f); // Boss arena - golden
         
         return Colors.LightGray; // Default corridor color
     }

@@ -89,10 +89,21 @@ class SpriteSheetMerger:
         for character_folder in self.characters_dir.iterdir():
             if character_folder.is_dir():
                 frames = {}
+                
+                # First, try to find frames directly in the character folder
                 for i in range(1, 5):
                     frame_file = character_folder / f"frame{i}.png"
                     if frame_file.exists():
                         frames[i] = frame_file
+                
+                # If no direct frames found, check in frames/ subdirectory
+                if not frames:
+                    frames_subdir = character_folder / "frames"
+                    if frames_subdir.exists() and frames_subdir.is_dir():
+                        for i in range(1, 5):
+                            frame_file = frames_subdir / f"frame{i}.png"
+                            if frame_file.exists():
+                                frames[i] = frame_file
                 
                 if frames:
                     character_folders[character_folder.name] = frames

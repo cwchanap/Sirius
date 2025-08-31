@@ -17,6 +17,12 @@ public partial class GridMap : Node2D
     private Dictionary<string, Texture2D> _enemySprites = new();
     private Dictionary<string, Texture2D> _terrainSprites = new();
     
+    // Animation properties
+    private float _animationTime = 0.0f;
+    private const float ANIMATION_SPEED = 0.2f; // Time per frame in seconds (faster animation)
+    private const int TOTAL_FRAMES = 4;
+    private int _currentFrame = 0;
+    
     // Grid cell types
     public enum CellType
     {
@@ -39,6 +45,19 @@ public partial class GridMap : Node2D
         
         // Connect to camera movement to trigger redraws when needed
         GetViewport().SizeChanged += () => QueueRedraw();
+    }
+    
+    public override void _Process(double delta)
+    {
+        // Handle sprite animation timing
+        _animationTime += (float)delta;
+        
+        if (_animationTime >= ANIMATION_SPEED)
+        {
+            _animationTime = 0.0f;
+            _currentFrame = (_currentFrame + 1) % TOTAL_FRAMES;
+            QueueRedraw(); // Redraw to show next frame
+        }
     }
     
     private void LoadSprites()
@@ -101,6 +120,10 @@ public partial class GridMap : Node2D
             {
                 var enemyType = enemyName.Replace("enemy_", "");
                 _enemySprites[enemyType] = texture;
+            }
+            else
+            {
+                GD.PrintErr($"❌ Failed to load sprite for {enemyName}");
             }
         }
     }
@@ -550,7 +573,7 @@ public partial class GridMap : Node2D
         // Draw entity sprite on top
         if (cellType == CellType.Player && _cellSprites.ContainsKey(CellType.Player))
         {
-            DrawTexture(_cellSprites[CellType.Player], cellPos);
+            DrawAnimatedSprite(_cellSprites[CellType.Player], cellPos);
         }
         else if (cellType == CellType.Enemy)
         {
@@ -589,14 +612,43 @@ public partial class GridMap : Node2D
         
         if (_enemySprites.ContainsKey(enemyType))
         {
-            DrawTexture(_enemySprites[enemyType], cellPos);
+            var sprite = _enemySprites[enemyType];
+            if (sprite != null)
+            {
+                DrawAnimatedSprite(sprite, cellPos);
+            }
+            else
+            {
+                // Sprite is null - fallback
+                Vector2 cellSize = new Vector2(CellSize, CellSize);
+                DrawRect(new Rect2(cellPos, cellSize), GetEnemyColor(x, y));
+            }
         }
         else
         {
-            // Fallback to colored rectangle
+            // Enemy type not found in sprites dictionary - fallback
             Vector2 cellSize = new Vector2(CellSize, CellSize);
             DrawRect(new Rect2(cellPos, cellSize), GetEnemyColor(x, y));
         }
+    }
+
+    private void DrawAnimatedSprite(Texture2D spriteSheet, Vector2 position)
+    {
+        if (spriteSheet == null)
+        {
+            return;
+        }
+        
+        // Calculate source rectangle for current frame
+        // Sprite sheet is 128x32 (4 frames of 32x32 each, horizontally arranged)
+        int frameWidth = 32;
+        int frameHeight = 32;
+        int frameX = _currentFrame * frameWidth;
+        
+        Rect2 sourceRect = new Rect2(frameX, 0, frameWidth, frameHeight);
+        Rect2 destRect = new Rect2(position, new Vector2(frameWidth, frameHeight));
+        
+        DrawTextureRectRegion(spriteSheet, destRect, sourceRect);
     }
 
     private void DrawCellWithColor(Vector2 cellPos, int x, int y, CellType cellType)
@@ -627,51 +679,52 @@ public partial class GridMap : Node2D
 
     private string GetEnemyTypeForPosition(int x, int y)
     {
+        // Use position-based deterministic "random" instead of GD.Randf() 
+        // to ensure enemy types don't change every frame
+        int seed = x * 1000 + y;
+        float pseudoRand = (seed % 100) / 100.0f;
+        
         // Return appropriate enemy sprite based on area
         if (IsInAreaBounds(x, y, 5, GridHeight / 2 - 10, 30, 20)) 
-            return GD.Randf() < 0.8f ? "goblin" : "orc";
+            return pseudoRand < 0.8f ? "goblin" : "orc";
         
         if (IsInAreaBounds(x, y, 40, 15, 35, 30) || IsInAreaBounds(x, y, 45, 50, 25, 25))
         {
-            float rand = GD.Randf();
-            if (rand < 0.4f) return "goblin";
-            else if (rand < 0.7f) return "orc";
+            if (pseudoRand < 0.4f) return "goblin";
+            else if (pseudoRand < 0.7f) return "orc";
             else return "forest_spirit";
         }
         
         if (IsInAreaBounds(x, y, 20, 90, 40, 35) || IsInAreaBounds(x, y, 70, 95, 30, 30))
         {
-            float rand = GD.Randf();
-            if (rand < 0.4f) return "skeleton_warrior";
-            else if (rand < 0.7f) return "cave_spider";
+            if (pseudoRand < 0.4f) return "skeleton_warrior";
+            else if (pseudoRand < 0.7f) return "cave_spider";
             else return "troll";
         }
         
         if (IsInAreaBounds(x, y, 90, 40, 45, 40))
         {
-            float rand = GD.Randf();
-            if (rand < 0.5f) return "desert_scorpion";
-            else return "orc";
+            return pseudoRand < 0.5f ? "desert_scorpion" : "orc";
         }
         
         if (IsInAreaBounds(x, y, 25, 130, 35, 25) || IsInAreaBounds(x, y, 70, 135, 25, 20))
         {
-            return GD.Randf() < 0.6f ? "swamp_wretch" : "troll";
+            return pseudoRand < 0.6f ? "swamp_wretch" : "troll";
         }
         
         if (IsInAreaBounds(x, y, 110, 15, 40, 35))
         {
-            return GD.Randf() < 0.6f ? "mountain_wyvern" : "dragon";
+            return pseudoRand < 0.6f ? "mountain_wyvern" : "dragon";
         }
         
         if (IsInAreaBounds(x, y, 120, 90, 35, 40))
         {
-            return GD.Randf() < 0.5f ? "dungeon_guardian" : "dark_mage";
+            return pseudoRand < 0.5f ? "dungeon_guardian" : "dark_mage";
         }
         
         if (IsInAreaBounds(x, y, 140, 140, 15, 15))
         {
-            return GD.Randf() < 0.7f ? "demon_lord" : "ancient_dragon_king";
+            return pseudoRand < 0.7f ? "demon_lord" : "ancient_dragon_king";
         }
         
         // Default corridor enemies

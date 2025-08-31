@@ -58,8 +58,7 @@ public partial class GameManager : Node
     {
         if (!IsInBattle)
         {
-            GD.Print("Warning: Not in battle, ignoring EndBattle call");
-            return;
+            GD.Print("Warning: Not in battle, but forcing EndBattle to ensure state consistency");
         }
         
         IsInBattle = false;

@@ -255,11 +255,18 @@ public partial class Game : Node2D
     private void OnBattleDialogConfirmed()
     {
         GD.Print("Battle dialog confirmed (OK button pressed)");
-        // Just close the dialog - the actual battle result was already handled
+        // Clean up the battle dialog
         if (_battleManager != null)
         {
             _battleManager.QueueFree();
             _battleManager = null;
+        }
+        
+        // Ensure battle state is properly reset (safety check)
+        if (_gameManager.IsInBattle)
+        {
+            GD.Print("WARNING: Battle state still active after dialog close, forcing reset");
+            _gameManager.EndBattle(true); // Force end battle state
         }
     }
 
@@ -278,8 +285,10 @@ public partial class Game : Node2D
         _battleManager.BattleFinished -= OnBattleFinished;
         _battleManager.Confirmed -= OnBattleDialogConfirmed;
         
-        // Don't immediately clean up battle UI - let the dialog handle its own cleanup
-        // when the player clicks OK or closes the dialog
+        // End the battle in game manager FIRST to allow player movement
+        // Pass true if either won or escaped - this just ends the battle state
+        _gameManager.EndBattle(playerWon || playerEscaped);
+        GD.Print($"Battle state ended in GameManager. IsInBattle: {_gameManager.IsInBattle}");
         
         if (playerWon)
         {
@@ -295,9 +304,6 @@ public partial class Game : Node2D
         
         // Update UI
         UpdatePlayerUI();
-        
-        // End the battle in game manager
-        _gameManager.EndBattle(playerWon);
         
         // Only return to main menu if player was actually defeated (not escaped)
         if (!playerWon && !playerEscaped)

@@ -200,11 +200,9 @@ public partial class BattleManager : AcceptDialog
         GetOkButton().Visible = true;
         GetOkButton().Text = "Continue";
         
-        // Wait a moment then end battle
-        GetTree().CreateTimer(3.0).Timeout += () => {
-            GD.Print("BattleManager emitting BattleFinished signal");
-            EmitSignal(SignalName.BattleFinished, playerWon, false); // false for not escaped
-        };
+        // Emit the signal immediately instead of waiting
+        GD.Print("BattleManager emitting BattleFinished signal immediately");
+        EmitSignal(SignalName.BattleFinished, playerWon, false); // false for not escaped
     }
     
     private void EndBattleWithEscape()
@@ -222,11 +220,9 @@ public partial class BattleManager : AcceptDialog
         GetOkButton().Visible = true;
         GetOkButton().Text = "Continue";
         
-        // Wait a moment then end battle - indicate escape
-        GetTree().CreateTimer(2.0).Timeout += () => {
-            GD.Print("BattleManager emitting BattleFinished signal with escape");
-            EmitSignal(SignalName.BattleFinished, false, true); // false for not won, true for escaped
-        };
+        // Emit the signal immediately instead of waiting
+        GD.Print("BattleManager emitting BattleFinished signal with escape immediately");
+        EmitSignal(SignalName.BattleFinished, false, true); // false for not won, true for escaped
     }
     
     private void AddToBattleLog(string message)

@@ -45,8 +45,8 @@ public partial class GridMap : Node2D
     {
         try
         {
-            // Load character sprites
-            var playerTexture = GD.Load<Texture2D>("res://assets/sprites/characters/player_hero.png");
+            // Load character sprites (use sprite sheets)
+            var playerTexture = GD.Load<Texture2D>("res://assets/sprites/characters/player_hero/sprite_sheet.png");
             if (playerTexture != null)
                 _cellSprites[CellType.Player] = playerTexture;
 
@@ -76,30 +76,30 @@ public partial class GridMap : Node2D
 
     private void LoadEnemySprites()
     {
-        var enemyFiles = new string[]
+        var enemyNames = new string[]
         {
-            "enemy_goblin.png",
-            "enemy_orc.png", 
-            "enemy_skeleton_warrior.png",
-            "enemy_troll.png",
-            "enemy_dragon.png",
-            "enemy_forest_spirit.png",
-            "enemy_cave_spider.png",
-            "enemy_desert_scorpion.png",
-            "enemy_swamp_wretch.png",
-            "enemy_mountain_wyvern.png",
-            "enemy_dark_mage.png",
-            "enemy_dungeon_guardian.png",
-            "enemy_demon_lord.png",
-            "enemy_ancient_dragon_king.png"
+            "enemy_goblin",
+            "enemy_orc", 
+            "enemy_skeleton_warrior",
+            "enemy_troll",
+            "enemy_dragon",
+            "enemy_forest_spirit",
+            "enemy_cave_spider",
+            "enemy_desert_scorpion",
+            "enemy_swamp_wretch",
+            "enemy_mountain_wyvern",
+            "enemy_dark_mage",
+            "enemy_dungeon_guardian",
+            "enemy_demon_lord",
+            "enemy_ancient_dragon_king"
         };
         
-        foreach (var filename in enemyFiles)
+        foreach (var enemyName in enemyNames)
         {
-            var texture = GD.Load<Texture2D>($"res://assets/sprites/enemies/{filename}");
+            var texture = GD.Load<Texture2D>($"res://assets/sprites/characters/{enemyName}/sprite_sheet.png");
             if (texture != null)
             {
-                var enemyType = filename.Replace("enemy_", "").Replace(".png", "");
+                var enemyType = enemyName.Replace("enemy_", "");
                 _enemySprites[enemyType] = texture;
             }
         }

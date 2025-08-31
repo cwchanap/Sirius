@@ -13,21 +13,22 @@ Usage:
 
 The script will:
 1. Auto-install Pillow if not available
-2. Look for frame files in assets/sprites/frames/
-3. Group frames by character name (e.g., player_hero_frame1.png, player_hero_frame2.png, etc.)
-4. Create horizontal sprite sheets (128x32) in assets/sprites/characters/ and assets/sprites/enemies/
+2. Look for frame files in assets/sprites/characters/*/
+3. Group frames by character folder (e.g., player_hero/frame1.png, player_hero/frame2.png, etc.)
+4. Create horizontal sprite sheets (128x32) in the same character folders
 5. Maintain proper frame order (frame1, frame2, frame3, frame4)
 
-File naming convention:
-    {character_name}_frame{1-4}.png
+File structure:
+    assets/sprites/characters/player_hero/frame1.png
+    assets/sprites/characters/player_hero/frame2.png
+    assets/sprites/characters/player_hero/frame3.png
+    assets/sprites/characters/player_hero/frame4.png
     
-Examples:
-    player_hero_frame1.png -> assets/sprites/characters/player_hero.png
-    enemy_goblin_frame1.png -> assets/sprites/enemies/enemy_goblin.png
+Output:
+    assets/sprites/characters/player_hero/sprite_sheet.png (128x32)
 """
 
 import os
-import re
 import sys
 import subprocess
 
@@ -69,38 +70,34 @@ class SpriteSheetMerger:
                 project_root = Path.cwd()
         
         self.project_root = Path(project_root)
-        self.frames_dir = self.project_root / "assets" / "sprites" / "frames"
         self.characters_dir = self.project_root / "assets" / "sprites" / "characters"
-        self.enemies_dir = self.project_root / "assets" / "sprites" / "enemies"
         
-        # Create output directories if they don't exist
+        # Create output directory if it doesn't exist
         self.characters_dir.mkdir(parents=True, exist_ok=True)
-        self.enemies_dir.mkdir(parents=True, exist_ok=True)
         
         print(f"Project root: {self.project_root}")
-        print(f"Frames directory: {self.frames_dir}")
+        print(f"Characters directory: {self.characters_dir}")
     
-    def find_frame_groups(self):
-        """Find all frame files and group them by character name."""
-        if not self.frames_dir.exists():
-            print(f"❌ Frames directory not found: {self.frames_dir}")
+    def find_character_folders(self):
+        """Find all character folders with frame files."""
+        if not self.characters_dir.exists():
+            print(f"❌ Characters directory not found: {self.characters_dir}")
             return {}
         
-        frame_pattern = re.compile(r'^(.+)_frame([1-4])\.png$')
-        groups = {}
+        character_folders = {}
         
-        for file_path in self.frames_dir.glob("*.png"):
-            match = frame_pattern.match(file_path.name)
-            if match:
-                character_name = match.group(1)
-                frame_number = int(match.group(2))
+        for character_folder in self.characters_dir.iterdir():
+            if character_folder.is_dir():
+                frames = {}
+                for i in range(1, 5):
+                    frame_file = character_folder / f"frame{i}.png"
+                    if frame_file.exists():
+                        frames[i] = frame_file
                 
-                if character_name not in groups:
-                    groups[character_name] = {}
-                
-                groups[character_name][frame_number] = file_path
+                if frames:
+                    character_folders[character_folder.name] = frames
         
-        return groups
+        return character_folders
     
     def validate_frame_group(self, character_name, frames):
         """Check if all 4 frames are present for a character."""
@@ -143,18 +140,9 @@ class SpriteSheetMerger:
             return None
     
     def save_sprite_sheet(self, character_name, sprite_sheet):
-        """Save sprite sheet to appropriate directory."""
-        if character_name.startswith('player_'):
-            output_dir = self.characters_dir
-            filename = f"{character_name}.png"
-        elif character_name.startswith('enemy_'):
-            output_dir = self.enemies_dir
-            filename = f"{character_name}.png"
-        else:
-            print(f"⚠️  Unknown character type: {character_name}")
-            return False
-        
-        output_path = output_dir / filename
+        """Save sprite sheet to the character's folder."""
+        character_folder = self.characters_dir / character_name
+        output_path = character_folder / "sprite_sheet.png"
         
         try:
             sprite_sheet.save(output_path, "PNG")
@@ -165,26 +153,26 @@ class SpriteSheetMerger:
             return False
     
     def merge_all(self):
-        """Find all frame groups and merge them into sprite sheets."""
+        """Find all character folders and merge their frames into sprite sheets."""
         print("🎨 Sirius RPG Sprite Sheet Merger")
         print("=" * 40)
         
-        frame_groups = self.find_frame_groups()
+        character_folders = self.find_character_folders()
         
-        if not frame_groups:
-            print("❌ No frame files found!")
-            print(f"Expected files like: {self.frames_dir}/player_hero_frame1.png")
+        if not character_folders:
+            print("❌ No character folders with frame files found!")
+            print(f"Expected structure like: {self.characters_dir}/player_hero/frame1.png")
             return
         
-        print(f"📁 Found {len(frame_groups)} character(s) with frames:")
-        for name in frame_groups.keys():
+        print(f"📁 Found {len(character_folders)} character(s) with frames:")
+        for name in character_folders.keys():
             print(f"   - {name}")
         print()
         
         success_count = 0
-        total_count = len(frame_groups)
+        total_count = len(character_folders)
         
-        for character_name, frames in frame_groups.items():
+        for character_name, frames in character_folders.items():
             print(f"🔄 Processing {character_name}...")
             
             if not self.validate_frame_group(character_name, frames):

@@ -4,7 +4,7 @@
 
 [node name="BattleDialog" type="AcceptDialog"]
 initial_position = 2
-size = Vector2i(600, 500)
+size = Vector2i(800, 600)
 script = ExtResource("1_battle_manager")
 
 [node name="BattleContent" type="VBoxContainer" parent="."]
@@ -18,34 +18,95 @@ offset_bottom = -50.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="EnemyInfo" type="HBoxContainer" parent="BattleContent"]
+[node name="HealthInfo" type="VBoxContainer" parent="BattleContent"]
 layout_mode = 2
 
-[node name="EnemyLabel" type="Label" parent="BattleContent/EnemyInfo"]
+[node name="EnemyInfo" type="HBoxContainer" parent="BattleContent/HealthInfo"]
+layout_mode = 2
+
+[node name="EnemyLabel" type="Label" parent="BattleContent/HealthInfo/EnemyInfo"]
 layout_mode = 2
 text = "Enemy: "
 
-[node name="EnemyHealth" type="Label" parent="BattleContent/EnemyInfo"]
+[node name="EnemyHealth" type="Label" parent="BattleContent/HealthInfo/EnemyInfo"]
 layout_mode = 2
 text = "Goblin HP: 50/50"
 
-[node name="PlayerInfo" type="HBoxContainer" parent="BattleContent"]
+[node name="PlayerInfo" type="HBoxContainer" parent="BattleContent/HealthInfo"]
 layout_mode = 2
 
-[node name="PlayerLabel" type="Label" parent="BattleContent/PlayerInfo"]
+[node name="PlayerLabel" type="Label" parent="BattleContent/HealthInfo/PlayerInfo"]
 layout_mode = 2
 text = "Player: "
 
-[node name="PlayerHealth" type="Label" parent="BattleContent/PlayerInfo"]
+[node name="PlayerHealth" type="Label" parent="BattleContent/HealthInfo/PlayerInfo"]
 layout_mode = 2
 text = "Hero HP: 100/100"
 
-[node name="BattleLog" type="Label" parent="BattleContent"]
+[node name="BattleArena" type="Control" parent="BattleContent"]
 layout_mode = 2
 size_flags_vertical = 3
-text = "Battle begins!"
+
+[node name="PlayerSide" type="Control" parent="BattleContent/BattleArena"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 50.0
+offset_top = -64.0
+offset_right = 178.0
+offset_bottom = 64.0
+grow_vertical = 2
+
+[node name="PlayerSprite" type="AnimatedSprite2D" parent="BattleContent/BattleArena/PlayerSide"]
+position = Vector2(64, 64)
+
+[node name="PlayerDamageLabel" type="Label" parent="BattleContent/BattleArena/PlayerSide"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -20.0
+offset_top = -10.0
+offset_right = 20.0
+offset_bottom = 13.0
+grow_horizontal = 2
+text = "-50"
+horizontal_alignment = 1
 vertical_alignment = 1
-autowrap_mode = 2
+modulate = Color(1, 0, 0, 0)
+
+[node name="EnemySide" type="Control" parent="BattleContent/BattleArena"]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -178.0
+offset_top = -64.0
+offset_right = -50.0
+offset_bottom = 64.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="EnemySprite" type="AnimatedSprite2D" parent="BattleContent/BattleArena/EnemySide"]
+position = Vector2(64, 64)
+
+[node name="EnemyDamageLabel" type="Label" parent="BattleContent/BattleArena/EnemySide"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -20.0
+offset_top = -10.0
+offset_right = 20.0
+offset_bottom = 13.0
+grow_horizontal = 2
+text = "-30"
+horizontal_alignment = 1
+vertical_alignment = 1
+modulate = Color(1, 0, 0, 0)
 
 [node name="ActionButtons" type="HBoxContainer" parent="BattleContent"]
 layout_mode = 2

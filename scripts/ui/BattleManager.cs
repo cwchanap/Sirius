@@ -11,36 +11,48 @@ public partial class BattleManager : AcceptDialog
     // UI References
     private Label _playerHealthLabel;
     private Label _enemyHealthLabel;
-    private Label _battleLogLabel;
     private Button _attackButton;
     private Button _defendButton;
     private Button _runButton;
+    
+    // Animation and Visual References
+    private AnimatedSprite2D _playerSprite;
+    private AnimatedSprite2D _enemySprite;
+    private Label _playerDamageLabel;
+    private Label _enemyDamageLabel;
     
     // Auto-battle properties
     private Timer _battleTimer;
     private bool _battleInProgress = false;
     private bool _playerDefendedLastTurn = false;
     
-    private string _battleLog = "";
-    
     public override void _Ready()
     {
         // Get references to UI elements defined in the scene
-        _enemyHealthLabel = GetNode<Label>("BattleContent/EnemyInfo/EnemyHealth");
-        _playerHealthLabel = GetNode<Label>("BattleContent/PlayerInfo/PlayerHealth");
-        _battleLogLabel = GetNode<Label>("BattleContent/BattleLog");
+        _enemyHealthLabel = GetNode<Label>("BattleContent/HealthInfo/EnemyInfo/EnemyHealth");
+        _playerHealthLabel = GetNode<Label>("BattleContent/HealthInfo/PlayerInfo/PlayerHealth");
         _attackButton = GetNode<Button>("BattleContent/ActionButtons/AttackButton");
         _defendButton = GetNode<Button>("BattleContent/ActionButtons/DefendButton");
         _runButton = GetNode<Button>("BattleContent/ActionButtons/RunButton");
+        
+        // Get animation and visual references
+        _playerSprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/PlayerSide/PlayerSprite");
+        _enemySprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/EnemySide/EnemySprite");
+        _playerDamageLabel = GetNode<Label>("BattleContent/BattleArena/PlayerSide/PlayerDamageLabel");
+        _enemyDamageLabel = GetNode<Label>("BattleContent/BattleArena/EnemySide/EnemyDamageLabel");
         
         // Hide manual action buttons since combat is now automated
         _attackButton.Visible = false;
         _defendButton.Visible = false;
         _runButton.Visible = false;
         
+        // Initialize damage labels as invisible
+        _playerDamageLabel.Modulate = new Color(1, 0, 0, 0);
+        _enemyDamageLabel.Modulate = new Color(1, 0, 0, 0);
+        
         // Create and configure battle timer for auto-combat
         _battleTimer = new Timer();
-        _battleTimer.WaitTime = 0.9; // 0.9 seconds between actions for faster combat (2x speed)
+        _battleTimer.WaitTime = 1.5; // 1.5 seconds between actions for visual feedback
         _battleTimer.Timeout += OnBattleTurnTimer;
         AddChild(_battleTimer);
         
@@ -59,7 +71,7 @@ public partial class BattleManager : AcceptDialog
         // (no escape mechanics since it's automated)
         if (_battleInProgress && _player != null && _enemy != null && _player.IsAlive && _enemy.IsAlive)
         {
-            AddToBattleLog("Battle interrupted!");
+            GD.Print("Battle interrupted!");
             _battleInProgress = false;
             _battleTimer.Stop();
             EndBattleWithEscape();
@@ -75,14 +87,62 @@ public partial class BattleManager : AcceptDialog
         _playerTurn = _player.Speed >= _enemy.Speed; // Faster character goes first
         _battleInProgress = true;
         
-        AddToBattleLog($"Battle begins! {_player.Name} vs {_enemy.Name}");
-        AddToBattleLog($"Turn order: {(_playerTurn ? "Player" : "Enemy")} goes first!");
-        AddToBattleLog("Auto-battle mode: Combat will proceed automatically!");
+        // Setup character animations
+        SetupCharacterAnimations();
+        
+        GD.Print($"Battle begins! {_player.Name} vs {_enemy.Name}");
+        GD.Print($"Turn order: {(_playerTurn ? "Player" : "Enemy")} goes first!");
+        GD.Print("Auto-battle mode: Combat will proceed automatically!");
         
         UpdateUI();
         
         // Start the auto-battle timer
         _battleTimer.Start();
+    }
+    
+    private void SetupCharacterAnimations()
+    {
+        // Create animation resources for player
+        var playerSpriteFrames = new SpriteFrames();
+        
+        // Load player sprite sheet and create animation
+        var playerTexture = GD.Load<Texture2D>("res://assets/sprites/characters/player_hero/sprite_sheet.png");
+        playerSpriteFrames.AddAnimation("idle");
+        
+        // Add frames from sprite sheet (4 frames, 32x32 each)
+        for (int i = 0; i < 4; i++)
+        {
+            var atlasTexture = new AtlasTexture();
+            atlasTexture.Atlas = playerTexture;
+            atlasTexture.Region = new Rect2(i * 32, 0, 32, 32);
+            playerSpriteFrames.AddFrame("idle", atlasTexture);
+        }
+        
+        playerSpriteFrames.SetAnimationSpeed("idle", 4.0);
+        playerSpriteFrames.SetAnimationLoop("idle", true);
+        _playerSprite.SpriteFrames = playerSpriteFrames;
+        _playerSprite.Play("idle");
+        
+        // Create animation resources for enemy
+        var enemySpriteFrames = new SpriteFrames();
+        
+        // Load enemy sprite sheet and create animation
+        var enemyTexture = GD.Load<Texture2D>("res://assets/sprites/characters/enemy_goblin/sprite_sheet.png");
+        enemySpriteFrames.AddAnimation("idle");
+        
+        // Add frames from sprite sheet (4 frames, 32x32 each)
+        for (int i = 0; i < 4; i++)
+        {
+            var atlasTexture = new AtlasTexture();
+            atlasTexture.Atlas = enemyTexture;
+            atlasTexture.Region = new Rect2(i * 32, 0, 32, 32);
+            enemySpriteFrames.AddFrame("idle", atlasTexture);
+        }
+        
+        enemySpriteFrames.SetAnimationSpeed("idle", 4.0);
+        enemySpriteFrames.SetAnimationLoop("idle", true);
+        _enemySprite.SpriteFrames = enemySpriteFrames;
+        _enemySprite.Play("idle");
     }
     
     private void UpdateUI()
@@ -95,11 +155,6 @@ public partial class BattleManager : AcceptDialog
         if (_enemyHealthLabel != null && _enemy != null)
         {
             _enemyHealthLabel.Text = $"{_enemy.Name} (Lv.{_enemy.Level}) HP: {_enemy.CurrentHealth}/{_enemy.MaxHealth}";
-        }
-        
-        if (_battleLogLabel != null)
-        {
-            _battleLogLabel.Text = _battleLog;
         }
         
         // Enable/disable buttons based on turn (all disabled in auto-battle)
@@ -152,7 +207,7 @@ public partial class BattleManager : AcceptDialog
         // More likely to defend when health is low
         if (healthPercentage < 0.4f && GD.Randf() < 0.3f)
         {
-            AddToBattleLog($"{_player.Name} takes a defensive stance!");
+            GD.Print($"{_player.Name} takes a defensive stance!");
             _playerDefendedLastTurn = true;
             return;
         }
@@ -160,7 +215,7 @@ public partial class BattleManager : AcceptDialog
         // Aggressive attack when enemy is low on health
         if (enemyHealthPercentage < 0.3f)
         {
-            AddToBattleLog($"{_player.Name} goes for a finishing blow!");
+            GD.Print($"{_player.Name} goes for a finishing blow!");
         }
         
         // Otherwise, normal attack
@@ -176,15 +231,21 @@ public partial class BattleManager : AcceptDialog
         if (criticalHit)
         {
             baseDamage = (int)(baseDamage * 1.5f);
-            AddToBattleLog($"Critical hit! {_player.Name} deals {baseDamage} damage!");
+            GD.Print($"Critical hit! {_player.Name} deals {baseDamage} damage!");
         }
         else
         {
-            AddToBattleLog($"{_player.Name} attacks for {baseDamage} damage!");
+            GD.Print($"{_player.Name} attacks for {baseDamage} damage!");
         }
         
         baseDamage = Mathf.Max(1, baseDamage);
         _enemy.TakeDamage(baseDamage);
+        
+        // Show damage number on enemy
+        ShowDamageNumber(_enemyDamageLabel, baseDamage, criticalHit);
+        
+        // Play attack animation (flash the player sprite)
+        PlayAttackAnimation(_playerSprite);
     }
     
     private void EnemyTurn(bool playerDefended = false)
@@ -203,18 +264,18 @@ public partial class BattleManager : AcceptDialog
         if (aggressiveAttack)
         {
             damage = (int)(damage * 1.3f);
-            AddToBattleLog($"{_enemy.Name} attacks ferociously!");
+            GD.Print($"{_enemy.Name} attacks ferociously!");
         }
         else if (criticalHit)
         {
             damage = (int)(damage * 1.4f);
-            AddToBattleLog($"Critical hit! {_enemy.Name} strikes hard!");
+            GD.Print($"Critical hit! {_enemy.Name} strikes hard!");
         }
         
         if (playerDefended)
         {
             damage = damage / 2;
-            AddToBattleLog($"The attack is weakened by {_player.Name}'s defense!");
+            GD.Print($"The attack is weakened by {_player.Name}'s defense!");
         }
         
         damage = Mathf.Max(1, damage);
@@ -222,8 +283,14 @@ public partial class BattleManager : AcceptDialog
         
         if (!aggressiveAttack && !criticalHit)
         {
-            AddToBattleLog($"{_enemy.Name} attacks for {damage} damage!");
+            GD.Print($"{_enemy.Name} attacks for {damage} damage!");
         }
+        
+        // Show damage number on player
+        ShowDamageNumber(_playerDamageLabel, damage, criticalHit);
+        
+        // Play attack animation (flash the enemy sprite)
+        PlayAttackAnimation(_enemySprite);
     }
     
     private void EndBattle(bool playerWon)
@@ -234,13 +301,12 @@ public partial class BattleManager : AcceptDialog
         _battleTimer.Stop();
         
         // Add spacing and clear result display
-        AddToBattleLog(""); // Empty line for spacing
-        AddToBattleLog("=== BATTLE RESULT ===");
+        GD.Print("=== BATTLE RESULT ===");
         
         if (playerWon)
         {
-            AddToBattleLog($"🎉 VICTORY! {_player.Name} wins the battle!");
-            AddToBattleLog($"Experience gained: {_enemy.ExperienceReward} XP");
+            GD.Print($"🎉 VICTORY! {_player.Name} wins the battle!");
+            GD.Print($"Experience gained: {_enemy.ExperienceReward} XP");
             
             int oldLevel = _player.Level;
             _player.GainExperience(_enemy.ExperienceReward);
@@ -248,17 +314,17 @@ public partial class BattleManager : AcceptDialog
             // Check if player leveled up
             if (_player.Level > oldLevel)
             {
-                AddToBattleLog($"⭐ LEVEL UP! {_player.Name} reached level {_player.Level}!");
-                AddToBattleLog($"New stats: HP {_player.MaxHealth}, ATK {_player.Attack}, DEF {_player.Defense}");
+                GD.Print($"⭐ LEVEL UP! {_player.Name} reached level {_player.Level}!");
+                GD.Print($"New stats: HP {_player.MaxHealth}, ATK {_player.Attack}, DEF {_player.Defense}");
             }
         }
         else
         {
-            AddToBattleLog($"💀 DEFEAT! {_player.Name} was defeated by {_enemy.Name}...");
-            AddToBattleLog("Game Over - You will return to the main menu.");
+            GD.Print($"💀 DEFEAT! {_player.Name} was defeated by {_enemy.Name}...");
+            GD.Print("Game Over - You will return to the main menu.");
         }
         
-        AddToBattleLog("=====================");
+        GD.Print("=====================");
         
         // Show the close button
         GetOkButton().Visible = true;
@@ -277,11 +343,10 @@ public partial class BattleManager : AcceptDialog
         _battleTimer.Stop();
         
         // Add spacing and clear result display
-        AddToBattleLog(""); // Empty line for spacing
-        AddToBattleLog("=== BATTLE RESULT ===");
-        AddToBattleLog($"🏃 ESCAPED! {_player.Name} fled from battle!");
-        AddToBattleLog("No experience gained from escaping.");
-        AddToBattleLog("=====================");
+        GD.Print("=== BATTLE RESULT ===");
+        GD.Print($"🏃 ESCAPED! {_player.Name} fled from battle!");
+        GD.Print("No experience gained from escaping.");
+        GD.Print("=====================");
         
         // Show the close button
         GetOkButton().Visible = true;
@@ -292,9 +357,52 @@ public partial class BattleManager : AcceptDialog
         EmitSignal(SignalName.BattleFinished, false, true); // false for not won, true for escaped
     }
     
-    private void AddToBattleLog(string message)
+    private void ShowDamageNumber(Label damageLabel, int damage, bool isCritical = false)
     {
-        _battleLog += message + "\n";
-        GD.Print(message);
+        // Set damage text
+        damageLabel.Text = $"-{damage}";
+        
+        // Set color based on critical hit
+        if (isCritical)
+        {
+            damageLabel.Modulate = new Color(1, 1, 0, 1); // Yellow for critical
+        }
+        else
+        {
+            damageLabel.Modulate = new Color(1, 0, 0, 1); // Red for normal damage
+        }
+        
+        // Create tween for damage number animation
+        var tween = CreateTween();
+        tween.SetParallel(true);
+        
+        // Animate position (move up)
+        var startPos = damageLabel.Position;
+        var endPos = startPos + new Vector2(0, -30);
+        tween.TweenProperty(damageLabel, "position", endPos, 1.0);
+        
+        // Animate opacity (fade out)
+        tween.TweenProperty(damageLabel, "modulate:a", 0.0f, 1.0);
+        
+        // Reset position and hide when animation is done
+        tween.TweenCallback(Callable.From(() => {
+            damageLabel.Position = startPos;
+            damageLabel.Modulate = new Color(1, 0, 0, 0);
+        })).SetDelay(1.0);
+    }
+    
+    private void PlayAttackAnimation(AnimatedSprite2D sprite)
+    {
+        // Create a quick flash effect for attack
+        var tween = CreateTween();
+        tween.SetParallel(true);
+        
+        // Scale up slightly and back
+        tween.TweenProperty(sprite, "scale", new Vector2(1.2f, 1.2f), 0.1);
+        tween.TweenProperty(sprite, "scale", new Vector2(1.0f, 1.0f), 0.1).SetDelay(0.1);
+        
+        // Flash white
+        tween.TweenProperty(sprite, "modulate", new Color(2, 2, 2, 1), 0.1);
+        tween.TweenProperty(sprite, "modulate", new Color(1, 1, 1, 1), 0.1).SetDelay(0.1);
     }
 }

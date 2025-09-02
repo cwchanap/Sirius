@@ -13,7 +13,7 @@ script = ExtResource("1_game_manager")
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(16, 2560)
-zoom = Vector2(5.0, 5.0)
+zoom = Vector2(5, 5)
 
 [node name="GridMap" type="Node2D" parent="."]
 script = ExtResource("2_grid_map")

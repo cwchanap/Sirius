@@ -62,6 +62,7 @@ grow_vertical = 2
 position = Vector2(64, 64)
 
 [node name="PlayerDamageLabel" type="Label" parent="BattleContent/BattleArena/PlayerSide"]
+modulate = Color(1, 0, 0, 0)
 layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
@@ -74,7 +75,6 @@ grow_horizontal = 2
 text = "-50"
 horizontal_alignment = 1
 vertical_alignment = 1
-modulate = Color(1, 0, 0, 0)
 
 [node name="EnemySide" type="Control" parent="BattleContent/BattleArena"]
 layout_mode = 1
@@ -94,6 +94,7 @@ grow_vertical = 2
 position = Vector2(64, 64)
 
 [node name="EnemyDamageLabel" type="Label" parent="BattleContent/BattleArena/EnemySide"]
+modulate = Color(1, 0, 0, 0)
 layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
@@ -106,7 +107,6 @@ grow_horizontal = 2
 text = "-30"
 horizontal_alignment = 1
 vertical_alignment = 1
-modulate = Color(1, 0, 0, 0)
 
 [node name="ActionButtons" type="HBoxContainer" parent="BattleContent"]
 layout_mode = 2

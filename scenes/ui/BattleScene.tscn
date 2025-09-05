@@ -18,92 +18,74 @@ offset_bottom = -50.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="HealthInfo" type="VBoxContainer" parent="BattleContent"]
-layout_mode = 2
-
-[node name="EnemyInfo" type="HBoxContainer" parent="BattleContent/HealthInfo"]
-layout_mode = 2
-
-[node name="EnemyLabel" type="Label" parent="BattleContent/HealthInfo/EnemyInfo"]
-layout_mode = 2
-text = "Enemy: "
-
-[node name="EnemyHealth" type="Label" parent="BattleContent/HealthInfo/EnemyInfo"]
-layout_mode = 2
-text = "Goblin HP: 50/50"
-
-[node name="PlayerInfo" type="HBoxContainer" parent="BattleContent/HealthInfo"]
-layout_mode = 2
-
-[node name="PlayerLabel" type="Label" parent="BattleContent/HealthInfo/PlayerInfo"]
-layout_mode = 2
-text = "Player: "
-
-[node name="PlayerHealth" type="Label" parent="BattleContent/HealthInfo/PlayerInfo"]
-layout_mode = 2
-text = "Hero HP: 100/100"
-
-[node name="BattleArena" type="Control" parent="BattleContent"]
+[node name="BattleArena" type="HBoxContainer" parent="BattleContent"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="PlayerSide" type="Control" parent="BattleContent/BattleArena"]
-layout_mode = 1
-anchors_preset = 4
-anchor_top = 0.5
-anchor_bottom = 0.5
-offset_left = 50.0
-offset_top = -64.0
-offset_right = 178.0
-offset_bottom = 64.0
-grow_vertical = 2
+[node name="LeftSide" type="VBoxContainer" parent="BattleContent/BattleArena"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
 
-[node name="PlayerSprite" type="AnimatedSprite2D" parent="BattleContent/BattleArena/PlayerSide"]
-position = Vector2(64, 64)
+[node name="PlayerSprite" type="AnimatedSprite2D" parent="BattleContent/BattleArena/LeftSide"]
 
-[node name="PlayerDamageLabel" type="Label" parent="BattleContent/BattleArena/PlayerSide"]
+[node name="PlayerLevel" type="Label" parent="BattleContent/BattleArena/LeftSide"]
+layout_mode = 2
+text = "Lv: 1"
+horizontal_alignment = 1
+
+[node name="PlayerHealth" type="Label" parent="BattleContent/BattleArena/LeftSide"]
+layout_mode = 2
+text = "HP: 100/100"
+horizontal_alignment = 1
+
+[node name="PlayerAttack" type="Label" parent="BattleContent/BattleArena/LeftSide"]
+layout_mode = 2
+text = "ATK: 10"
+horizontal_alignment = 1
+
+[node name="PlayerDefense" type="Label" parent="BattleContent/BattleArena/LeftSide"]
+layout_mode = 2
+text = "DEF: 5"
+horizontal_alignment = 1
+
+[node name="PlayerDamageLabel" type="Label" parent="BattleContent/BattleArena/LeftSide"]
 modulate = Color(1, 0, 0, 0)
-layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -20.0
-offset_top = -10.0
-offset_right = 20.0
-offset_bottom = 13.0
-grow_horizontal = 2
+layout_mode = 2
 text = "-50"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="EnemySide" type="Control" parent="BattleContent/BattleArena"]
-layout_mode = 1
-anchors_preset = 6
-anchor_left = 1.0
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = -178.0
-offset_top = -64.0
-offset_right = -50.0
-offset_bottom = 64.0
-grow_horizontal = 0
-grow_vertical = 2
+[node name="RightSide" type="VBoxContainer" parent="BattleContent/BattleArena"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
 
-[node name="EnemySprite" type="AnimatedSprite2D" parent="BattleContent/BattleArena/EnemySide"]
-position = Vector2(64, 64)
+[node name="EnemySprite" type="AnimatedSprite2D" parent="BattleContent/BattleArena/RightSide"]
 
-[node name="EnemyDamageLabel" type="Label" parent="BattleContent/BattleArena/EnemySide"]
+[node name="EnemyLevel" type="Label" parent="BattleContent/BattleArena/RightSide"]
+layout_mode = 2
+text = "Lv: 1"
+horizontal_alignment = 1
+
+[node name="EnemyHealth" type="Label" parent="BattleContent/BattleArena/RightSide"]
+layout_mode = 2
+text = "HP: 50/50"
+horizontal_alignment = 1
+
+[node name="EnemyAttack" type="Label" parent="BattleContent/BattleArena/RightSide"]
+layout_mode = 2
+text = "ATK: 8"
+horizontal_alignment = 1
+
+[node name="EnemyDefense" type="Label" parent="BattleContent/BattleArena/RightSide"]
+layout_mode = 2
+text = "DEF: 3"
+horizontal_alignment = 1
+
+[node name="EnemyDamageLabel" type="Label" parent="BattleContent/BattleArena/RightSide"]
 modulate = Color(1, 0, 0, 0)
-layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -20.0
-offset_top = -10.0
-offset_right = 20.0
-offset_bottom = 13.0
-grow_horizontal = 2
+layout_mode = 2
 text = "-30"
 horizontal_alignment = 1
 vertical_alignment = 1

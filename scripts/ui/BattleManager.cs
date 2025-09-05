@@ -9,8 +9,14 @@ public partial class BattleManager : AcceptDialog
     private bool _playerTurn = true;
     
     // UI References
+    private Label _playerLevelLabel;
     private Label _playerHealthLabel;
+    private Label _playerAttackLabel;
+    private Label _playerDefenseLabel;
+    private Label _enemyLevelLabel;
     private Label _enemyHealthLabel;
+    private Label _enemyAttackLabel;
+    private Label _enemyDefenseLabel;
     private Button _attackButton;
     private Button _defendButton;
     private Button _runButton;
@@ -29,17 +35,23 @@ public partial class BattleManager : AcceptDialog
     public override void _Ready()
     {
         // Get references to UI elements defined in the scene
-        _enemyHealthLabel = GetNode<Label>("BattleContent/HealthInfo/EnemyInfo/EnemyHealth");
-        _playerHealthLabel = GetNode<Label>("BattleContent/HealthInfo/PlayerInfo/PlayerHealth");
+        _enemyLevelLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyLevel");
+        _enemyHealthLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyHealth");
+        _enemyAttackLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyAttack");
+        _enemyDefenseLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyDefense");
+        _playerLevelLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerLevel");
+        _playerHealthLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerHealth");
+        _playerAttackLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerAttack");
+        _playerDefenseLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerDefense");
         _attackButton = GetNode<Button>("BattleContent/ActionButtons/AttackButton");
         _defendButton = GetNode<Button>("BattleContent/ActionButtons/DefendButton");
         _runButton = GetNode<Button>("BattleContent/ActionButtons/RunButton");
-        
+
         // Get animation and visual references
-        _playerSprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/PlayerSide/PlayerSprite");
-        _enemySprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/EnemySide/EnemySprite");
-        _playerDamageLabel = GetNode<Label>("BattleContent/BattleArena/PlayerSide/PlayerDamageLabel");
-        _enemyDamageLabel = GetNode<Label>("BattleContent/BattleArena/EnemySide/EnemyDamageLabel");
+        _playerSprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/LeftSide/PlayerSprite");
+        _enemySprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/RightSide/EnemySprite");
+        _playerDamageLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerDamageLabel");
+        _enemyDamageLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyDamageLabel");
         
         // Hide manual action buttons since combat is now automated
         _attackButton.Visible = false;
@@ -147,16 +159,46 @@ public partial class BattleManager : AcceptDialog
     
     private void UpdateUI()
     {
+        if (_playerLevelLabel != null && _player != null)
+        {
+            _playerLevelLabel.Text = $"Lv: {_player.Level}";
+        }
+
         if (_playerHealthLabel != null && _player != null)
         {
-            _playerHealthLabel.Text = $"{_player.Name} (Lv.{_player.Level}) HP: {_player.CurrentHealth}/{_player.MaxHealth}";
+            _playerHealthLabel.Text = $"HP: {_player.CurrentHealth}/{_player.MaxHealth}";
         }
-        
+
+        if (_playerAttackLabel != null && _player != null)
+        {
+            _playerAttackLabel.Text = $"ATK: {_player.Attack}";
+        }
+
+        if (_playerDefenseLabel != null && _player != null)
+        {
+            _playerDefenseLabel.Text = $"DEF: {_player.Defense}";
+        }
+
+        if (_enemyLevelLabel != null && _enemy != null)
+        {
+            _enemyLevelLabel.Text = $"Lv: {_enemy.Level}";
+        }
+
         if (_enemyHealthLabel != null && _enemy != null)
         {
-            _enemyHealthLabel.Text = $"{_enemy.Name} (Lv.{_enemy.Level}) HP: {_enemy.CurrentHealth}/{_enemy.MaxHealth}";
+            _enemyHealthLabel.Text = $"HP: {_enemy.CurrentHealth}/{_enemy.MaxHealth}";
         }
-        
+
+        if (_enemyAttackLabel != null && _enemy != null)
+        {
+            _enemyAttackLabel.Text = $"ATK: {_enemy.Attack}";
+        }
+
+        if (_enemyDefenseLabel != null && _enemy != null)
+        {
+            _enemyDefenseLabel.Text = $"DEF: {_enemy.Defense}";
+        }
+
         // Enable/disable buttons based on turn (all disabled in auto-battle)
         if (_attackButton != null) _attackButton.Disabled = true;
         if (_defendButton != null) _defendButton.Disabled = true;

@@ -23,6 +23,9 @@ public partial class GridMap : Node2D
     private const int TOTAL_FRAMES = 4;
     private int _currentFrame = 0;
     
+    // Debugging flag to use colors instead of textures
+    private bool _useColorTerrain = false;
+    
     // Grid cell types
     public enum CellType
     {
@@ -39,6 +42,20 @@ public partial class GridMap : Node2D
     {
         // Load sprites first
         LoadSprites();
+        
+        // Debug: Test terrain type detection
+        GD.Print("🔍 TERRAIN TYPE TEST:");
+        GD.Print($"  (10,80): {GetTerrainType(10, 80)} (should be starting_area)");
+        GD.Print($"  (50,25): {GetTerrainType(50, 25)} (should be forest)");  
+        GD.Print($"  (40,110): {GetTerrainType(40, 110)} (should be cave)");
+        GD.Print($"  (110,60): {GetTerrainType(110, 60)} (should be desert)");
+        GD.Print($"  (40,140): {GetTerrainType(40, 140)} (should be swamp)");
+        GD.Print($"  (125,25): {GetTerrainType(125, 25)} (should be mountain)");
+        GD.Print($"  (125,100): {GetTerrainType(125, 100)} (should be dungeon)");
+        
+        // TEMPORARY: Switch to color-based terrain for debugging
+        _useColorTerrain = true;
+        GD.Print("🎨 TERRAIN DISPLAY: Using colors instead of textures for debugging");
         
         InitializeGrid();
         DrawGrid();
@@ -64,31 +81,43 @@ public partial class GridMap : Node2D
     {
         try
         {
+            GD.Print("🎮 Starting sprite loading...");
+            
             // Load character sprites (use sprite sheets)
             var playerTexture = GD.Load<Texture2D>("res://assets/sprites/characters/player_hero/sprite_sheet.png");
             if (playerTexture != null)
+            {
                 _cellSprites[CellType.Player] = playerTexture;
+                GD.Print("✅ Player sprite loaded");
+            }
+            else
+            {
+                GD.PrintErr("❌ Player sprite failed to load");
+            }
 
-            // Load basic terrain sprites
-            var floorTexture = GD.Load<Texture2D>("res://assets/sprites/terrain/floor_starting_area.png");
-            if (floorTexture != null)
-                _terrainSprites["starting"] = floorTexture;
-                
+            // Load wall texture
             var wallTexture = GD.Load<Texture2D>("res://assets/sprites/terrain/wall_generic.png");
             if (wallTexture != null)
+            {
                 _cellSprites[CellType.Wall] = wallTexture;
+                GD.Print("✅ Wall texture loaded");
+            }
+            else
+            {
+                GD.PrintErr("❌ Wall texture failed to load - using fallback");
+            }
 
             // Load enemy sprites
             LoadEnemySprites();
             
-            // Load themed terrain
+            // Load themed terrain (this loads all terrain types)
             LoadThemedTerrain();
             
-            GD.Print("Sprites loaded successfully!");
+            GD.Print($"🎯 Sprites loaded! UseSprites: {UseSprites}");
         }
         catch (Exception ex)
         {
-            GD.PrintErr($"Error loading sprites: {ex.Message}");
+            GD.PrintErr($"❌ Error loading sprites: {ex.Message}");
             UseSprites = false; // Fallback to colored rectangles
         }
     }
@@ -138,8 +167,11 @@ public partial class GridMap : Node2D
             "floor_swamp.png",
             "floor_mountain.png",
             "floor_dungeon.png",
-            "floor_boss_arena.png"
+            "floor_starting_area.png"
         };
+        
+        GD.Print("🗺️ Loading terrain textures...");
+        int loadedCount = 0;
         
         foreach (var filename in terrainTypes)
         {
@@ -148,7 +180,43 @@ public partial class GridMap : Node2D
             {
                 var terrainType = filename.Replace("floor_", "").Replace(".png", "");
                 _terrainSprites[terrainType] = texture;
+                
+                // Debug texture information
+                var size = texture.GetSize();
+                GD.Print($"✅ Loaded terrain texture: {terrainType} (Size: {size.X}x{size.Y}, Resource ID: {texture.GetRid()})");
+                loadedCount++;
             }
+            else
+            {
+                GD.PrintErr($"❌ Failed to load terrain texture: {filename}");
+            }
+        }
+        
+        GD.Print($"🎯 Total terrain textures loaded: {loadedCount}/{terrainTypes.Length}");
+        
+        // Print all loaded terrain types for debugging
+        GD.Print("📋 Available terrain types:");
+        foreach (var kvp in _terrainSprites)
+        {
+            var texture = kvp.Value;
+            var size = texture.GetSize();
+            GD.Print($"   - {kvp.Key}: {size.X}x{size.Y}, Resource ID: {texture.GetRid()}");
+        }
+        
+        // Test if all textures have the same resource ID (which would indicate they're the same file)
+        var resourceIds = new System.Collections.Generic.HashSet<Rid>();
+        foreach (var kvp in _terrainSprites)
+        {
+            resourceIds.Add(kvp.Value.GetRid());
+        }
+        
+        if (resourceIds.Count == 1 && _terrainSprites.Count > 1)
+        {
+            GD.PrintErr("⚠️ WARNING: All terrain textures have the same Resource ID - they might be the same file!");
+        }
+        else
+        {
+            GD.Print($"✅ Good: Found {resourceIds.Count} unique texture resources");
         }
     }
     
@@ -579,10 +647,17 @@ public partial class GridMap : Node2D
 
     private void DrawCellWithSprite(Vector2 cellPos, int x, int y, CellType cellType)
     {
-        // Draw terrain background first
+        // Handle walls separately - they don't need terrain background
+        if (cellType == CellType.Wall)
+        {
+            DrawWallSprite(cellPos, x, y);
+            return;
+        }
+        
+        // Draw terrain background for non-wall cells
         DrawTerrainSprite(cellPos, x, y);
         
-        // Draw entity sprite on top
+        // Draw entity sprite on top of terrain
         if (cellType == CellType.Player && _cellSprites.ContainsKey(CellType.Player))
         {
             DrawAnimatedSprite(_cellSprites[CellType.Player], cellPos);
@@ -591,9 +666,21 @@ public partial class GridMap : Node2D
         {
             DrawEnemySprite(cellPos, x, y);
         }
-        else if (cellType == CellType.Wall && _cellSprites.ContainsKey(CellType.Wall))
+    }
+
+    private void DrawWallSprite(Vector2 cellPos, int x, int y)
+    {
+        // Try to draw wall texture if available
+        if (_cellSprites.ContainsKey(CellType.Wall))
         {
             DrawTexture(_cellSprites[CellType.Wall], cellPos);
+        }
+        else
+        {
+            // Fallback to dark gray solid color for walls
+            Vector2 cellSize = new Vector2(CellSize, CellSize);
+            DrawRect(new Rect2(cellPos, cellSize), Colors.DarkGray);
+            DrawRect(new Rect2(cellPos, cellSize), Colors.Black, false, 1.0f); // Border
         }
     }
 
@@ -601,18 +688,62 @@ public partial class GridMap : Node2D
     {
         string terrainType = GetTerrainType(x, y);
         
+        // Debug: Log terrain type requests frequently for first few seconds
+        if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+        {
+            GD.Print($"🗺️ Cell ({x},{y}) requesting terrain: {terrainType}");
+            GD.Print($"� Contains '{terrainType}'? {_terrainSprites.ContainsKey(terrainType)}");
+            if (_terrainSprites.ContainsKey(terrainType))
+            {
+                var texture = _terrainSprites[terrainType];
+                GD.Print($"🎨 Texture for {terrainType} is null? {texture == null}");
+            }
+        }
+        
         if (_terrainSprites.ContainsKey(terrainType))
         {
-            DrawTexture(_terrainSprites[terrainType], cellPos);
-        }
-        else if (_terrainSprites.ContainsKey("starting"))
-        {
-            // Fallback to starting area texture
-            DrawTexture(_terrainSprites["starting"], cellPos);
+            var texture = _terrainSprites[terrainType];
+            if (texture != null)
+            {
+                DrawTexture(texture, cellPos);
+                if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+                {
+                    GD.Print($"✅ Drew {terrainType} texture at ({x},{y})");
+                }
+                return;
+            }
+            else
+            {
+                if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+                {
+                    GD.Print($"❌ Texture for {terrainType} is null at ({x},{y})");
+                }
+            }
         }
         else
         {
-            // Fallback to colored rectangle
+            if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+            {
+                GD.Print($"❌ No texture found for {terrainType} at ({x},{y})");
+            }
+        }
+        
+        // Fallback chain
+        if (_terrainSprites.ContainsKey("starting_area"))
+        {
+            if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+            {
+                GD.Print($"⚠️ Using starting_area fallback for {terrainType} at ({x},{y})");
+            }
+            DrawTexture(_terrainSprites["starting_area"], cellPos);
+        }
+        else
+        {
+            // Final fallback to colored rectangle
+            if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+            {
+                GD.Print($"🎨 Using color fallback for {terrainType}");
+            }
             Vector2 cellSize = new Vector2(CellSize, CellSize);
             DrawRect(new Rect2(cellPos, cellSize), GetAreaColor(x, y));
         }
@@ -676,17 +807,42 @@ public partial class GridMap : Node2D
 
     private string GetTerrainType(int x, int y)
     {
-        // Determine terrain type based on area
-        if (IsInAreaBounds(x, y, 5, GridHeight / 2 - 10, 30, 20)) return "starting";
-        if (IsInAreaBounds(x, y, 40, 15, 35, 30) || IsInAreaBounds(x, y, 45, 50, 25, 25)) return "forest";
-        if (IsInAreaBounds(x, y, 20, 90, 40, 35) || IsInAreaBounds(x, y, 70, 95, 30, 30)) return "cave";
-        if (IsInAreaBounds(x, y, 90, 40, 45, 40)) return "desert";
-        if (IsInAreaBounds(x, y, 25, 130, 35, 25) || IsInAreaBounds(x, y, 70, 135, 25, 20)) return "swamp";
-        if (IsInAreaBounds(x, y, 110, 15, 40, 35)) return "mountain";
-        if (IsInAreaBounds(x, y, 115, 85, 30, 35)) return "dungeon";
-        if (IsInAreaBounds(x, y, 135, 135, 20, 20)) return "boss_arena";
+        // Determine terrain type based on area with better debugging
+        if (IsInAreaBounds(x, y, 5, GridHeight / 2 - 10, 30, 20)) 
+        {
+            return "starting_area";
+        }
+        if (IsInAreaBounds(x, y, 40, 15, 35, 30) || IsInAreaBounds(x, y, 45, 50, 25, 25)) 
+        {
+            return "forest";
+        }
+        if (IsInAreaBounds(x, y, 20, 90, 40, 35) || IsInAreaBounds(x, y, 70, 95, 30, 30)) 
+        {
+            return "cave";
+        }
+        if (IsInAreaBounds(x, y, 90, 40, 45, 40)) 
+        {
+            return "desert";
+        }
+        if (IsInAreaBounds(x, y, 25, 130, 35, 25) || IsInAreaBounds(x, y, 70, 135, 25, 20)) 
+        {
+            return "swamp";
+        }
+        if (IsInAreaBounds(x, y, 110, 15, 40, 35)) 
+        {
+            return "mountain";
+        }
+        if (IsInAreaBounds(x, y, 115, 85, 30, 35)) 
+        {
+            return "dungeon";
+        }
+        if (IsInAreaBounds(x, y, 135, 135, 20, 20)) 
+        {
+            return "dungeon"; // Boss arena uses dungeon texture
+        }
         
-        return "starting"; // Default fallback
+        // For corridors and paths, use starting_area as default
+        return "starting_area";
     }
 
     private string GetEnemyTypeForPosition(int x, int y)

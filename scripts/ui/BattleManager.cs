@@ -34,24 +34,38 @@ public partial class BattleManager : AcceptDialog
     
     public override void _Ready()
     {
+        // Add battle background first (before other UI elements)
+        AddBattleBackground();
+        
         // Get references to UI elements defined in the scene
-        _enemyLevelLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyLevel");
-        _enemyHealthLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyHealth");
-        _enemyAttackLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyAttack");
-        _enemyDefenseLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyDefense");
-        _playerLevelLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerLevel");
-        _playerHealthLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerHealth");
-        _playerAttackLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerAttack");
-        _playerDefenseLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerDefense");
+        _enemyLevelLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemyLevel");
+        _enemyHealthLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemyHealth");
+        _enemyAttackLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemyAttack");
+        _enemyDefenseLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemyDefense");
+        _playerLevelLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerStatsContainer/PlayerLevel");
+        _playerHealthLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerStatsContainer/PlayerHealth");
+        _playerAttackLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerStatsContainer/PlayerAttack");
+        _playerDefenseLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerStatsContainer/PlayerDefense");
         _attackButton = GetNode<Button>("BattleContent/ActionButtons/AttackButton");
         _defendButton = GetNode<Button>("BattleContent/ActionButtons/DefendButton");
         _runButton = GetNode<Button>("BattleContent/ActionButtons/RunButton");
 
         // Get animation and visual references
-        _playerSprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/LeftSide/PlayerSprite");
-        _enemySprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/RightSide/EnemySprite");
-        _playerDamageLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerDamageLabel");
-        _enemyDamageLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyDamageLabel");
+        _playerSprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/LeftSide/PlayerSpriteContainer/PlayerSprite");
+        _enemySprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/RightSide/EnemySpriteContainer/EnemySprite");
+        _playerDamageLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerStatsContainer/PlayerDamageLabel");
+        _enemyDamageLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemyDamageLabel");
+        
+        // Get container references for responsive positioning
+        var playerContainer = GetNode<Control>("BattleContent/BattleArena/LeftSide/PlayerSpriteContainer");
+        var enemyContainer = GetNode<Control>("BattleContent/BattleArena/RightSide/EnemySpriteContainer");
+        
+        // Connect to container resizing events for responsive positioning
+        playerContainer.Resized += () => PositionPlayerSprite(playerContainer);
+        enemyContainer.Resized += () => PositionEnemySprite(enemyContainer);
+        
+        // Initial centering
+        CenterSprites();
         
         // Hide manual action buttons since combat is now automated
         _attackButton.Visible = false;
@@ -75,6 +89,59 @@ public partial class BattleManager : AcceptDialog
         
         // Connect the close request signal
         CloseRequested += OnCloseRequested;
+    }
+    
+    private void AddBattleBackground()
+    {
+        // Create a TextureRect for the battle background
+        var backgroundRect = new TextureRect();
+        backgroundRect.Name = "BattleBackground";
+        
+        // Set it to fill the entire dialog using anchors manually
+        backgroundRect.AnchorLeft = 0;
+        backgroundRect.AnchorTop = 0;
+        backgroundRect.AnchorRight = 1;
+        backgroundRect.AnchorBottom = 1;
+        backgroundRect.OffsetLeft = 0;
+        backgroundRect.OffsetTop = 0;
+        backgroundRect.OffsetRight = 0;
+        backgroundRect.OffsetBottom = 0;
+        backgroundRect.ZIndex = -1; // Put it behind other elements
+        
+        // Try to load the battle background image
+        var backgroundTexture = GD.Load<Texture2D>("res://assets/sprites/ui/ui_battle_background.png");
+        
+        if (backgroundTexture != null)
+        {
+            backgroundRect.Texture = backgroundTexture;
+            backgroundRect.ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional;
+            backgroundRect.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
+            GD.Print("✅ Battle background loaded successfully");
+        }
+        else
+        {
+            // Fallback to a solid color background using a ColorRect instead
+            var colorRect = new ColorRect();
+            colorRect.Name = "BattleBackgroundColor";
+            colorRect.AnchorLeft = 0;
+            colorRect.AnchorTop = 0;
+            colorRect.AnchorRight = 1;
+            colorRect.AnchorBottom = 1;
+            colorRect.OffsetLeft = 0;
+            colorRect.OffsetTop = 0;
+            colorRect.OffsetRight = 0;
+            colorRect.OffsetBottom = 0;
+            colorRect.ZIndex = -1;
+            colorRect.Color = new Color(0.2f, 0.1f, 0.3f, 1.0f); // Dark purple
+            AddChild(colorRect);
+            MoveChild(colorRect, 0);
+            GD.Print("⚠️ Battle background not found, using fallback color");
+            return;
+        }
+        
+        // Add the background as the first child (so it appears behind everything)
+        AddChild(backgroundRect);
+        MoveChild(backgroundRect, 0);
     }
     
     private void OnCloseRequested()
@@ -112,49 +179,112 @@ public partial class BattleManager : AcceptDialog
         _battleTimer.Start();
     }
     
+    private void CenterSprites()
+    {
+        // Get the containers to center sprites within them
+        var playerContainer = GetNode<Control>("BattleContent/BattleArena/LeftSide/PlayerSpriteContainer");
+        var enemyContainer = GetNode<Control>("BattleContent/BattleArena/RightSide/EnemySpriteContainer");
+        
+        // Center sprites when their containers are ready
+        CallDeferred(nameof(PositionSpritesInCenter), playerContainer, enemyContainer);
+    }
+    
+    private void PositionSpritesInCenter(Control playerContainer, Control enemyContainer)
+    {
+        PositionPlayerSprite(playerContainer);
+        PositionEnemySprite(enemyContainer);
+    }
+    
+    private void PositionPlayerSprite(Control container)
+    {
+        if (_playerSprite != null && container.Size.X > 0 && container.Size.Y > 0)
+        {
+            var center = container.Size / 2;
+            _playerSprite.Position = center;
+        }
+    }
+    
+    private void PositionEnemySprite(Control container)
+    {
+        if (_enemySprite != null && container.Size.X > 0 && container.Size.Y > 0)
+        {
+            var center = container.Size / 2;
+            _enemySprite.Position = center;
+        }
+    }
+    
     private void SetupCharacterAnimations()
     {
         // Create animation resources for player
         var playerSpriteFrames = new SpriteFrames();
         
-        // Load player sprite sheet and create animation
+        // Load player sprite sheet and create animation - with fallback
         var playerTexture = GD.Load<Texture2D>("res://assets/sprites/characters/player_hero/sprite_sheet.png");
-        playerSpriteFrames.AddAnimation("idle");
-        
-        // Add frames from sprite sheet (4 frames, 32x32 each)
-        for (int i = 0; i < 4; i++)
+        if (playerTexture != null)
         {
-            var atlasTexture = new AtlasTexture();
-            atlasTexture.Atlas = playerTexture;
-            atlasTexture.Region = new Rect2(i * 32, 0, 32, 32);
-            playerSpriteFrames.AddFrame("idle", atlasTexture);
+            playerSpriteFrames.AddAnimation("idle");
+            
+            // Add frames from sprite sheet (4 frames, 32x32 each)
+            for (int i = 0; i < 4; i++)
+            {
+                var atlasTexture = new AtlasTexture();
+                atlasTexture.Atlas = playerTexture;
+                atlasTexture.Region = new Rect2(i * 32, 0, 32, 32);
+                playerSpriteFrames.AddFrame("idle", atlasTexture);
+            }
+            
+            playerSpriteFrames.SetAnimationSpeed("idle", 4.0);
+            playerSpriteFrames.SetAnimationLoop("idle", true);
+            _playerSprite.SpriteFrames = playerSpriteFrames;
+            _playerSprite.Scale = new Vector2(3.0f, 3.0f); // Make sprite 3x larger
+            _playerSprite.Play("idle");
         }
-        
-        playerSpriteFrames.SetAnimationSpeed("idle", 4.0);
-        playerSpriteFrames.SetAnimationLoop("idle", true);
-        _playerSprite.SpriteFrames = playerSpriteFrames;
-        _playerSprite.Play("idle");
+        else
+        {
+            GD.Print("Warning: Player sprite sheet not found, using fallback");
+        }
         
         // Create animation resources for enemy
         var enemySpriteFrames = new SpriteFrames();
         
-        // Load enemy sprite sheet and create animation
+        // Load enemy sprite sheet and create animation - with fallback
         var enemyTexture = GD.Load<Texture2D>("res://assets/sprites/characters/enemy_goblin/sprite_sheet.png");
-        enemySpriteFrames.AddAnimation("idle");
-        
-        // Add frames from sprite sheet (4 frames, 32x32 each)
-        for (int i = 0; i < 4; i++)
+        if (enemyTexture != null)
         {
-            var atlasTexture = new AtlasTexture();
-            atlasTexture.Atlas = enemyTexture;
-            atlasTexture.Region = new Rect2(i * 32, 0, 32, 32);
-            enemySpriteFrames.AddFrame("idle", atlasTexture);
+            enemySpriteFrames.AddAnimation("idle");
+            
+            // Add frames from sprite sheet (4 frames, 32x32 each)
+            for (int i = 0; i < 4; i++)
+            {
+                var atlasTexture = new AtlasTexture();
+                atlasTexture.Atlas = enemyTexture;
+                atlasTexture.Region = new Rect2(i * 32, 0, 32, 32);
+                enemySpriteFrames.AddFrame("idle", atlasTexture);
+            }
+            
+            enemySpriteFrames.SetAnimationSpeed("idle", 4.0);
+            enemySpriteFrames.SetAnimationLoop("idle", true);
+            _enemySprite.SpriteFrames = enemySpriteFrames;
+            _enemySprite.Scale = new Vector2(3.0f, 3.0f); // Make sprite 3x larger
+            _enemySprite.Play("idle");
         }
-        
-        enemySpriteFrames.SetAnimationSpeed("idle", 4.0);
-        enemySpriteFrames.SetAnimationLoop("idle", true);
-        _enemySprite.SpriteFrames = enemySpriteFrames;
-        _enemySprite.Play("idle");
+        else
+        {
+            GD.Print("Warning: Enemy goblin sprite sheet not found, using fallback");
+            // Check if there are sprite files that need to be merged
+            CheckAndCreateSpriteSheet();
+        }
+    }
+    
+    private void CheckAndCreateSpriteSheet()
+    {
+        // Check if individual sprite frames exist for goblin
+        string goblinDir = "res://assets/sprites/characters/enemy_goblin/";
+        if (DirAccess.DirExistsAbsolute(goblinDir))
+        {
+            GD.Print($"Goblin sprite directory exists: {goblinDir}");
+            GD.Print("You may need to run: python3 tools/sprite_sheet_merger.py");
+        }
     }
     
     private void UpdateUI()
@@ -439,9 +569,13 @@ public partial class BattleManager : AcceptDialog
         var tween = CreateTween();
         tween.SetParallel(true);
         
+        // Get current scale (should be 3.0f) and scale up slightly from that
+        var currentScale = sprite.Scale;
+        var attackScale = currentScale * 1.2f;
+        
         // Scale up slightly and back
-        tween.TweenProperty(sprite, "scale", new Vector2(1.2f, 1.2f), 0.1);
-        tween.TweenProperty(sprite, "scale", new Vector2(1.0f, 1.0f), 0.1).SetDelay(0.1);
+        tween.TweenProperty(sprite, "scale", attackScale, 0.1);
+        tween.TweenProperty(sprite, "scale", currentScale, 0.1).SetDelay(0.1);
         
         // Flash white
         tween.TweenProperty(sprite, "modulate", new Color(2, 2, 2, 1), 0.1);

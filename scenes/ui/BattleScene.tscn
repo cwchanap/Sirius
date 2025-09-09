@@ -25,31 +25,39 @@ size_flags_vertical = 3
 [node name="LeftSide" type="VBoxContainer" parent="BattleContent/BattleArena"]
 layout_mode = 2
 size_flags_horizontal = 3
+
+[node name="PlayerSpriteContainer" type="Control" parent="BattleContent/BattleArena/LeftSide"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PlayerSprite" type="AnimatedSprite2D" parent="BattleContent/BattleArena/LeftSide/PlayerSpriteContainer"]
+
+[node name="PlayerStatsContainer" type="VBoxContainer" parent="BattleContent/BattleArena/LeftSide"]
+layout_mode = 2
+size_flags_vertical = 3
 alignment = 1
 
-[node name="PlayerSprite" type="AnimatedSprite2D" parent="BattleContent/BattleArena/LeftSide"]
-
-[node name="PlayerLevel" type="Label" parent="BattleContent/BattleArena/LeftSide"]
+[node name="PlayerLevel" type="Label" parent="BattleContent/BattleArena/LeftSide/PlayerStatsContainer"]
 layout_mode = 2
 text = "Lv: 1"
 horizontal_alignment = 1
 
-[node name="PlayerHealth" type="Label" parent="BattleContent/BattleArena/LeftSide"]
+[node name="PlayerHealth" type="Label" parent="BattleContent/BattleArena/LeftSide/PlayerStatsContainer"]
 layout_mode = 2
 text = "HP: 100/100"
 horizontal_alignment = 1
 
-[node name="PlayerAttack" type="Label" parent="BattleContent/BattleArena/LeftSide"]
+[node name="PlayerAttack" type="Label" parent="BattleContent/BattleArena/LeftSide/PlayerStatsContainer"]
 layout_mode = 2
 text = "ATK: 10"
 horizontal_alignment = 1
 
-[node name="PlayerDefense" type="Label" parent="BattleContent/BattleArena/LeftSide"]
+[node name="PlayerDefense" type="Label" parent="BattleContent/BattleArena/LeftSide/PlayerStatsContainer"]
 layout_mode = 2
 text = "DEF: 5"
 horizontal_alignment = 1
 
-[node name="PlayerDamageLabel" type="Label" parent="BattleContent/BattleArena/LeftSide"]
+[node name="PlayerDamageLabel" type="Label" parent="BattleContent/BattleArena/LeftSide/PlayerStatsContainer"]
 modulate = Color(1, 0, 0, 0)
 layout_mode = 2
 text = "-50"
@@ -59,31 +67,39 @@ vertical_alignment = 1
 [node name="RightSide" type="VBoxContainer" parent="BattleContent/BattleArena"]
 layout_mode = 2
 size_flags_horizontal = 3
+
+[node name="EnemySpriteContainer" type="Control" parent="BattleContent/BattleArena/RightSide"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="EnemySprite" type="AnimatedSprite2D" parent="BattleContent/BattleArena/RightSide/EnemySpriteContainer"]
+
+[node name="EnemyStatsContainer" type="VBoxContainer" parent="BattleContent/BattleArena/RightSide"]
+layout_mode = 2
+size_flags_vertical = 3
 alignment = 1
 
-[node name="EnemySprite" type="AnimatedSprite2D" parent="BattleContent/BattleArena/RightSide"]
-
-[node name="EnemyLevel" type="Label" parent="BattleContent/BattleArena/RightSide"]
+[node name="EnemyLevel" type="Label" parent="BattleContent/BattleArena/RightSide/EnemyStatsContainer"]
 layout_mode = 2
 text = "Lv: 1"
 horizontal_alignment = 1
 
-[node name="EnemyHealth" type="Label" parent="BattleContent/BattleArena/RightSide"]
+[node name="EnemyHealth" type="Label" parent="BattleContent/BattleArena/RightSide/EnemyStatsContainer"]
 layout_mode = 2
 text = "HP: 50/50"
 horizontal_alignment = 1
 
-[node name="EnemyAttack" type="Label" parent="BattleContent/BattleArena/RightSide"]
+[node name="EnemyAttack" type="Label" parent="BattleContent/BattleArena/RightSide/EnemyStatsContainer"]
 layout_mode = 2
 text = "ATK: 8"
 horizontal_alignment = 1
 
-[node name="EnemyDefense" type="Label" parent="BattleContent/BattleArena/RightSide"]
+[node name="EnemyDefense" type="Label" parent="BattleContent/BattleArena/RightSide/EnemyStatsContainer"]
 layout_mode = 2
 text = "DEF: 3"
 horizontal_alignment = 1
 
-[node name="EnemyDamageLabel" type="Label" parent="BattleContent/BattleArena/RightSide"]
+[node name="EnemyDamageLabel" type="Label" parent="BattleContent/BattleArena/RightSide/EnemyStatsContainer"]
 modulate = Color(1, 0, 0, 0)
 layout_mode = 2
 text = "-30"

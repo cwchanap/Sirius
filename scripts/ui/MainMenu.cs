@@ -2,10 +2,39 @@ using Godot;
 
 public partial class MainMenu : Control
 {
+	private TextureRect _backgroundRect;
+
 	public override void _Ready()
 	{
 		// Initialize the main menu
 		GD.Print("Main Menu loaded");
+		
+		// Load and set the background image
+		LoadBackgroundImage();
+	}
+
+	private void LoadBackgroundImage()
+	{
+		// Get reference to the background TextureRect
+		_backgroundRect = GetNode<TextureRect>("Background");
+		
+		if (_backgroundRect != null)
+		{
+			// Try to load the main menu background
+			var backgroundTexture = GD.Load<Texture2D>("res://assets/sprites/ui/ui_main_menu_background.png");
+			
+			if (backgroundTexture != null)
+			{
+				_backgroundRect.Texture = backgroundTexture;
+				_backgroundRect.ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional;
+				_backgroundRect.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
+				GD.Print("✅ Main menu background loaded successfully");
+			}
+			else
+			{
+				GD.Print("⚠️ Main menu background not found, using default gradient");
+			}
+		}
 	}
 
 	private void _on_start_button_pressed()

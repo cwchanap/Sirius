@@ -4,3 +4,5 @@
 *.uid
 *.import
 frames/
+
+assets/**/original

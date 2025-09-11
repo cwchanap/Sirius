@@ -82,13 +82,16 @@ public partial class GridMap : Node2D
         try
         {
             GD.Print("🎮 Starting sprite loading...");
-            
+
             // Load character sprites (use sprite sheets)
             var playerTexture = GD.Load<Texture2D>("res://assets/sprites/characters/player_hero/sprite_sheet.png");
             if (playerTexture != null)
             {
                 _cellSprites[CellType.Player] = playerTexture;
                 GD.Print("✅ Player sprite loaded");
+                // Debug texture properties
+                GD.Print($"   📏 Size: {playerTexture.GetSize()}");
+                GD.Print($"   🔗 Resource ID: {playerTexture.GetRid()}");
             }
             else
             {
@@ -673,7 +676,8 @@ public partial class GridMap : Node2D
         // Try to draw wall texture if available
         if (_cellSprites.ContainsKey(CellType.Wall))
         {
-            DrawTexture(_cellSprites[CellType.Wall], cellPos);
+            // Draw with transparency support
+            DrawTexture(_cellSprites[CellType.Wall], cellPos, modulate: new Color(1, 1, 1, 1));
         }
         else
         {
@@ -705,7 +709,8 @@ public partial class GridMap : Node2D
             var texture = _terrainSprites[terrainType];
             if (texture != null)
             {
-                DrawTexture(texture, cellPos);
+                // Draw with transparency support
+                DrawTexture(texture, cellPos, modulate: new Color(1, 1, 1, 1));
                 if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
                 {
                     GD.Print($"✅ Drew {terrainType} texture at ({x},{y})");
@@ -735,7 +740,8 @@ public partial class GridMap : Node2D
             {
                 GD.Print($"⚠️ Using starting_area fallback for {terrainType} at ({x},{y})");
             }
-            DrawTexture(_terrainSprites["starting_area"], cellPos);
+            // Draw with transparency support
+            DrawTexture(_terrainSprites["starting_area"], cellPos, modulate: new Color(1, 1, 1, 1));
         }
         else
         {
@@ -781,17 +787,18 @@ public partial class GridMap : Node2D
         {
             return;
         }
-        
+
         // Calculate source rectangle for current frame
         // Sprite sheet is 128x32 (4 frames of 32x32 each, horizontally arranged)
         int frameWidth = 32;
         int frameHeight = 32;
         int frameX = _currentFrame * frameWidth;
-        
+
         Rect2 sourceRect = new Rect2(frameX, 0, frameWidth, frameHeight);
         Rect2 destRect = new Rect2(position, new Vector2(frameWidth, frameHeight));
-        
-        DrawTextureRectRegion(spriteSheet, destRect, sourceRect);
+
+        // Draw with transparency support - use CanvasItem.DrawTextureRectRegion
+        DrawTextureRectRegion(spriteSheet, destRect, sourceRect, modulate: new Color(1, 1, 1, 1), transpose: false);
     }
 
     private void DrawCellWithColor(Vector2 cellPos, int x, int y, CellType cellType)

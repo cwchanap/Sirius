@@ -16,30 +16,33 @@ public partial class Game : Node2D
     public override void _Ready()
     {
         GD.Print("Game scene loaded");
-        
+
         // Get references
         _gameManager = GetNode<GameManager>("GameManager");
         _gridMap = GetNode<GridMap>("GridMap");
         _gameUI = GetNode<Control>("UI/GameUI");
         _camera = GetNode<Camera2D>("Camera2D");
-        
+
+        // Reset battle state to ensure clean start
+        _gameManager.ResetBattleState();
+
         // Get UI labels
         _playerNameLabel = GetNode<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerName");
         _playerLevelLabel = GetNode<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerLevel");
         _playerHealthLabel = GetNode<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerHealth");
         _playerExperienceLabel = GetNode<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerExperience");
-        
+
         // Connect signals
         _gameManager.BattleStarted += OnBattleStarted;
         _gameManager.BattleEnded += OnBattleEnded;
-        
+
         // Connect to grid map for enemy encounters
         _gridMap.EnemyEncountered += OnEnemyEncountered;
         _gridMap.PlayerMoved += OnPlayerMoved;
-        
+
         // Update UI
         UpdatePlayerUI();
-        
+
         // Use a deferred call to set camera position after grid is ready
         CallDeferred(nameof(SetInitialCameraPosition));
     }
@@ -227,23 +230,41 @@ public partial class Game : Node2D
     private void OnBattleStarted(Enemy enemy)
     {
         GD.Print($"Starting battle with {enemy.Name}");
-        
+
         // Don't hide game UI - battle will be shown as a popup dialog
-        
+
         // Load battle scene
         var battleScene = GD.Load<PackedScene>("res://scenes/ui/BattleScene.tscn");
+        if (battleScene == null)
+        {
+            GD.PrintErr("ERROR: Failed to load battle scene!");
+            return;
+        }
+
         _battleManager = battleScene.Instantiate<BattleManager>();
+        if (_battleManager == null)
+        {
+            GD.PrintErr("ERROR: Failed to instantiate BattleManager!");
+            return;
+        }
+
         GetNode("UI").AddChild(_battleManager);
-        
+
         // Connect battle signals
         _battleManager.BattleFinished += OnBattleFinished;
         _battleManager.Confirmed += OnBattleDialogConfirmed; // Handle OK button press
-        
+
+        // Ensure dialog is properly configured
+        _battleManager.PopupWindow = true;
+        _battleManager.Exclusive = true;
+
         // Show the battle dialog
         _battleManager.PopupCentered();
-        
+        GD.Print("Battle dialog should now be visible");
+
         // Start the battle
         _battleManager.StartBattle(_gameManager.Player, enemy);
+        GD.Print("Battle started successfully");
     }
 
     private void OnBattleEnded(bool playerWon)

@@ -5,6 +5,8 @@
 [node name="BattleDialog" type="AcceptDialog"]
 initial_position = 2
 size = Vector2i(800, 600)
+popup_window = true
+exclusive = true
 script = ExtResource("1_battle_manager")
 
 [node name="BattleContent" type="VBoxContainer" parent="."]

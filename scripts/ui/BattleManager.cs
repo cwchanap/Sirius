@@ -34,9 +34,11 @@ public partial class BattleManager : AcceptDialog
     
     public override void _Ready()
     {
+        GD.Print("BattleManager _Ready called");
+
         // Add battle background first (before other UI elements)
         AddBattleBackground();
-        
+
         // Get references to UI elements defined in the scene
         _enemyLevelLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemyLevel");
         _enemyHealthLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemyHealth");
@@ -49,6 +51,15 @@ public partial class BattleManager : AcceptDialog
         _attackButton = GetNode<Button>("BattleContent/ActionButtons/AttackButton");
         _defendButton = GetNode<Button>("BattleContent/ActionButtons/DefendButton");
         _runButton = GetNode<Button>("BattleContent/ActionButtons/RunButton");
+
+        // Verify all UI elements are loaded
+        if (_enemyLevelLabel == null) GD.PrintErr("ERROR: EnemyLevelLabel not found!");
+        if (_playerLevelLabel == null) GD.PrintErr("ERROR: PlayerLevelLabel not found!");
+        if (_attackButton == null) GD.PrintErr("ERROR: AttackButton not found!");
+        if (_defendButton == null) GD.PrintErr("ERROR: DefendButton not found!");
+        if (_runButton == null) GD.PrintErr("ERROR: RunButton not found!");
+
+        GD.Print("BattleManager UI elements loaded");
 
         // Get animation and visual references
         _playerSprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/LeftSide/PlayerSpriteContainer/PlayerSprite");
@@ -132,10 +143,10 @@ public partial class BattleManager : AcceptDialog
             colorRect.OffsetRight = 0;
             colorRect.OffsetBottom = 0;
             colorRect.ZIndex = -1;
-            colorRect.Color = new Color(0.2f, 0.1f, 0.3f, 1.0f); // Dark purple
+            colorRect.Color = new Color(1.0f, 0.0f, 1.0f, 1.0f); // Bright magenta for testing transparency
             AddChild(colorRect);
             MoveChild(colorRect, 0);
-            GD.Print("⚠️ Battle background not found, using fallback color");
+            GD.Print("⚠️ Battle background not found, using fallback color (bright magenta for transparency testing)");
             return;
         }
         
@@ -217,56 +228,117 @@ public partial class BattleManager : AcceptDialog
     {
         // Create animation resources for player
         var playerSpriteFrames = new SpriteFrames();
-        
+
         // Load player sprite sheet and create animation - with fallback
         var playerTexture = GD.Load<Texture2D>("res://assets/sprites/characters/player_hero/sprite_sheet.png");
         if (playerTexture != null)
         {
+            GD.Print("🎮 Player texture loaded:");
+            GD.Print($"   📏 Size: {playerTexture.GetSize()}");
+            GD.Print($"   🔗 Resource ID: {playerTexture.GetRid()}");
+            GD.Print($"   🎨 Texture is null: {playerTexture == null}");
+            GD.Print($"   📊 Texture resource path: {playerTexture.ResourcePath}");
+
             playerSpriteFrames.AddAnimation("idle");
-            
+
             // Add frames from sprite sheet (4 frames, 32x32 each)
             for (int i = 0; i < 4; i++)
             {
                 var atlasTexture = new AtlasTexture();
                 atlasTexture.Atlas = playerTexture;
                 atlasTexture.Region = new Rect2(i * 32, 0, 32, 32);
+                // Ensure transparency is preserved
+                atlasTexture.FilterClip = true;
                 playerSpriteFrames.AddFrame("idle", atlasTexture);
+                GD.Print($"   ✅ Frame {i} added to animation");
             }
-            
+
             playerSpriteFrames.SetAnimationSpeed("idle", 4.0);
             playerSpriteFrames.SetAnimationLoop("idle", true);
             _playerSprite.SpriteFrames = playerSpriteFrames;
             _playerSprite.Scale = new Vector2(3.0f, 3.0f); // Make sprite 3x larger
+            // Ensure sprite uses transparency
+            _playerSprite.Modulate = new Color(1, 1, 1, 1); // Reset modulate to ensure transparency works
             _playerSprite.Play("idle");
+
+            // Force material for transparency
+            var material = new CanvasItemMaterial();
+            material.BlendMode = CanvasItemMaterial.BlendModeEnum.Mix;
+            material.LightMode = CanvasItemMaterial.LightModeEnum.Unshaded;
+            _playerSprite.Material = material;
+
+            // Try to force self-modulate for transparency
+            _playerSprite.SelfModulate = new Color(1, 1, 1, 1);
+
+            // Force sprite to be visible and centered
+            _playerSprite.Visible = true;
+            _playerSprite.Centered = true;
+
+            GD.Print("✅ Player sprite loaded with transparency support");
+            GD.Print($"   🎭 SpriteFrames assigned: {_playerSprite.SpriteFrames != null}");
+            GD.Print($"   🎬 Animation playing: {_playerSprite.IsPlaying()}");
+            GD.Print($"   👁️  Sprite visible: {_playerSprite.Visible}");
+            GD.Print($"   📍 Sprite position: {_playerSprite.Position}");
+            GD.Print($"   📏 Sprite scale: {_playerSprite.Scale}");
         }
         else
         {
             GD.Print("Warning: Player sprite sheet not found, using fallback");
         }
-        
+
         // Create animation resources for enemy
         var enemySpriteFrames = new SpriteFrames();
-        
+
         // Load enemy sprite sheet and create animation - with fallback
         var enemyTexture = GD.Load<Texture2D>("res://assets/sprites/characters/enemy_goblin/sprite_sheet.png");
         if (enemyTexture != null)
         {
+            GD.Print("👹 Enemy texture loaded:");
+            GD.Print($"   📏 Size: {enemyTexture.GetSize()}");
+            GD.Print($"   🔗 Resource ID: {enemyTexture.GetRid()}");
+            GD.Print($"   🎨 Texture is null: {enemyTexture == null}");
+            GD.Print($"   📊 Texture resource path: {enemyTexture.ResourcePath}");
+
             enemySpriteFrames.AddAnimation("idle");
-            
+
             // Add frames from sprite sheet (4 frames, 32x32 each)
             for (int i = 0; i < 4; i++)
             {
                 var atlasTexture = new AtlasTexture();
                 atlasTexture.Atlas = enemyTexture;
                 atlasTexture.Region = new Rect2(i * 32, 0, 32, 32);
+                // Ensure transparency is preserved
+                atlasTexture.FilterClip = true;
                 enemySpriteFrames.AddFrame("idle", atlasTexture);
             }
-            
+
             enemySpriteFrames.SetAnimationSpeed("idle", 4.0);
             enemySpriteFrames.SetAnimationLoop("idle", true);
             _enemySprite.SpriteFrames = enemySpriteFrames;
             _enemySprite.Scale = new Vector2(3.0f, 3.0f); // Make sprite 3x larger
+            // Ensure sprite uses transparency
+            _enemySprite.Modulate = new Color(1, 1, 1, 1); // Reset modulate to ensure transparency works
             _enemySprite.Play("idle");
+
+            // Force material for transparency
+            var enemyMaterial = new CanvasItemMaterial();
+            enemyMaterial.BlendMode = CanvasItemMaterial.BlendModeEnum.Mix;
+            enemyMaterial.LightMode = CanvasItemMaterial.LightModeEnum.Unshaded;
+            _enemySprite.Material = enemyMaterial;
+
+            // Try to force self-modulate for transparency
+            _enemySprite.SelfModulate = new Color(1, 1, 1, 1);
+
+            // Force sprite to be visible and centered
+            _enemySprite.Visible = true;
+            _enemySprite.Centered = true;
+
+            GD.Print("✅ Enemy sprite loaded with transparency support");
+            GD.Print($"   🎭 SpriteFrames assigned: {_enemySprite.SpriteFrames != null}");
+            GD.Print($"   🎬 Animation playing: {_enemySprite.IsPlaying()}");
+            GD.Print($"   👁️  Sprite visible: {_enemySprite.Visible}");
+            GD.Print($"   📍 Sprite position: {_enemySprite.Position}");
+            GD.Print($"   📏 Sprite scale: {_enemySprite.Scale}");
         }
         else
         {

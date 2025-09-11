@@ -16,6 +16,7 @@ position = Vector2(16, 2560)
 zoom = Vector2(5, 5)
 
 [node name="GridMap" type="Node2D" parent="."]
+texture_filter = 1
 script = ExtResource("2_grid_map")
 
 [node name="PlayerController" type="Node" parent="."]

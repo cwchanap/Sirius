@@ -12,13 +12,17 @@ public partial class GameManager : Node
     
     public override void _Ready()
     {
+        GD.Print("GameManager _Ready called");
+
         if (Instance == null)
         {
             Instance = this;
             InitializePlayer();
+            GD.Print("GameManager initialized as singleton");
         }
         else
         {
+            GD.Print("GameManager instance already exists, queueing free");
             QueueFree();
         }
     }
@@ -60,9 +64,15 @@ public partial class GameManager : Node
         {
             GD.Print("Warning: Not in battle, but forcing EndBattle to ensure state consistency");
         }
-        
+
         IsInBattle = false;
         GD.Print($"Battle ended. Player won: {playerWon}. IsInBattle: {IsInBattle}");
         EmitSignal(SignalName.BattleEnded, playerWon);
+    }
+
+    public void ResetBattleState()
+    {
+        IsInBattle = false;
+        GD.Print("Battle state reset. IsInBattle: false");
     }
 }

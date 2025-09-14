@@ -2,12 +2,17 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
+[Tool]
 public partial class GridMap : Node2D
 {
     [Export] public int GridWidth { get; set; } = 160;
     [Export] public int GridHeight { get; set; } = 160;
     [Export] public int CellSize { get; set; } = 32; // Reduced cell size to fit larger grid
     [Export] public bool UseSprites { get; set; } = true; // Toggle for sprite rendering
+    
+    // Editor preview controls
+    [Export] public bool EditorPreviewFullMap { get; set; } = false;
+    [Export] public Vector2I EditorPreviewSize { get; set; } = new Vector2I(60, 40);
     
     private int[,] _grid;
     private Vector2I _playerPosition;
@@ -38,34 +43,63 @@ public partial class GridMap : Node2D
     [Signal] public delegate void PlayerMovedEventHandler(Vector2I newPosition);
     [Signal] public delegate void EnemyEncounteredEventHandler(Vector2I enemyPosition);
     
+    public override void _EnterTree()
+    {
+        // Ensure processing and drawing happens inside the editor for preview
+        if (Engine.IsEditorHint())
+        {
+            ProcessMode = ProcessModeEnum.Always;
+        }
+    }
+    
     public override void _Ready()
     {
-        // Load sprites first
-        LoadSprites();
+        if (Engine.IsEditorHint())
+        {
+            // Lightweight editor preview: skip heavy sprite loading and use colors
+            UseSprites = false;
+            _useColorTerrain = true;
+        }
+        else
+        {
+            // Load sprites for runtime
+            LoadSprites();
+            
+            // TEMPORARY: Switch to color-based terrain for debugging during runtime
+            _useColorTerrain = true;
+            GD.Print("🎨 TERRAIN DISPLAY: Using colors instead of textures for debugging");
+        }
         
         // Debug: Test terrain type detection
-        GD.Print("🔍 TERRAIN TYPE TEST:");
-        GD.Print($"  (10,80): {GetTerrainType(10, 80)} (should be starting_area)");
-        GD.Print($"  (50,25): {GetTerrainType(50, 25)} (should be forest)");  
-        GD.Print($"  (40,110): {GetTerrainType(40, 110)} (should be cave)");
-        GD.Print($"  (110,60): {GetTerrainType(110, 60)} (should be desert)");
-        GD.Print($"  (40,140): {GetTerrainType(40, 140)} (should be swamp)");
-        GD.Print($"  (125,25): {GetTerrainType(125, 25)} (should be mountain)");
-        GD.Print($"  (125,100): {GetTerrainType(125, 100)} (should be dungeon)");
-        
-        // TEMPORARY: Switch to color-based terrain for debugging
-        _useColorTerrain = true;
-        GD.Print("🎨 TERRAIN DISPLAY: Using colors instead of textures for debugging");
+        if (!Engine.IsEditorHint())
+        {
+            GD.Print("🔍 TERRAIN TYPE TEST:");
+            GD.Print($"  (10,80): {GetTerrainType(10, 80)} (should be starting_area)");
+            GD.Print($"  (50,25): {GetTerrainType(50, 25)} (should be forest)");  
+            GD.Print($"  (40,110): {GetTerrainType(40, 110)} (should be cave)");
+            GD.Print($"  (110,60): {GetTerrainType(110, 60)} (should be desert)");
+            GD.Print($"  (40,140): {GetTerrainType(40, 140)} (should be swamp)");
+            GD.Print($"  (125,25): {GetTerrainType(125, 25)} (should be mountain)");
+            GD.Print($"  (125,100): {GetTerrainType(125, 100)} (should be dungeon)");
+        }
         
         InitializeGrid();
         DrawGrid();
         
         // Connect to camera movement to trigger redraws when needed
-        GetViewport().SizeChanged += () => QueueRedraw();
+        if (!Engine.IsEditorHint())
+        {
+            GetViewport().SizeChanged += () => QueueRedraw();
+        }
     }
     
     public override void _Process(double delta)
     {
+        if (Engine.IsEditorHint())
+        {
+            // Don't animate in editor to keep preview lightweight
+            return;
+        }
         // Handle sprite animation timing
         _animationTime += (float)delta;
         
@@ -609,7 +643,23 @@ public partial class GridMap : Node2D
         int padding = 10;
         int startX, endX, startY, endY;
         
-        if (camera != null)
+        if (Engine.IsEditorHint())
+        {
+            // In editor: draw a top-left preview region or the full map
+            startX = 0;
+            startY = 0;
+            if (EditorPreviewFullMap)
+            {
+                endX = GridWidth;
+                endY = GridHeight;
+            }
+            else
+            {
+                endX = Mathf.Min(GridWidth, EditorPreviewSize.X);
+                endY = Mathf.Min(GridHeight, EditorPreviewSize.Y);
+            }
+        }
+        else if (camera != null)
         {
             // Use viewport culling for performance
             startX = Mathf.Max(0, (int)((cameraPos.X - viewportSize.X / zoom / 2) / CellSize) - padding);

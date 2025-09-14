@@ -102,8 +102,26 @@ _battleManager.BattleFinished += OnBattleFinished;
 
 ## Testing and Debugging
 
+### Running and Testing
+```bash
+# Build and run the project
+dotnet build Sirius.sln
+# Then run from Godot editor (F5) or open Godot and use "Run Project"
+
+# Asset generation when individual sprite frames exist
+python3 tools/sprite_sheet_merger.py
+```
+
+### Debugging Workflow
 - Walk into colored enemies on grid to trigger battles
 - Auto-combat proceeds without input, ESC returns to menu
 - Console provides detailed battle logs and state transitions
 - Enemy types and spawning are deterministic based on grid position
 - Check GameManager.IsInBattle flag for state debugging
+
+### Common Troubleshooting
+- **Battle state stuck**: Use `GameManager.ResetBattleState()` method
+- **Sprite rendering issues**: Ensure sprite sheets are 128x32 (4 frames of 32x32)
+- **Performance problems**: Verify viewport culling is active in GridMap._Draw()
+- **Grid bounds errors**: Always validate coordinates before accessing grid arrays
+- **Asset pipeline**: Individual 32x32 frames → merge via Python script → import in Godot

@@ -9,7 +9,7 @@ public partial class GridMap : Node2D
     [Export] public int GridHeight { get; set; } = 160;
     [Export] public int CellSize { get; set; } = 32; // Reduced cell size to fit larger grid
     [Export] public bool UseSprites { get; set; } = true; // Toggle for sprite rendering
-    [Export] public bool UseBakedTileMapsAtRuntime { get; set; } = false; // If true and baked maps exist, show them instead of procedural
+    [Export] public bool UseBakedTileMapsAtRuntime { get; set; } = true; // Default to static TileMapLayer tiles at runtime
     [Export] public bool EnableDebugLogging { get; set; } = false; // Reduce noisy logs unless enabled
     
     // Editor preview controls
@@ -637,29 +637,7 @@ public partial class GridMap : Node2D
             dbgGroundCells = dbgGround != null ? dbgGround.GetUsedCells().Count : 0;
             dbgWallCells = dbgWalls != null ? dbgWalls.GetUsedCells().Count : 0;
             GD.Print($"🧱 TILEMAPS STATE (post-build): Ground cells={dbgGroundCells}, Wall cells={dbgWallCells}");
-
-            // If nothing is present yet, paint a small debug patch under the camera so we can verify rendering
-            if (EnableDebugLogging && dbgGround != null && dbgGround.TileSet != null && dbgGroundCells == 0)
-            {
-                int y0 = 80;
-                for (int x = 0; x < 16; x++)
-                {
-                    for (int y = y0; y < y0 + 4; y++)
-                    {
-                        dbgGround.SetCell(new Vector2I(x, y), 0, Vector2I.Zero, 0); // source 0, atlas (0,0), alt 0
-                    }
-                }
-                // A couple of walls nearby to verify z-index
-                if (dbgWalls != null && dbgWalls.TileSet != null)
-                {
-                    dbgWalls.SetCell(new Vector2I(5, y0 + 1), 7, Vector2I.Zero, 0); // source 7 = wall_generic
-                    dbgWalls.SetCell(new Vector2I(6, y0 + 2), 7, Vector2I.Zero, 0);
-                }
-                // Report counts after debug paint
-                dbgGroundCells = dbgGround.GetUsedCells().Count;
-                dbgWallCells = dbgWalls != null ? dbgWalls.GetUsedCells().Count : 0;
-                GD.Print($"🧪 DEBUG PAINT: Ground cells={dbgGroundCells}, Wall cells={dbgWallCells}");
-            }
+            // Removed runtime debug painting: rely solely on static TileMapLayer content saved in scene
         }
         
         // Debug: Test terrain type detection

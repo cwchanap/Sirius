@@ -1,0 +1,61 @@
+[gd_resource type="TileSet" load_steps=17 format=3 uid="uid://bd1lphvv1mbaa"]
+
+[ext_resource type="Texture2D" uid="uid://b7pt6exv0cdce" path="res://assets/sprites/terrain/floor_starting_area.png" id="1"]
+[ext_resource type="Texture2D" uid="uid://doojtni7wmgoj" path="res://assets/sprites/terrain/floor_forest.png" id="2"]
+[ext_resource type="Texture2D" uid="uid://mssfft353ksg" path="res://assets/sprites/terrain/floor_cave.png" id="3"]
+[ext_resource type="Texture2D" uid="uid://b1ovyt82xyo22" path="res://assets/sprites/terrain/floor_desert.png" id="4"]
+[ext_resource type="Texture2D" uid="uid://c2vfjt6xyjjcp" path="res://assets/sprites/terrain/floor_swamp.png" id="5"]
+[ext_resource type="Texture2D" uid="uid://pae2yf5wdv76" path="res://assets/sprites/terrain/floor_mountain.png" id="6"]
+[ext_resource type="Texture2D" uid="uid://du43o35230qxf" path="res://assets/sprites/terrain/floor_dungeon.png" id="7"]
+[ext_resource type="Texture2D" uid="uid://wh4c1mfuv8b5" path="res://assets/sprites/terrain/wall_generic.png" id="8"]
+
+[sub_resource type="TileSetAtlasSource" id="1"]
+texture = ExtResource("1")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="2"]
+texture = ExtResource("2")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="3"]
+texture = ExtResource("3")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="4"]
+texture = ExtResource("4")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="5"]
+texture = ExtResource("5")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="6"]
+texture = ExtResource("6")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="7"]
+texture = ExtResource("7")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="8"]
+texture = ExtResource("8")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+
+[resource]
+tile_size = Vector2i(32, 32)
+sources/0 = SubResource("1")
+sources/1 = SubResource("2")
+sources/2 = SubResource("3")
+sources/3 = SubResource("4")
+sources/4 = SubResource("5")
+sources/5 = SubResource("6")
+sources/6 = SubResource("7")
+sources/7 = SubResource("8")

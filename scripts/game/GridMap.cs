@@ -9,10 +9,20 @@ public partial class GridMap : Node2D
     [Export] public int GridHeight { get; set; } = 160;
     [Export] public int CellSize { get; set; } = 32; // Reduced cell size to fit larger grid
     [Export] public bool UseSprites { get; set; } = true; // Toggle for sprite rendering
+    [Export] public bool UseBakedTileMapsAtRuntime { get; set; } = false; // If true and baked maps exist, show them instead of procedural
+    [Export] public bool EnableDebugLogging { get; set; } = false; // Reduce noisy logs unless enabled
     
     // Editor preview controls
     [Export] public bool EditorPreviewFullMap { get; set; } = false;
     [Export] public Vector2I EditorPreviewSize { get; set; } = new Vector2I(60, 40);
+    [Export] public bool EditorPreviewUseSprites { get; set; } = true;
+    [Export] public bool EditorPreviewAnimate { get; set; } = true;
+
+    // Editor baking controls
+    [Export] public bool EditorBakeTileMap { get; set; } = false;
+    [Export] public bool EditorClearBakedTileMaps { get; set; } = false;
+    [Export] public bool EditorGenerateSpriteSheets { get; set; } = false; // Compose frame1-4.png into sprite_sheet.png per character
+    [Export] public bool EditorSaveBakedTileSet { get; set; } = false; // Save the generated TileSet as a .tres resource
     
     private int[,] _grid;
     private Vector2I _playerPosition;
@@ -39,6 +49,521 @@ public partial class GridMap : Node2D
         Enemy = 2,
         Player = 3
     }
+
+    // ===== Editor-only baking helpers =====
+    private TileSet _bakedTileSet;
+    private int _sourceIdFloor = -1;
+    private int _sourceIdWall = -1;
+    private int _sourceIdEnemyMarker = -1;
+    private int _sourceIdPlayerMarker = -1;
+    // Map terrain type -> TileSet source id for themed floors
+    private Dictionary<string, int> _floorSourceIds = new();
+
+    private void EditorHandleBakingActions()
+    {
+        // Called from _Process in editor
+        if (EditorClearBakedTileMaps)
+        {
+            EditorClearBakedTileMaps = false;
+            EditorClearBaked();
+            QueueRedraw();
+        }
+
+        if (EditorBakeTileMap)
+        {
+            EditorBakeTileMap = false;
+            EditorBake();
+            QueueRedraw();
+        }
+
+        if (EditorGenerateSpriteSheets)
+        {
+            EditorGenerateSpriteSheets = false;
+            EditorGenerateSheets();
+        }
+
+        if (EditorSaveBakedTileSet)
+        {
+            EditorSaveBakedTileSet = false;
+            EditorSaveTileSetResource();
+        }
+
+        // One-time prefill removed; static workflow uses manual painting or existing baked data
+    }
+
+    private void EditorSaveTileSetResource()
+    {
+        if (_bakedTileSet == null)
+        {
+            EnsureBakedTileSet();
+        }
+        // Save to a stable location so the editor shows a persistent resource
+        const string path = "res://assets/tiles/baked_tileset.tres";
+        // Ensure directory exists
+        var dirPath = "res://assets/tiles";
+        if (!DirAccess.DirExistsAbsolute(dirPath))
+        {
+            DirAccess.MakeDirRecursiveAbsolute(dirPath);
+        }
+        var err = ResourceSaver.Save(_bakedTileSet, path);
+        if (err == Error.Ok)
+        {
+            if (EnableDebugLogging) GD.Print($"💾 Saved TileSet to {path}");
+            // Re-load resource so it becomes an external resource instance
+            var saved = GD.Load<TileSet>(path);
+            if (saved != null)
+            {
+                var ground = GetNodeOrNull<TileMapLayer>("GroundLayer");
+                var walls = GetNodeOrNull<TileMapLayer>("WallLayer");
+                var markers = GetNodeOrNull<TileMapLayer>("MarkerLayer");
+                if (ground != null) ground.TileSet = saved;
+                if (walls != null) walls.TileSet = saved;
+                if (markers != null) markers.TileSet = saved;
+                _bakedTileSet = saved;
+            }
+        }
+        else
+        {
+            GD.PrintErr($"❌ Failed to save TileSet to {path}: {err}");
+        }
+    }
+
+    private void EditorEnsureTilesetAndLayers()
+    {
+        // Ensure layers exist and have a saved TileSet resource in assets/tiles
+        const string path = "res://assets/tiles/baked_tileset.tres";
+        EnsureBakedTileSet();
+
+        if (!FileAccess.FileExists(path))
+        {
+            // Save if not present
+            var err = ResourceSaver.Save(_bakedTileSet, path);
+            if (err == Error.Ok && EnableDebugLogging)
+            {
+                GD.Print($"💾 Auto-saved TileSet to {path}");
+            }
+        }
+
+        var saved = GD.Load<TileSet>(path);
+        if (saved != null)
+        {
+            _bakedTileSet = saved;
+        }
+
+        // Ensure layers exist and have this tileset
+        var ground = GetNodeOrNull<TileMapLayer>("GroundLayer") ?? CreateTileMapLayerChild("GroundLayer", 0);
+        var walls = GetNodeOrNull<TileMapLayer>("WallLayer") ?? CreateTileMapLayerChild("WallLayer", 1);
+        var markers = GetNodeOrNull<TileMapLayer>("MarkerLayer") ?? CreateTileMapLayerChild("MarkerLayer", 2);
+
+        var sceneOwner = Owner ?? GetTree().EditedSceneRoot;
+        if (ground.Owner == null) ground.Owner = sceneOwner;
+        if (walls.Owner == null) walls.Owner = sceneOwner;
+        if (markers.Owner == null) markers.Owner = sceneOwner;
+
+        if (ground.TileSet == null) ground.TileSet = _bakedTileSet;
+        if (walls.TileSet == null) walls.TileSet = _bakedTileSet;
+        if (markers.TileSet == null) markers.TileSet = _bakedTileSet;
+    }
+
+    private void EditorGenerateSheets()
+    {
+        // Scan res://assets/sprites/characters/* for frame1-4.png and build sprite_sheet.png if missing
+        string basePath = "res://assets/sprites/characters";
+        var dir = DirAccess.Open(basePath);
+        if (dir == null)
+        {
+            if (EnableDebugLogging) GD.PrintErr($"❌ Could not open characters directory: {basePath}");
+            return;
+        }
+
+        dir.ListDirBegin();
+        while (true)
+        {
+            string entry = dir.GetNext();
+            if (string.IsNullOrEmpty(entry)) break;
+            if (entry == "." || entry == "..") continue;
+            if (!dir.CurrentIsDir()) continue;
+
+            string charDir = $"{basePath}/{entry}";
+            string sheetPath = $"{charDir}/sprite_sheet.png";
+            if (FileAccess.FileExists(sheetPath))
+            {
+                if (EnableDebugLogging) GD.Print($"ℹ️ Skipping {entry}: sprite_sheet.png already exists");
+                continue;
+            }
+
+            string[] frames = { "frame1.png", "frame2.png", "frame3.png", "frame4.png" };
+            var images = new List<Image>();
+            bool missing = false;
+            foreach (var f in frames)
+            {
+                string fp = $"{charDir}/{f}";
+                if (!FileAccess.FileExists(fp)) { missing = true; break; }
+                var img = Image.LoadFromFile(fp);
+                if (img == null)
+                {
+                    missing = true; break;
+                }
+                images.Add(img);
+            }
+
+            if (missing)
+            {
+                if (EnableDebugLogging) GD.Print($"⚠️ Skipping {entry}: missing frame images");
+                continue;
+            }
+
+            // Verify sizes and compose 128x32
+            int fw = 32, fh = 32;
+            foreach (var img in images)
+            {
+                if (img.GetWidth() != fw || img.GetHeight() != fh)
+                {
+                    if (EnableDebugLogging) GD.Print($"⚠️ Skipping {entry}: frame size not 32x32");
+                    missing = true; break;
+                }
+            }
+            if (missing) continue;
+
+            var outImg = Image.CreateEmpty(fw * 4, fh, false, Image.Format.Rgba8);
+            for (int i = 0; i < 4; i++)
+            {
+                outImg.BlitRect(images[i], new Rect2I(0, 0, fw, fh), new Vector2I(i * fw, 0));
+            }
+            Error saveErr = outImg.SavePng(sheetPath);
+            if (saveErr == Error.Ok)
+            {
+                if (EnableDebugLogging) GD.Print($"✅ Generated sprite sheet: {sheetPath}");
+            }
+            else
+            {
+                GD.PrintErr($"❌ Failed to save sprite sheet for {entry}: {saveErr}");
+            }
+        }
+        dir.ListDirEnd();
+    }
+
+    private bool HasBakedTileMaps()
+    {
+        // Support both: separate TileMapLayer nodes and a single TileMap with layers
+        var ground = GetNodeOrNull<TileMapLayer>("GroundLayer");
+        var walls = GetNodeOrNull<TileMapLayer>("WallLayer");
+        var markers = GetNodeOrNull<TileMapLayer>("MarkerLayer");
+        var tileMap = GetNodeOrNull<TileMap>("TileMap");
+
+        if (tileMap != null)
+        {
+            int count = tileMap.GetLayersCount();
+            for (int i = 0; i < count; i++)
+            {
+                if (tileMap.GetUsedCells(i).Count > 0)
+                    return true;
+            }
+        }
+
+        bool anyLayer = ground != null || walls != null || markers != null;
+        if (!anyLayer) return false;
+
+        bool hasCells = false;
+        if (ground != null) hasCells |= ground.GetUsedCells().Count > 0;
+        if (walls != null) hasCells |= walls.GetUsedCells().Count > 0;
+        if (markers != null) hasCells |= markers.GetUsedCells().Count > 0;
+        return hasCells;
+    }
+
+    private void EditorBake()
+    {
+        if (!Engine.IsEditorHint()) return;
+        if (_grid == null || _grid.Length == 0)
+        {
+            InitializeGrid();
+        }
+
+        // Create/get TileMapLayer nodes
+        var ground = GetNodeOrNull<TileMapLayer>("GroundLayer") ?? CreateTileMapLayerChild("GroundLayer", zIndex: 0);
+        var walls = GetNodeOrNull<TileMapLayer>("WallLayer") ?? CreateTileMapLayerChild("WallLayer", zIndex: 1);
+        var markers = GetNodeOrNull<TileMapLayer>("MarkerLayer") ?? CreateTileMapLayerChild("MarkerLayer", zIndex: 2);
+
+        // Ensure layers are owned by the edited scene so they are selectable/editable and persist on save
+        var sceneOwner = Owner ?? GetTree().EditedSceneRoot;
+        if (ground.Owner == null) ground.Owner = sceneOwner;
+        if (walls.Owner == null) walls.Owner = sceneOwner;
+        if (markers.Owner == null) markers.Owner = sceneOwner;
+
+        // Create a shared TileSet with themed floors
+        EnsureBakedTileSet();
+        ground.TileSet = _bakedTileSet;
+        walls.TileSet = _bakedTileSet;
+        markers.TileSet = _bakedTileSet;
+
+        // Clear previous cells
+        ground.Clear();
+        walls.Clear();
+        markers.Clear();
+
+        // Fill ground (floor everywhere), walls, and markers (enemies/player)
+        for (int x = 0; x < GridWidth; x++)
+        {
+            for (int y = 0; y < GridHeight; y++)
+            {
+                // Ground base with themed floor per area
+                string area = GetTerrainType(x, y);
+                int floorSource = _sourceIdFloor;
+                if (_floorSourceIds != null && _floorSourceIds.Count > 0)
+                {
+                    if (_floorSourceIds.TryGetValue(area, out int sid))
+                    {
+                        floorSource = sid;
+                    }
+                    else if (_floorSourceIds.TryGetValue("starting_area", out int startSid))
+                    {
+                        floorSource = startSid;
+                    }
+                }
+                ground.SetCell(new Vector2I(x, y), floorSource, Vector2I.Zero, 0);
+
+                var cellType = (CellType)_grid[x, y];
+                if (cellType == CellType.Wall)
+                {
+                    walls.SetCell(new Vector2I(x, y), _sourceIdWall, Vector2I.Zero, 0);
+                }
+                else if (cellType == CellType.Enemy)
+                {
+                    markers.SetCell(new Vector2I(x, y), _sourceIdEnemyMarker, Vector2I.Zero, 0);
+                }
+                else if (cellType == CellType.Player)
+                {
+                    markers.SetCell(new Vector2I(x, y), _sourceIdPlayerMarker, Vector2I.Zero, 0);
+                }
+            }
+        }
+    }
+
+    private void EditorClearBaked()
+    {
+        if (!Engine.IsEditorHint()) return;
+        var groundL = GetNodeOrNull<TileMapLayer>("GroundLayer");
+        var wallsL = GetNodeOrNull<TileMapLayer>("WallLayer");
+        var markersL = GetNodeOrNull<TileMapLayer>("MarkerLayer");
+
+        if (groundL != null) groundL.QueueFree();
+        if (wallsL != null) wallsL.QueueFree();
+        if (markersL != null) markersL.QueueFree();
+    }
+
+    private TileMapLayer CreateTileMapLayerChild(string name, int zIndex)
+    {
+        var layer = new TileMapLayer
+        {
+            Name = name,
+            ZIndex = zIndex,
+        };
+        AddChild(layer);
+        // Set owner so the node is part of the scene and editable in the editor
+        layer.Owner = Owner ?? GetTree().EditedSceneRoot;
+        return layer;
+    }
+
+    private void EnsureBakedTileSet()
+    {
+        if (_bakedTileSet != null && _sourceIdFloor != -1) return;
+
+        _bakedTileSet = new TileSet();
+        _floorSourceIds.Clear();
+
+        // Use actual terrain textures for floor and wall so they appear in the editor's palette
+        var wallTex = GD.Load<Texture2D>("res://assets/sprites/terrain/wall_generic.png");
+        if (wallTex != null)
+        {
+            _sourceIdWall = AddAtlasSourceWithSingleTile(_bakedTileSet, wallTex);
+        }
+
+        // Add themed floors including starting_area
+        var floorMap = new Dictionary<string, string>
+        {
+            {"starting_area", "res://assets/sprites/terrain/floor_starting_area.png"},
+            {"forest",        "res://assets/sprites/terrain/floor_forest.png"},
+            {"cave",          "res://assets/sprites/terrain/floor_cave.png"},
+            {"desert",        "res://assets/sprites/terrain/floor_desert.png"},
+            {"swamp",         "res://assets/sprites/terrain/floor_swamp.png"},
+            {"mountain",      "res://assets/sprites/terrain/floor_mountain.png"},
+            {"dungeon",       "res://assets/sprites/terrain/floor_dungeon.png"}
+        };
+        foreach (var kv in floorMap)
+        {
+            var tex = GD.Load<Texture2D>(kv.Value);
+            if (tex != null)
+            {
+                int sid = AddAtlasSourceWithSingleTile(_bakedTileSet, tex);
+                _floorSourceIds[kv.Key] = sid;
+            }
+        }
+        // Default floor id
+        if (_floorSourceIds.TryGetValue("starting_area", out int defSid))
+        {
+            _sourceIdFloor = defSid;
+        }
+        else
+        {
+            // Fallback to colored floor if texture not found
+            var texFloor = CreateSolidTexture(new Color(0.85f, 0.85f, 0.85f, 1f));
+            _sourceIdFloor = AddAtlasSourceWithSingleTile(_bakedTileSet, texFloor);
+            _floorSourceIds["starting_area"] = _sourceIdFloor;
+        }
+
+        // Colored marker tiles for enemy/player markers
+        var texEnemy = CreateSolidTexture(new Color(1f, 0.2f, 0.2f, 1f));       // red
+        var texPlayer = CreateSolidTexture(new Color(0.2f, 0.4f, 1f, 1f));      // blue
+        _sourceIdEnemyMarker = AddAtlasSourceWithSingleTile(_bakedTileSet, texEnemy);
+        _sourceIdPlayerMarker = AddAtlasSourceWithSingleTile(_bakedTileSet, texPlayer);
+    }
+
+    private int AddAtlasSourceWithSingleTile(TileSet tileSet, Texture2D texture)
+    {
+        var src = new TileSetAtlasSource();
+        src.Texture = texture;
+        src.TextureRegionSize = new Vector2I(CellSize, CellSize);
+        src.CreateTile(Vector2I.Zero); // single tile at (0,0)
+        return tileSet.AddSource(src);
+    }
+
+    private ImageTexture CreateSolidTexture(Color color)
+    {
+        var img = Image.CreateEmpty(CellSize, CellSize, false, Image.Format.Rgba8);
+        img.Fill(color);
+        return ImageTexture.CreateFromImage(img);
+    }
+
+    private void EditorSetBakedVisible(bool visible)
+    {
+        var groundL = GetNodeOrNull<Node2D>("GroundLayer");
+        var wallsL = GetNodeOrNull<Node2D>("WallLayer");
+        var markersL = GetNodeOrNull<Node2D>("MarkerLayer");
+        var tileMap = GetNodeOrNull<Node2D>("TileMap");
+        if (groundL != null) groundL.Visible = visible;
+        if (wallsL != null) wallsL.Visible = visible;
+        if (markersL != null) markersL.Visible = visible;
+        if (tileMap != null) tileMap.Visible = visible;
+    }
+
+    // Build the logical grid from baked TileMap layers so gameplay works without procedural generation
+    private void BuildGridFromBakedTileMaps()
+    {
+        var ground = GetNodeOrNull<TileMapLayer>("GroundLayer");
+        var walls = GetNodeOrNull<TileMapLayer>("WallLayer");
+
+        // Ensure grid allocated
+        if (_grid == null || _grid.GetLength(0) != GridWidth || _grid.GetLength(1) != GridHeight)
+        {
+            _grid = new int[GridWidth, GridHeight];
+        }
+
+        // Initialize all to empty
+        for (int x = 0; x < GridWidth; x++)
+        {
+            for (int y = 0; y < GridHeight; y++)
+            {
+                _grid[x, y] = (int)CellType.Empty;
+            }
+        }
+
+        // Mark walls from either WallLayer or TileMap's "Walls" layer
+        bool markedFromLayers = false;
+        if (walls != null)
+        {
+            var used = walls.GetUsedCells();
+            foreach (var cell in used)
+            {
+                if (cell.X >= 0 && cell.X < GridWidth && cell.Y >= 0 && cell.Y < GridHeight)
+                {
+                    _grid[cell.X, cell.Y] = (int)CellType.Wall;
+                }
+            }
+            markedFromLayers = used.Count > 0;
+        }
+        if (!markedFromLayers)
+        {
+            var tm = GetNodeOrNull<TileMap>("TileMap");
+            if (tm != null)
+            {
+                int count = tm.GetLayersCount();
+                for (int i = 0; i < count; i++)
+                {
+                    var name = tm.GetLayerName(i);
+                    if (name == "Walls" || name == "WallLayer" || (i == 1))
+                    {
+                        var used = tm.GetUsedCells(i);
+                        foreach (var cell in used)
+                        {
+                            if (cell.X >= 0 && cell.X < GridWidth && cell.Y >= 0 && cell.Y < GridHeight)
+                            {
+                                _grid[cell.X, cell.Y] = (int)CellType.Wall;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Choose a reasonable player start on an empty cell; try to center on ground's used region
+        Vector2I start = new Vector2I(5, GridHeight / 2);
+        Godot.Collections.Array<Vector2I> groundUsed = null;
+        if (ground != null)
+        {
+            groundUsed = ground.GetUsedCells();
+        }
+        else
+        {
+            var tm = GetNodeOrNull<TileMap>("TileMap");
+            if (tm != null)
+            {
+                int groundLayerIndex = 0;
+                int count = tm.GetLayersCount();
+                for (int i = 0; i < count; i++)
+                {
+                    var lname = tm.GetLayerName(i);
+                    if (lname == "Ground" || lname == "GroundLayer")
+                    {
+                        groundLayerIndex = i;
+                        break;
+                    }
+                }
+                groundUsed = tm.GetUsedCells(groundLayerIndex);
+            }
+        }
+        if (groundUsed != null && groundUsed.Count > 0)
+        {
+            int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+            foreach (var c in groundUsed)
+            {
+                if (c.X < minX) minX = c.X; if (c.X > maxX) maxX = c.X;
+                if (c.Y < minY) minY = c.Y; if (c.Y > maxY) maxY = c.Y;
+            }
+            int cx = (minX + maxX) / 2;
+            int cy = (minY + maxY) / 2;
+            start = new Vector2I(Mathf.Clamp(cx, 0, GridWidth - 1), Mathf.Clamp(cy, 0, GridHeight - 1));
+        }
+        if (start.X < 0 || start.X >= GridWidth || start.Y < 0 || start.Y >= GridHeight || _grid[start.X, start.Y] == (int)CellType.Wall)
+        {
+            bool found = false;
+            for (int y = 0; y < GridHeight && !found; y++)
+            {
+                for (int x = 0; x < GridWidth; x++)
+                {
+                    if (_grid[x, y] != (int)CellType.Wall)
+                    {
+                        start = new Vector2I(x, y);
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        _playerPosition = start;
+        _grid[_playerPosition.X, _playerPosition.Y] = (int)CellType.Player;
+    }
     
     [Signal] public delegate void PlayerMovedEventHandler(Vector2I newPosition);
     [Signal] public delegate void EnemyEncounteredEventHandler(Vector2I enemyPosition);
@@ -54,24 +579,91 @@ public partial class GridMap : Node2D
     
     public override void _Ready()
     {
+        // Ensure grid data exists before any drawing happens (both editor and runtime)
+        if (!UseBakedTileMapsAtRuntime && (_grid == null || _grid.Length == 0))
+        {
+            InitializeGrid();
+        }
+
         if (Engine.IsEditorHint())
         {
-            // Lightweight editor preview: skip heavy sprite loading and use colors
-            UseSprites = false;
-            _useColorTerrain = true;
+            // Editor preview: optionally use sprites and animation
+            UseSprites = EditorPreviewUseSprites;
+            _useColorTerrain = !EditorPreviewUseSprites;
+            if (EditorPreviewUseSprites)
+            {
+                LoadSprites();
+            }
+
+            // Static workflow: no automatic bake/prefill
         }
         else
         {
             // Load sprites for runtime
             LoadSprites();
             
-            // TEMPORARY: Switch to color-based terrain for debugging during runtime
-            _useColorTerrain = true;
-            GD.Print("🎨 TERRAIN DISPLAY: Using colors instead of textures for debugging");
+            // Use sprite-based terrain at runtime by default
+            _useColorTerrain = false;
+            if (EnableDebugLogging) GD.Print("🎨 TERRAIN DISPLAY: Using sprite textures for terrain");
+
+            // If there are baked TileMaps and we're not configured to use them at runtime, hide them
+            if (HasBakedTileMaps() && !UseBakedTileMapsAtRuntime)
+            {
+                EditorSetBakedVisible(false);
+                if (EnableDebugLogging) GD.Print("ℹ️ Baked TileMaps found but disabled for runtime rendering. Using procedural draw.");
+            }
+        }
+
+        // Report configuration and current baked layer state
+        var dbgGround = GetNodeOrNull<TileMapLayer>("GroundLayer");
+        var dbgWalls = GetNodeOrNull<TileMapLayer>("WallLayer");
+        int dbgGroundCells = dbgGround != null ? dbgGround.GetUsedCells().Count : 0;
+        int dbgWallCells = dbgWalls != null ? dbgWalls.GetUsedCells().Count : 0;
+        GD.Print($"⚙️ UseBakedTileMapsAtRuntime={UseBakedTileMapsAtRuntime}");
+        GD.Print($"🧱 TILEMAPS STATE (pre-build): Ground cells={dbgGroundCells}, Wall cells={dbgWallCells}");
+        GD.Print($"🧩 TILESETS: Ground={(dbgGround?.TileSet != null)}, Wall={(dbgWalls?.TileSet != null)}");
+
+        // When using baked TileMaps, build gameplay grid from layers so movement/camera work
+        if (UseBakedTileMapsAtRuntime)
+        {
+            if (_grid == null || _grid.Length == 0)
+            {
+                BuildGridFromBakedTileMaps();
+            }
+
+            // Debug after building grid
+            dbgGround = GetNodeOrNull<TileMapLayer>("GroundLayer");
+            dbgWalls = GetNodeOrNull<TileMapLayer>("WallLayer");
+            dbgGroundCells = dbgGround != null ? dbgGround.GetUsedCells().Count : 0;
+            dbgWallCells = dbgWalls != null ? dbgWalls.GetUsedCells().Count : 0;
+            GD.Print($"🧱 TILEMAPS STATE (post-build): Ground cells={dbgGroundCells}, Wall cells={dbgWallCells}");
+
+            // If nothing is present yet, paint a small debug patch under the camera so we can verify rendering
+            if (EnableDebugLogging && dbgGround != null && dbgGround.TileSet != null && dbgGroundCells == 0)
+            {
+                int y0 = 80;
+                for (int x = 0; x < 16; x++)
+                {
+                    for (int y = y0; y < y0 + 4; y++)
+                    {
+                        dbgGround.SetCell(new Vector2I(x, y), 0, Vector2I.Zero, 0); // source 0, atlas (0,0), alt 0
+                    }
+                }
+                // A couple of walls nearby to verify z-index
+                if (dbgWalls != null && dbgWalls.TileSet != null)
+                {
+                    dbgWalls.SetCell(new Vector2I(5, y0 + 1), 7, Vector2I.Zero, 0); // source 7 = wall_generic
+                    dbgWalls.SetCell(new Vector2I(6, y0 + 2), 7, Vector2I.Zero, 0);
+                }
+                // Report counts after debug paint
+                dbgGroundCells = dbgGround.GetUsedCells().Count;
+                dbgWallCells = dbgWalls != null ? dbgWalls.GetUsedCells().Count : 0;
+                GD.Print($"🧪 DEBUG PAINT: Ground cells={dbgGroundCells}, Wall cells={dbgWallCells}");
+            }
         }
         
         // Debug: Test terrain type detection
-        if (!Engine.IsEditorHint())
+        if (!Engine.IsEditorHint() && EnableDebugLogging)
         {
             GD.Print("🔍 TERRAIN TYPE TEST:");
             GD.Print($"  (10,80): {GetTerrainType(10, 80)} (should be starting_area)");
@@ -83,8 +675,12 @@ public partial class GridMap : Node2D
             GD.Print($"  (125,100): {GetTerrainType(125, 100)} (should be dungeon)");
         }
         
-        InitializeGrid();
-        DrawGrid();
+        // Skip procedural grid initialization and draw when using baked TileMaps
+        if (!UseBakedTileMapsAtRuntime)
+        {
+            InitializeGrid();
+            DrawGrid();
+        }
         
         // Connect to camera movement to trigger redraws when needed
         if (!Engine.IsEditorHint())
@@ -97,12 +693,21 @@ public partial class GridMap : Node2D
     {
         if (Engine.IsEditorHint())
         {
-            // Don't animate in editor to keep preview lightweight
+            if (!EditorPreviewAnimate)
+                return;
+            
+            // Animate in editor when enabled
+            _animationTime += (float)delta;
+            if (_animationTime >= ANIMATION_SPEED)
+            {
+                _animationTime = 0.0f;
+                _currentFrame = (_currentFrame + 1) % TOTAL_FRAMES;
+                QueueRedraw();
+            }
             return;
         }
-        // Handle sprite animation timing
+        // Runtime animation
         _animationTime += (float)delta;
-        
         if (_animationTime >= ANIMATION_SPEED)
         {
             _animationTime = 0.0f;
@@ -115,17 +720,20 @@ public partial class GridMap : Node2D
     {
         try
         {
-            GD.Print("🎮 Starting sprite loading...");
+            if (EnableDebugLogging) GD.Print("🎮 Starting sprite loading...");
 
             // Load character sprites (use sprite sheets)
             var playerTexture = GD.Load<Texture2D>("res://assets/sprites/characters/player_hero/sprite_sheet.png");
             if (playerTexture != null)
             {
                 _cellSprites[CellType.Player] = playerTexture;
-                GD.Print("✅ Player sprite loaded");
-                // Debug texture properties
-                GD.Print($"   📏 Size: {playerTexture.GetSize()}");
-                GD.Print($"   🔗 Resource ID: {playerTexture.GetRid()}");
+                if (EnableDebugLogging)
+                {
+                    GD.Print("✅ Player sprite loaded");
+                    // Debug texture properties
+                    GD.Print($"   📏 Size: {playerTexture.GetSize()}");
+                    GD.Print($"   🔗 Resource ID: {playerTexture.GetRid()}");
+                }
             }
             else
             {
@@ -137,20 +745,23 @@ public partial class GridMap : Node2D
             if (wallTexture != null)
             {
                 _cellSprites[CellType.Wall] = wallTexture;
-                GD.Print("✅ Wall texture loaded");
+                if (EnableDebugLogging) GD.Print("✅ Wall texture loaded");
             }
             else
             {
                 GD.PrintErr("❌ Wall texture failed to load - using fallback");
             }
 
-            // Load enemy sprites
-            LoadEnemySprites();
+            // Load enemy sprites unless we're using baked TileMaps at runtime (to avoid noisy missing asset logs)
+            if (!UseBakedTileMapsAtRuntime)
+            {
+                LoadEnemySprites();
+            }
             
             // Load themed terrain (this loads all terrain types)
             LoadThemedTerrain();
             
-            GD.Print($"🎯 Sprites loaded! UseSprites: {UseSprites}");
+            if (EnableDebugLogging) GD.Print($"🎯 Sprites loaded! UseSprites: {UseSprites}");
         }
         catch (Exception ex)
         {
@@ -179,9 +790,17 @@ public partial class GridMap : Node2D
             "enemy_ancient_dragon_king"
         };
         
+        var failed = new List<string>();
         foreach (var enemyName in enemyNames)
         {
-            var texture = GD.Load<Texture2D>($"res://assets/sprites/characters/{enemyName}/sprite_sheet.png");
+            string path = $"res://assets/sprites/characters/{enemyName}/sprite_sheet.png";
+            // Avoid engine error logs by checking existence before loading
+            if (!FileAccess.FileExists(path))
+            {
+                failed.Add(enemyName);
+                continue;
+            }
+            var texture = GD.Load<Texture2D>(path);
             if (texture != null)
             {
                 var enemyType = enemyName.Replace("enemy_", "");
@@ -189,8 +808,21 @@ public partial class GridMap : Node2D
             }
             else
             {
-                GD.PrintErr($"❌ Failed to load sprite for {enemyName}");
+                failed.Add(enemyName);
+                if (EnableDebugLogging)
+                {
+                    GD.PrintErr($"❌ Failed to load sprite for {enemyName}");
+                }
             }
+        }
+
+        if (failed.Count > 0 && !EnableDebugLogging)
+        {
+            // Print a concise summary to avoid log spam
+            int show = Math.Min(3, failed.Count);
+            string sample = string.Join(", ", failed.GetRange(0, show));
+            string more = failed.Count > show ? $", +{failed.Count - show} more" : string.Empty;
+            GD.PrintErr($"⚠️ Missing enemy sprite sheets for: {sample}{more}. Enemies will render as colored markers until sprite_sheet.png is added.");
         }
     }
 
@@ -207,7 +839,7 @@ public partial class GridMap : Node2D
             "floor_starting_area.png"
         };
         
-        GD.Print("🗺️ Loading terrain textures...");
+        if (EnableDebugLogging) GD.Print("🗺️ Loading terrain textures...");
         int loadedCount = 0;
         
         foreach (var filename in terrainTypes)
@@ -218,9 +850,12 @@ public partial class GridMap : Node2D
                 var terrainType = filename.Replace("floor_", "").Replace(".png", "");
                 _terrainSprites[terrainType] = texture;
                 
-                // Debug texture information
-                var size = texture.GetSize();
-                GD.Print($"✅ Loaded terrain texture: {terrainType} (Size: {size.X}x{size.Y}, Resource ID: {texture.GetRid()})");
+                if (EnableDebugLogging)
+                {
+                    // Debug texture information
+                    var size = texture.GetSize();
+                    GD.Print($"✅ Loaded terrain texture: {terrainType} (Size: {size.X}x{size.Y}, Resource ID: {texture.GetRid()})");
+                }
                 loadedCount++;
             }
             else
@@ -229,15 +864,18 @@ public partial class GridMap : Node2D
             }
         }
         
-        GD.Print($"🎯 Total terrain textures loaded: {loadedCount}/{terrainTypes.Length}");
-        
-        // Print all loaded terrain types for debugging
-        GD.Print("📋 Available terrain types:");
-        foreach (var kvp in _terrainSprites)
+        if (EnableDebugLogging)
         {
-            var texture = kvp.Value;
-            var size = texture.GetSize();
-            GD.Print($"   - {kvp.Key}: {size.X}x{size.Y}, Resource ID: {texture.GetRid()}");
+            GD.Print($"🎯 Total terrain textures loaded: {loadedCount}/{terrainTypes.Length}");
+            
+            // Print all loaded terrain types for debugging
+            GD.Print("📋 Available terrain types:");
+            foreach (var kvp in _terrainSprites)
+            {
+                var texture = kvp.Value;
+                var size = texture.GetSize();
+                GD.Print($"   - {kvp.Key}: {size.X}x{size.Y}, Resource ID: {texture.GetRid()}");
+            }
         }
         
         // Test if all textures have the same resource ID (which would indicate they're the same file)
@@ -251,7 +889,7 @@ public partial class GridMap : Node2D
         {
             GD.PrintErr("⚠️ WARNING: All terrain textures have the same Resource ID - they might be the same file!");
         }
-        else
+        else if (EnableDebugLogging)
         {
             GD.Print($"✅ Good: Found {resourceIds.Count} unique texture resources");
         }
@@ -633,6 +1271,18 @@ public partial class GridMap : Node2D
     
     public override void _Draw()
     {
+        // When using baked TileMaps, never perform procedural draw
+        if (UseBakedTileMapsAtRuntime)
+        {
+            return;
+        }
+        // Safety: if grid data isn't ready for any reason, skip draw this frame
+        if (_grid == null || _grid.Length == 0)
+        {
+            return;
+        }
+        // If we have baked TileMaps and we're running the game, skip procedural draw to avoid duplicates
+        // (Handled above by the unconditional early return when UseBakedTileMapsAtRuntime is true)
         // Get camera for viewport culling, with fallback if not available
         Camera2D camera = GetViewport().GetCamera2D();
         Vector2 cameraPos = camera?.GlobalPosition ?? Vector2.Zero;
@@ -711,9 +1361,18 @@ public partial class GridMap : Node2D
         DrawTerrainSprite(cellPos, x, y);
         
         // Draw entity sprite on top of terrain
-        if (cellType == CellType.Player && _cellSprites.ContainsKey(CellType.Player))
+        if (cellType == CellType.Player)
         {
-            DrawAnimatedSprite(_cellSprites[CellType.Player], cellPos);
+            if (_cellSprites.ContainsKey(CellType.Player))
+            {
+                DrawAnimatedSprite(_cellSprites[CellType.Player], cellPos);
+            }
+            else
+            {
+                // Fallback to a solid blue rectangle if player sprite is missing
+                Vector2 cellSize = new Vector2(CellSize, CellSize);
+                DrawRect(new Rect2(cellPos, cellSize), Colors.Blue);
+            }
         }
         else if (cellType == CellType.Enemy)
         {
@@ -742,15 +1401,18 @@ public partial class GridMap : Node2D
     {
         string terrainType = GetTerrainType(x, y);
         
-        // Debug: Log terrain type requests frequently for first few seconds
-        if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+        // Optional debug: log some terrain requests
+        if (EnableDebugLogging)
         {
-            GD.Print($"🗺️ Cell ({x},{y}) requesting terrain: {terrainType}");
-            GD.Print($"� Contains '{terrainType}'? {_terrainSprites.ContainsKey(terrainType)}");
-            if (_terrainSprites.ContainsKey(terrainType))
+            if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
             {
-                var texture = _terrainSprites[terrainType];
-                GD.Print($"🎨 Texture for {terrainType} is null? {texture == null}");
+                GD.Print($"🗺️ Cell ({x},{y}) requesting terrain: {terrainType}");
+                GD.Print($"� Contains '{terrainType}'? {_terrainSprites.ContainsKey(terrainType)}");
+                if (_terrainSprites.ContainsKey(terrainType))
+                {
+                    var texture = _terrainSprites[terrainType];
+                    GD.Print($"🎨 Texture for {terrainType} is null? {texture == null}");
+                }
             }
         }
         
@@ -761,34 +1423,46 @@ public partial class GridMap : Node2D
             {
                 // Draw with transparency support
                 DrawTexture(texture, cellPos, modulate: new Color(1, 1, 1, 1));
-                if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+                if (EnableDebugLogging)
                 {
-                    GD.Print($"✅ Drew {terrainType} texture at ({x},{y})");
+                    if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+                    {
+                        GD.Print($"✅ Drew {terrainType} texture at ({x},{y})");
+                    }
                 }
                 return;
             }
             else
             {
-                if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+                if (EnableDebugLogging)
                 {
-                    GD.Print($"❌ Texture for {terrainType} is null at ({x},{y})");
+                    if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+                    {
+                        GD.Print($"❌ Texture for {terrainType} is null at ({x},{y})");
+                    }
                 }
             }
         }
         else
         {
-            if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+            if (EnableDebugLogging)
             {
-                GD.Print($"❌ No texture found for {terrainType} at ({x},{y})");
+                if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+                {
+                    GD.Print($"❌ No texture found for {terrainType} at ({x},{y})");
+                }
             }
         }
         
         // Fallback chain
         if (_terrainSprites.ContainsKey("starting_area"))
         {
-            if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+            if (EnableDebugLogging)
             {
-                GD.Print($"⚠️ Using starting_area fallback for {terrainType} at ({x},{y})");
+                if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+                {
+                    GD.Print($"⚠️ Using starting_area fallback for {terrainType} at ({x},{y})");
+                }
             }
             // Draw with transparency support
             DrawTexture(_terrainSprites["starting_area"], cellPos, modulate: new Color(1, 1, 1, 1));
@@ -796,9 +1470,12 @@ public partial class GridMap : Node2D
         else
         {
             // Final fallback to colored rectangle
-            if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+            if (EnableDebugLogging)
             {
-                GD.Print($"🎨 Using color fallback for {terrainType}");
+                if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
+                {
+                    GD.Print($"🎨 Using color fallback for {terrainType}");
+                }
             }
             Vector2 cellSize = new Vector2(CellSize, CellSize);
             DrawRect(new Rect2(cellPos, cellSize), GetAreaColor(x, y));
@@ -1003,6 +1680,19 @@ public partial class GridMap : Node2D
     
     public bool TryMovePlayer(Vector2I direction)
     {
+        // Ensure grid exists before using it
+        if (_grid == null || _grid.Length == 0)
+        {
+            if (UseBakedTileMapsAtRuntime)
+            {
+                BuildGridFromBakedTileMaps();
+            }
+            else
+            {
+                InitializeGrid();
+            }
+        }
+
         Vector2I newPosition = _playerPosition + direction;
         
         // Check bounds

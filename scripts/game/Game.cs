@@ -2,6 +2,10 @@ using Godot;
 
 public partial class Game : Node2D
 {
+    [Export] public bool EnableCameraSmoothing { get; set; } = true;
+    [Export] public float CameraSmoothingSpeed { get; set; } = 8.0f;
+    // Set to > 0 to override zoom uniformly (X and Y). If 0 or less, keep scene's zoom.
+    [Export] public float CameraZoomOverride { get; set; } = 0.0f;
     private GameManager _gameManager;
     private GridMap _gridMap;
     private Control _gameUI;
@@ -12,6 +16,7 @@ public partial class Game : Node2D
     private Label _playerExperienceLabel;
     private BattleManager _battleManager;
     private Vector2I _lastEnemyPosition; // Store enemy position for after battle
+    private PlayerDisplay _playerDisplay; // Visual sprite for player when using baked TileMaps
 
     public override void _Ready()
     {
@@ -22,6 +27,16 @@ public partial class Game : Node2D
         _gridMap = GetNode<GridMap>("GridMap");
         _gameUI = GetNode<Control>("UI/GameUI");
         _camera = GetNode<Camera2D>("Camera2D");
+        // Ensure this camera is active at runtime
+        _camera.MakeCurrent();
+
+        // Configure camera smoothing and zoom
+        _camera.PositionSmoothingEnabled = EnableCameraSmoothing;
+        _camera.PositionSmoothingSpeed = CameraSmoothingSpeed;
+        if (CameraZoomOverride > 0.0f)
+        {
+            _camera.Zoom = new Vector2(CameraZoomOverride, CameraZoomOverride);
+        }
 
         // Reset battle state to ensure clean start
         _gameManager.ResetBattleState();
@@ -43,16 +58,30 @@ public partial class Game : Node2D
         // Update UI
         UpdatePlayerUI();
 
+        // Create the visible player sprite after all nodes are ready
+        // This ensures GridMap has built its grid from baked TileMaps
+        CallDeferred(nameof(SetupPlayerDisplay));
+
         // Use a deferred call to set camera position after grid is ready
         CallDeferred(nameof(SetInitialCameraPosition));
+    }
+
+    private void SetupPlayerDisplay()
+    {
+        if (_playerDisplay != null) return;
+        _playerDisplay = new PlayerDisplay();
+        // Attach under GridMap so ZIndex layering works with TileMap layers
+        _gridMap.AddChild(_playerDisplay);
+        _playerDisplay.Initialize(_gridMap);
+        // Ensure initial sync with current player position
+        _playerDisplay.UpdatePosition(_gridMap.GetPlayerPosition());
     }
     
     private void SetInitialCameraPosition()
     {
-        // Set initial camera position to follow player
         Vector2 playerWorldPos = _gridMap.GetWorldPosition(_gridMap.GetPlayerPosition());
-        _camera.Position = playerWorldPos;
-        GD.Print($"Camera positioned at: {_camera.Position}, Player at: {playerWorldPos}");
+        _camera.Position = playerWorldPos + GetTileLayerVisualOffset();
+        GD.Print($"Camera positioned (follow): {_camera.Position}");
     }
 
     public override void _Input(InputEvent @event)
@@ -69,12 +98,22 @@ public partial class Game : Node2D
 
     private void OnPlayerMoved(Vector2I newPosition)
     {
-        // Update camera to follow player
         Vector2 worldPos = _gridMap.GetWorldPosition(newPosition);
-        _camera.Position = worldPos;
+        _camera.Position = worldPos + GetTileLayerVisualOffset();
         
         // Force redraw since we're using viewport culling
         _gridMap.QueueRedraw();
+
+        // Update visual player sprite position
+        _playerDisplay?.UpdatePosition(newPosition);
+    }
+
+    private Vector2 GetTileLayerVisualOffset()
+    {
+        // Include the TileMapLayer node's position (e.g., GroundLayer.position)
+        // so the camera centers on the same point the PlayerDisplay uses.
+        var ground = _gridMap.GetNodeOrNull<TileMapLayer>("GroundLayer");
+        return ground != null ? ground.Position : Vector2.Zero;
     }
 
     private void OnEnemyEncountered(Vector2I enemyPosition)

@@ -40,6 +40,15 @@ public partial class GridMap : Node2D
     
     // Debugging flag to use colors instead of textures
     private bool _useColorTerrain = false;
+
+    // When using baked TileMaps, support content painted at negative coordinates by
+    // computing a tilemap origin and mapping used cells into the 0..Grid bounds.
+    // Also store a world-space pixel offset so world positions align to visuals.
+    private Vector2I _tilemapOrigin = new Vector2I(0, 0);
+    private Vector2 _tilemapWorldOffset = Vector2.Zero;
+    
+    // Fast lookup of wall tiles in tilemap coordinates for collision beyond grid bounds
+    private HashSet<Vector2I> _wallTileCoords = new();
     
     // Grid cell types
     public enum CellType
@@ -245,21 +254,10 @@ public partial class GridMap : Node2D
 
     private bool HasBakedTileMaps()
     {
-        // Support both: separate TileMapLayer nodes and a single TileMap with layers
+        // Only support TileMapLayer nodes
         var ground = GetNodeOrNull<TileMapLayer>("GroundLayer");
         var walls = GetNodeOrNull<TileMapLayer>("WallLayer");
         var markers = GetNodeOrNull<TileMapLayer>("MarkerLayer");
-        var tileMap = GetNodeOrNull<TileMap>("TileMap");
-
-        if (tileMap != null)
-        {
-            int count = tileMap.GetLayersCount();
-            for (int i = 0; i < count; i++)
-            {
-                if (tileMap.GetUsedCells(i).Count > 0)
-                    return true;
-            }
-        }
 
         bool anyLayer = ground != null || walls != null || markers != null;
         if (!anyLayer) return false;
@@ -439,11 +437,9 @@ public partial class GridMap : Node2D
         var groundL = GetNodeOrNull<Node2D>("GroundLayer");
         var wallsL = GetNodeOrNull<Node2D>("WallLayer");
         var markersL = GetNodeOrNull<Node2D>("MarkerLayer");
-        var tileMap = GetNodeOrNull<Node2D>("TileMap");
         if (groundL != null) groundL.Visible = visible;
         if (wallsL != null) wallsL.Visible = visible;
         if (markersL != null) markersL.Visible = visible;
-        if (tileMap != null) tileMap.Visible = visible;
     }
 
     // Build the logical grid from baked TileMap layers so gameplay works without procedural generation
@@ -451,6 +447,76 @@ public partial class GridMap : Node2D
     {
         var ground = GetNodeOrNull<TileMapLayer>("GroundLayer");
         var walls = GetNodeOrNull<TileMapLayer>("WallLayer");
+        _wallTileCoords.Clear();
+
+        // Compute bounding boxes separately and prefer Ground for origin/centering
+        int gMinX = int.MaxValue, gMinY = int.MaxValue, gMaxX = int.MinValue, gMaxY = int.MinValue;
+        int wMinX = int.MaxValue, wMinY = int.MaxValue, wMaxX = int.MinValue, wMaxY = int.MinValue;
+        bool haveGround = false, haveWalls = false;
+        Godot.Collections.Array<Vector2I> groundUsedLocal = ground != null ? ground.GetUsedCells() : null;
+        Godot.Collections.Array<Vector2I> wallUsedLocal = walls != null ? walls.GetUsedCells() : null;
+        if (groundUsedLocal != null && groundUsedLocal.Count > 0)
+        {
+            foreach (var c in groundUsedLocal)
+            {
+                if (c.X < gMinX) gMinX = c.X; if (c.X > gMaxX) gMaxX = c.X;
+                if (c.Y < gMinY) gMinY = c.Y; if (c.Y > gMaxY) gMaxY = c.Y;
+            }
+            haveGround = true;
+        }
+        if (wallUsedLocal != null && wallUsedLocal.Count > 0)
+        {
+            foreach (var c in wallUsedLocal)
+            {
+                if (c.X < wMinX) wMinX = c.X; if (c.X > wMaxX) wMaxX = c.X;
+                if (c.Y < wMinY) wMinY = c.Y; if (c.Y > wMaxY) wMaxY = c.Y;
+            }
+            haveWalls = true;
+        }
+        bool haveAnyCells = haveGround || haveWalls;
+
+        // Store origin and world offset (pixels) so visuals and gameplay align
+        // Origin is based on the union of Ground and Walls minima
+        if (haveGround && haveWalls)
+            _tilemapOrigin = new Vector2I(Mathf.Min(gMinX, wMinX), Mathf.Min(gMinY, wMinY));
+        else if (haveGround)
+            _tilemapOrigin = new Vector2I(gMinX, gMinY);
+        else if (haveWalls)
+            _tilemapOrigin = new Vector2I(wMinX, wMinY);
+        else
+            _tilemapOrigin = new Vector2I(0, 0);
+        _tilemapWorldOffset = new Vector2(-_tilemapOrigin.X * CellSize, -_tilemapOrigin.Y * CellSize);
+        if (EnableDebugLogging)
+        {
+            GD.Print($"🧭 TileMap origin: {_tilemapOrigin}, world offset: {_tilemapWorldOffset}");
+        }
+
+        // Position the visual layers so the used-cell centroid is centered at world origin.
+        // This keeps tiles visible with a fixed camera at (0,0).
+        var visGround = GetNodeOrNull<TileMapLayer>("GroundLayer");
+        var visWalls = GetNodeOrNull<TileMapLayer>("WallLayer");
+        if (haveAnyCells)
+        {
+            float cx, cy;
+            if (haveGround)
+            {
+                cx = (gMinX + gMaxX) * 0.5f;
+                cy = (gMinY + gMaxY) * 0.5f;
+            }
+            else
+            {
+                cx = (wMinX + wMaxX) * 0.5f;
+                cy = (wMinY + wMaxY) * 0.5f;
+            }
+            // Offset so that the center of the centroid cell (cx+0.5, cy+0.5) is at (0,0)
+            Vector2 visualCenterOffset = new Vector2(-(cx + 0.5f) * CellSize, -(cy + 0.5f) * CellSize);
+            if (visGround != null) visGround.Position = visualCenterOffset;
+            if (visWalls != null) visWalls.Position = visualCenterOffset;
+            if (EnableDebugLogging)
+            {
+                GD.Print($"🎯 Visual centering: centroid=({cx},{cy}), offset={visualCenterOffset}");
+            }
+        }
 
         // Ensure grid allocated
         if (_grid == null || _grid.GetLength(0) != GridWidth || _grid.GetLength(1) != GridHeight)
@@ -467,43 +533,24 @@ public partial class GridMap : Node2D
             }
         }
 
-        // Mark walls from either WallLayer or TileMap's "Walls" layer
+        // Mark walls from WallLayer only
         bool markedFromLayers = false;
         if (walls != null)
         {
             var used = walls.GetUsedCells();
             foreach (var cell in used)
             {
-                if (cell.X >= 0 && cell.X < GridWidth && cell.Y >= 0 && cell.Y < GridHeight)
+                // Track wall positions in tilemap coordinates
+                _wallTileCoords.Add(cell);
+                // Shift indices so negative painted coords map into the 0..Grid bounds
+                int gx = cell.X - _tilemapOrigin.X;
+                int gy = cell.Y - _tilemapOrigin.Y;
+                if (gx >= 0 && gx < GridWidth && gy >= 0 && gy < GridHeight)
                 {
-                    _grid[cell.X, cell.Y] = (int)CellType.Wall;
+                    _grid[gx, gy] = (int)CellType.Wall;
                 }
             }
             markedFromLayers = used.Count > 0;
-        }
-        if (!markedFromLayers)
-        {
-            var tm = GetNodeOrNull<TileMap>("TileMap");
-            if (tm != null)
-            {
-                int count = tm.GetLayersCount();
-                for (int i = 0; i < count; i++)
-                {
-                    var name = tm.GetLayerName(i);
-                    if (name == "Walls" || name == "WallLayer" || (i == 1))
-                    {
-                        var used = tm.GetUsedCells(i);
-                        foreach (var cell in used)
-                        {
-                            if (cell.X >= 0 && cell.X < GridWidth && cell.Y >= 0 && cell.Y < GridHeight)
-                            {
-                                _grid[cell.X, cell.Y] = (int)CellType.Wall;
-                            }
-                        }
-                        break;
-                    }
-                }
-            }
         }
 
         // Choose a reasonable player start on an empty cell; try to center on ground's used region
@@ -513,49 +560,81 @@ public partial class GridMap : Node2D
         {
             groundUsed = ground.GetUsedCells();
         }
-        else
+        // If there's no GroundLayer, groundUsed remains null
+        // Prefer a start near the ground centroid so the player appears at screen center
+        bool placed = false;
+        if (haveGround && groundUsed != null && groundUsed.Count > 0)
         {
-            var tm = GetNodeOrNull<TileMap>("TileMap");
-            if (tm != null)
-            {
-                int groundLayerIndex = 0;
-                int count = tm.GetLayersCount();
-                for (int i = 0; i < count; i++)
-                {
-                    var lname = tm.GetLayerName(i);
-                    if (lname == "Ground" || lname == "GroundLayer")
-                    {
-                        groundLayerIndex = i;
-                        break;
-                    }
-                }
-                groundUsed = tm.GetUsedCells(groundLayerIndex);
-            }
-        }
-        if (groundUsed != null && groundUsed.Count > 0)
-        {
-            int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+            int cgMinX = int.MaxValue, cgMinY = int.MaxValue, cgMaxX = int.MinValue, cgMaxY = int.MinValue;
             foreach (var c in groundUsed)
             {
-                if (c.X < minX) minX = c.X; if (c.X > maxX) maxX = c.X;
-                if (c.Y < minY) minY = c.Y; if (c.Y > maxY) maxY = c.Y;
+                if (c.X < cgMinX) cgMinX = c.X; if (c.X > cgMaxX) cgMaxX = c.X;
+                if (c.Y < cgMinY) cgMinY = c.Y; if (c.Y > cgMaxY) cgMaxY = c.Y;
             }
-            int cx = (minX + maxX) / 2;
-            int cy = (minY + maxY) / 2;
-            start = new Vector2I(Mathf.Clamp(cx, 0, GridWidth - 1), Mathf.Clamp(cy, 0, GridHeight - 1));
-        }
-        if (start.X < 0 || start.X >= GridWidth || start.Y < 0 || start.Y >= GridHeight || _grid[start.X, start.Y] == (int)CellType.Wall)
-        {
-            bool found = false;
-            for (int y = 0; y < GridHeight && !found; y++)
+            int cx = (cgMinX + cgMaxX) / 2;
+            int cy = (cgMinY + cgMaxY) / 2;
+            // Convert to grid coordinates by subtracting origin
+            int sx = cx - _tilemapOrigin.X;
+            int sy = cy - _tilemapOrigin.Y;
+            if (sx >= 0 && sx < GridWidth && sy >= 0 && sy < GridHeight && _grid[sx, sy] != (int)CellType.Wall)
             {
-                for (int x = 0; x < GridWidth; x++)
+                start = new Vector2I(sx, sy);
+                placed = true;
+            }
+            else
+            {
+                // Find nearest non-wall around centroid
+                bool found = false;
+                int maxRadius = 50;
+                for (int r = 1; r <= maxRadius && !found; r++)
                 {
-                    if (_grid[x, y] != (int)CellType.Wall)
+                    for (int dy = -r; dy <= r && !found; dy++)
                     {
-                        start = new Vector2I(x, y);
-                        found = true;
-                        break;
+                        for (int dx = -r; dx <= r; dx++)
+                        {
+                            int gx = sx + dx;
+                            int gy = sy + dy;
+                            if (gx < 0 || gx >= GridWidth || gy < 0 || gy >= GridHeight) continue;
+                            if (_grid[gx, gy] != (int)CellType.Wall)
+                            {
+                                start = new Vector2I(gx, gy);
+                                found = true;
+                                placed = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (!placed)
+        {
+            // Fallback: near origin so at least it's predictable with fixed camera
+            Vector2I desired = new Vector2I(0, 0);
+            if (IsWithinGrid(desired) && _grid[desired.X, desired.Y] != (int)CellType.Wall)
+            {
+                start = desired;
+            }
+            else
+            {
+                bool found = false;
+                int maxRadius = 50;
+                for (int r = 1; r <= maxRadius && !found; r++)
+                {
+                    for (int dy = -r; dy <= r && !found; dy++)
+                    {
+                        for (int dx = -r; dx <= r; dx++)
+                        {
+                            int gx = desired.X + dx;
+                            int gy = desired.Y + dy;
+                            if (gx < 0 || gx >= GridWidth || gy < 0 || gy >= GridHeight) continue;
+                            if (_grid[gx, gy] != (int)CellType.Wall)
+                            {
+                                start = new Vector2I(gx, gy);
+                                found = true;
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -1656,6 +1735,21 @@ public partial class GridMap : Node2D
         return x >= areaX && x < areaX + width && y >= areaY && y < areaY + height;
     }
     
+    // Helpers for unbounded movement: treat out-of-bounds as empty/walkable
+    private bool IsWithinGrid(Vector2I pos)
+    {
+        return pos.X >= 0 && pos.X < GridWidth && pos.Y >= 0 && pos.Y < GridHeight;
+    }
+
+    private CellType GetCellTypeAt(Vector2I pos)
+    {
+        if (!IsWithinGrid(pos))
+        {
+            return CellType.Empty;
+        }
+        return (CellType)_grid[pos.X, pos.Y];
+    }
+    
     public bool TryMovePlayer(Vector2I direction)
     {
         // Ensure grid exists before using it
@@ -1673,14 +1767,15 @@ public partial class GridMap : Node2D
 
         Vector2I newPosition = _playerPosition + direction;
         
-        // Check bounds
-        if (newPosition.X < 0 || newPosition.X >= GridWidth || 
-            newPosition.Y < 0 || newPosition.Y >= GridHeight)
+        // Compute corresponding tilemap coordinates and block if a wall exists there
+        Vector2I newTileCoord = new Vector2I(newPosition.X + _tilemapOrigin.X, newPosition.Y + _tilemapOrigin.Y);
+        if (_wallTileCoords.Contains(newTileCoord))
         {
             return false;
         }
         
-        CellType targetCell = (CellType)_grid[newPosition.X, newPosition.Y];
+        // No hard bounds: treat any out-of-bounds cell as empty (walkable)
+        CellType targetCell = GetCellTypeAt(newPosition);
         
         // Check if movement is valid
         if (targetCell == CellType.Wall)
@@ -1695,10 +1790,16 @@ public partial class GridMap : Node2D
             return false; // Don't move onto enemy, handle in battle
         }
         
-        // Move player
-        _grid[_playerPosition.X, _playerPosition.Y] = (int)CellType.Empty;
+        // Move player (guard grid writes by bounds)
+        if (IsWithinGrid(_playerPosition))
+        {
+            _grid[_playerPosition.X, _playerPosition.Y] = (int)CellType.Empty;
+        }
         _playerPosition = newPosition;
-        _grid[_playerPosition.X, _playerPosition.Y] = (int)CellType.Player;
+        if (IsWithinGrid(_playerPosition))
+        {
+            _grid[_playerPosition.X, _playerPosition.Y] = (int)CellType.Player;
+        }
         
         QueueRedraw();
         EmitSignal(SignalName.PlayerMoved, newPosition);
@@ -1725,7 +1826,12 @@ public partial class GridMap : Node2D
     
     public Vector2 GetWorldPosition(Vector2I gridPosition)
     {
-        return new Vector2(gridPosition.X * CellSize + CellSize / 2, 
-                          gridPosition.Y * CellSize + CellSize / 2);
+        // Map grid coordinates back to world space by first converting back to tilemap
+        // coordinates using the origin (min used cell). We intentionally do NOT add the
+        // layer's Position here; the visual layer offset is applied by the sprite/camera.
+        int tileX = gridPosition.X + _tilemapOrigin.X;
+        int tileY = gridPosition.Y + _tilemapOrigin.Y;
+        return new Vector2(tileX * CellSize + CellSize / 2,
+                           tileY * CellSize + CellSize / 2);
     }
 }

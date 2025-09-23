@@ -26,6 +26,12 @@ public partial class Game : Node2D
         _gameManager = GetNode<GameManager>("GameManager");
         _gridMap = GetNode<GridMap>("GridMap");
         _gameUI = GetNode<Control>("UI/GameUI");
+        // Make sure the UI layer is visible at runtime
+        var uiLayer = GetNodeOrNull<CanvasLayer>("UI");
+        if (uiLayer != null)
+        {
+            uiLayer.Visible = true;
+        }
         _camera = GetNode<Camera2D>("Camera2D");
         // Ensure this camera is active at runtime
         _camera.MakeCurrent();
@@ -413,6 +419,28 @@ public partial class Game : Node2D
             _playerLevelLabel.Text = $"Level: {_gameManager.Player.Level}";
             _playerHealthLabel.Text = $"HP: {_gameManager.Player.CurrentHealth}/{_gameManager.Player.MaxHealth}";
             _playerExperienceLabel.Text = $"EXP: {_gameManager.Player.Experience}/{_gameManager.Player.ExperienceToNext}";
+
+            // Update progress bars if present
+            var hpBar = GetNodeOrNull<ProgressBar>("UI/GameUI/TopPanel/PlayerStats/HPBar");
+            if (hpBar != null)
+            {
+                hpBar.MaxValue = _gameManager.Player.MaxHealth;
+                hpBar.Value = _gameManager.Player.CurrentHealth;
+            }
+
+            var expBar = GetNodeOrNull<ProgressBar>("UI/GameUI/TopPanel/PlayerStats/ExpBar");
+            if (expBar != null)
+            {
+                expBar.MaxValue = _gameManager.Player.ExperienceToNext;
+                expBar.Value = _gameManager.Player.Experience;
+            }
+
+            // Update level badge text if present
+            var badge = GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/IconWrapper/LevelBadge/BadgeLabel");
+            if (badge != null)
+            {
+                badge.Text = $"Lv {_gameManager.Player.Level}";
+            }
         }
     }
 

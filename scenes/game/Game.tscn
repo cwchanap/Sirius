@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=4 uid="uid://dhlx8fpikbf7h"]
+[gd_scene load_steps=17 format=4 uid="uid://dhlx8fpikbf7h"]
 
 [ext_resource type="Script" uid="uid://cb5cqhpwe6kjd" path="res://scripts/game/GameManager.cs" id="1_game_manager"]
 [ext_resource type="Script" uid="uid://dxou423ri263w" path="res://scripts/game/GridMap.cs" id="2_grid_map"]
@@ -8,6 +8,68 @@
 [ext_resource type="TileSet" uid="uid://dm0fdgl52g2u4" path="res://assets/tiles/wall_tileset.tres" id="6_wall_tileset"]
 [ext_resource type="Texture2D" uid="uid://cptmkh2hg6xed" path="res://assets/sprites/characters/enemy_goblin/sprite_sheet.png" id="6_wnrko"]
 [ext_resource type="Script" uid="uid://y82v4iq0fufy" path="res://scripts/game/EnemySpawn.cs" id="7_wqino"]
+[ext_resource type="Texture2D" uid="uid://bnqm64atvj28b" path="res://assets/sprites/characters/player_hero/sprite_sheet.png" id="8_player_hero"]
+[ext_resource type="Script" uid="uid://b2t8hiyo8chiu" path="res://scripts/ui/DraggablePanel.cs" id="9_draggable_panel"]
+
+[sub_resource type="StyleBoxFlat" id="1_stats_card"]
+content_margin_left = 14.0
+content_margin_top = 12.0
+content_margin_right = 14.0
+content_margin_bottom = 12.0
+bg_color = Color(0.1, 0.1, 0.12, 0.85)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.85, 0.9, 0.35)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_size = 8
+shadow_offset = Vector2(0, 3)
+
+[sub_resource type="AtlasTexture" id="6_hero_icon"]
+atlas = ExtResource("8_player_hero")
+region = Rect2(0, 0, 32, 32)
+filter_clip = true
+
+[sub_resource type="StyleBoxFlat" id="5_badge"]
+content_margin_left = 6.0
+content_margin_top = 2.0
+content_margin_right = 6.0
+content_margin_bottom = 2.0
+bg_color = Color(0.98, 0.8, 0.2, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.2, 0.2, 0.2, 0.8)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="2_bar_bg"]
+bg_color = Color(0.18, 0.18, 0.22, 0.9)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="3_hp_fill"]
+bg_color = Color(0.25, 0.75, 0.38, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="4_exp_fill"]
+bg_color = Color(0.95, 0.8, 0.3, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
 
 [node name="Game" type="Node2D"]
 script = ExtResource("4_game_script")
@@ -51,7 +113,6 @@ EnemyType = "goblin"
 script = ExtResource("3_player_controller")
 
 [node name="UI" type="CanvasLayer" parent="."]
-visible = false
 
 [node name="GameUI" type="Control" parent="UI"]
 layout_mode = 3
@@ -61,40 +122,87 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="TopPanel" type="Panel" parent="UI/GameUI"]
+[node name="TopPanel" type="PanelContainer" parent="UI/GameUI"]
 layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_bottom = 100.0
-grow_horizontal = 2
+offset_left = 20.0
+offset_top = 80.0
+offset_right = 340.0
+offset_bottom = 240.0
+grow_horizontal = 0
 grow_vertical = 0
+theme_override_styles/panel = SubResource("1_stats_card")
+script = ExtResource("9_draggable_panel")
 
 [node name="PlayerStats" type="VBoxContainer" parent="UI/GameUI/TopPanel"]
-layout_mode = 1
-anchors_preset = 4
-anchor_top = 0.5
-anchor_bottom = 0.5
-offset_left = 20.0
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="IconWrapper" type="Control" parent="UI/GameUI/TopPanel/PlayerStats"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+
+[node name="HeroIcon" type="TextureRect" parent="UI/GameUI/TopPanel/PlayerStats/IconWrapper"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+texture = SubResource("6_hero_icon")
+
+[node name="LevelBadge" type="PanelContainer" parent="UI/GameUI/TopPanel/PlayerStats/IconWrapper"]
+layout_mode = 2
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -30.0
 offset_top = -30.0
-offset_right = 300.0
-offset_bottom = 30.0
-grow_vertical = 2
+offset_right = -6.0
+offset_bottom = -6.0
+theme_override_styles/panel = SubResource("5_badge")
+
+[node name="BadgeLabel" type="Label" parent="UI/GameUI/TopPanel/PlayerStats/IconWrapper/LevelBadge"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "Lv 1"
+horizontal_alignment = 1
 
 [node name="PlayerName" type="Label" parent="UI/GameUI/TopPanel/PlayerStats"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 22
 text = "Hero"
 
 [node name="PlayerLevel" type="Label" parent="UI/GameUI/TopPanel/PlayerStats"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 16
 text = "Level: 1"
 
 [node name="PlayerHealth" type="Label" parent="UI/GameUI/TopPanel/PlayerStats"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 16
 text = "HP: 100/100"
+
+[node name="HPBar" type="ProgressBar" parent="UI/GameUI/TopPanel/PlayerStats"]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/background = SubResource("2_bar_bg")
+theme_override_styles/fill = SubResource("3_hp_fill")
+value = 100.0
+show_percentage = false
 
 [node name="PlayerExperience" type="Label" parent="UI/GameUI/TopPanel/PlayerStats"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 16
 text = "EXP: 0/110"
+
+[node name="ExpBar" type="ProgressBar" parent="UI/GameUI/TopPanel/PlayerStats"]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/background = SubResource("2_bar_bg")
+theme_override_styles/fill = SubResource("4_exp_fill")
+max_value = 110.0
+show_percentage = false
 
 [node name="Instructions" type="Label" parent="UI/GameUI"]
 layout_mode = 1
@@ -102,8 +210,8 @@ anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -280.0
-offset_top = 20.0
-offset_bottom = 180.0
+offset_top = 120.0
+offset_bottom = 280.0
 grow_horizontal = 0
 grow_vertical = 0
 text = "Use WASD or Arrow Keys to move

@@ -38,7 +38,7 @@ tile_set = ExtResource("6_wall_tileset")
 
 [node name="EnemySpawn_Goblin_MCP" type="Sprite2D" parent="GridMap"]
 z_index = 2
-position = Vector2(-48.5, -33)
+position = Vector2(-48, 0)
 scale = Vector2(0.84375, 0.8125)
 texture = ExtResource("6_wnrko")
 region_enabled = true

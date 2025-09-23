@@ -19,6 +19,9 @@ public partial class EnemySpawn : Sprite2D
 
     private const int FrameWidth = 32;
     private const int FrameHeight = 32;
+    private int _currentFrame = 0;
+    private float _animTimer = 0f;
+    private const float FrameTime = 0.2f; // 5 FPS
 
     public override void _Ready()
     {
@@ -53,8 +56,8 @@ public partial class EnemySpawn : Sprite2D
         // Position initially
         UpdateVisual(_gridMap);
 
-        // Keep visible and responsive in the editor for easy placement
-        SetProcess(Engine.IsEditorHint());
+        // Process in both editor (for placement) and runtime (for animation)
+        SetProcess(true);
         ZIndex = 2; // Above walls (z_index = 1)
     }
 
@@ -104,34 +107,49 @@ public partial class EnemySpawn : Sprite2D
 
     public override void _Process(double delta)
     {
-        if (!Engine.IsEditorHint()) return;
-        if (_gridMap == null) return;
-
-        // Compute current grid position from node's position relative to the layer offset
-        var ground = _gridMap.GetNodeOrNull<TileMapLayer>("GroundLayer");
-        var offset = ground != null ? ground.Position : Vector2.Zero;
-        int cellSize = _gridMap.CellSize;
-
-        Vector2 local = Position - offset;
-        int tx = Mathf.FloorToInt(local.X / cellSize);
-        int ty = Mathf.FloorToInt(local.Y / cellSize);
-        // Clamp to non-negative to avoid confusing negative tiles during level design
-        tx = Mathf.Max(0, tx);
-        ty = Mathf.Max(0, ty);
-
-        var newGrid = new Vector2I(tx, ty);
-        if (newGrid != GridPosition)
+        if (Engine.IsEditorHint())
         {
-            GridPosition = newGrid;
+            if (_gridMap == null) return;
+
+            // Compute current grid position from node's position relative to the layer offset
+            var ground = _gridMap.GetNodeOrNull<TileMapLayer>("GroundLayer");
+            var offset = ground != null ? ground.Position : Vector2.Zero;
+            int cellSize = _gridMap.CellSize;
+
+            Vector2 local = Position - offset;
+            int tx = Mathf.FloorToInt(local.X / cellSize);
+            int ty = Mathf.FloorToInt(local.Y / cellSize);
+            // Clamp to non-negative to avoid confusing negative tiles during level design
+            tx = Mathf.Max(0, tx);
+            ty = Mathf.Max(0, ty);
+
+            var newGrid = new Vector2I(tx, ty);
+            if (newGrid != GridPosition)
+            {
+                GridPosition = newGrid;
+            }
+
+            // Optionally snap to the nearest tile center when enabled
+            if (EditorSnapEnabled)
+            {
+                Vector2 snapped = new Vector2(tx * cellSize + cellSize / 2f, ty * cellSize + cellSize / 2f) + offset;
+                if (!snapped.IsEqualApprox(Position))
+                {
+                    Position = snapped;
+                }
+            }
+            return;
         }
 
-        // Optionally snap to the nearest tile center when enabled
-        if (EditorSnapEnabled)
+        // Runtime: advance animation on the sprite sheet if available
+        if (Texture != null && RegionEnabled)
         {
-            Vector2 snapped = new Vector2(tx * cellSize + cellSize / 2f, ty * cellSize + cellSize / 2f) + offset;
-            if (!snapped.IsEqualApprox(Position))
+            _animTimer += (float)delta;
+            if (_animTimer >= FrameTime)
             {
-                Position = snapped;
+                _animTimer = 0f;
+                _currentFrame = (_currentFrame + 1) % 4;
+                RegionRect = new Rect2(_currentFrame * FrameWidth, 0, FrameWidth, FrameHeight);
             }
         }
     }

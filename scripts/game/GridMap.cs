@@ -122,12 +122,7 @@ public partial class GridMap : Node2D
             var saved = GD.Load<TileSet>(path);
             if (saved != null)
             {
-                var ground = GetNodeOrNull<TileMapLayer>("GroundLayer");
-                var walls = GetNodeOrNull<TileMapLayer>("WallLayer");
-                var markers = GetNodeOrNull<TileMapLayer>("MarkerLayer");
-                if (ground != null) ground.TileSet = saved;
-                if (walls != null) walls.TileSet = saved;
-                if (markers != null) markers.TileSet = saved;
+                // Keep existing per-layer TileSets unchanged; just update our cached reference.
                 _bakedTileSet = saved;
             }
         }
@@ -290,9 +285,10 @@ public partial class GridMap : Node2D
 
         // Create a shared TileSet with themed floors
         EnsureBakedTileSet();
-        ground.TileSet = _bakedTileSet;
-        walls.TileSet = _bakedTileSet;
-        markers.TileSet = _bakedTileSet;
+        // Respect existing per-layer TileSets; only assign if none is set
+        if (ground.TileSet == null) ground.TileSet = _bakedTileSet;
+        if (walls.TileSet == null) walls.TileSet = _bakedTileSet;
+        if (markers.TileSet == null) markers.TileSet = _bakedTileSet;
 
         // Clear previous cells
         ground.Clear();
@@ -491,32 +487,8 @@ public partial class GridMap : Node2D
             GD.Print($"🧭 TileMap origin: {_tilemapOrigin}, world offset: {_tilemapWorldOffset}");
         }
 
-        // Position the visual layers so the used-cell centroid is centered at world origin.
-        // This keeps tiles visible with a fixed camera at (0,0).
-        var visGround = GetNodeOrNull<TileMapLayer>("GroundLayer");
-        var visWalls = GetNodeOrNull<TileMapLayer>("WallLayer");
-        if (haveAnyCells)
-        {
-            float cx, cy;
-            if (haveGround)
-            {
-                cx = (gMinX + gMaxX) * 0.5f;
-                cy = (gMinY + gMaxY) * 0.5f;
-            }
-            else
-            {
-                cx = (wMinX + wMaxX) * 0.5f;
-                cy = (wMinY + wMaxY) * 0.5f;
-            }
-            // Offset so that the center of the centroid cell (cx+0.5, cy+0.5) is at (0,0)
-            Vector2 visualCenterOffset = new Vector2(-(cx + 0.5f) * CellSize, -(cy + 0.5f) * CellSize);
-            if (visGround != null) visGround.Position = visualCenterOffset;
-            if (visWalls != null) visWalls.Position = visualCenterOffset;
-            if (EnableDebugLogging)
-            {
-                GD.Print($"🎯 Visual centering: centroid=({cx},{cy}), offset={visualCenterOffset}");
-            }
-        }
+        // Do not re-center visual layers here. We respect positions saved in the scene
+        // so editor and runtime positions match while the camera follows the player.
 
         // Ensure grid allocated
         if (_grid == null || _grid.GetLength(0) != GridWidth || _grid.GetLength(1) != GridHeight)
@@ -743,6 +715,12 @@ public partial class GridMap : Node2D
         if (!Engine.IsEditorHint())
         {
             GetViewport().SizeChanged += () => QueueRedraw();
+        }
+
+        // After grid/layers are initialized, register any static enemy spawns placed in the scene
+        if (!Engine.IsEditorHint())
+        {
+            CallDeferred(nameof(RegisterStaticEnemySpawns));
         }
     }
     
@@ -1814,6 +1792,8 @@ public partial class GridMap : Node2D
             if (_grid[position.X, position.Y] == (int)CellType.Enemy)
             {
                 _grid[position.X, position.Y] = (int)CellType.Empty;
+                // Remove any static enemy spawn node at this grid position
+                RemoveEnemySpawnNode(position);
                 QueueRedraw();
             }
         }
@@ -1833,5 +1813,45 @@ public partial class GridMap : Node2D
         int tileY = gridPosition.Y + _tilemapOrigin.Y;
         return new Vector2(tileX * CellSize + CellSize / 2,
                            tileY * CellSize + CellSize / 2);
+    }
+
+    // ===== Static enemy spawns (scene-placed) =====
+    private void RegisterStaticEnemySpawns()
+    {
+        var nodes = GetTree().GetNodesInGroup("EnemySpawn");
+        foreach (Node n in nodes)
+        {
+            if (n is EnemySpawn spawn)
+            {
+                // Convert from tilemap-local coordinates to internal grid coordinates
+                Vector2I gp = spawn.GridPosition;
+                Vector2I gg = new Vector2I(gp.X - _tilemapOrigin.X, gp.Y - _tilemapOrigin.Y);
+                if (gg.X >= 0 && gg.X < GridWidth && gg.Y >= 0 && gg.Y < GridHeight)
+                {
+                    _grid[gg.X, gg.Y] = (int)CellType.Enemy;
+                }
+                // Ensure visual alignment with current layer offset
+                spawn.UpdateVisual(this);
+            }
+        }
+    }
+
+    private void RemoveEnemySpawnNode(Vector2I position)
+    {
+        var nodes = GetTree().GetNodesInGroup("EnemySpawn");
+        foreach (Node n in nodes)
+        {
+            if (n is EnemySpawn spawn)
+            {
+                // Convert internal grid coords back to tilemap-local for comparison
+                Vector2I tilePos = new Vector2I(position.X + _tilemapOrigin.X,
+                                                position.Y + _tilemapOrigin.Y);
+                if (spawn.GridPosition == tilePos)
+                {
+                    spawn.QueueFree();
+                    break;
+                }
+            }
+        }
     }
 }

@@ -130,8 +130,8 @@ public partial class Game : Node2D
         
         _lastEnemyPosition = enemyPosition;
         
-        // Create enemy based on area/theme rather than just distance
-        Enemy enemy = CreateEnemyByArea(enemyPosition);
+        // Prefer a scene-placed EnemySpawn override when available
+        Enemy enemy = CreateEnemyFromSpawnOrArea(enemyPosition);
         
         _gameManager.StartBattle(enemy);
     }
@@ -256,6 +256,39 @@ public partial class Game : Node2D
             else if (rand < 0.7f) return Enemy.CreateDemonLord();
             else return Enemy.CreateBoss();
         }
+    }
+
+    // Attempt to create an enemy from a scene-placed EnemySpawn at the given grid position.
+    // If no spawn exists or its EnemyType is empty/unknown, fall back to area-based selection.
+    private Enemy CreateEnemyFromSpawnOrArea(Vector2I position)
+    {
+        var nodes = GetTree().GetNodesInGroup("EnemySpawn");
+        foreach (Node n in nodes)
+        {
+            if (n is EnemySpawn spawn && spawn.GridPosition == position)
+            {
+                string t = (spawn.EnemyType ?? string.Empty).ToLower();
+                switch (t)
+                {
+                    case "goblin": return Enemy.CreateGoblin();
+                    case "orc": return Enemy.CreateOrc();
+                    case "skeleton_warrior": return Enemy.CreateSkeletonWarrior();
+                    case "troll": return Enemy.CreateTroll();
+                    case "dragon": return Enemy.CreateDragon();
+                    case "forest_spirit": return Enemy.CreateForestSpirit();
+                    case "cave_spider": return Enemy.CreateCaveSpider();
+                    case "desert_scorpion": return Enemy.CreateDesertScorpion();
+                    case "swamp_wretch": return Enemy.CreateSwampWretch();
+                    case "mountain_wyvern": return Enemy.CreateMountainWyvern();
+                    case "dark_mage": return Enemy.CreateDarkMage();
+                    case "dungeon_guardian": return Enemy.CreateDungeonGuardian();
+                    case "demon_lord": return Enemy.CreateDemonLord();
+                    case "boss": return Enemy.CreateBoss();
+                }
+                break; // spawn found but no valid type; fall back
+            }
+        }
+        return CreateEnemyByArea(position);
     }
     
     private bool IsInArea(int x, int y, int areaX, int areaY, int width, int height)

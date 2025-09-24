@@ -46,6 +46,8 @@ public partial class Game : Node2D
 
         // Reset battle state to ensure clean start
         _gameManager.ResetBattleState();
+        // Ensure the player is reinitialized if previous run ended in defeat
+        _gameManager.EnsureFreshPlayer();
 
         // Get UI labels
         _playerNameLabel = GetNode<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerName");
@@ -125,6 +127,8 @@ public partial class Game : Node2D
     private void OnEnemyEncountered(Vector2I enemyPosition)
     {
         GD.Print($"Enemy encountered at position: {enemyPosition}");
+        // Make sure the player is fresh in case a previous session ended with 0 HP
+        _gameManager.EnsureFreshPlayer();
         
         // Check if player is alive
         if (!_gameManager.Player.IsAlive)

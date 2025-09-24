@@ -53,6 +53,8 @@ public partial class GameManager : Node
             return;
         }
         
+        EnsureFreshPlayer();
+        
         IsInBattle = true;
         GD.Print($"Battle started against {enemy.Name}! IsInBattle: {IsInBattle}");
         EmitSignal(SignalName.BattleStarted, enemy);
@@ -74,5 +76,26 @@ public partial class GameManager : Node
     {
         IsInBattle = false;
         GD.Print("Battle state reset. IsInBattle: false");
+    }
+
+    public override void _ExitTree()
+    {
+        // Clear the singleton reference when this scene unloads so a fresh GameManager
+        // can be created next time the Game scene is loaded.
+        if (Instance == this)
+        {
+            GD.Print("GameManager exiting tree, clearing singleton Instance");
+            Instance = null;
+        }
+    }
+
+    // Ensure that when a new game starts (e.g., after defeat), we have a live player.
+    public void EnsureFreshPlayer()
+    {
+        if (Player == null || !Player.IsAlive)
+        {
+            GD.Print("Initializing fresh player for new game");
+            InitializePlayer();
+        }
     }
 }

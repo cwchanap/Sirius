@@ -17,9 +17,12 @@ public partial class BattleManager : AcceptDialog
     private Label _enemyHealthLabel;
     private Label _enemyAttackLabel;
     private Label _enemyDefenseLabel;
+    private Label _playerSpeedLabel;
+    private Label _enemySpeedLabel;
     private Button _attackButton;
     private Button _defendButton;
     private Button _runButton;
+    private Button _startButton;
     
     // Animation and Visual References
     private AnimatedSprite2D _playerSprite;
@@ -44,13 +47,16 @@ public partial class BattleManager : AcceptDialog
         _enemyHealthLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemyHealth");
         _enemyAttackLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemyAttack");
         _enemyDefenseLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemyDefense");
+        _enemySpeedLabel = GetNodeOrNull<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemySpeed");
         _playerLevelLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerStatsContainer/PlayerLevel");
         _playerHealthLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerStatsContainer/PlayerHealth");
         _playerAttackLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerStatsContainer/PlayerAttack");
         _playerDefenseLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerStatsContainer/PlayerDefense");
+        _playerSpeedLabel = GetNodeOrNull<Label>("BattleContent/BattleArena/LeftSide/PlayerStatsContainer/PlayerSpeed");
         _attackButton = GetNode<Button>("BattleContent/ActionButtons/AttackButton");
         _defendButton = GetNode<Button>("BattleContent/ActionButtons/DefendButton");
         _runButton = GetNode<Button>("BattleContent/ActionButtons/RunButton");
+        _startButton = GetNodeOrNull<Button>("BattleContent/ActionButtons/StartButton");
 
         // Verify all UI elements are loaded
         if (_enemyLevelLabel == null) GD.PrintErr("ERROR: EnemyLevelLabel not found!");
@@ -58,6 +64,9 @@ public partial class BattleManager : AcceptDialog
         if (_attackButton == null) GD.PrintErr("ERROR: AttackButton not found!");
         if (_defendButton == null) GD.PrintErr("ERROR: DefendButton not found!");
         if (_runButton == null) GD.PrintErr("ERROR: RunButton not found!");
+        if (_startButton == null) GD.Print("INFO: StartButton not found (auto-start fallback)");
+        if (_playerSpeedLabel == null) GD.Print("INFO: PlayerSpeed label not found (optional)");
+        if (_enemySpeedLabel == null) GD.Print("INFO: EnemySpeed label not found (optional)");
 
         GD.Print("BattleManager UI elements loaded");
 
@@ -78,10 +87,16 @@ public partial class BattleManager : AcceptDialog
         // Initial centering
         CenterSprites();
         
-        // Hide manual action buttons since combat is now automated
+        // Hide manual action buttons since combat is automated
         _attackButton.Visible = false;
         _defendButton.Visible = false;
         _runButton.Visible = false;
+        if (_startButton != null)
+        {
+            _startButton.Visible = true;
+            _startButton.Disabled = false;
+            _startButton.Pressed += OnStartButtonPressed;
+        }
         
         // Initialize damage labels as invisible
         _playerDamageLabel.Modulate = new Color(1, 0, 0, 0);
@@ -175,18 +190,39 @@ public partial class BattleManager : AcceptDialog
         _player = player;
         _enemy = enemy;
         _playerTurn = _player.Speed >= _enemy.Speed; // Faster character goes first
-        _battleInProgress = true;
+        _battleInProgress = false; // Wait for Start button
         
         // Setup character animations
         SetupCharacterAnimations();
         
         GD.Print($"Battle begins! {_player.Name} vs {_enemy.Name}");
         GD.Print($"Turn order: {(_playerTurn ? "Player" : "Enemy")} goes first!");
-        GD.Print("Auto-battle mode: Combat will proceed automatically!");
+        GD.Print("Auto-battle mode: Click Start to begin.");
         
         UpdateUI();
-        
-        // Start the auto-battle timer
+        // Start immediately if no StartButton exists (fallback), otherwise wait for user
+        if (_startButton == null)
+        {
+            _battleInProgress = true;
+            _battleTimer.Start();
+            GD.Print("StartButton not present; auto-battle started automatically.");
+        }
+    }
+
+    private void OnStartButtonPressed()
+    {
+        if (_battleInProgress) return;
+        if (_player == null || _enemy == null)
+        {
+            GD.PrintErr("Start pressed but battle participants not initialized");
+            return;
+        }
+        _battleInProgress = true;
+        if (_startButton != null)
+        {
+            _startButton.Visible = false;
+        }
+        GD.Print("Battle started by user");
         _battleTimer.Start();
     }
     
@@ -381,6 +417,11 @@ public partial class BattleManager : AcceptDialog
             _playerDefenseLabel.Text = $"DEF: {_player.Defense}";
         }
 
+        if (_playerSpeedLabel != null && _player != null)
+        {
+            _playerSpeedLabel.Text = $"SPD: {_player.Speed}";
+        }
+
         if (_enemyLevelLabel != null && _enemy != null)
         {
             _enemyLevelLabel.Text = $"Lv: {_enemy.Level}";
@@ -399,6 +440,11 @@ public partial class BattleManager : AcceptDialog
         if (_enemyDefenseLabel != null && _enemy != null)
         {
             _enemyDefenseLabel.Text = $"DEF: {_enemy.Defense}";
+        }
+
+        if (_enemySpeedLabel != null && _enemy != null)
+        {
+            _enemySpeedLabel.Text = $"SPD: {_enemy.Speed}";
         }
 
         // Enable/disable buttons based on turn (all disabled in auto-battle)

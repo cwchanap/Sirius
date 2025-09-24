@@ -132,23 +132,50 @@ grow_horizontal = 0
 grow_vertical = 0
 theme_override_styles/panel = SubResource("1_stats_card")
 script = ExtResource("9_draggable_panel")
+OnlyDragFromHandle = true
+DragHandlePath = NodePath("Content/HeaderBar")
 
-[node name="PlayerStats" type="VBoxContainer" parent="UI/GameUI/TopPanel"]
+[node name="Content" type="VBoxContainer" parent="UI/GameUI/TopPanel"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="IconWrapper" type="Control" parent="UI/GameUI/TopPanel/PlayerStats"]
+[node name="HeaderBar" type="HBoxContainer" parent="UI/GameUI/TopPanel/Content"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="HeaderTitleDuplicate" type="Label" parent="UI/GameUI/TopPanel/Content/HeaderBar"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+
+[node name="HeaderTitle" type="Label" parent="UI/GameUI/TopPanel/Content/HeaderBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "Player HUD"
+
+[node name="LockDrag" type="CheckButton" parent="UI/GameUI/TopPanel/Content/HeaderBar"]
+layout_mode = 2
+tooltip_text = "Lock position (disable dragging)"
+text = "Lock"
+
+[node name="PlayerStats" type="VBoxContainer" parent="UI/GameUI/TopPanel/Content"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="IconWrapper" type="Control" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
 custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
 
-[node name="HeroIcon" type="TextureRect" parent="UI/GameUI/TopPanel/PlayerStats/IconWrapper"]
+[node name="HeroIcon" type="TextureRect" parent="UI/GameUI/TopPanel/Content/PlayerStats/IconWrapper"]
 custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 texture = SubResource("6_hero_icon")
 
-[node name="LevelBadge" type="PanelContainer" parent="UI/GameUI/TopPanel/PlayerStats/IconWrapper"]
+[node name="LevelBadge" type="PanelContainer" parent="UI/GameUI/TopPanel/Content/PlayerStats/IconWrapper"]
 layout_mode = 2
 anchor_left = 1.0
 anchor_top = 1.0
@@ -160,28 +187,28 @@ offset_right = -6.0
 offset_bottom = -6.0
 theme_override_styles/panel = SubResource("5_badge")
 
-[node name="BadgeLabel" type="Label" parent="UI/GameUI/TopPanel/PlayerStats/IconWrapper/LevelBadge"]
+[node name="BadgeLabel" type="Label" parent="UI/GameUI/TopPanel/Content/PlayerStats/IconWrapper/LevelBadge"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "Lv 1"
 horizontal_alignment = 1
 
-[node name="PlayerName" type="Label" parent="UI/GameUI/TopPanel/PlayerStats"]
+[node name="PlayerName" type="Label" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Hero"
 
-[node name="PlayerLevel" type="Label" parent="UI/GameUI/TopPanel/PlayerStats"]
+[node name="PlayerLevel" type="Label" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
 text = "Level: 1"
 
-[node name="PlayerHealth" type="Label" parent="UI/GameUI/TopPanel/PlayerStats"]
+[node name="PlayerHealth" type="Label" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
 text = "HP: 100/100"
 
-[node name="HPBar" type="ProgressBar" parent="UI/GameUI/TopPanel/PlayerStats"]
+[node name="HPBar" type="ProgressBar" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
 custom_minimum_size = Vector2(0, 18)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -190,12 +217,12 @@ theme_override_styles/fill = SubResource("3_hp_fill")
 value = 100.0
 show_percentage = false
 
-[node name="PlayerExperience" type="Label" parent="UI/GameUI/TopPanel/PlayerStats"]
+[node name="PlayerExperience" type="Label" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
 text = "EXP: 0/110"
 
-[node name="ExpBar" type="ProgressBar" parent="UI/GameUI/TopPanel/PlayerStats"]
+[node name="ExpBar" type="ProgressBar" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
 custom_minimum_size = Vector2(0, 18)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -203,6 +230,21 @@ theme_override_styles/background = SubResource("2_bar_bg")
 theme_override_styles/fill = SubResource("4_exp_fill")
 max_value = 110.0
 show_percentage = false
+
+[node name="PlayerAttackHUD" type="Label" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "ATK: 20"
+
+[node name="PlayerDefenseHUD" type="Label" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "DEF: 10"
+
+[node name="PlayerSpeedHUD" type="Label" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "SPD: 15"
 
 [node name="Instructions" type="Label" parent="UI/GameUI"]
 layout_mode = 1

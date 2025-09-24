@@ -58,6 +58,11 @@ layout_mode = 2
 text = "DEF: 5"
 horizontal_alignment = 1
 
+[node name="PlayerSpeed" type="Label" parent="BattleContent/BattleArena/LeftSide/PlayerStatsContainer"]
+layout_mode = 2
+text = "SPD: 5"
+horizontal_alignment = 1
+
 [node name="PlayerDamageLabel" type="Label" parent="BattleContent/BattleArena/LeftSide/PlayerStatsContainer"]
 modulate = Color(1, 0, 0, 0)
 layout_mode = 2
@@ -100,6 +105,11 @@ layout_mode = 2
 text = "DEF: 3"
 horizontal_alignment = 1
 
+[node name="EnemySpeed" type="Label" parent="BattleContent/BattleArena/RightSide/EnemyStatsContainer"]
+layout_mode = 2
+text = "SPD: 3"
+horizontal_alignment = 1
+
 [node name="EnemyDamageLabel" type="Label" parent="BattleContent/BattleArena/RightSide/EnemyStatsContainer"]
 modulate = Color(1, 0, 0, 0)
 layout_mode = 2
@@ -124,3 +134,8 @@ text = "Defend"
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Run"
+
+[node name="StartButton" type="Button" parent="BattleContent/ActionButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Start"

@@ -49,11 +49,19 @@ public partial class Game : Node2D
         // Ensure the player is reinitialized if previous run ended in defeat
         _gameManager.EnsureFreshPlayer();
 
-        // Get UI labels
-        _playerNameLabel = GetNode<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerName");
-        _playerLevelLabel = GetNode<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerLevel");
-        _playerHealthLabel = GetNode<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerHealth");
-        _playerExperienceLabel = GetNode<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerExperience");
+        // Get UI labels (prefer new Content hierarchy, fallback to old paths)
+        _playerNameLabel =
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerName") ??
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerName");
+        _playerLevelLabel =
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerLevel") ??
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerLevel");
+        _playerHealthLabel =
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerHealth") ??
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerHealth");
+        _playerExperienceLabel =
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerExperience") ??
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerExperience");
 
         // Connect signals
         _gameManager.BattleStarted += OnBattleStarted;
@@ -425,14 +433,18 @@ public partial class Game : Node2D
             _playerExperienceLabel.Text = $"EXP: {_gameManager.Player.Experience}/{_gameManager.Player.ExperienceToNext}";
 
             // Update progress bars if present
-            var hpBar = GetNodeOrNull<ProgressBar>("UI/GameUI/TopPanel/PlayerStats/HPBar");
+            var hpBar =
+                GetNodeOrNull<ProgressBar>("UI/GameUI/TopPanel/Content/PlayerStats/HPBar") ??
+                GetNodeOrNull<ProgressBar>("UI/GameUI/TopPanel/PlayerStats/HPBar");
             if (hpBar != null)
             {
                 hpBar.MaxValue = _gameManager.Player.MaxHealth;
                 hpBar.Value = _gameManager.Player.CurrentHealth;
             }
 
-            var expBar = GetNodeOrNull<ProgressBar>("UI/GameUI/TopPanel/PlayerStats/ExpBar");
+            var expBar =
+                GetNodeOrNull<ProgressBar>("UI/GameUI/TopPanel/Content/PlayerStats/ExpBar") ??
+                GetNodeOrNull<ProgressBar>("UI/GameUI/TopPanel/PlayerStats/ExpBar");
             if (expBar != null)
             {
                 expBar.MaxValue = _gameManager.Player.ExperienceToNext;
@@ -440,10 +452,37 @@ public partial class Game : Node2D
             }
 
             // Update level badge text if present
-            var badge = GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/IconWrapper/LevelBadge/BadgeLabel");
+            var badge =
+                GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/IconWrapper/LevelBadge/BadgeLabel") ??
+                GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/IconWrapper/LevelBadge/BadgeLabel");
             if (badge != null)
             {
                 badge.Text = $"Lv {_gameManager.Player.Level}";
+            }
+
+            // Update additional HUD labels if present
+            var atkLabel =
+                GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerAttackHUD") ??
+                GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerAttackHUD");
+            if (atkLabel != null)
+            {
+                atkLabel.Text = $"ATK: {_gameManager.Player.Attack}";
+            }
+
+            var defLabel =
+                GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerDefenseHUD") ??
+                GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerDefenseHUD");
+            if (defLabel != null)
+            {
+                defLabel.Text = $"DEF: {_gameManager.Player.Defense}";
+            }
+
+            var spdLabel =
+                GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerSpeedHUD") ??
+                GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerSpeedHUD");
+            if (spdLabel != null)
+            {
+                spdLabel.Text = $"SPD: {_gameManager.Player.Speed}";
             }
         }
     }

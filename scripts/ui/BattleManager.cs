@@ -34,6 +34,7 @@ public partial class BattleManager : AcceptDialog
     private Timer _battleTimer;
     private bool _battleInProgress = false;
     private bool _playerDefendedLastTurn = false;
+    private bool _resultEmitted = false; // Ensure we only emit BattleFinished once
     
     public override void _Ready()
     {
@@ -113,8 +114,9 @@ public partial class BattleManager : AcceptDialog
         GetOkButton().Text = "Close";
         GetOkButton().Visible = false; // Hide the OK button initially
         
-        // Connect the close request signal
-        CloseRequested += OnCloseRequested;
+        // Connect close signals (window X and ESC)
+        CloseRequested += OnCloseRequested; // Window close button
+        Canceled += OnCloseRequested;       // ESC key path
     }
     
     private void AddBattleBackground()
@@ -172,15 +174,37 @@ public partial class BattleManager : AcceptDialog
     
     private void OnCloseRequested()
     {
-        // In auto-battle mode, closing the dialog just stops the battle 
-        // (no escape mechanics since it's automated)
-        if (_battleInProgress && _player != null && _enemy != null && _player.IsAlive && _enemy.IsAlive)
+        // Always resolve battle state when the dialog is closed, including
+        // the case where the user closes before pressing Start.
+        if (!_resultEmitted)
         {
-            GD.Print("Battle interrupted!");
-            _battleInProgress = false;
-            _battleTimer.Stop();
-            EndBattleWithEscape();
+            if (_battleInProgress && _player != null && _enemy != null && _player.IsAlive && _enemy.IsAlive)
+            {
+                GD.Print("Battle interrupted via window close - treating as escape");
+                _battleInProgress = false;
+                _battleTimer.Stop();
+                EndBattleWithEscape(); // Emits BattleFinished and sets _resultEmitted
+            }
+            else
+            {
+                GD.Print("Battle dialog closed before start or after result - emitting escape to unlock input");
+                _resultEmitted = true;
+                EmitSignal(SignalName.BattleFinished, false, true); // Treat as escaped
+            }
         }
+
+        // Close and free the dialog so it cannot keep any input focus
+        Hide();
+        QueueFree();
+    }
+
+    // Allow the game scene to programmatically request closing the battle dialog
+    // (e.g., when ESC is pressed). This reuses the same logic as the window's
+    // close button and guarantees the battle state is resolved.
+    public void ForceCloseAsEscape()
+    {
+        GD.Print("ForceCloseAsEscape invoked by Game");
+        OnCloseRequested();
     }
     
     public void StartBattle(Character player, Enemy enemy)
@@ -622,6 +646,7 @@ public partial class BattleManager : AcceptDialog
         
         // Emit the signal immediately instead of waiting
         GD.Print("BattleManager emitting BattleFinished signal immediately");
+        _resultEmitted = true;
         EmitSignal(SignalName.BattleFinished, playerWon, false); // false for not escaped
     }
     
@@ -644,6 +669,7 @@ public partial class BattleManager : AcceptDialog
         
         // Emit the signal immediately instead of waiting
         GD.Print("BattleManager emitting BattleFinished signal with escape immediately");
+        _resultEmitted = true;
         EmitSignal(SignalName.BattleFinished, false, true); // false for not won, true for escaped
     }
     

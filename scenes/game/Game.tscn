@@ -6,7 +6,7 @@
 [ext_resource type="Script" uid="uid://dnc37bkd8npyl" path="res://scripts/game/Game.cs" id="4_game_script"]
 [ext_resource type="TileSet" uid="uid://1oxxalqkpebn" path="res://assets/tiles/ground_tileset.tres" id="5_ground_tileset"]
 [ext_resource type="TileSet" uid="uid://dm0fdgl52g2u4" path="res://assets/tiles/wall_tileset.tres" id="6_wall_tileset"]
-[ext_resource type="Texture2D" uid="uid://cptmkh2hg6xed" path="res://assets/sprites/characters/enemy_goblin/sprite_sheet.png" id="6_wnrko"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/enemy_goblin/sprite_sheet.png" id="6_wnrko"]
 [ext_resource type="Script" uid="uid://y82v4iq0fufy" path="res://scripts/game/EnemySpawn.cs" id="7_wqino"]
 [ext_resource type="Texture2D" uid="uid://bnqm64atvj28b" path="res://assets/sprites/characters/player_hero/sprite_sheet.png" id="8_player_hero"]
 [ext_resource type="Script" uid="uid://b2t8hiyo8chiu" path="res://scripts/ui/DraggablePanel.cs" id="9_draggable_panel"]

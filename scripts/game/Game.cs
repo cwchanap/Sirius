@@ -102,12 +102,32 @@ public partial class Game : Node2D
 
     public override void _Input(InputEvent @event)
     {
-        // Return to main menu when ESC is pressed (only if not in battle)
+        // Handle ESC
         if (@event is InputEventKey keyEvent && keyEvent.Pressed)
         {
-            if (keyEvent.Keycode == Key.Escape && !_gameManager.IsInBattle)
+            if (keyEvent.Keycode == Key.Escape)
             {
-                ReturnToMainMenu();
+                if (!_gameManager.IsInBattle)
+                {
+                    // Not in battle: go back to main menu
+                    ReturnToMainMenu();
+                }
+                else
+                {
+                    // In battle: close the battle dialog as an escape to unlock input
+                    if (_battleManager != null)
+                    {
+                        GD.Print("ESC pressed during battle - requesting battle dialog to close as escape");
+                        _battleManager.ForceCloseAsEscape();
+                    }
+                    else
+                    {
+                        // Fallback safety: if dialog reference missing, force-clear battle state
+                        GD.PrintErr("ESC pressed during battle but BattleManager is null - forcing EndBattle(escaped)");
+                        _gameManager.EndBattle(false); // treat as not won (escape); no enemy removal here
+                        UpdatePlayerUI();
+                    }
+                }
             }
         }
     }

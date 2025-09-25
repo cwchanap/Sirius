@@ -17,8 +17,9 @@ public partial class EnemySpawn : Sprite2D
     private GridMap _gridMap;
     private Vector2 _mapOffset = Vector2.Zero;
 
-    private const int FrameWidth = 32;
-    private const int FrameHeight = 32;
+    // Frame size will be derived from texture (defaults assume 96x96 high-res sheets)
+    private int FrameWidth = 96;
+    private int FrameHeight = 96;
     private int _currentFrame = 0;
     private float _animTimer = 0f;
     private const float FrameTime = 0.2f; // 5 FPS
@@ -53,6 +54,13 @@ public partial class EnemySpawn : Sprite2D
             RegionRect = new Rect2(0, 0, FrameWidth, FrameHeight);
         }
 
+        // Keep on-screen size equal to one grid cell regardless of frame resolution
+        int cell = _gridMap != null ? _gridMap.CellSize : 32;
+        if (FrameWidth > 0 && FrameHeight > 0)
+        {
+            Scale = new Vector2(cell / (float)FrameWidth, cell / (float)FrameHeight);
+        }
+
         // Position initially
         UpdateVisual(_gridMap);
 
@@ -70,16 +78,35 @@ public partial class EnemySpawn : Sprite2D
             return;
         }
 
-        // Expect asset path like: res://assets/sprites/characters/enemy_goblin/sprite_sheet.png
-        string folderName = $"enemy_{EnemyType.ToLower()}";
-        string path = $"res://assets/sprites/characters/{folderName}/sprite_sheet.png";
-        if (!FileAccess.FileExists(path))
+        // Prefer new enemies/ path; fallback to legacy characters/ path for compatibility
+        string typeLower = EnemyType.ToLower();
+        string newPath = $"res://assets/sprites/enemies/{typeLower}/sprite_sheet.png";
+        string legacyFolder = $"enemy_{typeLower}";
+        string legacyPath = $"res://assets/sprites/characters/{legacyFolder}/sprite_sheet.png";
+
+        string pathToUse = null;
+        if (FileAccess.FileExists(newPath)) pathToUse = newPath;
+        else if (FileAccess.FileExists(legacyPath)) pathToUse = legacyPath;
+
+        if (pathToUse == null)
         {
             Texture = null; // fallback to rectangle in _Draw
             return;
         }
-        var tex = GD.Load<Texture2D>(path);
+        var tex = GD.Load<Texture2D>(pathToUse);
         Texture = tex; // may still be null if load failed
+        if (Texture != null)
+        {
+            // Derive frame size dynamically (assume 4 frames horizontally)
+            var size = Texture.GetSize();
+            int w = Mathf.RoundToInt(size.X);
+            int h = Mathf.RoundToInt(size.Y);
+            if (w >= 4 && h > 0)
+            {
+                FrameWidth = Mathf.Max(1, w / 4);
+                FrameHeight = h;
+            }
+        }
     }
 
     public void UpdateVisual(GridMap grid)

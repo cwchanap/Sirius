@@ -828,17 +828,25 @@ public partial class GridMap : Node2D
         var failed = new List<string>();
         foreach (var enemyName in enemyNames)
         {
-            string path = $"res://assets/sprites/characters/{enemyName}/sprite_sheet.png";
+            // Prefer new path: res://assets/sprites/enemies/{type}/sprite_sheet.png
+            var enemyType = enemyName.Replace("enemy_", "");
+            string newPath = $"res://assets/sprites/enemies/{enemyType}/sprite_sheet.png";
+            string legacyPath = $"res://assets/sprites/characters/{enemyName}/sprite_sheet.png";
+
+            string path = null;
+            if (FileAccess.FileExists(newPath)) path = newPath;
+            else if (FileAccess.FileExists(legacyPath)) path = legacyPath;
+
             // Avoid engine error logs by checking existence before loading
-            if (!FileAccess.FileExists(path))
+            if (path == null)
             {
                 failed.Add(enemyName);
                 continue;
             }
+
             var texture = GD.Load<Texture2D>(path);
             if (texture != null)
             {
-                var enemyType = enemyName.Replace("enemy_", "");
                 _enemySprites[enemyType] = texture;
             }
             else
@@ -1550,14 +1558,15 @@ public partial class GridMap : Node2D
             return;
         }
 
-        // Calculate source rectangle for current frame
-        // Sprite sheet is 128x32 (4 frames of 32x32 each, horizontally arranged)
-        int frameWidth = 32;
-        int frameHeight = 32;
+        // Calculate source rectangle for current frame dynamically (assume 4 frames horizontally)
+        var size = spriteSheet.GetSize();
+        int frameWidth = Mathf.Max(1, Mathf.RoundToInt(size.X) / 4);
+        int frameHeight = Mathf.Max(1, Mathf.RoundToInt(size.Y));
         int frameX = _currentFrame * frameWidth;
 
         Rect2 sourceRect = new Rect2(frameX, 0, frameWidth, frameHeight);
-        Rect2 destRect = new Rect2(position, new Vector2(frameWidth, frameHeight));
+        // Always render at grid cell size to keep on-screen size consistent regardless of sheet resolution
+        Rect2 destRect = new Rect2(position, new Vector2(CellSize, CellSize));
 
         // Draw with transparency support - use CanvasItem.DrawTextureRectRegion
         DrawTextureRectRegion(spriteSheet, destRect, sourceRect, modulate: new Color(1, 1, 1, 1), transpose: false);

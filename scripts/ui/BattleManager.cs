@@ -301,12 +301,15 @@ public partial class BattleManager : AcceptDialog
 
             playerSpriteFrames.AddAnimation("idle");
 
-            // Add frames from sprite sheet (4 frames, 32x32 each)
+            // Derive frame size dynamically from texture (4 frames horizontally)
+            var pSize = playerTexture.GetSize();
+            int PLAYER_FRAME_W = Mathf.Max(1, Mathf.RoundToInt(pSize.X) / 4);
+            int PLAYER_FRAME_H = Mathf.Max(1, Mathf.RoundToInt(pSize.Y));
             for (int i = 0; i < 4; i++)
             {
                 var atlasTexture = new AtlasTexture();
                 atlasTexture.Atlas = playerTexture;
-                atlasTexture.Region = new Rect2(i * 32, 0, 32, 32);
+                atlasTexture.Region = new Rect2(i * PLAYER_FRAME_W, 0, PLAYER_FRAME_W, PLAYER_FRAME_H);
                 // Ensure transparency is preserved
                 atlasTexture.FilterClip = true;
                 playerSpriteFrames.AddFrame("idle", atlasTexture);
@@ -316,7 +319,10 @@ public partial class BattleManager : AcceptDialog
             playerSpriteFrames.SetAnimationSpeed("idle", 4.0);
             playerSpriteFrames.SetAnimationLoop("idle", true);
             _playerSprite.SpriteFrames = playerSpriteFrames;
-            _playerSprite.Scale = new Vector2(3.0f, 3.0f); // Make sprite 3x larger
+            // Keep on-screen size ~96px width regardless of source resolution
+            float targetPx = 96f;
+            float pScale = targetPx / (float)PLAYER_FRAME_W;
+            _playerSprite.Scale = new Vector2(pScale, pScale);
             // Ensure sprite uses transparency
             _playerSprite.Modulate = new Color(1, 1, 1, 1); // Reset modulate to ensure transparency works
             _playerSprite.Play("idle");
@@ -349,8 +355,18 @@ public partial class BattleManager : AcceptDialog
         // Create animation resources for enemy
         var enemySpriteFrames = new SpriteFrames();
 
-        // Load enemy sprite sheet and create animation - with fallback
-        var enemyTexture = GD.Load<Texture2D>("res://assets/sprites/characters/enemy_goblin/sprite_sheet.png");
+        // Load enemy sprite sheet and create animation - prefer new enemies/ path with fallback to legacy characters/
+        Texture2D enemyTexture = null;
+        string newGoblinPath = "res://assets/sprites/enemies/goblin/sprite_sheet.png";
+        string legacyGoblinPath = "res://assets/sprites/characters/enemy_goblin/sprite_sheet.png";
+        if (FileAccess.FileExists(newGoblinPath))
+        {
+            enemyTexture = GD.Load<Texture2D>(newGoblinPath);
+        }
+        else if (FileAccess.FileExists(legacyGoblinPath))
+        {
+            enemyTexture = GD.Load<Texture2D>(legacyGoblinPath);
+        }
         if (enemyTexture != null)
         {
             GD.Print("👹 Enemy texture loaded:");
@@ -361,12 +377,15 @@ public partial class BattleManager : AcceptDialog
 
             enemySpriteFrames.AddAnimation("idle");
 
-            // Add frames from sprite sheet (4 frames, 32x32 each)
+            // Derive frame size dynamically from texture (4 frames horizontally)
+            var eSize = enemyTexture.GetSize();
+            int ENEMY_FRAME_W = Mathf.Max(1, Mathf.RoundToInt(eSize.X) / 4);
+            int ENEMY_FRAME_H = Mathf.Max(1, Mathf.RoundToInt(eSize.Y));
             for (int i = 0; i < 4; i++)
             {
                 var atlasTexture = new AtlasTexture();
                 atlasTexture.Atlas = enemyTexture;
-                atlasTexture.Region = new Rect2(i * 32, 0, 32, 32);
+                atlasTexture.Region = new Rect2(i * ENEMY_FRAME_W, 0, ENEMY_FRAME_W, ENEMY_FRAME_H);
                 // Ensure transparency is preserved
                 atlasTexture.FilterClip = true;
                 enemySpriteFrames.AddFrame("idle", atlasTexture);
@@ -375,7 +394,9 @@ public partial class BattleManager : AcceptDialog
             enemySpriteFrames.SetAnimationSpeed("idle", 4.0);
             enemySpriteFrames.SetAnimationLoop("idle", true);
             _enemySprite.SpriteFrames = enemySpriteFrames;
-            _enemySprite.Scale = new Vector2(3.0f, 3.0f); // Make sprite 3x larger
+            // Keep on-screen size ~96px width regardless of source resolution
+            float eScale = 96f / (float)ENEMY_FRAME_W;
+            _enemySprite.Scale = new Vector2(eScale, eScale);
             // Ensure sprite uses transparency
             _enemySprite.Modulate = new Color(1, 1, 1, 1); // Reset modulate to ensure transparency works
             _enemySprite.Play("idle");
@@ -411,7 +432,9 @@ public partial class BattleManager : AcceptDialog
     private void CheckAndCreateSpriteSheet()
     {
         // Check if individual sprite frames exist for goblin
-        string goblinDir = "res://assets/sprites/characters/enemy_goblin/";
+        string newGoblinDir = "res://assets/sprites/enemies/goblin/";
+        string legacyGoblinDir = "res://assets/sprites/characters/enemy_goblin/";
+        string goblinDir = DirAccess.DirExistsAbsolute(newGoblinDir) ? newGoblinDir : legacyGoblinDir;
         if (DirAccess.DirExistsAbsolute(goblinDir))
         {
             GD.Print($"Goblin sprite directory exists: {goblinDir}");

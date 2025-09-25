@@ -9,8 +9,9 @@ public partial class PlayerDisplay : Sprite2D
     private int _currentFrame = 0;
     private float _animTimer = 0f;
     private const float FrameTime = 0.2f; // 5 FPS
-    private const int FrameWidth = 32;
-    private const int FrameHeight = 32;
+    // Sprite sheet frames are now 96x96 for higher resolution; we'll scale to keep same on-screen size
+    private const int FrameWidth = 96;
+    private const int FrameHeight = 96;
 
     public void Initialize(GridMap gridMap)
     {
@@ -29,6 +30,8 @@ public partial class PlayerDisplay : Sprite2D
             Centered = true; // position will be at tile center
             RegionEnabled = true;
             RegionRect = new Rect2(0, 0, FrameWidth, FrameHeight);
+            // Keep on-screen size identical to previous 32x32 frames by scaling 96x96 down by 1/3
+            Scale = new Vector2(1f / 3f, 1f / 3f);
         }
         else
         {

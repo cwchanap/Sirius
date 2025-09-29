@@ -1,4 +1,12 @@
 {
     "godotTools.editorPath.godot4": "/Applications/Godot_mono.app",
-    "python.languageServer": "None"
+    "python.languageServer": "None",
+    "files.exclude": {
+        "**/.godot/": true,
+        "**/.import/": true,
+        "**/*.import": true,
+        "**/*.tscn.import": true,
+        "**/*.tres.import": true,
+        "**/*.uid": true,
+    }
 }

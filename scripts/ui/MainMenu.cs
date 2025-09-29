@@ -3,6 +3,7 @@ using Godot;
 public partial class MainMenu : Control
 {
 	private TextureRect _backgroundRect;
+	private AudioStreamPlayer _backgroundMusic;
 
 	public override void _Ready()
 	{
@@ -11,6 +12,7 @@ public partial class MainMenu : Control
 		
 		// Load and set the background image
 		LoadBackgroundImage();
+		SetupBackgroundMusic();
 	}
 
 	private void LoadBackgroundImage()
@@ -34,6 +36,35 @@ public partial class MainMenu : Control
 			{
 				GD.Print("⚠️ Main menu background not found, using default gradient");
 			}
+		}
+	}
+
+	private void SetupBackgroundMusic()
+	{
+		_backgroundMusic = GetNodeOrNull<AudioStreamPlayer>("BackgroundMusic");
+		if (_backgroundMusic == null)
+		{
+			GD.PrintErr("MainMenu: BackgroundMusic node not found");
+			return;
+		}
+
+		var stream = _backgroundMusic.Stream;
+		switch (stream)
+		{
+			case AudioStreamMP3 mp3Stream:
+				mp3Stream.Loop = true;
+				break;
+			case AudioStreamOggVorbis oggStream:
+				oggStream.Loop = true;
+				break;
+			case AudioStreamWav wavStream:
+				wavStream.LoopMode = AudioStreamWav.LoopModeEnum.Forward;
+				break;
+		}
+
+		if (!_backgroundMusic.Playing)
+		{
+			_backgroundMusic.Play();
 		}
 	}
 

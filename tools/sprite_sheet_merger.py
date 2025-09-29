@@ -4,7 +4,8 @@ Sprite Sheet Merger for Sirius RPG
 ==================================
 
 This script merges individual 96x96 animation frames into horizontal sprite sheets
-for use with Godot's animation system.
+for use with Godot's animation system, and resizes terrain textures to a
+consistent 96x96 format for ingestion into the game.
 
 Usage:
     python tools/sprite_sheet_merger.py
@@ -13,10 +14,11 @@ Usage:
 
 The script will:
 1. Auto-install Pillow if not available
-2. Look for frame files in assets/sprites/characters/*/ and assets/sprites/enemies/*/
-3. Group frames by character folder (e.g., player_hero/frame1.png, player_hero/frame2.png, etc.)
-4. Create horizontal sprite sheets (384x96) in the same character folders
+2. Look for frame files in assets/sprites/characters/*/, assets/sprites/enemies/*/, and assets/sprites/terrain/*/
+3. Group frames by folder (e.g., player_hero/frame1.png, player_hero/frame2.png, etc.)
+4. Create horizontal sprite sheets (384x96) in the same folders
 5. Maintain proper frame order (frame1, frame2, frame3, frame4)
+6. Resize terrain/original PNGs to 96x96 tiles for the game asset pipeline
 
 File structure:
     assets/sprites/characters/player_hero/frame1.png
@@ -24,10 +26,13 @@ File structure:
     assets/sprites/characters/player_hero/frame3.png
     assets/sprites/characters/player_hero/frame4.png
     assets/sprites/enemies/goblin/frame1.png (etc.)
+    assets/sprites/terrain/original/floor_forest.png (source)
     
 Output:
     assets/sprites/characters/player_hero/sprite_sheet.png (384x96)
     assets/sprites/enemies/goblin/sprite_sheet.png (384x96)
+    assets/sprites/terrain/forest/sprite_sheet.png (384x96)
+    assets/sprites/terrain/floor_forest.png (96x96)
 """
 
 import sys
@@ -59,6 +64,7 @@ from pathlib import Path
 FRAME_COUNT = 4
 FRAME_WIDTH = 96
 FRAME_HEIGHT = 96
+TERRAIN_SIZE = (96, 96)
 
 
 class SpriteSheetMerger:
@@ -76,24 +82,25 @@ class SpriteSheetMerger:
                 project_root = Path.cwd()
         
         self.project_root = Path(project_root)
-        self.sprite_dirs = [
-            self.project_root / "assets" / "sprites" / "characters",
-            self.project_root / "assets" / "sprites" / "enemies",
-        ]
+        self.sprite_dirs = {
+            "characters": self.project_root / "assets" / "sprites" / "characters",
+            "enemies": self.project_root / "assets" / "sprites" / "enemies",
+            "terrain": self.project_root / "assets" / "sprites" / "terrain",
+        }
 
         # Create base directories if they don't exist yet
-        for sprite_dir in self.sprite_dirs:
+        for sprite_dir in self.sprite_dirs.values():
             sprite_dir.mkdir(parents=True, exist_ok=True)
         
         print(f"Project root: {self.project_root}")
-        for sprite_dir in self.sprite_dirs:
-            print(f"Sprites directory: {sprite_dir}")
+        for label, sprite_dir in self.sprite_dirs.items():
+            print(f"Sprites directory ({label}): {sprite_dir}")
     
-    def find_character_folders(self):
-        """Find all character/enemy folders with frame files."""
+    def find_sprite_folders(self):
+        """Find all sprite folders (character, enemy, terrain) with frame files."""
         character_folders = {}
 
-        for sprite_dir in self.sprite_dirs:
+        for sprite_dir in self.sprite_dirs.values():
             if not sprite_dir.exists():
                 continue
 
@@ -183,13 +190,13 @@ class SpriteSheetMerger:
         print("🎨 Sirius RPG Sprite Sheet Merger")
         print("=" * 40)
         
-        character_folders = self.find_character_folders()
+        character_folders = self.find_sprite_folders()
         
         if not character_folders:
-            print("❌ No character or enemy folders with frame files found!")
+            print("❌ No characters, enemies, or terrain folders with frame files found!")
             return
         
-        print(f"📁 Found {len(character_folders)} character(s) with frames:")
+        print(f"📁 Found {len(character_folders)} sprite set(s) with frames:")
         for name in character_folders.keys():
             print(f"   - {name}")
         print()
@@ -221,14 +228,54 @@ class SpriteSheetMerger:
             print("3. Create AnimatedSprite2D nodes")
             print("4. Create SpriteFrames resources with 4 frames each")
 
+    def process_terrain_originals(self):
+        """Resize terrain/original textures to 96x96 tiles in terrain root."""
+        terrain_dir = self.sprite_dirs.get("terrain")
+        if terrain_dir is None:
+            return
+
+        original_dir = terrain_dir / "original"
+        if not original_dir.exists():
+            print("⚠️  Terrain originals directory not found, skipping terrain resizing.")
+            return
+
+        png_files = sorted(p for p in original_dir.iterdir() if p.is_file() and p.suffix.lower() == ".png")
+        if not png_files:
+            print("⚠️  No terrain original PNGs found to process.")
+            return
+
+        from PIL.Image import Resampling
+
+        print("\n🗺️  Processing terrain originals (output 96x96)...")
+        processed = 0
+        for src_path in png_files:
+            relative_name = src_path.name
+            dest_path = terrain_dir / relative_name
+
+            try:
+                with Image.open(src_path) as src_image:
+                    converted = src_image.convert("RGBA")
+                    resized = converted.resize(TERRAIN_SIZE, Resampling.LANCZOS)
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
+                    resized.save(dest_path, "PNG")
+                    processed += 1
+                    print(f"✅ Terrain tile generated: {dest_path.relative_to(self.project_root)}")
+            except Exception as exc:  # pylint: disable=broad-except
+                print(f"❌ Failed to process terrain texture {relative_name}: {exc}")
+
+        if processed == 0:
+            print("⚠️  No terrain textures were generated.")
+        else:
+            print(f"🧱 Terrain tiles updated: {processed}")
 def main():
     """Main function to run the sprite sheet merger."""
     print("🎨 Running Sirius RPG Sprite Sheet Merger...")
     print("=" * 50)
-    
+
     merger = SpriteSheetMerger()
     merger.merge_all()
-    
+    merger.process_terrain_originals()
+
     print("\n✅ Sprite sheet merging complete!")
 
 if __name__ == "__main__":

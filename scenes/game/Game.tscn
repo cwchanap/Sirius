@@ -6,7 +6,7 @@
 [ext_resource type="Script" uid="uid://dnc37bkd8npyl" path="res://scripts/game/Game.cs" id="4_game_script"]
 [ext_resource type="TileSet" uid="uid://1oxxalqkpebn" path="res://assets/tiles/ground_tileset.tres" id="5_ground_tileset"]
 [ext_resource type="TileSet" uid="uid://dm0fdgl52g2u4" path="res://assets/tiles/wall_tileset.tres" id="6_wall_tileset"]
-[ext_resource type="Texture2D" path="res://assets/sprites/enemies/goblin/sprite_sheet.png" id="6_wnrko"]
+[ext_resource type="Texture2D" uid="uid://cptmkh2hg6xed" path="res://assets/sprites/enemies/goblin/sprite_sheet.png" id="6_wnrko"]
 [ext_resource type="Script" uid="uid://y82v4iq0fufy" path="res://scripts/game/EnemySpawn.cs" id="7_wqino"]
 [ext_resource type="Texture2D" uid="uid://bnqm64atvj28b" path="res://assets/sprites/characters/player_hero/sprite_sheet.png" id="8_player_hero"]
 [ext_resource type="Script" uid="uid://b2t8hiyo8chiu" path="res://scripts/ui/DraggablePanel.cs" id="9_draggable_panel"]
@@ -31,7 +31,7 @@ shadow_offset = Vector2(0, 3)
 
 [sub_resource type="AtlasTexture" id="6_hero_icon"]
 atlas = ExtResource("8_player_hero")
-region = Rect2(0, 0, 32, 32)
+region = Rect2(0, 0, 96, 96)
 filter_clip = true
 
 [sub_resource type="StyleBoxFlat" id="5_badge"]
@@ -101,10 +101,10 @@ tile_set = ExtResource("6_wall_tileset")
 [node name="EnemySpawn_Goblin_MCP" type="Sprite2D" parent="GridMap"]
 z_index = 2
 position = Vector2(-48, 0)
-scale = Vector2(0.84375, 0.8125)
+scale = Vector2(0.333333, 0.333333)
 texture = ExtResource("6_wnrko")
 region_enabled = true
-region_rect = Rect2(0, 0, 32, 32)
+region_rect = Rect2(0, 0, 96, 96)
 script = ExtResource("7_wqino")
 GridPosition = Vector2i(3, 0)
 EnemyType = "goblin"
@@ -174,6 +174,7 @@ layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 texture = SubResource("6_hero_icon")
+stretch_mode = 5
 
 [node name="LevelBadge" type="PanelContainer" parent="UI/GameUI/TopPanel/Content/PlayerStats/IconWrapper"]
 layout_mode = 2

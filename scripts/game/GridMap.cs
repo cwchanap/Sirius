@@ -17,12 +17,12 @@ public partial class GridMap : Node2D
     [Export] public Vector2I EditorPreviewSize { get; set; } = new Vector2I(60, 40);
     [Export] public bool EditorPreviewUseSprites { get; set; } = true;
     [Export] public bool EditorPreviewAnimate { get; set; } = true;
-
-    // Editor baking controls
     [Export] public bool EditorBakeTileMap { get; set; } = false;
     [Export] public bool EditorClearBakedTileMaps { get; set; } = false;
     [Export] public bool EditorGenerateSpriteSheets { get; set; } = false; // Compose frame1-4.png into sprite_sheet.png per character
     [Export] public bool EditorSaveBakedTileSet { get; set; } = false; // Save the generated TileSet as a .tres resource
+    
+    private const float TERRAIN_BASE_PIXEL_SIZE = 96f;
     
     private int[,] _grid;
     private Vector2I _playerPosition;
@@ -31,6 +31,10 @@ public partial class GridMap : Node2D
     private Dictionary<CellType, Texture2D> _cellSprites = new();
     private Dictionary<string, Texture2D> _enemySprites = new();
     private Dictionary<string, Texture2D> _terrainSprites = new();
+    
+    // Cached TileMap layers (present when UseBakedTileMapsAtRuntime is true)
+    private TileMapLayer _groundLayer;
+    private TileMapLayer _wallLayer;
     
     // Animation properties
     private float _animationTime = 0.0f;
@@ -416,14 +420,14 @@ public partial class GridMap : Node2D
     {
         var src = new TileSetAtlasSource();
         src.Texture = texture;
-        src.TextureRegionSize = new Vector2I(CellSize, CellSize);
+        src.TextureRegionSize = new Vector2I((int)TERRAIN_BASE_PIXEL_SIZE, (int)TERRAIN_BASE_PIXEL_SIZE);
         src.CreateTile(Vector2I.Zero); // single tile at (0,0)
         return tileSet.AddSource(src);
     }
 
     private ImageTexture CreateSolidTexture(Color color)
     {
-        var img = Image.CreateEmpty(CellSize, CellSize, false, Image.Format.Rgba8);
+        var img = Image.CreateEmpty((int)TERRAIN_BASE_PIXEL_SIZE, (int)TERRAIN_BASE_PIXEL_SIZE, false, Image.Format.Rgba8);
         img.Fill(color);
         return ImageTexture.CreateFromImage(img);
     }
@@ -656,12 +660,30 @@ public partial class GridMap : Node2D
             // Use sprite-based terrain at runtime by default
             _useColorTerrain = false;
             if (EnableDebugLogging) GD.Print("🎨 TERRAIN DISPLAY: Using sprite textures for terrain");
+        }
 
-            // If there are baked TileMaps and we're not configured to use them at runtime, hide them
-            if (HasBakedTileMaps() && !UseBakedTileMapsAtRuntime)
+        CacheTileMapLayers();
+        bool forceScale = Engine.IsEditorHint() || UseBakedTileMapsAtRuntime;
+        ApplyTileMapScaling(forceScale);
+
+        if (Engine.IsEditorHint())
+        {
+            ToggleTileMapLayersVisible(true);
+        }
+        else if (UseBakedTileMapsAtRuntime)
+        {
+            ToggleTileMapLayersVisible(true);
+        }
+        else
+        {
+            ToggleTileMapLayersVisible(false);
+            if (HasBakedTileMaps())
             {
                 EditorSetBakedVisible(false);
-                if (EnableDebugLogging) GD.Print("ℹ️ Baked TileMaps found but disabled for runtime rendering. Using procedural draw.");
+                if (EnableDebugLogging)
+                {
+                    GD.Print("ℹ️ Baked TileMaps found but disabled for runtime rendering. Using procedural draw.");
+                }
             }
         }
 
@@ -1306,6 +1328,39 @@ public partial class GridMap : Node2D
         }
     }
     
+    private void CacheTileMapLayers()
+    {
+        _groundLayer = GetNodeOrNull<TileMapLayer>("GroundLayer");
+        _wallLayer = GetNodeOrNull<TileMapLayer>("WallLayer");
+    }
+
+    private void ApplyTileMapScaling(bool scaleLayers)
+    {
+        float scaleFactor = scaleLayers ? CellSize / TERRAIN_BASE_PIXEL_SIZE : 1.0f;
+        if (_groundLayer != null)
+        {
+            _groundLayer.Scale = new Vector2(scaleFactor, scaleFactor);
+        }
+
+        if (_wallLayer != null)
+        {
+            _wallLayer.Scale = new Vector2(scaleFactor, scaleFactor);
+        }
+    }
+
+    private void ToggleTileMapLayersVisible(bool visible)
+    {
+        if (_groundLayer != null)
+        {
+            _groundLayer.Visible = visible;
+        }
+
+        if (_wallLayer != null)
+        {
+            _wallLayer.Visible = visible;
+        }
+    }
+
     private void DrawGrid()
     {
         // Just queue a redraw - the actual drawing happens in _Draw()
@@ -1335,7 +1390,6 @@ public partial class GridMap : Node2D
         // Calculate visible area with padding
         int padding = 10;
         int startX, endX, startY, endY;
-        
         if (Engine.IsEditorHint())
         {
             // In editor: draw a top-left preview region or the full map
@@ -1464,8 +1518,9 @@ public partial class GridMap : Node2D
             var texture = _terrainSprites[terrainType];
             if (texture != null)
             {
-                // Draw with transparency support
-                DrawTexture(texture, cellPos, modulate: new Color(1, 1, 1, 1));
+                // Draw terrain scaled to the current cell size so higher-resolution textures (e.g. 96x96) fit the grid
+                Rect2 destRect = new Rect2(cellPos, new Vector2(CellSize, CellSize));
+                DrawTextureRect(texture, destRect, tile: false, modulate: new Color(1, 1, 1, 1));
                 if (EnableDebugLogging)
                 {
                     if ((x % 10 == 0 && y % 10 == 0) && (x < 50 && y < 50))
@@ -1507,8 +1562,9 @@ public partial class GridMap : Node2D
                     GD.Print($"⚠️ Using starting_area fallback for {terrainType} at ({x},{y})");
                 }
             }
-            // Draw with transparency support
-            DrawTexture(_terrainSprites["starting_area"], cellPos, modulate: new Color(1, 1, 1, 1));
+            var fallbackTexture = _terrainSprites["starting_area"];
+            Rect2 fallbackRect = new Rect2(cellPos, new Vector2(CellSize, CellSize));
+            DrawTextureRect(fallbackTexture, fallbackRect, tile: false, modulate: new Color(1, 1, 1, 1));
         }
         else
         {

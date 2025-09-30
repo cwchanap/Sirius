@@ -41,15 +41,88 @@ public partial class GameManager : Node
             Experience = 0,
             ExperienceToNext = 100 * 1 + 10 * (1 * 1) // 100 + 10 = 110 for level 1
         };
-        
+
+        EquipStarterGear(Player);
+
         GD.Print("Player character initialized!");
+    }
+
+    private void EquipStarterGear(Character player)
+    {
+        if (player == null)
+        {
+            return;
+        }
+
+        var woodenSword = new EquipmentItem
+        {
+            Id = "wooden_sword",
+            DisplayName = "Wooden Sword",
+            Description = "A basic training sword.",
+            SlotType = EquipmentSlotType.Weapon,
+            AttackBonus = 10
+        };
+
+        var woodenArmor = new EquipmentItem
+        {
+            Id = "wooden_armor",
+            DisplayName = "Wooden Armor",
+            Description = "Light armor carved from sturdy wood.",
+            SlotType = EquipmentSlotType.Armor,
+            DefenseBonus = 8
+        };
+
+        var woodenShield = new EquipmentItem
+        {
+            Id = "wooden_shield",
+            DisplayName = "Wooden Shield",
+            Description = "A simple wooden shield.",
+            SlotType = EquipmentSlotType.Shield,
+            DefenseBonus = 5
+        };
+
+        var woodenHelmet = new EquipmentItem
+        {
+            Id = "wooden_helmet",
+            DisplayName = "Wooden Helmet",
+            Description = "Protective wooden helmet.",
+            SlotType = EquipmentSlotType.Helmet,
+            HealthBonus = 50
+        };
+
+        var woodenShoes = new EquipmentItem
+        {
+            Id = "wooden_shoes",
+            DisplayName = "Wooden Shoes",
+            Description = "Wooden footwear that somehow aids movement.",
+            SlotType = EquipmentSlotType.Shoe,
+            SpeedBonus = 2
+        };
+
+        EquipAndStore(player, woodenSword);
+        EquipAndStore(player, woodenArmor);
+        EquipAndStore(player, woodenShield);
+        EquipAndStore(player, woodenHelmet);
+        EquipAndStore(player, woodenShoes);
+
+        player.CurrentHealth = player.GetEffectiveMaxHealth();
+    }
+
+    private void EquipAndStore(Character player, EquipmentItem item)
+    {
+        if (player == null || item == null)
+        {
+            return;
+        }
+
+        player.TryAddItem(item, 1, out _);
+        player.TryEquip(item, out _);
     }
     
     public void StartBattle(Enemy enemy)
     {
         if (IsInBattle) 
         {
-            GD.Print("Warning: Already in battle, ignoring StartBattle call");
             return;
         }
         

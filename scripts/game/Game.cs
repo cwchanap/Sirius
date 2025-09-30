@@ -447,10 +447,16 @@ public partial class Game : Node2D
     {
         if (_gameManager?.Player != null)
         {
-            _playerNameLabel.Text = _gameManager.Player.Name;
-            _playerLevelLabel.Text = $"Level: {_gameManager.Player.Level}";
-            _playerHealthLabel.Text = $"HP: {_gameManager.Player.CurrentHealth}/{_gameManager.Player.MaxHealth}";
-            _playerExperienceLabel.Text = $"EXP: {_gameManager.Player.Experience}/{_gameManager.Player.ExperienceToNext}";
+            var player = _gameManager.Player;
+            int effectiveMaxHealth = player.GetEffectiveMaxHealth();
+            int effectiveAttack = player.GetEffectiveAttack();
+            int effectiveDefense = player.GetEffectiveDefense();
+            int effectiveSpeed = player.GetEffectiveSpeed();
+
+            _playerNameLabel.Text = player.Name;
+            _playerLevelLabel.Text = $"Level: {player.Level}";
+            _playerHealthLabel.Text = $"HP: {player.CurrentHealth}/{effectiveMaxHealth}";
+            _playerExperienceLabel.Text = $"EXP: {player.Experience}/{player.ExperienceToNext}";
 
             // Update progress bars if present
             var hpBar =
@@ -458,8 +464,8 @@ public partial class Game : Node2D
                 GetNodeOrNull<ProgressBar>("UI/GameUI/TopPanel/PlayerStats/HPBar");
             if (hpBar != null)
             {
-                hpBar.MaxValue = _gameManager.Player.MaxHealth;
-                hpBar.Value = _gameManager.Player.CurrentHealth;
+                hpBar.MaxValue = effectiveMaxHealth;
+                hpBar.Value = player.CurrentHealth;
             }
 
             var expBar =
@@ -486,7 +492,7 @@ public partial class Game : Node2D
                 GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerAttackHUD");
             if (atkLabel != null)
             {
-                atkLabel.Text = $"ATK: {_gameManager.Player.Attack}";
+                atkLabel.Text = $"ATK: {effectiveAttack}";
             }
 
             var defLabel =
@@ -494,7 +500,7 @@ public partial class Game : Node2D
                 GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerDefenseHUD");
             if (defLabel != null)
             {
-                defLabel.Text = $"DEF: {_gameManager.Player.Defense}";
+                defLabel.Text = $"DEF: {effectiveDefense}";
             }
 
             var spdLabel =
@@ -502,7 +508,7 @@ public partial class Game : Node2D
                 GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerSpeedHUD");
             if (spdLabel != null)
             {
-                spdLabel.Text = $"SPD: {_gameManager.Player.Speed}";
+                spdLabel.Text = $"SPD: {effectiveSpeed}";
             }
         }
     }

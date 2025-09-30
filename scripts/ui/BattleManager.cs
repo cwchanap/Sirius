@@ -451,22 +451,22 @@ public partial class BattleManager : AcceptDialog
 
         if (_playerHealthLabel != null && _player != null)
         {
-            _playerHealthLabel.Text = $"HP: {_player.CurrentHealth}/{_player.MaxHealth}";
+            _playerHealthLabel.Text = $"HP: {_player.CurrentHealth}/{_player.GetEffectiveMaxHealth()}";
         }
 
         if (_playerAttackLabel != null && _player != null)
         {
-            _playerAttackLabel.Text = $"ATK: {_player.Attack}";
+            _playerAttackLabel.Text = $"ATK: {_player.GetEffectiveAttack()}";
         }
 
         if (_playerDefenseLabel != null && _player != null)
         {
-            _playerDefenseLabel.Text = $"DEF: {_player.Defense}";
+            _playerDefenseLabel.Text = $"DEF: {_player.GetEffectiveDefense()}";
         }
 
         if (_playerSpeedLabel != null && _player != null)
         {
-            _playerSpeedLabel.Text = $"SPD: {_player.Speed}";
+            _playerSpeedLabel.Text = $"SPD: {_player.GetEffectiveSpeed()}";
         }
 
         if (_enemyLevelLabel != null && _enemy != null)
@@ -538,7 +538,7 @@ public partial class BattleManager : AcceptDialog
     private void PlayerAutoAction()
     {
         // Player automatically chooses the best action based on situation
-        float healthPercentage = (float)_player.CurrentHealth / _player.MaxHealth;
+        float healthPercentage = (float)_player.CurrentHealth / _player.GetEffectiveMaxHealth();
         float enemyHealthPercentage = (float)_enemy.CurrentHealth / _enemy.MaxHealth;
         
         // More likely to defend when health is low
@@ -563,7 +563,7 @@ public partial class BattleManager : AcceptDialog
     {
         // Add some variation to attacks
         bool criticalHit = GD.Randf() < 0.15f; // 15% chance for critical hit
-        int baseDamage = _player.Attack + GD.RandRange(-5, 5);
+        int baseDamage = _player.GetEffectiveAttack() + GD.RandRange(-5, 5);
         
         if (criticalHit)
         {

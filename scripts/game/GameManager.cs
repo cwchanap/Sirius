@@ -54,56 +54,11 @@ public partial class GameManager : Node
             return;
         }
 
-        var woodenSword = new EquipmentItem
-        {
-            Id = "wooden_sword",
-            DisplayName = "Wooden Sword",
-            Description = "A basic training sword.",
-            SlotType = EquipmentSlotType.Weapon,
-            AttackBonus = 10
-        };
-
-        var woodenArmor = new EquipmentItem
-        {
-            Id = "wooden_armor",
-            DisplayName = "Wooden Armor",
-            Description = "Light armor carved from sturdy wood.",
-            SlotType = EquipmentSlotType.Armor,
-            DefenseBonus = 8
-        };
-
-        var woodenShield = new EquipmentItem
-        {
-            Id = "wooden_shield",
-            DisplayName = "Wooden Shield",
-            Description = "A simple wooden shield.",
-            SlotType = EquipmentSlotType.Shield,
-            DefenseBonus = 5
-        };
-
-        var woodenHelmet = new EquipmentItem
-        {
-            Id = "wooden_helmet",
-            DisplayName = "Wooden Helmet",
-            Description = "Protective wooden helmet.",
-            SlotType = EquipmentSlotType.Helmet,
-            HealthBonus = 50
-        };
-
-        var woodenShoes = new EquipmentItem
-        {
-            Id = "wooden_shoes",
-            DisplayName = "Wooden Shoes",
-            Description = "Wooden footwear that somehow aids movement.",
-            SlotType = EquipmentSlotType.Shoe,
-            SpeedBonus = 2
-        };
-
-        EquipAndStore(player, woodenSword);
-        EquipAndStore(player, woodenArmor);
-        EquipAndStore(player, woodenShield);
-        EquipAndStore(player, woodenHelmet);
-        EquipAndStore(player, woodenShoes);
+        EquipAndStore(player, EquipmentCatalog.CreateWoodenSword());
+        EquipAndStore(player, EquipmentCatalog.CreateWoodenArmor());
+        EquipAndStore(player, EquipmentCatalog.CreateWoodenShield());
+        EquipAndStore(player, EquipmentCatalog.CreateWoodenHelmet());
+        EquipAndStore(player, EquipmentCatalog.CreateWoodenShoes());
 
         player.CurrentHealth = player.GetEffectiveMaxHealth();
     }

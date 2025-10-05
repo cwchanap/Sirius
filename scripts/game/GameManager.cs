@@ -70,8 +70,20 @@ public partial class GameManager : Node
             return;
         }
 
+        // Add to inventory first so TryEquip can reference the Item instance
         player.TryAddItem(item, 1, out _);
-        player.TryEquip(item, out _);
+
+        if (player.TryEquip(item, out var replacedItem))
+        {
+            // Equipped item should no longer appear in inventory
+            player.TryRemoveItem(item.Id, 1);
+
+            // Store any replaced item back into inventory
+            if (replacedItem != null)
+            {
+                player.TryAddItem(replacedItem, 1, out _);
+            }
+        }
     }
     
     public void StartBattle(Enemy enemy)

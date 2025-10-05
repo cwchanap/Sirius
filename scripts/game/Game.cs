@@ -17,6 +17,7 @@ public partial class Game : Node2D
     private BattleManager _battleManager;
     private Vector2I _lastEnemyPosition; // Store enemy position for after battle
     private PlayerDisplay _playerDisplay; // Visual sprite for player when using baked TileMaps
+    private InventoryMenuController _inventoryMenu;
 
     public override void _Ready()
     {
@@ -80,6 +81,9 @@ public partial class Game : Node2D
 
         // Use a deferred call to set camera position after grid is ready
         CallDeferred(nameof(SetInitialCameraPosition));
+        
+        // Load and setup inventory menu
+        SetupInventoryMenu();
     }
 
     private void SetupPlayerDisplay()
@@ -100,13 +104,59 @@ public partial class Game : Node2D
         GD.Print($"Camera positioned (follow): {_camera.Position}");
     }
 
+    private void SetupInventoryMenu()
+    {
+        var inventoryScene = GD.Load<PackedScene>("res://scenes/ui/InventoryMenu.tscn");
+        if (inventoryScene == null)
+        {
+            GD.PushError("Failed to load InventoryMenu scene!");
+            return;
+        }
+
+        _inventoryMenu = inventoryScene.Instantiate<InventoryMenuController>();
+        if (_inventoryMenu == null)
+        {
+            GD.PushError("Failed to instantiate InventoryMenuController!");
+            return;
+        }
+
+        GetNode("UI").AddChild(_inventoryMenu);
+        _inventoryMenu.Hide();
+    }
+
     public override void _Input(InputEvent @event)
     {
+        // Handle inventory toggle (I key)
+        if (@event.IsActionPressed("toggle_inventory"))
+        {
+            if (_inventoryMenu != null && !_gameManager.IsInBattle)
+            {
+                if (_inventoryMenu.Visible)
+                {
+                    _inventoryMenu.CloseMenu();
+                }
+                else
+                {
+                    _inventoryMenu.OpenMenu();
+                }
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+        }
+
         // Handle ESC
         if (@event is InputEventKey keyEvent && keyEvent.Pressed)
         {
             if (keyEvent.Keycode == Key.Escape)
             {
+                // Close inventory if open
+                if (_inventoryMenu != null && _inventoryMenu.Visible)
+                {
+                    _inventoryMenu.CloseMenu();
+                    GetViewport().SetInputAsHandled();
+                    return;
+                }
+
                 if (!_gameManager.IsInBattle)
                 {
                     // Not in battle: go back to main menu

@@ -100,6 +100,22 @@ corner_radius_top_right = 5
 corner_radius_bottom_right = 5
 corner_radius_bottom_left = 5
 
+[sub_resource type="StyleBoxFlat" id="7_icon_bg"]
+content_margin_left = 4.0
+content_margin_top = 4.0
+content_margin_right = 4.0
+content_margin_bottom = 4.0
+bg_color = Color(0.12, 0.13, 0.17, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.32, 0.42, 0.6, 0.6)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
 [node name="InventoryMenu" type="Control"]
 process_mode = 3
 layout_mode = 3
@@ -126,10 +142,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -500.0
-offset_top = -350.0
-offset_right = 500.0
-offset_bottom = 350.0
+offset_left = -620.0
+offset_top = -380.0
+offset_right = 620.0
+offset_bottom = 380.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("1_panel_bg")
@@ -161,7 +177,7 @@ split_offset = 0
 dragger_visibility = 1
 
 [node name="EquipmentPanel" type="PanelContainer" parent="MainPanel/Content/SplitContainer"]
-custom_minimum_size = Vector2(450, 0)
+custom_minimum_size = Vector2(520, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("2_section_bg")
@@ -175,265 +191,205 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "⚔ Equipment"
 
-[node name="EquipmentSlots" type="VBoxContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent"]
+
+[node name="EquipmentGrid" type="GridContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 8
+columns = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
 
-[node name="WeaponSlot" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots"]
+[node name="SpacerTopLeft" type="Control" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentGrid"]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+custom_minimum_size = Vector2(48, 48)
+
+[node name="HelmetSlot" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentGrid"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
-theme_override_styles/panel = SubResource("3_slot_empty")
+theme_override_styles/panel = SubResource("7_icon_bg")
 
-[node name="WeaponContent" type="HBoxContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/WeaponSlot"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="SlotLabel" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/WeaponSlot/WeaponContent"]
-custom_minimum_size = Vector2(100, 0)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Weapon:"
-
-[node name="ItemName" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/WeaponSlot/WeaponContent"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 16
-text = "Empty"
-
-[node name="UnequipButton" type="Button" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/WeaponSlot/WeaponContent"]
-visible = false
-custom_minimum_size = Vector2(80, 0)
-layout_mode = 2
-text = "Unequip"
-
-[node name="ShieldSlot" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots"]
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentGrid/HelmetSlot"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
-theme_override_styles/panel = SubResource("3_slot_empty")
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
 
-[node name="ShieldContent" type="HBoxContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/ShieldSlot"]
+[node name="SpacerTopRight" type="Control" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentGrid"]
 layout_mode = 2
-theme_override_constants/separation = 12
+size_flags_horizontal = 0
+size_flags_vertical = 0
+custom_minimum_size = Vector2(48, 48)
 
-[node name="SlotLabel" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/ShieldSlot/ShieldContent"]
-custom_minimum_size = Vector2(100, 0)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Shield:"
-
-[node name="ItemName" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/ShieldSlot/ShieldContent"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 16
-text = "Empty"
-
-[node name="UnequipButton" type="Button" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/ShieldSlot/ShieldContent"]
-visible = false
-custom_minimum_size = Vector2(80, 0)
-layout_mode = 2
-text = "Unequip"
-
-[node name="ArmorSlot" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots"]
+[node name="WeaponSlot" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentGrid"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
-theme_override_styles/panel = SubResource("3_slot_empty")
+theme_override_styles/panel = SubResource("7_icon_bg")
 
-[node name="ArmorContent" type="HBoxContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/ArmorSlot"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="SlotLabel" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/ArmorSlot/ArmorContent"]
-custom_minimum_size = Vector2(100, 0)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Armor:"
-
-[node name="ItemName" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/ArmorSlot/ArmorContent"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 16
-text = "Empty"
-
-[node name="UnequipButton" type="Button" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/ArmorSlot/ArmorContent"]
-visible = false
-custom_minimum_size = Vector2(80, 0)
-layout_mode = 2
-text = "Unequip"
-
-[node name="HelmetSlot" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots"]
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentGrid/WeaponSlot"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
-theme_override_styles/panel = SubResource("3_slot_empty")
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
 
-[node name="HelmetContent" type="HBoxContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/HelmetSlot"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="SlotLabel" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/HelmetSlot/HelmetContent"]
-custom_minimum_size = Vector2(100, 0)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Helmet:"
-
-[node name="ItemName" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/HelmetSlot/HelmetContent"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 16
-text = "Empty"
-
-[node name="UnequipButton" type="Button" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/HelmetSlot/HelmetContent"]
-visible = false
-custom_minimum_size = Vector2(80, 0)
-layout_mode = 2
-text = "Unequip"
-
-[node name="ShoeSlot" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots"]
+[node name="ArmorSlot" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentGrid"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
-theme_override_styles/panel = SubResource("3_slot_empty")
+theme_override_styles/panel = SubResource("7_icon_bg")
 
-[node name="ShoeContent" type="HBoxContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/ShoeSlot"]
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentGrid/ArmorSlot"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
-theme_override_constants/separation = 12
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
 
-[node name="SlotLabel" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/ShoeSlot/ShoeContent"]
-custom_minimum_size = Vector2(100, 0)
+[node name="ShieldSlot" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Shoes:"
+theme_override_styles/panel = SubResource("7_icon_bg")
 
-[node name="ItemName" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/ShoeSlot/ShoeContent"]
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentGrid/ShieldSlot"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 16
-text = "Empty"
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
 
-[node name="UnequipButton" type="Button" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentSlots/ShoeSlot/ShoeContent"]
-visible = false
-custom_minimum_size = Vector2(80, 0)
+[node name="SpacerBottomLeft" type="Control" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentGrid"]
 layout_mode = 2
-text = "Unequip"
+size_flags_horizontal = 0
+size_flags_vertical = 0
+custom_minimum_size = Vector2(48, 48)
 
-[node name="AccessoriesLabel" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent"]
+[node name="ShoeSlot" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentGrid/ShoeSlot"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="SpacerBottomRight" type="Control" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentGrid"]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+custom_minimum_size = Vector2(48, 48)
+
+[node name="AccessoryTitle" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Accessories:"
+text = "Accessories"
 
-[node name="AccessorySlots" type="VBoxContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent"]
+[node name="AccessoryGrid" type="GridContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent"]
 layout_mode = 2
-theme_override_constants/separation = 6
+columns = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
 
-[node name="Accessory1Slot" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots"]
+[node name="AccessorySlot0" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
-theme_override_styles/panel = SubResource("3_slot_empty")
+theme_override_styles/panel = SubResource("7_icon_bg")
 
-[node name="Accessory1Content" type="HBoxContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory1Slot"]
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid/AccessorySlot0"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
-theme_override_constants/separation = 12
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
 
-[node name="SlotLabel" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory1Slot/Accessory1Content"]
-custom_minimum_size = Vector2(100, 0)
+[node name="AccessorySlot1" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
-text = "Slot 1:"
+theme_override_styles/panel = SubResource("7_icon_bg")
 
-[node name="ItemName" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory1Slot/Accessory1Content"]
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid/AccessorySlot1"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 14
-text = "Empty"
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
 
-[node name="UnequipButton" type="Button" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory1Slot/Accessory1Content"]
-visible = false
-custom_minimum_size = Vector2(80, 0)
+[node name="AccessorySlot2" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
-text = "Unequip"
+theme_override_styles/panel = SubResource("7_icon_bg")
 
-[node name="Accessory2Slot" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots"]
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid/AccessorySlot2"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
-theme_override_styles/panel = SubResource("3_slot_empty")
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
 
-[node name="Accessory2Content" type="HBoxContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory2Slot"]
+[node name="AccessorySlot3" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_styles/panel = SubResource("7_icon_bg")
 
-[node name="SlotLabel" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory2Slot/Accessory2Content"]
-custom_minimum_size = Vector2(100, 0)
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid/AccessorySlot3"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
-text = "Slot 2:"
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
 
-[node name="ItemName" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory2Slot/Accessory2Content"]
+[node name="AccessorySlot4" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 14
-text = "Empty"
+theme_override_styles/panel = SubResource("7_icon_bg")
 
-[node name="UnequipButton" type="Button" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory2Slot/Accessory2Content"]
-visible = false
-custom_minimum_size = Vector2(80, 0)
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid/AccessorySlot4"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
-text = "Unequip"
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
 
-[node name="Accessory3Slot" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots"]
+[node name="AccessorySlot5" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
-theme_override_styles/panel = SubResource("3_slot_empty")
+theme_override_styles/panel = SubResource("7_icon_bg")
 
-[node name="Accessory3Content" type="HBoxContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory3Slot"]
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid/AccessorySlot5"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="SlotLabel" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory3Slot/Accessory3Content"]
-custom_minimum_size = Vector2(100, 0)
-layout_mode = 2
-theme_override_font_sizes/font_size = 14
-text = "Slot 3:"
-
-[node name="ItemName" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory3Slot/Accessory3Content"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 14
-text = "Empty"
-
-[node name="UnequipButton" type="Button" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory3Slot/Accessory3Content"]
-visible = false
-custom_minimum_size = Vector2(80, 0)
-layout_mode = 2
-theme_override_font_sizes/font_size = 12
-text = "Unequip"
-
-[node name="Accessory4Slot" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots"]
-layout_mode = 2
-theme_override_styles/panel = SubResource("3_slot_empty")
-
-[node name="Accessory4Content" type="HBoxContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory4Slot"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="SlotLabel" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory4Slot/Accessory4Content"]
-custom_minimum_size = Vector2(100, 0)
-layout_mode = 2
-theme_override_font_sizes/font_size = 14
-text = "Slot 4:"
-
-[node name="ItemName" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory4Slot/Accessory4Content"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 14
-text = "Empty"
-
-[node name="UnequipButton" type="Button" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessorySlots/Accessory4Slot/Accessory4Content"]
-visible = false
-custom_minimum_size = Vector2(80, 0)
-layout_mode = 2
-theme_override_font_sizes/font_size = 12
-text = "Unequip"
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
 
 [node name="InventoryPanel" type="PanelContainer" parent="MainPanel/Content/SplitContainer"]
-custom_minimum_size = Vector2(450, 0)
+custom_minimum_size = Vector2(520, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("2_section_bg")
@@ -447,23 +403,324 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "🎒 Items"
 
-[node name="ItemsScroll" type="ScrollContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent"]
-layout_mode = 2
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
-
-[node name="ItemsList" type="VBoxContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/ItemsScroll"]
+[node name="InventoryGrid" type="GridContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent"]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_constants/separation = 6
+columns = 6
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
 
-[node name="EmptyLabel" type="Label" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/ItemsScroll/ItemsList"]
-unique_name_in_owner = true
+[node name="InventorySlot0" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "No items in inventory"
-horizontal_alignment = 1
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot0"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot1" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot1"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot2" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot2"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot3" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot3"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot4" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot4"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot5" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot5"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot6" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot6"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot7" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot7"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot8" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot8"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot9" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot9"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot10" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot10"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot11" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot11"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot12" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot12"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot13" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot13"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot14" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot14"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot15" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot15"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot16" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot16"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot17" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot17"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot18" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot18"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot19" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot19"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot20" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot20"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot21" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot21"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot22" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot22"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="InventorySlot23" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+theme_override_styles/panel = SubResource("7_icon_bg")
+
+[node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot23"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
 
 [connection signal="pressed" from="MainPanel/Content/Header/CloseButton" to="." method="OnCloseButtonPressed"]

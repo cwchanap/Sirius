@@ -1,27 +1,26 @@
 using Godot;
+using System;
 using System.Collections.Generic;
+using System.Text;
 
 public partial class InventoryMenuController : Control
 {
 	private GameManager _gameManager;
-	
-	// Equipment slot references
-	private Dictionary<EquipmentSlotType, EquipmentSlotUI> _equipmentSlots = new();
-	
-	// Inventory list container
-	private VBoxContainer _itemsList;
-	private Label _emptyLabel;
-	
-	// Item slot prefab style boxes
-	private StyleBoxFlat _slotEmptyStyle;
-	private StyleBoxFlat _slotEquippedStyle;
-	private StyleBoxFlat _itemSlotStyle;
-	private StyleBoxFlat _itemHoverStyle;
+
+	private readonly Dictionary<EquipmentSlotType, EquipmentSlotUI> _equipmentSlots = new();
+	private readonly List<AccessorySlotUI> _accessorySlots = new();
+	private readonly List<InventorySlotUI> _inventorySlots = new();
+
+	private InventoryEntry[] _inventorySlotEntries = Array.Empty<InventoryEntry>();
+
+	private StyleBoxFlat _basePanelStyle;
+	private StyleBoxFlat _equippedPanelStyle;
+	private StyleBoxFlat _lockedPanelStyle;
 
 	public override void _Ready()
 	{
 		_gameManager = GameManager.Instance;
-		
+
 		if (_gameManager == null)
 		{
 			GD.PushError("GameManager not found!");
@@ -29,20 +28,11 @@ public partial class InventoryMenuController : Control
 			return;
 		}
 
-		// Cache style boxes from the scene
-		CacheStyleBoxes();
-		
-		// Get equipment slot references
+		CacheStyles();
 		InitializeEquipmentSlots();
-		
-		// Get inventory list container
-		_itemsList = GetNode<VBoxContainer>("%ItemsList");
-		_emptyLabel = GetNode<Label>("%EmptyLabel");
-		
-		// Initial refresh
+		InitializeAccessorySlots();
+		InitializeInventorySlots();
 		RefreshUI();
-		
-		// Hide by default
 		Hide();
 	}
 
@@ -58,68 +48,113 @@ public partial class InventoryMenuController : Control
 		}
 	}
 
-	private void CacheStyleBoxes()
+	private void CacheStyles()
 	{
-		// Get the first equipment slot's panel to extract styles
-		var weaponSlot = GetNode<PanelContainer>("%WeaponSlot");
-		_slotEmptyStyle = weaponSlot.GetThemeStylebox("panel") as StyleBoxFlat;
-		
-		// Create equipped style (will be applied when item is equipped)
-		_slotEquippedStyle = new StyleBoxFlat();
-		_slotEquippedStyle.BgColor = new Color(0.2f, 0.25f, 0.35f, 0.9f);
-		_slotEquippedStyle.BorderColor = new Color(0.4f, 0.6f, 0.9f, 0.7f);
-		_slotEquippedStyle.SetBorderWidthAll(2);
-		_slotEquippedStyle.SetCornerRadiusAll(6);
-		_slotEquippedStyle.SetContentMarginAll(8);
+		var basePanel = GetNode<PanelContainer>("%WeaponSlot");
+		if (basePanel.GetThemeStylebox("panel") is StyleBoxFlat baseStyle)
+		{
+			_basePanelStyle = (StyleBoxFlat)baseStyle.Duplicate();
+		}
+		else
+		{
+			_basePanelStyle = new StyleBoxFlat
+			{
+				BgColor = new Color(0.12f, 0.13f, 0.17f, 0.95f),
+				BorderColor = new Color(0.32f, 0.42f, 0.6f, 0.6f)
+			};
+			_basePanelStyle.SetBorderWidthAll(1);
+			_basePanelStyle.SetCornerRadiusAll(6);
+		}
+
+		_equippedPanelStyle = (StyleBoxFlat)_basePanelStyle.Duplicate();
+		_equippedPanelStyle.BgColor = new Color(0.22f, 0.28f, 0.4f, 0.95f);
+		_equippedPanelStyle.BorderColor = new Color(0.48f, 0.68f, 0.95f, 1f);
+		_equippedPanelStyle.SetBorderWidthAll(2);
+
+		_lockedPanelStyle = (StyleBoxFlat)_basePanelStyle.Duplicate();
+		_lockedPanelStyle.BgColor = new Color(0.08f, 0.08f, 0.08f, 0.8f);
+		_lockedPanelStyle.BorderColor = new Color(0.2f, 0.2f, 0.2f, 0.9f);
 	}
 
 	private void InitializeEquipmentSlots()
 	{
-		// Main equipment slots
-		_equipmentSlots[EquipmentSlotType.Weapon] = new EquipmentSlotUI
+		AddEquipmentSlot("%HelmetSlot", EquipmentSlotType.Helmet);
+		AddEquipmentSlot("%WeaponSlot", EquipmentSlotType.Weapon);
+		AddEquipmentSlot("%ArmorSlot", EquipmentSlotType.Armor);
+		AddEquipmentSlot("%ShieldSlot", EquipmentSlotType.Shield);
+		AddEquipmentSlot("%ShoeSlot", EquipmentSlotType.Shoe);
+	}
+
+	private void AddEquipmentSlot(string panelPath, EquipmentSlotType slotType)
+	{
+		var panel = GetNode<PanelContainer>(panelPath);
+		var button = panel.GetNode<TextureButton>("Button");
+
+		var slot = new EquipmentSlotUI
 		{
-			Panel = GetNode<PanelContainer>("%WeaponSlot"),
-			NameLabel = GetNode<Label>("%WeaponSlot/WeaponContent/ItemName"),
-			UnequipButton = GetNode<Button>("%WeaponSlot/WeaponContent/UnequipButton"),
-			SlotType = EquipmentSlotType.Weapon
+			Panel = panel,
+			Button = button,
+			SlotType = slotType
 		};
-		
-		_equipmentSlots[EquipmentSlotType.Shield] = new EquipmentSlotUI
+
+		button.Pressed += () => OnEquipmentSlotPressed(slotType);
+		_equipmentSlots[slotType] = slot;
+	}
+
+	private void InitializeAccessorySlots()
+	{
+		_accessorySlots.Clear();
+		var accessoryGrid = GetNode<GridContainer>("%AccessoryGrid");
+
+		for (int i = 0; i < accessoryGrid.GetChildCount(); i++)
 		{
-			Panel = GetNode<PanelContainer>("%ShieldSlot"),
-			NameLabel = GetNode<Label>("%ShieldSlot/ShieldContent/ItemName"),
-			UnequipButton = GetNode<Button>("%ShieldSlot/ShieldContent/UnequipButton"),
-			SlotType = EquipmentSlotType.Shield
-		};
-		
-		_equipmentSlots[EquipmentSlotType.Armor] = new EquipmentSlotUI
+			if (accessoryGrid.GetChild(i) is not PanelContainer panel)
+			{
+				continue;
+			}
+
+			var button = panel.GetNode<TextureButton>("Button");
+			bool isActive = i < EquipmentSet.AccessorySlotCount;
+
+			var slot = new AccessorySlotUI
+			{
+				Panel = panel,
+				Button = button,
+				Index = i,
+				IsActive = isActive
+			};
+
+			int indexCopy = i;
+			button.Pressed += () => OnAccessorySlotPressed(indexCopy);
+			_accessorySlots.Add(slot);
+		}
+	}
+
+	private void InitializeInventorySlots()
+	{
+		_inventorySlots.Clear();
+		var grid = GetNode<GridContainer>("%InventoryGrid");
+		int slotCount = grid.GetChildCount();
+		_inventorySlotEntries = new InventoryEntry[slotCount];
+
+		for (int i = 0; i < slotCount; i++)
 		{
-			Panel = GetNode<PanelContainer>("%ArmorSlot"),
-			NameLabel = GetNode<Label>("%ArmorSlot/ArmorContent/ItemName"),
-			UnequipButton = GetNode<Button>("%ArmorSlot/ArmorContent/UnequipButton"),
-			SlotType = EquipmentSlotType.Armor
-		};
-		
-		_equipmentSlots[EquipmentSlotType.Helmet] = new EquipmentSlotUI
-		{
-			Panel = GetNode<PanelContainer>("%HelmetSlot"),
-			NameLabel = GetNode<Label>("%HelmetSlot/HelmetContent/ItemName"),
-			UnequipButton = GetNode<Button>("%HelmetSlot/HelmetContent/UnequipButton"),
-			SlotType = EquipmentSlotType.Helmet
-		};
-		
-		_equipmentSlots[EquipmentSlotType.Shoe] = new EquipmentSlotUI
-		{
-			Panel = GetNode<PanelContainer>("%ShoeSlot"),
-			NameLabel = GetNode<Label>("%ShoeSlot/ShoeContent/ItemName"),
-			UnequipButton = GetNode<Button>("%ShoeSlot/ShoeContent/UnequipButton"),
-			SlotType = EquipmentSlotType.Shoe
-		};
-		
-		// Connect unequip buttons
-		foreach (var slot in _equipmentSlots.Values)
-		{
-			slot.UnequipButton.Pressed += () => OnUnequipPressed(slot.SlotType);
+			if (grid.GetChild(i) is not PanelContainer panel)
+			{
+				continue;
+			}
+
+			var button = panel.GetNode<TextureButton>("Button");
+			var slot = new InventorySlotUI
+			{
+				Panel = panel,
+				Button = button,
+				Index = i
+			};
+
+			int indexCopy = i;
+			button.Pressed += () => OnInventorySlotPressed(indexCopy);
+			_inventorySlots.Add(slot);
 		}
 	}
 
@@ -144,174 +179,314 @@ public partial class InventoryMenuController : Control
 		}
 
 		RefreshEquipmentSlots();
-		RefreshInventoryList();
+		RefreshAccessorySlots();
+		RefreshInventoryGrid();
 	}
 
 	private void RefreshEquipmentSlots()
 	{
 		var equipment = _gameManager.Player.Equipment;
-		
-		foreach (var kvp in _equipmentSlots)
+
+		foreach (var slotPair in _equipmentSlots)
 		{
-			var slotType = kvp.Key;
-			var slotUI = kvp.Value;
+			var slotType = slotPair.Key;
+			var slot = slotPair.Value;
 			var equippedItem = equipment.GetEquipped(slotType);
-			
+
 			if (equippedItem != null)
 			{
-				slotUI.NameLabel.Text = $"{equippedItem.DisplayName} {GetBonusText(equippedItem)}";
-				slotUI.UnequipButton.Visible = true;
-				slotUI.Panel.AddThemeStyleboxOverride("panel", _slotEquippedStyle);
+				ApplyPanelStyle(slot.Panel, _equippedPanelStyle);
+				SetButtonIcon(slot.Button, equippedItem);
+				slot.Button.TooltipText = BuildEquipmentTooltip(equippedItem);
+				slot.Button.Disabled = false;
 			}
 			else
 			{
-				slotUI.NameLabel.Text = "Empty";
-				slotUI.UnequipButton.Visible = false;
-				slotUI.Panel.AddThemeStyleboxOverride("panel", _slotEmptyStyle);
+				ApplyPanelStyle(slot.Panel, _basePanelStyle);
+				ClearButtonIcon(slot.Button);
+				slot.Button.TooltipText = $"{SlotDisplayName(slotType)}\nEmpty";
+				slot.Button.Disabled = true;
 			}
 		}
 	}
 
-	private void RefreshInventoryList()
+	private void RefreshAccessorySlots()
 	{
-		// Clear existing items (except the empty label)
-		foreach (var child in _itemsList.GetChildren())
+		var equipment = _gameManager.Player.Equipment;
+
+		foreach (var slot in _accessorySlots)
 		{
-			if (child != _emptyLabel)
+			if (!slot.IsActive)
 			{
-				child.QueueFree();
+				ApplyPanelStyle(slot.Panel, _lockedPanelStyle);
+				ClearButtonIcon(slot.Button);
+				slot.Button.Disabled = true;
+				slot.Button.TooltipText = "Accessory Slot Locked";
+				continue;
+			}
+
+			var accessory = equipment.GetEquipped(EquipmentSlotType.Accessory, slot.Index);
+			if (accessory != null)
+			{
+				ApplyPanelStyle(slot.Panel, _equippedPanelStyle);
+				SetButtonIcon(slot.Button, accessory);
+				slot.Button.TooltipText = BuildEquipmentTooltip(accessory);
+				slot.Button.Disabled = false;
+			}
+			else
+			{
+				ApplyPanelStyle(slot.Panel, _basePanelStyle);
+				ClearButtonIcon(slot.Button);
+				slot.Button.TooltipText = $"Accessory Slot {slot.Index + 1}\nEmpty";
+				slot.Button.Disabled = true;
+			}
+		}
+	}
+
+	private void RefreshInventoryGrid()
+	{
+		Array.Fill(_inventorySlotEntries, null);
+		var entries = new List<InventoryEntry>(_gameManager.Player.Inventory.GetAllEntries());
+		entries.Sort((a, b) => string.Compare(a.Item.DisplayName, b.Item.DisplayName, StringComparison.Ordinal));
+
+		for (int i = 0; i < _inventorySlots.Count; i++)
+		{
+			var slot = _inventorySlots[i];
+			if (i < entries.Count)
+			{
+				var entry = entries[i];
+				_inventorySlotEntries[i] = entry;
+				SetButtonIcon(slot.Button, entry.Item);
+				slot.Button.TooltipText = BuildInventoryTooltip(entry);
+				slot.Button.Disabled = entry.Item is not EquipmentItem;
+			}
+			else
+			{
+				ClearButtonIcon(slot.Button);
+				slot.Button.TooltipText = "Empty";
+				slot.Button.Disabled = true;
 			}
 		}
 
-		var inventory = _gameManager.Player.Inventory;
-		var entries = inventory.GetAllEntries();
-		bool hasItems = false;
-
-		foreach (var entry in entries)
+		if (entries.Count > _inventorySlots.Count)
 		{
-			hasItems = true;
-			CreateItemSlot(entry);
+			GD.PushWarning($"Inventory UI only displays {_inventorySlots.Count} item types. {entries.Count - _inventorySlots.Count} hidden.");
 		}
-
-		_emptyLabel.Visible = !hasItems;
 	}
 
-	private void CreateItemSlot(InventoryEntry entry)
+	private void OnEquipmentSlotPressed(EquipmentSlotType slotType)
 	{
-		var itemPanel = new PanelContainer();
-		var itemContent = new HBoxContainer();
-		itemContent.AddThemeConstantOverride("separation", 12);
-		
-		// Item name and quantity
-		var nameLabel = new Label();
-		nameLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-		nameLabel.AddThemeFontSizeOverride("font_size", 16);
-		
-		string quantityText = entry.Quantity > 1 ? $" x{entry.Quantity}" : "";
-		nameLabel.Text = $"{entry.Item.DisplayName}{quantityText}";
-		
-		// Add bonus text for equipment
-		if (entry.Item is EquipmentItem equipItem)
+		if (_gameManager?.Player == null)
 		{
-			nameLabel.Text += $" {GetBonusText(equipItem)}";
-			
-			// Equip button for equipment items
-			var equipButton = new Button();
-			equipButton.Text = "Equip";
-			equipButton.CustomMinimumSize = new Vector2(80, 0);
-			equipButton.Pressed += () => OnEquipPressed(equipItem);
-			itemContent.AddChild(equipButton);
+			return;
 		}
-		
-		// Use button for consumables (future feature)
-		if (entry.Item.Category == ItemCategory.Consumable)
+
+		var equipped = _gameManager.Player.Equipment.GetEquipped(slotType);
+		if (equipped == null)
 		{
-			var useButton = new Button();
-			useButton.Text = "Use";
-			useButton.CustomMinimumSize = new Vector2(80, 0);
-			useButton.Disabled = true; // Not implemented yet
-			itemContent.AddChild(useButton);
+			return;
 		}
-		
-		itemContent.AddChild(nameLabel);
-		itemPanel.AddChild(itemContent);
-		
-		// Style the panel
-		var style = new StyleBoxFlat();
-		style.BgColor = new Color(0.18f, 0.18f, 0.22f, 0.85f);
-		style.BorderColor = new Color(0.6f, 0.6f, 0.65f, 0.35f);
-		style.SetBorderWidthAll(1);
-		style.SetCornerRadiusAll(5);
-		style.SetContentMarginAll(6);
-		itemPanel.AddThemeStyleboxOverride("panel", style);
-		
-		_itemsList.AddChild(itemPanel);
+
+		HandleUnequip(slotType, 0);
+	}
+
+	private void OnAccessorySlotPressed(int accessoryIndex)
+	{
+		if (_gameManager?.Player == null)
+		{
+			return;
+		}
+
+		if (accessoryIndex < 0 || accessoryIndex >= EquipmentSet.AccessorySlotCount)
+		{
+			return;
+		}
+
+		var equipped = _gameManager.Player.Equipment.GetEquipped(EquipmentSlotType.Accessory, accessoryIndex);
+		if (equipped == null)
+		{
+			return;
+		}
+
+		HandleUnequip(EquipmentSlotType.Accessory, accessoryIndex);
+	}
+
+	private void HandleUnequip(EquipmentSlotType slotType, int accessoryIndex)
+	{
+		var removed = slotType == EquipmentSlotType.Accessory
+			? _gameManager.Player.Unequip(slotType, accessoryIndex)
+			: _gameManager.Player.Unequip(slotType);
+
+		if (removed == null)
+		{
+			return;
+		}
+
+		if (_gameManager.Player.TryAddItem(removed, 1, out _))
+		{
+			GD.Print($"Unequipped {removed.DisplayName}");
+			RefreshUI();
+		}
+		else
+		{
+			if (slotType == EquipmentSlotType.Accessory)
+			{
+				_gameManager.Player.TryEquip(removed, out _, accessoryIndex);
+			}
+			else
+			{
+				_gameManager.Player.TryEquip(removed, out _);
+			}
+			GD.Print("Inventory is full! Cannot unequip.");
+		}
+	}
+	private void OnInventorySlotPressed(int slotIndex)
+	{
+		if (_gameManager?.Player == null)
+		{
+			return;
+		}
+		if (slotIndex < 0 || slotIndex >= _inventorySlotEntries.Length)
+		{
+			return;
+		}
+
+		var entry = _inventorySlotEntries[slotIndex];
+		if (entry?.Item is not EquipmentItem equipmentItem)
+		{
+			return;
+		}
+
+		EquipFromInventory(equipmentItem);
+	}
+
+	private void EquipFromInventory(EquipmentItem item)
+	{
+		if (!_gameManager.Player.TryEquip(item, out var replacedItem))
+		{
+			GD.Print($"Failed to equip {item.DisplayName}");
+			return;
+		}
+
+		if (replacedItem != null)
+		{
+			_gameManager.Player.TryAddItem(replacedItem, 1, out _);
+		}
+
+		_gameManager.Player.TryRemoveItem(item.Id, 1);
+		GD.Print($"Equipped {item.DisplayName}");
+		RefreshUI();
+	}
+
+	private void SetButtonIcon(TextureButton button, Item item)
+	{
+		if (button == null)
+		{
+			return;
+		}
+
+		var texture = item?.LoadAssetOrDefault<Texture2D>();
+		button.TextureNormal = texture;
+		button.TextureHover = texture;
+		button.TexturePressed = texture;
+		button.TextureDisabled = texture;
+		button.TextureFocused = texture;
+	}
+
+	private void ClearButtonIcon(TextureButton button)
+	{
+		if (button == null)
+		{
+			return;
+		}
+
+		button.TextureNormal = null;
+		button.TextureHover = null;
+		button.TexturePressed = null;
+		button.TextureDisabled = null;
+		button.TextureFocused = null;
+	}
+
+	private void ApplyPanelStyle(PanelContainer panel, StyleBoxFlat style)
+	{
+		if (panel == null || style == null)
+		{
+			return;
+		}
+
+		panel.AddThemeStyleboxOverride("panel", (StyleBox)style.Duplicate());
+	}
+
+	private string BuildEquipmentTooltip(EquipmentItem item)
+	{
+		var sb = new StringBuilder();
+		sb.AppendLine(item.DisplayName);
+
+		if (!string.IsNullOrWhiteSpace(item.Description))
+		{
+			sb.AppendLine(item.Description.Trim());
+		}
+
+		var bonuses = GetBonusText(item);
+		if (!string.IsNullOrEmpty(bonuses))
+		{
+			sb.AppendLine(bonuses);
+		}
+
+		sb.Append($"Slot: {SlotDisplayName(item.SlotType)}");
+		return sb.ToString();
+	}
+
+	private string BuildInventoryTooltip(InventoryEntry entry)
+	{
+		var sb = new StringBuilder();
+		sb.AppendLine(entry.Item.DisplayName);
+		sb.AppendLine($"Quantity: {entry.Quantity}");
+		sb.AppendLine($"Category: {entry.Item.Category}");
+
+		if (!string.IsNullOrWhiteSpace(entry.Item.Description))
+		{
+			sb.AppendLine(entry.Item.Description.Trim());
+		}
+
+		if (entry.Item is EquipmentItem equipmentItem)
+		{
+			var bonuses = GetBonusText(equipmentItem);
+			if (!string.IsNullOrEmpty(bonuses))
+			{
+				sb.AppendLine(bonuses);
+			}
+
+			sb.Append("Click to equip");
+		}
+
+		return sb.ToString();
 	}
 
 	private string GetBonusText(EquipmentItem item)
 	{
 		var bonuses = new List<string>();
-		
+
 		if (item.AttackBonus > 0) bonuses.Add($"+{item.AttackBonus} ATK");
 		if (item.DefenseBonus > 0) bonuses.Add($"+{item.DefenseBonus} DEF");
 		if (item.SpeedBonus > 0) bonuses.Add($"+{item.SpeedBonus} SPD");
 		if (item.HealthBonus > 0) bonuses.Add($"+{item.HealthBonus} HP");
-		
-		return bonuses.Count > 0 ? $"({string.Join(", ", bonuses)})" : "";
+
+		return bonuses.Count > 0 ? string.Join(", ", bonuses) : string.Empty;
 	}
 
-	private void OnEquipPressed(EquipmentItem item)
+	private static string SlotDisplayName(EquipmentSlotType slotType)
 	{
-		if (_gameManager?.Player == null)
+		return slotType switch
 		{
-			return;
-		}
-
-		// Try to equip the item
-		if (_gameManager.Player.TryEquip(item, out var replacedItem))
-		{
-			// If an item was replaced, add it back to inventory
-			if (replacedItem != null)
-			{
-				_gameManager.Player.TryAddItem(replacedItem, 1, out _);
-			}
-			
-			// Remove the equipped item from inventory
-			_gameManager.Player.TryRemoveItem(item.Id, 1);
-			
-			GD.Print($"Equipped {item.DisplayName}");
-			RefreshUI();
-		}
-		else
-		{
-			GD.Print($"Failed to equip {item.DisplayName}");
-		}
-	}
-
-	private void OnUnequipPressed(EquipmentSlotType slotType)
-	{
-		if (_gameManager?.Player == null)
-		{
-			return;
-		}
-
-		var unequippedItem = _gameManager.Player.Unequip(slotType);
-		
-		if (unequippedItem != null)
-		{
-			// Add back to inventory
-			if (_gameManager.Player.TryAddItem(unequippedItem, 1, out _))
-			{
-				GD.Print($"Unequipped {unequippedItem.DisplayName}");
-				RefreshUI();
-			}
-			else
-			{
-				// If inventory is full, re-equip the item
-				_gameManager.Player.TryEquip(unequippedItem, out _);
-				GD.Print("Inventory is full! Cannot unequip.");
-			}
-		}
+			EquipmentSlotType.Helmet => "Helmet",
+			EquipmentSlotType.Weapon => "Weapon",
+			EquipmentSlotType.Armor => "Armor",
+			EquipmentSlotType.Shield => "Shield",
+			EquipmentSlotType.Shoe => "Shoes",
+			EquipmentSlotType.Accessory => "Accessory",
+			_ => slotType.ToString()
+		};
 	}
 
 	private void OnCloseButtonPressed()
@@ -322,8 +497,22 @@ public partial class InventoryMenuController : Control
 	private class EquipmentSlotUI
 	{
 		public PanelContainer Panel { get; set; }
-		public Label NameLabel { get; set; }
-		public Button UnequipButton { get; set; }
+		public TextureButton Button { get; set; }
 		public EquipmentSlotType SlotType { get; set; }
+	}
+
+	private class AccessorySlotUI
+	{
+		public PanelContainer Panel { get; set; }
+		public TextureButton Button { get; set; }
+		public int Index { get; set; }
+		public bool IsActive { get; set; }
+	}
+
+	private class InventorySlotUI
+	{
+		public PanelContainer Panel { get; set; }
+		public TextureButton Button { get; set; }
+		public int Index { get; set; }
 	}
 }

@@ -300,19 +300,19 @@ text = "Accessories"
 
 [node name="AccessoryGrid" type="GridContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent"]
 layout_mode = 2
-columns = 2
+columns = 3
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 12
 
 [node name="AccessorySlot0" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(108, 108)
 layout_mode = 2
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid/AccessorySlot0"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(96, 96)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -320,13 +320,13 @@ flat = true
 
 [node name="AccessorySlot1" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(108, 108)
 layout_mode = 2
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid/AccessorySlot1"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(96, 96)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -334,13 +334,13 @@ flat = true
 
 [node name="AccessorySlot2" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(108, 108)
 layout_mode = 2
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid/AccessorySlot2"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(96, 96)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -348,13 +348,13 @@ flat = true
 
 [node name="AccessorySlot3" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(108, 108)
 layout_mode = 2
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid/AccessorySlot3"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(96, 96)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -362,13 +362,13 @@ flat = true
 
 [node name="AccessorySlot4" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(108, 108)
 layout_mode = 2
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid/AccessorySlot4"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(96, 96)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -376,13 +376,13 @@ flat = true
 
 [node name="AccessorySlot5" type="PanelContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(108, 108)
 layout_mode = 2
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/AccessoryGrid/AccessorySlot5"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(96, 96)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -412,315 +412,411 @@ theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 12
 
 [node name="InventorySlot0" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot0"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot1" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot1"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot2" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot2"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot3" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot3"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot4" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot4"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot5" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot5"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot6" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot6"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot7" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot7"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot8" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot8"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot9" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot9"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot10" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot10"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot11" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot11"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot12" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot12"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot13" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot13"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot14" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot14"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot15" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot15"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot16" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot16"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot17" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot17"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot18" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot18"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot19" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot19"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot20" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot20"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot21" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot21"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot22" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot22"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [node name="InventorySlot23" type="PanelContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_styles/panel = SubResource("7_icon_bg")
 
 [node name="Button" type="TextureButton" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryGrid/InventorySlot23"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(32, 32)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 flat = true
+ignore_texture_size = true
+stretch_mode = 3
 
 [connection signal="pressed" from="MainPanel/Content/Header/CloseButton" to="." method="OnCloseButtonPressed"]

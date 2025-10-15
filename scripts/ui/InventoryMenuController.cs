@@ -11,6 +11,13 @@ public partial class InventoryMenuController : Control
 	private readonly List<AccessorySlotUI> _accessorySlots = new();
 	private readonly List<InventorySlotUI> _inventorySlots = new();
 
+	private static readonly Vector2 EquipmentPanelSize = new(108, 108);
+	private static readonly Vector2 EquipmentButtonSize = new(96, 96);
+	private static readonly Vector2 AccessoryPanelSize = new(108, 108);
+	private static readonly Vector2 AccessoryButtonSize = new(96, 96);
+	private static readonly Vector2 InventoryPanelSize = new(108, 108);
+	private static readonly Vector2 InventoryButtonSize = new(96, 96);
+
 	private InventoryEntry[] _inventorySlotEntries = Array.Empty<InventoryEntry>();
 
 	private StyleBoxFlat _basePanelStyle;
@@ -69,7 +76,6 @@ public partial class InventoryMenuController : Control
 		_equippedPanelStyle = (StyleBoxFlat)_basePanelStyle.Duplicate();
 		_equippedPanelStyle.BgColor = new Color(0.22f, 0.28f, 0.4f, 0.95f);
 		_equippedPanelStyle.BorderColor = new Color(0.48f, 0.68f, 0.95f, 1f);
-		_equippedPanelStyle.SetBorderWidthAll(2);
 
 		_lockedPanelStyle = (StyleBoxFlat)_basePanelStyle.Duplicate();
 		_lockedPanelStyle.BgColor = new Color(0.08f, 0.08f, 0.08f, 0.8f);
@@ -89,6 +95,9 @@ public partial class InventoryMenuController : Control
 	{
 		var panel = GetNode<PanelContainer>(panelPath);
 		var button = panel.GetNode<TextureButton>("Button");
+		ConfigureSlotButton(button);
+		panel.CustomMinimumSize = EquipmentPanelSize;
+		button.CustomMinimumSize = EquipmentButtonSize;
 
 		var slot = new EquipmentSlotUI
 		{
@@ -114,6 +123,9 @@ public partial class InventoryMenuController : Control
 			}
 
 			var button = panel.GetNode<TextureButton>("Button");
+			ConfigureSlotButton(button);
+			panel.CustomMinimumSize = AccessoryPanelSize;
+			button.CustomMinimumSize = AccessoryButtonSize;
 			bool isActive = i < EquipmentSet.AccessorySlotCount;
 
 			var slot = new AccessorySlotUI
@@ -136,6 +148,7 @@ public partial class InventoryMenuController : Control
 		var grid = GetNode<GridContainer>("%InventoryGrid");
 		int slotCount = grid.GetChildCount();
 		_inventorySlotEntries = new InventoryEntry[slotCount];
+		GD.Print($"InitializeInventorySlots: found {slotCount} slots");
 
 		for (int i = 0; i < slotCount; i++)
 		{
@@ -145,6 +158,9 @@ public partial class InventoryMenuController : Control
 			}
 
 			var button = panel.GetNode<TextureButton>("Button");
+			ConfigureSlotButton(button);
+			panel.CustomMinimumSize = InventoryPanelSize;
+			button.CustomMinimumSize = InventoryButtonSize;
 			var slot = new InventorySlotUI
 			{
 				Panel = panel,
@@ -245,8 +261,16 @@ public partial class InventoryMenuController : Control
 
 	private void RefreshInventoryGrid()
 	{
+		if (_inventorySlots.Count == 0)
+		{
+			GD.PushWarning("Inventory slots list empty, reinitializing...");
+			InitializeInventorySlots();
+		}
+
 		Array.Fill(_inventorySlotEntries, null);
 		var entries = new List<InventoryEntry>(_gameManager.Player.Inventory.GetAllEntries());
+		GD.Print($"RefreshInventoryGrid: {entries.Count} entries");
+		GD.Print($"Inventory UI slots tracked: {_inventorySlots.Count}");
 		entries.Sort((a, b) => string.Compare(a.Item.DisplayName, b.Item.DisplayName, StringComparison.Ordinal));
 
 		for (int i = 0; i < _inventorySlots.Count; i++)
@@ -256,6 +280,7 @@ public partial class InventoryMenuController : Control
 			{
 				var entry = entries[i];
 				_inventorySlotEntries[i] = entry;
+				GD.Print($"Inventory slot {i}: {entry.Item.DisplayName} x{entry.Quantity}");
 				SetButtonIcon(slot.Button, entry.Item);
 				slot.Button.TooltipText = BuildInventoryTooltip(entry);
 				slot.Button.Disabled = entry.Item is not EquipmentItem;
@@ -322,10 +347,11 @@ public partial class InventoryMenuController : Control
 			return;
 		}
 
-		if (_gameManager.Player.TryAddItem(removed, 1, out _))
+		bool addedToInventory = _gameManager.Player.TryAddItem(removed, 1, out _);
+		GD.Print($"HandleUnequip: added={addedToInventory}, inventoryTypes={_gameManager.Player.Inventory.ItemTypeCount}");
+		if (addedToInventory)
 		{
 			GD.Print($"Unequipped {removed.DisplayName}");
-			RefreshUI();
 		}
 		else
 		{
@@ -337,8 +363,10 @@ public partial class InventoryMenuController : Control
 			{
 				_gameManager.Player.TryEquip(removed, out _);
 			}
-			GD.Print("Inventory is full! Cannot unequip.");
+			GD.PushWarning("Unable to unequip item: inventory is full or already contains this unique item.");
 		}
+
+		RefreshUI();
 	}
 	private void OnInventorySlotPressed(int slotIndex)
 	{
@@ -386,6 +414,10 @@ public partial class InventoryMenuController : Control
 		}
 
 		var texture = item?.LoadAssetOrDefault<Texture2D>();
+		if (item != null && texture == null && !string.IsNullOrWhiteSpace(item.AssetPath))
+		{
+			GD.PushWarning($"Failed to load icon for '{item.DisplayName}' at '{item.AssetPath}'");
+		}
 		button.TextureNormal = texture;
 		button.TextureHover = texture;
 		button.TexturePressed = texture;
@@ -405,6 +437,17 @@ public partial class InventoryMenuController : Control
 		button.TexturePressed = null;
 		button.TextureDisabled = null;
 		button.TextureFocused = null;
+	}
+
+	private void ConfigureSlotButton(TextureButton button)
+	{
+		if (button == null)
+		{
+			return;
+		}
+
+		button.StretchMode = TextureButton.StretchModeEnum.KeepAspectCentered;
+		button.IgnoreTextureSize = true;
 	}
 
 	private void ApplyPanelStyle(PanelContainer panel, StyleBoxFlat style)

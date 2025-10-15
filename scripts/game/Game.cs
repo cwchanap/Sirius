@@ -67,6 +67,7 @@ public partial class Game : Node2D
         // Connect signals
         _gameManager.BattleStarted += OnBattleStarted;
         _gameManager.BattleEnded += OnBattleEnded;
+        _gameManager.PlayerStatsChanged += OnPlayerStatsChanged;
 
         // Connect to grid map for enemy encounters
         _gridMap.EnemyEncountered += OnEnemyEncountered;
@@ -567,5 +568,10 @@ public partial class Game : Node2D
     {
         GD.Print("Returning to main menu");
         GetTree().ChangeSceneToFile("res://scenes/ui/MainMenu.tscn");
+    }
+
+    private void OnPlayerStatsChanged()
+    {
+        UpdatePlayerUI();
     }
 }

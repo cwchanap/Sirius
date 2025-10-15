@@ -130,6 +130,7 @@ public partial class Character : Resource
         if (equipped)
         {
             CurrentHealth = Mathf.Min(CurrentHealth, GetEffectiveMaxHealth());
+            GameManager.Instance?.NotifyPlayerStatsChanged();
         }
 
         return equipped;
@@ -140,6 +141,10 @@ public partial class Character : Resource
         EnsureEquipment();
         var removed = Equipment.Unequip(slot, accessorySlot);
         CurrentHealth = Mathf.Min(CurrentHealth, GetEffectiveMaxHealth());
+        if (removed != null)
+        {
+            GameManager.Instance?.NotifyPlayerStatsChanged();
+        }
         return removed;
     }
 

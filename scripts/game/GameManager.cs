@@ -4,6 +4,7 @@ public partial class GameManager : Node
 {
     [Signal] public delegate void BattleStartedEventHandler(Enemy enemy);
     [Signal] public delegate void BattleEndedEventHandler(bool playerWon);
+    [Signal] public delegate void PlayerStatsChangedEventHandler();
     
     public static GameManager Instance { get; private set; }
     
@@ -137,5 +138,10 @@ public partial class GameManager : Node
             GD.Print("Initializing fresh player for new game");
             InitializePlayer();
         }
+    }
+
+    public void NotifyPlayerStatsChanged()
+    {
+        EmitSignal(SignalName.PlayerStatsChanged);
     }
 }

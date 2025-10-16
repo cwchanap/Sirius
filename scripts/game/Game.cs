@@ -14,6 +14,7 @@ public partial class Game : Node2D
     private Label _playerLevelLabel;
     private Label _playerHealthLabel;
     private Label _playerExperienceLabel;
+    private Label _playerGoldLabel;
     private BattleManager _battleManager;
     private Vector2I _lastEnemyPosition; // Store enemy position for after battle
     private PlayerDisplay _playerDisplay; // Visual sprite for player when using baked TileMaps
@@ -63,6 +64,9 @@ public partial class Game : Node2D
         _playerExperienceLabel =
             GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerExperience") ??
             GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerExperience");
+        _playerGoldLabel =
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerGold") ??
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerGold");
 
         // Connect signals
         _gameManager.BattleStarted += OnBattleStarted;
@@ -508,6 +512,10 @@ public partial class Game : Node2D
             _playerLevelLabel.Text = $"Level: {player.Level}";
             _playerHealthLabel.Text = $"HP: {player.CurrentHealth}/{effectiveMaxHealth}";
             _playerExperienceLabel.Text = $"EXP: {player.Experience}/{player.ExperienceToNext}";
+            if (_playerGoldLabel != null)
+            {
+                _playerGoldLabel.Text = $"Gold: {player.Gold}";
+            }
 
             // Update progress bars if present
             var hpBar =

@@ -11,6 +11,7 @@ public partial class Enemy : Resource
     [Export] public int Defense { get; set; } = 5;
     [Export] public int Speed { get; set; } = 10;
     [Export] public int ExperienceReward { get; set; } = 25;
+    [Export] public int GoldReward { get; set; } = 10;
 
     public bool IsAlive => CurrentHealth > 0;
 
@@ -32,7 +33,8 @@ public partial class Enemy : Resource
             Attack = 15,
             Defense = 5,
             Speed = 10,
-            ExperienceReward = 25
+            ExperienceReward = 25,
+            GoldReward = 10
         };
     }
 
@@ -47,7 +49,8 @@ public partial class Enemy : Resource
             Attack = 22,
             Defense = 8,
             Speed = 8,
-            ExperienceReward = 45
+            ExperienceReward = 45,
+            GoldReward = 20
         };
     }
 
@@ -62,7 +65,8 @@ public partial class Enemy : Resource
             Attack = 45,
             Defense = 20,
             Speed = 12,
-            ExperienceReward = 180
+            ExperienceReward = 180,
+            GoldReward = 100
         };
     }
     
@@ -78,7 +82,8 @@ public partial class Enemy : Resource
             Attack = 28,
             Defense = 12,
             Speed = 9,
-            ExperienceReward = 70
+            ExperienceReward = 70,
+            GoldReward = 30
         };
     }
     
@@ -93,7 +98,8 @@ public partial class Enemy : Resource
             Attack = 35,
             Defense = 15,
             Speed = 6,
-            ExperienceReward = 120
+            ExperienceReward = 120,
+            GoldReward = 50
         };
     }
     
@@ -108,7 +114,8 @@ public partial class Enemy : Resource
             Attack = 50,
             Defense = 18,
             Speed = 14,
-            ExperienceReward = 220
+            ExperienceReward = 220,
+            GoldReward = 120
         };
     }
     
@@ -123,7 +130,8 @@ public partial class Enemy : Resource
             Attack = 65,
             Defense = 25,
             Speed = 15,
-            ExperienceReward = 400
+            ExperienceReward = 400,
+            GoldReward = 200
         };
     }
     
@@ -138,7 +146,8 @@ public partial class Enemy : Resource
             Attack = 80,
             Defense = 35,
             Speed = 18,
-            ExperienceReward = 800
+            ExperienceReward = 800,
+            GoldReward = 500
         };
     }
     
@@ -154,7 +163,8 @@ public partial class Enemy : Resource
             Attack = 20,
             Defense = 10,
             Speed = 15,
-            ExperienceReward = 50
+            ExperienceReward = 50,
+            GoldReward = 22
         };
     }
     
@@ -169,7 +179,8 @@ public partial class Enemy : Resource
             Attack = 25,
             Defense = 8,
             Speed = 18,
-            ExperienceReward = 65
+            ExperienceReward = 65,
+            GoldReward = 28
         };
     }
     
@@ -184,7 +195,8 @@ public partial class Enemy : Resource
             Attack = 32,
             Defense = 14,
             Speed = 11,
-            ExperienceReward = 95
+            ExperienceReward = 95,
+            GoldReward = 45
         };
     }
     
@@ -199,7 +211,8 @@ public partial class Enemy : Resource
             Attack = 38,
             Defense = 16,
             Speed = 7,
-            ExperienceReward = 140
+            ExperienceReward = 140,
+            GoldReward = 70
         };
     }
     
@@ -214,7 +227,8 @@ public partial class Enemy : Resource
             Attack = 48,
             Defense = 22,
             Speed = 16,
-            ExperienceReward = 200
+            ExperienceReward = 200,
+            GoldReward = 110
         };
     }
     
@@ -229,7 +243,8 @@ public partial class Enemy : Resource
             Attack = 55,
             Defense = 28,
             Speed = 10,
-            ExperienceReward = 300
+            ExperienceReward = 300,
+            GoldReward = 150
         };
     }
 }

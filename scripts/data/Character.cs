@@ -12,6 +12,7 @@ public partial class Character : Resource
     [Export] public int Speed { get; set; } = 15;
     [Export] public int Experience { get; set; } = 0;
     [Export] public int ExperienceToNext { get; set; } = 100;
+    [Export] public int Gold { get; set; } = 0;
     [Export] public Inventory Inventory { get; set; } = new Inventory();
     [Export] public EquipmentSet Equipment { get; set; } = new EquipmentSet();
 
@@ -65,6 +66,12 @@ public partial class Character : Resource
         {
             LevelUp();
         }
+    }
+
+    public void GainGold(int amount)
+    {
+        Gold += amount;
+        GD.Print($"{Name} gains {amount} gold! (Total: {Gold})");
     }
 
     private void LevelUp()

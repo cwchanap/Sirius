@@ -644,9 +644,11 @@ public partial class BattleManager : AcceptDialog
         {
             GD.Print($"🎉 VICTORY! {_player.Name} wins the battle!");
             GD.Print($"Experience gained: {_enemy.ExperienceReward} XP");
+            GD.Print($"Gold gained: {_enemy.GoldReward} Gold");
             
             int oldLevel = _player.Level;
             _player.GainExperience(_enemy.ExperienceReward);
+            _player.GainGold(_enemy.GoldReward);
             
             // Check if player leveled up
             if (_player.Level > oldLevel)

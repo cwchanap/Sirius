@@ -40,7 +40,8 @@ public partial class GameManager : Node
             Defense = 10,
             Speed = 15,
             Experience = 0,
-            ExperienceToNext = 100 * 1 + 10 * (1 * 1) // 100 + 10 = 110 for level 1
+            ExperienceToNext = 100 * 1 + 10 * (1 * 1), // 100 + 10 = 110 for level 1
+            Gold = 100 // Starting gold
         };
 
         EquipStarterGear(Player);

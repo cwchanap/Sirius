@@ -234,6 +234,11 @@ theme_override_styles/fill = SubResource("4_exp_fill")
 max_value = 110.0
 show_percentage = false
 
+[node name="PlayerGold" type="Label" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Gold: 100"
+
 [node name="PlayerAttackHUD" type="Label" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 14

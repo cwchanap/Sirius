@@ -8,15 +8,23 @@ public partial class PlayerController : Node
     
     public override void _Ready()
     {
-        _gridMap = GetNode<GridMap>("../GridMap");
         _gameManager = GameManager.Instance;
         
-        // Debug output to ensure components are properly initialized
+        // GridMap will be set by Game.cs when floor loads
         GD.Print($"PlayerController ready - GridMap: {_gridMap != null}, GameManager: {_gameManager != null}");
         if (_gameManager != null)
         {
             GD.Print($"Initial battle state: {_gameManager.IsInBattle}");
         }
+    }
+    
+    /// <summary>
+    /// Called by Game.cs when a new floor loads to update the GridMap reference
+    /// </summary>
+    public void SetGridMap(GridMap gridMap)
+    {
+        _gridMap = gridMap;
+        GD.Print($"PlayerController.SetGridMap: GridMap updated to {gridMap?.Name ?? "null"}");
     }
     
     public override void _UnhandledInput(InputEvent @event)
@@ -64,6 +72,12 @@ public partial class PlayerController : Node
             
             if (direction != Vector2I.Zero)
             {
+                if (_gridMap == null)
+                {
+                    GD.Print("GridMap not yet loaded, ignoring movement input");
+                    return;
+                }
+                
                 GD.Print($"Processing movement: {direction}");
                 _isProcessingMove = true;
                 bool moveSuccessful = _gridMap.TryMovePlayer(direction);

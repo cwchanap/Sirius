@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 [Tool]
 public partial class GridMap : Node2D
@@ -32,9 +33,17 @@ public partial class GridMap : Node2D
     private Dictionary<string, Texture2D> _enemySprites = new();
     private Dictionary<string, Texture2D> _terrainSprites = new();
     
+    [Signal]
+    public delegate void GridMapReadyEventHandler();
+    
     // Cached TileMap layers (present when UseBakedTileMapsAtRuntime is true)
     private TileMapLayer _groundLayer;
     private TileMapLayer _wallLayer;
+    
+    // Pending floor load data (set before GridMap enters scene tree)
+    private Node2D _pendingFloorInstance;
+    private FloorDefinition _pendingFloorDef;
+    private Vector2I _pendingPlayerSpawn;
     
     // Animation properties
     private float _animationTime = 0.0f;
@@ -445,8 +454,9 @@ public partial class GridMap : Node2D
     // Build the logical grid from baked TileMap layers so gameplay works without procedural generation
     private void BuildGridFromBakedTileMaps()
     {
-        var ground = GetNodeOrNull<TileMapLayer>("GroundLayer");
-        var walls = GetNodeOrNull<TileMapLayer>("WallLayer");
+        // Use cached layer references if available (from LoadFloor), otherwise look them up
+        var ground = _groundLayer ?? GetNodeOrNull<TileMapLayer>("GroundLayer");
+        var walls = _wallLayer ?? GetNodeOrNull<TileMapLayer>("WallLayer");
         _wallTileCoords.Clear();
 
         // Compute bounding boxes separately and prefer Ground for origin/centering
@@ -485,10 +495,15 @@ public partial class GridMap : Node2D
             _tilemapOrigin = new Vector2I(wMinX, wMinY);
         else
             _tilemapOrigin = new Vector2I(0, 0);
-        _tilemapWorldOffset = new Vector2(-_tilemapOrigin.X * CellSize, -_tilemapOrigin.Y * CellSize);
+        
+        // Account for TileMapLayer scale when calculating world offset
+        float scaleX = _groundLayer != null ? _groundLayer.Scale.X : 1f;
+        float scaleY = _groundLayer != null ? _groundLayer.Scale.Y : 1f;
+        _tilemapWorldOffset = new Vector2(-_tilemapOrigin.X * CellSize * scaleX, -_tilemapOrigin.Y * CellSize * scaleY);
+        
         if (EnableDebugLogging)
         {
-            GD.Print($"🧭 TileMap origin: {_tilemapOrigin}, world offset: {_tilemapWorldOffset}");
+            GD.Print($"🧭 TileMap origin: {_tilemapOrigin}, layer scale: ({scaleX}, {scaleY}), world offset: {_tilemapWorldOffset}");
         }
 
         // Do not re-center visual layers here. We respect positions saved in the scene
@@ -634,6 +649,23 @@ public partial class GridMap : Node2D
     
     public override void _Ready()
     {
+        if (EnableDebugLogging)
+            GD.Print($"🔔 GridMap._Ready called! Pending floor: {_pendingFloorDef?.FloorName ?? "none"}");
+        
+        // Emit signal to notify that GridMap is ready
+        EmitSignal(SignalName.GridMapReady);
+        
+        // If floor load was deferred waiting for scene tree, execute it now
+        if (_pendingFloorDef != null)
+        {
+            if (EnableDebugLogging)
+                GD.Print($"✅ GridMap _Ready: Loading deferred floor '{_pendingFloorDef.FloorName}'...");
+            LoadFloor(_pendingFloorInstance, _pendingFloorDef, _pendingPlayerSpawn);
+            _pendingFloorDef = null;
+            _pendingFloorInstance = null;
+            return; // LoadFloor handles everything
+        }
+        
         // Ensure grid data exists before any drawing happens (both editor and runtime)
         if (!UseBakedTileMapsAtRuntime && (_grid == null || _grid.Length == 0))
         {
@@ -1810,19 +1842,33 @@ public partial class GridMap : Node2D
 
         Vector2I newPosition = _playerPosition + direction;
         
+        if (EnableDebugLogging)
+            GD.Print($"🚶 TryMovePlayer: current={_playerPosition}, direction={direction}, new={newPosition}");
+        
         // Compute corresponding tilemap coordinates and block if a wall exists there
         Vector2I newTileCoord = new Vector2I(newPosition.X + _tilemapOrigin.X, newPosition.Y + _tilemapOrigin.Y);
+        
+        if (EnableDebugLogging)
+            GD.Print($"   Tilemap coord: {newTileCoord}, is wall: {_wallTileCoords.Contains(newTileCoord)}");
+        
         if (_wallTileCoords.Contains(newTileCoord))
         {
+            if (EnableDebugLogging)
+                GD.Print($"   ❌ Blocked by wall at tilemap {newTileCoord}");
             return false;
         }
         
         // No hard bounds: treat any out-of-bounds cell as empty (walkable)
         CellType targetCell = GetCellTypeAt(newPosition);
         
+        if (EnableDebugLogging)
+            GD.Print($"   Cell type: {targetCell}");
+        
         // Check if movement is valid
         if (targetCell == CellType.Wall)
         {
+            if (EnableDebugLogging)
+                GD.Print($"   ❌ Blocked by wall in grid");
             return false;
         }
         
@@ -1842,6 +1888,12 @@ public partial class GridMap : Node2D
         if (IsWithinGrid(_playerPosition))
         {
             _grid[_playerPosition.X, _playerPosition.Y] = (int)CellType.Player;
+        }
+        
+        if (EnableDebugLogging)
+        {
+            Vector2 worldPos = GetWorldPosition(newPosition);
+            GD.Print($"   ✅ Move successful! Grid: {newPosition}, World: {worldPos}");
         }
         
         QueueRedraw();
@@ -1864,6 +1916,122 @@ public partial class GridMap : Node2D
         }
     }
     
+    /// <summary>
+    /// Initialize grid from a loaded floor instance (used by FloorManager)
+    /// </summary>
+    public void LoadFloor(Node2D floorInstance, FloorDefinition floorDef, Vector2I playerSpawn)
+    {
+        if (EnableDebugLogging)
+        {
+            GD.Print($"🗺️ GridMap.LoadFloor called for: {floorDef.FloorName}");
+            GD.Print($"   GridMap status: InTree={IsInsideTree()}, NodeReady={IsNodeReady()}");
+            GD.Print($"   GridMap localPos={Position}, globalPos={GlobalPosition}");
+            GD.Print($"   FloorInstance: {floorInstance.Name} localPos={floorInstance.Position}, globalPos={floorInstance.GlobalPosition}");
+        }
+        
+        // Cache TileMapLayers - they are direct children of this GridMap instance
+        _groundLayer = GetNodeOrNull<TileMapLayer>("GroundLayer");
+        _wallLayer = GetNodeOrNull<TileMapLayer>("WallLayer");
+        
+        if (_groundLayer == null || _wallLayer == null)
+        {
+            GD.PushError($"Floor '{floorDef.FloorName}' missing TileMapLayers! Ground: {_groundLayer != null}, Wall: {_wallLayer != null}");
+            return;
+        }
+        
+        if (EnableDebugLogging)
+        {
+            GD.Print($"✓ Found layers - Ground cells: {_groundLayer.GetUsedCells().Count}, Wall cells: {_wallLayer.GetUsedCells().Count}");
+            GD.Print($"📍 GridMap in tree: {IsInsideTree()}, ready: {IsNodeReady()}");
+            GD.Print($"📍 GroundLayer: pos={_groundLayer.Position}, scale={_groundLayer.Scale}, visible={_groundLayer.Visible}, z_index={_groundLayer.ZIndex}");
+            GD.Print($"📍 GroundLayer in tree: {_groundLayer.IsInsideTree()}, ready: {_groundLayer.IsNodeReady()}");
+            GD.Print($"📍 WallLayer: pos={_wallLayer.Position}, scale={_wallLayer.Scale}, visible={_wallLayer.Visible}, z_index={_wallLayer.ZIndex}");
+            GD.Print($"📍 WallLayer in tree: {_wallLayer.IsInsideTree()}, ready: {_wallLayer.IsNodeReady()}");
+        }
+        
+        // Ensure TileMapLayers are visible
+        _groundLayer.Visible = true;
+        _wallLayer.Visible = true;
+        _groundLayer.Show();
+        _wallLayer.Show();
+        
+        // Rebuild grid from baked TileMaps (this calculates _tilemapWorldOffset)
+        BuildGridFromBakedTileMaps();
+        
+        // CRITICAL: TileMapLayers must be in scene tree to render!
+        // Defer positioning to next frame to ensure scene tree is fully ready
+        if (!_groundLayer.IsInsideTree())
+        {
+            if (EnableDebugLogging)
+                GD.Print($"⚠️ TileMapLayers not in scene tree yet, deferring to next frame...");
+            CallDeferred(nameof(PositionTileMapLayers));
+        }
+        else
+        {
+            // Already in tree, position immediately
+            PositionTileMapLayers();
+        }
+        
+        // Set player position from floor definition
+        _playerPosition = playerSpawn;
+        if (IsWithinGrid(playerSpawn))
+        {
+            _grid[playerSpawn.X, playerSpawn.Y] = (int)CellType.Player;
+        }
+        else
+        {
+            GD.PushWarning($"Player spawn {playerSpawn} is outside grid bounds! Using fallback.");
+            // Find nearest valid position
+            for (int x = 0; x < GridWidth; x++)
+            {
+                for (int y = 0; y < GridHeight; y++)
+                {
+                    if (_grid[x, y] != (int)CellType.Wall)
+                    {
+                        _playerPosition = new Vector2I(x, y);
+                        _grid[x, y] = (int)CellType.Player;
+                        break;
+                    }
+                }
+                if (_grid[_playerPosition.X, _playerPosition.Y] == (int)CellType.Player)
+                    break;
+            }
+        }
+        
+        // Register all EnemySpawn nodes from this floor
+        CallDeferred(nameof(RegisterStaticEnemySpawns));
+        
+        // Force a redraw to display the loaded floor
+        QueueRedraw();
+        
+        if (EnableDebugLogging)
+            GD.Print($"✅ GridMap loaded for floor: {floorDef.FloorName}, player at {playerSpawn}");
+    }
+    
+    private void PositionTileMapLayers()
+    {
+        // TileMapLayers should stay at (0,0) - tiles are already painted at correct tilemap coords in the scene
+        // The offset is applied in GetWorldPosition() instead
+        _groundLayer.Position = Vector2.Zero;
+        _wallLayer.Position = Vector2.Zero;
+        
+        if (EnableDebugLogging)
+        {
+            GD.Print($"🎯 Positioned TileMapLayers at world offset: {_tilemapWorldOffset}");
+            GD.Print($"   GroundLayer.Position: {_groundLayer.Position}, GlobalPosition: {_groundLayer.GlobalPosition}");
+            GD.Print($"   GroundLayer in scene tree: {_groundLayer.IsInsideTree()}, visible: {_groundLayer.Visible}");
+            GD.Print($"   GroundLayer parent: {_groundLayer.GetParent()?.Name}, modulate: {_groundLayer.Modulate}");
+            GD.Print($"   GroundLayer z_index: {_groundLayer.ZIndex}, z_as_relative: {_groundLayer.ZAsRelative}");
+            var firstTile = _groundLayer.GetUsedCells()[0];
+            GD.Print($"   First ground tile at tilemap coords: {firstTile}");
+            // Calculate where this tile actually renders (accounting for scale)
+            Vector2 tilePixelOffset = (Vector2)firstTile * CellSize * _groundLayer.Scale.X;
+            Vector2 tileWorldPos = _groundLayer.GlobalPosition + tilePixelOffset;
+            GD.Print($"   First tile renders at world position: {tileWorldPos}");
+            GD.Print($"   Scaled tile size: {CellSize} * {_groundLayer.Scale.X} = {CellSize * _groundLayer.Scale.X} pixels");
+        }
+    }
+    
     public Vector2I GetPlayerPosition()
     {
         return _playerPosition;
@@ -1871,13 +2039,23 @@ public partial class GridMap : Node2D
     
     public Vector2 GetWorldPosition(Vector2I gridPosition)
     {
-        // Map grid coordinates back to world space by first converting back to tilemap
-        // coordinates using the origin (min used cell). We intentionally do NOT add the
-        // layer's Position here; the visual layer offset is applied by the sprite/camera.
+        // Map grid coordinates to world space using TileMapLayer's coordinate system
+        // 1. Convert grid to tilemap coordinates using origin
         int tileX = gridPosition.X + _tilemapOrigin.X;
         int tileY = gridPosition.Y + _tilemapOrigin.Y;
-        return new Vector2(tileX * CellSize + CellSize / 2,
-                           tileY * CellSize + CellSize / 2);
+        
+        // Use TileMapLayer's map_to_local() to get the actual world position
+        // This accounts for scale, tile size, and any internal TileMapLayer positioning
+        if (_groundLayer != null)
+        {
+            Vector2 localPos = _groundLayer.MapToLocal(new Vector2I(tileX, tileY));
+            // MapToLocal gives us the center of the tile in the layer's local space
+            // Since GroundLayer is a child of GridMap at (0,0), this is also world space
+            return _groundLayer.ToGlobal(localPos);
+        }
+        
+        // Fallback if no ground layer
+        return Vector2.Zero;
     }
 
     // ===== Static enemy spawns (scene-placed) =====

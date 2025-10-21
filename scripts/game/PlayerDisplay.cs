@@ -49,9 +49,10 @@ public partial class PlayerDisplay : Sprite2D
     {
         if (_gridMap == null) return;
         Vector2 worldCenter = _gridMap.GetWorldPosition(gridPosition);
-        // Apply the same layer offset the TileMapLayer uses so we overlay correctly
-        Position = worldCenter + _mapOffset;
-        GD.Print($"PlayerDisplay.UpdatePosition grid={gridPosition} worldCenter={worldCenter} final={Position}");
+        // TileMapLayers are now positioned at the world offset, so we use worldCenter directly
+        Position = worldCenter;
+        GD.Print($"PlayerDisplay.UpdatePosition grid={gridPosition} worldCenter={worldCenter} localPos={Position} globalPos={GlobalPosition}");
+        GD.Print($"  Parent: {GetParent().Name} at globalPos={GetParent<Node2D>().GlobalPosition}");
     }
 
     public override void _Process(double delta)

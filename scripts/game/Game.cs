@@ -7,7 +7,9 @@ public partial class Game : Node2D
     // Set to > 0 to override zoom uniformly (X and Y). If 0 or less, keep scene's zoom.
     [Export] public float CameraZoomOverride { get; set; } = 0.0f;
     private GameManager _gameManager;
-    private GridMap _gridMap;
+    private FloorManager _floorManager;
+    private PlayerController _playerController;
+    private GridMap _gridMap; // Dynamically set by FloorManager
     private Control _gameUI;
     private Camera2D _camera;
     private Label _playerNameLabel;
@@ -26,7 +28,8 @@ public partial class Game : Node2D
 
         // Get references
         _gameManager = GetNode<GameManager>("GameManager");
-        _gridMap = GetNode<GridMap>("GridMap");
+        _floorManager = GetNode<FloorManager>("FloorManager");
+        _playerController = GetNode<PlayerController>("PlayerController");
         _gameUI = GetNode<Control>("UI/GameUI");
         // Make sure the UI layer is visible at runtime
         var uiLayer = GetNodeOrNull<CanvasLayer>("UI");
@@ -73,19 +76,16 @@ public partial class Game : Node2D
         _gameManager.BattleEnded += OnBattleEnded;
         _gameManager.PlayerStatsChanged += OnPlayerStatsChanged;
 
-        // Connect to grid map for enemy encounters
-        _gridMap.EnemyEncountered += OnEnemyEncountered;
-        _gridMap.PlayerMoved += OnPlayerMoved;
+        // Connect to FloorManager for floor loading
+        _floorManager.FloorLoaded += OnFloorLoaded;
+        _floorManager.FloorChanged += OnFloorChanged;
+
+        // GridMap signals will be connected in OnFloorLoaded after floor loads
 
         // Update UI
         UpdatePlayerUI();
 
-        // Create the visible player sprite after all nodes are ready
-        // This ensures GridMap has built its grid from baked TileMaps
-        CallDeferred(nameof(SetupPlayerDisplay));
-
-        // Use a deferred call to set camera position after grid is ready
-        CallDeferred(nameof(SetInitialCameraPosition));
+        // Player display and camera will be set up in OnFloorLoaded after floor loads
         
         // Load and setup inventory menu
         SetupInventoryMenu();
@@ -93,10 +93,16 @@ public partial class Game : Node2D
 
     private void SetupPlayerDisplay()
     {
-        if (_playerDisplay != null) return;
-        _playerDisplay = new PlayerDisplay();
-        // Attach under GridMap so ZIndex layering works with TileMap layers
-        _gridMap.AddChild(_playerDisplay);
+        // Find the PlayerDisplay that's already in the floor scene
+        _playerDisplay = _gridMap.GetNodeOrNull<PlayerDisplay>("PlayerDisplay");
+        
+        if (_playerDisplay == null)
+        {
+            GD.PrintErr("PlayerDisplay not found in floor scene! Please add it to the floor scene.");
+            return;
+        }
+        
+        // Initialize with the current GridMap
         _playerDisplay.Initialize(_gridMap);
         // Ensure initial sync with current player position
         _playerDisplay.UpdatePosition(_gridMap.GetPlayerPosition());
@@ -105,8 +111,18 @@ public partial class Game : Node2D
     private void SetInitialCameraPosition()
     {
         Vector2 playerWorldPos = _gridMap.GetWorldPosition(_gridMap.GetPlayerPosition());
-        _camera.Position = playerWorldPos + GetTileLayerVisualOffset();
-        GD.Print($"Camera positioned (follow): {_camera.Position}");
+        // GetWorldPosition now returns absolute world coordinates (includes TileMapLayer offset)
+        _camera.Position = playerWorldPos;
+        
+        // Calculate visible world area with current zoom
+        Vector2 viewportSize = GetViewportRect().Size;
+        Vector2 worldViewSize = viewportSize / _camera.Zoom;
+        Vector2 worldMin = _camera.Position - worldViewSize / 2;
+        Vector2 worldMax = _camera.Position + worldViewSize / 2;
+        
+        GD.Print($"📷 Camera positioned at: {_camera.Position}, zoom: {_camera.Zoom}");
+        GD.Print($"   Viewport size: {viewportSize}, World view size: {worldViewSize}");
+        GD.Print($"   Visible world area: ({worldMin.X:F1}, {worldMin.Y:F1}) to ({worldMax.X:F1}, {worldMax.Y:F1})");
     }
 
     private void SetupInventoryMenu()
@@ -190,7 +206,8 @@ public partial class Game : Node2D
     private void OnPlayerMoved(Vector2I newPosition)
     {
         Vector2 worldPos = _gridMap.GetWorldPosition(newPosition);
-        _camera.Position = worldPos + GetTileLayerVisualOffset();
+        // GetWorldPosition now returns absolute world coordinates (includes TileMapLayer offset)
+        _camera.Position = worldPos;
         
         // Force redraw since we're using viewport culling
         _gridMap.QueueRedraw();
@@ -199,13 +216,6 @@ public partial class Game : Node2D
         _playerDisplay?.UpdatePosition(newPosition);
     }
 
-    private Vector2 GetTileLayerVisualOffset()
-    {
-        // Include the TileMapLayer node's position (e.g., GroundLayer.position)
-        // so the camera centers on the same point the PlayerDisplay uses.
-        var ground = _gridMap.GetNodeOrNull<TileMapLayer>("GroundLayer");
-        return ground != null ? ground.Position : Vector2.Zero;
-    }
 
     private void OnEnemyEncountered(Vector2I enemyPosition)
     {
@@ -581,5 +591,47 @@ public partial class Game : Node2D
     private void OnPlayerStatsChanged()
     {
         UpdatePlayerUI();
+    }
+
+    private void OnFloorLoaded(FloorDefinition floorDef, GridMap gridMap)
+    {
+        GD.Print($"🎮 Game.OnFloorLoaded: Floor '{floorDef.FloorName}' ready");
+        
+        // Update dynamic GridMap reference
+        _gridMap = gridMap;
+        
+        // Update PlayerController's GridMap reference
+        if (_playerController != null)
+        {
+            _playerController.SetGridMap(_gridMap);
+        }
+        
+        // Connect GridMap signals
+        if (_gridMap != null)
+        {
+            _gridMap.EnemyEncountered += OnEnemyEncountered;
+            _gridMap.PlayerMoved += OnPlayerMoved;
+        }
+        
+        // Setup player display for this floor
+        CallDeferred(nameof(SetupPlayerDisplay));
+        
+        // Update camera position
+        CallDeferred(nameof(SetInitialCameraPosition));
+        
+        GD.Print($"✅ Floor '{floorDef.FloorName}' ready for gameplay");
+    }
+
+    private void OnFloorChanged(int oldFloorIndex, int newFloorIndex)
+    {
+        GD.Print($"🔄 Floor transition: {oldFloorIndex} → {newFloorIndex}");
+        UpdatePlayerUI();
+        
+        // Clean up old player display if transitioning
+        if (_playerDisplay != null)
+        {
+            _playerDisplay.QueueFree();
+            _playerDisplay = null;
+        }
     }
 }

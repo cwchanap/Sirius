@@ -37,7 +37,7 @@ assets/
 
 ### Weapons
 - [x] Wooden Sword (`assets/sprites/items/weapons/wooden_sword.png`)
-- [ ] Steel Longsword (`assets/sprites/items/weapons/steel_longsword.png`)
+- [x] Steel Longsword (`assets/sprites/items/weapons/steel_longsword.png`)
 
 ### Armor
 - [x] Wooden Armor (`assets/sprites/items/armor/wooden_armor.png`)

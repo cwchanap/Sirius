@@ -1,0 +1,49 @@
+[gd_scene load_steps=8 format=4 uid="uid://c5h8qw3m7xn2p"]
+
+[ext_resource type="Script" uid="uid://dxou423ri263w" path="res://scripts/game/GridMap.cs" id="1"]
+[ext_resource type="TileSet" uid="uid://1oxxalqkpebn" path="res://assets/tiles/ground_tileset.tres" id="2"]
+[ext_resource type="TileSet" uid="uid://dm0fdgl52g2u4" path="res://assets/tiles/wall_tileset.tres" id="3"]
+[ext_resource type="Texture2D" uid="uid://cptmkh2hg6xed" path="res://assets/sprites/enemies/goblin/sprite_sheet.png" id="4"]
+[ext_resource type="Script" uid="uid://y82v4iq0fufy" path="res://scripts/game/EnemySpawn.cs" id="5"]
+[ext_resource type="Script" uid="uid://dog8eagtv7b3n" path="res://scripts/game/PlayerDisplay.cs" id="6"]
+[ext_resource type="TileSet" path="res://assets/tiles/stair_tileset.tres" id="7"]
+
+[node name="Floor1F" type="Node2D"]
+
+[node name="GridMap" type="Node2D" parent="."]
+process_mode = 3
+texture_filter = 1
+script = ExtResource("1")
+EnableDebugLogging = true
+
+[node name="GroundLayer" type="TileMapLayer" parent="GridMap"]
+scale = Vector2(0.333333, 0.333333)
+tile_map_data = PackedByteArray("AAAAAAAAAAAAHAAQAAABAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAwAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAQAAAAAAAAAAAAABAAEAAAAAAAAAAAAAAgABAAAAAAAAAAAAAAMAAQAAAAAAAAAAAAAEAAEAAAAAAAAMAAAAAAAAAAAAABAADAAAAAAAAAAAAAAAABAAAAAAAAAAAAAABAAQAAAAAAAAAAAAAAgAEAAAAAAAAAAAAAAMABAAAAAAAAAYAAgAAAAAAAAAAAAAGAAMAAAAAAAAAAAAABgAEAAAAAAAAAAAAAAcAAAAAAAAAAA=")
+tile_set = ExtResource("2")
+
+[node name="WallLayer" type="TileMapLayer" parent="GridMap"]
+z_index = 1
+scale = Vector2(0.333333, 0.333333)
+tile_map_data = PackedByteArray("AAD/////BwAAAAAAAAABAP//BwAAAAAAAAACAAAABwAAAAAAAAACAAEABwAAAAAAAAADAAAABwAAAAAAAAADAAEABwAAAAAAAAAEAAAABwAAAAAAAAAEAAEABwAAAAAAAAAFAAAABwAAAAAAAAAFAAEABwAAAAAAAAAGAAAABwAAAAAAAAAGAAEABwAAAAAAAAAHAAAABwAAAAAAAAAHAAEABwAAAAAAAAAIAAAABwAAAAAAAAAIAAEABwAAAAAAAAABAAUABwAAAAAAAAACAAUABwAAAAAAAAADAAUABwAAAAAAAAAEAAUABwAAAAAAAAAFAAUABwAAAAAAAAAGAAUABwAAAAAAAAAHAAUABwAAAAAAAAAIAAUABwAAAAAAAAD//wAABwAAAAAAAAD//wEABwAAAAAAAAD//wIABwAAAAAAAAD//wMABwAAAAAAAAD//wQABwAAAAAAAAD//wUABwAAAAAAAAAIAAIABwAAAAAAAAAIAAMABwAAAAAAAAAIAAQABwAAAAAAAAD///8ABwAAAAAAAAD///8BBwAAAAAAAAD///8CBwAAAAAAAAD///8DBwAAAAAAAAD///8EBwAAAAAAAAD///8FBwAAAAAAAAA=")
+tile_set = ExtResource("3")
+
+[node name="StairLayer" type="TileMapLayer" parent="GridMap"]
+z_index = 2
+scale = Vector2(0.333333, 0.333333)
+tile_set = ExtResource("7")
+metadata/_edit_lock_ = true
+
+[node name="PlayerDisplay" type="Sprite2D" parent="GridMap"]
+z_index = 3
+script = ExtResource("6")
+
+[node name="EnemySpawn_Goblin_1F" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(176, 80)
+scale = Vector2(0.333333, 0.333333)
+texture = ExtResource("4")
+region_enabled = true
+region_rect = Rect2(0, 0, 96, 96)
+script = ExtResource("5")
+GridPosition = Vector2i(5, 2)
+EnemyType = "goblin"

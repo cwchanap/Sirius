@@ -63,6 +63,9 @@ public partial class GridMap : Node2D
     // Fast lookup of wall tiles in tilemap coordinates for collision beyond grid bounds
     private HashSet<Vector2I> _wallTileCoords = new();
     
+    // Fast lookup of stair tiles in tilemap coordinates for floor transitions
+    private HashSet<Vector2I> _stairTileCoords = new();
+    
     // Grid cell types
     public enum CellType
     {
@@ -457,7 +460,9 @@ public partial class GridMap : Node2D
         // Use cached layer references if available (from LoadFloor), otherwise look them up
         var ground = _groundLayer ?? GetNodeOrNull<TileMapLayer>("GroundLayer");
         var walls = _wallLayer ?? GetNodeOrNull<TileMapLayer>("WallLayer");
+        var stairs = GetNodeOrNull<TileMapLayer>("StairLayer");
         _wallTileCoords.Clear();
+        _stairTileCoords.Clear();
 
         // Compute bounding boxes separately and prefer Ground for origin/centering
         int gMinX = int.MaxValue, gMinY = int.MaxValue, gMaxX = int.MinValue, gMaxY = int.MinValue;
@@ -542,6 +547,16 @@ public partial class GridMap : Node2D
                 }
             }
             markedFromLayers = used.Count > 0;
+        }
+        
+        // Track stair tiles from StairLayer for floor transitions
+        if (stairs != null)
+        {
+            var stairCells = stairs.GetUsedCells();
+            foreach (var cell in stairCells)
+            {
+                _stairTileCoords.Add(cell);
+            }
         }
 
         // Choose a reasonable player start on an empty cell; try to center on ground's used region
@@ -2035,6 +2050,16 @@ public partial class GridMap : Node2D
     public Vector2I GetPlayerPosition()
     {
         return _playerPosition;
+    }
+    
+    /// <summary>
+    /// Check if a grid position has a stair tile
+    /// </summary>
+    public bool IsOnStairs(Vector2I gridPosition)
+    {
+        // Convert grid position to tilemap coordinates
+        Vector2I tileCoord = new Vector2I(gridPosition.X + _tilemapOrigin.X, gridPosition.Y + _tilemapOrigin.Y);
+        return _stairTileCoords.Contains(tileCoord);
     }
     
     public Vector2 GetWorldPosition(Vector2I gridPosition)

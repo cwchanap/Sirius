@@ -24,12 +24,23 @@ public partial class FloorManager : Node
     
     public override void _Ready()
     {
+        GD.Print($"🏢 FloorManager._Ready() called");
+        GD.Print($"   EnableDebugLogging: {EnableDebugLogging}");
+        GD.Print($"   Floors.Count: {Floors.Count}");
+        
         if (Floors.Count == 0)
         {
             GD.PushError("FloorManager has no floors defined! Add FloorDefinition resources.");
             return;
         }
         
+        for (int i = 0; i < Floors.Count; i++)
+        {
+            var floor = Floors[i];
+            GD.Print($"   Floor[{i}]: {floor?.FloorName ?? "null"}, Scene: {floor?.FloorScene?.ResourcePath ?? "null"}");
+        }
+        
+        GD.Print($"🏢 Loading initial floor (index 0)...");
         // Load initial floor (index 0)
         LoadFloor(0);
     }
@@ -39,6 +50,8 @@ public partial class FloorManager : Node
     /// </summary>
     public bool LoadFloor(int floorIndex, Vector2I? playerSpawnOverride = null)
     {
+        GD.Print($"🏢 LoadFloor called: floorIndex={floorIndex}, playerSpawnOverride={playerSpawnOverride}");
+        
         if (floorIndex < 0 || floorIndex >= Floors.Count)
         {
             GD.PushError($"Floor index {floorIndex} out of range (0-{Floors.Count - 1})!");

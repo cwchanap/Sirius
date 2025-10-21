@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://dhlx8fpikbf7h"]
+[gd_scene load_steps=16 format=3 uid="uid://dhlx8fpikbf7h"]
 
 [ext_resource type="Script" uid="uid://cb5cqhpwe6kjd" path="res://scripts/game/GameManager.cs" id="1_game_manager"]
 [ext_resource type="Script" uid="uid://bql83tx03qmx3" path="res://scripts/game/PlayerController.cs" id="3_player_controller"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://b2t8hiyo8chiu" path="res://scripts/ui/DraggablePanel.cs" id="9_draggable_panel"]
 [ext_resource type="Script" uid="uid://cccgm2q213eav" path="res://scripts/game/FloorManager.cs" id="10_floor_manager"]
 [ext_resource type="Resource" uid="uid://cvfulgxwhhtox" path="res://resources/floors/FloorGF.tres" id="11_floor_gf"]
+[ext_resource type="Resource" uid="uid://bj5m8qw3m7xn2p" path="res://resources/floors/Floor1F.tres" id="12_floor_1f"]
 
 [sub_resource type="StyleBoxFlat" id="1_stats_card"]
 content_margin_left = 14.0
@@ -81,7 +82,7 @@ zoom = Vector2(5, 5)
 
 [node name="FloorManager" type="Node" parent="."]
 script = ExtResource("10_floor_manager")
-Floors = Array[ExtResource("4_wnrko")]([ExtResource("11_floor_gf")])
+Floors = Array[ExtResource("4_wnrko")]([ExtResource("11_floor_gf"), ExtResource("12_floor_1f")])
 
 [node name="PlayerController" type="Node" parent="."]
 script = ExtResource("3_player_controller")

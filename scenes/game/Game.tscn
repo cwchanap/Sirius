@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://b2t8hiyo8chiu" path="res://scripts/ui/DraggablePanel.cs" id="9_draggable_panel"]
 [ext_resource type="Script" uid="uid://cccgm2q213eav" path="res://scripts/game/FloorManager.cs" id="10_floor_manager"]
 [ext_resource type="Resource" uid="uid://cvfulgxwhhtox" path="res://resources/floors/FloorGF.tres" id="11_floor_gf"]
-[ext_resource type="Resource" uid="uid://bj5m8qw3m7xn2p" path="res://resources/floors/Floor1F.tres" id="12_floor_1f"]
+[ext_resource type="Resource" uid="uid://bm5oabyu0p1qb" path="res://resources/floors/Floor1F.tres" id="12_floor_1f"]
 
 [sub_resource type="StyleBoxFlat" id="1_stats_card"]
 content_margin_left = 14.0

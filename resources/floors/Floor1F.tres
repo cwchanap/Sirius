@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="FloorDefinition" load_steps=3 format=3 uid="uid://bj5m8qw3m7xn2p"]
+[gd_resource type="Resource" script_class="FloorDefinition" load_steps=3 format=3 uid="uid://bm5oabyu0p1qb"]
 
 [ext_resource type="Script" uid="uid://kd6rbo3sqjd7" path="res://scripts/game/FloorDefinition.cs" id="1_1"]
 [ext_resource type="PackedScene" uid="uid://c5h8qw3m7xn2p" path="res://scenes/game/floors/Floor1F.tscn" id="1_2"]
@@ -8,8 +8,10 @@ script = ExtResource("1_1")
 FloorName = "First Floor"
 FloorNumber = 1
 FloorScene = ExtResource("1_2")
-PlayerStartPosition = Vector2i(1, 1)
+PlayerStartPosition = Vector2i(17, 13)
 StairsUp = Array[Vector2i]([])
-StairsDown = Array[Vector2i]([Vector2i(1, 1)])
+StairsDown = Array[Vector2i]([Vector2i(17, 13)])
+StairsUpDestinations = Array[Vector2i]([])
+StairsDownDestinations = Array[Vector2i]([Vector2i(13, 3)])
 AmbientTint = Color(1, 1, 1, 1)
 FloorDescription = "The first floor above ground"

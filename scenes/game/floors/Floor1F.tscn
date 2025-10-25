@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=4 uid="uid://c5h8qw3m7xn2p"]
+[gd_scene load_steps=9 format=4 uid="uid://c5h8qw3m7xn2p"]
 
 [ext_resource type="Script" uid="uid://dxou423ri263w" path="res://scripts/game/GridMap.cs" id="1"]
 [ext_resource type="TileSet" uid="uid://1oxxalqkpebn" path="res://assets/tiles/ground_tileset.tres" id="2"]
@@ -6,7 +6,8 @@
 [ext_resource type="Texture2D" uid="uid://cptmkh2hg6xed" path="res://assets/sprites/enemies/goblin/sprite_sheet.png" id="4"]
 [ext_resource type="Script" uid="uid://y82v4iq0fufy" path="res://scripts/game/EnemySpawn.cs" id="5"]
 [ext_resource type="Script" uid="uid://dog8eagtv7b3n" path="res://scripts/game/PlayerDisplay.cs" id="6"]
-[ext_resource type="TileSet" path="res://assets/tiles/stair_tileset.tres" id="7"]
+[ext_resource type="TileSet" uid="uid://d1w3h484c5fh0" path="res://assets/tiles/stair_tileset.tres" id="7"]
+[ext_resource type="Script" uid="uid://bio6oeyj3p53u" path="res://scripts/game/StairConnection.cs" id="8"]
 
 [node name="Floor1F" type="Node2D"]
 
@@ -30,8 +31,19 @@ tile_set = ExtResource("3")
 [node name="StairLayer" type="TileMapLayer" parent="GridMap"]
 z_index = 2
 scale = Vector2(0.333333, 0.333333)
+tile_map_data = PackedByteArray("AAAAAAAAAQAAAAAAAAA=")
 tile_set = ExtResource("7")
 metadata/_edit_lock_ = true
+
+[node name="StairToGroundFloor" type="Node2D" parent="GridMap"]
+position = Vector2(14, 16)
+script = ExtResource("8")
+GridPosition = Vector2i(17, 13)
+Direction = 1
+TargetFloor = 0
+StairId = "1f_to_gf"
+DestinationStairId = "gf_to_1f"
+IndicatorColor = Color(1, 0.5, 0, 0.5)
 
 [node name="PlayerDisplay" type="Sprite2D" parent="GridMap"]
 z_index = 3

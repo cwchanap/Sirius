@@ -1,4 +1,5 @@
 using Godot;
+using Godot.Collections;
 
 [GlobalClass]
 public partial class FloorDefinition : Resource
@@ -17,28 +18,48 @@ public partial class FloorDefinition : Resource
     [Export] public Godot.Collections.Array<Vector2I> StairsUp { get; set; } = new();
     [Export] public Godot.Collections.Array<Vector2I> StairsDown { get; set; } = new();
     
+    // Destination positions for each stair (optional, uses default if empty)
+    [Export] public Godot.Collections.Array<Vector2I> StairsUpDestinations { get; set; } = new();
+    [Export] public Godot.Collections.Array<Vector2I> StairsDownDestinations { get; set; } = new();
+    
     // Visual/audio theming (optional)
     [Export] public AudioStream BackgroundMusic { get; set; }
     [Export] public Color AmbientTint { get; set; } = new Color(1, 1, 1, 1);
     [Export] public string FloorDescription { get; set; } = "";
     
     /// <summary>
-    /// Check if the given position has stairs
+    /// Check if the given position has stairs and return the stair index
+    /// </summary>
+    public bool HasStairAt(Vector2I position, out bool isUp, out int stairIndex)
+    {
+        isUp = false;
+        stairIndex = -1;
+        
+        int upIndex = StairsUp.IndexOf(position);
+        if (upIndex >= 0)
+        {
+            isUp = true;
+            stairIndex = upIndex;
+            return true;
+        }
+        
+        int downIndex = StairsDown.IndexOf(position);
+        if (downIndex >= 0)
+        {
+            isUp = false;
+            stairIndex = downIndex;
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /// <summary>
+    /// Legacy method for backward compatibility
     /// </summary>
     public bool HasStairAt(Vector2I position, out bool isUp)
     {
-        isUp = false;
-        if (StairsUp.Contains(position))
-        {
-            isUp = true;
-            return true;
-        }
-        if (StairsDown.Contains(position))
-        {
-            isUp = false;
-            return true;
-        }
-        return false;
+        return HasStairAt(position, out isUp, out _);
     }
     
     /// <summary>
@@ -46,15 +67,24 @@ public partial class FloorDefinition : Resource
     /// </summary>
     public Vector2I GetStairDestination(bool goingUp, int stairIndex = 0)
     {
-        // Return corresponding stair position on this floor
-        // If going up, we arrived via StairsDown
-        // If going down, we arrived via StairsUp
+        // If going up, we arrived via StairsDown (check for custom destination)
+        // If going down, we arrived via StairsUp (check for custom destination)
         var targetStairs = goingUp ? StairsDown : StairsUp;
+        var targetDestinations = goingUp ? StairsDownDestinations : StairsUpDestinations;
+        
+        // First check if there's a custom destination for this stair
+        if (targetDestinations.Count > stairIndex)
+        {
+            return targetDestinations[stairIndex];
+        }
+        
+        // Fall back to the stair position itself
         if (targetStairs.Count > stairIndex)
         {
             return targetStairs[stairIndex];
         }
-        // Fallback to default spawn
+        
+        // Final fallback to default spawn
         return PlayerStartPosition;
     }
 }

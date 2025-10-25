@@ -12,6 +12,9 @@ public partial class FloorManager : Node
     private Node2D _currentFloorInstance;
     private GridMap _currentGridMap;
     
+    // Stair connection registry (StairId -> StairConnection)
+    private Dictionary<string, StairConnection> _stairRegistry = new();
+    
     // Signals for floor transitions
     [Signal] public delegate void FloorChangedEventHandler(int oldFloorIndex, int newFloorIndex);
     [Signal] public delegate void FloorLoadedEventHandler(FloorDefinition floorDef, GridMap gridMap);
@@ -211,9 +214,55 @@ public partial class FloorManager : Node
             return;
         }
         
-        // Get destination spawn from target floor definition
-        var targetFloor = Floors[targetFloorIndex];
-        Vector2I spawnPos = targetFloor.GetStairDestination(isGoingUp, stairIndex);
+        // Try to find the source stair to check for DestinationStairId
+        Vector2I spawnPos = Vector2I.Zero;
+        bool foundDestination = false;
+        
+        // Get the stair position from current floor
+        var currentFloor = CurrentFloorDefinition;
+        if (currentFloor != null && _currentGridMap != null)
+        {
+            var playerPos = _currentGridMap.GetPlayerPosition();
+            
+            // Find which stair the player is on
+            var stairPositions = isGoingUp ? currentFloor.StairsUp : currentFloor.StairsDown;
+            int currentStairIndex = stairPositions.IndexOf(playerPos);
+            
+            if (currentStairIndex >= 0)
+            {
+                // Try to find the source stair node to check DestinationStairId
+                foreach (var kvp in _stairRegistry)
+                {
+                    var stair = kvp.Value;
+                    if (stair.GridPosition == playerPos && !string.IsNullOrEmpty(stair.DestinationStairId))
+                    {
+                        // Found the source stair with a DestinationStairId
+                        var destStair = GetStairById(stair.DestinationStairId);
+                        if (destStair != null)
+                        {
+                            spawnPos = destStair.GridPosition;
+                            foundDestination = true;
+                            if (EnableDebugLogging)
+                                GD.Print($"🎯 Using DestinationStairId '{stair.DestinationStairId}' → spawn at {spawnPos}");
+                            break;
+                        }
+                        else if (EnableDebugLogging)
+                        {
+                            GD.Print($"⚠️ Destination stair '{stair.DestinationStairId}' not found in registry!");
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Fallback to old method if no DestinationStairId was found
+        if (!foundDestination)
+        {
+            var targetFloor = Floors[targetFloorIndex];
+            spawnPos = targetFloor.GetStairDestination(isGoingUp, stairIndex);
+            if (EnableDebugLogging)
+                GD.Print($"📍 Using fallback destination at {spawnPos}");
+        }
         
         LoadFloor(targetFloorIndex, spawnPos);
     }
@@ -221,16 +270,17 @@ public partial class FloorManager : Node
     /// <summary>
     /// Check if player is on a stair tile
     /// </summary>
-    public bool IsOnStairs(Vector2I position, out bool isUp, out int targetFloorIndex)
+    public bool IsOnStairs(Vector2I position, out bool isUp, out int targetFloorIndex, out int stairIndex)
     {
         isUp = false;
         targetFloorIndex = -1;
+        stairIndex = -1;
         
         var currentDef = CurrentFloorDefinition;
         if (currentDef == null)
             return false;
         
-        if (currentDef.HasStairAt(position, out isUp))
+        if (currentDef.HasStairAt(position, out isUp, out stairIndex))
         {
             targetFloorIndex = _currentFloorIndex + (isUp ? 1 : -1);
             return targetFloorIndex >= 0 && targetFloorIndex < Floors.Count;
@@ -240,7 +290,75 @@ public partial class FloorManager : Node
     }
     
     /// <summary>
+    /// Legacy method for backward compatibility
+    /// </summary>
+    public bool IsOnStairs(Vector2I position, out bool isUp, out int targetFloorIndex)
+    {
+        return IsOnStairs(position, out isUp, out targetFloorIndex, out _);
+    }
+    
+    /// <summary>
     /// Get total number of floors available
     /// </summary>
     public int GetFloorCount() => Floors.Count;
+    
+    /// <summary>
+    /// Register a StairConnection in the global registry
+    /// </summary>
+    public void RegisterStair(string stairId, StairConnection stair)
+    {
+        if (string.IsNullOrEmpty(stairId)) return;
+        
+        _stairRegistry[stairId] = stair;
+        if (EnableDebugLogging)
+            GD.Print($"📝 Registered stair '{stairId}' at {stair.GridPosition}");
+    }
+    
+    /// <summary>
+    /// Get a registered StairConnection by ID
+    /// </summary>
+    public StairConnection GetStairById(string stairId)
+    {
+        return _stairRegistry.GetValueOrDefault(stairId);
+    }
+    
+    /// <summary>
+    /// Get floor definition by index
+    /// </summary>
+    public FloorDefinition GetFloorByIndex(int index)
+    {
+        return (index >= 0 && index < Floors.Count) ? Floors[index] : null;
+    }
+    
+    /// <summary>
+    /// Find a stair on a specific floor with a specific direction
+    /// </summary>
+    public StairConnection FindStairOnFloor(int floorIndex, StairDirection direction)
+    {
+        // Search through all registered stairs
+        foreach (var kvp in _stairRegistry)
+        {
+            var stair = kvp.Value;
+            // Check if this stair belongs to the target floor and has the right direction
+            // We need to check the stair's parent floor, which we can infer from the registry
+            if (stair.Direction == direction && stair.TargetFloor != floorIndex)
+            {
+                // This is a stair FROM the target floor (going away from it)
+                // We want stairs that lead TO somewhere else from our target floor
+                continue;
+            }
+        }
+        
+        // Fallback: return any stair with matching direction that targets a different floor
+        foreach (var kvp in _stairRegistry)
+        {
+            var stair = kvp.Value;
+            if (stair.Direction == direction)
+            {
+                return stair;
+            }
+        }
+        
+        return null;
+    }
 }

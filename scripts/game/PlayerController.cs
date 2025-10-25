@@ -116,26 +116,41 @@ public partial class PlayerController : Node
     
     private void CheckForStairs()
     {
-        if (_gridMap == null || _floorManager == null) return;
+        if (_gridMap == null || _floorManager == null)
+        {
+            GD.Print("⚠️ CheckForStairs: GridMap or FloorManager is null");
+            return;
+        }
         
         Vector2I playerPos = _gridMap.GetPlayerPosition();
+        GD.Print($"🔍 CheckForStairs: Player at grid position {playerPos}");
         
         // Check if player is standing on a stair tile
-        if (_gridMap.IsOnStairs(playerPos))
+        bool onStairTile = _gridMap.IsOnStairs(playerPos);
+        GD.Print($"🔍 GridMap.IsOnStairs({playerPos}): {onStairTile}");
+        
+        if (onStairTile)
         {
             // Check which direction and if target floor exists
-            if (_floorManager.IsOnStairs(playerPos, out bool isUp, out int targetFloor))
+            bool hasStair = _floorManager.IsOnStairs(playerPos, out bool isUp, out int targetFloor, out int stairIndex);
+            GD.Print($"🔍 FloorManager.IsOnStairs({playerPos}): {hasStair}, isUp: {isUp}, targetFloor: {targetFloor}, stairIndex: {stairIndex}");
+            
+            if (hasStair && !_pendingStairTransition)
             {
+                // Automatically transition to the target floor
                 _pendingStairTransition = true;
-                _targetFloor = targetFloor;
-                _isGoingUp = isUp;
-                GD.Print($"🪜 Standing on stairs! Press E to go {(isUp ? "up" : "down")} to floor {targetFloor}");
+                GD.Print($"🪜 Stepping on stairs! Auto-transitioning {(isUp ? "up" : "down")} to floor {targetFloor}...");
+                _floorManager.TransitionToFloor(targetFloor, isUp, stairIndex);
             }
         }
         else
         {
-            // Clear pending transition if we moved away from stairs
-            _pendingStairTransition = false;
+            // Clear pending transition flag when we move away from stairs
+            if (_pendingStairTransition)
+            {
+                GD.Print("🚶 Moved away from stairs, clearing transition flag");
+                _pendingStairTransition = false;
+            }
         }
     }
 }

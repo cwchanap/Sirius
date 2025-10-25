@@ -2016,12 +2016,139 @@ public partial class GridMap : Node2D
         // Register all EnemySpawn nodes from this floor
         CallDeferred(nameof(RegisterStaticEnemySpawns));
         
+        // Register all StairConnection nodes from this floor
+        CallDeferred(nameof(RegisterStairConnections), floorDef);
+        
         // Force a redraw to display the loaded floor
         QueueRedraw();
         
         if (EnableDebugLogging)
             GD.Print($"✅ GridMap loaded for floor: {floorDef.FloorName}, player at {playerSpawn}");
     }
+    
+    /// <summary>
+    /// Scan for StairConnection nodes and register them in the FloorDefinition
+    /// </summary>
+    private void RegisterStairConnections(FloorDefinition floorDef)
+    {
+        if (floorDef == null) return;
+        
+        // Clear existing stair data
+        floorDef.StairsUp.Clear();
+        floorDef.StairsDown.Clear();
+        floorDef.StairsUpDestinations.Clear();
+        floorDef.StairsDownDestinations.Clear();
+        
+        // Find all StairConnection nodes (they should be children of GridMap)
+        var stairConnections = new List<StairConnection>();
+        foreach (Node child in GetChildren())
+        {
+            if (child is StairConnection stair)
+            {
+                stairConnections.Add(stair);
+            }
+        }
+        
+        if (EnableDebugLogging)
+            GD.Print($"🪜 Found {stairConnections.Count} StairConnection nodes in {floorDef.FloorName}");
+        
+        // Get FloorManager to register stairs globally
+        var floorManager = GetNode<FloorManager>("/root/Game/FloorManager");
+        
+        // Register each stair connection
+        foreach (var stair in stairConnections)
+        {
+            // Register in global registry if it has an ID
+            if (!string.IsNullOrEmpty(stair.StairId) && floorManager != null)
+            {
+                floorManager.RegisterStair(stair.StairId, stair);
+            }
+            
+            // Resolve destination from various sources
+            Vector2I? destination = null;
+            
+            if (stair.UseCustomDestination)
+            {
+                // Priority 1: Use custom destination coordinates
+                destination = stair.CustomDestination;
+                if (EnableDebugLogging)
+                    GD.Print($"  📍 Using custom destination: {stair.CustomDestination}");
+            }
+            else if (!string.IsNullOrEmpty(stair.DestinationStairId))
+            {
+                // Priority 2: Resolve by DestinationStairId (cross-scene linking)
+                // Need to defer this because the target floor might not be loaded yet
+                if (EnableDebugLogging)
+                    GD.Print($"  🎯 Will resolve destination stair ID: '{stair.DestinationStairId}'");
+                // Destination will be resolved when player uses the stair
+            }
+            else if (!string.IsNullOrEmpty(stair.LinkedStairPath))
+            {
+                // Priority 3: Try to resolve linked stair (same scene only)
+                var linkedStair = GetNodeOrNull<StairConnection>(stair.LinkedStairPath);
+                if (linkedStair != null)
+                {
+                    destination = linkedStair.GridPosition;
+                    if (EnableDebugLogging)
+                        GD.Print($"  🔗 Linked to {stair.LinkedStairPath} at {linkedStair.GridPosition}");
+                }
+                else if (EnableDebugLogging)
+                {
+                    GD.Print($"  ⚠️ Could not resolve NodePath (same-scene only): {stair.LinkedStairPath}");
+                }
+            }
+            
+            // Add to floor definition
+            if (stair.Direction == StairDirection.Up)
+            {
+                floorDef.StairsUp.Add(stair.GridPosition);
+                if (destination.HasValue)
+                {
+                    floorDef.StairsUpDestinations.Add(destination.Value);
+                }
+                
+                if (EnableDebugLogging)
+                    GD.Print($"  ↑ Stair Up at {stair.GridPosition} → Floor {stair.TargetFloor}" + 
+                            (destination.HasValue ? $" @ {destination.Value}" : ""));
+            }
+            else
+            {
+                floorDef.StairsDown.Add(stair.GridPosition);
+                if (destination.HasValue)
+                {
+                    floorDef.StairsDownDestinations.Add(destination.Value);
+                }
+                
+                if (EnableDebugLogging)
+                    GD.Print($"  ↓ Stair Down at {stair.GridPosition} → Floor {stair.TargetFloor}" + 
+                            (destination.HasValue ? $" @ {destination.Value}" : ""));
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Resolve stair destination by finding matching stair on target floor
+    /// </summary>
+    private void ResolveStairDestination(StairConnection stair, FloorManager floorManager)
+    {
+        if (stair == null || floorManager == null) return;
+        
+        // Find the opposite direction stair on the target floor
+        var oppositeDirection = stair.Direction == StairDirection.Up ? StairDirection.Down : StairDirection.Up;
+        
+        // Try to find matching stair by ID first
+        string oppositeId = stair.Direction == StairDirection.Up ? 
+            $"{stair.TargetFloor}f_to_{_currentFloorDef?.FloorNumber}f" : 
+            $"{stair.TargetFloor}f_to_{_currentFloorDef?.FloorNumber}f";
+        
+        var matchedStair = floorManager.FindStairOnFloor(stair.TargetFloor, oppositeDirection);
+        if (matchedStair != null && EnableDebugLogging)
+        {
+            GD.Print($"  🔄 Auto-matched stair on floor {stair.TargetFloor} at {matchedStair.GridPosition}");
+        }
+    }
+    
+    private FloorDefinition _currentFloorDef;
     
     private void PositionTileMapLayers()
     {
@@ -2059,7 +2186,19 @@ public partial class GridMap : Node2D
     {
         // Convert grid position to tilemap coordinates
         Vector2I tileCoord = new Vector2I(gridPosition.X + _tilemapOrigin.X, gridPosition.Y + _tilemapOrigin.Y);
-        return _stairTileCoords.Contains(tileCoord);
+        bool hasStair = _stairTileCoords.Contains(tileCoord);
+        
+        if (EnableDebugLogging)
+        {
+            GD.Print($"🔍 GridMap.IsOnStairs: gridPos={gridPosition}, tileCoord={tileCoord}, hasStair={hasStair}");
+            GD.Print($"   _tilemapOrigin={_tilemapOrigin}, _stairTileCoords.Count={_stairTileCoords.Count}");
+            if (_stairTileCoords.Count > 0)
+            {
+                GD.Print($"   Stair tiles: {string.Join(", ", _stairTileCoords)}");
+            }
+        }
+        
+        return hasStair;
     }
     
     public Vector2 GetWorldPosition(Vector2I gridPosition)

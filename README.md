@@ -131,6 +131,132 @@ Built with:
 - Modular architecture
 - Object-oriented design patterns
 
+### Running Tests
+
+Sirius includes a comprehensive unit test suite using **GdUnit4**, a native Godot testing framework for C#.
+
+#### Test Structure
+```
+tests/
+├── data/            # Data class tests
+│   ├── CharacterTest.cs   # Character mechanics tests
+│   ├── EnemyTest.cs       # Enemy factory and combat tests
+│   └── InventoryTest.cs   # Inventory system tests
+└── game/            # Game logic tests
+    └── GameManagerTest.cs # Game state management tests
+```
+
+#### Running Tests in Godot Editor
+
+1. **Install GdUnit4 Plugin** (if not already installed):
+   - Open Godot Editor
+   - Go to `AssetLib` tab
+   - Search for "GdUnit4"
+   - Download and install the plugin
+   - Enable it in `Project Settings > Plugins`
+
+2. **Run Tests**:
+   - Open the GdUnit4 panel (bottom of editor, next to Output/Debugger)
+   - Click "Run Tests" button to run all tests
+   - Or right-click specific test files to run individual test suites
+   - View detailed results in the GdUnit4 panel
+
+#### Running Tests from Command Line
+
+If you have `dotnet` CLI installed:
+
+```bash
+# Build the project first
+dotnet build Sirius.sln
+
+# Run tests (requires GdUnit4 test adapter)
+dotnet test Sirius.sln
+```
+
+**Note**: Command-line testing requires the .NET SDK to be installed. On macOS, install via:
+```bash
+brew install dotnet
+```
+
+#### Test Coverage
+
+Current test coverage includes:
+
+- **Character Tests** (20+ test cases):
+  - Damage calculation and health management
+  - Healing with max health constraints
+  - Experience gain and level-up mechanics
+  - Multi-level progression
+  - Gold management
+  - Inventory operations
+  - Equipment stat bonuses
+  - Equipment equip/unequip functionality
+
+- **Enemy Tests** (15+ test cases):
+  - All 14 enemy factory methods
+  - Damage mechanics with defense
+  - Minimum damage rules
+  - Death state handling
+  - Enemy progression balance
+  - Area-specific enemy validation
+
+- **Inventory Tests** (25+ test cases):
+  - Adding items (stackable and non-stackable)
+  - Removing items (partial and full stacks)
+  - Stack size limits
+  - Max item type limits
+  - Edge cases (null items, zero quantity, etc.)
+  - Item queries (ContainsItem, GetQuantity)
+  - Clear and GetAllEntries operations
+
+- **GameManager Tests** (15+ test cases):
+  - Singleton initialization
+  - Player initialization with starter gear
+  - Battle state management (start/end)
+  - Signal emission (BattleStarted, BattleEnded, PlayerStatsChanged)
+  - Fresh player creation when defeated
+  - Battle flow validation
+
+#### Writing New Tests
+
+To add new tests:
+
+1. Create a test file in the appropriate `tests/` subdirectory
+2. Inherit from `Node` and add `[TestSuite]` attribute:
+   ```csharp
+   using GdUnit4;
+   using Godot;
+   using static GdUnit4.Assertions;
+
+   [TestSuite]
+   public partial class YourTest : Node
+   {
+       [TestCase]
+       public void TestYourFeature()
+       {
+           // Arrange
+           var obj = new YourClass();
+           
+           // Act
+           obj.DoSomething();
+           
+           // Assert
+           AssertThat(obj.Result).IsEqual(expectedValue);
+       }
+   }
+   ```
+
+3. Use `[Before]` and `[After]` attributes for setup/cleanup:
+   ```csharp
+   [Before]
+   public void Setup() { /* runs before each test */ }
+   
+   [After]
+   public void Cleanup() { /* runs after each test */ }
+   ```
+
+For more information on GdUnit4, see: https://github.com/MikeSchulze/gdUnit4
+
 ## Future Enhancements
 
 1. **Visual Assets**: Replace colored rectangles with actual sprites

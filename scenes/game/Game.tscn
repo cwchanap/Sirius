@@ -212,20 +212,32 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Gold: 100"
 
-[node name="PlayerAttackHUD" type="Label" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
+[node name="PlayerAttackHUD" type="RichTextLabel" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
+custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
-theme_override_font_sizes/font_size = 21
+theme_override_font_sizes/normal_font_size = 21
+bbcode_enabled = true
 text = "ATK: 20"
+fit_content = true
+scroll_active = false
 
-[node name="PlayerDefenseHUD" type="Label" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
+[node name="PlayerDefenseHUD" type="RichTextLabel" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
+custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
-theme_override_font_sizes/font_size = 21
+theme_override_font_sizes/normal_font_size = 21
+bbcode_enabled = true
 text = "DEF: 10"
+fit_content = true
+scroll_active = false
 
-[node name="PlayerSpeedHUD" type="Label" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
+[node name="PlayerSpeedHUD" type="RichTextLabel" parent="UI/GameUI/TopPanel/Content/PlayerStats"]
+custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
-theme_override_font_sizes/font_size = 21
+theme_override_font_sizes/normal_font_size = 21
+bbcode_enabled = true
 text = "SPD: 15"
+fit_content = true
+scroll_active = false
 
 [node name="Instructions" type="Label" parent="UI/GameUI"]
 layout_mode = 1

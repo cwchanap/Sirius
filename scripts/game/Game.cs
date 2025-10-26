@@ -557,27 +557,51 @@ public partial class Game : Node2D
 
             // Update additional HUD labels if present
             var atkLabel =
-                GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerAttackHUD") ??
-                GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerAttackHUD");
+                GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerAttackHUD") ??
+                GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/PlayerStats/PlayerAttackHUD");
             if (atkLabel != null)
             {
-                atkLabel.Text = $"ATK: {effectiveAttack}";
+                int atkBonus = player.Equipment.GetAttackBonus();
+                if (atkBonus > 0)
+                {
+                    atkLabel.Text = $"ATK: {player.Attack} [color=#4CAF50]+ {atkBonus}[/color]";
+                }
+                else
+                {
+                    atkLabel.Text = $"ATK: {player.Attack}";
+                }
             }
 
             var defLabel =
-                GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerDefenseHUD") ??
-                GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerDefenseHUD");
+                GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerDefenseHUD") ??
+                GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/PlayerStats/PlayerDefenseHUD");
             if (defLabel != null)
             {
-                defLabel.Text = $"DEF: {effectiveDefense}";
+                int defBonus = player.Equipment.GetDefenseBonus();
+                if (defBonus > 0)
+                {
+                    defLabel.Text = $"DEF: {player.Defense} [color=#4CAF50]+ {defBonus}[/color]";
+                }
+                else
+                {
+                    defLabel.Text = $"DEF: {player.Defense}";
+                }
             }
 
             var spdLabel =
-                GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerSpeedHUD") ??
-                GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerSpeedHUD");
+                GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerSpeedHUD") ??
+                GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/PlayerStats/PlayerSpeedHUD");
             if (spdLabel != null)
             {
-                spdLabel.Text = $"SPD: {effectiveSpeed}";
+                int spdBonus = player.Equipment.GetSpeedBonus();
+                if (spdBonus > 0)
+                {
+                    spdLabel.Text = $"SPD: {player.Speed} [color=#4CAF50]+ {spdBonus}[/color]";
+                }
+                else
+                {
+                    spdLabel.Text = $"SPD: {player.Speed}";
+                }
             }
         }
     }

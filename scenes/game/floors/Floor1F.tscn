@@ -41,8 +41,8 @@ script = ExtResource("8")
 GridPosition = Vector2i(17, 13)
 Direction = 1
 TargetFloor = 0
-StairId = "1f_to_gf"
-DestinationStairId = "gf_to_1f"
+StairId = "1F_001"
+DestinationStairId = "GF_000"
 IndicatorColor = Color(1, 0.5, 0, 0.5)
 
 [node name="PlayerDisplay" type="Sprite2D" parent="GridMap"]

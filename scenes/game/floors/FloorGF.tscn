@@ -38,11 +38,8 @@ tile_set = ExtResource("7")
 position = Vector2(-112, -304)
 script = ExtResource("8")
 GridPosition = Vector2i(13, 3)
-Direction = 0
-TargetFloor = 1
-StairId = "gf_to_1f"
-DestinationStairId = "1f_to_gf"
-IndicatorColor = Color(0, 1, 1, 0.5)
+StairId = "GF_000"
+DestinationStairId = "1F_001"
 
 [node name="PlayerDisplay" type="Sprite2D" parent="GridMap"]
 z_index = 3

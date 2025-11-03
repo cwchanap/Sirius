@@ -1,8 +1,10 @@
-[gd_scene load_steps=2 format=4]
+[gd_scene load_steps=3 format=4 uid="uid://bwq2hj8nt5ycq"]
 
 [ext_resource type="Script" path="res://scripts/game/EnemySpawn.cs" id="1"]
+[ext_resource type="Resource" uid="uid://b4qh3ym8xgfwj" path="res://resources/enemy_blueprints/Goblin.tres" id="2"]
 
 [node name="EnemySpawn_Goblin" type="Sprite2D"]
 script = ExtResource("1")
 GridPosition = Vector2i(0, 0)
-EnemyType = "goblin"
+Blueprint = ExtResource("2")
+

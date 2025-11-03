@@ -1,0 +1,15 @@
+[gd_resource type="Resource" load_steps=2 format=3 uid="uid://f8um7cq2bkjan"]
+
+[ext_resource type="Script" path="res://scripts/data/EnemyBlueprint.cs" id="1_efghi"]
+
+[resource]
+script = ExtResource("1_efghi")
+EnemyName = "Skeleton Warrior"
+SpriteType = "skeleton_warrior"
+Level = 3
+MaxHealth = 120
+Attack = 28
+Defense = 12
+Speed = 9
+ExperienceReward = 70
+GoldReward = 30

@@ -1,13 +1,51 @@
-[gd_scene load_steps=9 format=4 uid="uid://dyllored836ht"]
+[gd_scene load_steps=14 format=4 uid="uid://dyllored836ht"]
 
 [ext_resource type="Script" uid="uid://dxou423ri263w" path="res://scripts/game/GridMap.cs" id="1"]
 [ext_resource type="TileSet" uid="uid://1oxxalqkpebn" path="res://assets/tiles/ground_tileset.tres" id="2"]
 [ext_resource type="TileSet" uid="uid://dm0fdgl52g2u4" path="res://assets/tiles/wall_tileset.tres" id="3"]
-[ext_resource type="Texture2D" uid="uid://cptmkh2hg6xed" path="res://assets/sprites/enemies/goblin/sprite_sheet.png" id="4"]
-[ext_resource type="Script" uid="uid://y82v4iq0fufy" path="res://scripts/game/EnemySpawn.cs" id="5"]
 [ext_resource type="Script" uid="uid://dog8eagtv7b3n" path="res://scripts/game/PlayerDisplay.cs" id="6"]
 [ext_resource type="TileSet" uid="uid://d1w3h484c5fh0" path="res://assets/tiles/stair_tileset.tres" id="7"]
 [ext_resource type="Script" uid="uid://bio6oeyj3p53u" path="res://scripts/game/StairConnection.cs" id="8"]
+[ext_resource type="Script" uid="uid://dbxqpo3rrk3wv" path="res://scripts/data/EnemyBlueprint.cs" id="8_wkmll"]
+[ext_resource type="PackedScene" uid="uid://bwq2hj8nt5ycq" path="res://scenes/spawns/EnemySpawn_Goblin.tscn" id="9_v6pew"]
+[ext_resource type="Texture2D" uid="uid://cptmkh2hg6xed" path="res://assets/sprites/enemies/goblin/sprite_sheet.png" id="9_wkmll"]
+[ext_resource type="PackedScene" uid="uid://cx3ik1aou60dr" path="res://scenes/spawns/EnemySpawn_Orc.tscn" id="10_wkmll"]
+
+[sub_resource type="Resource" id="Resource_01l1b"]
+script = ExtResource("8_wkmll")
+EnemyName = "Orc"
+SpriteType = "orc"
+Level = 2
+MaxHealth = 80
+Attack = 22
+Defense = 8
+Speed = 8
+ExperienceReward = 45
+GoldReward = 20
+
+[sub_resource type="Resource" id="Resource_q1bue"]
+script = ExtResource("8_wkmll")
+EnemyName = "Goblin"
+SpriteType = "goblin"
+Level = 2
+MaxHealth = 70
+Attack = 12
+Defense = 5
+Speed = 10
+ExperienceReward = 25
+GoldReward = 10
+
+[sub_resource type="Resource" id="Resource_4o1uq"]
+script = ExtResource("8_wkmll")
+EnemyName = "Goblin"
+SpriteType = "goblin"
+Level = 2
+MaxHealth = 900
+Attack = 12
+Defense = 5
+Speed = 10
+ExperienceReward = 25
+GoldReward = 10
 
 [node name="FloorGF" type="Node2D"]
 
@@ -45,13 +83,32 @@ DestinationStairId = "1F_001"
 z_index = 3
 script = ExtResource("6")
 
-[node name="EnemySpawn_Goblin_MCP" type="Sprite2D" parent="GridMap"]
+[node name="EnemySpawn_Orc" parent="GridMap" instance=ExtResource("10_wkmll")]
 z_index = 2
-position = Vector2(112, 16)
+position = Vector2(176, 112)
 scale = Vector2(0.333333, 0.333333)
-texture = ExtResource("4")
+GridPosition = Vector2i(5, 3)
+AutoMakeBlueprintUnique = true
+Blueprint = SubResource("Resource_01l1b")
+
+[node name="EnemySpawn_Goblin" parent="GridMap" instance=ExtResource("9_v6pew")]
+z_index = 2
+position = Vector2(112, 208)
+scale = Vector2(0.333333, 0.333333)
+texture = ExtResource("9_wkmll")
 region_enabled = true
 region_rect = Rect2(0, 0, 96, 96)
-script = ExtResource("5")
-GridPosition = Vector2i(3, 0)
-EnemyType = "goblin"
+GridPosition = Vector2i(3, 6)
+AutoMakeBlueprintUnique = true
+Blueprint = SubResource("Resource_q1bue")
+
+[node name="EnemySpawn_Goblin2" parent="GridMap" instance=ExtResource("9_v6pew")]
+z_index = 2
+position = Vector2(240, 176)
+scale = Vector2(0.333333, 0.333333)
+texture = ExtResource("9_wkmll")
+region_enabled = true
+region_rect = Rect2(0, 0, 96, 96)
+GridPosition = Vector2i(7, 5)
+AutoMakeBlueprintUnique = true
+Blueprint = SubResource("Resource_4o1uq")

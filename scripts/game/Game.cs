@@ -365,32 +365,28 @@ public partial class Game : Node2D
     // If no spawn exists or its EnemyType is empty/unknown, fall back to area-based selection.
     private Enemy CreateEnemyFromSpawnOrArea(Vector2I position)
     {
+        // position is internal grid coordinates from GridMap
+        // Need to convert to tilemap coordinates to match EnemySpawn.GridPosition
+        Vector2I tilemapPos = _gridMap.InternalGridToTilemapCoords(position);
+        
+        GD.Print($"Looking for spawn: internal grid ({position.X}, {position.Y}) → tilemap ({tilemapPos.X}, {tilemapPos.Y})");
+        
         var nodes = GetTree().GetNodesInGroup("EnemySpawn");
         foreach (Node n in nodes)
         {
-            if (n is EnemySpawn spawn && spawn.GridPosition == position)
+            if (n is EnemySpawn spawn)
             {
-                string t = (spawn.EnemyType ?? string.Empty).ToLower();
-                switch (t)
+                GD.Print($"  Checking spawn at GridPosition ({spawn.GridPosition.X}, {spawn.GridPosition.Y})");
+                if (spawn.GridPosition == tilemapPos)
                 {
-                    case "goblin": return Enemy.CreateGoblin();
-                    case "orc": return Enemy.CreateOrc();
-                    case "skeleton_warrior": return Enemy.CreateSkeletonWarrior();
-                    case "troll": return Enemy.CreateTroll();
-                    case "dragon": return Enemy.CreateDragon();
-                    case "forest_spirit": return Enemy.CreateForestSpirit();
-                    case "cave_spider": return Enemy.CreateCaveSpider();
-                    case "desert_scorpion": return Enemy.CreateDesertScorpion();
-                    case "swamp_wretch": return Enemy.CreateSwampWretch();
-                    case "mountain_wyvern": return Enemy.CreateMountainWyvern();
-                    case "dark_mage": return Enemy.CreateDarkMage();
-                    case "dungeon_guardian": return Enemy.CreateDungeonGuardian();
-                    case "demon_lord": return Enemy.CreateDemonLord();
-                    case "boss": return Enemy.CreateBoss();
+                    GD.Print($"  ✓ Match found! Using blueprint spawn");
+                    // Use new blueprint-based system (supports custom stats per spawn)
+                    return spawn.CreateEnemyInstance();
                 }
-                break; // spawn found but no valid type; fall back
             }
         }
+        GD.Print($"  No spawn found, using area-based generation");
+        // No spawn found at position, fall back to area-based generation
         return CreateEnemyByArea(position);
     }
     

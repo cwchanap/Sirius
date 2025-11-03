@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyBlueprint" load_steps=2 format=3 uid="uid://c5rj40oayhgxk"]
+
+[ext_resource type="Script" uid="uid://dbxqpo3rrk3wv" path="res://scripts/data/EnemyBlueprint.cs" id="1_bcdef"]
+
+[resource]
+script = ExtResource("1_bcdef")
+EnemyName = "Orc"
+SpriteType = "orc"
+Level = 2
+MaxHealth = 80
+Attack = 22
+Defense = 8
+Speed = 8
+ExperienceReward = 45
+GoldReward = 20

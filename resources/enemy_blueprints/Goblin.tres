@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyBlueprint" load_steps=2 format=3 uid="uid://b4qh3ym8xgfwj"]
+
+[ext_resource type="Script" uid="uid://dbxqpo3rrk3wv" path="res://scripts/data/EnemyBlueprint.cs" id="1_abcde"]
+
+[resource]
+script = ExtResource("1_abcde")
+EnemyName = "Goblin"
+SpriteType = "goblin"
+Level = 2
+MaxHealth = 900
+Attack = 12
+Defense = 5
+Speed = 10
+ExperienceReward = 25
+GoldReward = 10

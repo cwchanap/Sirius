@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyBlueprint" load_steps=2 format=3 uid="uid://cepj7rrgbl7t"]
+
+[ext_resource type="Script" uid="uid://dbxqpo3rrk3wv" path="res://scripts/data/EnemyBlueprint.cs" id="1_cdefg"]
+
+[resource]
+script = ExtResource("1_cdefg")
+EnemyName = "Dragon"
+SpriteType = "dragon"
+Level = 5
+MaxHealth = 200
+Attack = 45
+Defense = 20
+Speed = 12
+ExperienceReward = 180
+GoldReward = 100

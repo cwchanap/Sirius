@@ -1,0 +1,15 @@
+[gd_resource type="Resource" load_steps=2 format=3 uid="uid://h0wo9es4dmlcp"]
+
+[ext_resource type="Script" path="res://scripts/data/EnemyBlueprint.cs" id="1_ghijk"]
+
+[resource]
+script = ExtResource("1_ghijk")
+EnemyName = "Troll"
+SpriteType = "troll"
+Level = 4
+MaxHealth = 150
+Attack = 35
+Defense = 15
+Speed = 6
+ExperienceReward = 120
+GoldReward = 50

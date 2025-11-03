@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyBlueprint" load_steps=2 format=3 uid="uid://bdfqk8srpcm8u"]
+
+[ext_resource type="Script" uid="uid://dbxqpo3rrk3wv" path="res://scripts/data/EnemyBlueprint.cs" id="1_defgh"]
+
+[resource]
+script = ExtResource("1_defgh")
+EnemyName = "Ancient Dragon King"
+SpriteType = "boss"
+Level = 10
+MaxHealth = 500
+Attack = 80
+Defense = 35
+Speed = 18
+ExperienceReward = 800
+GoldReward = 500

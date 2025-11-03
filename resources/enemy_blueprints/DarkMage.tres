@@ -1,0 +1,15 @@
+[gd_resource type="Resource" load_steps=2 format=3 uid="uid://j2yq1gu6fnoer"]
+
+[ext_resource type="Script" path="res://scripts/data/EnemyBlueprint.cs" id="1_ijklm"]
+
+[resource]
+script = ExtResource("1_ijklm")
+EnemyName = "Dark Mage"
+SpriteType = "dark_mage"
+Level = 6
+MaxHealth = 180
+Attack = 50
+Defense = 18
+Speed = 14
+ExperienceReward = 220
+GoldReward = 120

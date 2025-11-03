@@ -2180,6 +2180,15 @@ public partial class GridMap : Node2D
     }
     
     /// <summary>
+    /// Convert internal grid coordinates to tilemap coordinates.
+    /// Used to match enemy spawn positions which are stored in tilemap coords.
+    /// </summary>
+    public Vector2I InternalGridToTilemapCoords(Vector2I internalPos)
+    {
+        return new Vector2I(internalPos.X + _tilemapOrigin.X, internalPos.Y + _tilemapOrigin.Y);
+    }
+    
+    /// <summary>
     /// Check if a grid position has a stair tile
     /// </summary>
     public bool IsOnStairs(Vector2I gridPosition)
@@ -2226,16 +2235,28 @@ public partial class GridMap : Node2D
     private void RegisterStaticEnemySpawns()
     {
         var nodes = GetTree().GetNodesInGroup("EnemySpawn");
+        GD.Print($"GridMap.RegisterStaticEnemySpawns: Found {nodes.Count} nodes in EnemySpawn group");
+        
         foreach (Node n in nodes)
         {
             if (n is EnemySpawn spawn)
             {
+                GD.Print($"  Registering spawn at GridPosition {spawn.GridPosition}");
+                
                 // Convert from tilemap-local coordinates to internal grid coordinates
                 Vector2I gp = spawn.GridPosition;
                 Vector2I gg = new Vector2I(gp.X - _tilemapOrigin.X, gp.Y - _tilemapOrigin.Y);
+                
+                GD.Print($"    Converted to internal grid: {gg}, Origin: {_tilemapOrigin}");
+                
                 if (gg.X >= 0 && gg.X < GridWidth && gg.Y >= 0 && gg.Y < GridHeight)
                 {
                     _grid[gg.X, gg.Y] = (int)CellType.Enemy;
+                    GD.Print($"    ✓ Registered at grid[{gg.X}, {gg.Y}] = Enemy");
+                }
+                else
+                {
+                    GD.PrintErr($"    ✗ Out of bounds! Grid size: {GridWidth}x{GridHeight}");
                 }
                 // Ensure visual alignment with current layer offset
                 spawn.UpdateVisual(this);

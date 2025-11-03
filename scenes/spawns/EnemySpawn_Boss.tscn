@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://ccuh0lk3bpcuw"]
+
+[ext_resource type="Script" uid="uid://y82v4iq0fufy" path="res://scripts/game/EnemySpawn.cs" id="1"]
+
+[node name="EnemySpawn_Boss" type="Sprite2D"]
+z_index = 2
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("1")

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" load_steps=2 format=3 uid="uid://i1xp0ft5emndq"]
+
+[ext_resource type="Script" path="res://scripts/data/EnemyBlueprint.cs" id="1_hijkl"]
+
+[resource]
+script = ExtResource("1_hijkl")
+EnemyName = "Forest Spirit"
+SpriteType = "forest_spirit"
+Level = 2
+MaxHealth = 90
+Attack = 20
+Defense = 10
+Speed = 15
+ExperienceReward = 50
+GoldReward = 22

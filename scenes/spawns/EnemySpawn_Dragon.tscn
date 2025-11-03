@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=4 uid="uid://dy4jl10pv7aes"]
+
+[ext_resource type="Script" path="res://scripts/game/EnemySpawn.cs" id="1"]
+[ext_resource type="Resource" uid="uid://d6sk5ao0zihyl" path="res://resources/enemy_blueprints/Dragon.tres" id="2"]
+
+[node name="EnemySpawn_Dragon" type="Sprite2D"]
+script = ExtResource("1")
+GridPosition = Vector2i(0, 0)
+Blueprint = ExtResource("2")

@@ -169,3 +169,9 @@ else
 ```
 
 When working on this project, prioritize understanding the signal flow between GameManager → Game → GridMap → BattleManager, as this drives the core gameplay loop. The sprite system is modular and can be developed incrementally while the colored rectangle fallbacks provide immediate visual feedback.
+
+### Tips/Issue encounter
+
+`zsh: command not found: xxx`
+
+Please restart the shell with `zsh -il`. And continue to run your command 

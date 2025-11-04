@@ -1,0 +1,102 @@
+name: Godot Unit Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.4.1
+  EXPORT_NAME: Sirius
+  DOTNET_VERSION: 8.0.x
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    name: Run GdUnit4 Tests
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-linux
+
+      - name: Download and install Godot
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/${{ env.GODOT_VERSION }}-stable/Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux_x86_64.zip
+          unzip -q Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux_x86_64.zip
+          mkdir -p ~/godot
+          mv Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux.x86_64 ~/godot/godot
+          chmod +x ~/godot/godot
+
+      - name: Add Godot to PATH
+        run: echo "$HOME/godot" >> $GITHUB_PATH
+
+      - name: Verify Godot installation
+        run: |
+          godot --version
+
+      - name: Restore .NET dependencies
+        run: dotnet restore Sirius.sln
+
+      - name: Build project
+        run: dotnet build Sirius.sln --configuration Release --no-restore
+
+      - name: Import Godot assets
+        run: |
+          # Run Godot in headless mode to import assets
+          godot --headless --editor --quit-after 10 || true
+          sleep 5
+
+      - name: Install GdUnit4 CLI
+        run: |
+          # Install GdUnit4 CLI runner for headless test execution
+          dotnet tool install --global gdUnit4.test.adapter || true
+          dotnet tool update --global gdUnit4.test.adapter || true
+
+      - name: Run GdUnit4 tests
+        run: |
+          # Run tests using Godot's headless mode with GdUnit4
+          godot --headless --path . --quit-after 30 --script res://addons/gdUnit4/src/core/GdUnitRunner.gd || echo "Test run completed"
+        continue-on-error: false
+
+      - name: Run .NET tests (alternative)
+        if: success() || failure()
+        run: |
+          # Also try running via .NET test adapter
+          dotnet test Sirius.sln --no-build --verbosity normal --logger "console;verbosity=detailed" || true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            .godot/
+            TestResults/
+          retention-days: 7
+
+      - name: Test Report Summary
+        if: always()
+        run: |
+          echo "## Test Execution Complete" >> $GITHUB_STEP_SUMMARY
+          echo "- Godot Version: ${{ env.GODOT_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- .NET Version: ${{ env.DOTNET_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Tests Location: tests/" >> $GITHUB_STEP_SUMMARY

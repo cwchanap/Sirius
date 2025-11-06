@@ -42,9 +42,12 @@ jobs:
         run: |
           wget -q https://github.com/godotengine/godot/releases/download/${{ env.GODOT_VERSION }}-stable/Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux_x86_64.zip
           unzip -q Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux_x86_64.zip
+          ls -la
           mkdir -p ~/godot
-          mv Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux.x86_64 ~/godot/godot
-          chmod +x ~/godot/godot
+          find . -name "Godot*" -type f -executable
+          chmod +x Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux_x86_64/Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux.x86_64
+          mv Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux_x86_64/Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux.x86_64 ~/godot/godot
+          mv Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux_x86_64/GodotSharp ~/godot/
 
       - name: Add Godot to PATH
         run: echo "$HOME/godot" >> $GITHUB_PATH
@@ -61,27 +64,35 @@ jobs:
 
       - name: Import Godot assets
         run: |
-          # Run Godot in headless mode to import assets
-          godot --headless --editor --quit-after 10 || true
-          sleep 5
+          # Run Godot in headless mode to import assets and ensure .godot folder exists
+          timeout 30 godot --headless --editor --quit || true
+          sleep 2
 
-      - name: Install GdUnit4 CLI
+      - name: Install GdUnit4 addon
         run: |
-          # Install GdUnit4 CLI runner for headless test execution
-          dotnet tool install --global gdUnit4.test.adapter || true
-          dotnet tool update --global gdUnit4.test.adapter || true
+          # Download and install GdUnit4 addon
+          mkdir -p addons
+          cd addons
+          wget -q https://github.com/MikeSchulze/gdUnit4/releases/latest/download/gdUnit4-mono-5.0.0.zip -O gdUnit4.zip
+          unzip -q gdUnit4.zip
+          rm gdUnit4.zip
+          cd ..
+          # Re-import with GdUnit4 addon
+          timeout 30 godot --headless --editor --quit || true
+          sleep 2
 
       - name: Run GdUnit4 tests
         run: |
-          # Run tests using Godot's headless mode with GdUnit4
-          godot --headless --path . --quit-after 30 --script res://addons/gdUnit4/src/core/GdUnitRunner.gd || echo "Test run completed"
+          # Run tests using GdUnit4's command line runner
+          # Use the .NET test adapter which integrates with GdUnit4
+          dotnet test Sirius.sln --configuration Release --logger "console;verbosity=detailed"
         continue-on-error: false
 
       - name: Run .NET tests (alternative)
-        if: success() || failure()
+        if: failure()
         run: |
-          # Also try running via .NET test adapter
-          dotnet test Sirius.sln --no-build --verbosity normal --logger "console;verbosity=detailed" || true
+          # Fallback: try running via dotnet test without build requirement
+          dotnet test Sirius.sln --verbosity normal --logger "console;verbosity=detailed" || true
 
       - name: Upload test results
         if: always()

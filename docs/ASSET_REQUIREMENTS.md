@@ -45,6 +45,14 @@ This document outlines all visual assets needed for the Sirius RPG game, organiz
 - [x] **Mountain Floor Tile** — `assets/sprites/terrain/floor_mountain.png`
 - [x] **Dungeon Floor Tile** — `assets/sprites/terrain/floor_dungeon.png`
 - [ ] **Boss Arena Floor Tile** — `assets/sprites/terrain/floor_boss_arena.png`
+- [ ] **Stairs Up Tile** — `assets/sprites/terrain/stairs_up.png` (32x32)
+- [ ] **Stairs Down Tile** — `assets/sprites/terrain/stairs_down.png` (32x32)
+- [ ] **Stairs Left Tile** — `assets/sprites/terrain/stairs_left.png` (32x32)
+- [ ] **Stairs Right Tile** — `assets/sprites/terrain/stairs_right.png` (32x32)
+- [ ] **Gate North Tile** — `assets/sprites/terrain/gate_north.png` (32x32)
+- [ ] **Gate South Tile** — `assets/sprites/terrain/gate_south.png` (32x32)
+- [ ] **Gate West Tile** — `assets/sprites/terrain/gate_west.png` (32x32)
+- [ ] **Gate East Tile** — `assets/sprites/terrain/gate_east.png` (32x32)
 
 ### Priority 3: UI Elements
 - [x] **Main Menu Background** — `assets/sprites/ui/ui_main_menu_background.png`
@@ -305,6 +313,44 @@ This document outlines all visual assets needed for the Sirius RPG game, organiz
 **File**: `assets/sprites/terrain/floor_boss_arena.png`
 **AI Prompt**: "Create a 96x96 anime-style sprite of a boss arena floor tile in top-down view. The tile should show ornate stone with intricate patterns, magical circles, and energy lines. Use bright anime colors with bold black outlines for pattern definition. Make it look epic and powerful with anime final battle aesthetics - dramatic, imposing. Include glowing magical patterns and energy effects. Use cel-shading with deep reds, golds, and powerful light effects."
 
+### Transition Tiles: Stairs & Gates
+
+**Purpose**: Stairs enable floor-to-floor transitions (vertical movement between levels), while gates enable same-floor scene transitions (horizontal movement between areas on the same level).
+
+#### Stairs (Floor-to-Floor Transitions)
+
+**File**: `assets/sprites/terrain/stairs_up.png`
+**AI Prompt**: "Create a 32x32 anime-style sprite of upward stairs tile in top-down view. The tile should show stone steps ascending upward with an upward-pointing arrow symbol, magical glow around edges, and light emanating from the top. Use bright anime colors with bold black outlines. Make it look inviting and mystical with anime RPG aesthetics - clear, easy to identify. Include subtle sparkles rising upward and soft illumination. Use cel-shading with grays, blues, and ascending light effects. Important: Use transparent background (PNG with alpha channel)."
+
+**File**: `assets/sprites/terrain/stairs_down.png`
+**AI Prompt**: "Create a 32x32 anime-style sprite of downward stairs tile in top-down view. The tile should show stone steps descending downward with a downward-pointing arrow symbol, shadowy depths visible below, and subtle dark aura around edges. Use bright anime colors with bold black outlines. Make it look mysterious but accessible with anime dungeon aesthetics - clear, identifiable. Include faint shadows descending and cool blue glow from depths. Use cel-shading with dark grays, deep blues, and descending shadow effects. Important: Use transparent background (PNG with alpha channel)."
+
+**File**: `assets/sprites/terrain/stairs_left.png`
+**AI Prompt**: "Create a 32x32 anime-style sprite of leftward stairs tile in top-down view. The tile should show stone steps leading to the left with a left-pointing arrow symbol, architectural perspective showing left direction, and gentle glow indicating passage. Use bright anime colors with bold black outlines. Make it look directional and clear with anime navigation aesthetics - obvious direction. Include subtle motion lines pointing left and soft directional lighting. Use cel-shading with stone grays, warm lighting, and leftward flow effects. Important: Use transparent background (PNG with alpha channel)."
+
+**File**: `assets/sprites/terrain/stairs_right.png`
+**AI Prompt**: "Create a 32x32 anime-style sprite of rightward stairs tile in top-down view. The tile should show stone steps leading to the right with a right-pointing arrow symbol, architectural perspective showing right direction, and gentle glow indicating passage. Use bright anime colors with bold black outlines. Make it look directional and clear with anime navigation aesthetics - obvious direction. Include subtle motion lines pointing right and soft directional lighting. Use cel-shading with stone grays, warm lighting, and rightward flow effects. Important: Use transparent background (PNG with alpha channel)."
+
+#### Gates (Same-Floor Scene Transitions)
+
+**File**: `assets/sprites/terrain/gate_north.png`
+**AI Prompt**: "Create a 32x32 anime-style sprite of a northern gate/doorway tile in top-down view. The tile should show an ornate doorway or archway leading upward/north on screen, with magical runes around the frame, soft energy barrier effect, and upward-pointing decorative elements. Use bright anime colors with bold black outlines. Make it look grand and portal-like with anime fantasy aesthetics - inviting, mystical. Include gentle particle effects floating upward and magical shimmer across the threshold. Use cel-shading with stone grays, mystical blues/purples, and magical energy effects. Important: Use transparent background (PNG with alpha channel)."
+
+**File**: `assets/sprites/terrain/gate_south.png`
+**AI Prompt**: "Create a 32x32 anime-style sprite of a southern gate/doorway tile in top-down view. The tile should show an ornate doorway or archway leading downward/south on screen, with magical runes around the frame, soft energy barrier effect, and downward-pointing decorative elements. Use bright anime colors with bold black outlines. Make it look welcoming yet mysterious with anime fantasy aesthetics - accessible, enchanted. Include gentle particle effects floating downward and magical shimmer. Use cel-shading with stone grays, warm golds, and magical energy effects. Important: Use transparent background (PNG with alpha channel)."
+
+**File**: `assets/sprites/terrain/gate_west.png`
+**AI Prompt**: "Create a 32x32 anime-style sprite of a western gate/doorway tile in top-down view. The tile should show an ornate doorway or archway leading left/west on screen, with magical runes around the frame, soft energy barrier effect, and leftward-pointing decorative elements. Use bright anime colors with bold black outlines. Make it look mystical and directional with anime portal aesthetics - clear passage. Include gentle particle effects drifting left and magical curtain effect. Use cel-shading with stone grays, cool blues, and magical energy effects. Important: Use transparent background (PNG with alpha channel)."
+
+**File**: `assets/sprites/terrain/gate_east.png`
+**AI Prompt**: "Create a 32x32 anime-style sprite of an eastern gate/doorway tile in top-down view. The tile should show an ornate doorway or archway leading right/east on screen, with magical runes around the frame, soft energy barrier effect, and rightward-pointing decorative elements. Use bright anime colors with bold black outlines. Make it look enchanted and directional with anime portal aesthetics - clear passage. Include gentle particle effects drifting right and magical curtain effect. Use cel-shading with stone grays, warm oranges, and magical energy effects. Important: Use transparent background (PNG with alpha channel)."
+
+**Usage Notes**:
+- **Stairs**: Place on StairLayer for vertical floor transitions (e.g., Ground Floor → 1st Floor)
+- **Gates**: Place on StairLayer for horizontal scene transitions (e.g., Castle Exterior → Castle Interior, same floor)
+- **Size**: 32x32 allows for tile-based placement (3 tiles fit in a 96x96 grid cell)
+- **Visual Distinction**: Stairs show depth (up/down), gates show archways/portals (through/across)
+
 ## Priority 3: UI Elements
 
 ### Main Menu
@@ -435,7 +481,15 @@ assets/sprites/
 │   ├── floor_swamp.png (96x96 - static)
 │   ├── floor_mountain.png (96x96 - static)
 │   ├── floor_dungeon.png (96x96 - static)
-│   └── floor_boss_arena.png (96x96 - static)
+│   ├── floor_boss_arena.png (96x96 - static)
+│   ├── stairs_up.png (32x32 - static, floor transition)
+│   ├── stairs_down.png (32x32 - static, floor transition)
+│   ├── stairs_left.png (32x32 - static, floor transition)
+│   ├── stairs_right.png (32x32 - static, floor transition)
+│   ├── gate_north.png (32x32 - static, scene transition)
+│   ├── gate_south.png (32x32 - static, scene transition)
+│   ├── gate_west.png (32x32 - static, scene transition)
+│   └── gate_east.png (32x32 - static, scene transition)
 ├── ui/
 │   ├── ui_main_menu_background.png (320x240 - static)
 │   ├── ui_battle_background.png (320x240 - static)

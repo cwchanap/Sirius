@@ -60,9 +60,9 @@ assets/
 - [ ] Ring of Focus (`assets/sprites/items/accessories/ring_of_focus.png`)
 
 ### Consumables
-- [ ] Minor Health Potion (`assets/sprites/items/consumables/minor_health_potion.png`)
-- [ ] Mana Berry (`assets/sprites/items/consumables/mana_berry.png`)
-- [ ] Elixir of Fortitude (`assets/sprites/items/consumables/elixir_of_fortitude.png`)
+- [x] Minor Health Potion (`assets/sprites/items/consumables/minor_health_potion.png`)
+- [x] Mana Berry (`assets/sprites/items/consumables/mana_berry.png`)
+- [x] Elixir of Fortitude (`assets/sprites/items/consumables/elixir_of_fortitude.png`)
 
 ### Crafting Materials & Quest Items
 - [ ] Ancient Rune Fragment (`assets/sprites/items/materials/ancient_rune_fragment.png`)

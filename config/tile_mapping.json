@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "tile_mappings": {
+    "ground": {
+      "starting_area": { "source_id": 0, "atlas_coord": [0, 0] },
+      "forest": { "source_id": 1, "atlas_coord": [0, 0] },
+      "cave": { "source_id": 2, "atlas_coord": [0, 0] },
+      "desert": { "source_id": 3, "atlas_coord": [0, 0] },
+      "swamp": { "source_id": 4, "atlas_coord": [0, 0] },
+      "mountain": { "source_id": 5, "atlas_coord": [0, 0] },
+      "dungeon": { "source_id": 6, "atlas_coord": [0, 0] }
+    },
+    "wall": {
+      "generic": { "source_id": 7, "atlas_coord": [0, 0] }
+    },
+    "stair": {
+      "up": { "source_id": 0, "atlas_coord": [0, 0] },
+      "down": { "source_id": 1, "atlas_coord": [0, 0] }
+    }
+  },
+  "tileset_paths": {
+    "ground": "res://assets/tiles/ground_tileset.tres",
+    "wall": "res://assets/tiles/wall_tileset.tres",
+    "stair": "res://assets/tiles/stair_tileset.tres"
+  }
+}

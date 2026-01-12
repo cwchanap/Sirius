@@ -22,6 +22,12 @@ public partial class GridMap : Node2D
     [Export] public bool EditorClearBakedTileMaps { get; set; } = false;
     [Export] public bool EditorGenerateSpriteSheets { get; set; } = false; // Compose frame1-4.png into sprite_sheet.png per character
     [Export] public bool EditorSaveBakedTileSet { get; set; } = false; // Save the generated TileSet as a .tres resource
+
+    // LLM-friendly JSON export/import
+    [ExportGroup("LLM Tilemap JSON")]
+    [Export] public bool EditorExportToJson { get; set; } = false; // Export floor to LLM-readable JSON
+    [Export] public bool EditorImportFromJson { get; set; } = false; // Import JSON back to tilemap
+    [Export(PropertyHint.File, "*.json")] public string JsonFilePath { get; set; } = ""; // Path to JSON file
     
     private const float TERRAIN_BASE_PIXEL_SIZE = 96f;
     
@@ -113,6 +119,19 @@ public partial class GridMap : Node2D
             EditorSaveTileSetResource();
         }
 
+        // LLM JSON export/import actions
+        if (EditorExportToJson)
+        {
+            EditorExportToJson = false;
+            EditorExportFloorToJson();
+        }
+
+        if (EditorImportFromJson)
+        {
+            EditorImportFromJson = false;
+            EditorImportFloorFromJson();
+        }
+
         // One-time prefill removed; static workflow uses manual painting or existing baked data
     }
 
@@ -145,6 +164,66 @@ public partial class GridMap : Node2D
         else
         {
             GD.PrintErr($"❌ Failed to save TileSet to {path}: {err}");
+        }
+    }
+
+    private void EditorExportFloorToJson()
+    {
+        // Determine output path
+        string outputPath = JsonFilePath;
+        if (string.IsNullOrEmpty(outputPath))
+        {
+            // Default: same folder as scene with .json extension
+            var sceneRoot = Owner ?? GetTree()?.EditedSceneRoot;
+            if (sceneRoot != null && !string.IsNullOrEmpty(sceneRoot.SceneFilePath))
+            {
+                outputPath = sceneRoot.SceneFilePath.Replace(".tscn", ".json");
+            }
+            else
+            {
+                outputPath = "res://scenes/game/floors/floor_export.json";
+            }
+        }
+
+        var exporter = new Sirius.TilemapJson.TilemapJsonExporter();
+        var err = exporter.ExportToFile(this, outputPath);
+
+        if (err == Error.Ok)
+        {
+            GD.Print($"✅ Exported floor to JSON: {outputPath}");
+            JsonFilePath = outputPath; // Remember the path for next time
+        }
+        else
+        {
+            GD.PrintErr($"❌ Failed to export floor to JSON: {err}");
+        }
+    }
+
+    private void EditorImportFloorFromJson()
+    {
+        if (string.IsNullOrEmpty(JsonFilePath))
+        {
+            GD.PrintErr("❌ JsonFilePath not set. Please specify the JSON file to import.");
+            return;
+        }
+
+        if (!FileAccess.FileExists(JsonFilePath))
+        {
+            GD.PrintErr($"❌ JSON file not found: {JsonFilePath}");
+            return;
+        }
+
+        var importer = new Sirius.TilemapJson.TilemapJsonImporter();
+        var err = importer.ImportFromFile(JsonFilePath, this);
+
+        if (err == Error.Ok)
+        {
+            GD.Print($"✅ Imported floor from JSON: {JsonFilePath}");
+            QueueRedraw();
+        }
+        else
+        {
+            GD.PrintErr($"❌ Failed to import floor from JSON: {err}");
         }
     }
 

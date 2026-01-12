@@ -4,34 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Sirius is a 2D turn-based tactical RPG built with Godot 4.x and C# scripting (.NET 8.0). The game features a complex 160x160 grid-based maze world with 8 themed areas, 14+ enemy types, automated turn-based combat, and a sprite animation system with fallback to colored rectangles.
+Sirius is a 2D turn-based tactical RPG built with Godot 4.4.1 and C# scripting (.NET 8.0). The game features a 160x160 grid-based maze world with 8 themed areas, 14+ enemy types, automated turn-based combat, and a sprite animation system with fallback to colored rectangles.
 
 ## Development Commands
 
-### Building and Running
 ```bash
-# Build the project (requires dotnet CLI)
+# Build the project
 dotnet build Sirius.sln
 
-# Run from Godot editor (F5) or command line
-godot  # Launch Godot editor to run project
-# Note: Godot path configured in .vscode/settings.json as "/Applications/Godot_mono.app"
+# Run tests (GdUnit4 framework)
+dotnet test Sirius.sln
 
-# Headless builds/exports
-godot --headless
-```
+# Run from Godot editor (F5) or launch editor
+godot
 
-### Asset Generation
-```bash
 # Merge individual 32x32 sprite frames into 128x32 sprite sheets
 python3 tools/sprite_sheet_merger.py
 ```
+
+**Shell issues**: If you encounter `zsh: command not found`, restart shell with `zsh -il`.
 
 ## Architecture Overview
 
 ### Core Systems
 - **GameManager (Singleton)**: Global state management, player data persistence across battles, battle state tracking (`IsInBattle` flag)
 - **GridMap**: 160x160 grid with viewport culling for performance, themed area system, position-based enemy spawning
+- **FloorManager**: Multi-floor system with stair connections between floors (FloorGF.tscn, Floor1F.tscn, etc.)
 - **Battle System**: Modal battle dialogs as popup overlays with automated AI combat decisions
 - **Scene Flow**: MainMenu.tscn → Game.tscn → Battle dialogs → back to game
 
@@ -40,18 +38,24 @@ python3 tools/sprite_sheet_merger.py
 - **Singleton pattern** for GameManager global state
 - **Factory pattern** for enemy creation (Enemy.CreateGoblin(), etc.)
 - **Viewport culling** for large grid performance optimization
-- **Position-based deterministic systems** (enemy types, area detection)
+- **Position-based deterministic systems** (enemy types, area detection using seed-based pseudo-random)
 
 ### Project Structure
 ```
 scripts/
-├── data/          # Data classes (Character.cs, Enemy.cs)
-├── game/          # Core game logic (GameManager.cs, GridMap.cs, Game.cs, PlayerController.cs)
-└── ui/            # UI controllers (BattleManager.cs, MainMenu.cs)
+├── data/          # Data classes (Character.cs, Enemy.cs, Item.cs, Inventory.cs)
+├── game/          # Core game logic (GameManager.cs, GridMap.cs, FloorManager.cs, PlayerController.cs)
+├── tilemap_json/  # Tilemap import/export (TilemapJsonImporter.cs, TilemapJsonExporter.cs)
+└── ui/            # UI controllers (BattleManager.cs, MainMenu.cs, InventoryMenuController.cs)
 
 scenes/
-├── game/          # Game.tscn (main game scene)
-└── ui/            # MainMenu.tscn, BattleScene.tscn (battle dialog)
+├── game/          # Game.tscn, floors/ (FloorGF.tscn, Floor1F.tscn)
+├── ui/            # MainMenu.tscn, BattleScene.tscn, InventoryMenu.tscn
+└── spawns/        # Enemy spawn scenes (EnemySpawn_Goblin.tscn, etc.)
+
+tests/             # GdUnit4 tests mirroring scripts/ structure
+├── data/          # CharacterTest.cs, EnemyTest.cs, InventoryTest.cs, ItemTest.cs
+└── game/          # GameManagerTest.cs
 
 assets/sprites/    # Sprite sheets and individual frames
 tools/             # sprite_sheet_merger.py for asset pipeline
@@ -60,7 +64,7 @@ tools/             # sprite_sheet_merger.py for asset pipeline
 ## Critical Development Patterns
 
 ### Battle State Management
-Always check `GameManager.IsInBattle` before allowing player movement. Use signals to avoid race conditions:
+Always check `GameManager.IsInBattle` before allowing player movement:
 ```csharp
 if (_gameManager.IsInBattle) return;
 _battleManager.BattleFinished += OnBattleFinished;
@@ -72,56 +76,51 @@ _battleManager.BattleFinished += OnBattleFinished;
 - Player starts at (5, GridHeight/2)
 - Always check bounds before accessing grid arrays
 
-### Sprite System Integration
+### Sprite System
 - Asset pipeline: 32x32 individual frames → merge to 128x32 sprite sheets
-- 4-frame animation cycles with character-specific movement patterns
+- 4-frame animation cycles (idle → left step → idle variant → right step)
 - Graceful fallback to colored rectangles when sprites missing
 - Animation timing: 0.2 seconds per frame (5 FPS)
 
-### Performance Considerations
-- **Viewport culling** essential for 160x160 grid performance
+### Performance Requirements
+- **Viewport culling** essential for 160x160 grid (must maintain 60fps)
 - **Sprite caching** in dictionaries, load once in _Ready()
 - **Position-based** enemy determination (avoid GD.Randf() in drawing loops)
-- **Scene reuse** for battle dialogs
+- **Scene reuse**: instantiate battle dialogs, don't reload scenes
 
-## Godot-Specific Requirements
+## Godot/C# Requirements
 
 - C# partial classes required for Godot nodes: `public partial class`
-- Resource classes need `[System.Serializable]` for data persistence  
-- Mobile rendering method configured for broader compatibility
+- Resource classes need `[System.Serializable]` for data persistence
 - Signal connections should be made in _Ready() methods
-- Use deferred calls for battle system timing issues
+- Use deferred calls when modifying scene tree during signal callbacks
 
-## Common Integration Points
+## Testing
 
-- Camera follows player via PlayerMoved signal
-- GameManager coordinates between Game, GridMap, and UI systems
-- Battle system uses modal overlays, doesn't hide main game
-- Enemy encounters trigger through GridMap → BattleManager signal flow
-- Asset loading hierarchy: sprites → themed colors based on grid position
+Tests use GdUnit4 framework with `[TestSuite]` and `[TestCase]` attributes:
+```csharp
+using GdUnit4;
+using static GdUnit4.Assertions;
 
-## Testing and Debugging
-
-### Running and Testing
-```bash
-# Build and run the project
-dotnet build Sirius.sln
-# Then run from Godot editor (F5) or open Godot and use "Run Project"
-
-# Asset generation when individual sprite frames exist
-python3 tools/sprite_sheet_merger.py
+[TestSuite]
+public partial class YourTest : Node
+{
+    [TestCase]
+    public void TestYourFeature()
+    {
+        var obj = new YourClass();
+        obj.DoSomething();
+        AssertThat(obj.Result).IsEqual(expectedValue);
+    }
+}
 ```
 
-### Debugging Workflow
+Test files must mirror source structure: `scripts/data/Character.cs` → `tests/data/CharacterTest.cs`
+
+## Debugging
+
 - Walk into colored enemies on grid to trigger battles
 - Auto-combat proceeds without input, ESC returns to menu
 - Console provides detailed battle logs and state transitions
-- Enemy types and spawning are deterministic based on grid position
-- Check GameManager.IsInBattle flag for state debugging
-
-### Common Troubleshooting
 - **Battle state stuck**: Use `GameManager.ResetBattleState()` method
-- **Sprite rendering issues**: Ensure sprite sheets are 128x32 (4 frames of 32x32)
-- **Performance problems**: Verify viewport culling is active in GridMap._Draw()
 - **Grid bounds errors**: Always validate coordinates before accessing grid arrays
-- **Asset pipeline**: Individual 32x32 frames → merge via Python script → import in Godot

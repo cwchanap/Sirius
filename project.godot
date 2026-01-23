@@ -12,8 +12,12 @@ config_version=5
 
 config/name="Sirius"
 run/main_scene="res://scenes/ui/MainMenu.tscn"
-config/features=PackedStringArray("4.4", "C#", "Mobile")
+config/features=PackedStringArray("4.5", "C#", "Mobile")
 config/icon="res://icon.svg"
+
+[autoload]
+
+SaveManager="*res://scripts/save/SaveManager.cs"
 
 [dotnet]
 

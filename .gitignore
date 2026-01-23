@@ -6,3 +6,5 @@
 frames/
 
 assets/**/original
+addons/
+TestResults/

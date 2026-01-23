@@ -3,6 +3,7 @@ using Godot;
 using static GdUnit4.Assertions;
 
 [TestSuite]
+[RequireGodotRuntime]
 public partial class EnemyTest : Node
 {
     [TestCase]

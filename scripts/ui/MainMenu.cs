@@ -4,6 +4,7 @@ public partial class MainMenu : Control
 {
 	private TextureRect _backgroundRect;
 	private AudioStreamPlayer _backgroundMusic;
+	private SaveLoadDialog _loadDialog;
 
 	public override void _Ready()
 	{
@@ -71,8 +72,84 @@ public partial class MainMenu : Control
 	private void _on_start_button_pressed()
 	{
 		GD.Print("Start Game button pressed");
+		// Ensure no pending load data (start fresh)
+		if (SaveManager.Instance != null)
+		{
+			SaveManager.Instance.PendingLoadData = null;
+		}
 		// Load the game scene
 		GetTree().ChangeSceneToFile("res://scenes/game/Game.tscn");
+	}
+
+	private void _on_load_button_pressed()
+	{
+		GD.Print("Load Game button pressed");
+
+		// Check if any saves exist
+		bool anySaveExists = false;
+		for (int i = 0; i <= 3; i++)
+		{
+			if (SaveManager.Instance?.SaveExists(i) == true)
+			{
+				anySaveExists = true;
+				break;
+			}
+		}
+
+		if (!anySaveExists)
+		{
+			ShowMessage("No save files found!");
+			return;
+		}
+
+		// Show load dialog
+		if (_loadDialog != null)
+		{
+			_loadDialog.QueueFree();
+		}
+
+		_loadDialog = new SaveLoadDialog();
+		AddChild(_loadDialog);
+		_loadDialog.LoadSlotSelected += OnLoadSlotSelected;
+		_loadDialog.DialogClosed += OnLoadDialogClosed;
+		_loadDialog.ShowDialog(SaveLoadDialog.DialogMode.Load);
+	}
+
+	private void OnLoadSlotSelected(int slot)
+	{
+		GD.Print($"Loading from slot {slot}");
+
+		var saveData = slot == 3
+			? SaveManager.Instance?.LoadAutosave()
+			: SaveManager.Instance?.LoadGame(slot);
+
+		if (saveData != null)
+		{
+			SaveManager.Instance.PendingLoadData = saveData;
+			GetTree().ChangeSceneToFile("res://scenes/game/Game.tscn");
+		}
+		else
+		{
+			ShowMessage("Failed to load save file!");
+		}
+
+		CleanupLoadDialog();
+	}
+
+	private void OnLoadDialogClosed()
+	{
+		CleanupLoadDialog();
+	}
+
+	private void CleanupLoadDialog()
+	{
+		if (_loadDialog != null)
+		{
+			_loadDialog.LoadSlotSelected -= OnLoadSlotSelected;
+			_loadDialog.DialogClosed -= OnLoadDialogClosed;
+			_loadDialog.QueueFree();
+			_loadDialog = null;
+		}
 	}
 
 	private void _on_settings_button_pressed()

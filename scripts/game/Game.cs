@@ -22,6 +22,8 @@ public partial class Game : Node2D
     private PlayerDisplay _playerDisplay; // Visual sprite for player when using baked TileMaps
     private InventoryMenuController _inventoryMenu;
 
+    private SaveLoadDialog _saveLoadDialog;
+
     public override void _Ready()
     {
         GD.Print("Game scene loaded");
@@ -49,10 +51,30 @@ public partial class Game : Node2D
             _camera.Zoom = new Vector2(CameraZoomOverride, CameraZoomOverride);
         }
 
-        // Reset battle state to ensure clean start
-        _gameManager.ResetBattleState();
-        // Ensure the player is reinitialized if previous run ended in defeat
-        _gameManager.EnsureFreshPlayer();
+        // Set FloorManager reference in GameManager for save system
+        _gameManager.SetFloorManager(_floorManager);
+
+        // Check for pending load data from main menu
+        if (SaveManager.Instance?.PendingLoadData != null)
+        {
+            var loadData = SaveManager.Instance.PendingLoadData;
+            SaveManager.Instance.PendingLoadData = null;
+
+            GD.Print($"Loading save data: Floor {loadData.CurrentFloorIndex}, Position ({loadData.PlayerPosition.X}, {loadData.PlayerPosition.Y})");
+
+            // Load player state
+            _gameManager.LoadFromSaveData(loadData);
+
+            // Load floor with saved position (deferred to after FloorManager is ready)
+            CallDeferred(nameof(LoadFloorFromSave), loadData.CurrentFloorIndex, loadData.PlayerPosition.ToVector2I());
+        }
+        else
+        {
+            // Reset battle state to ensure clean start
+            _gameManager.ResetBattleState();
+            // Ensure the player is reinitialized if previous run ended in defeat
+            _gameManager.EnsureFreshPlayer();
+        }
 
         // Get UI labels (prefer new Content hierarchy, fallback to old paths)
         _playerNameLabel =
@@ -180,8 +202,15 @@ public partial class Game : Node2D
 
                 if (!_gameManager.IsInBattle)
                 {
-                    // Not in battle: go back to main menu
-                    ReturnToMainMenu();
+                    // Not in battle: show save menu (or close it if open)
+                    if (_saveLoadDialog != null && _saveLoadDialog.Visible)
+                    {
+                        CleanupSaveDialog();
+                    }
+                    else
+                    {
+                        ShowSaveMenu();
+                    }
                 }
                 else
                 {
@@ -606,6 +635,62 @@ public partial class Game : Node2D
     {
         GD.Print("Returning to main menu");
         GetTree().ChangeSceneToFile("res://scenes/ui/MainMenu.tscn");
+    }
+
+    /// <summary>
+    /// Loads a floor from save data with a specific player position.
+    /// </summary>
+    private void LoadFloorFromSave(int floorIndex, Vector2I playerPosition)
+    {
+        GD.Print($"Loading floor {floorIndex} with player position ({playerPosition.X}, {playerPosition.Y})");
+        _floorManager.LoadFloor(floorIndex, playerPosition);
+    }
+
+    /// <summary>
+    /// Shows the save menu dialog.
+    /// </summary>
+    private void ShowSaveMenu()
+    {
+        if (_saveLoadDialog != null)
+        {
+            _saveLoadDialog.QueueFree();
+        }
+
+        _saveLoadDialog = new SaveLoadDialog();
+        GetNode("UI").AddChild(_saveLoadDialog);
+        _saveLoadDialog.SaveSlotSelected += OnSaveSlotSelected;
+        _saveLoadDialog.DialogClosed += OnSaveDialogClosed;
+        _saveLoadDialog.ShowDialog(SaveLoadDialog.DialogMode.Save);
+    }
+
+    private void OnSaveSlotSelected(int slot)
+    {
+        var saveData = _gameManager.CollectSaveData();
+        if (saveData != null)
+        {
+            bool success = SaveManager.Instance.SaveGame(slot, saveData);
+            if (success)
+            {
+                GD.Print($"Game saved to slot {slot}");
+            }
+        }
+        CleanupSaveDialog();
+    }
+
+    private void OnSaveDialogClosed()
+    {
+        CleanupSaveDialog();
+    }
+
+    private void CleanupSaveDialog()
+    {
+        if (_saveLoadDialog != null)
+        {
+            _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
+            _saveLoadDialog.DialogClosed -= OnSaveDialogClosed;
+            _saveLoadDialog.QueueFree();
+            _saveLoadDialog = null;
+        }
     }
 
     private void OnPlayerStatsChanged()

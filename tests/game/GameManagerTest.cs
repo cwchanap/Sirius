@@ -1,38 +1,58 @@
 using GdUnit4;
 using Godot;
+using System.Threading.Tasks;
 using static GdUnit4.Assertions;
 
 [TestSuite]
+[RequireGodotRuntime]
 public partial class GameManagerTest : Node
 {
     private GameManager _gameManager;
 
-    [Before]
-    public void Setup()
+    private static void ResetSingleton()
     {
+        var property = typeof(GameManager).GetProperty("Instance",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+        var setter = property?.GetSetMethod(true);
+        if (setter != null)
+        {
+            setter.Invoke(null, new object[] { null });
+            return;
+        }
+
+        var field = typeof(GameManager).GetField("<Instance>k__BackingField",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        field?.SetValue(null, null);
+    }
+
+    [Before]
+    public async Task Setup()
+    {
+        ProjectSettings.SetSetting("gdunit4/report/verbose_orphans", false);
+        ResetSingleton();
         // Create a fresh GameManager instance for each test
-        _gameManager = new GameManager();
-        AddChild(_gameManager);
-        // Trigger _Ready manually since we're not in the normal scene tree lifecycle
-        _gameManager._Ready();
+        _gameManager = new GameManager
+        {
+            AutoSaveEnabled = false
+        };
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        sceneTree.Root.AddChild(_gameManager);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
     }
 
     [After]
-    public void Cleanup()
+    public async Task Cleanup()
     {
         // Clean up after each test
         if (_gameManager != null && IsInstanceValid(_gameManager))
         {
             _gameManager.QueueFree();
         }
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        _gameManager = null;
+
         // Reset the singleton instance
-        if (GameManager.Instance == _gameManager)
-        {
-            // Use reflection to reset the static Instance if needed
-            var field = typeof(GameManager).GetField("Instance", 
-                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-            field?.SetValue(null, null);
-        }
+        ResetSingleton();
     }
 
     [TestCase]
@@ -93,21 +113,14 @@ public partial class GameManagerTest : Node
     {
         // Arrange
         var enemy = Enemy.CreateGoblin();
-        bool signalEmitted = false;
-        Enemy capturedEnemy = null;
-
-        _gameManager.BattleStarted += (e) =>
-        {
-            signalEmitted = true;
-            capturedEnemy = e;
-        };
 
         // Act
         _gameManager.StartBattle(enemy);
 
         // Assert
-        AssertThat(signalEmitted).IsTrue();
-        AssertThat(capturedEnemy).IsEqual(enemy);
+        AssertThat(_gameManager.IsInBattle).IsTrue();
+        AssertThat(_gameManager.BattleStartedCount).IsEqual(1);
+        AssertThat(_gameManager.LastBattleStartedEnemy).IsEqual(enemy);
     }
 
     [TestCase]

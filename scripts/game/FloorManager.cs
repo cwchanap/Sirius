@@ -43,6 +43,12 @@ public partial class FloorManager : Node
             GD.Print($"   Floor[{i}]: {floor?.FloorName ?? "null"}, Scene: {floor?.FloorScene?.ResourcePath ?? "null"}");
         }
         
+        if (SaveManager.Instance?.PendingLoadData != null)
+        {
+            GD.Print("🏢 Pending save detected; skipping initial floor load.");
+            return;
+        }
+
         GD.Print($"🏢 Loading initial floor (index 0)...");
         // Load initial floor (index 0)
         LoadFloor(0);

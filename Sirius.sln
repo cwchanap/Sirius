@@ -4,13 +4,16 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sirius", "Sirius.csproj", "
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-	Debug|Any CPU = Debug|Any CPU
-	ExportDebug|Any CPU = ExportDebug|Any CPU
-	ExportRelease|Any CPU = ExportRelease|Any CPU
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+		ExportDebug|Any CPU = ExportDebug|Any CPU
+		ExportRelease|Any CPU = ExportRelease|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{D8ED4DD7-8064-4CB7-8DAA-245D48873BA1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D8ED4DD7-8064-4CB7-8DAA-245D48873BA1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D8ED4DD7-8064-4CB7-8DAA-245D48873BA1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D8ED4DD7-8064-4CB7-8DAA-245D48873BA1}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D8ED4DD7-8064-4CB7-8DAA-245D48873BA1}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
 		{D8ED4DD7-8064-4CB7-8DAA-245D48873BA1}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
 		{D8ED4DD7-8064-4CB7-8DAA-245D48873BA1}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU

@@ -124,7 +124,7 @@ public partial class SaveLoadDialog : AcceptDialog
             {
                 string slotName = i == 3 ? "Autosave" : $"Slot {i + 1}";
                 _slotLabels[i].Text = $"{slotName} - Empty";
-                _slotButtons[i].Disabled = _mode == DialogMode.Load; // Can't load empty slot
+                _slotButtons[i].Disabled = _mode == DialogMode.Load || (i == 3 && _mode == DialogMode.Save);
             }
             else
             {
@@ -177,6 +177,7 @@ public partial class SaveLoadDialog : AcceptDialog
 
     private void OnCloseRequested()
     {
+        Hide();
         EmitSignal(SignalName.DialogClosed);
     }
 }

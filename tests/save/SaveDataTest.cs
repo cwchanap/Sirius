@@ -46,8 +46,10 @@ public partial class SaveDataTest : Node
         var deserialized = JsonSerializer.Deserialize<Vector2IDto>(json);
 
         // Assert
-        AssertThat(deserialized.X).IsEqual(5);
-        AssertThat(deserialized.Y).IsEqual(10);
+        AssertThat(deserialized).IsNotNull();
+        var deserializedValue = deserialized!;
+        AssertThat(deserializedValue.X).IsEqual(5);
+        AssertThat(deserializedValue.Y).IsEqual(10);
     }
 
     [TestCase]

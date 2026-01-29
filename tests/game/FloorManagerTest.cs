@@ -29,14 +29,14 @@ public partial class FloorManagerTest : Node
 
         var sceneTree = (SceneTree)Engine.GetMainLoop();
         sceneTree.Root.AddChild(floorManager);
-        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+        await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
 
         var currentFloorInstance = GetPrivateFieldValue<Node2D>(floorManager, "_currentFloorInstance");
         AssertThat(currentFloorInstance).IsNull();
         AssertThat(floorManager.CurrentGridMap).IsNull();
 
         floorManager.QueueFree();
-        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+        await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
 
         saveManager.PendingLoadData = previousPending;
     }
@@ -51,7 +51,7 @@ public partial class FloorManagerTest : Node
         var saveManager = new SaveManager();
         var sceneTree = (SceneTree)Engine.GetMainLoop();
         sceneTree.Root.AddChild(saveManager);
-        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+        await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
         return SaveManager.Instance ?? saveManager;
     }
 

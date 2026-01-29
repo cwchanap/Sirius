@@ -10,11 +10,15 @@ public partial class SaveManagerTest : Node
     public void TestIsValidSlot_ValidSlots()
     {
         // Valid slots are 0, 1, 2 (manual) and 3 (autosave)
-        // We can't directly test private methods, but we can test through public API
-        // by checking that SaveExists doesn't throw for valid slots
+        var saveManager = new SaveManager();
+        AssertThat(saveManager.SaveExists(0)).IsFalse();
+        AssertThat(saveManager.SaveExists(1)).IsFalse();
+        AssertThat(saveManager.SaveExists(2)).IsFalse();
+        AssertThat(saveManager.SaveExists(3)).IsFalse();
 
-        // Act & Assert - should not throw for valid slots
-        AssertThat(true).IsTrue(); // Placeholder - SaveExists returns false for non-existent files
+        // Invalid slots should return false
+        AssertThat(saveManager.SaveExists(-1)).IsFalse();
+        AssertThat(saveManager.SaveExists(4)).IsFalse();
     }
 
     [TestCase]

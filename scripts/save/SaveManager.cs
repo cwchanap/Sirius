@@ -106,6 +106,12 @@ public partial class SaveManager : Node
     {
         try
         {
+            if (data == null)
+            {
+                GD.PushError("Save failed: SaveData is null");
+                return false;
+            }
+
             string path = $"{SaveDir}/{fileName}";
             string json = JsonSerializer.Serialize(data, new JsonSerializerOptions
             {

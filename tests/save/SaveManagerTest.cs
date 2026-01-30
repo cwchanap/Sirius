@@ -19,6 +19,7 @@ public partial class SaveManagerTest : Node
         // Invalid slots should return false
         AssertThat(saveManager.SaveExists(-1)).IsFalse();
         AssertThat(saveManager.SaveExists(4)).IsFalse();
+        saveManager.Free();
     }
 
     [TestCase]

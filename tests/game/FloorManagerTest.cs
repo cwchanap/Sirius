@@ -39,6 +39,10 @@ public partial class FloorManagerTest : Node
         await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
 
         saveManager.PendingLoadData = previousPending;
+        if (!ReferenceEquals(saveManager, SaveManager.Instance))
+        {
+            saveManager.Free();
+        }
     }
 
     private static async Task<SaveManager> EnsureSaveManager()

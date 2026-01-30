@@ -73,7 +73,7 @@ jobs:
           # Download and install GdUnit4 addon
           mkdir -p addons
           cd addons
-          wget -q https://github.com/MikeSchulze/gdUnit4/releases/latest/download/gdUnit4-mono-5.0.0.zip -O gdUnit4.zip
+          wget -q https://github.com/godot-gdunit-labs/gdUnit4/releases/latest/download/gdUnit4-mono-5.0.0.zip -O gdUnit4.zip
           unzip -q gdUnit4.zip
           rm gdUnit4.zip
           cd ..

@@ -6,3 +6,6 @@
 frames/
 
 assets/**/original
+addons/
+TestResults/
+gdunit4_testadapter_v5/

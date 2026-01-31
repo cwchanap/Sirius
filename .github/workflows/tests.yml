@@ -51,6 +51,9 @@ jobs:
 
       - name: Add Godot to PATH
         run: echo "$HOME/godot" >> $GITHUB_PATH
+      
+      - name: Set GODOT_BIN
+        run: echo "GODOT_BIN=$HOME/godot/godot" >> $GITHUB_ENV
 
       - name: Verify Godot installation
         run: |
@@ -73,9 +76,12 @@ jobs:
           # Download and install GdUnit4 addon
           mkdir -p addons
           cd addons
-          wget -q https://github.com/MikeSchulze/gdUnit4/releases/latest/download/gdUnit4-mono-5.0.0.zip -O gdUnit4.zip
+          wget -q https://github.com/godot-gdunit-labs/gdUnit4/archive/refs/tags/v5.0.0.zip -O gdUnit4.zip
           unzip -q gdUnit4.zip
           rm gdUnit4.zip
+          rm -rf gdUnit4
+          mv gdUnit4-5.0.0/addons/gdUnit4 ./
+          rm -rf gdUnit4-5.0.0
           cd ..
           # Re-import with GdUnit4 addon
           timeout 30 godot --headless --editor --quit || true
@@ -85,7 +91,7 @@ jobs:
         run: |
           # Run tests using GdUnit4's command line runner
           # Use the .NET test adapter which integrates with GdUnit4
-          dotnet test Sirius.sln --configuration Release --logger "console;verbosity=detailed"
+          dotnet test Sirius.sln --configuration Release --logger "console;verbosity=detailed" --settings test.runsettings
         continue-on-error: false
 
       - name: Run .NET tests (alternative)

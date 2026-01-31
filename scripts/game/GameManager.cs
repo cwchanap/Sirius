@@ -1,16 +1,24 @@
 using Godot;
+using System;
 
 public partial class GameManager : Node
 {
     [Signal] public delegate void BattleStartedEventHandler(Enemy enemy);
     [Signal] public delegate void BattleEndedEventHandler(bool playerWon);
     [Signal] public delegate void PlayerStatsChangedEventHandler();
-    
+
+    internal event Action<Enemy> BattleStartedManaged;
+    internal Enemy LastBattleStartedEnemy { get; private set; }
+    internal int BattleStartedCount { get; private set; }
+    internal bool AutoSaveEnabled { get; set; } = true;
+
     public static GameManager Instance { get; private set; }
-    
+
     public Character Player { get; private set; }
     public bool IsInBattle { get; private set; } = false;
-    
+
+    private FloorManager _floorManager;
+
     public override void _Ready()
     {
         GD.Print("GameManager _Ready called");
@@ -19,12 +27,37 @@ public partial class GameManager : Node
         {
             Instance = this;
             InitializePlayer();
+
+            // Connect to battle ended signal for auto-save
+            if (AutoSaveEnabled)
+            {
+                BattleEnded += OnBattleEnded;
+            }
+
             GD.Print("GameManager initialized as singleton");
         }
         else
         {
             GD.Print("GameManager instance already exists, queueing free");
             QueueFree();
+        }
+    }
+
+    /// <summary>
+    /// Sets the FloorManager reference for save/load operations.
+    /// Called by Game.cs after scene is ready.
+    /// </summary>
+    public void SetFloorManager(FloorManager floorManager)
+    {
+        _floorManager = floorManager;
+    }
+
+    private void OnBattleEnded(bool playerWon)
+    {
+        if (playerWon)
+        {
+            GD.Print("Battle victory - triggering auto-save");
+            CallDeferred(nameof(TriggerAutoSave));
         }
     }
     
@@ -98,7 +131,10 @@ public partial class GameManager : Node
         EnsureFreshPlayer();
         
         IsInBattle = true;
+        LastBattleStartedEnemy = enemy;
+        BattleStartedCount++;
         GD.Print($"Battle started against {enemy.Name}! IsInBattle: {IsInBattle}");
+        BattleStartedManaged?.Invoke(enemy);
         EmitSignal(SignalName.BattleStarted, enemy);
     }
     
@@ -144,5 +180,62 @@ public partial class GameManager : Node
     public void NotifyPlayerStatsChanged()
     {
         EmitSignal(SignalName.PlayerStatsChanged);
+    }
+
+    /// <summary>
+    /// Triggers an auto-save to the autosave slot.
+    /// </summary>
+    public void TriggerAutoSave()
+    {
+        var saveData = CollectSaveData();
+        if (saveData != null)
+        {
+            SaveManager.Instance?.AutoSave(saveData);
+        }
+    }
+
+    /// <summary>
+    /// Collects current game state into a SaveData object.
+    /// </summary>
+    public SaveData CollectSaveData()
+    {
+        if (Player == null)
+        {
+            GD.PushWarning("Cannot collect save data: Player is null");
+            return null;
+        }
+
+        if (_floorManager?.CurrentGridMap == null)
+        {
+            GD.PushWarning("Cannot collect save data: FloorManager or GridMap not available");
+            return null;
+        }
+
+        return new SaveData
+        {
+            Version = 1,
+            Character = CharacterSaveData.FromCharacter(Player),
+            CurrentFloorIndex = _floorManager.CurrentFloorIndex,
+            PlayerPosition = new Vector2IDto(_floorManager.CurrentGridMap.GetPlayerPosition()),
+            SaveTimestamp = System.DateTime.Now
+        };
+    }
+
+    /// <summary>
+    /// Restores player state from save data.
+    /// Called after Game scene loads when loading a save.
+    /// </summary>
+    public void LoadFromSaveData(SaveData data)
+    {
+        if (data?.Character == null)
+        {
+            GD.PushError("Cannot load from null or invalid SaveData");
+            return;
+        }
+
+        Player = data.Character.ToCharacter();
+        GD.Print($"Player loaded from save: {Player.Name}, Level {Player.Level}");
+
+        NotifyPlayerStatsChanged();
     }
 }

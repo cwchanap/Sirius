@@ -2,5 +2,11 @@
 <RunSettings>
   <RunConfiguration>
     <TestSessionTimeout>1800000</TestSessionTimeout>
+    <EnvironmentVariables>
+      <GODOT_BIN>/home/runner/godot/godot</GODOT_BIN>
+    </EnvironmentVariables>
   </RunConfiguration>
+  <GdUnit4>
+    <Parameters>"--headless"</Parameters>
+  </GdUnit4>
 </RunSettings>

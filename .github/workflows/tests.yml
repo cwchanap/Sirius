@@ -51,6 +51,9 @@ jobs:
 
       - name: Add Godot to PATH
         run: echo "$HOME/godot" >> $GITHUB_PATH
+      
+      - name: Set GODOT_BIN
+        run: echo "GODOT_BIN=$HOME/godot/godot" >> $GITHUB_ENV
 
       - name: Verify Godot installation
         run: |

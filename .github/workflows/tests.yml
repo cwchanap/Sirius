@@ -73,9 +73,12 @@ jobs:
           # Download and install GdUnit4 addon
           mkdir -p addons
           cd addons
-          wget -q https://github.com/godot-gdunit-labs/gdUnit4/releases/latest/download/gdUnit4-mono-5.0.0.zip -O gdUnit4.zip
+          wget -q https://github.com/godot-gdunit-labs/gdUnit4/archive/refs/tags/v5.0.0.zip -O gdUnit4.zip
           unzip -q gdUnit4.zip
           rm gdUnit4.zip
+          rm -rf gdUnit4
+          mv gdUnit4-5.0.0/addons/gdUnit4 ./
+          rm -rf gdUnit4-5.0.0
           cd ..
           # Re-import with GdUnit4 addon
           timeout 30 godot --headless --editor --quit || true

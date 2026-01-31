@@ -91,7 +91,7 @@ jobs:
         run: |
           # Run tests using GdUnit4's command line runner
           # Use the .NET test adapter which integrates with GdUnit4
-          dotnet test Sirius.sln --configuration Release --logger "console;verbosity=detailed"
+          dotnet test Sirius.sln --configuration Release --logger "console;verbosity=detailed" --settings test.runsettings
         continue-on-error: false
 
       - name: Run .NET tests (alternative)

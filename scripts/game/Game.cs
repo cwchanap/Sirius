@@ -666,15 +666,24 @@ public partial class Game : Node2D
     private void OnSaveSlotSelected(int slot)
     {
         var saveData = _gameManager.CollectSaveData();
-        if (saveData != null)
+        if (saveData == null)
         {
-            bool success = SaveManager.Instance.SaveGame(slot, saveData);
-            if (success)
-            {
-                GD.Print($"Game saved to slot {slot}");
-            }
+            GD.PrintErr("Save failed: unable to collect save data.");
+            ShowSaveError("Unable to collect save data.");
+            return;
         }
-        CleanupSaveDialog();
+
+        bool success = SaveManager.Instance.SaveGame(slot, saveData);
+        if (success)
+        {
+            GD.Print($"Game saved to slot {slot}");
+            CleanupSaveDialog();
+        }
+        else
+        {
+            GD.PrintErr($"Save failed for slot {slot}.");
+            ShowSaveError("Failed to save game.");
+        }
     }
 
     private void OnSaveDialogClosed()
@@ -691,6 +700,15 @@ public partial class Game : Node2D
             _saveLoadDialog.QueueFree();
             _saveLoadDialog = null;
         }
+    }
+
+    private void ShowSaveError(string message)
+    {
+        var popup = new AcceptDialog();
+        popup.Title = "Save Failed";
+        popup.DialogText = message;
+        GetNode("UI").AddChild(popup);
+        popup.PopupCentered();
     }
 
     private void OnPlayerStatsChanged()

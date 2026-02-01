@@ -149,9 +149,8 @@ public partial class SaveLoadDialog : AcceptDialog
         else
         {
             EmitSignal(SignalName.LoadSlotSelected, slot);
+            Hide();
         }
-
-        Hide();
     }
 
     private void OnMainMenuPressed()

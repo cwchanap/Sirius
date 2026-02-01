@@ -31,8 +31,17 @@ public class InventorySaveData
     {
         var inventory = new Inventory { MaxItemTypes = this.MaxItemTypes };
 
+        if (Entries == null)
+        {
+            return inventory;
+        }
+
         foreach (var entry in Entries)
         {
+            if (entry == null || entry.Quantity <= 0 || string.IsNullOrEmpty(entry.ItemId))
+            {
+                continue;
+            }
             var item = ItemCatalog.CreateItemById(entry.ItemId);
             if (item != null)
             {

@@ -123,18 +123,18 @@ public partial class MainMenu : Control
 			? SaveManager.Instance?.LoadAutosave()
 			: SaveManager.Instance?.LoadGame(slot);
 
-		if (saveData != null)
-		{
-			SaveManager.Instance.PendingLoadData = saveData;
-			GetTree().ChangeSceneToFile("res://scenes/game/Game.tscn");
-		}
-		else
-		{
-			ShowMessage("Failed to load save file!");
-		}
-
-		CleanupLoadDialog();
-	}
+        if (saveData != null)
+        {
+            SaveManager.Instance.PendingLoadData = saveData;
+            CleanupLoadDialog();
+            GetTree().ChangeSceneToFile("res://scenes/game/Game.tscn");
+        }
+        else
+        {
+            ShowMessage("Failed to load save file!");
+            CleanupLoadDialog();
+        }
+    }
 
 	private void OnLoadDialogClosed()
 	{

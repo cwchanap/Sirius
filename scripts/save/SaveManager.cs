@@ -113,19 +113,43 @@ public partial class SaveManager : Node
             }
 
             string path = $"{SaveDir}/{fileName}";
+            string tempFileName = $"{fileName}.tmp";
+            string tempPath = $"{SaveDir}/{tempFileName}";
             string json = JsonSerializer.Serialize(data, new JsonSerializerOptions
             {
                 WriteIndented = true
             });
 
-            using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
+            using var file = FileAccess.Open(tempPath, FileAccess.ModeFlags.Write);
             if (file == null)
             {
-                GD.PushError($"Failed to open file for writing: {path} (Error: {FileAccess.GetOpenError()})");
+                GD.PushError($"Failed to open file for writing: {tempPath} (Error: {FileAccess.GetOpenError()})");
                 return false;
             }
 
             file.StoreString(json);
+            file.Flush();
+
+            using var dir = DirAccess.Open(SaveDir);
+            if (dir == null)
+            {
+                GD.PushError($"Failed to open save directory: {SaveDir}");
+                using var cleanupDir = DirAccess.Open(SaveDir);
+                if (cleanupDir != null)
+                {
+                    cleanupDir.Remove(tempFileName);
+                }
+                return false;
+            }
+
+            var renameErr = dir.Rename(tempFileName, fileName);
+            if (renameErr != Error.Ok)
+            {
+                GD.PushError($"Failed to finalize save file: {renameErr}");
+                dir.Remove(tempFileName);
+                return false;
+            }
+
             GD.Print($"Game saved successfully to {path}");
             return true;
         }

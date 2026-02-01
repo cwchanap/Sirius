@@ -8,6 +8,7 @@ using static GdUnit4.Assertions;
 public partial class GameManagerTest : Node
 {
     private GameManager _gameManager;
+    private Variant _originalVerboseOrphans;
 
     private static void ResetSingleton()
     {
@@ -28,6 +29,7 @@ public partial class GameManagerTest : Node
     [Before]
     public async Task Setup()
     {
+        _originalVerboseOrphans = ProjectSettings.GetSetting("gdunit4/report/verbose_orphans");
         ProjectSettings.SetSetting("gdunit4/report/verbose_orphans", false);
         ResetSingleton();
         // Create a fresh GameManager instance for each test
@@ -53,6 +55,7 @@ public partial class GameManagerTest : Node
 
         // Reset the singleton instance
         ResetSingleton();
+        ProjectSettings.SetSetting("gdunit4/report/verbose_orphans", _originalVerboseOrphans);
     }
 
     [TestCase]

@@ -134,10 +134,27 @@ public partial class SaveManager : Node
             if (dir == null)
             {
                 GD.PushError($"Failed to open save directory: {SaveDir}");
-                using var cleanupDir = DirAccess.Open(SaveDir);
-                if (cleanupDir != null)
+                // Attempt fallback cleanup using System.IO.File.Delete
+                try
                 {
-                    cleanupDir.Remove(tempFileName);
+                    string systemTempPath = ProjectSettings.GlobalizePath(tempPath);
+                    if (System.IO.File.Exists(systemTempPath))
+                    {
+                        System.IO.File.Delete(systemTempPath);
+                        GD.Print($"Cleaned up orphaned temp file: {systemTempPath}");
+                    }
+                    else
+                    {
+                        GD.PushWarning($"Temp file not found for cleanup: {systemTempPath}");
+                    }
+                }
+                catch (System.IO.IOException ex)
+                {
+                    GD.PushError($"Failed to cleanup orphaned temp file {tempPath}: {ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    GD.PushError($"Unexpected error during temp file cleanup: {ex.Message}");
                 }
                 return false;
             }

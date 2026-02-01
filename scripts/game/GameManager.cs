@@ -158,6 +158,11 @@ public partial class GameManager : Node
 
     public override void _ExitTree()
     {
+        if (AutoSaveEnabled)
+        {
+            BattleEnded -= OnBattleEnded;
+        }
+
         // Clear the singleton reference when this scene unloads so a fresh GameManager
         // can be created next time the Game scene is loaded.
         if (Instance == this)

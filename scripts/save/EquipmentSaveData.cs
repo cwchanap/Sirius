@@ -44,11 +44,14 @@ public class EquipmentSaveData
         TryEquipById(equipmentSet, HelmetId);
         TryEquipById(equipmentSet, ShoeId);
 
-        for (int i = 0; i < AccessoryIds.Count && i < EquipmentSet.AccessorySlotCount; i++)
+        if (AccessoryIds != null)
         {
-            if (!string.IsNullOrEmpty(AccessoryIds[i]))
+            for (int i = 0; i < AccessoryIds.Count && i < EquipmentSet.AccessorySlotCount; i++)
             {
-                TryEquipById(equipmentSet, AccessoryIds[i], i);
+                if (!string.IsNullOrEmpty(AccessoryIds[i]))
+                {
+                    TryEquipById(equipmentSet, AccessoryIds[i], i);
+                }
             }
         }
 

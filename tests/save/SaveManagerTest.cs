@@ -11,6 +11,10 @@ public partial class SaveManagerTest : Node
     {
         // Valid slots are 0, 1, 2 (manual) and 3 (autosave)
         var saveManager = new SaveManager();
+        saveManager.DeleteSave(0);
+        saveManager.DeleteSave(1);
+        saveManager.DeleteSave(2);
+        saveManager.DeleteSave(3);
         AssertThat(saveManager.SaveExists(0)).IsFalse();
         AssertThat(saveManager.SaveExists(1)).IsFalse();
         AssertThat(saveManager.SaveExists(2)).IsFalse();

@@ -60,6 +60,21 @@ public partial class Game : Node2D
             var loadData = SaveManager.Instance.PendingLoadData;
             SaveManager.Instance.PendingLoadData = null;
 
+            // Validate save data before loading
+            if (loadData.PlayerPosition == null)
+            {
+                GD.PushError("Save data corrupted: Missing player position");
+                ShowCorruptedSaveError();
+                return;
+            }
+
+            if (loadData.CurrentFloorIndex < 0 || loadData.CurrentFloorIndex >= _floorManager.GetFloorCount())
+            {
+                GD.PushError($"Save data corrupted: Invalid floor index {loadData.CurrentFloorIndex}");
+                ShowCorruptedSaveError();
+                return;
+            }
+
             GD.Print($"Loading save data: Floor {loadData.CurrentFloorIndex}, Position ({loadData.PlayerPosition.X}, {loadData.PlayerPosition.Y})");
 
             // Load player state
@@ -673,6 +688,13 @@ public partial class Game : Node2D
             return;
         }
 
+        if (SaveManager.Instance == null)
+        {
+            GD.PushError("Save failed: SaveManager not initialized.");
+            ShowSaveError("Save system unavailable.");
+            return;
+        }
+
         bool success = SaveManager.Instance.SaveGame(slot, saveData);
         if (success)
         {
@@ -709,6 +731,30 @@ public partial class Game : Node2D
         popup.DialogText = message;
         GetNode("UI").AddChild(popup);
         popup.PopupCentered();
+
+        // Clean up when confirmed
+        popup.Confirmed += () =>
+        {
+            if (IsInstanceValid(popup))
+                popup.QueueFree();
+        };
+    }
+
+    private void ShowCorruptedSaveError()
+    {
+        var popup = new AcceptDialog();
+        popup.Title = "Load Failed";
+        popup.DialogText = "Save file is corrupted or invalid.\nReturning to main menu.";
+        GetNode("UI").AddChild(popup);
+        popup.PopupCentered();
+
+        // Return to main menu after confirmation
+        popup.Confirmed += () =>
+        {
+            if (IsInstanceValid(popup))
+                popup.QueueFree();
+            GetTree().ChangeSceneToFile("res://scenes/ui/MainMenu.tscn");
+        };
     }
 
     private void OnPlayerStatsChanged()

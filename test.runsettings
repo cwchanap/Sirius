@@ -3,6 +3,8 @@
   <RunConfiguration>
     <TestSessionTimeout>1800000</TestSessionTimeout>
     <EnvironmentVariables>
+      <!-- Default GODOT_BIN for CI -->
+      <!-- For local development, create test.runsettings.local (gitignored) -->
       <GODOT_BIN>/home/runner/godot/godot</GODOT_BIN>
     </EnvironmentVariables>
   </RunConfiguration>

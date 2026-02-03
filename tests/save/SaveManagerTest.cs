@@ -279,4 +279,171 @@ public partial class SaveManagerTest : Node
         saveManager.DeleteSave(0);
         saveManager.Free();
     }
+
+    [TestCase]
+    public void TestLoadGame_CorruptedJSON_ReturnsNull()
+    {
+        // Arrange
+        var saveManager = new SaveManager();
+        string savePath = "user://saves/slot_0.json";
+
+        // Write invalid JSON to file
+        using var file = FileAccess.Open(savePath, FileAccess.ModeFlags.Write);
+        AssertThat(file).IsNotNull();
+        file.StoreString("{invalid json this is not valid}");
+        file.Flush();
+        file.Close();
+
+        // Act - Try to load corrupted save
+        var loadedData = saveManager.LoadGame(0);
+
+        // Assert - Should return null for corrupted data
+        AssertThat(loadedData).IsNull();
+
+        // Cleanup
+        saveManager.DeleteSave(0);
+        saveManager.Free();
+    }
+
+    [TestCase]
+    public void TestLoadGame_EmptyFile_ReturnsNull()
+    {
+        // Arrange
+        var saveManager = new SaveManager();
+        string savePath = "user://saves/slot_0.json";
+
+        // Write empty file
+        using var file = FileAccess.Open(savePath, FileAccess.ModeFlags.Write);
+        AssertThat(file).IsNotNull();
+        file.StoreString("");
+        file.Flush();
+        file.Close();
+
+        // Act - Try to load empty file
+        var loadedData = saveManager.LoadGame(0);
+
+        // Assert - Should return null
+        AssertThat(loadedData).IsNull();
+
+        // Cleanup
+        saveManager.DeleteSave(0);
+        saveManager.Free();
+    }
+
+    [TestCase]
+    public void TestLoadGame_WrongVersion_ReturnsNull()
+    {
+        // Arrange
+        var saveManager = new SaveManager();
+        string savePath = "user://saves/slot_0.json";
+
+        // Write JSON with future version
+        string jsonWithWrongVersion = """
+        {
+            "Version": 999,
+            "Character": {"Name": "Hero", "Level": 1, "MaxHealth": 100, "CurrentHealth": 100, "Attack": 10, "Defense": 5, "Speed": 5, "Experience": 0, "ExperienceToNext": 110, "Gold": 100},
+            "CurrentFloorIndex": 0,
+            "PlayerPosition": {"X": 5, "Y": 5},
+            "SaveTimestamp": "2024-01-01T00:00:00Z"
+        }
+        """;
+
+        using var file = FileAccess.Open(savePath, FileAccess.ModeFlags.Write);
+        AssertThat(file).IsNotNull();
+        file.StoreString(jsonWithWrongVersion);
+        file.Flush();
+        file.Close();
+
+        // Act - Try to load with unsupported version
+        var loadedData = saveManager.LoadGame(0);
+
+        // Assert - Should return null for future version
+        AssertThat(loadedData).IsNull();
+
+        // Cleanup
+        saveManager.DeleteSave(0);
+        saveManager.Free();
+    }
+
+    [TestCase]
+    public void TestGetSaveSlotInfo_CorruptedFile_ReturnsCorruptedState()
+    {
+        // Arrange
+        var saveManager = new SaveManager();
+        string savePath = "user://saves/slot_1.json";
+
+        // Write invalid JSON
+        using var file = FileAccess.Open(savePath, FileAccess.ModeFlags.Write);
+        AssertThat(file).IsNotNull();
+        file.StoreString("{this is not valid json");
+        file.Flush();
+        file.Close();
+
+        // Act - Get slot info for corrupted file
+        var info = saveManager.GetSaveSlotInfo(1);
+
+        // Assert - Should indicate corruption
+        AssertThat(info).IsNotNull();
+        AssertThat(info.Exists).IsTrue();
+        AssertThat(info.IsCorrupted).IsTrue();
+        AssertThat(info.SlotIndex).IsEqual(1);
+        AssertThat(info.PlayerName).IsEqual("Corrupted Save");
+
+        // Cleanup
+        saveManager.DeleteSave(1);
+        saveManager.Free();
+    }
+
+    [TestCase]
+    public void TestDeleteSave_InvalidSlots_ReturnsFalse()
+    {
+        // Arrange
+        var saveManager = new SaveManager();
+
+        // Act & Assert - Invalid slots should return false
+        AssertThat(saveManager.DeleteSave(-1)).IsFalse();
+        AssertThat(saveManager.DeleteSave(4)).IsFalse();
+
+        saveManager.Free();
+    }
+
+    [TestCase]
+    public void TestDeleteSave_NonExistentFile_ReturnsFalse()
+    {
+        // Arrange
+        var saveManager = new SaveManager();
+        // Ensure file doesn't exist
+        saveManager.DeleteSave(2);
+
+        // Act - Try to delete non-existent file
+        bool result = saveManager.DeleteSave(2);
+
+        // Assert - Should return false for non-existent file
+        AssertThat(result).IsFalse();
+
+        saveManager.Free();
+    }
+
+    [TestCase]
+    public void TestDeleteSave_ExistingFile_ReturnsTrue()
+    {
+        // Arrange
+        var saveManager = new SaveManager();
+        var saveData = new SaveData
+        {
+            Version = 1,
+            Character = new CharacterSaveData { Name = "Hero", Level = 1 }
+        };
+        saveManager.SaveGame(0, saveData);
+        AssertThat(saveManager.SaveExists(0)).IsTrue();
+
+        // Act - Delete existing file
+        bool result = saveManager.DeleteSave(0);
+
+        // Assert - Should return true and file should be gone
+        AssertThat(result).IsTrue();
+        AssertThat(saveManager.SaveExists(0)).IsFalse();
+
+        saveManager.Free();
+    }
 }

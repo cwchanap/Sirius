@@ -193,9 +193,26 @@ public partial class GameManager : Node
     public void TriggerAutoSave()
     {
         var saveData = CollectSaveData();
-        if (saveData != null)
+        if (saveData == null)
         {
-            SaveManager.Instance?.AutoSave(saveData);
+            GD.PushWarning("Auto-save skipped: Could not collect save data");
+            return;
+        }
+
+        if (SaveManager.Instance == null)
+        {
+            GD.PushError("Auto-save failed: SaveManager not initialized");
+            return;
+        }
+
+        bool success = SaveManager.Instance.AutoSave(saveData);
+        if (!success)
+        {
+            GD.PushWarning("Auto-save failed to write to disk");
+        }
+        else
+        {
+            GD.Print("Auto-save completed successfully");
         }
     }
 

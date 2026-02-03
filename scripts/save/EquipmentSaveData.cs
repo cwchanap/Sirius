@@ -63,13 +63,15 @@ public class EquipmentSaveData
         if (string.IsNullOrEmpty(itemId)) return;
 
         var item = ItemCatalog.CreateItemById(itemId) as EquipmentItem;
-        if (item != null)
-        {
-            eq.TryEquip(item, out _, accessorySlot);
-        }
-        else
+        if (item == null)
         {
             GD.PushWarning($"Save load: Unknown equipment ID '{itemId}', skipping");
+            return;
+        }
+
+        if (!eq.TryEquip(item, out var unequipped, accessorySlot))
+        {
+            GD.PushWarning($"Save load: Failed to equip {itemId} - incompatible slot or invalid state");
         }
     }
 }

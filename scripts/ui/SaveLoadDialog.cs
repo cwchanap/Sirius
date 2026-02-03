@@ -116,15 +116,33 @@ public partial class SaveLoadDialog : AcceptDialog
 
     private void RefreshSlotInfo()
     {
+        if (SaveManager.Instance == null)
+        {
+            GD.PushError("SaveManager not initialized - cannot load save slot info");
+            // Show error state in UI
+            for (int i = 0; i < 4; i++)
+            {
+                _slotLabels[i].Text = "Error: Save system unavailable";
+                _slotButtons[i].Disabled = true;
+            }
+            return;
+        }
+
         for (int i = 0; i < 4; i++)
         {
-            var info = SaveManager.Instance?.GetSaveSlotInfo(i);
+            var info = SaveManager.Instance.GetSaveSlotInfo(i);
 
             if (info == null || !info.Exists)
             {
                 string slotName = i == 3 ? "Autosave" : $"Slot {i + 1}";
                 _slotLabels[i].Text = $"{slotName} - Empty";
                 _slotButtons[i].Disabled = _mode == DialogMode.Load || (i == 3 && _mode == DialogMode.Save);
+            }
+            else if (info.IsCorrupted)
+            {
+                string slotName = i == 3 ? "Autosave" : $"Slot {i + 1}";
+                _slotLabels[i].Text = $"{slotName} - CORRUPTED\n(File exists but cannot be read)";
+                _slotButtons[i].Disabled = _mode == DialogMode.Load; // Can overwrite in save mode
             }
             else
             {

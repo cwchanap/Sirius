@@ -279,4 +279,140 @@ public partial class GameManagerTest : Node
         AssertThat(_gameManager.Player.Inventory).IsNotNull();
         AssertThat(_gameManager.Player.Equipment).IsNotNull();
     }
+
+    [TestCase]
+    public void TestCollectSaveData_ReturnsNullWhenPlayerIsNull()
+    {
+        // Arrange - Set Player to null
+        var field = typeof(GameManager).GetField("Player",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        field?.SetValue(_gameManager, null);
+
+        // Act
+        var saveData = _gameManager.CollectSaveData();
+
+        // Assert
+        AssertThat(saveData).IsNull();
+    }
+
+    [TestCase]
+    public void TestCollectSaveData_ReturnsNullWhenFloorManagerIsNull()
+    {
+        // Arrange - FloorManager is null by default in tests (private field)
+        // Act
+        var saveData = _gameManager.CollectSaveData();
+
+        // Assert - Should return null when FloorManager not set
+        AssertThat(saveData).IsNull();
+    }
+
+    [TestCase]
+    public void TestCollectSaveData_ReturnsNullWhenGridMapIsNull()
+    {
+        // Arrange - Create a FloorManager without GridMap
+        var floorManager = new FloorManager();
+        _gameManager.SetFloorManager(floorManager);
+
+        // Act
+        var saveData = _gameManager.CollectSaveData();
+
+        // Assert - Should return null because FloorManager.CurrentGridMap is null
+        AssertThat(saveData).IsNull();
+    }
+
+    [TestCase]
+    public void TestLoadFromSaveData_HandlesNullSaveData()
+    {
+        // Arrange
+        var originalPlayerName = _gameManager.Player.Name;
+
+        // Act
+        _gameManager.LoadFromSaveData(null);
+
+        // Assert - Player should be unchanged
+        AssertThat(_gameManager.Player).IsNotNull();
+        AssertThat(_gameManager.Player.Name).IsEqual(originalPlayerName);
+    }
+
+    [TestCase]
+    public void TestLoadFromSaveData_HandlesNullCharacter()
+    {
+        // Arrange
+        var saveData = new SaveData
+        {
+            Character = null,
+            CurrentFloorIndex = 0,
+            PlayerPosition = new Vector2IDto { X = 5, Y = 5 }
+        };
+        var originalPlayerName = _gameManager.Player.Name;
+
+        // Act
+        _gameManager.LoadFromSaveData(saveData);
+
+        // Assert - Player should be unchanged
+        AssertThat(_gameManager.Player).IsNotNull();
+        AssertThat(_gameManager.Player.Name).IsEqual(originalPlayerName);
+    }
+
+    [TestCase]
+    public void TestLoadFromSaveData_RestoresPlayerState()
+    {
+        // Arrange
+        var characterData = new CharacterSaveData
+        {
+            Name = "TestHero",
+            Level = 5,
+            MaxHealth = 200,
+            CurrentHealth = 150,
+            Attack = 20,
+            Defense = 15,
+            Speed = 10,
+            Experience = 500,
+            ExperienceToNext = 600,
+            Gold = 1000
+        };
+        var saveData = new SaveData
+        {
+            Character = characterData,
+            CurrentFloorIndex = 1,
+            PlayerPosition = new Vector2IDto { X = 10, Y = 10 }
+        };
+
+        // Act
+        _gameManager.LoadFromSaveData(saveData);
+
+        // Assert
+        AssertThat(_gameManager.Player).IsNotNull();
+        AssertThat(_gameManager.Player.Name).IsEqual("TestHero");
+        AssertThat(_gameManager.Player.Level).IsEqual(5);
+        AssertThat(_gameManager.Player.MaxHealth).IsEqual(200);
+        AssertThat(_gameManager.Player.CurrentHealth).IsEqual(150);
+        AssertThat(_gameManager.Player.Gold).IsEqual(1000);
+    }
+
+    [TestCase]
+    public void TestTriggerAutoSave_SkipsWhenPlayerIsNull()
+    {
+        // Arrange - Set Player to null
+        var field = typeof(GameManager).GetField("Player",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        field?.SetValue(_gameManager, null);
+
+        // Act - Should not crash
+        _gameManager.TriggerAutoSave();
+
+        // Assert - No exception thrown
+        AssertThat(true).IsTrue();
+    }
+
+    [TestCase]
+    public void TestTriggerAutoSave_SkipsWhenFloorManagerIsNull()
+    {
+        // Arrange - FloorManager is null by default (private field)
+        // Act - Should not crash
+        _gameManager.TriggerAutoSave();
+
+        // Assert - No exception thrown, method handles null gracefully
+        AssertThat(true).IsTrue();
+    }
 }

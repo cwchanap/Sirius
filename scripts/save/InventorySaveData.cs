@@ -43,13 +43,19 @@ public class InventorySaveData
                 continue;
             }
             var item = ItemCatalog.CreateItemById(entry.ItemId);
-            if (item != null)
-            {
-                inventory.TryAddItem(item, entry.Quantity, out _);
-            }
-            else
+            if (item == null)
             {
                 GD.PushWarning($"Save load: Unknown item ID '{entry.ItemId}', skipping");
+                continue;
+            }
+
+            if (!inventory.TryAddItem(item, entry.Quantity, out int overflow))
+            {
+                GD.PushWarning($"Save load: Could not fully restore {entry.ItemId} x{entry.Quantity} - inventory full or invalid");
+            }
+            else if (overflow > 0)
+            {
+                GD.PushWarning($"Save load: Could not fully restore {entry.ItemId} - {overflow} items lost due to inventory limits");
             }
         }
 

@@ -13,7 +13,10 @@ Sirius is a 2D turn-based tactical RPG built with Godot 4.4.1 and C# scripting (
 dotnet build Sirius.sln
 
 # Run tests (GdUnit4 framework)
-dotnet test Sirius.sln
+# First time: Copy local test settings template
+cp test.runsettings.local.template test.runsettings.local
+# Edit test.runsettings.local with your Godot path, then:
+dotnet test Sirius.sln --settings test.runsettings.local
 
 # Run from Godot editor (F5) or launch editor
 godot
@@ -23,6 +26,8 @@ python3 tools/sprite_sheet_merger.py
 ```
 
 **Shell issues**: If you encounter `zsh: command not found`, restart shell with `zsh -il`.
+
+**Test setup**: See [TESTING.md](TESTING.md) for detailed test configuration including local Godot path setup.
 
 ## Architecture Overview
 
@@ -97,6 +102,21 @@ _battleManager.BattleFinished += OnBattleFinished;
 
 ## Testing
 
+### Setup
+1. **One-time setup**: Copy and configure local test settings:
+   ```bash
+   cp test.runsettings.local.template test.runsettings.local
+   # Edit test.runsettings.local with your Godot path
+   ```
+
+2. **Run tests**:
+   ```bash
+   dotnet test Sirius.sln --settings test.runsettings.local
+   ```
+
+See [TESTING.md](TESTING.md) for platform-specific Godot paths and detailed configuration.
+
+### Writing Tests
 Tests use GdUnit4 framework with `[TestSuite]` and `[TestCase]` attributes:
 ```csharp
 using GdUnit4;

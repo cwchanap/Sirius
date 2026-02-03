@@ -226,12 +226,37 @@ public partial class SaveManager : Node
 
             string json = file.GetAsText();
             var data = JsonSerializer.Deserialize<SaveData>(json);
-            GD.Print($"Game loaded successfully from {path}");
+
+            // Validate save file version
+            if (data == null)
+            {
+                GD.PushError($"Failed to deserialize save data from {fileName}");
+                return null;
+            }
+
+            const int CurrentVersion = 1;
+            if (data.Version > CurrentVersion)
+            {
+                GD.PushError($"Save file version {data.Version} is newer than supported version {CurrentVersion}");
+                return null;
+            }
+
+            // Add version migration logic here if needed in the future
+            // if (data.Version < CurrentVersion) { /* migrate */ }
+
+            GD.Print($"Game loaded successfully from {path} (version {data.Version})");
             return data;
+        }
+        catch (JsonException ex)
+        {
+            GD.PushError($"Load failed for {fileName}: Invalid JSON format");
+            GD.Print($"JSON error: {ex}");
+            return null;
         }
         catch (Exception ex)
         {
-            GD.PushError($"Load failed: {ex.Message}");
+            GD.PushError($"Load failed for {fileName}: {ex.GetType().Name}: {ex.Message}");
+            GD.Print($"Stack trace: {ex.StackTrace}");
             return null;
         }
     }
@@ -261,7 +286,15 @@ public partial class SaveManager : Node
             var data = LoadFromFile(fileName);
             if (data == null)
             {
-                return new SaveSlotInfo { Exists = false, SlotIndex = slot };
+                // File exists but couldn't be loaded - it's corrupted
+                return new SaveSlotInfo
+                {
+                    Exists = true,
+                    IsCorrupted = true,
+                    SlotIndex = slot,
+                    PlayerName = "Corrupted Save",
+                    PlayerLevel = 0
+                };
             }
 
             return new SaveSlotInfo
@@ -274,9 +307,18 @@ public partial class SaveManager : Node
                 Timestamp = data.SaveTimestamp
             };
         }
-        catch
+        catch (Exception ex)
         {
-            return new SaveSlotInfo { Exists = false, SlotIndex = slot };
+            GD.PushError($"Failed to read save slot {slot}: {ex.GetType().Name}: {ex.Message}");
+            GD.Print($"Stack trace: {ex.StackTrace}");
+            return new SaveSlotInfo
+            {
+                Exists = true,
+                IsCorrupted = true,
+                SlotIndex = slot,
+                PlayerName = "Corrupted Save",
+                PlayerLevel = 0
+            };
         }
     }
 
@@ -334,6 +376,7 @@ public partial class SaveManager : Node
 public class SaveSlotInfo
 {
     public bool Exists { get; set; }
+    public bool IsCorrupted { get; set; }
     public int SlotIndex { get; set; }
     public string PlayerName { get; set; }
     public int PlayerLevel { get; set; }

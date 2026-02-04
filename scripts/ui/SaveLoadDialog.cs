@@ -142,7 +142,8 @@ public partial class SaveLoadDialog : AcceptDialog
             {
                 string slotName = i == 3 ? "Autosave" : $"Slot {i + 1}";
                 _slotLabels[i].Text = $"{slotName} - CORRUPTED\n(File exists but cannot be read)";
-                _slotButtons[i].Disabled = _mode == DialogMode.Load; // Can overwrite in save mode
+                // Can overwrite corrupted slots in save mode, except autosave (slot 3) which is read-only
+                _slotButtons[i].Disabled = _mode == DialogMode.Load || (i == 3 && _mode == DialogMode.Save);
             }
             else
             {

@@ -105,7 +105,7 @@ public partial class MainMenu : Control
 		// Show load dialog
 		if (_loadDialog != null)
 		{
-			_loadDialog.QueueFree();
+			CleanupLoadDialog();
 		}
 
 		_loadDialog = new SaveLoadDialog();
@@ -123,18 +123,19 @@ public partial class MainMenu : Control
 			? SaveManager.Instance?.LoadAutosave()
 			: SaveManager.Instance?.LoadGame(slot);
 
-        if (saveData != null)
-        {
-            SaveManager.Instance.PendingLoadData = saveData;
-            CleanupLoadDialog();
-            GetTree().ChangeSceneToFile("res://scenes/game/Game.tscn");
-        }
-        else
-        {
-            ShowMessage("Failed to load save file!");
-            CleanupLoadDialog();
-        }
-    }
+		var mgr = SaveManager.Instance;
+		if (saveData != null && mgr != null)
+		{
+			mgr.PendingLoadData = saveData;
+			CleanupLoadDialog();
+			GetTree().ChangeSceneToFile("res://scenes/game/Game.tscn");
+		}
+		else
+		{
+			ShowMessage("Failed to load save file!");
+			CleanupLoadDialog();
+		}
+	}
 
 	private void OnLoadDialogClosed()
 	{

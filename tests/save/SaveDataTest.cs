@@ -387,6 +387,7 @@ public partial class SaveDataTest : Node
         var deserialized = JsonSerializer.Deserialize<SaveData>(json);
 
         // Assert
+        AssertThat(deserialized).IsNotNull();
         AssertThat(deserialized.Version).IsEqual(1);
         AssertThat(deserialized.CurrentFloorIndex).IsEqual(2);
         AssertThat(deserialized.PlayerPosition.X).IsEqual(50);

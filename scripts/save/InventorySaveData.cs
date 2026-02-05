@@ -18,6 +18,7 @@ public class InventorySaveData
         {
             MaxItemTypes = inv.MaxItemTypes,
             Entries = inv.GetAllEntries()
+                .Where(e => e.Item != null)  // Filter out entries with null items
                 .Select(e => new InventoryEntryDto
                 {
                     ItemId = e.Item.Id,

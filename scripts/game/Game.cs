@@ -54,6 +54,15 @@ public partial class Game : Node2D
         // Set FloorManager reference in GameManager for save system
         _gameManager.SetFloorManager(_floorManager);
 
+        // Connect signals BEFORE checking save data, so signals are always connected even if save is corrupted
+        _gameManager.BattleStarted += OnBattleStarted;
+        _gameManager.BattleEnded += OnBattleEnded;
+        _gameManager.PlayerStatsChanged += OnPlayerStatsChanged;
+
+        // Connect to FloorManager for floor loading
+        _floorManager.FloorLoaded += OnFloorLoaded;
+        _floorManager.FloorChanged += OnFloorChanged;
+
         // Check for pending load data from main menu
         if (SaveManager.Instance?.PendingLoadData != null)
         {
@@ -114,15 +123,6 @@ public partial class Game : Node2D
         _playerGoldLabel =
             GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerGold") ??
             GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerGold");
-
-        // Connect signals
-        _gameManager.BattleStarted += OnBattleStarted;
-        _gameManager.BattleEnded += OnBattleEnded;
-        _gameManager.PlayerStatsChanged += OnPlayerStatsChanged;
-
-        // Connect to FloorManager for floor loading
-        _floorManager.FloorLoaded += OnFloorLoaded;
-        _floorManager.FloorChanged += OnFloorChanged;
 
         // GridMap signals will be connected in OnFloorLoaded after floor loads
 
@@ -675,6 +675,8 @@ public partial class Game : Node2D
     {
         if (_saveLoadDialog != null)
         {
+            _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
+            _saveLoadDialog.DialogClosed -= OnSaveDialogClosed;
             _saveLoadDialog.QueueFree();
         }
 

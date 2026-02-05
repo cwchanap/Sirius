@@ -183,6 +183,7 @@ public partial class SaveLoadDialog : AcceptDialog
             GameManager.Instance.EndBattle(false);
         }
 
+        EmitSignal(SignalName.DialogClosed);
         GetTree().ChangeSceneToFile("res://scenes/ui/MainMenu.tscn");
     }
 

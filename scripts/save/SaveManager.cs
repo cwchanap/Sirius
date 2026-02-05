@@ -160,6 +160,9 @@ public partial class SaveManager : Node
                 return false;
             }
 
+            // Try to remove existing file first (Windows requires this before rename)
+            dir.Remove(fileName);
+
             var renameErr = dir.Rename(tempFileName, fileName);
             if (renameErr != Error.Ok)
             {
@@ -263,7 +266,8 @@ public partial class SaveManager : Node
     }
 
     /// <summary>
-    /// Gets metadata for a save slot without loading full data.
+    /// Loads and inspects full SaveData via LoadFromFile to build SaveSlotInfo.
+    /// Note: This deserializes the entire save file to read metadata.
     /// </summary>
     /// <param name="slot">Slot index (0-2 for manual, 3 for autosave)</param>
     public SaveSlotInfo GetSaveSlotInfo(int slot)

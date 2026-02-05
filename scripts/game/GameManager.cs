@@ -11,6 +11,7 @@ public partial class GameManager : Node
     internal Enemy LastBattleStartedEnemy { get; private set; }
     internal int BattleStartedCount { get; private set; }
     internal bool AutoSaveEnabled { get; set; } = true;
+    private bool _isAutoSaveSubscribed = false;
 
     public static GameManager Instance { get; private set; }
 
@@ -29,9 +30,10 @@ public partial class GameManager : Node
             InitializePlayer();
 
             // Connect to battle ended signal for auto-save
-            if (AutoSaveEnabled)
+            if (AutoSaveEnabled && !_isAutoSaveSubscribed)
             {
                 BattleEnded += OnBattleEnded;
+                _isAutoSaveSubscribed = true;
             }
 
             GD.Print("GameManager initialized as singleton");
@@ -158,9 +160,10 @@ public partial class GameManager : Node
 
     public override void _ExitTree()
     {
-        if (AutoSaveEnabled)
+        if (_isAutoSaveSubscribed)
         {
             BattleEnded -= OnBattleEnded;
+            _isAutoSaveSubscribed = false;
         }
 
         // Clear the singleton reference when this scene unloads so a fresh GameManager

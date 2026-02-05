@@ -318,6 +318,9 @@ public partial class GameManagerTest : Node
 
         // Assert - Should return null because FloorManager.CurrentGridMap is null
         AssertThat(saveData).IsNull();
+
+        // Cleanup - Free the FloorManager to prevent node leak
+        floorManager.QueueFree();
     }
 
     [TestCase]

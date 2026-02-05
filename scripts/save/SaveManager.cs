@@ -129,6 +129,7 @@ public partial class SaveManager : Node
 
             file.StoreString(json);
             file.Flush();
+            file.Close();  // Close before renaming to avoid file lock on Windows
 
             using var dir = DirAccess.Open(SaveDir);
             if (dir == null)

@@ -68,6 +68,13 @@ public partial class Game : Node2D
                 return;
             }
 
+            if (loadData.Character == null)
+            {
+                GD.PushError("Save data corrupted: Missing character data");
+                ShowCorruptedSaveError();
+                return;
+            }
+
             if (loadData.CurrentFloorIndex < 0 || loadData.CurrentFloorIndex >= _floorManager.GetFloorCount())
             {
                 GD.PushError($"Save data corrupted: Invalid floor index {loadData.CurrentFloorIndex}");

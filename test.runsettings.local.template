@@ -5,7 +5,7 @@
     <EnvironmentVariables>
       <!-- Set your local Godot path here -->
       <!-- macOS: /Applications/Godot_mono.app/Contents/MacOS/Godot -->
-      <!-- Windows: C:\Program Files\Godot\Godot_v4.4.1-stable_mono_win64\Godot_v4.4.1-stable_mono_win64.exe -->
+      <!-- Windows: C:\Program Files\Godot\Godot_v4.5-stable_mono_win64\Godot_v4.5-stable_mono_win64.exe -->
       <!-- Linux: /usr/local/bin/godot -->
       <GODOT_BIN>YOUR_GODOT_PATH_HERE</GODOT_BIN>
     </EnvironmentVariables>

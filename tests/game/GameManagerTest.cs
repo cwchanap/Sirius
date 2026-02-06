@@ -197,9 +197,9 @@ public partial class GameManagerTest : Node
     public void TestEnsureFreshPlayer_CreatesNewPlayerIfNull()
     {
         // Arrange
-        // Use reflection to set Player to null
-        var field = typeof(GameManager).GetField("Player", 
-            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        // Use reflection to set Player to null (access backing field of auto-property)
+        var field = typeof(GameManager).GetField("<Player>k__BackingField",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         field?.SetValue(_gameManager, null);
 
         // Act
@@ -283,9 +283,9 @@ public partial class GameManagerTest : Node
     [TestCase]
     public void TestCollectSaveData_ReturnsNullWhenPlayerIsNull()
     {
-        // Arrange - Set Player to null
-        var field = typeof(GameManager).GetField("Player",
-            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        // Arrange - Set Player to null using backing field
+        var field = typeof(GameManager).GetField("<Player>k__BackingField",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         field?.SetValue(_gameManager, null);
 
         // Act
@@ -396,9 +396,9 @@ public partial class GameManagerTest : Node
     [TestCase]
     public void TestTriggerAutoSave_SkipsWhenPlayerIsNull()
     {
-        // Arrange - Set Player to null
-        var field = typeof(GameManager).GetField("Player",
-            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        // Arrange - Set Player to null using backing field
+        var field = typeof(GameManager).GetField("<Player>k__BackingField",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         field?.SetValue(_gameManager, null);
 
         // Act - Should not crash

@@ -63,6 +63,23 @@ public partial class Game : Node2D
         _floorManager.FloorLoaded += OnFloorLoaded;
         _floorManager.FloorChanged += OnFloorChanged;
 
+        // Initialize HUD labels BEFORE loading save data (LoadFromSaveData may emit PlayerStatsChanged)
+        _playerNameLabel =
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerName") ??
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerName");
+        _playerLevelLabel =
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerLevel") ??
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerLevel");
+        _playerHealthLabel =
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerHealth") ??
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerHealth");
+        _playerExperienceLabel =
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerExperience") ??
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerExperience");
+        _playerGoldLabel =
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerGold") ??
+            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerGold");
+
         // Check for pending load data from main menu
         if (SaveManager.Instance?.PendingLoadData != null)
         {
@@ -107,26 +124,7 @@ public partial class Game : Node2D
             _gameManager.EnsureFreshPlayer();
         }
 
-        // Get UI labels (prefer new Content hierarchy, fallback to old paths)
-        _playerNameLabel =
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerName") ??
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerName");
-        _playerLevelLabel =
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerLevel") ??
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerLevel");
-        _playerHealthLabel =
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerHealth") ??
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerHealth");
-        _playerExperienceLabel =
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerExperience") ??
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerExperience");
-        _playerGoldLabel =
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerGold") ??
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerGold");
-
-        // GridMap signals will be connected in OnFloorLoaded after floor loads
-
-        // Update UI
+        // Update UI after all initialization is complete
         UpdatePlayerUI();
 
         // Player display and camera will be set up in OnFloorLoaded after floor loads

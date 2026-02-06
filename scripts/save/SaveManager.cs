@@ -161,7 +161,15 @@ public partial class SaveManager : Node
             }
 
             // Try to remove existing file first (Windows requires this before rename)
-            dir.Remove(fileName);
+            if (dir.FileExists(fileName))
+            {
+                var removeErr = dir.Remove(fileName);
+                if (removeErr != Error.Ok)
+                {
+                    GD.PushError($"Failed to remove existing save file: {removeErr}");
+                    // Continue anyway - rename might still work on some platforms
+                }
+            }
 
             var renameErr = dir.Rename(tempFileName, fileName);
             if (renameErr != Error.Ok)

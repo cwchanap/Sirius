@@ -160,14 +160,25 @@ public partial class SaveManager : Node
                 return false;
             }
 
-            // Try to remove existing file first (Windows requires this before rename)
-            if (dir.FileExists(fileName))
+            // Safely replace existing file: rename old to backup, then rename temp to target.
+            // If rename fails, restore from backup to avoid data loss.
+            string backupFileName = $"{fileName}.bak";
+            bool hadExisting = dir.FileExists(fileName);
+
+            if (hadExisting)
             {
-                var removeErr = dir.Remove(fileName);
-                if (removeErr != Error.Ok)
+                // Remove stale backup if present
+                if (dir.FileExists(backupFileName))
                 {
-                    GD.PushError($"Failed to remove existing save file: {removeErr}");
-                    // Continue anyway - rename might still work on some platforms
+                    dir.Remove(backupFileName);
+                }
+
+                var backupErr = dir.Rename(fileName, backupFileName);
+                if (backupErr != Error.Ok)
+                {
+                    GD.PushError($"Failed to back up existing save file: {backupErr}");
+                    dir.Remove(tempFileName);
+                    return false;
                 }
             }
 
@@ -176,7 +187,27 @@ public partial class SaveManager : Node
             {
                 GD.PushError($"Failed to finalize save file: {renameErr}");
                 dir.Remove(tempFileName);
+
+                // Restore original file from backup
+                if (hadExisting && dir.FileExists(backupFileName))
+                {
+                    var restoreErr = dir.Rename(backupFileName, fileName);
+                    if (restoreErr != Error.Ok)
+                    {
+                        GD.PushError($"Failed to restore backup save file: {restoreErr}");
+                    }
+                    else
+                    {
+                        GD.Print("Restored original save file from backup after failed rename");
+                    }
+                }
                 return false;
+            }
+
+            // Clean up backup after successful rename
+            if (hadExisting && dir.FileExists(backupFileName))
+            {
+                dir.Remove(backupFileName);
             }
 
             GD.Print($"Game saved successfully to {path}");

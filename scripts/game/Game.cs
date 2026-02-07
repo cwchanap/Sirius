@@ -129,6 +129,14 @@ public partial class Game : Node2D
             _gameManager.ResetBattleState();
             // Ensure the player is reinitialized if previous run ended in defeat
             _gameManager.EnsureFreshPlayer();
+
+            // If save data was present but rejected, FloorManager._Ready() already
+            // skipped its initial LoadFloor(0). Load the default floor explicitly.
+            if (skipLoad)
+            {
+                GD.Print("Save data rejected, loading default floor");
+                CallDeferred(nameof(LoadFloorFromSave), 0, _floorManager.GetFloorByIndex(0)?.PlayerStartPosition ?? Vector2I.Zero);
+            }
         }
 
         // Update UI after all initialization is complete
@@ -534,8 +542,8 @@ public partial class Game : Node2D
         _battleManager.Confirmed -= OnBattleDialogConfirmed;
         
         // End the battle in game manager FIRST to allow player movement
-        // Pass true if either won or escaped - this just ends the battle state
-        _gameManager.EndBattle(playerWon || playerEscaped);
+        // Only pass actual victory state - escape should not trigger auto-save
+        _gameManager.EndBattle(playerWon);
         GD.Print($"Battle state ended in GameManager. IsInBattle: {_gameManager.IsInBattle}");
         
         if (playerWon)

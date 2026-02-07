@@ -55,16 +55,7 @@ public partial class Game : Node2D
         // Set FloorManager reference in GameManager for save system
         _gameManager.SetFloorManager(_floorManager);
 
-        // Connect signals BEFORE checking save data, so signals are always connected even if save is corrupted
-        _gameManager.BattleStarted += OnBattleStarted;
-        _gameManager.BattleEnded += OnBattleEnded;
-        _gameManager.PlayerStatsChanged += OnPlayerStatsChanged;
-
-        // Connect to FloorManager for floor loading
-        _floorManager.FloorLoaded += OnFloorLoaded;
-        _floorManager.FloorChanged += OnFloorChanged;
-
-        // Initialize HUD labels BEFORE loading save data (LoadFromSaveData may emit PlayerStatsChanged)
+        // Initialize HUD labels BEFORE connecting signals (LoadFromSaveData may emit PlayerStatsChanged)
         _playerNameLabel =
             GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerName") ??
             GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerName");
@@ -80,6 +71,15 @@ public partial class Game : Node2D
         _playerGoldLabel =
             GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerGold") ??
             GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerGold");
+
+        // Connect signals AFTER HUD labels are initialized, so signals are always connected even if save is corrupted
+        _gameManager.BattleStarted += OnBattleStarted;
+        _gameManager.BattleEnded += OnBattleEnded;
+        _gameManager.PlayerStatsChanged += OnPlayerStatsChanged;
+
+        // Connect to FloorManager for floor loading
+        _floorManager.FloorLoaded += OnFloorLoaded;
+        _floorManager.FloorChanged += OnFloorChanged;
 
         // Check for pending load data from main menu
         bool hadPendingData = SaveManager.Instance?.PendingLoadData != null;

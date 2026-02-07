@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 public partial class Game : Node2D
 {
@@ -81,6 +82,7 @@ public partial class Game : Node2D
             GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerGold");
 
         // Check for pending load data from main menu
+        bool skipLoad = false;
         if (SaveManager.Instance?.PendingLoadData != null)
         {
             var loadData = SaveManager.Instance.PendingLoadData;
@@ -91,32 +93,36 @@ public partial class Game : Node2D
             {
                 GD.PushError("Save data corrupted: Missing player position");
                 ShowCorruptedSaveError();
-                return;
+                skipLoad = true;
             }
 
-            if (loadData.Character == null)
+            if (!skipLoad && loadData.Character == null)
             {
                 GD.PushError("Save data corrupted: Missing character data");
                 ShowCorruptedSaveError();
-                return;
+                skipLoad = true;
             }
 
-            if (loadData.CurrentFloorIndex < 0 || loadData.CurrentFloorIndex >= _floorManager.GetFloorCount())
+            if (!skipLoad && (loadData.CurrentFloorIndex < 0 || loadData.CurrentFloorIndex >= _floorManager.GetFloorCount()))
             {
                 GD.PushError($"Save data corrupted: Invalid floor index {loadData.CurrentFloorIndex}");
                 ShowCorruptedSaveError();
-                return;
+                skipLoad = true;
             }
 
-            GD.Print($"Loading save data: Floor {loadData.CurrentFloorIndex}, Position ({loadData.PlayerPosition.X}, {loadData.PlayerPosition.Y})");
+            if (!skipLoad)
+            {
+                GD.Print($"Loading save data: Floor {loadData.CurrentFloorIndex}, Position ({loadData.PlayerPosition.X}, {loadData.PlayerPosition.Y})");
 
-            // Load player state
-            _gameManager.LoadFromSaveData(loadData);
+                // Load player state
+                _gameManager.LoadFromSaveData(loadData);
 
-            // Load floor with saved position (deferred to after FloorManager is ready)
-            CallDeferred(nameof(LoadFloorFromSave), loadData.CurrentFloorIndex, loadData.PlayerPosition.ToVector2I());
+                // Load floor with saved position (deferred to after FloorManager is ready)
+                CallDeferred(nameof(LoadFloorFromSave), loadData.CurrentFloorIndex, loadData.PlayerPosition.ToVector2I());
+            }
         }
-        else
+
+        if (skipLoad || SaveManager.Instance?.PendingLoadData == null)
         {
             // Reset battle state to ensure clean start
             _gameManager.ResetBattleState();
@@ -563,10 +569,14 @@ public partial class Game : Node2D
             int effectiveDefense = player.GetEffectiveDefense();
             int effectiveSpeed = player.GetEffectiveSpeed();
 
-            _playerNameLabel.Text = player.Name;
-            _playerLevelLabel.Text = $"Level: {player.Level}";
-            _playerHealthLabel.Text = $"HP: {player.CurrentHealth}/{effectiveMaxHealth}";
-            _playerExperienceLabel.Text = $"EXP: {player.Experience}/{player.ExperienceToNext}";
+            if (_playerNameLabel != null)
+                _playerNameLabel.Text = player.Name;
+            if (_playerLevelLabel != null)
+                _playerLevelLabel.Text = $"Level: {player.Level}";
+            if (_playerHealthLabel != null)
+                _playerHealthLabel.Text = $"HP: {player.CurrentHealth}/{effectiveMaxHealth}";
+            if (_playerExperienceLabel != null)
+                _playerExperienceLabel.Text = $"EXP: {player.Experience}/{player.ExperienceToNext}";
             if (_playerGoldLabel != null)
             {
                 _playerGoldLabel.Text = $"Gold: {player.Gold}";
@@ -755,13 +765,16 @@ public partial class Game : Node2D
         GetNode("UI").AddChild(popup);
         popup.PopupCentered();
 
-        // Return to main menu after confirmation
-        popup.Confirmed += () =>
+        // Return to main menu after confirmation or cancellation
+        Action cleanupAndReturn = () =>
         {
             if (IsInstanceValid(popup))
                 popup.QueueFree();
             GetTree().ChangeSceneToFile("res://scenes/ui/MainMenu.tscn");
         };
+
+        popup.Confirmed += cleanupAndReturn;
+        popup.Canceled += cleanupAndReturn;
     }
 
     private void OnPlayerStatsChanged()

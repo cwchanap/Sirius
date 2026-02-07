@@ -56,6 +56,7 @@ public partial class SaveLoadDialog : AcceptDialog
             slotLabel.Text = i == 3 ? "Autosave - Empty" : $"Slot {i + 1} - Empty";
             slotLabel.HorizontalAlignment = HorizontalAlignment.Center;
             slotLabel.VerticalAlignment = VerticalAlignment.Center;
+            slotLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
 
             slotButton.AddChild(slotLabel);
             _slotContainer.AddChild(slotButton);

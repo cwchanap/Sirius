@@ -397,6 +397,47 @@ public partial class SaveManagerTest : Node
     }
 
     [TestCase]
+    public void TestSaveGame_OverwriteExistingSlot_PreservesDataOnSuccess()
+    {
+        // Arrange
+        var saveManager = new SaveManager();
+        var originalData = new SaveData
+        {
+            Version = 1,
+            CurrentFloorIndex = 1,
+            PlayerPosition = new Vector2IDto { X = 10, Y = 20 },
+            Character = new CharacterSaveData { Name = "Original", Level = 5 }
+        };
+        var updatedData = new SaveData
+        {
+            Version = 1,
+            CurrentFloorIndex = 3,
+            PlayerPosition = new Vector2IDto { X = 50, Y = 60 },
+            Character = new CharacterSaveData { Name = "Updated", Level = 10 }
+        };
+
+        // Act - Save original, then overwrite with updated
+        bool firstSave = saveManager.SaveGame(0, originalData);
+        AssertThat(firstSave).IsTrue();
+        bool secondSave = saveManager.SaveGame(0, updatedData);
+        AssertThat(secondSave).IsTrue();
+
+        // Assert - Loaded data should be the updated version
+        var loaded = saveManager.LoadGame(0);
+        AssertThat(loaded).IsNotNull();
+        AssertThat(loaded.Character.Name).IsEqual("Updated");
+        AssertThat(loaded.Character.Level).IsEqual(10);
+        AssertThat(loaded.CurrentFloorIndex).IsEqual(3);
+
+        // Verify no stale .bak file remains
+        AssertThat(FileAccess.FileExists("user://saves/slot_0.json.bak")).IsFalse();
+
+        // Cleanup
+        saveManager.DeleteSave(0);
+        saveManager.Free();
+    }
+
+    [TestCase]
     public void TestDeleteSave_InvalidSlots_ReturnsFalse()
     {
         // Arrange

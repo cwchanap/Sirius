@@ -201,6 +201,8 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        // Ensure slot is empty before test to avoid flaky behavior
+        saveManager.DeleteSave(0);
 
         // Act - Try to save null data
         bool result = saveManager.SaveGame(0, null);

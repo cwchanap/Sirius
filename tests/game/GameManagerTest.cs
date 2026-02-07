@@ -196,11 +196,12 @@ public partial class GameManagerTest : Node
     [TestCase]
     public void TestEnsureFreshPlayer_CreatesNewPlayerIfNull()
     {
-        // Arrange
-        // Use reflection to set Player to null (access backing field of auto-property)
+        // Arrange - Set Player to null using backing field
         var field = typeof(GameManager).GetField("<Player>k__BackingField",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        field?.SetValue(_gameManager, null);
+        AssertThat(field).IsNotNull();
+        field!.SetValue(_gameManager, null);
+        AssertThat(_gameManager.Player).IsNull();
 
         // Act
         _gameManager.EnsureFreshPlayer();
@@ -286,7 +287,9 @@ public partial class GameManagerTest : Node
         // Arrange - Set Player to null using backing field
         var field = typeof(GameManager).GetField("<Player>k__BackingField",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        field?.SetValue(_gameManager, null);
+        AssertThat(field).IsNotNull();
+        field!.SetValue(_gameManager, null);
+        AssertThat(_gameManager.Player).IsNull();
 
         // Act
         var saveData = _gameManager.CollectSaveData();
@@ -326,7 +329,11 @@ public partial class GameManagerTest : Node
     [TestCase]
     public void TestLoadFromSaveData_HandlesNullSaveData()
     {
-        // Arrange
+        // Arrange - Ensure Player is initialized (defensive check)
+        if (_gameManager.Player == null)
+        {
+            _gameManager.EnsureFreshPlayer();
+        }
         var originalPlayerName = _gameManager.Player.Name;
 
         // Act
@@ -340,7 +347,11 @@ public partial class GameManagerTest : Node
     [TestCase]
     public void TestLoadFromSaveData_HandlesNullCharacter()
     {
-        // Arrange
+        // Arrange - Ensure Player is initialized (defensive check)
+        if (_gameManager.Player == null)
+        {
+            _gameManager.EnsureFreshPlayer();
+        }
         var saveData = new SaveData
         {
             Character = null,
@@ -399,7 +410,9 @@ public partial class GameManagerTest : Node
         // Arrange - Set Player to null using backing field
         var field = typeof(GameManager).GetField("<Player>k__BackingField",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        field?.SetValue(_gameManager, null);
+        AssertThat(field).IsNotNull();
+        field!.SetValue(_gameManager, null);
+        AssertThat(_gameManager.Player).IsNull();
 
         // Act - Should not crash
         _gameManager.TriggerAutoSave();

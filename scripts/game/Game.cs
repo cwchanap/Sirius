@@ -82,8 +82,9 @@ public partial class Game : Node2D
             GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerGold");
 
         // Check for pending load data from main menu
+        bool hadPendingData = SaveManager.Instance?.PendingLoadData != null;
         bool skipLoad = false;
-        if (SaveManager.Instance?.PendingLoadData != null)
+        if (hadPendingData)
         {
             var loadData = SaveManager.Instance.PendingLoadData;
             SaveManager.Instance.PendingLoadData = null;
@@ -122,7 +123,7 @@ public partial class Game : Node2D
             }
         }
 
-        if (skipLoad || SaveManager.Instance?.PendingLoadData == null)
+        if (skipLoad || !hadPendingData)
         {
             // Reset battle state to ensure clean start
             _gameManager.ResetBattleState();

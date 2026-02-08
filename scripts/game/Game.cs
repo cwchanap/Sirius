@@ -758,8 +758,13 @@ public partial class Game : Node2D
         GetNode("UI").AddChild(popup);
         popup.PopupCentered();
 
-        // Clean up when confirmed
+        // Clean up when confirmed or canceled
         popup.Confirmed += () =>
+        {
+            if (IsInstanceValid(popup))
+                popup.QueueFree();
+        };
+        popup.Canceled += () =>
         {
             if (IsInstanceValid(popup))
                 popup.QueueFree();

@@ -97,6 +97,15 @@ public partial class SaveLoadDialog : AcceptDialog
         CloseRequested += OnCloseRequested;
     }
 
+    public override void _ExitTree()
+    {
+        CloseRequested -= OnCloseRequested;
+        if (_mainMenuButton != null)
+            _mainMenuButton.Pressed -= OnMainMenuPressed;
+        if (_cancelButton != null)
+            _cancelButton.Pressed -= OnCancelPressed;
+    }
+
     /// <summary>
     /// Shows the dialog in the specified mode.
     /// </summary>

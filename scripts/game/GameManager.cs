@@ -193,6 +193,9 @@ public partial class GameManager : Node
     /// <summary>
     /// Triggers an auto-save to the autosave slot.
     /// </summary>
+    // TODO: Save data does not track defeated enemies. Loading an auto-save after
+    // a battle victory will respawn the defeated enemy, allowing infinite XP/gold.
+    // Consider adding a DefeatedEnemies list to SaveData to persist removal state.
     public void TriggerAutoSave()
     {
         var saveData = CollectSaveData();

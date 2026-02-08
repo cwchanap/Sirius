@@ -24,6 +24,13 @@ public partial class FloorManager : Node
     public int CurrentFloorIndex => _currentFloorIndex;
     public FloorDefinition CurrentFloorDefinition => Floors.Count > _currentFloorIndex ? Floors[_currentFloorIndex] : null;
     public GridMap CurrentGridMap => _currentGridMap;
+
+    /// <summary>
+    /// Set to true by the parent (Game) before _Ready runs to skip the default
+    /// initial floor load. This replaces the implicit PendingLoadData timing check
+    /// so the behaviour is independent of _Ready call order.
+    /// </summary>
+    public bool SkipInitialFloorLoad { get; set; }
     
     public override void _Ready()
     {
@@ -43,7 +50,7 @@ public partial class FloorManager : Node
             GD.Print($"   Floor[{i}]: {floor?.FloorName ?? "null"}, Scene: {floor?.FloorScene?.ResourcePath ?? "null"}");
         }
         
-        if (SaveManager.Instance?.PendingLoadData != null)
+        if (SkipInitialFloorLoad || SaveManager.Instance?.PendingLoadData != null)
         {
             GD.Print("🏢 Pending save detected; skipping initial floor load.");
             return;

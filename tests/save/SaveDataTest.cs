@@ -199,6 +199,28 @@ public partial class SaveDataTest : Node
     }
 
     [TestCase]
+    public void TestInventorySaveData_ToInventory_PartialAddDueToStackLimits()
+    {
+        // Arrange - Create a save with quantity exceeding max stack size (test_potion max stack = 10)
+        var saveData = new InventorySaveData
+        {
+            MaxItemTypes = 50,
+            Entries = new System.Collections.Generic.List<InventoryEntryDto>
+            {
+                new InventoryEntryDto { ItemId = "test_potion", Quantity = 25 } // Max stack is 10
+            }
+        };
+
+        // Act
+        var inventory = saveData.ToInventory();
+
+        // Assert - Should have partially added items up to stack limit
+        AssertThat(inventory.ContainsItem("test_potion")).IsTrue();
+        // The actual quantity should be capped at max stack size (10)
+        AssertThat(inventory.GetQuantity("test_potion")).IsEqual(10);
+    }
+
+    [TestCase]
     public void TestInventorySaveData_ToInventory_WithKnownItems()
     {
         // Arrange

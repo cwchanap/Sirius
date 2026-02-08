@@ -351,6 +351,19 @@ public partial class SaveManager : Node
                 };
             }
 
+            // Validate critical save data fields
+            if (data.PlayerPosition == null || data.Character == null || data.CurrentFloorIndex < 0)
+            {
+                return new SaveSlotInfo
+                {
+                    Exists = true,
+                    IsCorrupted = true,
+                    SlotIndex = slot,
+                    PlayerName = "Corrupted Save",
+                    PlayerLevel = 0
+                };
+            }
+
             return new SaveSlotInfo
             {
                 Exists = true,

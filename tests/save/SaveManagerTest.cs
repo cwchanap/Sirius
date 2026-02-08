@@ -269,6 +269,7 @@ public partial class SaveManagerTest : Node
         {
             Version = 1,
             CurrentFloorIndex = 5,
+            PlayerPosition = new Vector2IDto { X = 10, Y = 20 },
             Character = new CharacterSaveData { Name = "Hero", Level = 10 }
         };
 

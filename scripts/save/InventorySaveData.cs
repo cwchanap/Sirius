@@ -50,13 +50,17 @@ public class InventorySaveData
                 continue;
             }
 
-            if (!inventory.TryAddItem(item, entry.Quantity, out int overflow))
+            if (!inventory.TryAddItem(item, entry.Quantity, out int addedQuantity))
             {
-                GD.PushWarning($"Save load: Could not fully restore {entry.ItemId} x{entry.Quantity} - inventory full or invalid");
-            }
-            else if (overflow > 0)
-            {
-                GD.PushWarning($"Save load: Could not fully restore {entry.ItemId} - {overflow} items lost due to inventory limits");
+                if (addedQuantity > 0)
+                {
+                    int lost = entry.Quantity - addedQuantity;
+                    GD.PushWarning($"Save load: Could not fully restore {entry.ItemId} - {lost} items lost due to stack limits");
+                }
+                else
+                {
+                    GD.PushWarning($"Save load: Could not add {entry.ItemId} x{entry.Quantity} - inventory full or invalid");
+                }
             }
         }
 

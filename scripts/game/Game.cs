@@ -134,20 +134,22 @@ public partial class Game : Node2D
             }
         }
 
-        if (skipLoad || !hadPendingData)
+        if (skipLoad)
         {
-            // Reset battle state to ensure clean start
+            // Save data was corrupted - don't initialize game, just show error and return to menu
+            GD.Print("Save data corrupted, aborting game initialization");
+            // Still need fresh player state for clean state, but skip floor loading
             _gameManager.ResetBattleState();
-            // Ensure the player is reinitialized if previous run ended in defeat
             _gameManager.EnsureFreshPlayer();
-
-            // If save data was present but rejected, FloorManager._Ready() already
-            // skipped its initial LoadFloor(0). Load the default floor explicitly.
-            if (skipLoad)
-            {
-                GD.Print("Save data rejected, loading default floor");
-                CallDeferred(nameof(LoadFloorFromSave), 0, _floorManager.GetFloorByIndex(0)?.PlayerStartPosition ?? Vector2I.Zero);
-            }
+        }
+        else if (!hadPendingData)
+        {
+            // No save data - start new game with default floor
+            _gameManager.ResetBattleState();
+            _gameManager.EnsureFreshPlayer();
+            
+            // Load default floor (FloorManager._Ready() skipped initial load)
+            CallDeferred(nameof(LoadFloorFromSave), 0, _floorManager.GetFloorByIndex(0)?.PlayerStartPosition ?? Vector2I.Zero);
         }
 
         // Update UI after all initialization is complete

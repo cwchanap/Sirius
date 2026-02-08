@@ -25,6 +25,17 @@ public partial class Game : Node2D
 
     private SaveLoadDialog _saveLoadDialog;
 
+    public override void _EnterTree()
+    {
+        // Set SkipInitialFloorLoad early (parent _EnterTree runs before children's _Ready)
+        // so FloorManager knows not to auto-load floor 0 when a save is pending.
+        var fm = GetNodeOrNull<FloorManager>("FloorManager");
+        if (fm != null && SaveManager.Instance?.PendingLoadData != null)
+        {
+            fm.SkipInitialFloorLoad = true;
+        }
+    }
+
     public override void _Ready()
     {
         GD.Print("Game scene loaded");
@@ -779,9 +790,12 @@ public partial class Game : Node2D
         GetNode("UI").AddChild(popup);
         popup.PopupCentered();
 
-        // Return to main menu after confirmation or cancellation
+        // Guard against double invocation (both Confirmed and Canceled can fire)
+        bool handled = false;
         Action cleanupAndReturn = () =>
         {
+            if (handled) return;
+            handled = true;
             if (IsInstanceValid(popup))
                 popup.QueueFree();
             GetTree().ChangeSceneToFile("res://scenes/ui/MainMenu.tscn");
@@ -799,6 +813,13 @@ public partial class Game : Node2D
     private void OnFloorLoaded(FloorDefinition floorDef, GridMap gridMap)
     {
         GD.Print($"🎮 Game.OnFloorLoaded: Floor '{floorDef.FloorName}' ready");
+        
+        // Disconnect signals from old GridMap to prevent handler accumulation
+        if (_gridMap != null)
+        {
+            _gridMap.EnemyEncountered -= OnEnemyEncountered;
+            _gridMap.PlayerMoved -= OnPlayerMoved;
+        }
         
         // Update dynamic GridMap reference
         _gridMap = gridMap;

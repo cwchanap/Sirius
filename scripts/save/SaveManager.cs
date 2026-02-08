@@ -14,6 +14,11 @@ public partial class SaveManager : Node
     private const string SlotFileFormat = "slot_{0}.json";
     private const string AutosaveFile = "autosave.json";
 
+    private static readonly System.Text.Json.JsonSerializerOptions _jsonOptions = new()
+    {
+        WriteIndented = true
+    };
+
     /// <summary>
     /// Pending save data for scene transitions (MainMenu -> Game).
     /// Set before changing to Game scene, cleared after loading.
@@ -28,7 +33,7 @@ public partial class SaveManager : Node
 
     public override void _Ready()
     {
-        if (Instance == null)
+        if (Instance == null || !IsInstanceValid(Instance))
         {
             Instance = this;
             EnsureSaveDirectoryExists();
@@ -41,7 +46,15 @@ public partial class SaveManager : Node
         }
     }
 
-    private void EnsureSaveDirectoryExists()
+    public override void _ExitTree()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+    }
+
+    internal void EnsureSaveDirectoryExists()
     {
         using var dir = DirAccess.Open("user://");
         if (dir != null && !dir.DirExists("saves"))
@@ -115,10 +128,7 @@ public partial class SaveManager : Node
             string path = $"{SaveDir}/{fileName}";
             string tempFileName = $"{fileName}.tmp";
             string tempPath = $"{SaveDir}/{tempFileName}";
-            string json = JsonSerializer.Serialize(data, new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
+            string json = JsonSerializer.Serialize(data, _jsonOptions);
 
             using var file = FileAccess.Open(tempPath, FileAccess.ModeFlags.Write);
             if (file == null)

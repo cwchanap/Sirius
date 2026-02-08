@@ -11,6 +11,7 @@ public partial class SaveManagerTest : Node
     {
         // Valid slots are 0, 1, 2 (manual) and 3 (autosave)
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
         saveManager.DeleteSave(0);
         saveManager.DeleteSave(1);
         saveManager.DeleteSave(2);
@@ -130,6 +131,7 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
         var saveData = new SaveData
         {
             Version = 1,
@@ -168,6 +170,7 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
         var saveData = new SaveData
         {
             Version = 1,
@@ -201,6 +204,7 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
         // Ensure slot is empty before test to avoid flaky behavior
         saveManager.DeleteSave(0);
 
@@ -219,6 +223,7 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
         var saveData = new SaveData { Version = 1 };
 
         // Act & Assert - Invalid slots should fail
@@ -239,6 +244,7 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
 
         // Ensure slot is empty
         saveManager.DeleteSave(0);
@@ -258,6 +264,7 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
         var saveData = new SaveData
         {
             Version = 1,
@@ -287,6 +294,7 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
         string savePath = "user://saves/slot_0.json";
 
         // Write invalid JSON to file
@@ -312,6 +320,7 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
         string savePath = "user://saves/slot_0.json";
 
         // Write empty file
@@ -337,6 +346,7 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
         string savePath = "user://saves/slot_0.json";
 
         // Write JSON with future version
@@ -372,6 +382,7 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
         string savePath = "user://saves/slot_1.json";
 
         // Write invalid JSON
@@ -401,6 +412,7 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
         var originalData = new SaveData
         {
             Version = 1,
@@ -442,6 +454,7 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
 
         // Act & Assert - Invalid slots should return false
         AssertThat(saveManager.DeleteSave(-1)).IsFalse();
@@ -455,6 +468,7 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
         // Ensure file doesn't exist
         saveManager.DeleteSave(2);
 
@@ -472,6 +486,7 @@ public partial class SaveManagerTest : Node
     {
         // Arrange
         var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
         var saveData = new SaveData
         {
             Version = 1,

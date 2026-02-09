@@ -73,6 +73,6 @@ public class InventorySaveData
 /// </summary>
 public class InventoryEntryDto
 {
-    public string ItemId { get; set; }
+    public string? ItemId { get; set; }
     public int Quantity { get; set; }
 }

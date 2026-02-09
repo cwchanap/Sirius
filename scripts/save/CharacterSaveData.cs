@@ -5,7 +5,7 @@ using Godot;
 /// </summary>
 public class CharacterSaveData
 {
-    public string Name { get; set; }
+    public string? Name { get; set; }
     public int Level { get; set; }
     public int MaxHealth { get; set; }
     public int CurrentHealth { get; set; }
@@ -15,10 +15,10 @@ public class CharacterSaveData
     public int Experience { get; set; }
     public int ExperienceToNext { get; set; }
     public int Gold { get; set; }
-    public InventorySaveData Inventory { get; set; }
-    public EquipmentSaveData Equipment { get; set; }
+    public InventorySaveData? Inventory { get; set; }
+    public EquipmentSaveData? Equipment { get; set; }
 
-    public static CharacterSaveData FromCharacter(Character c)
+    public static CharacterSaveData? FromCharacter(Character? c)
     {
         if (c == null) return null;
 

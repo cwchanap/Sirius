@@ -25,7 +25,7 @@ public static class ItemCatalog
     /// </summary>
     /// <param name="id">The item ID (e.g., "wooden_sword")</param>
     /// <returns>A new Item instance, or null if ID not found</returns>
-    public static Item CreateItemById(string id)
+    public static Item? CreateItemById(string? id)
     {
         if (string.IsNullOrWhiteSpace(id))
             return null;

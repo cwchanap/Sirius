@@ -19,7 +19,8 @@ public partial class ItemCatalogTest : Node
         AssertThat(item).IsInstanceOf<EquipmentItem>();
 
         var equipment = item as EquipmentItem;
-        AssertThat(equipment.SlotType).IsEqual(EquipmentSlotType.Weapon);
+        AssertThat(equipment).IsNotNull();
+        AssertThat(equipment!.SlotType).IsEqual(EquipmentSlotType.Weapon);
         AssertThat(equipment.AttackBonus).IsEqual(10);
     }
 
@@ -34,7 +35,8 @@ public partial class ItemCatalogTest : Node
         AssertThat(item.Id).IsEqual("wooden_armor");
 
         var equipment = item as EquipmentItem;
-        AssertThat(equipment.SlotType).IsEqual(EquipmentSlotType.Armor);
+        AssertThat(equipment).IsNotNull();
+        AssertThat(equipment!.SlotType).IsEqual(EquipmentSlotType.Armor);
         AssertThat(equipment.DefenseBonus).IsEqual(8);
     }
 
@@ -49,7 +51,8 @@ public partial class ItemCatalogTest : Node
         AssertThat(item.Id).IsEqual("wooden_shield");
 
         var equipment = item as EquipmentItem;
-        AssertThat(equipment.SlotType).IsEqual(EquipmentSlotType.Shield);
+        AssertThat(equipment).IsNotNull();
+        AssertThat(equipment!.SlotType).IsEqual(EquipmentSlotType.Shield);
         AssertThat(equipment.DefenseBonus).IsEqual(5);
     }
 
@@ -64,7 +67,8 @@ public partial class ItemCatalogTest : Node
         AssertThat(item.Id).IsEqual("wooden_helmet");
 
         var equipment = item as EquipmentItem;
-        AssertThat(equipment.SlotType).IsEqual(EquipmentSlotType.Helmet);
+        AssertThat(equipment).IsNotNull();
+        AssertThat(equipment!.SlotType).IsEqual(EquipmentSlotType.Helmet);
         AssertThat(equipment.HealthBonus).IsEqual(50);
     }
 
@@ -79,7 +83,8 @@ public partial class ItemCatalogTest : Node
         AssertThat(item.Id).IsEqual("wooden_shoes");
 
         var equipment = item as EquipmentItem;
-        AssertThat(equipment.SlotType).IsEqual(EquipmentSlotType.Shoe);
+        AssertThat(equipment).IsNotNull();
+        AssertThat(equipment!.SlotType).IsEqual(EquipmentSlotType.Shoe);
         AssertThat(equipment.SpeedBonus).IsEqual(2);
     }
 

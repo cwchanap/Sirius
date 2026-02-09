@@ -438,7 +438,8 @@ public partial class SaveManagerTest : Node
         // Assert - Loaded data should be the updated version
         var loaded = saveManager.LoadGame(0);
         AssertThat(loaded).IsNotNull();
-        AssertThat(loaded.Character.Name).IsEqual("Updated");
+        AssertThat(loaded!.Character).IsNotNull();
+        AssertThat(loaded.Character!.Name).IsEqual("Updated");
         AssertThat(loaded.Character.Level).IsEqual(10);
         AssertThat(loaded.CurrentFloorIndex).IsEqual(3);
 

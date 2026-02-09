@@ -245,7 +245,7 @@ public partial class GameManager : Node
             Character = CharacterSaveData.FromCharacter(Player),
             CurrentFloorIndex = _floorManager.CurrentFloorIndex,
             PlayerPosition = new Vector2IDto(_floorManager.CurrentGridMap.GetPlayerPosition()),
-            SaveTimestamp = System.DateTime.Now
+            SaveTimestamp = System.DateTime.UtcNow
         };
     }
 
@@ -260,6 +260,10 @@ public partial class GameManager : Node
             GD.PushError("Cannot load from null or invalid SaveData");
             return;
         }
+
+        // Defensive: ensure battle state is reset when loading a save
+        // (GameManager is scene-local, but this guards against future persistence changes)
+        ResetBattleState();
 
         Player = data.Character.ToCharacter();
         GD.Print($"Player loaded from save: {Player.Name}, Level {Player.Level}");

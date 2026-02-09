@@ -24,6 +24,7 @@ public partial class SaveLoadDialog : AcceptDialog
     private Label[] _slotLabels = new Label[4];
     private Button _mainMenuButton;
     private Button _cancelButton;
+    private Action[] _slotButtonHandlers = new Action[4];
 
     public override void _Ready()
     {
@@ -65,7 +66,8 @@ public partial class SaveLoadDialog : AcceptDialog
             _slotLabels[i] = slotLabel;
 
             int slotIndex = i; // Capture for closure
-            slotButton.Pressed += () => OnSlotPressed(slotIndex);
+            _slotButtonHandlers[i] = () => OnSlotPressed(slotIndex);
+            slotButton.Pressed += _slotButtonHandlers[i];
         }
 
         // Add spacer
@@ -104,6 +106,15 @@ public partial class SaveLoadDialog : AcceptDialog
             _mainMenuButton.Pressed -= OnMainMenuPressed;
         if (_cancelButton != null)
             _cancelButton.Pressed -= OnCancelPressed;
+
+        // Disconnect slot button handlers
+        for (int i = 0; i < _slotButtons.Length; i++)
+        {
+            if (_slotButtons[i] != null && _slotButtonHandlers[i] != null)
+            {
+                _slotButtons[i].Pressed -= _slotButtonHandlers[i];
+            }
+        }
     }
 
     /// <summary>

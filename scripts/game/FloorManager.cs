@@ -27,8 +27,8 @@ public partial class FloorManager : Node
 
     /// <summary>
     /// Set to true by the parent (Game) before _Ready runs to skip the default
-    /// initial floor load. This replaces the implicit PendingLoadData timing check
-    /// so the behaviour is independent of _Ready call order.
+    /// initial floor load. _Ready also checks PendingLoadData as a fallback
+    /// safety net in case the flag was not set.
     /// </summary>
     public bool SkipInitialFloorLoad { get; set; }
     

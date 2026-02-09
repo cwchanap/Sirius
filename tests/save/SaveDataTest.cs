@@ -74,7 +74,8 @@ public partial class SaveDataTest : Node
         var saveData = CharacterSaveData.FromCharacter(character);
 
         // Assert
-        AssertThat(saveData.Name).IsEqual("TestHero");
+        AssertThat(saveData).IsNotNull();
+        AssertThat(saveData!.Name).IsEqual("TestHero");
         AssertThat(saveData.Level).IsEqual(5);
         AssertThat(saveData.MaxHealth).IsEqual(150);
         AssertThat(saveData.CurrentHealth).IsEqual(120);
@@ -142,7 +143,8 @@ public partial class SaveDataTest : Node
 
         // Act
         var saveData = CharacterSaveData.FromCharacter(original);
-        var restored = saveData.ToCharacter();
+        AssertThat(saveData).IsNotNull();
+        var restored = saveData!.ToCharacter();
 
         // Assert
         AssertThat(restored.Name).IsEqual(original.Name);
@@ -370,7 +372,7 @@ public partial class SaveDataTest : Node
     public void TestEquipmentSaveData_FromNullReturnsEmpty()
     {
         // Act
-        var saveData = EquipmentSaveData.FromEquipmentSet(null);
+        var saveData = EquipmentSaveData.FromEquipmentSet(null!);
 
         // Assert
         AssertThat(saveData).IsNotNull();
@@ -410,13 +412,16 @@ public partial class SaveDataTest : Node
 
         // Assert
         AssertThat(deserialized).IsNotNull();
-        AssertThat(deserialized.Version).IsEqual(1);
+        AssertThat(deserialized!.Version).IsEqual(1);
         AssertThat(deserialized.CurrentFloorIndex).IsEqual(2);
-        AssertThat(deserialized.PlayerPosition.X).IsEqual(50);
+        AssertThat(deserialized.PlayerPosition).IsNotNull();
+        AssertThat(deserialized.PlayerPosition!.X).IsEqual(50);
         AssertThat(deserialized.PlayerPosition.Y).IsEqual(75);
-        AssertThat(deserialized.Character.Name).IsEqual("TestHero");
+        AssertThat(deserialized.Character).IsNotNull();
+        AssertThat(deserialized.Character!.Name).IsEqual("TestHero");
         AssertThat(deserialized.Character.Level).IsEqual(5);
-        AssertThat(deserialized.Character.Equipment.WeaponId).IsEqual("wooden_sword");
+        AssertThat(deserialized.Character.Equipment).IsNotNull();
+        AssertThat(deserialized.Character.Equipment!.WeaponId).IsEqual("wooden_sword");
     }
 
     [TestCase]

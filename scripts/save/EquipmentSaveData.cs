@@ -6,12 +6,12 @@ using System.Collections.Generic;
 /// </summary>
 public class EquipmentSaveData
 {
-    public string WeaponId { get; set; }
-    public string ShieldId { get; set; }
-    public string ArmorId { get; set; }
-    public string HelmetId { get; set; }
-    public string ShoeId { get; set; }
-    public List<string> AccessoryIds { get; set; } = new();
+    public string? WeaponId { get; set; }
+    public string? ShieldId { get; set; }
+    public string? ArmorId { get; set; }
+    public string? HelmetId { get; set; }
+    public string? ShoeId { get; set; }
+    public List<string?> AccessoryIds { get; set; } = new();
 
     public static EquipmentSaveData FromEquipmentSet(EquipmentSet eq)
     {
@@ -58,7 +58,7 @@ public class EquipmentSaveData
         return equipmentSet;
     }
 
-    private void TryEquipById(EquipmentSet eq, string itemId, int accessorySlot = 0)
+    private void TryEquipById(EquipmentSet eq, string? itemId, int accessorySlot = 0)
     {
         if (string.IsNullOrEmpty(itemId)) return;
 

@@ -6,9 +6,9 @@ using System;
 public class SaveData
 {
     public int Version { get; set; } = 1;
-    public CharacterSaveData Character { get; set; }
+    public CharacterSaveData? Character { get; set; }
     public int CurrentFloorIndex { get; set; }
-    public Vector2IDto PlayerPosition { get; set; }
+    public Vector2IDto? PlayerPosition { get; set; }
     public DateTime SaveTimestamp { get; set; }
 }
 

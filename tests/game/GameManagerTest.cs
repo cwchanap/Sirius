@@ -334,10 +334,10 @@ public partial class GameManagerTest : Node
         {
             _gameManager.EnsureFreshPlayer();
         }
-        var originalPlayerName = _gameManager.Player.Name;
+        var originalPlayerName = _gameManager.Player!.Name;
 
         // Act
-        _gameManager.LoadFromSaveData(null);
+        _gameManager.LoadFromSaveData(null!);
 
         // Assert - Player should be unchanged
         AssertThat(_gameManager.Player).IsNotNull();
@@ -358,7 +358,7 @@ public partial class GameManagerTest : Node
             CurrentFloorIndex = 0,
             PlayerPosition = new Vector2IDto { X = 5, Y = 5 }
         };
-        var originalPlayerName = _gameManager.Player.Name;
+        var originalPlayerName = _gameManager.Player!.Name;
 
         // Act
         _gameManager.LoadFromSaveData(saveData);

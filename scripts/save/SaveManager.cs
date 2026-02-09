@@ -23,7 +23,7 @@ public partial class SaveManager : Node
     /// Pending save data for scene transitions (MainMenu -> Game).
     /// Set before changing to Game scene, cleared after loading.
     /// </summary>
-    public SaveData PendingLoadData { get; set; }
+    public SaveData? PendingLoadData { get; internal set; }
 
     [Signal]
     public delegate void SaveCompletedEventHandler(bool success, int slot);
@@ -233,7 +233,7 @@ public partial class SaveManager : Node
     /// <summary>
     /// Loads game from a manual slot (0-2).
     /// </summary>
-    public SaveData LoadGame(int slot)
+    public SaveData? LoadGame(int slot)
     {
         if (slot < 0 || slot > 2)
         {
@@ -251,14 +251,14 @@ public partial class SaveManager : Node
     /// <summary>
     /// Loads game from the autosave slot.
     /// </summary>
-    public SaveData LoadAutosave()
+    public SaveData? LoadAutosave()
     {
         var data = LoadFromFile(AutosaveFile);
         EmitSignal(SignalName.LoadCompleted, data != null, 3);
         return data;
     }
 
-    private SaveData LoadFromFile(string fileName)
+    private SaveData? LoadFromFile(string fileName)
     {
         try
         {
@@ -368,8 +368,8 @@ public partial class SaveManager : Node
             {
                 Exists = true,
                 SlotIndex = slot,
-                PlayerName = data.Character?.Name ?? "Unknown",
-                PlayerLevel = data.Character?.Level ?? 1,
+                PlayerName = data.Character.Name,
+                PlayerLevel = data.Character.Level,
                 FloorIndex = data.CurrentFloorIndex,
                 Timestamp = data.SaveTimestamp
             };
@@ -445,7 +445,7 @@ public class SaveSlotInfo
     public bool Exists { get; set; }
     public bool IsCorrupted { get; set; }
     public int SlotIndex { get; set; }
-    public string PlayerName { get; set; }
+    public string? PlayerName { get; set; }
     public int PlayerLevel { get; set; }
     public int FloorIndex { get; set; }
     public DateTime Timestamp { get; set; }

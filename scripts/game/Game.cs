@@ -535,7 +535,9 @@ public partial class Game : Node2D
         if (_gameManager.IsInBattle)
         {
             GD.Print("WARNING: Battle state still active after dialog close, forcing reset");
-            _gameManager.EndBattle(true); // Force end battle state
+            // Pass false to avoid triggering auto-save on a potentially lost/escaped battle.
+            // This is a safety fallback; normal battle completion handles victory auto-save.
+            _gameManager.EndBattle(false);
         }
     }
 

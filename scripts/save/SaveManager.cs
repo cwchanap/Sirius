@@ -343,11 +343,11 @@ public partial class SaveManager : Node
             using var doc = JsonDocument.Parse(jsonContent);
             var root = doc.RootElement;
             
-            // Extract version first for validation
+            // Extract version first for validation (allow older versions for migration)
             if (!root.TryGetProperty("Version", out var versionElement) || 
-                versionElement.GetInt32() != SaveData.CurrentVersion)
+                versionElement.GetInt32() > SaveData.CurrentVersion)
             {
-                return null; // Version mismatch or missing
+                return null; // Version too new or missing
             }
             
             // Extract timestamp

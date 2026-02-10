@@ -441,28 +441,46 @@ public partial class GameManagerTest : Node
     [TestCase]
     public void TestCollectSaveData_UsesUtcNow()
     {
-        // Arrange - Create FloorManager with mock GridMap for position
+        // Arrange - Create FloorManager and GridMap with reflection to set internal state
         var floorManager = new FloorManager();
+        var gridMap = new GridMap();
+
+        // Set up the scene tree
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        sceneTree.Root.AddChild(floorManager);
+        floorManager.AddChild(gridMap);
+
+        // Use reflection to set _currentGridMap field in FloorManager
+        var gridMapField = typeof(FloorManager).GetField("_currentGridMap",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        AssertThat(gridMapField).IsNotNull();
+        gridMapField!.SetValue(floorManager, gridMap);
+
+        // Set _playerPosition field in GridMap using reflection
+        var playerPosField = typeof(GridMap).GetField("_playerPosition",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        AssertThat(playerPosField).IsNotNull();
+        playerPosField!.SetValue(gridMap, new Vector2I(5, 5));
+
+        // Set FloorManager in GameManager
         _gameManager.SetFloorManager(floorManager);
 
-        // We can't easily mock GridMap, but we can verify the timestamp is UTC
-        // by checking that the difference between UtcNow and the save timestamp is small
+        // Capture timestamps before calling CollectSaveData
         var beforeSave = System.DateTime.UtcNow;
 
-        // Act - Try to collect save data (will fail without proper GridMap setup)
-        // Instead, we'll directly test the timestamp property can be set to UtcNow
-        var saveData = new SaveData
-        {
-            Version = 1,
-            SaveTimestamp = System.DateTime.UtcNow,
-            Character = CharacterSaveData.FromCharacter(_gameManager.Player)
-        };
+        // Act - Call CollectSaveData to exercise the actual save data collection
+        var saveData = _gameManager.CollectSaveData();
+
         var afterSave = System.DateTime.UtcNow;
 
-        // Assert - Verify the timestamp is UTC (Kind is Utc)
+        // Assert - Verify save data was collected successfully
+        AssertThat(saveData).IsNotNull();
         AssertThat(saveData.SaveTimestamp.Kind).IsEqual(System.DateTimeKind.Utc);
         // Verify timestamp is within valid range (between before and after)
         AssertThat(saveData.SaveTimestamp >= beforeSave && saveData.SaveTimestamp <= afterSave).IsTrue();
+        // Verify character data was collected
+        AssertThat(saveData.Character).IsNotNull();
+        AssertThat(saveData.Character.Name).IsEqual(_gameManager.Player.Name);
 
         // Cleanup
         floorManager.QueueFree();

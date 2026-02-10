@@ -364,11 +364,18 @@ public partial class SaveManager : Node
                 };
             }
 
+            // Guard against null or empty character names with a safe fallback
+            string playerName = data.Character.Name;
+            if (string.IsNullOrEmpty(playerName))
+            {
+                playerName = "Unknown";
+            }
+
             return new SaveSlotInfo
             {
                 Exists = true,
                 SlotIndex = slot,
-                PlayerName = data.Character.Name,
+                PlayerName = playerName,
                 PlayerLevel = data.Character.Level,
                 FloorIndex = data.CurrentFloorIndex,
                 Timestamp = data.SaveTimestamp

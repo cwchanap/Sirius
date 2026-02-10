@@ -264,11 +264,36 @@ public partial class SaveManager : Node
         try
         {
             string path = $"{SaveDir}/{fileName}";
+            string backupPath = $"{SaveDir}/{fileName}.bak";
 
+            // If primary file is missing, check for backup file
+            // This handles crash/power interruption during save operation
             if (!FileAccess.FileExists(path))
             {
-                GD.Print($"Save file not found: {path}");
-                return null;
+                if (FileAccess.FileExists(backupPath))
+                {
+                    GD.Print($"Primary save file missing, attempting to restore from backup: {backupPath}");
+                    using var dir = DirAccess.Open(SaveDir);
+                    if (dir != null)
+                    {
+                        var restoreErr = dir.Rename($"{fileName}.bak", fileName);
+                        if (restoreErr == Error.Ok)
+                        {
+                            GD.Print($"Successfully restored save file from backup: {path}");
+                        }
+                        else
+                        {
+                            GD.PushError($"Failed to restore backup save file: {restoreErr}");
+                            // Fallback: try reading the backup directly
+                            path = backupPath;
+                        }
+                    }
+                }
+                else
+                {
+                    GD.Print($"Save file not found: {path}");
+                    return null;
+                }
             }
 
             using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
@@ -455,16 +480,48 @@ public partial class SaveManager : Node
 
         string fileName = GetSlotFileName(slot);
         string path = $"{SaveDir}/{fileName}";
+        string backupPath = $"{SaveDir}/{fileName}.bak";
+        string fileNameToUse = fileName;
 
+        // If primary file is missing, check for backup file
         if (!FileAccess.FileExists(path))
         {
-            return new SaveSlotInfo { Exists = false, SlotIndex = slot };
+            if (FileAccess.FileExists(backupPath))
+            {
+                // Backup exists - try to restore it or use it for metadata
+                GD.Print($"Primary save file missing, checking backup: {backupPath}");
+                using var dir = DirAccess.Open(SaveDir);
+                if (dir != null)
+                {
+                    var restoreErr = dir.Rename(fileName + ".bak", fileName);
+                    if (restoreErr == Error.Ok)
+                    {
+                        GD.Print($"Restored save file from backup: {path}");
+                        // fileNameToUse remains fileName since backup was renamed to main file
+                    }
+                    else
+                    {
+                        GD.PrintErr($"Failed to restore backup, using backup directly: {restoreErr}");
+                        // Use backup file directly
+                        fileNameToUse = fileName + ".bak";
+                    }
+                }
+                else
+                {
+                    // Use backup file directly
+                    fileNameToUse = fileName + ".bak";
+                }
+            }
+            else
+            {
+                return new SaveSlotInfo { Exists = false, SlotIndex = slot };
+            }
         }
 
         try
         {
             // Use lightweight metadata extraction instead of full deserialization
-            var info = ExtractMetadataFromFile(fileName);
+            var info = ExtractMetadataFromFile(fileNameToUse);
             if (info == null)
             {
                 // File exists but couldn't be loaded - it's corrupted or version mismatch

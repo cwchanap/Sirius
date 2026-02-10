@@ -506,4 +506,133 @@ public partial class SaveManagerTest : Node
 
         saveManager.Free();
     }
+
+    [TestCase]
+    public void TestLoadGame_PrimaryMissing_BackupRestored()
+    {
+        // Arrange
+        var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
+        var saveData = new SaveData
+        {
+            Version = 1,
+            CurrentFloorIndex = 2,
+            PlayerPosition = new Vector2IDto { X = 50, Y = 25 },
+            SaveTimestamp = System.DateTime.UtcNow,
+            Character = new CharacterSaveData { Name = "TestHero", Level = 5 }
+        };
+
+        // First, save initial data to create a file
+        bool firstSave = saveManager.SaveGame(0, saveData);
+        AssertThat(firstSave).IsTrue();
+
+        // Now create a backup file manually by saving again with different data
+        // This simulates the state during a save operation where backup exists
+        var saveData2 = new SaveData
+        {
+            Version = 1,
+            CurrentFloorIndex = 3,
+            PlayerPosition = new Vector2IDto { X = 60, Y = 30 },
+            SaveTimestamp = System.DateTime.UtcNow,
+            Character = new CharacterSaveData { Name = "Hero2", Level = 7 }
+        };
+        bool secondSave = saveManager.SaveGame(0, saveData2);
+        AssertThat(secondSave).IsTrue();
+
+        // Now simulate a crash: the save process has finished, but we'll manually
+        // delete the main file and create a backup file to simulate a crash
+        // during the rename operation (between old->bak and tmp->main)
+        using var dir = DirAccess.Open("user://saves");
+        AssertThat(dir).IsNotNull();
+
+        // Delete the main file
+        var deleteErr = dir.Remove("slot_0.json");
+        AssertThat(deleteErr).IsEqual(Error.Ok);
+
+        // Manually create a backup file (simulating a crash during save)
+        // Write the second save data to the backup file
+        string backupPath = "user://saves/slot_0.json.bak";
+        using var file = FileAccess.Open(backupPath, FileAccess.ModeFlags.Write);
+        AssertThat(file).IsNotNull();
+        string json = System.Text.Json.JsonSerializer.Serialize(saveData2);
+        file.StoreString(json);
+        file.Close();
+
+        // Verify main file is gone but backup exists
+        AssertThat(FileAccess.FileExists("user://saves/slot_0.json")).IsFalse();
+        AssertThat(FileAccess.FileExists(backupPath)).IsTrue();
+
+        // Act - Try to load (should restore from backup)
+        var loadedData = saveManager.LoadGame(0);
+
+        // Assert - Data should be loaded from backup
+        AssertThat(loadedData).IsNotNull();
+        AssertThat(loadedData!.Version).IsEqual(saveData2.Version);
+        AssertThat(loadedData.CurrentFloorIndex).IsEqual(saveData2.CurrentFloorIndex);
+        AssertThat(loadedData.Character.Name).IsEqual(saveData2.Character.Name);
+        AssertThat(loadedData.Character.Level).IsEqual(saveData2.Character.Level);
+
+        // Verify backup was restored to main file
+        AssertThat(FileAccess.FileExists("user://saves/slot_0.json")).IsTrue();
+
+        // Cleanup
+        saveManager.DeleteSave(0);
+        saveManager.Free();
+    }
+
+    [TestCase]
+    public void TestGetSaveSlotInfo_PrimaryMissing_BackupRestored()
+    {
+        // Arrange
+        var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
+        var saveData = new SaveData
+        {
+            Version = 1,
+            CurrentFloorIndex = 3,
+            PlayerPosition = new Vector2IDto { X = 10, Y = 20 },
+            SaveTimestamp = System.DateTime.UtcNow,
+            Character = new CharacterSaveData { Name = "Hero", Level = 10 }
+        };
+
+        // First save to create the file
+        saveManager.SaveGame(0, saveData);
+
+        // Create a backup file manually (simulating crash state)
+        string backupPath = "user://saves/slot_0.json.bak";
+        using var dir = DirAccess.Open("user://saves");
+        AssertThat(dir).IsNotNull();
+
+        // Delete the main file
+        var deleteErr = dir.Remove("slot_0.json");
+        AssertThat(deleteErr).IsEqual(Error.Ok);
+
+        // Create a backup file
+        using var file = FileAccess.Open(backupPath, FileAccess.ModeFlags.Write);
+        AssertThat(file).IsNotNull();
+        string json = System.Text.Json.JsonSerializer.Serialize(saveData);
+        file.StoreString(json);
+        file.Close();
+
+        // Verify main file is gone but backup exists
+        AssertThat(FileAccess.FileExists("user://saves/slot_0.json")).IsFalse();
+        AssertThat(FileAccess.FileExists(backupPath)).IsTrue();
+
+        // Act - Get slot info (should detect and restore from backup)
+        var info = saveManager.GetSaveSlotInfo(0);
+
+        // Assert - Info should show the save exists with correct data
+        AssertThat(info.Exists).IsTrue();
+        AssertThat(info.SlotIndex).IsEqual(0);
+        AssertThat(info.PlayerName).IsEqual("Hero");
+        AssertThat(info.PlayerLevel).IsEqual(10);
+        AssertThat(info.FloorIndex).IsEqual(3);
+
+        // Verify backup was restored
+        AssertThat(FileAccess.FileExists("user://saves/slot_0.json")).IsTrue();
+
+        // Cleanup
+        saveManager.DeleteSave(0);
+        saveManager.Free();
+    }
 }

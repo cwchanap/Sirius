@@ -122,6 +122,14 @@ public partial class Game : Node2D
                 skipLoad = true;
             }
 
+            if (!skipLoad && (loadData.PlayerPosition.X < 0 || loadData.PlayerPosition.X >= 160 || 
+                              loadData.PlayerPosition.Y < 0 || loadData.PlayerPosition.Y >= 160))
+            {
+                GD.PushError($"Save data corrupted: Player position ({loadData.PlayerPosition.X}, {loadData.PlayerPosition.Y}) out of bounds");
+                ShowCorruptedSaveError();
+                skipLoad = true;
+            }
+
             if (!skipLoad)
             {
                 GD.Print($"Loading save data: Floor {loadData.CurrentFloorIndex}, Position ({loadData.PlayerPosition.X}, {loadData.PlayerPosition.Y})");
@@ -589,9 +597,6 @@ public partial class Game : Node2D
         {
             var player = _gameManager.Player;
             int effectiveMaxHealth = player.GetEffectiveMaxHealth();
-            int effectiveAttack = player.GetEffectiveAttack();
-            int effectiveDefense = player.GetEffectiveDefense();
-            int effectiveSpeed = player.GetEffectiveSpeed();
 
             if (_playerNameLabel != null)
                 _playerNameLabel.Text = player.Name;
@@ -640,6 +645,7 @@ public partial class Game : Node2D
                 GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/PlayerStats/PlayerAttackHUD");
             if (atkLabel != null)
             {
+                int effectiveAttack = player.GetEffectiveAttack();
                 int atkBonus = player.Equipment.GetAttackBonus();
                 if (atkBonus > 0)
                 {
@@ -656,6 +662,7 @@ public partial class Game : Node2D
                 GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/PlayerStats/PlayerDefenseHUD");
             if (defLabel != null)
             {
+                int effectiveDefense = player.GetEffectiveDefense();
                 int defBonus = player.Equipment.GetDefenseBonus();
                 if (defBonus > 0)
                 {
@@ -672,6 +679,7 @@ public partial class Game : Node2D
                 GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/PlayerStats/PlayerSpeedHUD");
             if (spdLabel != null)
             {
+                int effectiveSpeed = player.GetEffectiveSpeed();
                 int spdBonus = player.Equipment.GetSpeedBonus();
                 if (spdBonus > 0)
                 {

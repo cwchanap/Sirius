@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 /// <summary>
 /// Autoload singleton for save/load operations.
@@ -287,10 +288,9 @@ public partial class SaveManager : Node
                 return null;
             }
 
-            const int CurrentVersion = 1;
-            if (data.Version > CurrentVersion)
+            if (data.Version > SaveData.CurrentVersion)
             {
-                GD.PushError($"Save file version {data.Version} is newer than supported version {CurrentVersion}");
+                GD.PushError($"Save file version {data.Version} is newer than supported version {SaveData.CurrentVersion}");
                 return null;
             }
 
@@ -315,8 +315,134 @@ public partial class SaveManager : Node
     }
 
     /// <summary>
-    /// Loads and inspects full SaveData via LoadFromFile to build SaveSlotInfo.
-    /// Note: This deserializes the entire save file to read metadata.
+    /// Lightweight metadata extraction for UI display.
+    /// Uses JsonDocument to parse only needed fields without full deserialization.
+    /// This avoids allocating memory for inventory/equipment data when just showing slot info.
+    /// </summary>
+    private SaveSlotInfo? ExtractMetadataFromFile(string fileName)
+    {
+        string path = $"{SaveDir}/{fileName}";
+        
+        if (!FileAccess.FileExists(path))
+            return null;
+
+        try
+        {
+            // Read raw JSON content
+            using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
+            if (file == null)
+            {
+                GD.PushError($"Failed to open save file for metadata extraction: {path}");
+                return null;
+            }
+            
+            string jsonContent = file.GetAsText();
+            file.Close();
+            
+            // Parse with JsonDocument for lightweight metadata extraction
+            using var doc = JsonDocument.Parse(jsonContent);
+            var root = doc.RootElement;
+            
+            // Extract version first for validation
+            if (!root.TryGetProperty("Version", out var versionElement) || 
+                versionElement.GetInt32() != SaveData.CurrentVersion)
+            {
+                return null; // Version mismatch or missing
+            }
+            
+            // Extract timestamp
+            DateTime timestamp = DateTime.MinValue;
+            if (root.TryGetProperty("SaveTimestamp", out var timestampElement))
+            {
+                // Try to parse ISO 8601 format
+                if (timestampElement.ValueKind == JsonValueKind.String &&
+                    DateTime.TryParse(timestampElement.GetString(), out var parsed))
+                {
+                    timestamp = parsed;
+                }
+            }
+            
+            // Extract floor index
+            int floorIndex = 0;
+            if (root.TryGetProperty("CurrentFloorIndex", out var floorElement))
+            {
+                floorElement.TryGetInt32(out floorIndex);
+            }
+            
+            // Extract player position for validation (just check it exists)
+            bool hasValidPosition = root.TryGetProperty("PlayerPosition", out var posElement) &&
+                                    posElement.ValueKind == JsonValueKind.Object;
+            
+            // Extract character data
+            string playerName = "Unknown";
+            int playerLevel = 0;
+            
+            if (root.TryGetProperty("Character", out var charElement) && 
+                charElement.ValueKind == JsonValueKind.Object)
+            {
+                if (charElement.TryGetProperty("Name", out var nameElement) &&
+                    nameElement.ValueKind == JsonValueKind.String)
+                {
+                    playerName = nameElement.GetString() ?? "Unknown";
+                }
+                
+                if (charElement.TryGetProperty("Level", out var levelElement))
+                {
+                    levelElement.TryGetInt32(out playerLevel);
+                }
+            }
+            
+            // Validate essential data exists
+            if (!hasValidPosition || string.IsNullOrEmpty(playerName) || playerLevel < 1)
+            {
+                return new SaveSlotInfo
+                {
+                    Exists = true,
+                    IsCorrupted = true,
+                    PlayerName = "Corrupted Save",
+                    PlayerLevel = 0,
+                    FloorIndex = floorIndex,
+                    Timestamp = timestamp
+                };
+            }
+            
+            return new SaveSlotInfo
+            {
+                Exists = true,
+                IsCorrupted = false,
+                PlayerName = playerName,
+                PlayerLevel = playerLevel,
+                FloorIndex = floorIndex,
+                Timestamp = timestamp
+            };
+        }
+        catch (JsonException ex)
+        {
+            GD.PrintErr($"JSON parse error during metadata extraction: {ex.Message}");
+            return new SaveSlotInfo
+            {
+                Exists = true,
+                IsCorrupted = true,
+                PlayerName = "Corrupted Save",
+                PlayerLevel = 0
+            };
+        }
+        catch (Exception ex)
+        {
+            GD.PushError($"Failed to extract metadata from {fileName}: {ex.GetType().Name}: {ex.Message}");
+            return new SaveSlotInfo
+            {
+                Exists = true,
+                IsCorrupted = true,
+                PlayerName = "Corrupted Save",
+                PlayerLevel = 0
+            };
+        }
+    }
+
+    /// <summary>
+    /// Loads and inspects save metadata using lightweight extraction.
+    /// Uses JsonDocument to avoid full deserialization of inventory/equipment.
     /// </summary>
     /// <param name="slot">Slot index (0-2 for manual, 3 for autosave)</param>
     public SaveSlotInfo GetSaveSlotInfo(int slot)
@@ -337,10 +463,11 @@ public partial class SaveManager : Node
 
         try
         {
-            var data = LoadFromFile(fileName);
-            if (data == null)
+            // Use lightweight metadata extraction instead of full deserialization
+            var info = ExtractMetadataFromFile(fileName);
+            if (info == null)
             {
-                // File exists but couldn't be loaded - it's corrupted
+                // File exists but couldn't be loaded - it's corrupted or version mismatch
                 return new SaveSlotInfo
                 {
                     Exists = true,
@@ -351,35 +478,8 @@ public partial class SaveManager : Node
                 };
             }
 
-            // Validate critical save data fields
-            if (data.PlayerPosition == null || data.Character == null || data.CurrentFloorIndex < 0)
-            {
-                return new SaveSlotInfo
-                {
-                    Exists = true,
-                    IsCorrupted = true,
-                    SlotIndex = slot,
-                    PlayerName = "Corrupted Save",
-                    PlayerLevel = 0
-                };
-            }
-
-            // Guard against null or empty character names with a safe fallback
-            string playerName = data.Character.Name;
-            if (string.IsNullOrEmpty(playerName))
-            {
-                playerName = "Unknown";
-            }
-
-            return new SaveSlotInfo
-            {
-                Exists = true,
-                SlotIndex = slot,
-                PlayerName = playerName,
-                PlayerLevel = data.Character.Level,
-                FloorIndex = data.CurrentFloorIndex,
-                Timestamp = data.SaveTimestamp
-            };
+            info.SlotIndex = slot;
+            return info;
         }
         catch (Exception ex)
         {

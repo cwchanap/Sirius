@@ -25,6 +25,8 @@ public partial class SaveLoadDialog : AcceptDialog
     private Button _mainMenuButton;
     private Button _cancelButton;
     private Action[] _slotButtonHandlers = new Action[4];
+    private SaveSlotInfo[] _slotInfos = new SaveSlotInfo[4];
+    private int _pendingSaveSlot = -1;
 
     public override void _Ready()
     {
@@ -152,6 +154,7 @@ public partial class SaveLoadDialog : AcceptDialog
         for (int i = 0; i < 4; i++)
         {
             var info = SaveManager.Instance.GetSaveSlotInfo(i);
+            _slotInfos[i] = info;
 
             if (info == null || !info.Exists)
             {
@@ -169,7 +172,8 @@ public partial class SaveLoadDialog : AcceptDialog
             else
             {
                 string slotName = info.GetDisplayName();
-                string timestamp = info.Timestamp.ToString("yyyy-MM-dd HH:mm");
+                // Convert UTC timestamp to local time for display
+                string timestamp = info.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
                 _slotLabels[i].Text = $"{slotName}\nLevel {info.PlayerLevel} - {info.GetFloorName()}\n{timestamp}";
 
                 // Autosave slot is read-only in Save mode
@@ -184,7 +188,18 @@ public partial class SaveLoadDialog : AcceptDialog
 
         if (_mode == DialogMode.Save)
         {
-            EmitSignal(SignalName.SaveSlotSelected, slot);
+            // Check if slot has existing save data that would be overwritten
+            if (_slotInfos[slot] != null && _slotInfos[slot].Exists && !_slotInfos[slot].IsCorrupted && slot != 3)
+            {
+                // Show overwrite confirmation dialog
+                _pendingSaveSlot = slot;
+                ShowOverwriteConfirmation(slot);
+            }
+            else
+            {
+                // Empty slot, corrupted, or autosave - proceed immediately
+                EmitSignal(SignalName.SaveSlotSelected, slot);
+            }
         }
         else
         {
@@ -193,14 +208,51 @@ public partial class SaveLoadDialog : AcceptDialog
         }
     }
 
+    private void ShowOverwriteConfirmation(int slot)
+    {
+        var confirmDialog = new AcceptDialog();
+        confirmDialog.Title = "Overwrite Save?";
+        var info = _slotInfos[slot];
+        string slotName = info?.GetDisplayName() ?? $"Slot {slot + 1}";
+        confirmDialog.DialogText = $"{slotName} already has a save.\nLevel {info?.PlayerLevel} - {info?.GetFloorName()}\n\nOverwrite this save?";
+        
+        AddChild(confirmDialog);
+        
+        // Connect to confirmed (Overwrite) signal
+        confirmDialog.Confirmed += () =>
+        {
+            if (IsInstanceValid(confirmDialog))
+                confirmDialog.QueueFree();
+            
+            if (_pendingSaveSlot >= 0)
+            {
+                EmitSignal(SignalName.SaveSlotSelected, _pendingSaveSlot);
+                _pendingSaveSlot = -1;
+            }
+        };
+        
+        // Also handle cancel - user stays in save dialog
+        confirmDialog.Canceled += () =>
+        {
+            if (IsInstanceValid(confirmDialog))
+                confirmDialog.QueueFree();
+            _pendingSaveSlot = -1;
+        };
+        
+        confirmDialog.PopupCentered();
+    }
+
     private void OnMainMenuPressed()
     {
         GD.Print("Main Menu button pressed");
         Hide();
 
-        // Clean up battle state if needed
+        // The save dialog should only be reachable when not in battle.
+        // This defensive check is a safeguard against future changes.
+        // Note: Direct EndBattle bypasses Game.cs cleanup - prefer normal flow.
         if (GameManager.Instance?.IsInBattle == true)
         {
+            GD.PushWarning("SaveLoadDialog.OnMainMenuPressed called while in battle - this should not happen");
             GameManager.Instance.EndBattle(false);
         }
 

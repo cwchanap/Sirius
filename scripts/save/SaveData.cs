@@ -5,7 +5,9 @@ using System;
 /// </summary>
 public class SaveData
 {
-    public int Version { get; set; } = 1;
+    public const int CurrentVersion = 1;
+    
+    public int Version { get; set; } = CurrentVersion;
     public CharacterSaveData? Character { get; set; }
     public int CurrentFloorIndex { get; set; }
     public Vector2IDto? PlayerPosition { get; set; }

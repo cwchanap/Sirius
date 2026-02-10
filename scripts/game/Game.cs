@@ -147,9 +147,9 @@ public partial class Game : Node2D
             // No save data - start new game with default floor
             _gameManager.ResetBattleState();
             _gameManager.EnsureFreshPlayer();
-            
-            // Load default floor (FloorManager._Ready() skipped initial load)
-            CallDeferred(nameof(LoadFloorFromSave), 0, _floorManager.GetFloorByIndex(0)?.PlayerStartPosition ?? Vector2I.Zero);
+
+            // FloorManager._Ready() already loaded floor 0 with default position
+            // Player setup and camera positioning will happen in OnFloorLoaded callback
         }
 
         // Update UI after all initialization is complete

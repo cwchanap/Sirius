@@ -513,4 +513,5 @@ public partial class GameManagerTest : Node
         // Assert - No exception thrown, method handles null gracefully
         AssertThat(true).IsTrue();
     }
+
 }

@@ -729,6 +729,15 @@ public partial class Game : Node2D
 
     private void OnSaveSlotSelected(int slot)
     {
+        // Prevent saving if player is defeated (CurrentHealth <= 0)
+        // This can happen during the 2-second delay after battle loss before returning to menu
+        if (_gameManager.Player != null && !_gameManager.Player.IsAlive)
+        {
+            GD.PrintErr("Save blocked: Player is defeated.");
+            ShowSaveError("Cannot save while defeated.");
+            return;
+        }
+
         var saveData = _gameManager.CollectSaveData();
         if (saveData == null)
         {

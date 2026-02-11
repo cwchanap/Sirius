@@ -33,7 +33,7 @@ public static class ItemCatalog
     /// <summary>
     /// Checks if an item ID exists in the catalog.
     /// </summary>
-    public static bool ItemExists(string id)
+    public static bool ItemExists(string? id)
     {
         return !string.IsNullOrWhiteSpace(id) && _itemRegistry.ContainsKey(id);
     }

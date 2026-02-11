@@ -224,8 +224,9 @@ public partial class GameManager : Node
 
     /// <summary>
     /// Collects current game state into a SaveData object.
+    /// Returns null if player or floor manager is not available.
     /// </summary>
-    public SaveData CollectSaveData()
+    public SaveData? CollectSaveData()
     {
         if (Player == null)
         {
@@ -253,7 +254,7 @@ public partial class GameManager : Node
     /// Restores player state from save data.
     /// Called after Game scene loads when loading a save.
     /// </summary>
-    public void LoadFromSaveData(SaveData data)
+    public void LoadFromSaveData(SaveData? data)
     {
         if (data?.Character == null)
         {

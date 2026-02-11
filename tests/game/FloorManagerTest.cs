@@ -14,6 +14,8 @@ public partial class FloorManagerTest : Node
     {
         var saveManager = await EnsureSaveManager();
         var previousPending = saveManager.PendingLoadData;
+        var createdSingleton = ReferenceEquals(saveManager, SaveManager.Instance);
+
         saveManager.PendingLoadData = new SaveData
         {
             CurrentFloorIndex = 1,
@@ -44,7 +46,9 @@ public partial class FloorManagerTest : Node
             await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
 
             saveManager.PendingLoadData = previousPending;
-            if (!ReferenceEquals(saveManager, SaveManager.Instance))
+
+            // Free the SaveManager if this test created it
+            if (createdSingleton)
             {
                 saveManager.Free();
             }

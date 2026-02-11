@@ -15,9 +15,6 @@ public static class ItemCatalog
         ["wooden_shield"] = EquipmentCatalog.CreateWoodenShield,
         ["wooden_helmet"] = EquipmentCatalog.CreateWoodenHelmet,
         ["wooden_shoes"] = EquipmentCatalog.CreateWoodenShoes,
-
-        // Consumables
-        ["test_potion"] = () => new GeneralItem { Id = "test_potion", DisplayName = "Test Potion", MaxStackOverride = 10 },
     };
 
     /// <summary>

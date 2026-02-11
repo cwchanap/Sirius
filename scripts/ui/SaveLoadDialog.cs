@@ -218,22 +218,26 @@ public partial class SaveLoadDialog : AcceptDialog
         var info = _slotInfos[slot];
         string slotName = info?.GetDisplayName() ?? $"Slot {slot + 1}";
         confirmDialog.DialogText = $"{slotName} already has a save.\nLevel {info?.PlayerLevel} - {info?.GetFloorName()}\n\nOverwrite this save?";
-        
+
         AddChild(confirmDialog);
-        
+
+        // Configure dialog as transient to avoid focus/input issues
+        confirmDialog.Transient = true;
+        confirmDialog.TransientToFocused = true;
+
         // Connect to confirmed (Overwrite) signal
         confirmDialog.Confirmed += () =>
         {
             if (IsInstanceValid(confirmDialog))
                 confirmDialog.QueueFree();
-            
+
             if (_pendingSaveSlot >= 0)
             {
                 EmitSignal(SignalName.SaveSlotSelected, _pendingSaveSlot);
                 _pendingSaveSlot = -1;
             }
         };
-        
+
         // Also handle cancel - user stays in save dialog
         confirmDialog.Canceled += () =>
         {
@@ -241,7 +245,7 @@ public partial class SaveLoadDialog : AcceptDialog
                 confirmDialog.QueueFree();
             _pendingSaveSlot = -1;
         };
-        
+
         confirmDialog.PopupCentered();
     }
 

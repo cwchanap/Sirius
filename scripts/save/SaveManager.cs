@@ -288,6 +288,11 @@ public partial class SaveManager : Node
                             path = backupPath;
                         }
                     }
+                    else
+                    {
+                        // Directory access failed, fallback to reading backup directly
+                        path = backupPath;
+                    }
                 }
                 else
                 {

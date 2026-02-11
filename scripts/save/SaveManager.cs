@@ -554,7 +554,7 @@ public partial class SaveManager : Node
     }
 
     /// <summary>
-    /// Checks if a save slot has data.
+    /// Checks if a save slot has data (including backup files).
     /// </summary>
     public bool SaveExists(int slot)
     {
@@ -564,11 +564,13 @@ public partial class SaveManager : Node
         }
 
         string fileName = GetSlotFileName(slot);
-        return FileAccess.FileExists($"{SaveDir}/{fileName}");
+        string backupFileName = $"{fileName}.bak";
+        return FileAccess.FileExists($"{SaveDir}/{fileName}") ||
+               FileAccess.FileExists($"{SaveDir}/{backupFileName}");
     }
 
     /// <summary>
-    /// Deletes a save file.
+    /// Deletes a save file and its associated backup.
     /// </summary>
     public bool DeleteSave(int slot)
     {
@@ -579,25 +581,51 @@ public partial class SaveManager : Node
         }
 
         string fileName = GetSlotFileName(slot);
+        string backupFileName = $"{fileName}.bak";
         string path = $"{SaveDir}/{fileName}";
+        string backupPath = $"{SaveDir}/{backupFileName}";
 
-        if (!FileAccess.FileExists(path))
+        using var dir = DirAccess.Open(SaveDir);
+        if (dir == null)
         {
+            GD.PushError($"Failed to open save directory: {SaveDir}");
             return false;
         }
 
-        using var dir = DirAccess.Open(SaveDir);
-        if (dir != null)
+        bool primaryExisted = FileAccess.FileExists(path);
+        bool primaryRemoved = false;
+
+        // Attempt to remove primary file if it exists
+        if (primaryExisted)
         {
             var err = dir.Remove(fileName);
             if (err == Error.Ok)
             {
                 GD.Print($"Deleted save file: {path}");
-                return true;
+                primaryRemoved = true;
             }
-            GD.PushError($"Failed to delete save file: {err}");
+            else
+            {
+                GD.PushError($"Failed to delete save file: {err}");
+            }
         }
-        return false;
+
+        // Always attempt to remove backup file (even if primary didn't exist or removal failed)
+        if (FileAccess.FileExists(backupPath))
+        {
+            var backupErr = dir.Remove(backupFileName);
+            if (backupErr == Error.Ok)
+            {
+                GD.Print($"Deleted backup file: {backupPath}");
+            }
+            else
+            {
+                GD.PushError($"Failed to delete backup file: {backupErr}");
+            }
+        }
+
+        // Return true only if the primary removal succeeded
+        return primaryRemoved;
     }
 }
 

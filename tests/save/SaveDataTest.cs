@@ -170,6 +170,90 @@ public partial class SaveDataTest : Node
     }
 
     [TestCase]
+    public void TestCharacterSaveData_ToCharacter_WithNullName_UsesFallback()
+    {
+        // Arrange
+        var saveData = new CharacterSaveData
+        {
+            Name = null,
+            Level = 5,
+            MaxHealth = 100,
+            CurrentHealth = 80,
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            Experience = 200,
+            ExperienceToNext = 300,
+            Gold = 100,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData()
+        };
+
+        // Act
+        var character = saveData.ToCharacter();
+
+        // Assert
+        AssertThat(character.Name).IsEqual("Hero");
+        AssertThat(character.Level).IsEqual(5);
+    }
+
+    [TestCase]
+    public void TestCharacterSaveData_ToCharacter_WithEmptyName_UsesFallback()
+    {
+        // Arrange
+        var saveData = new CharacterSaveData
+        {
+            Name = "",
+            Level = 5,
+            MaxHealth = 100,
+            CurrentHealth = 80,
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            Experience = 200,
+            ExperienceToNext = 300,
+            Gold = 100,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData()
+        };
+
+        // Act
+        var character = saveData.ToCharacter();
+
+        // Assert
+        AssertThat(character.Name).IsEqual("Hero");
+        AssertThat(character.Level).IsEqual(5);
+    }
+
+    [TestCase]
+    public void TestCharacterSaveData_ToCharacter_WithWhitespaceName_UsesFallback()
+    {
+        // Arrange
+        var saveData = new CharacterSaveData
+        {
+            Name = "   ",
+            Level = 5,
+            MaxHealth = 100,
+            CurrentHealth = 80,
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            Experience = 200,
+            ExperienceToNext = 300,
+            Gold = 100,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData()
+        };
+
+        // Act
+        var character = saveData.ToCharacter();
+
+        // Assert
+        AssertThat(character.Name).IsEqual("Hero");
+        AssertThat(character.Level).IsEqual(5);
+    }
+
+    [TestCase]
     public void TestInventorySaveData_FromEmptyInventory()
     {
         // Arrange
@@ -188,7 +272,7 @@ public partial class SaveDataTest : Node
     {
         // Arrange
         var inventory = new Inventory();
-        var item = new GeneralItem { Id = "test_potion", DisplayName = "Test Potion", MaxStackOverride = 99 };
+        var item = EquipmentCatalog.CreateWoodenSword();
         inventory.TryAddItem(item, 5, out _);
 
         // Act
@@ -196,20 +280,20 @@ public partial class SaveDataTest : Node
 
         // Assert
         AssertThat(saveData.Entries.Count).IsEqual(1);
-        AssertThat(saveData.Entries[0].ItemId).IsEqual("test_potion");
+        AssertThat(saveData.Entries[0].ItemId).IsEqual("wooden_sword");
         AssertThat(saveData.Entries[0].Quantity).IsEqual(5);
     }
 
     [TestCase]
     public void TestInventorySaveData_ToInventory_PartialAddDueToStackLimits()
     {
-        // Arrange - Create a save with quantity exceeding max stack size (test_potion max stack = 10)
+        // Arrange - Create a save with quantity exceeding max stack size (wooden_sword max stack = 1)
         var saveData = new InventorySaveData
         {
             MaxItemTypes = 50,
             Entries = new System.Collections.Generic.List<InventoryEntryDto>
             {
-                new InventoryEntryDto { ItemId = "test_potion", Quantity = 25 } // Max stack is 10
+                new InventoryEntryDto { ItemId = "wooden_sword", Quantity = 5 } // Max stack is 1
             }
         };
 
@@ -217,9 +301,9 @@ public partial class SaveDataTest : Node
         var inventory = saveData.ToInventory();
 
         // Assert - Should have partially added items up to stack limit
-        AssertThat(inventory.ContainsItem("test_potion")).IsTrue();
-        // The actual quantity should be capped at max stack size (10)
-        AssertThat(inventory.GetQuantity("test_potion")).IsEqual(10);
+        AssertThat(inventory.ContainsItem("wooden_sword")).IsTrue();
+        // The actual quantity should be capped at max stack size (1)
+        AssertThat(inventory.GetQuantity("wooden_sword")).IsEqual(1);
     }
 
     [TestCase]

@@ -43,7 +43,7 @@ public class CharacterSaveData
     {
         var character = new Character
         {
-            Name = this.Name,
+            Name = string.IsNullOrWhiteSpace(this.Name) ? "Hero" : this.Name,
             Level = this.Level,
             MaxHealth = this.MaxHealth,
             CurrentHealth = this.CurrentHealth,

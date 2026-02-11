@@ -88,7 +88,7 @@ public partial class Character : Resource
         int speedGain = 1;
         
         MaxHealth += healthGain;
-        CurrentHealth = MaxHealth; // Full heal on level up
+        CurrentHealth = GetEffectiveMaxHealth(); // Full heal on level up (including equipment bonus)
         Attack += attackGain;
         Defense += defenseGain;
         Speed += speedGain;

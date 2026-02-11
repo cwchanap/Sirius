@@ -18,6 +18,9 @@ public partial class SaveLoadDialog : AcceptDialog
     [Signal]
     public delegate void DialogClosedEventHandler();
 
+    [Signal]
+    public delegate void MainMenuRequestedEventHandler();
+
     private DialogMode _mode;
     private VBoxContainer _slotContainer;
     private Button[] _slotButtons = new Button[4];
@@ -256,8 +259,8 @@ public partial class SaveLoadDialog : AcceptDialog
             GameManager.Instance.EndBattle(false);
         }
 
+        EmitSignal(SignalName.MainMenuRequested);
         EmitSignal(SignalName.DialogClosed);
-        GetTree().ChangeSceneToFile("res://scenes/ui/MainMenu.tscn");
     }
 
     private void OnCancelPressed()

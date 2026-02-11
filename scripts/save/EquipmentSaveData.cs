@@ -13,7 +13,7 @@ public class EquipmentSaveData
     public string? ShoeId { get; set; }
     public List<string?> AccessoryIds { get; set; } = new();
 
-    public static EquipmentSaveData FromEquipmentSet(EquipmentSet eq)
+    public static EquipmentSaveData FromEquipmentSet(EquipmentSet? eq)
     {
         if (eq == null) return new EquipmentSaveData();
 

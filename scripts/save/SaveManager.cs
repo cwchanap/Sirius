@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 
 /// <summary>
 /// Autoload singleton for save/load operations.
@@ -44,14 +43,6 @@ public partial class SaveManager : Node
         {
             GD.Print("SaveManager instance already exists, queueing free");
             QueueFree();
-        }
-    }
-
-    public override void _ExitTree()
-    {
-        if (Instance == this)
-        {
-            Instance = null;
         }
     }
 
@@ -576,6 +567,7 @@ public partial class SaveManager : Node
 
     /// <summary>
     /// Deletes a save file and its associated backup.
+    /// Returns true if any file (primary or backup) was successfully deleted.
     /// </summary>
     public bool DeleteSave(int slot)
     {
@@ -599,6 +591,7 @@ public partial class SaveManager : Node
 
         bool primaryExisted = FileAccess.FileExists(path);
         bool primaryRemoved = false;
+        bool backupRemoved = false;
 
         // Attempt to remove primary file if it exists
         if (primaryExisted)
@@ -622,6 +615,7 @@ public partial class SaveManager : Node
             if (backupErr == Error.Ok)
             {
                 GD.Print($"Deleted backup file: {backupPath}");
+                backupRemoved = true;
             }
             else
             {
@@ -629,8 +623,8 @@ public partial class SaveManager : Node
             }
         }
 
-        // Return true only if the primary removal succeeded
-        return primaryRemoved;
+        // Return true if either primary or backup was successfully removed
+        return primaryRemoved || backupRemoved;
     }
 }
 

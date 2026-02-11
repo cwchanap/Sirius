@@ -241,7 +241,7 @@ public partial class GameManager : Node
 
         return new SaveData
         {
-            Version = 1,
+            Version = SaveData.CurrentVersion,
             Character = CharacterSaveData.FromCharacter(Player),
             CurrentFloorIndex = _floorManager.CurrentFloorIndex,
             PlayerPosition = new Vector2IDto(_floorManager.CurrentGridMap.GetPlayerPosition()),

@@ -733,6 +733,7 @@ public partial class Game : Node2D
         {
             _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
             _saveLoadDialog.DialogClosed -= OnSaveDialogClosed;
+            _saveLoadDialog.MainMenuRequested -= OnMainMenuRequested;
             _saveLoadDialog.QueueFree();
         }
 
@@ -740,6 +741,7 @@ public partial class Game : Node2D
         GetNode("UI").AddChild(_saveLoadDialog);
         _saveLoadDialog.SaveSlotSelected += OnSaveSlotSelected;
         _saveLoadDialog.DialogClosed += OnSaveDialogClosed;
+        _saveLoadDialog.MainMenuRequested += OnMainMenuRequested;
         _saveLoadDialog.ShowDialog(SaveLoadDialog.DialogMode.Save);
     }
 
@@ -787,12 +789,21 @@ public partial class Game : Node2D
         CleanupSaveDialog();
     }
 
+    private void OnMainMenuRequested()
+    {
+        GD.Print("Main menu requested from save dialog");
+        // Cleanup save dialog and return to main menu
+        CleanupSaveDialog();
+        ReturnToMainMenu();
+    }
+
     private void CleanupSaveDialog()
     {
         if (_saveLoadDialog != null)
         {
             _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
             _saveLoadDialog.DialogClosed -= OnSaveDialogClosed;
+            _saveLoadDialog.MainMenuRequested -= OnMainMenuRequested;
             _saveLoadDialog.QueueFree();
             _saveLoadDialog = null;
         }
@@ -826,6 +837,9 @@ public partial class Game : Node2D
         popup.DialogText = "Save file is corrupted or invalid.\nReturning to main menu.";
         GetNode("UI").AddChild(popup);
         popup.PopupCentered();
+
+        // Disable input processing to prevent additional interactions during error state
+        SetProcessInput(false);
 
         // Guard against double invocation (both Confirmed and Canceled can fire)
         bool handled = false;
@@ -887,12 +901,45 @@ public partial class Game : Node2D
     {
         GD.Print($"🔄 Floor transition: {oldFloorIndex} → {newFloorIndex}");
         UpdatePlayerUI();
-        
+
         // Clean up old player display if transitioning
         if (_playerDisplay != null)
         {
             _playerDisplay.QueueFree();
             _playerDisplay = null;
+        }
+    }
+
+    public override void _ExitTree()
+    {
+        // Disconnect all signal subscriptions to prevent memory leaks
+        if (_gameManager != null)
+        {
+            _gameManager.BattleStarted -= OnBattleStarted;
+            _gameManager.BattleEnded -= OnBattleEnded;
+            _gameManager.PlayerStatsChanged -= OnPlayerStatsChanged;
+        }
+
+        if (_floorManager != null)
+        {
+            _floorManager.FloorLoaded -= OnFloorLoaded;
+            _floorManager.FloorChanged -= OnFloorChanged;
+        }
+
+        if (_gridMap != null)
+        {
+            _gridMap.EnemyEncountered -= OnEnemyEncountered;
+            _gridMap.PlayerMoved -= OnPlayerMoved;
+        }
+
+        // Clean up save dialog if it exists
+        if (_saveLoadDialog != null)
+        {
+            _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
+            _saveLoadDialog.DialogClosed -= OnSaveDialogClosed;
+            _saveLoadDialog.MainMenuRequested -= OnMainMenuRequested;
+            _saveLoadDialog.QueueFree();
+            _saveLoadDialog = null;
         }
     }
 }

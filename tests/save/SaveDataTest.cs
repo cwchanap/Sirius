@@ -270,9 +270,14 @@ public partial class SaveDataTest : Node
     [TestCase]
     public void TestInventorySaveData_FromInventoryWithItems()
     {
-        // Arrange
+        // Arrange - Use a stackable GeneralItem instead of EquipmentItem
         var inventory = new Inventory();
-        var item = EquipmentCatalog.CreateWoodenSword();
+        var item = new GeneralItem
+        {
+            Id = "test_potion",
+            DisplayName = "Test Potion",
+            MaxStackOverride = 10
+        };
         inventory.TryAddItem(item, 5, out _);
 
         // Act
@@ -280,7 +285,7 @@ public partial class SaveDataTest : Node
 
         // Assert
         AssertThat(saveData.Entries.Count).IsEqual(1);
-        AssertThat(saveData.Entries[0].ItemId).IsEqual("wooden_sword");
+        AssertThat(saveData.Entries[0].ItemId).IsEqual("test_potion");
         AssertThat(saveData.Entries[0].Quantity).IsEqual(5);
     }
 

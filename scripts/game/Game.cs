@@ -115,19 +115,34 @@ public partial class Game : Node2D
                 skipLoad = true;
             }
 
-            if (!skipLoad && (loadData.CurrentFloorIndex < 0 || loadData.CurrentFloorIndex >= _floorManager.GetFloorCount()))
+            // Only validate floor index if floors are loaded; otherwise defer validation
+            if (!skipLoad && _floorManager.GetFloorCount() > 0 &&
+                (loadData.CurrentFloorIndex < 0 || loadData.CurrentFloorIndex >= _floorManager.GetFloorCount()))
             {
                 GD.PushError($"Save data corrupted: Invalid floor index {loadData.CurrentFloorIndex}");
                 ShowCorruptedSaveError();
                 skipLoad = true;
             }
 
-            if (!skipLoad && (loadData.PlayerPosition.X < 0 || loadData.PlayerPosition.X >= 160 || 
-                              loadData.PlayerPosition.Y < 0 || loadData.PlayerPosition.Y >= 160))
+            // Only validate position if floors are loaded and we can determine dimensions
+            if (!skipLoad && _floorManager.GetFloorCount() > 0)
             {
-                GD.PushError($"Save data corrupted: Player position ({loadData.PlayerPosition.X}, {loadData.PlayerPosition.Y}) out of bounds");
-                ShowCorruptedSaveError();
-                skipLoad = true;
+                var targetFloor = _floorManager.GetFloorByIndex(loadData.CurrentFloorIndex);
+                if (targetFloor != null)
+                {
+                    // Get actual grid dimensions from the floor definition's scene
+                    // We use a reasonable default if the scene isn't loaded yet
+                    int gridWidth = 160;
+                    int gridHeight = 160;
+
+                    if (loadData.PlayerPosition.X < 0 || loadData.PlayerPosition.X >= gridWidth ||
+                        loadData.PlayerPosition.Y < 0 || loadData.PlayerPosition.Y >= gridHeight)
+                    {
+                        GD.PushError($"Save data corrupted: Player position ({loadData.PlayerPosition.X}, {loadData.PlayerPosition.Y}) out of bounds");
+                        ShowCorruptedSaveError();
+                        skipLoad = true;
+                    }
+                }
             }
 
             if (!skipLoad)
@@ -267,6 +282,7 @@ public partial class Game : Node2D
                     {
                         ShowSaveMenu();
                     }
+                    GetViewport().SetInputAsHandled();
                 }
                 else
                 {

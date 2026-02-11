@@ -29,19 +29,25 @@ public partial class FloorManagerTest : Node
 
         var sceneTree = (SceneTree)Engine.GetMainLoop();
         sceneTree.Root.AddChild(floorManager);
-        await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
 
-        var currentFloorInstance = GetPrivateFieldValue<Node2D>(floorManager, "_currentFloorInstance");
-        AssertThat(currentFloorInstance).IsNull();
-        AssertThat(floorManager.CurrentGridMap).IsNull();
-
-        floorManager.QueueFree();
-        await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
-
-        saveManager.PendingLoadData = previousPending;
-        if (!ReferenceEquals(saveManager, SaveManager.Instance))
+        try
         {
-            saveManager.Free();
+            await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+            var currentFloorInstance = GetPrivateFieldValue<Node2D>(floorManager, "_currentFloorInstance");
+            AssertThat(currentFloorInstance).IsNull();
+            AssertThat(floorManager.CurrentGridMap).IsNull();
+        }
+        finally
+        {
+            floorManager.QueueFree();
+            await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+            saveManager.PendingLoadData = previousPending;
+            if (!ReferenceEquals(saveManager, SaveManager.Instance))
+            {
+                saveManager.Free();
+            }
         }
     }
 

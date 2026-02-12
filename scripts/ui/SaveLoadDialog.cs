@@ -207,8 +207,8 @@ public partial class SaveLoadDialog : AcceptDialog
         }
         else
         {
-            EmitSignal(SignalName.LoadSlotSelected, slot);
             Hide();
+            EmitSignal(SignalName.LoadSlotSelected, slot);
         }
     }
 

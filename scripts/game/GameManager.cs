@@ -253,6 +253,11 @@ public partial class GameManager : Node
     /// <summary>
     /// Restores player state from save data.
     /// Called after Game scene loads when loading a save.
+    /// 
+    /// NOTE: Floor and position restoration is intentionally handled separately in Game.cs
+    /// via LoadFloorFromSave() to ensure proper FloorManager/GridMap initialization order.
+    /// This method only restores the Character data; the caller (Game.cs) is responsible
+    /// for loading the correct floor and setting the player position from SaveData.
     /// </summary>
     public void LoadFromSaveData(SaveData? data)
     {
@@ -280,7 +285,14 @@ public partial class GameManager : Node
         // (GameManager is scene-local, but this guards against future persistence changes)
         ResetBattleState();
 
-        Player = data.Character.ToCharacter();
+        var player = data.Character.ToCharacter();
+        if (player == null)
+        {
+            GD.PushError("Failed to restore player from save data: ToCharacter() returned null");
+            return;
+        }
+
+        Player = player;
         GD.Print($"Player loaded from save: {Player.Name}, Level {Player.Level}");
 
         NotifyPlayerStatsChanged();

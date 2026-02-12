@@ -262,6 +262,13 @@ public partial class GameManager : Node
             return;
         }
 
+        // Validate save file version matches expected version
+        if (data.Version != SaveData.CurrentVersion)
+        {
+            GD.PushError($"Save file version mismatch: expected {SaveData.CurrentVersion}, got {data.Version}");
+            return;
+        }
+
         // Defensive: ensure battle state is reset when loading a save
         // (GameManager is scene-local, but this guards against future persistence changes)
         ResetBattleState();

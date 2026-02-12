@@ -201,6 +201,7 @@ public partial class SaveLoadDialog : AcceptDialog
             else
             {
                 // Empty slot, corrupted, or autosave - proceed immediately
+                Hide();
                 EmitSignal(SignalName.SaveSlotSelected, slot);
             }
         }

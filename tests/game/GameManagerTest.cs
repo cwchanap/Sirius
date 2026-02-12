@@ -310,10 +310,13 @@ public partial class GameManagerTest : Node
     }
 
     [TestCase]
-    public void TestCollectSaveData_ReturnsNullWhenGridMapIsNull()
+    public async Task TestCollectSaveData_ReturnsNullWhenGridMapIsNull()
     {
         // Arrange - Create a FloorManager without GridMap
         var floorManager = new FloorManager();
+        // Add FloorManager to scene tree to ensure proper node processing
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        sceneTree.Root.AddChild(floorManager);
         _gameManager.SetFloorManager(floorManager);
 
         // Act
@@ -322,8 +325,9 @@ public partial class GameManagerTest : Node
         // Assert - Should return null because FloorManager.CurrentGridMap is null
         AssertThat(saveData).IsNull();
 
-        // Cleanup - Free the FloorManager to prevent node leak
+        // Cleanup - Free the FloorManager and await a frame to ensure it's processed
         floorManager.QueueFree();
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
     }
 
     [TestCase]
@@ -439,7 +443,7 @@ public partial class GameManagerTest : Node
     }
 
     [TestCase]
-    public void TestCollectSaveData_UsesUtcNow()
+    public async Task TestCollectSaveData_UsesUtcNow()
     {
         // Arrange - Create FloorManager and GridMap with reflection to set internal state
         var floorManager = new FloorManager();
@@ -482,8 +486,9 @@ public partial class GameManagerTest : Node
         AssertThat(saveData.Character).IsNotNull();
         AssertThat(saveData.Character.Name).IsEqual(_gameManager.Player.Name);
 
-        // Cleanup
+        // Cleanup - Free the floorManager and await a frame to ensure it's processed
         floorManager.QueueFree();
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
     }
 
     [TestCase]

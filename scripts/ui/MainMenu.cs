@@ -109,9 +109,9 @@ public partial class MainMenu : Control
 		}
 
 		_loadDialog = new SaveLoadDialog();
-		AddChild(_loadDialog);
 		_loadDialog.LoadSlotSelected += OnLoadSlotSelected;
 		_loadDialog.DialogClosed += OnLoadDialogClosed;
+		AddChild(_loadDialog);
 		_loadDialog.ShowDialog(SaveLoadDialog.DialogMode.Load);
 	}
 

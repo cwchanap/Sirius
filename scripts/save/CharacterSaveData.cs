@@ -27,7 +27,7 @@ public class CharacterSaveData
             Name = c.Name,
             Level = c.Level,
             MaxHealth = c.MaxHealth,
-            CurrentHealth = c.CurrentHealth,
+            CurrentHealth = Mathf.Clamp(c.CurrentHealth, 0, c.MaxHealth),
             Attack = c.Attack,
             Defense = c.Defense,
             Speed = c.Speed,

@@ -519,4 +519,105 @@ public partial class GameManagerTest : Node
         AssertThat(true).IsTrue();
     }
 
+    [TestCase]
+    public void TestLoadFromSaveData_AcceptsCurrentVersion()
+    {
+        // Arrange
+        var saveData = new SaveData
+        {
+            Version = SaveData.CurrentVersion,
+            Character = new CharacterSaveData
+            {
+                Name = "TestHero",
+                Level = 5,
+                MaxHealth = 200,
+                CurrentHealth = 150,
+                Attack = 20,
+                Defense = 15,
+                Speed = 10,
+                Experience = 500,
+                ExperienceToNext = 600,
+                Gold = 1000
+            },
+            CurrentFloorIndex = 1,
+            PlayerPosition = new Vector2IDto { X = 10, Y = 10 }
+        };
+
+        // Act
+        _gameManager.LoadFromSaveData(saveData);
+
+        // Assert - Player should be updated
+        AssertThat(_gameManager.Player.Name).IsEqual("TestHero");
+        AssertThat(_gameManager.Player.Level).IsEqual(5);
+    }
+
+    [TestCase]
+    public void TestLoadFromSaveData_AcceptsOlderVersion()
+    {
+        // Arrange - Create save with older version (for migration support)
+        var saveData = new SaveData
+        {
+            Version = 0, // Older version
+            Character = new CharacterSaveData
+            {
+                Name = "OldSaveHero",
+                Level = 3,
+                MaxHealth = 150,
+                CurrentHealth = 100,
+                Attack = 15,
+                Defense = 10,
+                Speed = 12,
+                Experience = 300,
+                ExperienceToNext = 400,
+                Gold = 500
+            },
+            CurrentFloorIndex = 0,
+            PlayerPosition = new Vector2IDto { X = 5, Y = 5 }
+        };
+
+        // Act
+        _gameManager.LoadFromSaveData(saveData);
+
+        // Assert - Player should be updated (older versions accepted for migration)
+        AssertThat(_gameManager.Player.Name).IsEqual("OldSaveHero");
+        AssertThat(_gameManager.Player.Level).IsEqual(3);
+    }
+
+    [TestCase]
+    public void TestLoadFromSaveData_RejectsNewerVersion()
+    {
+        // Arrange - Reset player to known state before test
+        _gameManager.EnsureFreshPlayer();
+        var originalPlayerName = _gameManager.Player.Name;
+        var originalPlayerLevel = _gameManager.Player.Level;
+        
+        // Create save with newer version (should be rejected)
+        var saveData = new SaveData
+        {
+            Version = SaveData.CurrentVersion + 100, // Much newer version
+            Character = new CharacterSaveData
+            {
+                Name = "FutureHero",
+                Level = 99,
+                MaxHealth = 9999,
+                CurrentHealth = 9999,
+                Attack = 999,
+                Defense = 999,
+                Speed = 999,
+                Experience = 99999,
+                ExperienceToNext = 999999,
+                Gold = 999999
+            },
+            CurrentFloorIndex = 5,
+            PlayerPosition = new Vector2IDto { X = 100, Y = 100 }
+        };
+
+        // Act
+        _gameManager.LoadFromSaveData(saveData);
+
+        // Assert - Player should NOT be updated (newer version rejected)
+        AssertThat(_gameManager.Player.Name).IsEqual(originalPlayerName);
+        AssertThat(_gameManager.Player.Level).IsEqual(originalPlayerLevel);
+    }
+
 }

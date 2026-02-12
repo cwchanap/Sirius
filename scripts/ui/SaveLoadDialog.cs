@@ -266,8 +266,9 @@ public partial class SaveLoadDialog : AcceptDialog
             GameManager.Instance.EndBattle(false);
         }
 
+        // Only emit MainMenuRequested - the caller (Game.cs) will handle cleanup
+        // Do NOT emit DialogClosed here to avoid double cleanup
         EmitSignal(SignalName.MainMenuRequested);
-        EmitSignal(SignalName.DialogClosed);
     }
 
     private void OnCancelPressed()

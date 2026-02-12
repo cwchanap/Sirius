@@ -308,6 +308,174 @@ public partial class SaveDataTest : Node
     }
 
     [TestCase]
+    public void TestCharacterSaveData_ToCharacter_WithZeroMaxHealth_UsesDefault()
+    {
+        // Arrange - Corrupted save with MaxHealth = 0
+        var saveData = new CharacterSaveData
+        {
+            Name = "CorruptedHero",
+            Level = 5,
+            MaxHealth = 0, // Invalid
+            CurrentHealth = 50,
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            Experience = 200,
+            ExperienceToNext = 300,
+            Gold = 100,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData()
+        };
+
+        // Act
+        var character = saveData.ToCharacter();
+
+        // Assert - Should use default MaxHealth (100)
+        AssertThat(character.MaxHealth).IsEqual(100);
+        AssertThat(character.CurrentHealth).IsEqual(50);
+        AssertThat(character.IsAlive).IsTrue();
+    }
+
+    [TestCase]
+    public void TestCharacterSaveData_ToCharacter_WithNegativeMaxHealth_UsesDefault()
+    {
+        // Arrange - Corrupted save with negative MaxHealth
+        var saveData = new CharacterSaveData
+        {
+            Name = "CorruptedHero",
+            Level = 5,
+            MaxHealth = -50, // Invalid
+            CurrentHealth = 50,
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            Experience = 200,
+            ExperienceToNext = 300,
+            Gold = 100,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData()
+        };
+
+        // Act
+        var character = saveData.ToCharacter();
+
+        // Assert - Should use default MaxHealth (100)
+        AssertThat(character.MaxHealth).IsEqual(100);
+    }
+
+    [TestCase]
+    public void TestCharacterSaveData_ToCharacter_WithZeroLevel_UsesDefault()
+    {
+        // Arrange - Corrupted save with Level = 0
+        var saveData = new CharacterSaveData
+        {
+            Name = "CorruptedHero",
+            Level = 0, // Invalid
+            MaxHealth = 150,
+            CurrentHealth = 100,
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            Experience = 200,
+            ExperienceToNext = 300,
+            Gold = 100,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData()
+        };
+
+        // Act
+        var character = saveData.ToCharacter();
+
+        // Assert - Should use default Level (1)
+        AssertThat(character.Level).IsEqual(1);
+    }
+
+    [TestCase]
+    public void TestCharacterSaveData_ToCharacter_WithNegativeLevel_UsesDefault()
+    {
+        // Arrange - Corrupted save with negative Level
+        var saveData = new CharacterSaveData
+        {
+            Name = "CorruptedHero",
+            Level = -5, // Invalid
+            MaxHealth = 150,
+            CurrentHealth = 100,
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            Experience = 200,
+            ExperienceToNext = 300,
+            Gold = 100,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData()
+        };
+
+        // Act
+        var character = saveData.ToCharacter();
+
+        // Assert - Should use default Level (1)
+        AssertThat(character.Level).IsEqual(1);
+    }
+
+    [TestCase]
+    public void TestCharacterSaveData_ToCharacter_WithZeroExperienceToNext_UsesCalculatedDefault()
+    {
+        // Arrange - Corrupted save with ExperienceToNext = 0
+        var saveData = new CharacterSaveData
+        {
+            Name = "CorruptedHero",
+            Level = 3,
+            MaxHealth = 150,
+            CurrentHealth = 100,
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            Experience = 200,
+            ExperienceToNext = 0, // Invalid
+            Gold = 100,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData()
+        };
+
+        // Act
+        var character = saveData.ToCharacter();
+
+        // Assert - Should use calculated default (100 * level + 10 * level^2 = 100*3 + 10*9 = 390)
+        AssertThat(character.ExperienceToNext).IsEqual(390);
+    }
+
+    [TestCase]
+    public void TestCharacterSaveData_ToCharacter_WithNegativeStats_UsesDefaults()
+    {
+        // Arrange - Corrupted save with negative stats
+        var saveData = new CharacterSaveData
+        {
+            Name = "CorruptedHero",
+            Level = 5,
+            MaxHealth = 150,
+            CurrentHealth = 100,
+            Attack = -10, // Invalid
+            Defense = -5, // Invalid
+            Speed = -3, // Invalid
+            Experience = -50, // Invalid
+            ExperienceToNext = 300,
+            Gold = -100, // Invalid
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData()
+        };
+
+        // Act
+        var character = saveData.ToCharacter();
+
+        // Assert - Should use defaults for negative values
+        AssertThat(character.Attack).IsEqual(20); // Default
+        AssertThat(character.Defense).IsEqual(10); // Default
+        AssertThat(character.Speed).IsEqual(15); // Default
+        AssertThat(character.Experience).IsEqual(0); // Sanitized to 0
+        AssertThat(character.Gold).IsEqual(0); // Sanitized to 0
+    }
+
+    [TestCase]
     public void TestInventorySaveData_FromEmptyInventory()
     {
         // Arrange

@@ -41,21 +41,32 @@ public class CharacterSaveData
 
     public Character ToCharacter()
     {
+        // Validate and sanitize save data to prevent corrupted values
+        // Use sensible defaults for invalid values to avoid breaking gameplay
+        int maxHealth = this.MaxHealth > 0 ? this.MaxHealth : 100;
+        int level = this.Level > 0 ? this.Level : 1;
+        int experienceToNext = this.ExperienceToNext > 0 ? this.ExperienceToNext : 100 * level + 10 * (level * level);
+        int attack = this.Attack >= 0 ? this.Attack : 20;
+        int defense = this.Defense >= 0 ? this.Defense : 10;
+        int speed = this.Speed >= 0 ? this.Speed : 15;
+        int experience = this.Experience >= 0 ? this.Experience : 0;
+        int gold = this.Gold >= 0 ? this.Gold : 0;
+
         // Clamp CurrentHealth to valid range [0, MaxHealth] before assigning
-        int clampedHealth = Mathf.Clamp(this.CurrentHealth, 0, this.MaxHealth);
+        int clampedHealth = Mathf.Clamp(this.CurrentHealth, 0, maxHealth);
 
         var character = new Character
         {
             Name = string.IsNullOrWhiteSpace(this.Name) ? "Hero" : this.Name,
-            Level = this.Level,
-            MaxHealth = this.MaxHealth,
+            Level = level,
+            MaxHealth = maxHealth,
             CurrentHealth = clampedHealth,
-            Attack = this.Attack,
-            Defense = this.Defense,
-            Speed = this.Speed,
-            Experience = this.Experience,
-            ExperienceToNext = this.ExperienceToNext,
-            Gold = this.Gold
+            Attack = attack,
+            Defense = defense,
+            Speed = speed,
+            Experience = experience,
+            ExperienceToNext = experienceToNext,
+            Gold = gold
         };
 
         // Restore inventory

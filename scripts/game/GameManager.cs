@@ -24,7 +24,7 @@ public partial class GameManager : Node
     {
         GD.Print("GameManager _Ready called");
 
-        if (Instance == null)
+        if (Instance == null || !IsInstanceValid(Instance))
         {
             Instance = this;
             InitializePlayer();
@@ -262,11 +262,18 @@ public partial class GameManager : Node
             return;
         }
 
-        // Validate save file version matches expected version
-        if (data.Version != SaveData.CurrentVersion)
+        // Validate save file version - allow older versions for migration support
+        // (SaveManager.LoadFromFile already rejects newer versions)
+        if (data.Version > SaveData.CurrentVersion)
         {
-            GD.PushError($"Save file version mismatch: expected {SaveData.CurrentVersion}, got {data.Version}");
+            GD.PushError($"Save file version {data.Version} is newer than supported version {SaveData.CurrentVersion}");
             return;
+        }
+
+        // Log version info for migration debugging
+        if (data.Version < SaveData.CurrentVersion)
+        {
+            GD.Print($"Loading older save file version {data.Version} (current: {SaveData.CurrentVersion}) - migration will be applied");
         }
 
         // Defensive: ensure battle state is reset when loading a save

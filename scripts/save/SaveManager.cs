@@ -46,6 +46,17 @@ public partial class SaveManager : Node
         }
     }
 
+    public override void _ExitTree()
+    {
+        // Clear the singleton reference when this node is removed from the tree.
+        // This is important if the autoload is ever removed or the tree is rebuilt.
+        if (Instance == this)
+        {
+            GD.Print("SaveManager exiting tree, clearing singleton Instance");
+            Instance = null;
+        }
+    }
+
     internal void EnsureSaveDirectoryExists()
     {
         using var dir = DirAccess.Open("user://");

@@ -855,6 +855,21 @@ public partial class Game : Node2D
     {
         GD.Print($"🎮 Game.OnFloorLoaded: Floor '{floorDef.FloorName}' ready");
 
+        // Validate player position against actual grid dimensions BEFORE assigning _gridMap
+        // This prevents half-initialized state if validation fails
+        if (gridMap != null && _gameManager?.Player != null)
+        {
+            Vector2I playerPos = gridMap.GetPlayerPosition();
+            if (playerPos.X < 0 || playerPos.X >= gridMap.GridWidth ||
+                playerPos.Y < 0 || playerPos.Y >= gridMap.GridHeight)
+            {
+                GD.PushError($"Save data corrupted: Player position ({playerPos.X}, {playerPos.Y}) out of bounds for grid {gridMap.GridWidth}x{gridMap.GridHeight}");
+                // Do NOT assign _gridMap - leave it null to prevent half-initialized state
+                ShowCorruptedSaveError();
+                return;
+            }
+        }
+
         // Disconnect signals from old GridMap to prevent handler accumulation
         if (_gridMap != null)
         {
@@ -864,19 +879,6 @@ public partial class Game : Node2D
 
         // Update dynamic GridMap reference
         _gridMap = gridMap;
-
-        // Validate player position against actual grid dimensions when loading from save
-        if (_gridMap != null && _gameManager?.Player != null)
-        {
-            Vector2I playerPos = _gridMap.GetPlayerPosition();
-            if (playerPos.X < 0 || playerPos.X >= _gridMap.GridWidth ||
-                playerPos.Y < 0 || playerPos.Y >= _gridMap.GridHeight)
-            {
-                GD.PushError($"Save data corrupted: Player position ({playerPos.X}, {playerPos.Y}) out of bounds for grid {_gridMap.GridWidth}x{_gridMap.GridHeight}");
-                ShowCorruptedSaveError();
-                return;
-            }
-        }
 
         // Update PlayerController's GridMap reference
         if (_playerController != null)

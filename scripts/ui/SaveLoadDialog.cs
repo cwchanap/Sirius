@@ -233,6 +233,8 @@ public partial class SaveLoadDialog : AcceptDialog
 
             if (_pendingSaveSlot >= 0)
             {
+                // Hide parent dialog before emitting to prevent further slot interaction
+                this.Hide();
                 EmitSignal(SignalName.SaveSlotSelected, _pendingSaveSlot);
                 _pendingSaveSlot = -1;
             }

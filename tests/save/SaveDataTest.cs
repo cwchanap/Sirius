@@ -170,6 +170,60 @@ public partial class SaveDataTest : Node
     }
 
     [TestCase]
+    public void TestCharacterSaveData_FromCharacter_ClampsCurrentHealthToMax()
+    {
+        // Arrange - CurrentHealth exceeds MaxHealth
+        var character = new Character
+        {
+            Name = "OverHealedHero",
+            Level = 5,
+            MaxHealth = 100,
+            CurrentHealth = 150, // Exceeds MaxHealth
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            Experience = 200,
+            ExperienceToNext = 300,
+            Gold = 100
+        };
+
+        // Act
+        var saveData = CharacterSaveData.FromCharacter(character);
+
+        // Assert - CurrentHealth should be clamped to MaxHealth
+        AssertThat(saveData).IsNotNull();
+        AssertThat(saveData!.MaxHealth).IsEqual(100);
+        AssertThat(saveData.CurrentHealth).IsEqual(100); // Clamped
+    }
+
+    [TestCase]
+    public void TestCharacterSaveData_FromCharacter_ClampsNegativeHealthToZero()
+    {
+        // Arrange - CurrentHealth is negative
+        var character = new Character
+        {
+            Name = "DamagedHero",
+            Level = 5,
+            MaxHealth = 100,
+            CurrentHealth = -10, // Negative
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            Experience = 200,
+            ExperienceToNext = 300,
+            Gold = 100
+        };
+
+        // Act
+        var saveData = CharacterSaveData.FromCharacter(character);
+
+        // Assert - CurrentHealth should be clamped to 0
+        AssertThat(saveData).IsNotNull();
+        AssertThat(saveData!.MaxHealth).IsEqual(100);
+        AssertThat(saveData.CurrentHealth).IsEqual(0); // Clamped
+    }
+
+    [TestCase]
     public void TestCharacterSaveData_ToCharacter_WithNullName_UsesFallback()
     {
         // Arrange

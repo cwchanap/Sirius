@@ -49,7 +49,13 @@ public partial class SaveManager : Node
     internal void EnsureSaveDirectoryExists()
     {
         using var dir = DirAccess.Open("user://");
-        if (dir != null && !dir.DirExists("saves"))
+        if (dir == null)
+        {
+            GD.PushError("Failed to open user:// directory - DirAccess.Open returned null");
+            return;
+        }
+
+        if (!dir.DirExists("saves"))
         {
             var err = dir.MakeDir("saves");
             if (err == Error.Ok)

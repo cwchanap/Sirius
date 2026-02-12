@@ -22,6 +22,7 @@ public partial class Game : Node2D
     private Vector2I _lastEnemyPosition; // Store enemy position for after battle
     private PlayerDisplay _playerDisplay; // Visual sprite for player when using baked TileMaps
     private InventoryMenuController _inventoryMenu;
+    private bool _isAbortInitialization; // Set when save corruption causes initialization abort
 
     private SaveLoadDialog _saveLoadDialog;
 
@@ -143,6 +144,7 @@ public partial class Game : Node2D
         {
             // Save data was corrupted - don't initialize game, just show error and return to menu
             GD.Print("Save data corrupted, aborting game initialization");
+            _isAbortInitialization = true;
             // Still need fresh player state for clean state, but skip floor loading
             _gameManager.ResetBattleState();
             _gameManager.EnsureFreshPlayer();
@@ -591,6 +593,12 @@ public partial class Game : Node2D
 
     private void UpdatePlayerUI()
     {
+        // Guard against accessing null _gridMap when initialization was aborted
+        if (_isAbortInitialization)
+        {
+            return;
+        }
+
         if (_gameManager?.Player != null)
         {
             var player = _gameManager.Player;

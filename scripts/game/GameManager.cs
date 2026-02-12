@@ -58,8 +58,11 @@ public partial class GameManager : Node
     {
         if (playerWon)
         {
-            GD.Print("Battle victory - triggering auto-save");
-            CallDeferred(nameof(TriggerAutoSave));
+            GD.Print("Battle victory - auto-save skipped (defeated enemies not tracked in save data)");
+            // TODO: Re-enable auto-save after battle victory when defeated enemies tracking is implemented.
+            // Currently disabled to prevent XP/gold farming exploit: loading an auto-save after victory
+            // respawns the defeated enemy, allowing infinite farming.
+            // CallDeferred(nameof(TriggerAutoSave));
         }
     }
     

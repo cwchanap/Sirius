@@ -12,9 +12,12 @@ public partial class FloorManagerTest : Node
     [TestCase]
     public async Task TestReady_SkipsInitialLoad_WhenPendingSaveData()
     {
+        // Check if singleton existed BEFORE calling EnsureSaveManager
+        bool existedBefore = SaveManager.Instance != null && IsInstanceValid(SaveManager.Instance);
         var saveManager = await EnsureSaveManager();
         var previousPending = saveManager.PendingLoadData;
-        var createdSingleton = ReferenceEquals(saveManager, SaveManager.Instance);
+        // Only free if this test actually created the singleton
+        bool createdSingleton = !existedBefore;
 
         saveManager.PendingLoadData = new SaveData
         {
@@ -47,10 +50,10 @@ public partial class FloorManagerTest : Node
 
             saveManager.PendingLoadData = previousPending;
 
-            // Free the SaveManager if this test created it
+            // Free the SaveManager only if this test actually created it
             if (createdSingleton)
             {
-                saveManager.Free();
+                saveManager.QueueFree();
             }
         }
     }

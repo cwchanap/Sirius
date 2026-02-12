@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Sirius is a 2D turn-based tactical RPG built with Godot 4.4.1 and C# scripting (.NET 8.0). The game features a 160x160 grid-based maze world with 8 themed areas, 14+ enemy types, automated turn-based combat, and a sprite animation system with fallback to colored rectangles.
+Sirius is a 2D turn-based tactical RPG built with Godot 4.5.1 and C# scripting (.NET 8.0). The game features a 160x160 grid-based maze world with 8 themed areas, 14+ enemy types, automated turn-based combat, and a sprite animation system with fallback to colored rectangles.
 
 ## Development Commands
 

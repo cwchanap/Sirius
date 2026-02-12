@@ -274,7 +274,8 @@ public partial class SaveManagerTest : Node
         };
 
         // Act - Save and get info
-        saveManager.SaveGame(0, saveData);
+        bool saveSuccess = saveManager.SaveGame(0, saveData);
+        AssertThat(saveSuccess).IsTrue();
         var info = saveManager.GetSaveSlotInfo(0);
 
         // Assert
@@ -569,7 +570,8 @@ public partial class SaveManagerTest : Node
         AssertThat(loadedData).IsNotNull();
         AssertThat(loadedData!.Version).IsEqual(saveData2.Version);
         AssertThat(loadedData.CurrentFloorIndex).IsEqual(saveData2.CurrentFloorIndex);
-        AssertThat(loadedData.Character.Name).IsEqual(saveData2.Character.Name);
+        AssertThat(loadedData.Character).IsNotNull();
+        AssertThat(loadedData.Character!.Name).IsEqual(saveData2.Character.Name);
         AssertThat(loadedData.Character.Level).IsEqual(saveData2.Character.Level);
 
         // Verify backup was restored to main file
@@ -596,7 +598,8 @@ public partial class SaveManagerTest : Node
         };
 
         // First save to create the file
-        saveManager.SaveGame(0, saveData);
+        bool saveResult = saveManager.SaveGame(0, saveData);
+        AssertThat(saveResult).IsTrue();
 
         // Create a backup file manually (simulating crash state)
         string backupPath = "user://saves/slot_0.json.bak";

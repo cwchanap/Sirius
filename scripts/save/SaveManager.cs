@@ -109,6 +109,9 @@ public partial class SaveManager : Node
 
     private bool SaveToFile(string fileName, SaveData data)
     {
+        string tempFileName = $"{fileName}.tmp";
+        string tempPath = $"{SaveDir}/{tempFileName}";
+
         try
         {
             if (data == null)
@@ -118,8 +121,6 @@ public partial class SaveManager : Node
             }
 
             string path = $"{SaveDir}/{fileName}";
-            string tempFileName = $"{fileName}.tmp";
-            string tempPath = $"{SaveDir}/{tempFileName}";
             string json = JsonSerializer.Serialize(data, _jsonOptions);
 
             using var file = FileAccess.Open(tempPath, FileAccess.ModeFlags.Write);
@@ -218,6 +219,26 @@ public partial class SaveManager : Node
         catch (Exception ex)
         {
             GD.PushError($"Save failed: {ex.Message}");
+
+            // Clean up the temporary file to avoid leaving orphaned temp files
+            try
+            {
+                string systemTempPath = ProjectSettings.GlobalizePath(tempPath);
+                if (System.IO.File.Exists(systemTempPath))
+                {
+                    System.IO.File.Delete(systemTempPath);
+                    GD.Print($"Cleaned up temp file after save failure: {systemTempPath}");
+                }
+            }
+            catch (System.IO.IOException cleanupEx)
+            {
+                GD.PushError($"Failed to cleanup temp file {tempPath} after save failure: {cleanupEx.Message}");
+            }
+            catch (Exception cleanupEx)
+            {
+                GD.PushError($"Unexpected error during temp file cleanup: {cleanupEx.Message}");
+            }
+
             return false;
         }
     }

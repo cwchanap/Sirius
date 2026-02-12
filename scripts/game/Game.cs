@@ -124,26 +124,8 @@ public partial class Game : Node2D
                 skipLoad = true;
             }
 
-            // Only validate position if floors are loaded and we can determine dimensions
-            if (!skipLoad && _floorManager.GetFloorCount() > 0)
-            {
-                var targetFloor = _floorManager.GetFloorByIndex(loadData.CurrentFloorIndex);
-                if (targetFloor != null)
-                {
-                    // Get actual grid dimensions from the floor definition's scene
-                    // We use a reasonable default if the scene isn't loaded yet
-                    int gridWidth = 160;
-                    int gridHeight = 160;
-
-                    if (loadData.PlayerPosition.X < 0 || loadData.PlayerPosition.X >= gridWidth ||
-                        loadData.PlayerPosition.Y < 0 || loadData.PlayerPosition.Y >= gridHeight)
-                    {
-                        GD.PushError($"Save data corrupted: Player position ({loadData.PlayerPosition.X}, {loadData.PlayerPosition.Y}) out of bounds");
-                        ShowCorruptedSaveError();
-                        skipLoad = true;
-                    }
-                }
-            }
+            // Position bounds validation is deferred until floor is loaded
+            // (see OnFloorLoaded where we validate against actual GridMap dimensions)
 
             if (!skipLoad)
             {
@@ -864,36 +846,49 @@ public partial class Game : Node2D
     private void OnFloorLoaded(FloorDefinition floorDef, GridMap gridMap)
     {
         GD.Print($"🎮 Game.OnFloorLoaded: Floor '{floorDef.FloorName}' ready");
-        
+
         // Disconnect signals from old GridMap to prevent handler accumulation
         if (_gridMap != null)
         {
             _gridMap.EnemyEncountered -= OnEnemyEncountered;
             _gridMap.PlayerMoved -= OnPlayerMoved;
         }
-        
+
         // Update dynamic GridMap reference
         _gridMap = gridMap;
-        
+
+        // Validate player position against actual grid dimensions when loading from save
+        if (_gridMap != null && _gameManager?.Player != null)
+        {
+            Vector2I playerPos = _gridMap.GetPlayerPosition();
+            if (playerPos.X < 0 || playerPos.X >= _gridMap.GridWidth ||
+                playerPos.Y < 0 || playerPos.Y >= _gridMap.GridHeight)
+            {
+                GD.PushError($"Save data corrupted: Player position ({playerPos.X}, {playerPos.Y}) out of bounds for grid {_gridMap.GridWidth}x{_gridMap.GridHeight}");
+                ShowCorruptedSaveError();
+                return;
+            }
+        }
+
         // Update PlayerController's GridMap reference
         if (_playerController != null)
         {
             _playerController.SetGridMap(_gridMap);
         }
-        
+
         // Connect GridMap signals
         if (_gridMap != null)
         {
             _gridMap.EnemyEncountered += OnEnemyEncountered;
             _gridMap.PlayerMoved += OnPlayerMoved;
         }
-        
+
         // Setup player display for this floor
         CallDeferred(nameof(SetupPlayerDisplay));
-        
+
         // Update camera position
         CallDeferred(nameof(SetInitialCameraPosition));
-        
+
         GD.Print($"✅ Floor '{floorDef.FloorName}' ready for gameplay");
     }
 

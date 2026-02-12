@@ -41,12 +41,15 @@ public class CharacterSaveData
 
     public Character ToCharacter()
     {
+        // Clamp CurrentHealth to valid range [0, MaxHealth] before assigning
+        int clampedHealth = Mathf.Clamp(this.CurrentHealth, 0, this.MaxHealth);
+
         var character = new Character
         {
             Name = string.IsNullOrWhiteSpace(this.Name) ? "Hero" : this.Name,
             Level = this.Level,
             MaxHealth = this.MaxHealth,
-            CurrentHealth = this.CurrentHealth,
+            CurrentHealth = clampedHealth,
             Attack = this.Attack,
             Defense = this.Defense,
             Speed = this.Speed,

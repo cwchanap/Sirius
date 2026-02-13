@@ -23,6 +23,9 @@ public partial class Game : Node2D
     private PlayerDisplay _playerDisplay; // Visual sprite for player when using baked TileMaps
     private InventoryMenuController _inventoryMenu;
     private bool _isAbortInitialization; // Set when save corruption causes initialization abort
+    private bool _hasPendingSaveSpawnValidation;
+    private Vector2I _pendingSaveSpawnPosition;
+    private int _pendingSaveSpawnFloorIndex = -1;
 
     private SaveLoadDialog _saveLoadDialog;
 
@@ -136,7 +139,10 @@ public partial class Game : Node2D
                 _gameManager.LoadFromSaveData(loadData);
 
                 // Load floor with saved position (deferred to after FloorManager is ready)
-                CallDeferred(nameof(LoadFloorFromSave), loadData.CurrentFloorIndex, loadData.PlayerPosition.ToVector2I());
+                _pendingSaveSpawnPosition = loadData.PlayerPosition.ToVector2I();
+                _pendingSaveSpawnFloorIndex = loadData.CurrentFloorIndex;
+                _hasPendingSaveSpawnValidation = true;
+                CallDeferred(nameof(LoadFloorFromSave), loadData.CurrentFloorIndex, _pendingSaveSpawnPosition);
             }
         }
 
@@ -655,11 +661,11 @@ public partial class Game : Node2D
                 int atkBonus = player.Equipment.GetAttackBonus();
                 if (atkBonus > 0)
                 {
-                    atkLabel.Text = $"ATK: {player.Attack} [color=#4CAF50]+ {atkBonus}[/color]";
+                    atkLabel.Text = $"ATK: {effectiveAttack} [color=#4CAF50](+{atkBonus})[/color]";
                 }
                 else
                 {
-                    atkLabel.Text = $"ATK: {player.Attack}";
+                    atkLabel.Text = $"ATK: {effectiveAttack}";
                 }
             }
 
@@ -672,11 +678,11 @@ public partial class Game : Node2D
                 int defBonus = player.Equipment.GetDefenseBonus();
                 if (defBonus > 0)
                 {
-                    defLabel.Text = $"DEF: {player.Defense} [color=#4CAF50]+ {defBonus}[/color]";
+                    defLabel.Text = $"DEF: {effectiveDefense} [color=#4CAF50](+{defBonus})[/color]";
                 }
                 else
                 {
-                    defLabel.Text = $"DEF: {player.Defense}";
+                    defLabel.Text = $"DEF: {effectiveDefense}";
                 }
             }
 
@@ -689,11 +695,11 @@ public partial class Game : Node2D
                 int spdBonus = player.Equipment.GetSpeedBonus();
                 if (spdBonus > 0)
                 {
-                    spdLabel.Text = $"SPD: {player.Speed} [color=#4CAF50]+ {spdBonus}[/color]";
+                    spdLabel.Text = $"SPD: {effectiveSpeed} [color=#4CAF50](+{spdBonus})[/color]";
                 }
                 else
                 {
-                    spdLabel.Text = $"SPD: {player.Speed}";
+                    spdLabel.Text = $"SPD: {effectiveSpeed}";
                 }
             }
         }
@@ -711,7 +717,13 @@ public partial class Game : Node2D
     private void LoadFloorFromSave(int floorIndex, Vector2I playerPosition)
     {
         GD.Print($"Loading floor {floorIndex} with player position ({playerPosition.X}, {playerPosition.Y})");
-        _floorManager.LoadFloor(floorIndex, playerPosition);
+        if (!_floorManager.LoadFloor(floorIndex, playerPosition))
+        {
+            _hasPendingSaveSpawnValidation = false;
+            _pendingSaveSpawnFloorIndex = -1;
+            GD.PushError($"Save data corrupted: Failed to load floor index {floorIndex}.");
+            ShowCorruptedSaveError();
+        }
     }
 
     /// <summary>
@@ -863,21 +875,6 @@ public partial class Game : Node2D
     {
         GD.Print($"🎮 Game.OnFloorLoaded: Floor '{floorDef.FloorName}' ready");
 
-        // Validate player position against actual grid dimensions BEFORE assigning _gridMap
-        // This prevents half-initialized state if validation fails
-        if (gridMap != null && _gameManager?.Player != null)
-        {
-            Vector2I playerPos = gridMap.GetPlayerPosition();
-            if (playerPos.X < 0 || playerPos.X >= gridMap.GridWidth ||
-                playerPos.Y < 0 || playerPos.Y >= gridMap.GridHeight)
-            {
-                GD.PushError($"Save data corrupted: Player position ({playerPos.X}, {playerPos.Y}) out of bounds for grid {gridMap.GridWidth}x{gridMap.GridHeight}");
-                // Do NOT assign _gridMap - leave it null to prevent half-initialized state
-                ShowCorruptedSaveError();
-                return;
-            }
-        }
-
         // Disconnect signals from old GridMap to prevent handler accumulation
         if (_gridMap != null)
         {
@@ -899,6 +896,20 @@ public partial class Game : Node2D
         {
             _gridMap.EnemyEncountered += OnEnemyEncountered;
             _gridMap.PlayerMoved += OnPlayerMoved;
+
+            if (_hasPendingSaveSpawnValidation)
+            {
+                if (_pendingSaveSpawnFloorIndex == _floorManager.CurrentFloorIndex)
+                {
+                    CallDeferred(nameof(ValidatePendingSaveSpawnPosition), _gridMap);
+                }
+                else
+                {
+                    GD.PushWarning($"Save validation skipped: Loaded floor {_floorManager.CurrentFloorIndex} while waiting for floor {_pendingSaveSpawnFloorIndex}.");
+                    _hasPendingSaveSpawnValidation = false;
+                    _pendingSaveSpawnFloorIndex = -1;
+                }
+            }
         }
 
         // Setup player display for this floor
@@ -908,6 +919,31 @@ public partial class Game : Node2D
         CallDeferred(nameof(SetInitialCameraPosition));
 
         GD.Print($"✅ Floor '{floorDef.FloorName}' ready for gameplay");
+    }
+
+    private void ValidatePendingSaveSpawnPosition(GridMap gridMap)
+    {
+        if (!_hasPendingSaveSpawnValidation)
+        {
+            return;
+        }
+
+        _hasPendingSaveSpawnValidation = false;
+        _pendingSaveSpawnFloorIndex = -1;
+
+        if (gridMap == null)
+        {
+            GD.PushError("Save data corrupted: Floor loaded without a valid GridMap.");
+            ShowCorruptedSaveError();
+            return;
+        }
+
+        Vector2I actualPosition = gridMap.GetPlayerPosition();
+        if (actualPosition != _pendingSaveSpawnPosition)
+        {
+            GD.PushError($"Save data corrupted: Player position ({_pendingSaveSpawnPosition.X}, {_pendingSaveSpawnPosition.Y}) is invalid for floor '{_floorManager.CurrentFloorDefinition?.FloorName ?? "Unknown"}'.");
+            ShowCorruptedSaveError();
+        }
     }
 
     private void OnFloorChanged(int oldFloorIndex, int newFloorIndex)

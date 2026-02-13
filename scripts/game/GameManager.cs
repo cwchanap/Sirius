@@ -10,7 +10,22 @@ public partial class GameManager : Node
     internal event Action<Enemy> BattleStartedManaged;
     internal Enemy LastBattleStartedEnemy { get; private set; }
     internal int BattleStartedCount { get; private set; }
-    internal bool AutoSaveEnabled { get; set; } = true;
+    private bool _autoSaveEnabled = true;
+    internal bool AutoSaveEnabled
+    {
+        get => _autoSaveEnabled;
+        set
+        {
+            if (_autoSaveEnabled == value)
+            {
+                return;
+            }
+
+            _autoSaveEnabled = value;
+            UpdateAutoSaveSubscription();
+        }
+    }
+
     private bool _isAutoSaveSubscribed = false;
 
     public static GameManager Instance { get; private set; }
@@ -28,13 +43,7 @@ public partial class GameManager : Node
         {
             Instance = this;
             InitializePlayer();
-
-            // Connect to battle ended signal for auto-save
-            if (AutoSaveEnabled && !_isAutoSaveSubscribed)
-            {
-                BattleEnded += OnBattleEnded;
-                _isAutoSaveSubscribed = true;
-            }
+            UpdateAutoSaveSubscription();
 
             GD.Print("GameManager initialized as singleton");
         }
@@ -42,6 +51,20 @@ public partial class GameManager : Node
         {
             GD.Print("GameManager instance already exists, queueing free");
             QueueFree();
+        }
+    }
+
+    private void UpdateAutoSaveSubscription()
+    {
+        if (_autoSaveEnabled && !_isAutoSaveSubscribed)
+        {
+            BattleEnded += OnBattleEnded;
+            _isAutoSaveSubscribed = true;
+        }
+        else if (!_autoSaveEnabled && _isAutoSaveSubscribed)
+        {
+            BattleEnded -= OnBattleEnded;
+            _isAutoSaveSubscribed = false;
         }
     }
 

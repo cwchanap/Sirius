@@ -23,12 +23,12 @@ public partial class SaveLoadDialog : AcceptDialog
 
     private DialogMode _mode;
     private VBoxContainer _slotContainer;
-    private Button[] _slotButtons = new Button[4];
-    private Label[] _slotLabels = new Label[4];
+    private readonly Button[] _slotButtons = new Button[4];
+    private readonly Label[] _slotLabels = new Label[4];
     private Button _mainMenuButton;
     private Button _cancelButton;
-    private Action[] _slotButtonHandlers = new Action[4];
-    private SaveSlotInfo[] _slotInfos = new SaveSlotInfo[4];
+    private readonly Action[] _slotButtonHandlers = new Action[4];
+    private readonly SaveSlotInfo[] _slotInfos = new SaveSlotInfo[4];
     private int _pendingSaveSlot = -1;
 
     public override void _Ready()

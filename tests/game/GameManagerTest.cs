@@ -11,27 +11,27 @@ public partial class GameManagerTest : Node
     private GameManager _gameManager;
     private Variant _originalVerboseOrphans;
 
-private static void ResetSingleton()
-	{
-		var property = typeof(GameManager).GetProperty("Instance",
-			System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-		var setter = property?.GetSetMethod(true);
-		if (setter != null)
-		{
-			setter.Invoke(null, new object[] { null });
-			return;
-		}
+    private static void ResetSingleton()
+    {
+        var property = typeof(GameManager).GetProperty("Instance",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+        var setter = property?.GetSetMethod(true);
+        if (setter != null)
+        {
+            setter.Invoke(null, new object[] { null });
+            return;
+        }
 
-		var field = typeof(GameManager).GetField("<Instance>k__BackingField",
-			System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-		if (field != null)
-		{
-			field.SetValue(null, null);
-			return;
-		}
+        var field = typeof(GameManager).GetField("<Instance>k__BackingField",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        if (field != null)
+        {
+            field.SetValue(null, null);
+            return;
+        }
 
-		throw new InvalidOperationException("Failed to reset GameManager singleton: could not find public static setter or non-public backing field for Instance.");
-	}
+        throw new InvalidOperationException("Failed to reset GameManager singleton: could not find public static setter or non-public backing field for Instance.");
+    }
 
     [Before]
     public async Task Setup()
@@ -498,27 +498,60 @@ private static void ResetSingleton()
         await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
     }
 
-[TestCase]
-	public void TestTriggerAutoSave_SkipsWhenPlayerIsNull()
-	{
-		// Arrange - Set Player to null using backing field
-		var field = typeof(GameManager).GetField("<Player>k__BackingField",
-			System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-		AssertThat(field).IsNotNull();
-		field!.SetValue(_gameManager, null);
-		AssertThat(_gameManager.Player).IsNull();
+    [TestCase]
+    public void TestTriggerAutoSave_SkipsWhenPlayerIsNull()
+    {
+        // Arrange - Set Player to null using backing field
+        var field = typeof(GameManager).GetField("<Player>k__BackingField",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        AssertThat(field).IsNotNull();
+        field!.SetValue(_gameManager, null);
+        AssertThat(_gameManager.Player).IsNull();
 
-		// Act & Assert - Should not throw
-		AssertThat(() => _gameManager.TriggerAutoSave()).NotThrows();
-	}
+        // Act & Assert - Should not throw
+        AssertThat(() => _gameManager.TriggerAutoSave()).NotThrows();
+    }
 
-[TestCase]
-	public void TestTriggerAutoSave_SkipsWhenFloorManagerIsNull()
-	{
-		// Arrange - FloorManager is null by default (private field)
-		// Act & Assert - Should not throw, method handles null gracefully
-		AssertThat(() => _gameManager.TriggerAutoSave()).NotThrows();
-	}
+    [TestCase]
+    public void TestTriggerAutoSave_SkipsWhenFloorManagerIsNull()
+    {
+        // Arrange - FloorManager is null by default (private field)
+        // Act & Assert - Should not throw, method handles null gracefully
+        AssertThat(() => _gameManager.TriggerAutoSave()).NotThrows();
+    }
+
+    [TestCase]
+    public void TestAutoSaveEnabled_SubscribeWhenEnabledAfterReady()
+    {
+        // Arrange
+        var subscribedField = typeof(GameManager).GetField("_isAutoSaveSubscribed",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        AssertThat(subscribedField).IsNotNull();
+        AssertThat((bool)subscribedField!.GetValue(_gameManager)!).IsFalse();
+
+        // Act
+        _gameManager.AutoSaveEnabled = true;
+
+        // Assert
+        AssertThat((bool)subscribedField.GetValue(_gameManager)!).IsTrue();
+    }
+
+    [TestCase]
+    public void TestAutoSaveEnabled_UnsubscribeWhenDisabledAfterReady()
+    {
+        // Arrange
+        var subscribedField = typeof(GameManager).GetField("_isAutoSaveSubscribed",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        AssertThat(subscribedField).IsNotNull();
+        _gameManager.AutoSaveEnabled = true;
+        AssertThat((bool)subscribedField!.GetValue(_gameManager)!).IsTrue();
+
+        // Act
+        _gameManager.AutoSaveEnabled = false;
+
+        // Assert
+        AssertThat((bool)subscribedField.GetValue(_gameManager)!).IsFalse();
+    }
 
     [TestCase]
     public void TestLoadFromSaveData_AcceptsCurrentVersion()

@@ -224,6 +224,65 @@ public partial class SaveDataTest : Node
     }
 
     [TestCase]
+    public void TestCharacterSaveData_FromCharacter_PreservesHealthUpToEffectiveMaxHealth()
+    {
+        // Arrange - CurrentHealth exceeds base MaxHealth but is within effective max health
+        var character = new Character
+        {
+            Name = "EquippedHero",
+            Level = 5,
+            MaxHealth = 100,
+            CurrentHealth = 130,
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            Experience = 200,
+            ExperienceToNext = 300,
+            Gold = 100,
+            Equipment = new EquipmentSet()
+        };
+        character.Equipment.TryEquip(EquipmentCatalog.CreateWoodenHelmet(), out _); // +50 HP
+
+        // Act
+        var saveData = CharacterSaveData.FromCharacter(character);
+
+        // Assert - Should preserve health up to effective max (150)
+        AssertThat(saveData).IsNotNull();
+        AssertThat(saveData!.CurrentHealth).IsEqual(130);
+    }
+
+    [TestCase]
+    public void TestCharacterSaveData_ToCharacter_PreservesHealthAfterEquipmentRestore()
+    {
+        // Arrange - Saved health is above base max but valid with equipped +HP gear
+        var saveData = new CharacterSaveData
+        {
+            Name = "LoadedEquippedHero",
+            Level = 5,
+            MaxHealth = 100,
+            CurrentHealth = 130,
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            Experience = 200,
+            ExperienceToNext = 300,
+            Gold = 100,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData
+            {
+                HelmetId = "wooden_helmet"
+            }
+        };
+
+        // Act
+        var character = saveData.ToCharacter();
+
+        // Assert - Clamp should happen after equipment restore (effective max health = 150)
+        AssertThat(character.CurrentHealth).IsEqual(130);
+        AssertThat(character.GetEffectiveMaxHealth()).IsEqual(150);
+    }
+
+    [TestCase]
     public void TestCharacterSaveData_ToCharacter_WithNullName_UsesFallback()
     {
         // Arrange
@@ -527,9 +586,9 @@ public partial class SaveDataTest : Node
         // Act
         var inventory = saveData.ToInventory();
 
-        // Assert - Should have partially added items up to stack limit
+        // Assert - Overflow is explicitly dropped when stack limits prevent full restore
         AssertThat(inventory.ContainsItem("wooden_sword")).IsTrue();
-        // The actual quantity should be capped at max stack size (1)
+        // Quantity is capped at max stack size (1), remaining quantity is discarded with warning
         AssertThat(inventory.GetQuantity("wooden_sword")).IsEqual(1);
     }
 

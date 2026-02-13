@@ -56,11 +56,14 @@ public class InventorySaveData
                 continue;
             }
 
-            if (!inventory.TryAddItem(item, entry.Quantity, out int addedQuantity))
+            // Inventory stores one entry per item ID, so overflow beyond that entry's stack limit
+            // cannot be represented as additional stacks. Any remainder is dropped with a warning.
+            bool fullyAdded = inventory.TryAddItem(item, entry.Quantity, out int addedQuantity);
+            int lost = entry.Quantity - addedQuantity;
+            if (!fullyAdded || lost > 0)
             {
                 if (addedQuantity > 0)
                 {
-                    int lost = entry.Quantity - addedQuantity;
                     GD.PushWarning($"Save load: Could not fully restore {entry.ItemId} - {lost} items lost due to stack limits");
                 }
                 else

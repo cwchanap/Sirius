@@ -27,7 +27,7 @@ public class CharacterSaveData
             Name = c.Name,
             Level = c.Level,
             MaxHealth = c.MaxHealth,
-            CurrentHealth = Mathf.Clamp(c.CurrentHealth, 0, c.MaxHealth),
+            CurrentHealth = Mathf.Clamp(c.CurrentHealth, 0, c.GetEffectiveMaxHealth()),
             Attack = c.Attack,
             Defense = c.Defense,
             Speed = c.Speed,
@@ -85,8 +85,8 @@ public class CharacterSaveData
         int gold = this.Gold;
         if (gold < 0) { GD.PushWarning($"Save data: Invalid Gold ({this.Gold}), using 0"); gold = 0; hadInvalidData = true; }
 
-string name = this.Name ?? string.Empty;
-		if (string.IsNullOrWhiteSpace(name))
+        string name = this.Name ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(name))
         {
             GD.PushWarning($"Save data: Invalid Name (null/empty), using default 'Hero'");
             name = "Hero";
@@ -99,15 +99,15 @@ string name = this.Name ?? string.Empty;
                            "Character stats may not match what was originally saved.");
         }
 
-        // Clamp CurrentHealth to valid range [0, MaxHealth] before assigning
-        int clampedHealth = Mathf.Clamp(this.CurrentHealth, 0, maxHealth);
+        // Defer final health clamp until after equipment restore so +MaxHealth bonuses are respected.
+        int sanitizedHealth = Mathf.Max(0, this.CurrentHealth);
 
         var character = new Character
         {
             Name = name,
             Level = level,
             MaxHealth = maxHealth,
-            CurrentHealth = clampedHealth,
+            CurrentHealth = sanitizedHealth,
             Attack = attack,
             Defense = defense,
             Speed = speed,
@@ -135,6 +135,9 @@ string name = this.Name ?? string.Empty;
         {
             character.Equipment = new EquipmentSet();
         }
+
+        // Clamp CurrentHealth after equipment is restored so effective max HP is used.
+        character.CurrentHealth = Mathf.Clamp(character.CurrentHealth, 0, character.GetEffectiveMaxHealth());
 
         return character;
     }

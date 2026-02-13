@@ -85,8 +85,8 @@ public class CharacterSaveData
         int gold = this.Gold;
         if (gold < 0) { GD.PushWarning($"Save data: Invalid Gold ({this.Gold}), using 0"); gold = 0; hadInvalidData = true; }
 
-        string name = this.Name;
-        if (string.IsNullOrWhiteSpace(name))
+string name = this.Name ?? string.Empty;
+		if (string.IsNullOrWhiteSpace(name))
         {
             GD.PushWarning($"Save data: Invalid Name (null/empty), using default 'Hero'");
             name = "Hero";

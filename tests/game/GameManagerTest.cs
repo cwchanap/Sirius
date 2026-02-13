@@ -1,5 +1,6 @@
 using GdUnit4;
 using Godot;
+using System;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
 
@@ -10,21 +11,27 @@ public partial class GameManagerTest : Node
     private GameManager _gameManager;
     private Variant _originalVerboseOrphans;
 
-    private static void ResetSingleton()
-    {
-        var property = typeof(GameManager).GetProperty("Instance",
-            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-        var setter = property?.GetSetMethod(true);
-        if (setter != null)
-        {
-            setter.Invoke(null, new object[] { null });
-            return;
-        }
+private static void ResetSingleton()
+	{
+		var property = typeof(GameManager).GetProperty("Instance",
+			System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+		var setter = property?.GetSetMethod(true);
+		if (setter != null)
+		{
+			setter.Invoke(null, new object[] { null });
+			return;
+		}
 
-        var field = typeof(GameManager).GetField("<Instance>k__BackingField",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        field?.SetValue(null, null);
-    }
+		var field = typeof(GameManager).GetField("<Instance>k__BackingField",
+			System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+		if (field != null)
+		{
+			field.SetValue(null, null);
+			return;
+		}
+
+		throw new InvalidOperationException("Failed to reset GameManager singleton: could not find public static setter or non-public backing field for Instance.");
+	}
 
     [Before]
     public async Task Setup()
@@ -491,33 +498,27 @@ public partial class GameManagerTest : Node
         await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
     }
 
-    [TestCase]
-    public void TestTriggerAutoSave_SkipsWhenPlayerIsNull()
-    {
-        // Arrange - Set Player to null using backing field
-        var field = typeof(GameManager).GetField("<Player>k__BackingField",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        AssertThat(field).IsNotNull();
-        field!.SetValue(_gameManager, null);
-        AssertThat(_gameManager.Player).IsNull();
+[TestCase]
+	public void TestTriggerAutoSave_SkipsWhenPlayerIsNull()
+	{
+		// Arrange - Set Player to null using backing field
+		var field = typeof(GameManager).GetField("<Player>k__BackingField",
+			System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+		AssertThat(field).IsNotNull();
+		field!.SetValue(_gameManager, null);
+		AssertThat(_gameManager.Player).IsNull();
 
-        // Act - Should not crash
-        _gameManager.TriggerAutoSave();
+		// Act & Assert - Should not throw
+		AssertThat(() => _gameManager.TriggerAutoSave()).NotThrows();
+	}
 
-        // Assert - No exception thrown
-        AssertThat(true).IsTrue();
-    }
-
-    [TestCase]
-    public void TestTriggerAutoSave_SkipsWhenFloorManagerIsNull()
-    {
-        // Arrange - FloorManager is null by default (private field)
-        // Act - Should not crash
-        _gameManager.TriggerAutoSave();
-
-        // Assert - No exception thrown, method handles null gracefully
-        AssertThat(true).IsTrue();
-    }
+[TestCase]
+	public void TestTriggerAutoSave_SkipsWhenFloorManagerIsNull()
+	{
+		// Arrange - FloorManager is null by default (private field)
+		// Act & Assert - Should not throw, method handles null gracefully
+		AssertThat(() => _gameManager.TriggerAutoSave()).NotThrows();
+	}
 
     [TestCase]
     public void TestLoadFromSaveData_AcceptsCurrentVersion()

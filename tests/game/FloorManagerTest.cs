@@ -72,9 +72,13 @@ public partial class FloorManagerTest : Node
         return SaveManager.Instance ?? saveManager;
     }
 
-    private static T GetPrivateFieldValue<T>(object instance, string fieldName) where T : class
-    {
-        var field = instance.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
-        return field?.GetValue(instance) as T;
-    }
+private static T GetPrivateFieldValue<T>(object instance, string fieldName) where T : class
+	{
+		var field = instance.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+		if (field == null)
+		{
+			throw new ArgumentException($"Private field '{fieldName}' not found in type '{instance.GetType().FullName}'");
+		}
+		return field.GetValue(instance) as T;
+	}
 }

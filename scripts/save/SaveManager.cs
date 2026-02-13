@@ -99,7 +99,7 @@ public partial class SaveManager : Node
     /// <summary>
     /// Saves game to a manual slot (0-2).
     /// </summary>
-    public bool SaveGame(int slot, SaveData data)
+    public bool SaveGame(int slot, SaveData? data)
     {
         if (slot < 0 || slot > 2)
         {

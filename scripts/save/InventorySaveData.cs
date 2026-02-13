@@ -10,7 +10,7 @@ public class InventorySaveData
     public List<InventoryEntryDto> Entries { get; set; } = new();
     public int MaxItemTypes { get; set; } = 100;
 
-    public static InventorySaveData FromInventory(Inventory inv)
+    public static InventorySaveData FromInventory(Inventory? inv)
     {
         if (inv == null) return new InventorySaveData();
 

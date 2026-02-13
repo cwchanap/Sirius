@@ -30,7 +30,13 @@ public class InventorySaveData
 
     public Inventory ToInventory()
     {
-        var inventory = new Inventory { MaxItemTypes = this.MaxItemTypes };
+        int maxItemTypes = this.MaxItemTypes;
+        if (maxItemTypes <= 0)
+        {
+            GD.PushWarning($"Save data: Invalid MaxItemTypes ({this.MaxItemTypes}), using default 100");
+            maxItemTypes = 100;
+        }
+        var inventory = new Inventory { MaxItemTypes = maxItemTypes };
 
         if (Entries == null)
         {

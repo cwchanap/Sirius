@@ -431,17 +431,15 @@ public partial class SaveManager : Node
             
             // Extract timestamp
             DateTime timestamp = DateTime.MinValue;
-            if (root.TryGetProperty("SaveTimestamp", out var timestampElement))
+            if (root.TryGetProperty("SaveTimestamp", out var timestampElement) &&
+                timestampElement.ValueKind == JsonValueKind.String &&
+                DateTime.TryParse(timestampElement.GetString(),
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.RoundtripKind,
+                    out var parsed))
             {
                 // Try to parse ISO 8601 format with RoundtripKind to preserve UTC
-                if (timestampElement.ValueKind == JsonValueKind.String &&
-                    DateTime.TryParse(timestampElement.GetString(), 
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        System.Globalization.DateTimeStyles.RoundtripKind, 
-                        out var parsed))
-                {
-                    timestamp = parsed;
-                }
+                timestamp = parsed;
             }
             
             // Extract floor index

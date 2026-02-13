@@ -233,13 +233,13 @@ public partial class GameManager : Node
     {
         if (Player == null)
         {
-            GD.PushWarning("Cannot collect save data: Player is null");
+            GD.PushError("Cannot collect save data: Player is null");
             return null;
         }
 
         if (_floorManager?.CurrentGridMap == null)
         {
-            GD.PushWarning("Cannot collect save data: FloorManager or GridMap not available");
+            GD.PushError("Cannot collect save data: FloorManager or GridMap not available");
             return null;
         }
 
@@ -284,10 +284,6 @@ public partial class GameManager : Node
             GD.Print($"Loading older save file version {data.Version} (current: {SaveData.CurrentVersion}) - migration will be applied");
         }
 
-        // Defensive: ensure battle state is reset when loading a save
-        // (GameManager is scene-local, but this guards against future persistence changes)
-        ResetBattleState();
-
         var player = data.Character.ToCharacter();
         if (player == null)
         {
@@ -296,6 +292,10 @@ public partial class GameManager : Node
         }
 
         Player = player;
+
+        // Reset battle state after successful player assignment to avoid
+        // inconsistent state if ToCharacter() throws or returns null
+        ResetBattleState();
         GD.Print($"Player loaded from save: {Player.Name}, Level {Player.Level}");
 
         NotifyPlayerStatsChanged();

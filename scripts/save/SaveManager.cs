@@ -235,7 +235,8 @@ public partial class SaveManager : Node
         }
         catch (Exception ex)
         {
-            GD.PushError($"Save failed: {ex.Message}");
+            GD.PushError($"Save failed: {ex.GetType().Name}: {ex.Message}");
+            GD.Print($"Stack trace: {ex.StackTrace}");
 
             // Clean up the temporary file to avoid leaving orphaned temp files
             try
@@ -319,7 +320,8 @@ public partial class SaveManager : Node
                     }
                     else
                     {
-                        // Directory access failed, fallback to reading backup directly
+                        GD.PushWarning($"Failed to open save directory for backup restoration (DirAccess.Open returned null). " +
+                                       $"Reading backup directly: {backupPath}");
                         path = backupPath;
                     }
                 }
@@ -340,13 +342,14 @@ public partial class SaveManager : Node
             string json = file.GetAsText();
             var data = JsonSerializer.Deserialize<SaveData>(json);
 
-            // Validate save file version
+            // Check deserialization succeeded
             if (data == null)
             {
                 GD.PushError($"Failed to deserialize save data from {fileName}");
                 return null;
             }
 
+            // Validate save file version
             if (data.Version > SaveData.CurrentVersion)
             {
                 GD.PushError($"Save file version {data.Version} is newer than supported version {SaveData.CurrentVersion}");
@@ -354,7 +357,7 @@ public partial class SaveManager : Node
             }
 
             // Add version migration logic here if needed in the future
-            // if (data.Version < CurrentVersion) { /* migrate */ }
+            // if (data.Version < SaveData.CurrentVersion) { /* migrate */ }
 
             GD.Print($"Game loaded successfully from {path} (version {data.Version})");
             return data;
@@ -403,10 +406,27 @@ public partial class SaveManager : Node
             var root = doc.RootElement;
             
             // Extract version first for validation (allow older versions for migration)
-            if (!root.TryGetProperty("Version", out var versionElement) || 
-                versionElement.GetInt32() > SaveData.CurrentVersion)
+            if (!root.TryGetProperty("Version", out var versionElement))
             {
-                return null; // Version too new or missing
+                GD.PushWarning($"Save file {fileName} has no Version field");
+                return new SaveSlotInfo
+                {
+                    Exists = true,
+                    IsCorrupted = true,
+                    PlayerName = "Unknown Format"
+                };
+            }
+
+            int fileVersion = versionElement.GetInt32();
+            if (fileVersion > SaveData.CurrentVersion)
+            {
+                GD.PushWarning($"Save file {fileName} is version {fileVersion}, current is {SaveData.CurrentVersion}");
+                return new SaveSlotInfo
+                {
+                    Exists = true,
+                    IsCorrupted = true,
+                    PlayerName = $"Newer Version (v{fileVersion})"
+                };
             }
             
             // Extract timestamp
@@ -597,6 +617,7 @@ public partial class SaveManager : Node
     {
         if (!IsValidSlot(slot))
         {
+            GD.PushWarning($"SaveExists called with invalid slot: {slot}");
             return false;
         }
 

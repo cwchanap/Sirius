@@ -41,23 +41,70 @@ public class CharacterSaveData
 
     public Character ToCharacter()
     {
-        // Validate and sanitize save data to prevent corrupted values
-        // Use sensible defaults for invalid values to avoid breaking gameplay
-        int maxHealth = this.MaxHealth > 0 ? this.MaxHealth : 100;
-        int level = this.Level > 0 ? this.Level : 1;
-        int experienceToNext = this.ExperienceToNext > 0 ? this.ExperienceToNext : 100 * level + 10 * (level * level);
-        int attack = this.Attack >= 0 ? this.Attack : 20;
-        int defense = this.Defense >= 0 ? this.Defense : 10;
-        int speed = this.Speed >= 0 ? this.Speed : 15;
-        int experience = this.Experience >= 0 ? this.Experience : 0;
-        int gold = this.Gold >= 0 ? this.Gold : 0;
+        // Validate and sanitize save data to prevent corrupted values.
+        // Each replaced field is logged so data corruption is diagnosable.
+        bool hadInvalidData = false;
+
+        int maxHealth = this.MaxHealth;
+        if (maxHealth <= 0)
+        {
+            GD.PushWarning($"Save data: Invalid MaxHealth ({this.MaxHealth}), using default 100");
+            maxHealth = 100;
+            hadInvalidData = true;
+        }
+
+        int level = this.Level;
+        if (level <= 0)
+        {
+            GD.PushWarning($"Save data: Invalid Level ({this.Level}), using default 1");
+            level = 1;
+            hadInvalidData = true;
+        }
+
+        // Match Character.LevelUp() formula: 100 * level + 10 * level^2
+        int experienceToNext = this.ExperienceToNext;
+        if (experienceToNext <= 0)
+        {
+            experienceToNext = 100 * level + 10 * (level * level);
+            GD.PushWarning($"Save data: Invalid ExperienceToNext ({this.ExperienceToNext}), using calculated {experienceToNext}");
+            hadInvalidData = true;
+        }
+
+        int attack = this.Attack;
+        if (attack < 0) { GD.PushWarning($"Save data: Invalid Attack ({this.Attack}), using default 20"); attack = 20; hadInvalidData = true; }
+
+        int defense = this.Defense;
+        if (defense < 0) { GD.PushWarning($"Save data: Invalid Defense ({this.Defense}), using default 10"); defense = 10; hadInvalidData = true; }
+
+        int speed = this.Speed;
+        if (speed < 0) { GD.PushWarning($"Save data: Invalid Speed ({this.Speed}), using default 15"); speed = 15; hadInvalidData = true; }
+
+        int experience = this.Experience;
+        if (experience < 0) { GD.PushWarning($"Save data: Invalid Experience ({this.Experience}), using 0"); experience = 0; hadInvalidData = true; }
+
+        int gold = this.Gold;
+        if (gold < 0) { GD.PushWarning($"Save data: Invalid Gold ({this.Gold}), using 0"); gold = 0; hadInvalidData = true; }
+
+        string name = this.Name;
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            GD.PushWarning($"Save data: Invalid Name (null/empty), using default 'Hero'");
+            name = "Hero";
+            hadInvalidData = true;
+        }
+
+        if (hadInvalidData)
+        {
+            GD.PushWarning("Save data contained invalid values that were replaced with defaults. " +
+                           "Character stats may not match what was originally saved.");
+        }
 
         // Clamp CurrentHealth to valid range [0, MaxHealth] before assigning
         int clampedHealth = Mathf.Clamp(this.CurrentHealth, 0, maxHealth);
 
         var character = new Character
         {
-            Name = string.IsNullOrWhiteSpace(this.Name) ? "Hero" : this.Name,
+            Name = name,
             Level = level,
             MaxHealth = maxHealth,
             CurrentHealth = clampedHealth,

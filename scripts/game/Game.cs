@@ -737,6 +737,14 @@ public partial class Game : Node2D
 
     private void OnSaveSlotSelected(int slot)
     {
+        // Defensive: re-check battle state in case a battle started while dialog was open
+        if (_gameManager.IsInBattle)
+        {
+            GD.PrintErr("Save blocked: Battle in progress.");
+            ShowSaveError("Cannot save during battle.");
+            return;
+        }
+
         // Prevent saving if player is defeated (CurrentHealth <= 0)
         // This can happen during the 2-second delay after battle loss before returning to menu
         if (_gameManager.Player != null && !_gameManager.Player.IsAlive)

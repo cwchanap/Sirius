@@ -26,6 +26,18 @@ public partial class RecoveryChest : Node
             Amount = amount > 0 ? amount : throw new ArgumentException("Amount must be positive", nameof(amount));
             AddedAt = DateTime.UtcNow;
         }
+
+        public OverflowEntry(string itemId, int amount, DateTime addedAt)
+        {
+            ItemId = itemId ?? throw new ArgumentNullException(nameof(itemId));
+            Amount = amount > 0 ? amount : throw new ArgumentException("Amount must be positive", nameof(amount));
+            AddedAt = addedAt;
+        }
+
+        public OverflowEntry WithAmount(int amount)
+        {
+            return new OverflowEntry(ItemId, amount, AddedAt);
+        }
     }
 
     private readonly List<OverflowEntry> _overflowItems = new();
@@ -102,7 +114,7 @@ public partial class RecoveryChest : Node
         }
 
         int recoveredCount = 0;
-        var itemsToRemove = new List<OverflowEntry>();
+        var updatedEntries = new List<OverflowEntry>();
 
         foreach (var entry in _overflowItems)
         {
@@ -110,6 +122,7 @@ public partial class RecoveryChest : Node
             if (item == null)
             {
                 GD.PushWarning($"RecoveryChest: Cannot recover unknown item '{entry.ItemId}', keeping in chest");
+                updatedEntries.Add(entry);
                 continue;
             }
 
@@ -119,25 +132,27 @@ public partial class RecoveryChest : Node
                 recoveredCount += addedAmount;
                 if (fullyAdded)
                 {
-                    itemsToRemove.Add(entry);
                     GD.Print($"RecoveryChest: Recovered {addedAmount}x '{entry.ItemId}'");
                 }
                 else
                 {
-                    // Partial recovery - update the remaining amount
                     int remaining = entry.Amount - addedAmount;
                     GD.Print($"RecoveryChest: Partially recovered {addedAmount}x '{entry.ItemId}', {remaining} remaining");
-                    // Note: We don't remove the entry, but we could update its amount
-                    // For simplicity, we keep the original entry with the remaining amount
+                    if (remaining > 0)
+                    {
+                        updatedEntries.Add(entry.WithAmount(remaining));
+                    }
                 }
+            }
+            else
+            {
+                // Nothing could be recovered this pass; keep the original entry.
+                updatedEntries.Add(entry);
             }
         }
 
-        // Remove fully recovered items
-        foreach (var entry in itemsToRemove)
-        {
-            _overflowItems.Remove(entry);
-        }
+        _overflowItems.Clear();
+        _overflowItems.AddRange(updatedEntries);
 
         if (recoveredCount > 0)
         {

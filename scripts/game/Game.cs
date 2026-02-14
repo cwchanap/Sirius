@@ -26,6 +26,7 @@ public partial class Game : Node2D
     private bool _hasPendingSaveSpawnValidation;
     private Vector2I _pendingSaveSpawnPosition;
     private int _pendingSaveSpawnFloorIndex = -1;
+    private bool _hasShownCorruptedSaveError;
 
     private SaveLoadDialog _saveLoadDialog;
 
@@ -541,6 +542,8 @@ public partial class Game : Node2D
         // Clean up the battle dialog
         if (_battleManager != null)
         {
+            _battleManager.BattleFinished -= OnBattleFinished;
+            _battleManager.Confirmed -= OnBattleDialogConfirmed;
             _battleManager.QueueFree();
             _battleManager = null;
         }
@@ -566,9 +569,9 @@ public partial class Game : Node2D
             return;
         }
         
-        // Disconnect signals to prevent multiple calls
+        // Disconnect BattleFinished to prevent multiple calls.
+        // Keep Confirmed connected so the dialog can still be cleaned up when user presses Continue.
         _battleManager.BattleFinished -= OnBattleFinished;
-        _battleManager.Confirmed -= OnBattleDialogConfirmed;
         
         // End the battle in game manager FIRST to allow player movement
         // Only pass actual victory state - escape should not trigger auto-save
@@ -842,6 +845,12 @@ public partial class Game : Node2D
 
     private void ShowCorruptedSaveError()
     {
+        if (_hasShownCorruptedSaveError)
+        {
+            return;
+        }
+        _hasShownCorruptedSaveError = true;
+
         var popup = new AcceptDialog();
         popup.Title = "Load Failed";
         popup.DialogText = "Save file is corrupted or invalid.\nReturning to main menu.";
@@ -989,6 +998,14 @@ public partial class Game : Node2D
             _saveLoadDialog.MainMenuRequested -= OnMainMenuRequested;
             _saveLoadDialog.QueueFree();
             _saveLoadDialog = null;
+        }
+
+        if (_battleManager != null)
+        {
+            _battleManager.BattleFinished -= OnBattleFinished;
+            _battleManager.Confirmed -= OnBattleDialogConfirmed;
+            _battleManager.QueueFree();
+            _battleManager = null;
         }
     }
 }

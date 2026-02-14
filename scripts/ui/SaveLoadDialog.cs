@@ -121,6 +121,13 @@ public partial class SaveLoadDialog : AcceptDialog
                 _slotButtons[i].Pressed -= _slotButtonHandlers[i];
             }
         }
+
+        if (_activeConfirmDialog != null && IsInstanceValid(_activeConfirmDialog))
+        {
+            _activeConfirmDialog.QueueFree();
+        }
+        _activeConfirmDialog = null;
+        _pendingSaveSlot = -1;
     }
 
     /// <summary>

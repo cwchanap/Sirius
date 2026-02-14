@@ -508,16 +508,22 @@ public partial class GameManagerTest : Node
         field!.SetValue(_gameManager, null);
         AssertThat(_gameManager.Player).IsNull();
 
-        // Act & Assert - Should not throw
-        AssertThat(() => _gameManager.TriggerAutoSave()).NotThrows();
+        // Act - Should not throw (test fails automatically if an exception is thrown)
+        _gameManager.TriggerAutoSave();
+
+        // Assert
+        AssertThat(_gameManager.Player).IsNull();
     }
 
     [TestCase]
     public void TestTriggerAutoSave_SkipsWhenFloorManagerIsNull()
     {
         // Arrange - FloorManager is null by default (private field)
-        // Act & Assert - Should not throw, method handles null gracefully
-        AssertThat(() => _gameManager.TriggerAutoSave()).NotThrows();
+        // Act - Should not throw (test fails automatically if an exception is thrown)
+        _gameManager.TriggerAutoSave();
+
+        // Assert - no exception and battle state remains unchanged
+        AssertThat(_gameManager.IsInBattle).IsFalse();
     }
 
     [TestCase]

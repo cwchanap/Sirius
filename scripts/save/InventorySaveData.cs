@@ -18,13 +18,13 @@ public class InventorySaveData
         {
             MaxItemTypes = inv.MaxItemTypes,
             Entries = inv.GetAllEntries()
-                .Where(e => e.Item != null)  // Filter out entries with null items
-                .Select(e => new InventoryEntryDto
-                {
-                    ItemId = e.Item.Id,
-                    Quantity = e.Quantity
-                })
-                .ToList()
+            .Where(e => e.Item != null && !string.IsNullOrWhiteSpace(e.Item.Id)) // Filter out entries with null items or invalid IDs
+            .Select(e => new InventoryEntryDto
+            {
+                ItemId = e.Item.Id,
+                Quantity = e.Quantity
+            })
+            .ToList()
         };
     }
 
@@ -60,8 +60,28 @@ public class InventorySaveData
             // cannot be represented as additional stacks. Any remainder is dropped with a warning.
             bool fullyAdded = inventory.TryAddItem(item, entry.Quantity, out int addedQuantity);
             int lost = entry.Quantity - addedQuantity;
-            if (!fullyAdded || lost > 0)
+
+            // Check for overflow - quantity exceeded max stack size
+            if (entry.Quantity > item.MaxStackSize)
             {
+                int overflowAmount = entry.Quantity - item.MaxStackSize;
+                int actuallyAdded = System.Math.Min(item.MaxStackSize, addedQuantity);
+                int discarded = entry.Quantity - actuallyAdded;
+
+                // Emit prominent, detailed warning about the overflow
+                GD.PushWarning($"INVENTORY OVERFLOW: Item '{entry.ItemId}' - " +
+                    $"Requested: {entry.Quantity}, MaxStack: {item.MaxStackSize}, " +
+                    $"Added: {actuallyAdded}, Discarded: {discarded} (overflow: {overflowAmount})");
+
+                // Queue discarded amount into RecoveryChest for later recovery
+                if (discarded > 0 && RecoveryChest.Instance != null && Godot.GodotObject.IsInstanceValid(RecoveryChest.Instance))
+                {
+                    RecoveryChest.Instance.AddOverflow(entry.ItemId, discarded);
+                }
+            }
+            else if (!fullyAdded || lost > 0)
+            {
+                // Partial add for reasons other than stack overflow (e.g., inventory full)
                 if (addedQuantity > 0)
                 {
                     GD.PushWarning($"Save load: Could not fully restore {entry.ItemId} - {lost} items lost due to stack limits");

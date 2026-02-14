@@ -60,7 +60,7 @@ public partial class FloorManagerTest : Node
 
     private static async Task<SaveManager> EnsureSaveManager()
     {
-        if (SaveManager.Instance != null)
+        if (SaveManager.Instance != null && IsInstanceValid(SaveManager.Instance))
         {
             return SaveManager.Instance;
         }

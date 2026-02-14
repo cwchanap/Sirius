@@ -20,6 +20,12 @@ public partial class SaveManager : Node
     };
 
     /// <summary>
+    /// JSON serializer options used for save/load operations.
+    /// Exposed for tests to ensure consistent serialization.
+    /// </summary>
+    public static System.Text.Json.JsonSerializerOptions JsonOptions => _jsonOptions;
+
+    /// <summary>
     /// Pending save data for scene transitions (MainMenu -> Game).
     /// Set before changing to Game scene, cleared after loading.
     /// </summary>
@@ -117,14 +123,14 @@ public partial class SaveManager : Node
     /// <summary>
     /// Saves game to the autosave slot.
     /// </summary>
-    public bool AutoSave(SaveData data)
+    public bool AutoSave(SaveData? data)
     {
         bool success = SaveToFile(AutosaveFile, data);
         EmitSignal(SignalName.SaveCompleted, success, 3); // 3 = autosave slot
         return success;
     }
 
-    private bool SaveToFile(string fileName, SaveData data)
+    private bool SaveToFile(string fileName, SaveData? data)
     {
         string tempFileName = $"{fileName}.tmp";
         string tempPath = $"{SaveDir}/{tempFileName}";

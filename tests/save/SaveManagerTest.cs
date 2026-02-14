@@ -551,11 +551,11 @@ public partial class SaveManagerTest : Node
         AssertThat(deleteErr).IsEqual(Error.Ok);
 
         // Manually create a backup file (simulating a crash during save)
-        // Write the second save data to the backup file
+        // Write the second save data to the backup file using SaveManager's serializer
         string backupPath = "user://saves/slot_0.json.bak";
         using var file = FileAccess.Open(backupPath, FileAccess.ModeFlags.Write);
         AssertThat(file).IsNotNull();
-        string json = System.Text.Json.JsonSerializer.Serialize(saveData2);
+        string json = System.Text.Json.JsonSerializer.Serialize(saveData2, SaveManager.JsonOptions);
         file.StoreString(json);
         file.Close();
 
@@ -610,10 +610,10 @@ public partial class SaveManagerTest : Node
         var deleteErr = dir.Remove("slot_0.json");
         AssertThat(deleteErr).IsEqual(Error.Ok);
 
-        // Create a backup file
+        // Create a backup file using SaveManager's serializer for consistency
         using var file = FileAccess.Open(backupPath, FileAccess.ModeFlags.Write);
         AssertThat(file).IsNotNull();
-        string json = System.Text.Json.JsonSerializer.Serialize(saveData);
+        string json = System.Text.Json.JsonSerializer.Serialize(saveData, SaveManager.JsonOptions);
         file.StoreString(json);
         file.Close();
 

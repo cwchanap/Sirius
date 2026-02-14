@@ -30,6 +30,7 @@ public partial class SaveLoadDialog : AcceptDialog
     private readonly Action[] _slotButtonHandlers = new Action[4];
     private readonly SaveSlotInfo[] _slotInfos = new SaveSlotInfo[4];
     private int _pendingSaveSlot = -1;
+    private AcceptDialog? _activeConfirmDialog;
 
     public override void _Ready()
     {
@@ -214,7 +215,16 @@ public partial class SaveLoadDialog : AcceptDialog
 
     private void ShowOverwriteConfirmation(int slot)
     {
+        // Clean up any existing confirmation dialog first
+        if (_activeConfirmDialog != null && IsInstanceValid(_activeConfirmDialog))
+        {
+            _activeConfirmDialog.QueueFree();
+        }
+
         var confirmDialog = new AcceptDialog();
+        _activeConfirmDialog = confirmDialog;
+        _pendingSaveSlot = slot;
+
         confirmDialog.Title = "Overwrite Save?";
         var info = _slotInfos[slot];
         string slotName = info?.GetDisplayName() ?? $"Slot {slot + 1}";
@@ -229,23 +239,54 @@ public partial class SaveLoadDialog : AcceptDialog
         // Connect to confirmed (Overwrite) signal
         confirmDialog.Confirmed += () =>
         {
+            // Only process if this is still the active confirmation dialog
+            if (confirmDialog != _activeConfirmDialog)
+            {
+                GD.PushWarning("SaveLoadDialog: Confirmed handler called for non-active dialog, ignoring");
+                if (IsInstanceValid(confirmDialog))
+                    confirmDialog.QueueFree();
+                return;
+            }
+
             if (IsInstanceValid(confirmDialog))
                 confirmDialog.QueueFree();
 
-            if (_pendingSaveSlot >= 0)
+            _activeConfirmDialog = null;
+
+            // Capture the pending slot before clearing it
+            int slotToSave = _pendingSaveSlot;
+            _pendingSaveSlot = -1;
+
+            // Only proceed if this SaveLoadDialog is still valid
+            if (!IsInstanceValid(this))
+            {
+                GD.PushWarning("SaveLoadDialog: Dialog became invalid before overwrite confirmation completed");
+                return;
+            }
+
+            if (slotToSave >= 0)
             {
                 // Hide parent dialog before emitting to prevent further slot interaction
-                this.Hide();
-                EmitSignal(SignalName.SaveSlotSelected, _pendingSaveSlot);
-                _pendingSaveSlot = -1;
+                Hide();
+                EmitSignal(SignalName.SaveSlotSelected, slotToSave);
             }
         };
 
         // Also handle cancel - user stays in save dialog
         confirmDialog.Canceled += () =>
         {
+            // Only process if this is still the active confirmation dialog
+            if (confirmDialog != _activeConfirmDialog)
+            {
+                if (IsInstanceValid(confirmDialog))
+                    confirmDialog.QueueFree();
+                return;
+            }
+
             if (IsInstanceValid(confirmDialog))
                 confirmDialog.QueueFree();
+
+            _activeConfirmDialog = null;
             _pendingSaveSlot = -1;
         };
 
@@ -259,11 +300,12 @@ public partial class SaveLoadDialog : AcceptDialog
 
         // The save dialog should only be reachable when not in battle.
         // This defensive check is a safeguard against future changes.
-        // Note: Direct EndBattle bypasses Game.cs cleanup - prefer normal flow.
+        // Note: We do NOT call EndBattle directly here - that would bypass Game.cs cleanup.
+        // The caller (Game.cs) handles proper cleanup via MainMenuRequested signal.
         if (GameManager.Instance?.IsInBattle == true)
         {
-            GD.PushWarning("SaveLoadDialog.OnMainMenuPressed called while in battle - this should not happen");
-            GameManager.Instance.EndBattle(false);
+            GD.PushWarning("SaveLoadDialog.OnMainMenuPressed called while in battle - this should not happen. " +
+                "Game.cs will handle proper cleanup via MainMenuRequested signal.");
         }
 
         // Only emit MainMenuRequested - the caller (Game.cs) will handle cleanup

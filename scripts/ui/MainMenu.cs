@@ -85,11 +85,19 @@ public partial class MainMenu : Control
 	{
 		GD.Print("Load Game button pressed");
 
+		var saveManager = SaveManager.Instance;
+		if (saveManager == null || !IsInstanceValid(saveManager))
+		{
+			GD.PushError("MainMenu: SaveManager is not initialized.");
+			ShowMessage("Save system unavailable.");
+			return;
+		}
+
 		// Check if any saves exist
 		bool anySaveExists = false;
 		for (int i = 0; i <= 3; i++)
 		{
-			if (SaveManager.Instance?.SaveExists(i) == true)
+			if (saveManager.SaveExists(i))
 			{
 				anySaveExists = true;
 				break;

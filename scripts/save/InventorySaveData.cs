@@ -106,7 +106,7 @@ public class InventorySaveData
                 // Partial add for reasons other than stack overflow (e.g., inventory full)
                 if (addedQuantity > 0)
                 {
-                    GD.PushWarning($"Save load: Could not fully restore {entry.ItemId} - {lost} items lost due to stack limits");
+                    GD.PushWarning($"Save load: Could not fully restore {entry.ItemId} - {lost} items lost due to inventory capacity/full slots");
                 }
                 else
                 {

@@ -714,6 +714,6 @@ public class SaveSlotInfo
 
     public string GetFloorName()
     {
-        return FloorIndex == 0 ? "Ground Floor" : $"{FloorIndex}F";
+        return FloorIndex == 0 ? "Ground Floor" : $"Floor {FloorIndex}F";
     }
 }

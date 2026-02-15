@@ -85,6 +85,9 @@ public class CharacterSaveData
         int gold = this.Gold;
         if (gold < 0) { GD.PushWarning($"Save data: Invalid Gold ({this.Gold}), using 0"); gold = 0; hadInvalidData = true; }
 
+        int currentHealth = this.CurrentHealth;
+        if (currentHealth < 0) { GD.PushWarning($"Save data: Invalid CurrentHealth ({this.CurrentHealth}), using 0"); currentHealth = 0; hadInvalidData = true; }
+
         string name = this.Name ?? string.Empty;
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -100,7 +103,7 @@ public class CharacterSaveData
         }
 
         // Defer final health clamp until after equipment restore so +MaxHealth bonuses are respected.
-        int sanitizedHealth = Mathf.Max(0, this.CurrentHealth);
+        int sanitizedHealth = Mathf.Max(0, currentHealth);
 
         var character = new Character
         {

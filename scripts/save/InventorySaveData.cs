@@ -9,6 +9,12 @@ public class InventorySaveData
 {
     public List<InventoryEntryDto> Entries { get; set; } = new();
     public int MaxItemTypes { get; set; } = 100;
+    
+    /// <summary>
+    /// Items that could not be recovered because RecoveryChest was unavailable during load.
+    /// These will be flushed to RecoveryChest when it becomes available.
+    /// </summary>
+    public Dictionary<string, int> PendingRecovery { get; set; } = new();
 
     public static InventorySaveData FromInventory(Inventory? inv)
     {
@@ -74,9 +80,25 @@ public class InventorySaveData
                     $"Added: {actuallyAdded}, Discarded: {discarded} (overflow: {overflowAmount})");
 
                 // Queue discarded amount into RecoveryChest for later recovery
-                if (discarded > 0 && RecoveryChest.Instance != null && Godot.GodotObject.IsInstanceValid(RecoveryChest.Instance))
+                if (discarded > 0)
                 {
-                    RecoveryChest.Instance.AddOverflow(entry.ItemId, discarded);
+                    if (RecoveryChest.Instance != null && Godot.GodotObject.IsInstanceValid(RecoveryChest.Instance))
+                    {
+                        RecoveryChest.Instance.AddOverflow(entry.ItemId, discarded);
+                    }
+                    else
+                    {
+                        // RecoveryChest not available - store in pending recovery for later
+                        if (PendingRecovery.ContainsKey(entry.ItemId))
+                        {
+                            PendingRecovery[entry.ItemId] += discarded;
+                        }
+                        else
+                        {
+                            PendingRecovery[entry.ItemId] = discarded;
+                        }
+                        GD.PushWarning($"Save load: RecoveryChest unavailable, stored {discarded}x '{entry.ItemId}' in pending recovery");
+                    }
                 }
             }
             else if (!fullyAdded || lost > 0)
@@ -94,6 +116,60 @@ public class InventorySaveData
         }
 
         return inventory;
+    }
+    
+    /// <summary>
+    /// Attempts to flush all pending recovery items to the RecoveryChest.
+    /// Call this when RecoveryChest becomes available (e.g., after scene load).
+    /// </summary>
+    /// <returns>A FlushResult indicating how many items were successfully flushed</returns>
+    public FlushResult FlushPendingRecovery()
+    {
+        var result = new FlushResult();
+        
+        if (PendingRecovery == null || PendingRecovery.Count == 0)
+        {
+            return result;
+        }
+        
+        if (RecoveryChest.Instance == null || !Godot.GodotObject.IsInstanceValid(RecoveryChest.Instance))
+        {
+            GD.PushWarning("FlushPendingRecovery: RecoveryChest still unavailable, items remain in pending");
+            result.ItemsRemaining = PendingRecovery.Count;
+            return result;
+        }
+        
+        var toRemove = new List<string>();
+        foreach (var kvp in PendingRecovery)
+        {
+            if (kvp.Value > 0)
+            {
+                RecoveryChest.Instance.AddOverflow(kvp.Key, kvp.Value);
+                result.ItemsFlushed++;
+                result.TotalQuantityFlushed += kvp.Value;
+                toRemove.Add(kvp.Key);
+                GD.Print($"FlushPendingRecovery: Flushed {kvp.Value}x '{kvp.Key}' to RecoveryChest");
+            }
+        }
+        
+        foreach (var key in toRemove)
+        {
+            PendingRecovery.Remove(key);
+        }
+        
+        result.ItemsRemaining = PendingRecovery.Count;
+        return result;
+    }
+    
+    /// <summary>
+    /// Result of flushing pending recovery items to RecoveryChest.
+    /// </summary>
+    public class FlushResult
+    {
+        public int ItemsFlushed { get; set; }
+        public int TotalQuantityFlushed { get; set; }
+        public int ItemsRemaining { get; set; }
+        public bool Success => ItemsRemaining == 0;
     }
 }
 

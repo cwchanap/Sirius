@@ -174,6 +174,7 @@ public partial class GameManager : Node
         }
 
         IsInBattle = false;
+        LastBattleStartedEnemy = null;
         GD.Print($"Battle ended. Player won: {playerWon}. IsInBattle: {IsInBattle}");
         EmitSignal(SignalName.BattleEnded, playerWon);
     }
@@ -181,6 +182,8 @@ public partial class GameManager : Node
     public void ResetBattleState()
     {
         IsInBattle = false;
+        LastBattleStartedEnemy = null;
+        BattleStartedCount = 0;
         GD.Print("Battle state reset. IsInBattle: false");
     }
 

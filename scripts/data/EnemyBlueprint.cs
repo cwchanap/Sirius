@@ -41,6 +41,7 @@ public partial class EnemyBlueprint : Resource
         return new Enemy
         {
             Name = EnemyName,
+            EnemyType = SpriteType,
             Level = Level,
             MaxHealth = MaxHealth,
             CurrentHealth = MaxHealth, // Fresh spawn at full health

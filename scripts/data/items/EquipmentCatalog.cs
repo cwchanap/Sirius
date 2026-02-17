@@ -64,4 +64,70 @@ public static class EquipmentCatalog
             AssetPath = "res://assets/sprites/items/shoes/wooden_shoes.png"
         };
     }
+
+    public static EquipmentItem CreateIronSword()
+    {
+        return new EquipmentItem
+        {
+            Id = "iron_sword",
+            DisplayName = "Iron Sword",
+            Description = "A sturdy blade forged from iron.",
+            SlotType = EquipmentSlotType.Weapon,
+            AttackBonus = 20,
+            Rarity = ItemRarity.Uncommon
+        };
+    }
+
+    public static EquipmentItem CreateIronArmor()
+    {
+        return new EquipmentItem
+        {
+            Id = "iron_armor",
+            DisplayName = "Iron Armor",
+            Description = "Heavy armor offering solid protection.",
+            SlotType = EquipmentSlotType.Armor,
+            DefenseBonus = 16,
+            Rarity = ItemRarity.Uncommon
+        };
+    }
+
+    public static EquipmentItem CreateIronShield()
+    {
+        return new EquipmentItem
+        {
+            Id = "iron_shield",
+            DisplayName = "Iron Shield",
+            Description = "A reliable iron shield.",
+            SlotType = EquipmentSlotType.Shield,
+            DefenseBonus = 10,
+            Rarity = ItemRarity.Uncommon
+        };
+    }
+
+    public static EquipmentItem CreateIronHelmet()
+    {
+        return new EquipmentItem
+        {
+            Id = "iron_helmet",
+            DisplayName = "Iron Helmet",
+            Description = "A solid iron helmet that protects the head.",
+            SlotType = EquipmentSlotType.Helmet,
+            HealthBonus = 100,
+            Rarity = ItemRarity.Uncommon
+        };
+    }
+
+    public static EquipmentItem CreateIronBoots()
+    {
+        return new EquipmentItem
+        {
+            Id = "iron_boots",
+            DisplayName = "Iron Boots",
+            Description = "Heavy boots that keep you grounded.",
+            SlotType = EquipmentSlotType.Shoe,
+            SpeedBonus = 4,
+            DefenseBonus = 3,
+            Rarity = ItemRarity.Uncommon
+        };
+    }
 }

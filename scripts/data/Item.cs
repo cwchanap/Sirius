@@ -9,6 +9,15 @@ public enum ItemCategory
     Quest = 3
 }
 
+public enum ItemRarity
+{
+    Common = 0,
+    Uncommon = 1,
+    Rare = 2,
+    Epic = 3,
+    Legendary = 4
+}
+
 public enum EquipmentSlotType
 {
     Weapon = 0,
@@ -46,6 +55,9 @@ public abstract partial class Item : Resource
 
     [Export]
     private ItemCategory _category = ItemCategory.General;
+
+    [Export]
+    public ItemRarity Rarity { get; set; } = ItemRarity.Common;
 
     [Export(PropertyHint.File, "*.png,*.webp,*.jpg,*.jpeg,*.svg,*.tres,*.res")]
     public string AssetPath

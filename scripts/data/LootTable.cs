@@ -4,6 +4,7 @@ using System.Collections.Generic;
 /// Defines the possible item drops for an enemy encounter.
 /// Constructed in code via LootTableCatalog or from EnemyBlueprint exports.
 /// </summary>
+[System.Serializable]
 public class LootTable
 {
     public int MaxDrops { get; set; } = 3;
@@ -36,6 +37,7 @@ public class LootTable
 /// <summary>
 /// A single item drop entry in a LootTable.
 /// </summary>
+[System.Serializable]
 public class LootEntry
 {
     public string ItemId { get; set; } = string.Empty;
@@ -43,4 +45,12 @@ public class LootEntry
     public int MinQuantity { get; set; } = 1;
     public int MaxQuantity { get; set; } = 1;
     public bool GuaranteedDrop { get; set; } = false;
+
+    public void ValidateAndNormalizeQuantityRange()
+    {
+        if (MinQuantity <= MaxQuantity)
+            return;
+
+        (MinQuantity, MaxQuantity) = (MaxQuantity, MinQuantity);
+    }
 }

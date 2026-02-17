@@ -74,6 +74,7 @@ public static class EquipmentCatalog
             Description = "A sturdy blade forged from iron.",
             SlotType = EquipmentSlotType.Weapon,
             AttackBonus = 20,
+            AssetPath = "res://assets/sprites/items/weapons/iron_sword.png",
             Rarity = ItemRarity.Uncommon
         };
     }
@@ -87,6 +88,7 @@ public static class EquipmentCatalog
             Description = "Heavy armor offering solid protection.",
             SlotType = EquipmentSlotType.Armor,
             DefenseBonus = 16,
+            AssetPath = "res://assets/sprites/items/armor/iron_armor.png",
             Rarity = ItemRarity.Uncommon
         };
     }
@@ -100,6 +102,7 @@ public static class EquipmentCatalog
             Description = "A reliable iron shield.",
             SlotType = EquipmentSlotType.Shield,
             DefenseBonus = 10,
+            AssetPath = "res://assets/sprites/items/shields/iron_shield.png",
             Rarity = ItemRarity.Uncommon
         };
     }
@@ -113,6 +116,7 @@ public static class EquipmentCatalog
             Description = "A solid iron helmet that protects the head.",
             SlotType = EquipmentSlotType.Helmet,
             HealthBonus = 100,
+            AssetPath = "res://assets/sprites/items/helmet/iron_helmet.png",
             Rarity = ItemRarity.Uncommon
         };
     }
@@ -127,6 +131,7 @@ public static class EquipmentCatalog
             SlotType = EquipmentSlotType.Shoe,
             SpeedBonus = 4,
             DefenseBonus = 3,
+            AssetPath = "res://assets/sprites/items/shoes/iron_boots.png",
             Rarity = ItemRarity.Uncommon
         };
     }

@@ -72,16 +72,29 @@ public static class LootManager
             }
 
             int overflow = entry.Quantity - added;
-            if (overflow > 0 && RecoveryChest.Instance != null)
+            if (overflow > 0)
             {
-                RecoveryChest.Instance.AddOverflow(entry.Item.Id, overflow);
-                GD.Print($"[LootManager] {overflow}x '{entry.Item.DisplayName}' sent to RecoveryChest");
+                if (RecoveryChest.Instance != null)
+                {
+                    RecoveryChest.Instance.AddOverflow(entry.Item.Id, overflow);
+                    GD.Print($"[LootManager] {overflow}x '{entry.Item.DisplayName}' sent to RecoveryChest");
+                }
+                else
+                {
+                    GD.PushWarning($"[LootManager] RecoveryChest.Instance is null; AddOverflow skipped for item '{entry.Item.Id}'/'{entry.Item.DisplayName}', overflow={overflow}");
+                }
             }
         }
     }
 
     private static int ResolveQuantity(LootEntry entry, Random rng)
     {
+        if (entry.MinQuantity > entry.MaxQuantity)
+        {
+            GD.PushWarning($"[LootManager] LootEntry quantity range invalid for itemId '{entry.ItemId}' (MinQuantity={entry.MinQuantity}, MaxQuantity={entry.MaxQuantity}); normalizing.");
+        }
+        entry.ValidateAndNormalizeQuantityRange();
+
         int min = Math.Max(1, entry.MinQuantity);
         int max = Math.Max(min, entry.MaxQuantity);
         return rng.Next(min, max + 1);

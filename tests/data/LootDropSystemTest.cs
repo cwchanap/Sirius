@@ -118,6 +118,25 @@ public partial class LootDropSystemTest : Node
     }
 
     [TestCase]
+    public void LootResult_Empty_IsImmutable()
+    {
+        var item = ItemCatalog.CreateItemById("goblin_ear");
+        AssertThat(item).IsNotNull();
+
+        bool threw = false;
+        try
+        {
+            LootResult.Empty.Add(item!, 1);
+        }
+        catch (InvalidOperationException)
+        {
+            threw = true;
+        }
+
+        AssertThat(threw).IsTrue();
+    }
+
+    [TestCase]
     public void LootManager_RollLoot_RespectsDropChanceZero()
     {
         var table = new LootTable
@@ -187,9 +206,10 @@ public partial class LootDropSystemTest : Node
     public void LootManager_AwardLootToCharacter_AddsToInventory()
     {
         var player = new Character { Name = "Test" };
-        var item = ItemCatalog.CreateItemById("goblin_ear")!;
+        var item = ItemCatalog.CreateItemById("goblin_ear");
+        AssertThat(item).IsNotNull();
         var result = new LootResult();
-        result.Add(item, 3);
+        result.Add(item!, 3);
 
         LootManager.AwardLootToCharacter(result, player);
 
@@ -200,11 +220,15 @@ public partial class LootDropSystemTest : Node
     [TestCase]
     public void IronEquipment_HasCorrectStats()
     {
-        var sword = (EquipmentItem)ItemCatalog.CreateItemById("iron_sword")!;
+        var swordItem = ItemCatalog.CreateItemById("iron_sword");
+        AssertThat(swordItem).IsNotNull();
+        var sword = (EquipmentItem)swordItem!;
         AssertThat(sword.AttackBonus).IsEqual(20);
         AssertThat((int)sword.Rarity).IsEqual((int)ItemRarity.Uncommon);
 
-        var armor = (EquipmentItem)ItemCatalog.CreateItemById("iron_armor")!;
+        var armorItem = ItemCatalog.CreateItemById("iron_armor");
+        AssertThat(armorItem).IsNotNull();
+        var armor = (EquipmentItem)armorItem!;
         AssertThat(armor.DefenseBonus).IsEqual(16);
         AssertThat(armor.SlotType).IsEqual(EquipmentSlotType.Armor);
     }
@@ -212,7 +236,8 @@ public partial class LootDropSystemTest : Node
     [TestCase]
     public void DragonScale_HasRareRarity()
     {
-        var scale = ItemCatalog.CreateItemById("dragon_scale")!;
-        AssertThat((int)scale.Rarity).IsEqual((int)ItemRarity.Rare);
+        var scale = ItemCatalog.CreateItemById("dragon_scale");
+        AssertThat(scale).IsNotNull();
+        AssertThat((int)scale!.Rarity).IsEqual((int)ItemRarity.Rare);
     }
 }

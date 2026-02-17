@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 
 /// <summary>
 /// The resolved output of a LootManager.RollLoot call.
 /// </summary>
+[System.Serializable]
 public class LootResult
 {
     public static readonly LootResult Empty = new LootResult();
@@ -13,6 +15,9 @@ public class LootResult
 
     public void Add(Item item, int quantity)
     {
+        if (ReferenceEquals(this, Empty))
+            throw new InvalidOperationException("LootResult.Empty is immutable and cannot be modified via Add().");
+
         if (item == null || quantity <= 0) return;
         DroppedItems.Add(new LootResultEntry(item, quantity));
     }
@@ -21,6 +26,7 @@ public class LootResult
 /// <summary>
 /// One resolved entry in a LootResult.
 /// </summary>
+[System.Serializable]
 public class LootResultEntry
 {
     public Item Item { get; }

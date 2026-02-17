@@ -37,6 +37,8 @@ public partial class BattleManager : AcceptDialog
     private bool _battleInProgress = false;
     private bool _playerDefendedLastTurn = false;
     private bool _resultEmitted = false; // Ensure we only emit BattleFinished once
+    private readonly Random _rng = new();
+    private LootResult? _pendingLootDisplay;
     
     public override void _Ready()
     {
@@ -661,7 +663,14 @@ public partial class BattleManager : AcceptDialog
 
             // Roll and award loot
             var lootTable = LootTableCatalog.GetByEnemyType(_enemy.EnemyType);
-            var lootResult = LootManager.RollLoot(lootTable, new Random());
+            if (lootTable == null)
+            {
+                GD.PushWarning($"[BattleManager] No LootTable found for enemy type '{_enemy.EnemyType}'. Skipping loot roll.");
+            }
+
+            var lootResult = lootTable == null
+                ? LootResult.Empty
+                : LootManager.RollLoot(lootTable, _rng);
             if (lootResult.HasDrops)
             {
                 LootManager.AwardLootToCharacter(lootResult, _player);
@@ -671,7 +680,8 @@ public partial class BattleManager : AcceptDialog
                     GD.Print($"  {drop.Quantity}x {drop.Item.DisplayName}");
                 }
                 GD.Print("------------------");
-                ShowLootDisplay(lootResult);
+                _pendingLootDisplay = lootResult;
+                CallDeferred(nameof(ShowPendingLootDisplay));
             }
             else
             {
@@ -719,6 +729,15 @@ public partial class BattleManager : AcceptDialog
         EmitSignal(SignalName.BattleFinished, false, true); // false for not won, true for escaped
     }
     
+    private void ShowPendingLootDisplay()
+    {
+        if (_pendingLootDisplay == null || !_pendingLootDisplay.HasDrops)
+            return;
+
+        ShowLootDisplay(_pendingLootDisplay);
+        _pendingLootDisplay = null;
+    }
+
     private void ShowDamageNumber(Label damageLabel, int damage, bool isCritical = false)
     {
         // Set damage text

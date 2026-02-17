@@ -4,6 +4,7 @@ using Godot;
 public partial class Enemy : Resource
 {
     [Export] public string Name { get; set; } = "Goblin";
+    [Export] public string EnemyType { get; set; } = "goblin";
     [Export] public int Level { get; set; } = 1;
     [Export] public int MaxHealth { get; set; } = 50;
     [Export] public int CurrentHealth { get; set; } = 50;
@@ -27,6 +28,7 @@ public partial class Enemy : Resource
         return new Enemy
         {
             Name = "Goblin",
+            EnemyType = "goblin",
             Level = 1,
             MaxHealth = 50,
             CurrentHealth = 50,
@@ -43,6 +45,7 @@ public partial class Enemy : Resource
         return new Enemy
         {
             Name = "Orc",
+            EnemyType = "orc",
             Level = 2,
             MaxHealth = 80,
             CurrentHealth = 80,
@@ -59,6 +62,7 @@ public partial class Enemy : Resource
         return new Enemy
         {
             Name = "Dragon",
+            EnemyType = "dragon",
             Level = 5,
             MaxHealth = 200,
             CurrentHealth = 200,
@@ -76,6 +80,7 @@ public partial class Enemy : Resource
         return new Enemy
         {
             Name = "Skeleton Warrior",
+            EnemyType = "skeleton_warrior",
             Level = 3,
             MaxHealth = 120,
             CurrentHealth = 120,
@@ -92,6 +97,7 @@ public partial class Enemy : Resource
         return new Enemy
         {
             Name = "Troll",
+            EnemyType = "troll",
             Level = 4,
             MaxHealth = 150,
             CurrentHealth = 150,
@@ -108,6 +114,7 @@ public partial class Enemy : Resource
         return new Enemy
         {
             Name = "Dark Mage",
+            EnemyType = "dark_mage",
             Level = 6,
             MaxHealth = 180,
             CurrentHealth = 180,
@@ -124,6 +131,7 @@ public partial class Enemy : Resource
         return new Enemy
         {
             Name = "Demon Lord",
+            EnemyType = "demon_lord",
             Level = 8,
             MaxHealth = 300,
             CurrentHealth = 300,
@@ -140,6 +148,7 @@ public partial class Enemy : Resource
         return new Enemy
         {
             Name = "Ancient Dragon King",
+            EnemyType = "boss",
             Level = 10,
             MaxHealth = 500,
             CurrentHealth = 500,
@@ -157,6 +166,7 @@ public partial class Enemy : Resource
         return new Enemy
         {
             Name = "Forest Spirit",
+            EnemyType = "forest_spirit",
             Level = 2,
             MaxHealth = 90,
             CurrentHealth = 90,
@@ -173,6 +183,7 @@ public partial class Enemy : Resource
         return new Enemy
         {
             Name = "Giant Cave Spider",
+            EnemyType = "cave_spider",
             Level = 3,
             MaxHealth = 110,
             CurrentHealth = 110,
@@ -189,6 +200,7 @@ public partial class Enemy : Resource
         return new Enemy
         {
             Name = "Desert Scorpion",
+            EnemyType = "desert_scorpion",
             Level = 4,
             MaxHealth = 130,
             CurrentHealth = 130,
@@ -205,6 +217,7 @@ public partial class Enemy : Resource
         return new Enemy
         {
             Name = "Swamp Wretch",
+            EnemyType = "swamp_wretch",
             Level = 5,
             MaxHealth = 160,
             CurrentHealth = 160,
@@ -221,6 +234,7 @@ public partial class Enemy : Resource
         return new Enemy
         {
             Name = "Mountain Wyvern",
+            EnemyType = "mountain_wyvern",
             Level = 6,
             MaxHealth = 220,
             CurrentHealth = 220,
@@ -237,6 +251,7 @@ public partial class Enemy : Resource
         return new Enemy
         {
             Name = "Dungeon Guardian",
+            EnemyType = "dungeon_guardian",
             Level = 7,
             MaxHealth = 280,
             CurrentHealth = 280,

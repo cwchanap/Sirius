@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 public partial class BattleManager : AcceptDialog
 {
@@ -29,7 +30,8 @@ public partial class BattleManager : AcceptDialog
     private AnimatedSprite2D _enemySprite;
     private Label _playerDamageLabel;
     private Label _enemyDamageLabel;
-    
+    private Label _lootLabel;
+
     // Auto-battle properties
     private Timer _battleTimer;
     private bool _battleInProgress = false;
@@ -656,6 +658,25 @@ public partial class BattleManager : AcceptDialog
                 GD.Print($"⭐ LEVEL UP! {_player.Name} reached level {_player.Level}!");
                 GD.Print($"New stats: HP {_player.MaxHealth}, ATK {_player.Attack}, DEF {_player.Defense}");
             }
+
+            // Roll and award loot
+            var lootTable = LootTableCatalog.GetByEnemyType(_enemy.EnemyType);
+            var lootResult = LootManager.RollLoot(lootTable, new Random());
+            if (lootResult.HasDrops)
+            {
+                LootManager.AwardLootToCharacter(lootResult, _player);
+                GD.Print("--- Loot Drops ---");
+                foreach (var drop in lootResult.DroppedItems)
+                {
+                    GD.Print($"  {drop.Quantity}x {drop.Item.DisplayName}");
+                }
+                GD.Print("------------------");
+                ShowLootDisplay(lootResult);
+            }
+            else
+            {
+                GD.Print("No loot dropped.");
+            }
         }
         else
         {
@@ -732,6 +753,26 @@ public partial class BattleManager : AcceptDialog
         })).SetDelay(1.0);
     }
     
+    private void ShowLootDisplay(LootResult lootResult)
+    {
+        var battleContent = GetNodeOrNull<VBoxContainer>("BattleContent");
+        if (battleContent == null) return;
+
+        _lootLabel = new Label();
+        _lootLabel.HorizontalAlignment = HorizontalAlignment.Center;
+
+        var lines = new System.Text.StringBuilder();
+        lines.AppendLine("--- Loot ---");
+        foreach (var drop in lootResult.DroppedItems)
+        {
+            string rarityTag = drop.Rarity > ItemRarity.Common ? $" [{drop.Rarity}]" : "";
+            lines.AppendLine($"{drop.Quantity}x {drop.Item.DisplayName}{rarityTag}");
+        }
+        _lootLabel.Text = lines.ToString().TrimEnd();
+
+        battleContent.AddChild(_lootLabel);
+    }
+
     private void PlayAttackAnimation(AnimatedSprite2D sprite)
     {
         // Create a quick flash effect for attack

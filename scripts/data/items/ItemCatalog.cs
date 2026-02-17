@@ -9,12 +9,26 @@ public static class ItemCatalog
 {
     private static readonly Dictionary<string, Func<Item>> _itemRegistry = new()
     {
-        // Equipment - delegates to EquipmentCatalog
+        // Wooden equipment
         ["wooden_sword"] = EquipmentCatalog.CreateWoodenSword,
         ["wooden_armor"] = EquipmentCatalog.CreateWoodenArmor,
         ["wooden_shield"] = EquipmentCatalog.CreateWoodenShield,
         ["wooden_helmet"] = EquipmentCatalog.CreateWoodenHelmet,
         ["wooden_shoes"] = EquipmentCatalog.CreateWoodenShoes,
+
+        // Iron equipment
+        ["iron_sword"] = EquipmentCatalog.CreateIronSword,
+        ["iron_armor"] = EquipmentCatalog.CreateIronArmor,
+        ["iron_shield"] = EquipmentCatalog.CreateIronShield,
+        ["iron_helmet"] = EquipmentCatalog.CreateIronHelmet,
+        ["iron_boots"] = EquipmentCatalog.CreateIronBoots,
+
+        // Monster parts
+        ["goblin_ear"] = MonsterPartsCatalog.CreateGoblinEar,
+        ["orc_tusk"] = MonsterPartsCatalog.CreateOrcTusk,
+        ["skeleton_bone"] = MonsterPartsCatalog.CreateSkeletonBone,
+        ["spider_silk"] = MonsterPartsCatalog.CreateSpiderSilk,
+        ["dragon_scale"] = MonsterPartsCatalog.CreateDragonScale,
     };
 
     /// <summary>

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 /// <summary>
@@ -8,7 +9,14 @@ using System.Collections.Generic;
 public class LootTable
 {
     public int MaxDrops { get; set; } = 3;
-    public float DropChance { get; set; } = 1.0f;
+
+    private float _dropChance = 1.0f;
+    public float DropChance
+    {
+        get => _dropChance;
+        set => _dropChance = Math.Clamp(value, 0f, 1f);
+    }
+
     public List<LootEntry> Entries { get; set; } = new();
 
     public List<LootEntry> GetGuaranteedEntries()
@@ -41,7 +49,14 @@ public class LootTable
 public class LootEntry
 {
     public string ItemId { get; set; } = string.Empty;
-    public int Weight { get; set; } = 100;
+
+    private int _weight = 100;
+    public int Weight
+    {
+        get => _weight;
+        set => _weight = Math.Max(0, value);
+    }
+
     public int MinQuantity { get; set; } = 1;
     public int MaxQuantity { get; set; } = 1;
     public bool GuaranteedDrop { get; set; } = false;

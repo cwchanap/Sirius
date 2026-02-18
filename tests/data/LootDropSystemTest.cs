@@ -182,7 +182,8 @@ public partial class LootDropSystemTest : Node
         };
 
         var result = LootManager.RollLoot(table, new Random(42));
-        AssertThat(result.DroppedItems.Count).IsLessEqual(1);
+        // DropChance=1.0f and seeded rng guarantee exactly 1 drop (MaxDrops=1)
+        AssertThat(result.DroppedItems.Count).IsEqual(1);
     }
 
     [TestCase]
@@ -239,6 +240,44 @@ public partial class LootDropSystemTest : Node
         var scale = ItemCatalog.CreateItemById("dragon_scale");
         AssertThat(scale).IsNotNull();
         AssertThat((int)scale!.Rarity).IsEqual((int)ItemRarity.Rare);
+    }
+
+    [TestCase]
+    public void EnemyBlueprint_CreateEnemy_PropagatesSpriteTypeToEnemyType()
+    {
+        var goblinBlueprint = EnemyBlueprint.CreateGoblinBlueprint();
+        var goblin = goblinBlueprint.CreateEnemy();
+        AssertThat(goblin.EnemyType).IsEqual("goblin");
+
+        var dragonBlueprint = EnemyBlueprint.CreateDragonBlueprint();
+        var dragon = dragonBlueprint.CreateEnemy();
+        AssertThat(dragon.EnemyType).IsEqual("dragon");
+
+        var bossBlueprint = EnemyBlueprint.CreateBossBlueprint();
+        var boss = bossBlueprint.CreateEnemy();
+        AssertThat(boss.EnemyType).IsEqual("boss");
+    }
+
+    [TestCase]
+    public void LootTable_GetGuaranteedEntries_SkipsNullEntries()
+    {
+        var table = new LootTable();
+        table.Entries.Add(null!);
+        table.Entries.Add(new LootEntry { GuaranteedDrop = true, ItemId = "goblin_ear", Weight = 0 });
+        var guaranteed = table.GetGuaranteedEntries();
+        AssertThat(guaranteed.Count).IsEqual(1);
+        AssertThat(guaranteed[0].ItemId).IsEqual("goblin_ear");
+    }
+
+    [TestCase]
+    public void LootTable_GetWeightedEntries_SkipsNullEntries()
+    {
+        var table = new LootTable();
+        table.Entries.Add(null!);
+        table.Entries.Add(new LootEntry { Weight = 50, ItemId = "goblin_ear" });
+        var weighted = table.GetWeightedEntries();
+        AssertThat(weighted.Count).IsEqual(1);
+        AssertThat(weighted[0].ItemId).IsEqual("goblin_ear");
     }
 
     [TestCase]

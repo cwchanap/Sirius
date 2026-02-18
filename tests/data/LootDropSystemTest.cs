@@ -240,4 +240,38 @@ public partial class LootDropSystemTest : Node
         AssertThat(scale).IsNotNull();
         AssertThat((int)scale!.Rarity).IsEqual((int)ItemRarity.Rare);
     }
+
+    [TestCase]
+    public void LootResult_Empty_DroppedItems_IsReadOnly()
+    {
+        // DroppedItems must be IReadOnlyList backed by ReadOnlyCollection, not castable to List
+        var list = LootResult.Empty.DroppedItems as System.Collections.Generic.List<LootResultEntry>;
+        AssertThat(list).IsNull();
+    }
+
+    [TestCase]
+    public void LootResult_Add_IgnoresNullItem()
+    {
+        var result = new LootResult();
+        result.Add(null!, 1);
+        AssertThat(result.HasDrops).IsFalse();
+    }
+
+    [TestCase]
+    public void LootResult_Add_IgnoresZeroQuantity()
+    {
+        var result = new LootResult();
+        var item = ItemCatalog.CreateItemById("goblin_ear")!;
+        result.Add(item, 0);
+        AssertThat(result.HasDrops).IsFalse();
+    }
+
+    [TestCase]
+    public void LootResult_Add_IgnoresNegativeQuantity()
+    {
+        var result = new LootResult();
+        var item = ItemCatalog.CreateItemById("goblin_ear")!;
+        result.Add(item, -5);
+        AssertThat(result.HasDrops).IsFalse();
+    }
 }

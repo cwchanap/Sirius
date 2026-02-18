@@ -242,6 +242,20 @@ public partial class LootDropSystemTest : Node
     }
 
     [TestCase]
+    public void LootTable_DropChance_ClampsAboveOne()
+    {
+        var table = new LootTable { DropChance = 1.5f };
+        AssertThat(table.DropChance).IsEqual(1.0f);
+    }
+
+    [TestCase]
+    public void LootTable_DropChance_ClampsBelowZero()
+    {
+        var table = new LootTable { DropChance = -0.5f };
+        AssertThat(table.DropChance).IsEqual(0.0f);
+    }
+
+    [TestCase]
     public void LootEntry_ValidateAndNormalize_SwapsInvertedRange()
     {
         var entry = new LootEntry { ItemId = "goblin_ear", MinQuantity = 5, MaxQuantity = 2 };

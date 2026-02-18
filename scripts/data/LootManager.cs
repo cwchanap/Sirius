@@ -89,14 +89,19 @@ public static class LootManager
 
     private static int ResolveQuantity(LootEntry entry, Random rng)
     {
-        if (entry.MinQuantity > entry.MaxQuantity)
-        {
-            GD.PushWarning($"[LootManager] LootEntry quantity range invalid for itemId '{entry.ItemId}' (MinQuantity={entry.MinQuantity}, MaxQuantity={entry.MaxQuantity}); normalizing.");
-        }
-        entry.ValidateAndNormalizeQuantityRange();
+        int rawMin = entry.MinQuantity;
+        int rawMax = entry.MaxQuantity;
 
-        int min = Math.Max(1, entry.MinQuantity);
-        int max = Math.Max(min, entry.MaxQuantity);
+        // Normalize locally without mutating the entry
+        int min = Math.Max(1, Math.Min(rawMin, rawMax));
+        int max = Math.Max(min, rawMax);
+
+        if (rawMin > rawMax)
+        {
+            GD.PushWarning($"[LootManager] LootEntry quantity range invalid for itemId '{entry.ItemId}' " +
+                           $"(MinQuantity={rawMin}, MaxQuantity={rawMax}); normalizing locally.");
+        }
+
         return rng.Next(min, max + 1);
     }
 

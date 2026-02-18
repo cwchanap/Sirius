@@ -1,5 +1,7 @@
+using Godot;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 /// <summary>
 /// The resolved output of a LootManager.RollLoot call.
@@ -9,17 +11,34 @@ public class LootResult
 {
     public static readonly LootResult Empty = new LootResult();
 
-    public List<LootResultEntry> DroppedItems { get; } = new();
+    private readonly List<LootResultEntry> _droppedItems = new();
+    private readonly ReadOnlyCollection<LootResultEntry> _droppedItemsView;
 
-    public bool HasDrops => DroppedItems.Count > 0;
+    public LootResult()
+    {
+        _droppedItemsView = _droppedItems.AsReadOnly();
+    }
+
+    public IReadOnlyList<LootResultEntry> DroppedItems => _droppedItemsView;
+
+    public bool HasDrops => _droppedItems.Count > 0;
 
     public void Add(Item item, int quantity)
     {
         if (ReferenceEquals(this, Empty))
             throw new InvalidOperationException("LootResult.Empty is immutable and cannot be modified via Add().");
 
-        if (item == null || quantity <= 0) return;
-        DroppedItems.Add(new LootResultEntry(item, quantity));
+        if (item == null)
+        {
+            GD.PushWarning("[LootResult] Add called with null item; skipping.");
+            return;
+        }
+        if (quantity <= 0)
+        {
+            GD.PushWarning($"[LootResult] Add called with non-positive quantity ({quantity}) for item '{item.Id}'; skipping.");
+            return;
+        }
+        _droppedItems.Add(new LootResultEntry(item, quantity));
     }
 }
 
@@ -35,7 +54,8 @@ public class LootResultEntry
 
     public LootResultEntry(Item item, int quantity)
     {
-        Item = item;
+        Item = item ?? throw new ArgumentNullException(nameof(item));
+        if (quantity <= 0) throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity must be positive.");
         Quantity = quantity;
     }
 }

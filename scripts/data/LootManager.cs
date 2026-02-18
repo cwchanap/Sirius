@@ -10,6 +10,8 @@ public static class LootManager
 {
     public static LootResult RollLoot(LootTable? table, Random rng)
     {
+        if (rng == null) throw new ArgumentNullException(nameof(rng));
+
         if (table == null)
             return LootResult.Empty;
 
@@ -59,14 +61,29 @@ public static class LootManager
 
     public static void AwardLootToCharacter(LootResult result, Character player)
     {
-        if (result == null || !result.HasDrops || player == null)
+        if (result == null)
+        {
+            GD.PrintErr("[LootManager] AwardLootToCharacter called with null result.");
+            return;
+        }
+        if (player == null)
+        {
+            GD.PrintErr("[LootManager] AwardLootToCharacter called with null player; loot will not be awarded.");
+            return;
+        }
+        if (!result.HasDrops)
             return;
 
         foreach (var entry in result.DroppedItems)
         {
             player.TryAddItem(entry.Item, entry.Quantity, out int added);
 
-            if (added > 0)
+            if (added == 0)
+            {
+                GD.PushWarning($"[LootManager] Inventory full; could not add any of {entry.Quantity}x " +
+                               $"'{entry.Item.DisplayName}' to {player.Name}");
+            }
+            else
             {
                 GD.Print($"[LootManager] Awarded {added}x '{entry.Item.DisplayName}' to {player.Name}");
             }
@@ -81,7 +98,9 @@ public static class LootManager
                 }
                 else
                 {
-                    GD.PushWarning($"[LootManager] RecoveryChest.Instance is null; AddOverflow skipped for item '{entry.Item.Id}'/'{entry.Item.DisplayName}', overflow={overflow}");
+                    GD.PrintErr($"[LootManager] RecoveryChest.Instance is null; {overflow}x " +
+                                $"'{entry.Item.DisplayName}' (id='{entry.Item.Id}') permanently lost " +
+                                $"for player '{player.Name}'");
                 }
             }
         }

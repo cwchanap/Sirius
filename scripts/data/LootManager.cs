@@ -11,10 +11,10 @@ public static class LootManager
     public static LootResult RollLoot(LootTable? table, Random rng)
     {
         if (table == null)
-            return new LootResult();
+            return LootResult.Empty;
 
         if (rng.NextDouble() >= table.DropChance)
-            return new LootResult();
+            return LootResult.Empty;
 
         var result = new LootResult();
 

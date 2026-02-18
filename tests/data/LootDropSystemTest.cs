@@ -242,6 +242,53 @@ public partial class LootDropSystemTest : Node
     }
 
     [TestCase]
+    public void LootEntry_ValidateAndNormalize_SwapsInvertedRange()
+    {
+        var entry = new LootEntry { ItemId = "goblin_ear", MinQuantity = 5, MaxQuantity = 2 };
+        entry.ValidateAndNormalizeQuantityRange();
+        AssertThat(entry.MinQuantity).IsEqual(2);
+        AssertThat(entry.MaxQuantity).IsEqual(5);
+    }
+
+    [TestCase]
+    public void LootEntry_ValidateAndNormalize_LeavesValidRangeAlone()
+    {
+        var entry = new LootEntry { ItemId = "goblin_ear", MinQuantity = 2, MaxQuantity = 5 };
+        entry.ValidateAndNormalizeQuantityRange();
+        AssertThat(entry.MinQuantity).IsEqual(2);
+        AssertThat(entry.MaxQuantity).IsEqual(5);
+    }
+
+    [TestCase]
+    public void LootManager_RollLoot_DoesNotMutateLootEntries()
+    {
+        // If ResolveQuantity mutated entries, rolling would swap MinQuantity/MaxQuantity in place.
+        var entry = new LootEntry
+        {
+            ItemId = "goblin_ear",
+            GuaranteedDrop = true,
+            MinQuantity = 3,
+            MaxQuantity = 1, // inverted range — would trigger swap in old code
+            Weight = 0
+        };
+        var table = new LootTable
+        {
+            DropChance = 1.0f,
+            MaxDrops = 5,
+            Entries = new() { entry }
+        };
+
+        int minBefore = entry.MinQuantity;
+        int maxBefore = entry.MaxQuantity;
+
+        LootManager.RollLoot(table, new Random(42));
+
+        // Entry must not have been mutated by rolling
+        AssertThat(entry.MinQuantity).IsEqual(minBefore);
+        AssertThat(entry.MaxQuantity).IsEqual(maxBefore);
+    }
+
+    [TestCase]
     public void LootResult_Empty_DroppedItems_IsReadOnly()
     {
         // DroppedItems must be IReadOnlyList backed by ReadOnlyCollection, not castable to List

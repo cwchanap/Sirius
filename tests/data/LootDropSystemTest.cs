@@ -242,6 +242,51 @@ public partial class LootDropSystemTest : Node
     }
 
     [TestCase]
+    public void LootManager_RollLoot_NullRng_ThrowsArgumentNullException()
+    {
+        var table = LootTableCatalog.GoblinDrops();
+        bool threw = false;
+        try
+        {
+            LootManager.RollLoot(table, null!);
+        }
+        catch (ArgumentNullException)
+        {
+            threw = true;
+        }
+        AssertThat(threw).IsTrue();
+    }
+
+    [TestCase]
+    public void LootManager_AwardLootToCharacter_DoesNotThrowWhenInventoryFull()
+    {
+        // EquipmentItems cannot stack (CanStack=false), so adding a second iron_sword
+        // forces added=0 and exercises the overflow/full-inventory path.
+        // RecoveryChest.Instance is null in unit test context.
+        var player = new Character { Name = "TestHero" };
+        var sword1 = ItemCatalog.CreateItemById("iron_sword")!;
+        player.TryAddItem(sword1, 1, out _);
+
+        var sword2 = ItemCatalog.CreateItemById("iron_sword")!;
+        var result = new LootResult();
+        result.Add(sword2, 1);
+
+        bool threw = false;
+        try
+        {
+            LootManager.AwardLootToCharacter(result, player);
+        }
+        catch
+        {
+            threw = true;
+        }
+
+        AssertThat(threw).IsFalse();
+        // Second sword not awarded (cannot stack), count stays at 1
+        AssertThat(player.GetItemQuantity("iron_sword")).IsEqual(1);
+    }
+
+    [TestCase]
     public void LootTable_DropChance_ClampsAboveOne()
     {
         var table = new LootTable { DropChance = 1.5f };

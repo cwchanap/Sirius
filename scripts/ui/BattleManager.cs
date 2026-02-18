@@ -219,6 +219,7 @@ public partial class BattleManager : AcceptDialog
         _enemy = enemy;
         _playerTurn = _player.Speed >= _enemy.Speed; // Faster character goes first
         _battleInProgress = false; // Wait for Start button
+        _pendingLootDisplay = null; // Clear any stale loot from a previous battle
         
         // Setup character animations
         SetupCharacterAnimations();
@@ -734,8 +735,16 @@ public partial class BattleManager : AcceptDialog
         if (_pendingLootDisplay == null || !_pendingLootDisplay.HasDrops)
             return;
 
-        ShowLootDisplay(_pendingLootDisplay);
-        _pendingLootDisplay = null;
+        if (!IsInsideTree() || !IsInstanceValid(this))
+        {
+            GD.PushWarning("[BattleManager] ShowPendingLootDisplay: dialog no longer in scene tree; skipping loot UI.");
+            _pendingLootDisplay = null;
+            return;
+        }
+
+        var loot = _pendingLootDisplay;
+        _pendingLootDisplay = null; // Clear before calling to prevent re-entry on exception
+        ShowLootDisplay(loot);
     }
 
     private void ShowDamageNumber(Label damageLabel, int damage, bool isCritical = false)
@@ -775,7 +784,18 @@ public partial class BattleManager : AcceptDialog
     private void ShowLootDisplay(LootResult lootResult)
     {
         var battleContent = GetNodeOrNull<VBoxContainer>("BattleContent");
-        if (battleContent == null) return;
+        if (battleContent == null)
+        {
+            GD.PrintErr("[BattleManager] ShowLootDisplay: 'BattleContent' VBoxContainer not found; loot UI will not be shown.");
+            return;
+        }
+
+        // Remove the previous loot label if it exists (battle dialog is reused across battles)
+        if (_lootLabel != null && IsInstanceValid(_lootLabel))
+        {
+            _lootLabel.QueueFree();
+            _lootLabel = null;
+        }
 
         _lootLabel = new Label();
         _lootLabel.HorizontalAlignment = HorizontalAlignment.Center;

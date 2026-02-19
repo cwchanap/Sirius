@@ -331,6 +331,7 @@ public partial class EnemySpawn : Sprite2D
         {
             // Access properties via Variant Get method since cast fails in editor
             var name = Blueprint.Get("EnemyName").AsString();
+            var spriteType = Blueprint.Get("SpriteType").AsString();
             var level = Blueprint.Get("Level").AsInt32();
             var maxHealth = Blueprint.Get("MaxHealth").AsInt32();
             var attack = Blueprint.Get("Attack").AsInt32();
@@ -342,6 +343,7 @@ public partial class EnemySpawn : Sprite2D
             return new Enemy
             {
                 Name = name,
+                EnemyType = spriteType,
                 Level = level,
                 MaxHealth = maxHealth,
                 CurrentHealth = maxHealth,

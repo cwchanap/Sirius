@@ -113,7 +113,7 @@ public static class LootManager
 
         // Normalize locally without mutating the entry
         int min = Math.Max(1, Math.Min(rawMin, rawMax));
-        int max = Math.Max(min, rawMax);
+        int max = Math.Max(min, Math.Max(rawMin, rawMax));
 
         if (rawMin > rawMax)
         {

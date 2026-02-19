@@ -419,4 +419,41 @@ public partial class LootDropSystemTest : Node
         result.Add(item, -5);
         AssertThat(result.HasDrops).IsFalse();
     }
+
+    [TestCase]
+    public void LootManager_RollLoot_InvertedRange_PreservesFullRange()
+    {
+        // When MinQuantity > MaxQuantity, the full range should still be available.
+        // e.g., Min=5, Max=2 should produce quantities in range 2..5, not clamp to 2..2
+        var table = new LootTable
+        {
+            DropChance = 1.0f,
+            MaxDrops = 100, // Many rolls to sample the range
+            Entries = new()
+            {
+                new LootEntry
+                {
+                    ItemId = "goblin_ear",
+                    Weight = 100,
+                    MinQuantity = 5, // Inverted: Min > Max
+                    MaxQuantity = 2
+                }
+            }
+        };
+
+        var result = LootManager.RollLoot(table, new Random(42));
+        AssertThat(result.HasDrops).IsTrue();
+
+        // Collect all quantities dropped
+        int maxObserved = 0;
+        foreach (var drop in result.DroppedItems)
+        {
+            if (drop.Quantity > maxObserved)
+                maxObserved = drop.Quantity;
+        }
+
+        // With 100 drops from range 2..5, we should eventually see quantities up to 5
+        // If the bug existed (clamping to 2..2), max would never exceed 2
+        AssertThat(maxObserved).IsGreaterEqual(3);
+    }
 }

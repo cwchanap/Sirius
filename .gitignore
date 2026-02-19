@@ -13,3 +13,6 @@ gdunit4_testadapter_v5/
 # Local test settings (not checked into git)
 test.runsettings.local
 *.local.runsettings
+
+# Claude settings
+.claude/settings.local.json

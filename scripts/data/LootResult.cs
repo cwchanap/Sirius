@@ -12,14 +12,14 @@ public class LootResult
     public static readonly LootResult Empty = new LootResult();
 
     private readonly List<LootResultEntry> _droppedItems = new();
-    private readonly ReadOnlyCollection<LootResultEntry> _droppedItemsView;
+    private ReadOnlyCollection<LootResultEntry> _droppedItemsView;
 
     public LootResult()
     {
         _droppedItemsView = _droppedItems.AsReadOnly();
     }
 
-    public IReadOnlyList<LootResultEntry> DroppedItems => _droppedItemsView;
+    public IReadOnlyList<LootResultEntry> DroppedItems => _droppedItemsView ??= _droppedItems.AsReadOnly();
 
     public bool HasDrops => _droppedItems.Count > 0;
 

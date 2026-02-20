@@ -395,6 +395,24 @@ public partial class LootDropSystemTest : Node
     }
 
     [TestCase]
+    public void LootResult_DroppedItems_SafeAfterDeserialization()
+    {
+        // Simulates deserialization bypassing constructor where _droppedItemsView would be null.
+        // Uses reflection to create an uninitialized instance (bypassing constructor).
+        var uninitializedResult = (LootResult)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(LootResult));
+
+        // Initialize _droppedItems via reflection (deserializer would do this)
+        var droppedItemsField = typeof(LootResult).GetField("_droppedItems",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        droppedItemsField!.SetValue(uninitializedResult, new System.Collections.Generic.List<LootResultEntry>());
+
+        // Accessing DroppedItems should not throw even though constructor was bypassed
+        var items = uninitializedResult.DroppedItems;
+        AssertThat(items).IsNotNull();
+        AssertThat(items.Count).IsEqual(0);
+    }
+
+    [TestCase]
     public void LootResult_Add_IgnoresNullItem()
     {
         var result = new LootResult();

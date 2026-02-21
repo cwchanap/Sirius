@@ -4,7 +4,10 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Static service for loot generation and award.
-/// RollLoot is pure logic (fully testable). AwardLootToCharacter touches RecoveryChest.
+/// RollLoot is pure logic (fully testable).
+/// AwardLootToCharacter has side effects: it writes to player.Inventory and may
+/// route overflow to RecoveryChest.Instance. If RecoveryChest.Instance is null,
+/// overflow items are permanently discarded and an error is logged.
 /// </summary>
 public static class LootManager
 {
@@ -20,7 +23,8 @@ public static class LootManager
 
         var result = new LootResult();
 
-        // Guaranteed drops always included
+        // Guaranteed drops are included when the DropChance roll succeeds.
+        // They are not capped by MaxDrops — MaxDrops applies only to weighted draws.
         foreach (var entry in table.GetGuaranteedEntries())
         {
             var item = ItemCatalog.CreateItemById(entry.ItemId);
@@ -33,14 +37,19 @@ public static class LootManager
             result.Add(item, qty);
         }
 
-        // Weighted random draws up to MaxDrops
+        // Weighted random draws up to MaxDrops slots.
+        // A null/unknown itemId skips that entry but does NOT consume a slot.
+        // maxAttempts guards against an infinite loop if all weighted entries have unknown itemIds.
         int remainingSlots = Math.Max(0, table.MaxDrops - result.DroppedItems.Count);
         if (remainingSlots > 0)
         {
             var weighted = table.GetWeightedEntries();
             if (weighted.Count > 0)
             {
-                for (int i = 0; i < remainingSlots; i++)
+                int added = 0;
+                int attempts = 0;
+                int maxAttempts = remainingSlots * 2;
+                while (added < remainingSlots && attempts++ < maxAttempts)
                 {
                     var entry = PickWeightedEntry(weighted, rng);
                     if (entry == null) break;
@@ -52,6 +61,7 @@ public static class LootManager
                     }
                     int qty = ResolveQuantity(entry, rng);
                     result.Add(item, qty);
+                    added++;
                 }
             }
         }
@@ -78,12 +88,7 @@ public static class LootManager
         {
             player.TryAddItem(entry.Item, entry.Quantity, out int added);
 
-            if (added == 0)
-            {
-                GD.PushWarning($"[LootManager] Inventory full; could not add any of {entry.Quantity}x " +
-                               $"'{entry.Item.DisplayName}' to {player.Name}");
-            }
-            else
+            if (added > 0)
             {
                 GD.Print($"[LootManager] Awarded {added}x '{entry.Item.DisplayName}' to {player.Name}");
             }
@@ -106,7 +111,7 @@ public static class LootManager
         }
     }
 
-    private static int ResolveQuantity(LootEntry entry, Random rng)
+    private static int ResolveQuantity(in LootEntry entry, Random rng)
     {
         int rawMin = entry.MinQuantity;
         int rawMax = entry.MaxQuantity;
@@ -139,6 +144,7 @@ public static class LootManager
             cumulative += e.Weight;
             if (roll < cumulative) return e;
         }
+        // Fallback: floating-point/integer boundary guard; should not be reached with valid weights.
         return entries[entries.Count - 1];
     }
 }

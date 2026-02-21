@@ -12,6 +12,7 @@ public class LootResult
     public static readonly LootResult Empty = new LootResult();
 
     private readonly List<LootResultEntry> _droppedItems = new();
+    // Not readonly: deserialization bypasses the constructor; recreated lazily on first access.
     private ReadOnlyCollection<LootResultEntry> _droppedItemsView;
 
     public LootResult()
@@ -29,10 +30,7 @@ public class LootResult
             throw new InvalidOperationException("LootResult.Empty is immutable and cannot be modified via Add().");
 
         if (item == null)
-        {
-            GD.PushWarning("[LootResult] Add called with null item; skipping.");
-            return;
-        }
+            throw new ArgumentNullException(nameof(item), "[LootResult] Add called with null item.");
         if (quantity <= 0)
         {
             GD.PushWarning($"[LootResult] Add called with non-positive quantity ({quantity}) for item '{item.Id}'; skipping.");

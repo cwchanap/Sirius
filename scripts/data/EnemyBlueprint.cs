@@ -3,6 +3,8 @@ using Godot;
 /// <summary>
 /// Blueprint Resource for enemy spawning. Create instances via Godot editor and assign to EnemySpawn nodes.
 /// Each blueprint can be cloned and customized with unique stats for level design.
+/// To give a spawn node unique stats, use 'Make Unique' in the Godot Inspector or
+/// set EnemySpawn.AutoMakeBlueprintUnique = true.
 /// </summary>
 [GlobalClass]
 public partial class EnemyBlueprint : Resource
@@ -10,14 +12,14 @@ public partial class EnemyBlueprint : Resource
     // Enemy identity
     [ExportGroup("Identity")]
     [Export] public string EnemyName { get; set; } = "Goblin";
-    
+
     /// <summary>
     /// Visual sprite type (must match folder name in assets/sprites/enemies/).
-    /// Common types: goblin, orc, skeleton_warrior, troll, dragon, forest_spirit, 
-    /// cave_spider, desert_scorpion, swamp_wretch, mountain_wyvern, dark_mage, 
+    /// Common types: goblin, orc, skeleton_warrior, troll, dragon, forest_spirit,
+    /// cave_spider, desert_scorpion, swamp_wretch, mountain_wyvern, dark_mage,
     /// dungeon_guardian, demon_lord, boss
     /// </summary>
-    [Export(PropertyHint.Enum, "goblin,orc,skeleton_warrior,troll,dragon,forest_spirit,cave_spider,desert_scorpion,swamp_wretch,mountain_wyvern,dark_mage,dungeon_guardian,demon_lord,boss")] 
+    [Export(PropertyHint.Enum, "goblin,orc,skeleton_warrior,troll,dragon,forest_spirit,cave_spider,desert_scorpion,swamp_wretch,mountain_wyvern,dark_mage,dungeon_guardian,demon_lord,boss")]
     public string SpriteType { get; set; } = "goblin";
 
     // Combat stats
@@ -35,6 +37,8 @@ public partial class EnemyBlueprint : Resource
 
     /// <summary>
     /// Create an Enemy instance from this blueprint with fresh CurrentHealth equal to MaxHealth.
+    /// EnemyType is set from SpriteType, used by LootTableCatalog.GetByEnemyType() to look up
+    /// loot tables after combat.
     /// </summary>
     public Enemy CreateEnemy()
     {
@@ -53,15 +57,13 @@ public partial class EnemyBlueprint : Resource
         };
     }
 
-    /// <summary>
-    /// Factory method: Create a Goblin blueprint with default stats.
-    /// </summary>
+    /// <summary>Factory method: Create a Goblin blueprint with default stats.</summary>
     public static EnemyBlueprint CreateGoblinBlueprint()
     {
         return new EnemyBlueprint
         {
             EnemyName = "Goblin",
-            SpriteType = "goblin",
+            SpriteType = EnemyTypeId.Goblin,
             Level = 1,
             MaxHealth = 50,
             Attack = 15,
@@ -72,15 +74,13 @@ public partial class EnemyBlueprint : Resource
         };
     }
 
-    /// <summary>
-    /// Factory method: Create an Orc blueprint with default stats.
-    /// </summary>
+    /// <summary>Factory method: Create an Orc blueprint with default stats.</summary>
     public static EnemyBlueprint CreateOrcBlueprint()
     {
         return new EnemyBlueprint
         {
             EnemyName = "Orc",
-            SpriteType = "orc",
+            SpriteType = EnemyTypeId.Orc,
             Level = 2,
             MaxHealth = 80,
             Attack = 22,
@@ -91,15 +91,13 @@ public partial class EnemyBlueprint : Resource
         };
     }
 
-    /// <summary>
-    /// Factory method: Create a Dragon blueprint with default stats.
-    /// </summary>
+    /// <summary>Factory method: Create a Dragon blueprint with default stats.</summary>
     public static EnemyBlueprint CreateDragonBlueprint()
     {
         return new EnemyBlueprint
         {
             EnemyName = "Dragon",
-            SpriteType = "dragon",
+            SpriteType = EnemyTypeId.Dragon,
             Level = 5,
             MaxHealth = 200,
             Attack = 45,
@@ -110,15 +108,13 @@ public partial class EnemyBlueprint : Resource
         };
     }
 
-    /// <summary>
-    /// Factory method: Create a Boss blueprint with default stats.
-    /// </summary>
+    /// <summary>Factory method: Create a Boss blueprint with default stats.</summary>
     public static EnemyBlueprint CreateBossBlueprint()
     {
         return new EnemyBlueprint
         {
             EnemyName = "Ancient Dragon King",
-            SpriteType = "boss",
+            SpriteType = EnemyTypeId.Boss,
             Level = 10,
             MaxHealth = 500,
             Attack = 80,
@@ -128,4 +124,84 @@ public partial class EnemyBlueprint : Resource
             GoldReward = 500
         };
     }
+
+    /// <summary>Factory method: Create a Skeleton Warrior blueprint with default stats.</summary>
+    public static EnemyBlueprint CreateSkeletonWarriorBlueprint() => new EnemyBlueprint
+    {
+        EnemyName = "Skeleton Warrior", SpriteType = EnemyTypeId.SkeletonWarrior,
+        Level = 3, MaxHealth = 120, Attack = 28, Defense = 12, Speed = 9,
+        ExperienceReward = 70, GoldReward = 30
+    };
+
+    /// <summary>Factory method: Create a Troll blueprint with default stats.</summary>
+    public static EnemyBlueprint CreateTrollBlueprint() => new EnemyBlueprint
+    {
+        EnemyName = "Troll", SpriteType = EnemyTypeId.Troll,
+        Level = 4, MaxHealth = 150, Attack = 35, Defense = 15, Speed = 6,
+        ExperienceReward = 120, GoldReward = 50
+    };
+
+    /// <summary>Factory method: Create a Dark Mage blueprint with default stats.</summary>
+    public static EnemyBlueprint CreateDarkMageBlueprint() => new EnemyBlueprint
+    {
+        EnemyName = "Dark Mage", SpriteType = EnemyTypeId.DarkMage,
+        Level = 6, MaxHealth = 180, Attack = 50, Defense = 18, Speed = 14,
+        ExperienceReward = 220, GoldReward = 120
+    };
+
+    /// <summary>Factory method: Create a Demon Lord blueprint with default stats.</summary>
+    public static EnemyBlueprint CreateDemonLordBlueprint() => new EnemyBlueprint
+    {
+        EnemyName = "Demon Lord", SpriteType = EnemyTypeId.DemonLord,
+        Level = 8, MaxHealth = 300, Attack = 65, Defense = 25, Speed = 15,
+        ExperienceReward = 400, GoldReward = 200
+    };
+
+    /// <summary>Factory method: Create a Forest Spirit blueprint with default stats.</summary>
+    public static EnemyBlueprint CreateForestSpiritBlueprint() => new EnemyBlueprint
+    {
+        EnemyName = "Forest Spirit", SpriteType = EnemyTypeId.ForestSpirit,
+        Level = 2, MaxHealth = 90, Attack = 20, Defense = 10, Speed = 15,
+        ExperienceReward = 50, GoldReward = 22
+    };
+
+    /// <summary>Factory method: Create a Giant Cave Spider blueprint with default stats.</summary>
+    public static EnemyBlueprint CreateCaveSpiderBlueprint() => new EnemyBlueprint
+    {
+        EnemyName = "Giant Cave Spider", SpriteType = EnemyTypeId.CaveSpider,
+        Level = 3, MaxHealth = 110, Attack = 25, Defense = 8, Speed = 18,
+        ExperienceReward = 65, GoldReward = 28
+    };
+
+    /// <summary>Factory method: Create a Desert Scorpion blueprint with default stats.</summary>
+    public static EnemyBlueprint CreateDesertScorpionBlueprint() => new EnemyBlueprint
+    {
+        EnemyName = "Desert Scorpion", SpriteType = EnemyTypeId.DesertScorpion,
+        Level = 4, MaxHealth = 130, Attack = 32, Defense = 14, Speed = 11,
+        ExperienceReward = 95, GoldReward = 45
+    };
+
+    /// <summary>Factory method: Create a Swamp Wretch blueprint with default stats.</summary>
+    public static EnemyBlueprint CreateSwampWretchBlueprint() => new EnemyBlueprint
+    {
+        EnemyName = "Swamp Wretch", SpriteType = EnemyTypeId.SwampWretch,
+        Level = 5, MaxHealth = 160, Attack = 38, Defense = 16, Speed = 7,
+        ExperienceReward = 140, GoldReward = 70
+    };
+
+    /// <summary>Factory method: Create a Mountain Wyvern blueprint with default stats.</summary>
+    public static EnemyBlueprint CreateMountainWyvernBlueprint() => new EnemyBlueprint
+    {
+        EnemyName = "Mountain Wyvern", SpriteType = EnemyTypeId.MountainWyvern,
+        Level = 6, MaxHealth = 220, Attack = 48, Defense = 22, Speed = 16,
+        ExperienceReward = 200, GoldReward = 110
+    };
+
+    /// <summary>Factory method: Create a Dungeon Guardian blueprint with default stats.</summary>
+    public static EnemyBlueprint CreateDungeonGuardianBlueprint() => new EnemyBlueprint
+    {
+        EnemyName = "Dungeon Guardian", SpriteType = EnemyTypeId.DungeonGuardian,
+        Level = 7, MaxHealth = 280, Attack = 55, Defense = 28, Speed = 10,
+        ExperienceReward = 300, GoldReward = 150
+    };
 }

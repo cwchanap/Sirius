@@ -340,21 +340,14 @@ public partial class LootDropSystemTest : Node
     }
 
     [TestCase]
-    public void LootEntry_ValidateAndNormalize_SwapsInvertedRange()
+    public void LootEntry_InvertedRange_IsNormalizedByRollLoot()
     {
+        // ValidateAndNormalizeQuantityRange() was removed (dead code).
+        // LootManager.ResolveQuantity normalizes inverted ranges locally without mutating the entry.
         var entry = new LootEntry { ItemId = "goblin_ear", MinQuantity = 5, MaxQuantity = 2 };
-        entry.ValidateAndNormalizeQuantityRange();
-        AssertThat(entry.MinQuantity).IsEqual(2);
-        AssertThat(entry.MaxQuantity).IsEqual(5);
-    }
-
-    [TestCase]
-    public void LootEntry_ValidateAndNormalize_LeavesValidRangeAlone()
-    {
-        var entry = new LootEntry { ItemId = "goblin_ear", MinQuantity = 2, MaxQuantity = 5 };
-        entry.ValidateAndNormalizeQuantityRange();
-        AssertThat(entry.MinQuantity).IsEqual(2);
-        AssertThat(entry.MaxQuantity).IsEqual(5);
+        // Entry values are unchanged — normalization is done internally by LootManager.
+        AssertThat(entry.MinQuantity).IsEqual(5);
+        AssertThat(entry.MaxQuantity).IsEqual(2);
     }
 
     [TestCase]

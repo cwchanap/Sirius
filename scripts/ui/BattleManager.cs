@@ -36,7 +36,7 @@ public partial class BattleManager : AcceptDialog
     private Timer _battleTimer;
     private bool _battleInProgress = false;
     private bool _playerDefendedLastTurn = false;
-    private bool _resultEmitted = false; // Ensure we only emit BattleFinished once
+    private bool _resultEmitted = false; // Guards against double-emission in the common case; timer stop and signal emit must always be called together
     private readonly Random _rng = new();
     private LootResult? _pendingLootDisplay;
     
@@ -148,7 +148,7 @@ public partial class BattleManager : AcceptDialog
             backgroundRect.Texture = backgroundTexture;
             backgroundRect.ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional;
             backgroundRect.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
-            GD.Print("✅ Battle background loaded successfully");
+            // Battle background loaded successfully
         }
         else
         {
@@ -164,10 +164,10 @@ public partial class BattleManager : AcceptDialog
             colorRect.OffsetRight = 0;
             colorRect.OffsetBottom = 0;
             colorRect.ZIndex = -1;
-            colorRect.Color = new Color(1.0f, 0.0f, 1.0f, 1.0f); // Bright magenta for testing transparency
+            colorRect.Color = new Color(0.1f, 0.1f, 0.1f, 1.0f); // Dark fallback — replace with proper asset before shipping
             AddChild(colorRect);
             MoveChild(colorRect, 0);
-            GD.Print("⚠️ Battle background not found, using fallback color (bright magenta for transparency testing)");
+            GD.PushWarning("[BattleManager] Battle background asset not found; using dark color fallback.");
             return;
         }
         
@@ -211,15 +211,40 @@ public partial class BattleManager : AcceptDialog
         OnCloseRequested();
     }
     
+    /// <summary>
+    /// Initializes the battle with the given combatants and sets up UI.
+    /// Player goes first if Speed &gt;= enemy Speed (ties favor the player).
+    /// </summary>
     public void StartBattle(Character player, Enemy enemy)
     {
+        if (player == null)
+        {
+            GD.PrintErr("[BattleManager] StartBattle called with null player; aborting battle.");
+            _resultEmitted = true;
+            EmitSignal(SignalName.BattleFinished, false, true);
+            return;
+        }
+        if (enemy == null)
+        {
+            GD.PrintErr("[BattleManager] StartBattle called with null enemy; aborting battle.");
+            _resultEmitted = true;
+            EmitSignal(SignalName.BattleFinished, false, true);
+            return;
+        }
+
         GD.Print($"BattleManager.StartBattle called: {player.Name} vs {enemy.Name}");
-        
+
         _player = player;
         _enemy = enemy;
-        _playerTurn = _player.Speed >= _enemy.Speed; // Faster character goes first
-        _battleInProgress = false; // Wait for Start button
-        _pendingLootDisplay = null; // Clear any stale loot from a previous battle
+        _playerTurn = _player.Speed >= _enemy.Speed;
+        _battleInProgress = false;
+        _pendingLootDisplay = null;
+        // Clean up any loot label left from a previous battle
+        if (_lootLabel != null && IsInstanceValid(_lootLabel))
+        {
+            _lootLabel.QueueFree();
+            _lootLabel = null;
+        }
         
         // Setup character animations
         SetupCharacterAnimations();
@@ -298,12 +323,6 @@ public partial class BattleManager : AcceptDialog
         var playerTexture = GD.Load<Texture2D>("res://assets/sprites/characters/player_hero/sprite_sheet.png");
         if (playerTexture != null)
         {
-            GD.Print("🎮 Player texture loaded:");
-            GD.Print($"   📏 Size: {playerTexture.GetSize()}");
-            GD.Print($"   🔗 Resource ID: {playerTexture.GetRid()}");
-            GD.Print($"   🎨 Texture is null: {playerTexture == null}");
-            GD.Print($"   📊 Texture resource path: {playerTexture.ResourcePath}");
-
             playerSpriteFrames.AddAnimation("idle");
 
             // Derive frame size dynamically from texture (4 frames horizontally)
@@ -315,10 +334,8 @@ public partial class BattleManager : AcceptDialog
                 var atlasTexture = new AtlasTexture();
                 atlasTexture.Atlas = playerTexture;
                 atlasTexture.Region = new Rect2(i * PLAYER_FRAME_W, 0, PLAYER_FRAME_W, PLAYER_FRAME_H);
-                // Ensure transparency is preserved
                 atlasTexture.FilterClip = true;
                 playerSpriteFrames.AddFrame("idle", atlasTexture);
-                GD.Print($"   ✅ Frame {i} added to animation");
             }
 
             playerSpriteFrames.SetAnimationSpeed("idle", 4.0);
@@ -328,33 +345,21 @@ public partial class BattleManager : AcceptDialog
             float targetPx = 96f;
             float pScale = targetPx / (float)PLAYER_FRAME_W;
             _playerSprite.Scale = new Vector2(pScale, pScale);
-            // Ensure sprite uses transparency
-            _playerSprite.Modulate = new Color(1, 1, 1, 1); // Reset modulate to ensure transparency works
+            _playerSprite.Modulate = new Color(1, 1, 1, 1);
             _playerSprite.Play("idle");
 
-            // Force material for transparency
             var material = new CanvasItemMaterial();
             material.BlendMode = CanvasItemMaterial.BlendModeEnum.Mix;
             material.LightMode = CanvasItemMaterial.LightModeEnum.Unshaded;
             _playerSprite.Material = material;
 
-            // Try to force self-modulate for transparency
             _playerSprite.SelfModulate = new Color(1, 1, 1, 1);
-
-            // Force sprite to be visible and centered
             _playerSprite.Visible = true;
             _playerSprite.Centered = true;
-
-            GD.Print("✅ Player sprite loaded with transparency support");
-            GD.Print($"   🎭 SpriteFrames assigned: {_playerSprite.SpriteFrames != null}");
-            GD.Print($"   🎬 Animation playing: {_playerSprite.IsPlaying()}");
-            GD.Print($"   👁️  Sprite visible: {_playerSprite.Visible}");
-            GD.Print($"   📍 Sprite position: {_playerSprite.Position}");
-            GD.Print($"   📏 Sprite scale: {_playerSprite.Scale}");
         }
         else
         {
-            GD.Print("Warning: Player sprite sheet not found, using fallback");
+            GD.PushWarning("[BattleManager] Player sprite sheet not found; using fallback rendering.");
         }
 
         // Create animation resources for enemy
@@ -374,12 +379,6 @@ public partial class BattleManager : AcceptDialog
         }
         if (enemyTexture != null)
         {
-            GD.Print("👹 Enemy texture loaded:");
-            GD.Print($"   📏 Size: {enemyTexture.GetSize()}");
-            GD.Print($"   🔗 Resource ID: {enemyTexture.GetRid()}");
-            GD.Print($"   🎨 Texture is null: {enemyTexture == null}");
-            GD.Print($"   📊 Texture resource path: {enemyTexture.ResourcePath}");
-
             enemySpriteFrames.AddAnimation("idle");
 
             // Derive frame size dynamically from texture (4 frames horizontally)
@@ -391,7 +390,6 @@ public partial class BattleManager : AcceptDialog
                 var atlasTexture = new AtlasTexture();
                 atlasTexture.Atlas = enemyTexture;
                 atlasTexture.Region = new Rect2(i * ENEMY_FRAME_W, 0, ENEMY_FRAME_W, ENEMY_FRAME_H);
-                // Ensure transparency is preserved
                 atlasTexture.FilterClip = true;
                 enemySpriteFrames.AddFrame("idle", atlasTexture);
             }
@@ -402,33 +400,22 @@ public partial class BattleManager : AcceptDialog
             // Keep on-screen size ~96px width regardless of source resolution
             float eScale = 96f / (float)ENEMY_FRAME_W;
             _enemySprite.Scale = new Vector2(eScale, eScale);
-            // Ensure sprite uses transparency
-            _enemySprite.Modulate = new Color(1, 1, 1, 1); // Reset modulate to ensure transparency works
+            _enemySprite.Modulate = new Color(1, 1, 1, 1);
             _enemySprite.Play("idle");
 
-            // Force material for transparency
             var enemyMaterial = new CanvasItemMaterial();
             enemyMaterial.BlendMode = CanvasItemMaterial.BlendModeEnum.Mix;
             enemyMaterial.LightMode = CanvasItemMaterial.LightModeEnum.Unshaded;
             _enemySprite.Material = enemyMaterial;
 
-            // Try to force self-modulate for transparency
             _enemySprite.SelfModulate = new Color(1, 1, 1, 1);
-
-            // Force sprite to be visible and centered
             _enemySprite.Visible = true;
             _enemySprite.Centered = true;
-
-            GD.Print("✅ Enemy sprite loaded with transparency support");
-            GD.Print($"   🎭 SpriteFrames assigned: {_enemySprite.SpriteFrames != null}");
-            GD.Print($"   🎬 Animation playing: {_enemySprite.IsPlaying()}");
-            GD.Print($"   👁️  Sprite visible: {_enemySprite.Visible}");
-            GD.Print($"   📍 Sprite position: {_enemySprite.Position}");
-            GD.Print($"   📏 Sprite scale: {_enemySprite.Scale}");
         }
         else
         {
-            GD.Print("Warning: Enemy goblin sprite sheet not found, using fallback");
+            // TODO: use _enemy.EnemyType to select the correct sprite path (currently always loads goblin)
+            GD.PushWarning("[BattleManager] Enemy sprite sheet not found; using fallback rendering.");
             // Check if there are sprite files that need to be merged
             CheckAndCreateSpriteSheet();
         }
@@ -542,7 +529,7 @@ public partial class BattleManager : AcceptDialog
     
     private void PlayerAutoAction()
     {
-        // Player automatically chooses the best action based on situation
+        // Player auto-AI: defends with 30% probability when health drops below 40%, otherwise attacks.
         float healthPercentage = (float)_player.CurrentHealth / _player.GetEffectiveMaxHealth();
         float enemyHealthPercentage = (float)_enemy.CurrentHealth / _enemy.MaxHealth;
         
@@ -595,8 +582,9 @@ public partial class BattleManager : AcceptDialog
         if (!_enemy.IsAlive || !_player.IsAlive) return;
         
         float enemyHealthPercentage = (float)_enemy.CurrentHealth / _enemy.MaxHealth;
+        // Note: uses base MaxHealth (not GetEffectiveMaxHealth()); equipment bonuses are not reflected in this threshold.
         float playerHealthPercentage = (float)_player.CurrentHealth / _player.MaxHealth;
-        
+
         // Enemy AI: More aggressive when player is low on health
         bool aggressiveAttack = playerHealthPercentage < 0.3f && GD.Randf() < 0.4f;
         bool criticalHit = GD.Randf() < 0.1f; // 10% chance for enemy critical hit

@@ -339,7 +339,12 @@ public partial class EnemySpawn : Sprite2D
             var speed = Blueprint.Get("Speed").AsInt32();
             var expReward = Blueprint.Get("ExperienceReward").AsInt32();
             var goldReward = Blueprint.Get("GoldReward").AsInt32();
-            
+
+            if (string.IsNullOrEmpty(spriteType))
+                GD.PrintErr($"[EnemySpawn] Blueprint at GridPosition {GridPosition} has empty SpriteType; loot table lookup will fail.");
+            if (string.IsNullOrEmpty(name))
+                GD.PushWarning($"[EnemySpawn] Blueprint at GridPosition {GridPosition} has empty EnemyName.");
+
             return new Enemy
             {
                 Name = name,
@@ -375,11 +380,18 @@ public partial class EnemySpawn : Sprite2D
                 "dungeon_guardian" => Enemy.CreateDungeonGuardian(),
                 "demon_lord" => Enemy.CreateDemonLord(),
                 "boss" => Enemy.CreateBoss(),
-                _ => Enemy.CreateGoblin() // default fallback
+                _ => LogAndDefaultToGoblin(type)
             };
         }
 
-        // Ultimate fallback
+        // Ultimate fallback: no Blueprint and no EnemyType set
+        GD.PrintErr($"[EnemySpawn] No Blueprint and no EnemyType set at GridPosition {GridPosition}; defaulting to Goblin.");
+        return Enemy.CreateGoblin();
+    }
+
+    private static Enemy LogAndDefaultToGoblin(string type)
+    {
+        GD.PrintErr($"[EnemySpawn] Unknown EnemyType '{type}'; defaulting to Goblin. Check the EnemyType property.");
         return Enemy.CreateGoblin();
     }
 

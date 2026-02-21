@@ -1,11 +1,11 @@
 /// <summary>
 /// Centralizes default drop tables for all enemies.
-/// Used by Enemy.CreateX() static factory methods and EnemySpawn blueprint path.
+/// Called by BattleManager.EndBattle() via LootTableCatalog.GetByEnemyType().
 /// </summary>
 public static class LootTableCatalog
 {
     /// <summary>
-    /// Looks up a drop table by enemy sprite type name.
+    /// Looks up a drop table by enemy sprite type name (case-insensitive via .ToLower()).
     /// Used by EnemySpawn when creating enemies from blueprints.
     /// Returns null if no drop table is defined for the given type.
     /// </summary>
@@ -13,25 +13,25 @@ public static class LootTableCatalog
     {
         return enemyType?.ToLower() switch
         {
-            "goblin" => GoblinDrops(),
-            "orc" => OrcDrops(),
-            "skeleton_warrior" => SkeletonWarriorDrops(),
-            "troll" => TrollDrops(),
-            "dragon" => DragonDrops(),
-            "forest_spirit" => ForestSpiritDrops(),
-            "cave_spider" => CaveSpiderDrops(),
-            "desert_scorpion" => DesertScorpionDrops(),
-            "swamp_wretch" => SwampWretchDrops(),
-            "mountain_wyvern" => MountainWyvernDrops(),
-            "dark_mage" => DarkMageDrops(),
-            "dungeon_guardian" => DungeonGuardianDrops(),
-            "demon_lord" => DemonLordDrops(),
-            "boss" => BossDrops(),
+            EnemyTypeId.Goblin          => CreateGoblinTable(),
+            EnemyTypeId.Orc             => CreateOrcTable(),
+            EnemyTypeId.SkeletonWarrior => CreateSkeletonWarriorTable(),
+            EnemyTypeId.Troll           => CreateTrollTable(),
+            EnemyTypeId.Dragon          => CreateDragonTable(),
+            EnemyTypeId.ForestSpirit    => CreateForestSpiritTable(),
+            EnemyTypeId.CaveSpider      => CreateCaveSpiderTable(),
+            EnemyTypeId.DesertScorpion  => CreateDesertScorpionTable(),
+            EnemyTypeId.SwampWretch     => CreateSwampWretchTable(),
+            EnemyTypeId.MountainWyvern  => CreateMountainWyvernTable(),
+            EnemyTypeId.DarkMage        => CreateDarkMageTable(),
+            EnemyTypeId.DungeonGuardian => CreateDungeonGuardianTable(),
+            EnemyTypeId.DemonLord       => CreateDemonLordTable(),
+            EnemyTypeId.Boss            => CreateBossTable(),
             _ => null
         };
     }
 
-    public static LootTable GoblinDrops() => new LootTable
+    public static LootTable CreateGoblinTable() => new LootTable
     {
         MaxDrops = 2,
         DropChance = 0.85f,
@@ -42,7 +42,7 @@ public static class LootTableCatalog
         }
     };
 
-    public static LootTable OrcDrops() => new LootTable
+    public static LootTable CreateOrcTable() => new LootTable
     {
         MaxDrops = 2,
         DropChance = 0.90f,
@@ -53,7 +53,7 @@ public static class LootTableCatalog
         }
     };
 
-    public static LootTable SkeletonWarriorDrops() => new LootTable
+    public static LootTable CreateSkeletonWarriorTable() => new LootTable
     {
         MaxDrops = 2,
         DropChance = 0.90f,
@@ -64,7 +64,7 @@ public static class LootTableCatalog
         }
     };
 
-    public static LootTable TrollDrops() => new LootTable
+    public static LootTable CreateTrollTable() => new LootTable
     {
         MaxDrops = 2,
         DropChance = 0.90f,
@@ -75,19 +75,20 @@ public static class LootTableCatalog
         }
     };
 
-    public static LootTable DragonDrops() => new LootTable
+    public static LootTable CreateDragonTable() => new LootTable
     {
         MaxDrops = 3,
         DropChance = 1.0f,
         Entries = new()
         {
+            // GuaranteedDrop = true; Weight = 0 by convention (excluded from weighted draws).
             new LootEntry { ItemId = "dragon_scale", GuaranteedDrop = true, MinQuantity = 1, MaxQuantity = 2, Weight = 0 },
             new LootEntry { ItemId = "iron_sword", Weight = 50, MinQuantity = 1, MaxQuantity = 1 },
             new LootEntry { ItemId = "iron_armor", Weight = 50, MinQuantity = 1, MaxQuantity = 1 }
         }
     };
 
-    public static LootTable ForestSpiritDrops() => new LootTable
+    public static LootTable CreateForestSpiritTable() => new LootTable
     {
         MaxDrops = 2,
         DropChance = 0.80f,
@@ -98,7 +99,7 @@ public static class LootTableCatalog
         }
     };
 
-    public static LootTable CaveSpiderDrops() => new LootTable
+    public static LootTable CreateCaveSpiderTable() => new LootTable
     {
         MaxDrops = 2,
         DropChance = 0.85f,
@@ -109,7 +110,7 @@ public static class LootTableCatalog
         }
     };
 
-    public static LootTable DesertScorpionDrops() => new LootTable
+    public static LootTable CreateDesertScorpionTable() => new LootTable
     {
         MaxDrops = 2,
         DropChance = 0.88f,
@@ -120,7 +121,7 @@ public static class LootTableCatalog
         }
     };
 
-    public static LootTable SwampWretchDrops() => new LootTable
+    public static LootTable CreateSwampWretchTable() => new LootTable
     {
         MaxDrops = 2,
         DropChance = 0.88f,
@@ -131,7 +132,7 @@ public static class LootTableCatalog
         }
     };
 
-    public static LootTable MountainWyvernDrops() => new LootTable
+    public static LootTable CreateMountainWyvernTable() => new LootTable
     {
         MaxDrops = 3,
         DropChance = 1.0f,
@@ -143,7 +144,7 @@ public static class LootTableCatalog
         }
     };
 
-    public static LootTable DarkMageDrops() => new LootTable
+    public static LootTable CreateDarkMageTable() => new LootTable
     {
         MaxDrops = 2,
         DropChance = 0.95f,
@@ -154,7 +155,7 @@ public static class LootTableCatalog
         }
     };
 
-    public static LootTable DungeonGuardianDrops() => new LootTable
+    public static LootTable CreateDungeonGuardianTable() => new LootTable
     {
         MaxDrops = 3,
         DropChance = 1.0f,
@@ -166,24 +167,26 @@ public static class LootTableCatalog
         }
     };
 
-    public static LootTable DemonLordDrops() => new LootTable
+    public static LootTable CreateDemonLordTable() => new LootTable
     {
         MaxDrops = 3,
         DropChance = 1.0f,
         Entries = new()
         {
+            // GuaranteedDrop = true; Weight = 0 by convention (excluded from weighted draws).
             new LootEntry { ItemId = "dragon_scale", GuaranteedDrop = true, MinQuantity = 2, MaxQuantity = 3, Weight = 0 },
             new LootEntry { ItemId = "iron_sword", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
             new LootEntry { ItemId = "iron_armor", Weight = 100, MinQuantity = 1, MaxQuantity = 1 }
         }
     };
 
-    public static LootTable BossDrops() => new LootTable
+    public static LootTable CreateBossTable() => new LootTable
     {
         MaxDrops = 5,
         DropChance = 1.0f,
         Entries = new()
         {
+            // GuaranteedDrop = true; Weight = 0 by convention (excluded from weighted draws).
             new LootEntry { ItemId = "dragon_scale", GuaranteedDrop = true, MinQuantity = 3, MaxQuantity = 5, Weight = 0 },
             new LootEntry { ItemId = "iron_sword", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
             new LootEntry { ItemId = "iron_armor", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },

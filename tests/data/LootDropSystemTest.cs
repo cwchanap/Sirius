@@ -189,7 +189,7 @@ public partial class LootDropSystemTest : Node
     [TestCase]
     public void LootManager_RollLoot_GoblinDropsResolve()
     {
-        var table = LootTableCatalog.GoblinDrops();
+        var table = LootTableCatalog.CreateGoblinTable();
         // Force 100% drop for testing
         table.DropChance = 1.0f;
 
@@ -283,7 +283,7 @@ public partial class LootDropSystemTest : Node
     [TestCase]
     public void LootManager_RollLoot_NullRng_ThrowsArgumentNullException()
     {
-        var table = LootTableCatalog.GoblinDrops();
+        var table = LootTableCatalog.CreateGoblinTable();
         bool threw = false;
         try
         {
@@ -392,7 +392,7 @@ public partial class LootDropSystemTest : Node
     {
         // Simulates deserialization bypassing constructor where _droppedItemsView would be null.
         // Uses reflection to create an uninitialized instance (bypassing constructor).
-        var uninitializedResult = (LootResult)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(LootResult));
+        var uninitializedResult = (LootResult)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(LootResult));
 
         // Initialize _droppedItems via reflection (deserializer would do this)
         var droppedItemsField = typeof(LootResult).GetField("_droppedItems",
@@ -406,11 +406,19 @@ public partial class LootDropSystemTest : Node
     }
 
     [TestCase]
-    public void LootResult_Add_IgnoresNullItem()
+    public void LootResult_Add_ThrowsOnNullItem()
     {
         var result = new LootResult();
-        result.Add(null!, 1);
-        AssertThat(result.HasDrops).IsFalse();
+        bool threw = false;
+        try
+        {
+            result.Add(null!, 1);
+        }
+        catch (ArgumentNullException)
+        {
+            threw = true;
+        }
+        AssertThat(threw).IsTrue();
     }
 
     [TestCase]
@@ -466,5 +474,98 @@ public partial class LootDropSystemTest : Node
         // With 100 drops from range 2..5, we should eventually see quantities up to 5
         // If the bug existed (clamping to 2..2), max would never exceed 2
         AssertThat(maxObserved).IsGreaterEqual(3);
+    }
+
+    [TestCase]
+    public void LootTableCatalog_AllCreateTableMethods_ReturnNonNullWithEntries()
+    {
+        AssertThat(LootTableCatalog.CreateGoblinTable().Entries.Count).IsGreater(0);
+        AssertThat(LootTableCatalog.CreateOrcTable().Entries.Count).IsGreater(0);
+        AssertThat(LootTableCatalog.CreateSkeletonWarriorTable().Entries.Count).IsGreater(0);
+        AssertThat(LootTableCatalog.CreateTrollTable().Entries.Count).IsGreater(0);
+        AssertThat(LootTableCatalog.CreateDragonTable().Entries.Count).IsGreater(0);
+        AssertThat(LootTableCatalog.CreateForestSpiritTable().Entries.Count).IsGreater(0);
+        AssertThat(LootTableCatalog.CreateCaveSpiderTable().Entries.Count).IsGreater(0);
+        AssertThat(LootTableCatalog.CreateDesertScorpionTable().Entries.Count).IsGreater(0);
+        AssertThat(LootTableCatalog.CreateSwampWretchTable().Entries.Count).IsGreater(0);
+        AssertThat(LootTableCatalog.CreateMountainWyvernTable().Entries.Count).IsGreater(0);
+        AssertThat(LootTableCatalog.CreateDarkMageTable().Entries.Count).IsGreater(0);
+        AssertThat(LootTableCatalog.CreateDungeonGuardianTable().Entries.Count).IsGreater(0);
+        AssertThat(LootTableCatalog.CreateDemonLordTable().Entries.Count).IsGreater(0);
+        AssertThat(LootTableCatalog.CreateBossTable().Entries.Count).IsGreater(0);
+    }
+
+    [TestCase]
+    public void LootManager_AwardLootToCharacter_NullResult_DoesNotThrow()
+    {
+        var player = new Character { Name = "Test" };
+        bool threw = false;
+        try
+        {
+            LootManager.AwardLootToCharacter(null!, player);
+        }
+        catch
+        {
+            threw = true;
+        }
+        AssertThat(threw).IsFalse();
+    }
+
+    [TestCase]
+    public void LootManager_AwardLootToCharacter_NullPlayer_DoesNotThrow()
+    {
+        var result = new LootResult();
+        var item = ItemCatalog.CreateItemById("goblin_ear")!;
+        result.Add(item, 1);
+        bool threw = false;
+        try
+        {
+            LootManager.AwardLootToCharacter(result, null!);
+        }
+        catch
+        {
+            threw = true;
+        }
+        AssertThat(threw).IsFalse();
+    }
+
+    [TestCase]
+    public void LootTableCatalog_GetByEnemyType_IsCaseInsensitive()
+    {
+        AssertThat(LootTableCatalog.GetByEnemyType("GOBLIN")).IsNotNull();
+        AssertThat(LootTableCatalog.GetByEnemyType("Goblin")).IsNotNull();
+        AssertThat(LootTableCatalog.GetByEnemyType("DRAGON")).IsNotNull();
+    }
+
+    [TestCase]
+    public void LootManager_RollLoot_GuaranteedDrops_AreNotCappedByMaxDrops()
+    {
+        // MaxDrops caps only weighted draws; guaranteed drops are always included.
+        var table = new LootTable
+        {
+            DropChance = 1.0f,
+            MaxDrops = 0,
+            Entries = new()
+            {
+                new LootEntry { ItemId = "dragon_scale", GuaranteedDrop = true, MinQuantity = 1, MaxQuantity = 1, Weight = 0 },
+                new LootEntry { ItemId = "goblin_ear", GuaranteedDrop = true, MinQuantity = 1, MaxQuantity = 1, Weight = 0 }
+            }
+        };
+        var result = LootManager.RollLoot(table, new Random(42));
+        AssertThat(result.DroppedItems.Count).IsEqual(2);
+    }
+
+    [TestCase]
+    public void LootEntry_NegativeWeight_ClampedToZero()
+    {
+        var entry = new LootEntry { Weight = -5 };
+        AssertThat(entry.Weight).IsEqual(0);
+    }
+
+    [TestCase]
+    public void LootTable_NegativeMaxDrops_ClampedToZero()
+    {
+        var table = new LootTable { MaxDrops = -1 };
+        AssertThat(table.MaxDrops).IsEqual(0);
     }
 }

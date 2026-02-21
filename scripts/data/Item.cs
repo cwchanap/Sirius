@@ -56,6 +56,9 @@ public abstract partial class Item : Resource
     [Export]
     private ItemCategory _category = ItemCategory.General;
 
+    /// <summary>
+    /// Item rarity tier. Public setter required for Godot [Export] and deserialization.
+    /// </summary>
     [Export]
     public ItemRarity Rarity { get; set; } = ItemRarity.Common;
 

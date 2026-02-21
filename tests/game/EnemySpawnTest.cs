@@ -130,6 +130,22 @@ public partial class EnemySpawnTest : Node
     }
 
     [TestCase]
+    public void CreateEnemyInstance_UnknownEnemyType_FallsBackToGoblin()
+    {
+        // Arrange - no blueprint, unrecognized EnemyType string
+        var spawn = new EnemySpawn();
+        spawn.Blueprint = null;
+        spawn.EnemyType = "unknown_monster_xyz";
+
+        // Act
+        var enemy = spawn.CreateEnemyInstance();
+
+        // Assert - switch default falls back to Goblin
+        AssertThat(enemy).IsNotNull();
+        AssertThat(enemy.EnemyType).IsEqual("goblin");
+    }
+
+    [TestCase]
     public void CreateEnemyInstance_FromCustomBlueprint_PropagatesCustomSpriteType()
     {
         // Arrange - Create a custom blueprint with non-default SpriteType

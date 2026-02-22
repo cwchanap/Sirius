@@ -380,7 +380,7 @@ public partial class EnemySpawn : Sprite2D
                 "dungeon_guardian" => Enemy.CreateDungeonGuardian(),
                 "demon_lord" => Enemy.CreateDemonLord(),
                 "boss" => Enemy.CreateBoss(),
-                _ => LogAndDefaultToGoblin(type)
+                _ => LogAndDefaultToGoblin(type, GridPosition)
             };
         }
 
@@ -389,9 +389,9 @@ public partial class EnemySpawn : Sprite2D
         return Enemy.CreateGoblin();
     }
 
-    private static Enemy LogAndDefaultToGoblin(string type)
+    private static Enemy LogAndDefaultToGoblin(string type, Vector2I gridPosition)
     {
-        GD.PrintErr($"[EnemySpawn] Unknown EnemyType '{type}'; defaulting to Goblin. Check the EnemyType property.");
+        GD.PrintErr($"[EnemySpawn] Unknown EnemyType '{type}' at GridPosition {gridPosition}; defaulting to Goblin. Check the EnemyType property.");
         return Enemy.CreateGoblin();
     }
 

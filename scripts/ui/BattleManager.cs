@@ -222,6 +222,8 @@ public partial class BattleManager : AcceptDialog
             GD.PrintErr("[BattleManager] StartBattle called with null player; aborting battle.");
             _resultEmitted = true;
             EmitSignal(SignalName.BattleFinished, false, true);
+            Hide();
+            QueueFree();
             return;
         }
         if (enemy == null)
@@ -229,6 +231,8 @@ public partial class BattleManager : AcceptDialog
             GD.PrintErr("[BattleManager] StartBattle called with null enemy; aborting battle.");
             _resultEmitted = true;
             EmitSignal(SignalName.BattleFinished, false, true);
+            Hide();
+            QueueFree();
             return;
         }
 

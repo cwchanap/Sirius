@@ -7,9 +7,9 @@ public static class LootTableCatalog
     /// <summary>
     /// Looks up a drop table by enemy sprite type name (case-insensitive via .ToLower()).
     /// Used by EnemySpawn when creating enemies from blueprints.
-    /// Returns null if no drop table is defined for the given type.
+    /// Returns null if no drop table is defined for the given type or if enemyType is null.
     /// </summary>
-    public static LootTable? GetByEnemyType(string enemyType)
+    public static LootTable? GetByEnemyType(string? enemyType)
     {
         return enemyType?.ToLower() switch
         {

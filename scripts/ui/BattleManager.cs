@@ -217,18 +217,9 @@ public partial class BattleManager : AcceptDialog
     /// </summary>
     public void StartBattle(Character player, Enemy enemy)
     {
-        if (player == null)
+        if (player == null || enemy == null)
         {
-            GD.PrintErr("[BattleManager] StartBattle called with null player; aborting battle.");
-            _resultEmitted = true;
-            EmitSignal(SignalName.BattleFinished, false, true);
-            Hide();
-            QueueFree();
-            return;
-        }
-        if (enemy == null)
-        {
-            GD.PrintErr("[BattleManager] StartBattle called with null enemy; aborting battle.");
+            GD.PrintErr($"[BattleManager] StartBattle called with null {(player == null ? "player" : "enemy")}; aborting battle.");
             _resultEmitted = true;
             EmitSignal(SignalName.BattleFinished, false, true);
             Hide();
@@ -780,13 +771,6 @@ public partial class BattleManager : AcceptDialog
         {
             GD.PrintErr("[BattleManager] ShowLootDisplay: 'BattleContent' VBoxContainer not found; loot UI will not be shown.");
             return;
-        }
-
-        // Remove the previous loot label if it exists (battle dialog is reused across battles)
-        if (_lootLabel != null && IsInstanceValid(_lootLabel))
-        {
-            _lootLabel.QueueFree();
-            _lootLabel = null;
         }
 
         _lootLabel = new Label();

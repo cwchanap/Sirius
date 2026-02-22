@@ -87,6 +87,12 @@ public static class LootManager
 
         foreach (var entry in result.DroppedItems)
         {
+            if (entry.Item == null)
+            {
+                GD.PrintErr($"[LootManager] AwardLootToCharacter: null Item in LootResultEntry for player '{player.Name}'; skipping entry.");
+                continue;
+            }
+
             player.TryAddItem(entry.Item, entry.Quantity, out int added);
 
             if (added > 0)

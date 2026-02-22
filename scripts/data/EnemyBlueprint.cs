@@ -7,6 +7,7 @@ using Godot;
 /// set EnemySpawn.AutoMakeBlueprintUnique = true.
 /// </summary>
 [GlobalClass]
+[System.Serializable]
 public partial class EnemyBlueprint : Resource
 {
     // Enemy identity
@@ -126,82 +127,172 @@ public partial class EnemyBlueprint : Resource
     }
 
     /// <summary>Factory method: Create a Skeleton Warrior blueprint with default stats.</summary>
-    public static EnemyBlueprint CreateSkeletonWarriorBlueprint() => new EnemyBlueprint
+    public static EnemyBlueprint CreateSkeletonWarriorBlueprint()
     {
-        EnemyName = "Skeleton Warrior", SpriteType = EnemyTypeId.SkeletonWarrior,
-        Level = 3, MaxHealth = 120, Attack = 28, Defense = 12, Speed = 9,
-        ExperienceReward = 70, GoldReward = 30
-    };
+        return new EnemyBlueprint
+        {
+            EnemyName = "Skeleton Warrior",
+            SpriteType = EnemyTypeId.SkeletonWarrior,
+            Level = 3,
+            MaxHealth = 120,
+            Attack = 28,
+            Defense = 12,
+            Speed = 9,
+            ExperienceReward = 70,
+            GoldReward = 30
+        };
+    }
 
     /// <summary>Factory method: Create a Troll blueprint with default stats.</summary>
-    public static EnemyBlueprint CreateTrollBlueprint() => new EnemyBlueprint
+    public static EnemyBlueprint CreateTrollBlueprint()
     {
-        EnemyName = "Troll", SpriteType = EnemyTypeId.Troll,
-        Level = 4, MaxHealth = 150, Attack = 35, Defense = 15, Speed = 6,
-        ExperienceReward = 120, GoldReward = 50
-    };
+        return new EnemyBlueprint
+        {
+            EnemyName = "Troll",
+            SpriteType = EnemyTypeId.Troll,
+            Level = 4,
+            MaxHealth = 150,
+            Attack = 35,
+            Defense = 15,
+            Speed = 6,
+            ExperienceReward = 120,
+            GoldReward = 50
+        };
+    }
 
     /// <summary>Factory method: Create a Dark Mage blueprint with default stats.</summary>
-    public static EnemyBlueprint CreateDarkMageBlueprint() => new EnemyBlueprint
+    public static EnemyBlueprint CreateDarkMageBlueprint()
     {
-        EnemyName = "Dark Mage", SpriteType = EnemyTypeId.DarkMage,
-        Level = 6, MaxHealth = 180, Attack = 50, Defense = 18, Speed = 14,
-        ExperienceReward = 220, GoldReward = 120
-    };
+        return new EnemyBlueprint
+        {
+            EnemyName = "Dark Mage",
+            SpriteType = EnemyTypeId.DarkMage,
+            Level = 6,
+            MaxHealth = 180,
+            Attack = 50,
+            Defense = 18,
+            Speed = 14,
+            ExperienceReward = 220,
+            GoldReward = 120
+        };
+    }
 
     /// <summary>Factory method: Create a Demon Lord blueprint with default stats.</summary>
-    public static EnemyBlueprint CreateDemonLordBlueprint() => new EnemyBlueprint
+    public static EnemyBlueprint CreateDemonLordBlueprint()
     {
-        EnemyName = "Demon Lord", SpriteType = EnemyTypeId.DemonLord,
-        Level = 8, MaxHealth = 300, Attack = 65, Defense = 25, Speed = 15,
-        ExperienceReward = 400, GoldReward = 200
-    };
+        return new EnemyBlueprint
+        {
+            EnemyName = "Demon Lord",
+            SpriteType = EnemyTypeId.DemonLord,
+            Level = 8,
+            MaxHealth = 300,
+            Attack = 65,
+            Defense = 25,
+            Speed = 15,
+            ExperienceReward = 400,
+            GoldReward = 200
+        };
+    }
 
     /// <summary>Factory method: Create a Forest Spirit blueprint with default stats.</summary>
-    public static EnemyBlueprint CreateForestSpiritBlueprint() => new EnemyBlueprint
+    public static EnemyBlueprint CreateForestSpiritBlueprint()
     {
-        EnemyName = "Forest Spirit", SpriteType = EnemyTypeId.ForestSpirit,
-        Level = 2, MaxHealth = 90, Attack = 20, Defense = 10, Speed = 15,
-        ExperienceReward = 50, GoldReward = 22
-    };
+        return new EnemyBlueprint
+        {
+            EnemyName = "Forest Spirit",
+            SpriteType = EnemyTypeId.ForestSpirit,
+            Level = 2,
+            MaxHealth = 90,
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            ExperienceReward = 50,
+            GoldReward = 22
+        };
+    }
 
     /// <summary>Factory method: Create a Giant Cave Spider blueprint with default stats.</summary>
-    public static EnemyBlueprint CreateCaveSpiderBlueprint() => new EnemyBlueprint
+    public static EnemyBlueprint CreateCaveSpiderBlueprint()
     {
-        EnemyName = "Giant Cave Spider", SpriteType = EnemyTypeId.CaveSpider,
-        Level = 3, MaxHealth = 110, Attack = 25, Defense = 8, Speed = 18,
-        ExperienceReward = 65, GoldReward = 28
-    };
+        return new EnemyBlueprint
+        {
+            EnemyName = "Giant Cave Spider",
+            SpriteType = EnemyTypeId.CaveSpider,
+            Level = 3,
+            MaxHealth = 110,
+            Attack = 25,
+            Defense = 8,
+            Speed = 18,
+            ExperienceReward = 65,
+            GoldReward = 28
+        };
+    }
 
     /// <summary>Factory method: Create a Desert Scorpion blueprint with default stats.</summary>
-    public static EnemyBlueprint CreateDesertScorpionBlueprint() => new EnemyBlueprint
+    public static EnemyBlueprint CreateDesertScorpionBlueprint()
     {
-        EnemyName = "Desert Scorpion", SpriteType = EnemyTypeId.DesertScorpion,
-        Level = 4, MaxHealth = 130, Attack = 32, Defense = 14, Speed = 11,
-        ExperienceReward = 95, GoldReward = 45
-    };
+        return new EnemyBlueprint
+        {
+            EnemyName = "Desert Scorpion",
+            SpriteType = EnemyTypeId.DesertScorpion,
+            Level = 4,
+            MaxHealth = 130,
+            Attack = 32,
+            Defense = 14,
+            Speed = 11,
+            ExperienceReward = 95,
+            GoldReward = 45
+        };
+    }
 
     /// <summary>Factory method: Create a Swamp Wretch blueprint with default stats.</summary>
-    public static EnemyBlueprint CreateSwampWretchBlueprint() => new EnemyBlueprint
+    public static EnemyBlueprint CreateSwampWretchBlueprint()
     {
-        EnemyName = "Swamp Wretch", SpriteType = EnemyTypeId.SwampWretch,
-        Level = 5, MaxHealth = 160, Attack = 38, Defense = 16, Speed = 7,
-        ExperienceReward = 140, GoldReward = 70
-    };
+        return new EnemyBlueprint
+        {
+            EnemyName = "Swamp Wretch",
+            SpriteType = EnemyTypeId.SwampWretch,
+            Level = 5,
+            MaxHealth = 160,
+            Attack = 38,
+            Defense = 16,
+            Speed = 7,
+            ExperienceReward = 140,
+            GoldReward = 70
+        };
+    }
 
     /// <summary>Factory method: Create a Mountain Wyvern blueprint with default stats.</summary>
-    public static EnemyBlueprint CreateMountainWyvernBlueprint() => new EnemyBlueprint
+    public static EnemyBlueprint CreateMountainWyvernBlueprint()
     {
-        EnemyName = "Mountain Wyvern", SpriteType = EnemyTypeId.MountainWyvern,
-        Level = 6, MaxHealth = 220, Attack = 48, Defense = 22, Speed = 16,
-        ExperienceReward = 200, GoldReward = 110
-    };
+        return new EnemyBlueprint
+        {
+            EnemyName = "Mountain Wyvern",
+            SpriteType = EnemyTypeId.MountainWyvern,
+            Level = 6,
+            MaxHealth = 220,
+            Attack = 48,
+            Defense = 22,
+            Speed = 16,
+            ExperienceReward = 200,
+            GoldReward = 110
+        };
+    }
 
     /// <summary>Factory method: Create a Dungeon Guardian blueprint with default stats.</summary>
-    public static EnemyBlueprint CreateDungeonGuardianBlueprint() => new EnemyBlueprint
+    public static EnemyBlueprint CreateDungeonGuardianBlueprint()
     {
-        EnemyName = "Dungeon Guardian", SpriteType = EnemyTypeId.DungeonGuardian,
-        Level = 7, MaxHealth = 280, Attack = 55, Defense = 28, Speed = 10,
-        ExperienceReward = 300, GoldReward = 150
-    };
+        return new EnemyBlueprint
+        {
+            EnemyName = "Dungeon Guardian",
+            SpriteType = EnemyTypeId.DungeonGuardian,
+            Level = 7,
+            MaxHealth = 280,
+            Attack = 55,
+            Defense = 28,
+            Speed = 10,
+            ExperienceReward = 300,
+            GoldReward = 150
+        };
+    }
 }

@@ -398,6 +398,8 @@ public partial class LootDropSystemTest : Node
         // Initialize _droppedItems via reflection (deserializer would do this)
         var droppedItemsField = typeof(LootResult).GetField("_droppedItems",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        AssertThat((object?)droppedItemsField)
+            .IsNotNull(); // Fails with clear message if '_droppedItems' backing field was renamed
         droppedItemsField!.SetValue(uninitializedResult, new System.Collections.Generic.List<LootResultEntry>());
 
         // Accessing DroppedItems should not throw even though constructor was bypassed

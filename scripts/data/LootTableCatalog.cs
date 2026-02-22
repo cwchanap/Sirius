@@ -11,7 +11,7 @@ public static class LootTableCatalog
     /// </summary>
     public static LootTable? GetByEnemyType(string? enemyType)
     {
-        return enemyType?.ToLower() switch
+        return enemyType?.ToLowerInvariant() switch
         {
             EnemyTypeId.Goblin          => CreateGoblinTable(),
             EnemyTypeId.Orc             => CreateOrcTable(),
@@ -70,7 +70,7 @@ public static class LootTableCatalog
         DropChance = 0.90f,
         Entries = new()
         {
-            new LootEntry { ItemId = "orc_tusk", Weight = 120, MinQuantity = 1, MaxQuantity = 2 },
+            new LootEntry { ItemId = "orc_tusk", Weight = 120, MinQuantity = 1, MaxQuantity = 2 }, // Placeholder until troll_hide is added to ItemCatalog
             new LootEntry { ItemId = "iron_shield", Weight = 25, MinQuantity = 1, MaxQuantity = 1 }
         }
     };
@@ -95,7 +95,7 @@ public static class LootTableCatalog
         Entries = new()
         {
             new LootEntry { ItemId = "spider_silk", Weight = 100, MinQuantity = 1, MaxQuantity = 2 },
-            new LootEntry { ItemId = "goblin_ear", Weight = 80, MinQuantity = 1, MaxQuantity = 2 }
+            new LootEntry { ItemId = "goblin_ear", Weight = 80, MinQuantity = 1, MaxQuantity = 2 } // Placeholder until forest_spirit_essence is added to ItemCatalog
         }
     };
 
@@ -116,7 +116,7 @@ public static class LootTableCatalog
         DropChance = 0.88f,
         Entries = new()
         {
-            new LootEntry { ItemId = "skeleton_bone", Weight = 100, MinQuantity = 1, MaxQuantity = 2 },
+            new LootEntry { ItemId = "skeleton_bone", Weight = 100, MinQuantity = 1, MaxQuantity = 2 }, // Placeholder until scorpion_claw is added to ItemCatalog
             new LootEntry { ItemId = "iron_helmet", Weight = 25, MinQuantity = 1, MaxQuantity = 1 }
         }
     };
@@ -127,7 +127,7 @@ public static class LootTableCatalog
         DropChance = 0.88f,
         Entries = new()
         {
-            new LootEntry { ItemId = "orc_tusk", Weight = 100, MinQuantity = 1, MaxQuantity = 2 },
+            new LootEntry { ItemId = "orc_tusk", Weight = 100, MinQuantity = 1, MaxQuantity = 2 }, // Placeholder until swamp_wretch_part is added to ItemCatalog
             new LootEntry { ItemId = "iron_armor", Weight = 20, MinQuantity = 1, MaxQuantity = 1 }
         }
     };
@@ -191,7 +191,8 @@ public static class LootTableCatalog
             new LootEntry { ItemId = "iron_sword", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
             new LootEntry { ItemId = "iron_armor", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
             new LootEntry { ItemId = "iron_shield", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
-            new LootEntry { ItemId = "iron_helmet", Weight = 100, MinQuantity = 1, MaxQuantity = 1 }
+            new LootEntry { ItemId = "iron_helmet", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "iron_boots", Weight = 100, MinQuantity = 1, MaxQuantity = 1 }
         }
     };
 }

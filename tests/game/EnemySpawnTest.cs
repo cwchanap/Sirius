@@ -10,11 +10,31 @@ using static GdUnit4.Assertions;
 [RequireGodotRuntime]
 public partial class EnemySpawnTest : Node
 {
+    private EnemySpawn _spawn;
+
+    private EnemySpawn CreateSpawn()
+    {
+        _spawn = new EnemySpawn();
+        AddChild(_spawn);
+        return _spawn;
+    }
+
+    [After]
+    public void Cleanup()
+    {
+        if (_spawn != null && IsInstanceValid(_spawn))
+        {
+            _spawn.Free();
+        }
+
+        _spawn = null;
+    }
+
     [TestCase]
     public void CreateEnemyInstance_FromBlueprint_PropagatesSpriteTypeToEnemyType()
     {
         // Arrange - Create an EnemySpawn with a Dragon blueprint
-        var spawn = new EnemySpawn();
+        var spawn = CreateSpawn();
         var dragonBlueprint = EnemyBlueprint.CreateDragonBlueprint();
         spawn.Blueprint = dragonBlueprint;
 
@@ -26,13 +46,14 @@ public partial class EnemySpawnTest : Node
         AssertThat(enemy.EnemyType).IsEqual("dragon");
         AssertThat(enemy.Name).IsEqual("Dragon");
         AssertThat(enemy.Level).IsEqual(5);
+        spawn.Free();
     }
 
     [TestCase]
     public void CreateEnemyInstance_FromOrcBlueprint_PropagatesSpriteTypeToEnemyType()
     {
         // Arrange - Create an EnemySpawn with an Orc blueprint
-        var spawn = new EnemySpawn();
+        var spawn = CreateSpawn();
         var orcBlueprint = EnemyBlueprint.CreateOrcBlueprint();
         spawn.Blueprint = orcBlueprint;
 
@@ -43,13 +64,14 @@ public partial class EnemySpawnTest : Node
         AssertThat(enemy).IsNotNull();
         AssertThat(enemy.EnemyType).IsEqual("orc");
         AssertThat(enemy.Name).IsEqual("Orc");
+        spawn.Free();
     }
 
     [TestCase]
     public void CreateEnemyInstance_FromGoblinBlueprint_PropagatesSpriteTypeToEnemyType()
     {
         // Arrange
-        var spawn = new EnemySpawn();
+        var spawn = CreateSpawn();
         var goblinBlueprint = EnemyBlueprint.CreateGoblinBlueprint();
         spawn.Blueprint = goblinBlueprint;
 
@@ -59,13 +81,14 @@ public partial class EnemySpawnTest : Node
         // Assert
         AssertThat(enemy).IsNotNull();
         AssertThat(enemy.EnemyType).IsEqual("goblin");
+        spawn.Free();
     }
 
     [TestCase]
     public void CreateEnemyInstance_FromBossBlueprint_PropagatesSpriteTypeToEnemyType()
     {
         // Arrange
-        var spawn = new EnemySpawn();
+        var spawn = CreateSpawn();
         var bossBlueprint = EnemyBlueprint.CreateBossBlueprint();
         spawn.Blueprint = bossBlueprint;
 
@@ -75,13 +98,14 @@ public partial class EnemySpawnTest : Node
         // Assert
         AssertThat(enemy).IsNotNull();
         AssertThat(enemy.EnemyType).IsEqual("boss");
+        spawn.Free();
     }
 
     [TestCase]
     public void CreateEnemyInstance_FromBlueprint_EnablesCorrectLootTableLookup()
     {
         // Arrange - Create spawn with Orc blueprint
-        var spawn = new EnemySpawn();
+        var spawn = CreateSpawn();
         var orcBlueprint = EnemyBlueprint.CreateOrcBlueprint();
         spawn.Blueprint = orcBlueprint;
 
@@ -95,13 +119,14 @@ public partial class EnemySpawnTest : Node
         // Orc drops include orc_tusk
         var hasOrcTusk = lootTable.Entries.Exists(e => e.ItemId == "orc_tusk");
         AssertThat(hasOrcTusk).IsTrue();
+        spawn.Free();
     }
 
     [TestCase]
     public void CreateEnemyInstance_FromLegacyEnemyType_UsesFactoryMethod()
     {
         // Arrange - Create spawn without blueprint, using legacy EnemyType
-        var spawn = new EnemySpawn();
+        var spawn = CreateSpawn();
         spawn.EnemyType = "orc";
         spawn.Blueprint = null;
 
@@ -111,13 +136,14 @@ public partial class EnemySpawnTest : Node
         // Assert - Should use Enemy.CreateOrc() which correctly sets EnemyType
         AssertThat(enemy).IsNotNull();
         AssertThat(enemy.EnemyType).IsEqual("orc");
+        spawn.Free();
     }
 
     [TestCase]
     public void CreateEnemyInstance_NoBlueprintNoEnemyType_FallsBackToGoblin()
     {
         // Arrange
-        var spawn = new EnemySpawn();
+        var spawn = CreateSpawn();
         spawn.Blueprint = null;
         spawn.EnemyType = "";
 
@@ -127,13 +153,14 @@ public partial class EnemySpawnTest : Node
         // Assert - Ultimate fallback should be goblin
         AssertThat(enemy).IsNotNull();
         AssertThat(enemy.EnemyType).IsEqual("goblin");
+        spawn.Free();
     }
 
     [TestCase]
     public void CreateEnemyInstance_UnknownEnemyType_FallsBackToGoblin()
     {
         // Arrange - no blueprint, unrecognized EnemyType string
-        var spawn = new EnemySpawn();
+        var spawn = CreateSpawn();
         spawn.Blueprint = null;
         spawn.EnemyType = "unknown_monster_xyz";
 
@@ -143,13 +170,14 @@ public partial class EnemySpawnTest : Node
         // Assert - switch default falls back to Goblin
         AssertThat(enemy).IsNotNull();
         AssertThat(enemy.EnemyType).IsEqual("goblin");
+        spawn.Free();
     }
 
     [TestCase]
     public void CreateEnemyInstance_FromCustomBlueprint_PropagatesCustomSpriteType()
     {
         // Arrange - Create a custom blueprint with non-default SpriteType
-        var spawn = new EnemySpawn();
+        var spawn = CreateSpawn();
         var customBlueprint = new EnemyBlueprint
         {
             EnemyName = "Custom Cave Spider",
@@ -178,5 +206,6 @@ public partial class EnemySpawnTest : Node
         AssertThat(lootTable).IsNotNull();
         var hasSpiderSilk = lootTable!.Entries.Exists(e => e.ItemId == "spider_silk");
         AssertThat(hasSpiderSilk).IsTrue();
+        spawn.Free();
     }
 }

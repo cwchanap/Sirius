@@ -5,6 +5,7 @@ using System;
 using System.Linq;
 
 [TestSuite]
+[RequireGodotRuntime]
 public partial class LootDropSystemTest : Node
 {
     [TestCase]

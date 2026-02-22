@@ -31,6 +31,7 @@ public partial class RecoveryChestTest : Node
         int secondRecovered = chest.RecoverAll(inventory);
         AssertThat(secondRecovered).IsEqual(1);
         AssertThat(chest.GetOverflowAmount("wooden_sword")).IsEqual(3);
+        chest.Free();
     }
 
     [TestCase]
@@ -48,5 +49,6 @@ public partial class RecoveryChestTest : Node
         AssertThat(recovered).IsEqual(0);
         AssertThat(chest.OverflowCount).IsEqual(1);
         AssertThat(chest.GetOverflowAmount("unknown_item")).IsEqual(2);
+        chest.Free();
     }
 }

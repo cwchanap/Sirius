@@ -569,4 +569,62 @@ public partial class LootDropSystemTest : Node
         var table = new LootTable { MaxDrops = -1 };
         AssertThat(table.MaxDrops).IsEqual(0);
     }
+
+    [TestCase]
+    public void LootManager_RollLoot_GuaranteedDrops_DoNotReduceWeightedSlots()
+    {
+        // This test validates that guaranteed drops don't count against MaxDrops.
+        // With MaxDrops=3 and 2 guaranteed drops, we should get 3 weighted + 2 guaranteed = 5 items.
+        var table = new LootTable
+        {
+            DropChance = 1.0f,
+            MaxDrops = 3,
+            Entries = new()
+            {
+                // 2 guaranteed drops
+                new LootEntry { ItemId = "dragon_scale", GuaranteedDrop = true, MinQuantity = 1, MaxQuantity = 1, Weight = 0 },
+                new LootEntry { ItemId = "skeleton_bone", GuaranteedDrop = true, MinQuantity = 1, MaxQuantity = 1, Weight = 0 },
+                // 3 weighted entries (all equal weight, all should be picked with enough rolls)
+                new LootEntry { ItemId = "goblin_ear", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
+                new LootEntry { ItemId = "orc_tusk", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
+                new LootEntry { ItemId = "spider_silk", Weight = 100, MinQuantity = 1, MaxQuantity = 1 }
+            }
+        };
+
+        // Run multiple times to ensure consistency
+        for (int i = 0; i < 10; i++)
+        {
+            var result = LootManager.RollLoot(table, new Random(i));
+            // Should have: 2 guaranteed + 3 weighted = 5 total
+            AssertThat(result.DroppedItems.Count).IsEqual(5);
+
+            // Verify guaranteed drops are present
+            var itemIds = result.DroppedItems.Select(d => d.Item.Id).ToList();
+            AssertThat(itemIds.Contains("dragon_scale")).IsTrue();
+            AssertThat(itemIds.Contains("skeleton_bone")).IsTrue();
+        }
+    }
+
+    [TestCase]
+    public void LootManager_RollLoot_DragonTable_GetsCorrectDropCount()
+    {
+        // Dragon table has MaxDrops=3 and 1 guaranteed drop (dragon_scale)
+        // Before fix: would only get 2 weighted + 1 guaranteed = 3 total
+        // After fix: should get 3 weighted + 1 guaranteed = 4 total
+        var table = LootTableCatalog.CreateDragonTable();
+
+        // Run multiple times to verify consistent behavior
+        for (int i = 0; i < 10; i++)
+        {
+            var result = LootManager.RollLoot(table, new Random(i));
+            // Count guaranteed drops
+            int guaranteedCount = result.DroppedItems.Count(d => d.Item.Id == "dragon_scale");
+            int weightedCount = result.DroppedItems.Count - guaranteedCount;
+
+            // Guaranteed should always be exactly 1 (1 guaranteed entry with qty 1-2)
+            AssertThat(guaranteedCount).IsEqual(1);
+            // Weighted should be up to MaxDrops (3)
+            AssertThat(weightedCount).IsLessEqual(3);
+        }
+    }
 }

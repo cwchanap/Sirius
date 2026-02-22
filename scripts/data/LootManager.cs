@@ -40,7 +40,8 @@ public static class LootManager
         // Weighted random draws up to MaxDrops slots.
         // A null/unknown itemId skips that entry but does NOT consume a slot.
         // maxAttempts guards against an infinite loop if all weighted entries have unknown itemIds.
-        int remainingSlots = Math.Max(0, table.MaxDrops - result.DroppedItems.Count);
+        // Note: MaxDrops applies only to weighted draws; guaranteed drops are added separately above.
+        int remainingSlots = table.MaxDrops;
         if (remainingSlots > 0)
         {
             var weighted = table.GetWeightedEntries();

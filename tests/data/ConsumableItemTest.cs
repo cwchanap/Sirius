@@ -41,7 +41,7 @@ public partial class ConsumableItemTest : Godot.Node
     [TestCase]
     public void HealEffect_Apply_RestoresHealth()
     {
-        var character = CreateTestCharacter();
+        var character = TestHelpers.CreateTestCharacter();
         character.CurrentHealth = 50;
         var item = ConsumableCatalog.CreateHealthPotion(); // heals 50
 
@@ -53,7 +53,7 @@ public partial class ConsumableItemTest : Godot.Node
     [TestCase]
     public void HealEffect_Apply_CannotExceedMaxHealth()
     {
-        var character = CreateTestCharacter();
+        var character = TestHelpers.CreateTestCharacter();
         character.CurrentHealth = 90;
         var item = ConsumableCatalog.CreateHealthPotion(); // heals 50
 
@@ -67,7 +67,7 @@ public partial class ConsumableItemTest : Godot.Node
     [TestCase]
     public void BuffAttackEffect_Apply_IncreasesEffectiveAttack()
     {
-        var character = CreateTestCharacter();
+        var character = TestHelpers.CreateTestCharacter();
         int baseAttack = character.GetEffectiveAttack();
 
         ConsumableCatalog.CreateStrengthTonic().Apply(character); // +15 ATK for 3 turns
@@ -78,7 +78,7 @@ public partial class ConsumableItemTest : Godot.Node
     [TestCase]
     public void BuffDefenseEffect_Apply_IncreasesEffectiveDefense()
     {
-        var character = CreateTestCharacter();
+        var character = TestHelpers.CreateTestCharacter();
         int baseDef = character.GetEffectiveDefense();
 
         ConsumableCatalog.CreateIronSkin().Apply(character); // +10 DEF for 4 turns
@@ -89,7 +89,7 @@ public partial class ConsumableItemTest : Godot.Node
     [TestCase]
     public void BuffSpeedEffect_Apply_IncreasesEffectiveSpeed()
     {
-        var character = CreateTestCharacter();
+        var character = TestHelpers.CreateTestCharacter();
         int baseSpeed = character.GetEffectiveSpeed();
 
         ConsumableCatalog.CreateSwiftnessDraught().Apply(character); // +8 SPD for 3 turns
@@ -102,7 +102,7 @@ public partial class ConsumableItemTest : Godot.Node
     [TestCase]
     public void UseFromInventory_RemovesOneFromStack_And_HealsCharacter()
     {
-        var character = CreateTestCharacter();
+        var character = TestHelpers.CreateTestCharacter();
         character.CurrentHealth = 50;
         var potion = ConsumableCatalog.CreateHealthPotion();
         character.TryAddItem(potion, 3, out _);
@@ -120,7 +120,7 @@ public partial class ConsumableItemTest : Godot.Node
     [TestCase]
     public void StatusEffectSet_Tick_DecreasesDurationAndExpiresCorrectly()
     {
-        var character = CreateTestCharacter();
+        var character = TestHelpers.CreateTestCharacter();
         int baseAttack = character.Attack; // no equipment
         ConsumableCatalog.CreateStrengthTonic().Apply(character); // 3 turns
 
@@ -137,7 +137,7 @@ public partial class ConsumableItemTest : Godot.Node
     [TestCase]
     public void StatusEffectSet_Tick_ReturnsExpiredEffects()
     {
-        var character = CreateTestCharacter();
+        var character = TestHelpers.CreateTestCharacter();
         ConsumableCatalog.CreateStrengthTonic().Apply(character); // 3 turns
 
         character.ActiveBuffs.Tick();
@@ -151,7 +151,7 @@ public partial class ConsumableItemTest : Godot.Node
     [TestCase]
     public void StatusEffectSet_Clear_RemovesAllEffects()
     {
-        var character = CreateTestCharacter();
+        var character = TestHelpers.CreateTestCharacter();
         ConsumableCatalog.CreateStrengthTonic().Apply(character);
         ConsumableCatalog.CreateIronSkin().Apply(character);
 
@@ -163,7 +163,7 @@ public partial class ConsumableItemTest : Godot.Node
     [TestCase]
     public void StatusEffectSet_SameType_TakesHigherValues()
     {
-        var character = CreateTestCharacter();
+        var character = TestHelpers.CreateTestCharacter();
         character.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Strength, 10, 2));
         character.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Strength, 15, 1)); // higher magnitude
 
@@ -208,20 +208,4 @@ public partial class ConsumableItemTest : Godot.Node
         AssertThat(item is ConsumableItem).IsTrue();
         AssertThat(item!.Category).IsEqual(ItemCategory.Consumable);
     }
-
-    // ---- Helper --------------------------------------------------------------
-
-    private Character CreateTestCharacter() => new Character
-    {
-        Name              = "TestHero",
-        Level             = 1,
-        MaxHealth         = 100,
-        CurrentHealth     = 100,
-        Attack            = 20,
-        Defense           = 10,
-        Speed             = 15,
-        Experience        = 0,
-        ExperienceToNext  = 100,
-        Gold              = 0
-    };
 }

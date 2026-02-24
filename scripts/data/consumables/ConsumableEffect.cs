@@ -72,7 +72,7 @@ public sealed class StatusEffectEffect : ConsumableEffect
     public override string Description => _type switch
     {
         StatusEffectType.Stun                              => $"Stuns for {Turns} turn(s)",
-        StatusEffectType.Blind                             => $"Blinds for {Turns} turns (55% accuracy)",
+        StatusEffectType.Blind                             => $"Blinds for {Turns} turns ({(int)(StatusEffectSet.BlindAccuracyMultiplier * 100)}% accuracy)",
         StatusEffectType.Weaken or StatusEffectType.Slow   => $"-{Magnitude}% {_label} for {Turns} turns",
         StatusEffectType.Poison or StatusEffectType.Burn   => $"{_label} {Magnitude} HP/turn for {Turns} turns",
         StatusEffectType.Regen                             => $"Regen {Magnitude} HP/turn for {Turns} turns",
@@ -110,9 +110,11 @@ public sealed class CureStatusEffect : ConsumableEffect
     public override void Apply(Character target)
     {
         if (target == null) return;
+        bool removed = false;
         foreach (var type in _cures)
-            target.ActiveBuffs.RemoveType(type);
-        GD.Print($"[CureStatusEffect] {target.Name} cured of {_label}");
+            removed |= target.ActiveBuffs.RemoveType(type);
+        if (removed)
+            GD.Print($"[CureStatusEffect] {target.Name} cured of {_label}");
     }
 }
 

@@ -3,6 +3,8 @@ using Godot;
 [System.Serializable]
 public partial class Character : Resource
 {
+    // Battle-scoped status effects. Not exported or persisted; cleared at battle end.
+    public StatusEffectSet ActiveBuffs { get; } = new StatusEffectSet();
     [Export] public string Name { get; set; } = "Hero";
     [Export] public int Level { get; set; } = 1;
     [Export] public int MaxHealth { get; set; } = 100;
@@ -101,20 +103,29 @@ public partial class Character : Resource
     public int GetEffectiveAttack()
     {
         EnsureEquipment();
-        return Attack + Equipment.GetAttackBonus();
+        int flat = Attack + Equipment.GetAttackBonus() + ActiveBuffs.GetAttackFlatBonus();
+        return Mathf.Max(1, (int)(flat * ActiveBuffs.GetAttackMultiplier()));
     }
 
     public int GetEffectiveDefense()
     {
         EnsureEquipment();
-        return Defense + Equipment.GetDefenseBonus();
+        return Defense + Equipment.GetDefenseBonus() + ActiveBuffs.GetDefenseFlatBonus();
     }
 
     public int GetEffectiveSpeed()
     {
         EnsureEquipment();
-        return Speed + Equipment.GetSpeedBonus();
+        int flat = Speed + Equipment.GetSpeedBonus() + ActiveBuffs.GetSpeedFlatBonus();
+        return Mathf.Max(1, (int)(flat * ActiveBuffs.GetSpeedMultiplier()));
     }
+
+    /// <summary>
+    /// Effective accuracy as an integer percentage (0–100).
+    /// Returns 55 when Blind is active, 100 otherwise.
+    /// </summary>
+    public int GetEffectiveAccuracy()
+        => Mathf.Clamp((int)(100 * ActiveBuffs.GetAccuracyMultiplier()), 0, 100);
 
     public int GetEffectiveMaxHealth()
     {

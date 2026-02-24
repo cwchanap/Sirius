@@ -39,6 +39,10 @@ public partial class BattleManager : AcceptDialog
     private bool _resultEmitted = false; // Guards against double-emission in the common case; timer stop and signal emit must always be called together
     private readonly Random _rng = new();
     private LootResult? _pendingLootDisplay;
+
+    // Pre-battle item selection
+    private VBoxContainer _itemPanel;
+    private ConsumableItem _selectedConsumable;
     
     public override void _Ready()
     {
@@ -249,6 +253,9 @@ public partial class BattleManager : AcceptDialog
         GD.Print("Auto-battle mode: Click Start to begin.");
         
         UpdateUI();
+        _selectedConsumable = null;
+        BuildConsumablePanel();
+
         // Start immediately if no StartButton exists (fallback), otherwise wait for user
         if (_startButton == null)
         {
@@ -256,6 +263,77 @@ public partial class BattleManager : AcceptDialog
             _battleTimer.Start();
             GD.Print("StartButton not present; auto-battle started automatically.");
         }
+    }
+
+    private void BuildConsumablePanel()
+    {
+        // Remove any stale panel from a previous StartBattle call
+        if (_itemPanel != null && IsInstanceValid(_itemPanel))
+        {
+            _itemPanel.QueueFree();
+            _itemPanel = null;
+        }
+
+        var battleContent = GetNodeOrNull<VBoxContainer>("BattleContent");
+        if (battleContent == null) return;
+
+        _itemPanel = new VBoxContainer { Name = "ItemPanel" };
+
+        var title = new Label { Text = "Use an item before battle? (optional)" };
+        title.HorizontalAlignment = HorizontalAlignment.Center;
+        _itemPanel.AddChild(title);
+
+        bool hasConsumables = false;
+        foreach (var entry in _player.Inventory.GetAllEntries())
+        {
+            if (entry.Item is not ConsumableItem consumable) continue;
+
+            hasConsumables = true;
+            var btn = new Button
+            {
+                Text        = $"{consumable.DisplayName} x{entry.Quantity}  ({consumable.EffectDescription})",
+                TooltipText = consumable.Description
+            };
+            ConsumableItem captured = consumable;
+            btn.Pressed += () => OnConsumableSelected(captured, btn);
+            _itemPanel.AddChild(btn);
+        }
+
+        if (!hasConsumables)
+        {
+            var none = new Label { Text = "(No consumables in inventory)" };
+            none.HorizontalAlignment = HorizontalAlignment.Center;
+            _itemPanel.AddChild(none);
+        }
+
+        // Insert above ActionButtons row
+        var actionButtons = GetNodeOrNull<HBoxContainer>("BattleContent/ActionButtons");
+        int insertIndex = battleContent.GetChildCount();
+        if (actionButtons != null)
+        {
+            for (int i = 0; i < battleContent.GetChildCount(); i++)
+            {
+                if (battleContent.GetChild(i) == actionButtons) { insertIndex = i; break; }
+            }
+        }
+        battleContent.AddChild(_itemPanel);
+        battleContent.MoveChild(_itemPanel, insertIndex);
+    }
+
+    private void OnConsumableSelected(ConsumableItem item, Button sourceButton)
+    {
+        _selectedConsumable = item;
+        GD.Print($"[BattleManager] Pre-battle item selected: {item.DisplayName}");
+
+        // Visually indicate selection by disabling the chosen button
+        if (_itemPanel != null && IsInstanceValid(_itemPanel))
+        {
+            foreach (var child in _itemPanel.GetChildren())
+            {
+                if (child is Button btn) btn.Disabled = false;
+            }
+        }
+        sourceButton.Disabled = true;
     }
 
     private void OnStartButtonPressed()
@@ -266,6 +344,35 @@ public partial class BattleManager : AcceptDialog
             GD.PrintErr("Start pressed but battle participants not initialized");
             return;
         }
+
+        // Apply the selected pre-battle consumable (if any)
+        if (_selectedConsumable != null)
+        {
+            if (_selectedConsumable.Effect is EnemyDebuffEffect enemyEffect)
+            {
+                // Enemy-targeting item: apply to enemy, always consumes
+                enemyEffect.ApplyToEnemy(_enemy);
+                _player.TryRemoveItem(_selectedConsumable.Id, 1);
+                GD.Print($"[BattleManager] Applied '{_selectedConsumable.DisplayName}' to {_enemy.Name}");
+            }
+            else if (_selectedConsumable.Apply(_player))
+            {
+                _player.TryRemoveItem(_selectedConsumable.Id, 1);
+                UpdateUI(); // Refresh HP display if a potion was used
+            }
+            else
+            {
+                GD.PushWarning($"[BattleManager] Could not apply '{_selectedConsumable.DisplayName}'; item not consumed");
+            }
+            _selectedConsumable = null;
+        }
+
+        // Hide item panel — no longer needed during combat
+        if (_itemPanel != null && IsInstanceValid(_itemPanel))
+        {
+            _itemPanel.Visible = false;
+        }
+
         _battleInProgress = true;
         if (_startButton != null)
         {
@@ -468,23 +575,88 @@ public partial class BattleManager : AcceptDialog
 
         if (_enemyAttackLabel != null && _enemy != null)
         {
-            _enemyAttackLabel.Text = $"ATK: {_enemy.Attack}";
+            _enemyAttackLabel.Text = $"ATK: {_enemy.GetEffectiveAttack()}";
         }
 
         if (_enemyDefenseLabel != null && _enemy != null)
         {
-            _enemyDefenseLabel.Text = $"DEF: {_enemy.Defense}";
+            _enemyDefenseLabel.Text = $"DEF: {_enemy.GetEffectiveDefense()}";
         }
 
         if (_enemySpeedLabel != null && _enemy != null)
         {
-            _enemySpeedLabel.Text = $"SPD: {_enemy.Speed}";
+            _enemySpeedLabel.Text = $"SPD: {_enemy.GetEffectiveSpeed()}";
         }
 
         // Enable/disable buttons based on turn (all disabled in auto-battle)
         if (_attackButton != null) _attackButton.Disabled = true;
         if (_defendButton != null) _defendButton.Disabled = true;
         if (_runButton != null) _runButton.Disabled = true;
+
+        // Status effect text labels (created dynamically; graceful no-op if absent)
+        UpdateStatusLabel(ref _playerStatusLabel,
+            "BattleContent/BattleArena/LeftSide/PlayerStatsContainer",
+            _player?.ActiveBuffs);
+        UpdateStatusLabel(ref _enemyStatusLabel,
+            "BattleContent/BattleArena/RightSide/EnemyStatsContainer",
+            _enemy?.ActiveStatusEffects);
+    }
+
+    // -------------------------------------------------------------------------
+    // Status effect UI helpers
+    // -------------------------------------------------------------------------
+
+    private Label _playerStatusLabel;
+    private Label _enemyStatusLabel;
+
+    /// <summary>
+    /// Lazily creates a status label as a child of the given container path if one
+    /// doesn't exist yet, then updates its text. Uses GetNodeOrNull so it is safe
+    /// when the scene node is absent.
+    /// </summary>
+    private void UpdateStatusLabel(ref Label labelRef, string containerPath, StatusEffectSet effects)
+    {
+        if (effects == null) return;
+
+        var container = GetNodeOrNull<Godot.Container>(containerPath);
+        if (container == null) return;
+
+        if (labelRef == null || !Godot.GodotObject.IsInstanceValid(labelRef))
+        {
+            labelRef = new Label { Name = "StatusEffectLabel" };
+            labelRef.HorizontalAlignment = Godot.HorizontalAlignment.Left;
+            container.AddChild(labelRef);
+        }
+
+        string text = BuildStatusText(effects);
+        labelRef.Text    = text;
+        labelRef.Visible = text.Length > 0;
+    }
+
+    private static string BuildStatusText(StatusEffectSet effects)
+    {
+        if (!effects.HasAny) return string.Empty;
+
+        var sb = new System.Text.StringBuilder();
+        foreach (var eff in effects.Effects)
+        {
+            string tag = eff.Type switch
+            {
+                StatusEffectType.Poison   => "PSN",
+                StatusEffectType.Burn     => "BRN",
+                StatusEffectType.Stun     => "STN",
+                StatusEffectType.Weaken   => "WKN",
+                StatusEffectType.Slow     => "SLW",
+                StatusEffectType.Blind    => "BLD",
+                StatusEffectType.Regen    => "RGN",
+                StatusEffectType.Haste    => "HST",
+                StatusEffectType.Strength => "STR",
+                StatusEffectType.Fortify  => "FRT",
+                _                         => "???",
+            };
+            sb.Append($"[{tag} {eff.TurnsRemaining}t] ");
+        }
+        return sb.ToString().TrimEnd();
     }
     
     private void OnBattleTurnTimer()
@@ -497,14 +669,57 @@ public partial class BattleManager : AcceptDialog
         
         if (_playerTurn)
         {
-            PlayerAutoAction();
+            // Stun check: stunned player loses their action but still ticks
+            if (_player.ActiveBuffs.IsStunned)
+            {
+                GD.Print($"[BattleManager] {_player.Name} is Stunned and loses their turn!");
+            }
+            else
+            {
+                PlayerAutoAction();
+            }
+
+            // Tick player status effects (DoT, HoT, duration countdown)
+            var (expiredPlayer, dotPlayer, hotPlayer) = _player.ActiveBuffs.Tick();
+            if (dotPlayer > 0)
+            {
+                _player.CurrentHealth = Godot.Mathf.Max(0, _player.CurrentHealth - dotPlayer);
+                GD.Print($"[BattleManager] {_player.Name} takes {dotPlayer} status damage!");
+                ShowDamageNumber(_playerDamageLabel, dotPlayer);
+            }
+            if (hotPlayer > 0)
+            {
+                _player.Heal(hotPlayer);
+                GD.Print($"[BattleManager] {_player.Name} regenerates {hotPlayer} HP!");
+            }
+            foreach (var eff in expiredPlayer)
+                GD.Print($"[BattleManager] Status effect expired: {eff.Type} on {_player.Name}");
         }
         else
         {
-            EnemyTurn(_playerDefendedLastTurn);
-            _playerDefendedLastTurn = false; // Reset defense flag after enemy turn
+            // Stun check: stunned enemy loses their action but still ticks
+            if (_enemy.ActiveStatusEffects.IsStunned)
+            {
+                GD.Print($"[BattleManager] {_enemy.Name} is Stunned and loses their turn!");
+            }
+            else
+            {
+                EnemyTurn(_playerDefendedLastTurn);
+            }
+            _playerDefendedLastTurn = false;
+
+            // Tick enemy status effects
+            var (expiredEnemy, dotEnemy, _) = _enemy.ActiveStatusEffects.Tick();
+            if (dotEnemy > 0)
+            {
+                _enemy.CurrentHealth = Godot.Mathf.Max(0, _enemy.CurrentHealth - dotEnemy);
+                GD.Print($"[BattleManager] {_enemy.Name} takes {dotEnemy} status damage!");
+                ShowDamageNumber(_enemyDamageLabel, dotEnemy);
+            }
+            foreach (var eff in expiredEnemy)
+                GD.Print($"[BattleManager] Status effect expired: {eff.Type} on {_enemy.Name}");
         }
-        
+
         // Switch turns
         _playerTurn = !_playerTurn;
         UpdateUI();
@@ -548,6 +763,13 @@ public partial class BattleManager : AcceptDialog
     
     private void PlayerAttack()
     {
+        // Blind miss check: Blind reduces accuracy to 55% (GetAccuracyMultiplier returns 1.0 when not blind)
+        if (GD.Randf() > _player.ActiveBuffs.GetAccuracyMultiplier())
+        {
+            GD.Print($"{_player.Name} is Blinded and misses the attack!");
+            return;
+        }
+
         // Add some variation to attacks
         bool criticalHit = GD.Randf() < 0.15f; // 15% chance for critical hit
         int baseDamage = _player.GetEffectiveAttack() + GD.RandRange(-5, 5);
@@ -575,7 +797,14 @@ public partial class BattleManager : AcceptDialog
     private void EnemyTurn(bool playerDefended = false)
     {
         if (!_enemy.IsAlive || !_player.IsAlive) return;
-        
+
+        // Blind miss check: Blind reduces accuracy to 55% (GetAccuracyMultiplier returns 1.0 when not blind)
+        if (GD.Randf() > _enemy.ActiveStatusEffects.GetAccuracyMultiplier())
+        {
+            GD.Print($"{_enemy.Name} is Blinded and misses the attack!");
+            return;
+        }
+
         float enemyHealthPercentage = (float)_enemy.CurrentHealth / _enemy.MaxHealth;
         // Note: uses base MaxHealth (not GetEffectiveMaxHealth()); equipment bonuses are not reflected in this threshold.
         float playerHealthPercentage = (float)_player.CurrentHealth / _player.MaxHealth;
@@ -583,8 +812,8 @@ public partial class BattleManager : AcceptDialog
         // Enemy AI: More aggressive when player is low on health
         bool aggressiveAttack = playerHealthPercentage < 0.3f && GD.Randf() < 0.4f;
         bool criticalHit = GD.Randf() < 0.1f; // 10% chance for enemy critical hit
-        
-        int damage = _enemy.Attack + GD.RandRange(-3, 3);
+
+        int damage = _enemy.GetEffectiveAttack() + GD.RandRange(-3, 3);
         
         if (aggressiveAttack)
         {
@@ -613,21 +842,41 @@ public partial class BattleManager : AcceptDialog
         
         // Show damage number on player
         ShowDamageNumber(_playerDamageLabel, damage, criticalHit);
-        
+
         // Play attack animation (flash the enemy sprite)
         PlayAttackAnimation(_enemySprite);
+
+        // Attempt to apply a debuff from this enemy's profile
+        TryApplyEnemyDebuff();
     }
-    
+
+    private void TryApplyEnemyDebuff()
+    {
+        var abilities = EnemyDebuffProfile.GetAbilities(_enemy?.EnemyType);
+        if (abilities == null) return;
+
+        foreach (var ability in abilities)
+        {
+            if (GD.Randf() < ability.Chance)
+            {
+                _player.ActiveBuffs.Add(new ActiveStatusEffect(ability.EffectType, ability.Magnitude, ability.Duration));
+                GD.Print($"[BattleManager] {_enemy.Name} inflicts {ability.EffectType} on {_player.Name} ({ability.Duration} turns)!");
+            }
+        }
+    }
+
     private void EndBattle(bool playerWon)
     {
         GD.Print($"BattleManager.EndBattle called: playerWon = {playerWon}");
-        
+
         _battleInProgress = false;
         _battleTimer.Stop();
-        
+        _player?.ActiveBuffs.Clear();
+        _enemy?.ActiveStatusEffects.Clear();
+
         // Add spacing and clear result display
         GD.Print("=== BATTLE RESULT ===");
-        
+
         if (playerWon)
         {
             GD.Print($"🎉 VICTORY! {_player.Name} wins the battle!");
@@ -693,10 +942,12 @@ public partial class BattleManager : AcceptDialog
     private void EndBattleWithEscape()
     {
         GD.Print("BattleManager.EndBattleWithEscape called: Player escaped");
-        
+
         _battleInProgress = false;
         _battleTimer.Stop();
-        
+        _player?.ActiveBuffs.Clear();
+        _enemy?.ActiveStatusEffects.Clear();
+
         // Add spacing and clear result display
         GD.Print("=== BATTLE RESULT ===");
         GD.Print($"🏃 ESCAPED! {_player.Name} fled from battle!");

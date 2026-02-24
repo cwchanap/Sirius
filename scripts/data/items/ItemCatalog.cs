@@ -23,6 +23,17 @@ public static class ItemCatalog
         ["iron_helmet"] = EquipmentCatalog.CreateIronHelmet,
         ["iron_boots"] = EquipmentCatalog.CreateIronBoots,
 
+        // Consumables
+        ["health_potion"]         = ConsumableCatalog.CreateHealthPotion,
+        ["greater_health_potion"] = ConsumableCatalog.CreateGreaterHealthPotion,
+        ["strength_tonic"]        = ConsumableCatalog.CreateStrengthTonic,
+        ["iron_skin"]             = ConsumableCatalog.CreateIronSkin,
+        ["swiftness_draught"]     = ConsumableCatalog.CreateSwiftnessDraught,
+        ["antidote"]              = ConsumableCatalog.CreateAntidote,
+        ["regen_potion"]          = ConsumableCatalog.CreateRegenPotion,
+        ["poison_vial"]           = ConsumableCatalog.CreatePoisonVial,
+        ["flash_powder"]          = ConsumableCatalog.CreateFlashPowder,
+
         // Monster parts
         ["goblin_ear"] = MonsterPartsCatalog.CreateGoblinEar,
         ["orc_tusk"] = MonsterPartsCatalog.CreateOrcTusk,

@@ -402,14 +402,18 @@ public partial class InventoryMenuController : Control
 			return;
 		}
 
-		// Apply first; only consume the item if the effect succeeds
 		if (!item.Apply(_gameManager.Player))
 		{
 			GD.PushWarning($"[InventoryMenuController] Failed to apply '{item.DisplayName}'");
 			return;
 		}
 
-		_gameManager.Player.TryRemoveItem(item.Id, 1);
+		if (!_gameManager.Player.TryRemoveItem(item.Id, 1))
+		{
+			GD.PushWarning($"[InventoryMenuController] Failed to remove '{item.DisplayName}' from inventory after applying effect");
+			return;
+		}
+
 		GD.Print($"[InventoryMenuController] Used {item.DisplayName} out of battle");
 
 		_gameManager.NotifyPlayerStatsChanged();

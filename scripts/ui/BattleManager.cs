@@ -709,12 +709,17 @@ public partial class BattleManager : AcceptDialog
             _playerDefendedLastTurn = false;
 
             // Tick enemy status effects
-            var (expiredEnemy, dotEnemy, _) = _enemy.ActiveStatusEffects.Tick();
+            var (expiredEnemy, dotEnemy, hotEnemy) = _enemy.ActiveStatusEffects.Tick();
             if (dotEnemy > 0)
             {
                 _enemy.CurrentHealth = Godot.Mathf.Max(0, _enemy.CurrentHealth - dotEnemy);
                 GD.Print($"[BattleManager] {_enemy.Name} takes {dotEnemy} status damage!");
                 ShowDamageNumber(_enemyDamageLabel, dotEnemy);
+            }
+            if (hotEnemy > 0)
+            {
+                _enemy.CurrentHealth = Godot.Mathf.Min(_enemy.MaxHealth, _enemy.CurrentHealth + hotEnemy);
+                GD.Print($"[BattleManager] {_enemy.Name} regenerates {hotEnemy} HP!");
             }
             foreach (var eff in expiredEnemy)
                 GD.Print($"[BattleManager] Status effect expired: {eff.Type} on {_enemy.Name}");

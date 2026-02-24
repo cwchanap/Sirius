@@ -13,6 +13,9 @@ using Godot;
 /// </summary>
 public class StatusEffectSet
 {
+    /// <summary>Accuracy multiplier when Blind is active (55% = 0.55).</summary>
+    public const float BlindAccuracyMultiplier = 0.55f;
+
     private readonly List<ActiveStatusEffect> _effects = new();
 
     public IReadOnlyList<ActiveStatusEffect> Effects => _effects;
@@ -134,10 +137,10 @@ public class StatusEffectSet
     }
 
     /// <summary>
-    /// Accuracy multiplier from Blind debuff. Returns 0.55 when blinded, 1.0 otherwise.
+    /// Accuracy multiplier from Blind debuff. Returns BlindAccuracyMultiplier when blinded, 1.0 otherwise.
     /// BattleManager uses this to determine miss chance.
     /// </summary>
-    public float GetAccuracyMultiplier() => IsBlind ? 0.55f : 1.0f;
+    public float GetAccuracyMultiplier() => IsBlind ? BlindAccuracyMultiplier : 1.0f;
 
     /// <summary>Removes all effects. Call at battle end to clean up transient state.</summary>
     public void Clear() => _effects.Clear();

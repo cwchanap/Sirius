@@ -8,7 +8,7 @@ using Godot;
 [System.Serializable]
 public partial class ConsumableItem : Item
 {
-    private ConsumableEffect _effect;
+    private ConsumableEffect? _effect;
 
     [Export]
     public int MaxStackOverride { get; set; } = 99;
@@ -16,7 +16,7 @@ public partial class ConsumableItem : Item
     /// <summary>The effect applied when this item is used. Set by catalog factories.</summary>
     public ConsumableEffect Effect
     {
-        get => _effect;
+        get => _effect!;
         internal set => _effect = value;
     }
 

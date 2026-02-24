@@ -120,7 +120,7 @@ public partial class EnemyStatusEffectTest : Godot.Node
     [TestCase]
     public void Antidote_CuresPoisonOnPlayer()
     {
-        var player = CreateTestCharacter();
+        var player = TestHelpers.CreateTestCharacter();
         player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Poison, 8, 3));
         AssertThat(player.ActiveBuffs.HasAny).IsTrue();
 
@@ -133,7 +133,7 @@ public partial class EnemyStatusEffectTest : Godot.Node
     [TestCase]
     public void Antidote_LeavesOtherEffectsIntact()
     {
-        var player = CreateTestCharacter();
+        var player = TestHelpers.CreateTestCharacter();
         player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Poison,   8, 3));
         player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Strength, 15, 2));
 
@@ -157,7 +157,7 @@ public partial class EnemyStatusEffectTest : Godot.Node
     [TestCase]
     public void RegenPotion_Apply_AddsRegenToPlayer()
     {
-        var player = CreateTestCharacter();
+        var player = TestHelpers.CreateTestCharacter();
         ConsumableCatalog.CreateRegenPotion().Apply(player);
         AssertThat(player.ActiveBuffs.HasAny).IsTrue();
         AssertThat(player.ActiveBuffs.IsStunned).IsFalse();
@@ -186,31 +186,15 @@ public partial class EnemyStatusEffectTest : Godot.Node
     [TestCase]
     public void GetEffectiveAccuracy_NoBlind_Returns100()
     {
-        var player = CreateTestCharacter();
+        var player = TestHelpers.CreateTestCharacter();
         AssertThat(player.GetEffectiveAccuracy()).IsEqual(100);
     }
 
     [TestCase]
     public void GetEffectiveAccuracy_Blinded_Returns55()
     {
-        var player = CreateTestCharacter();
+        var player = TestHelpers.CreateTestCharacter();
         player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Blind, 0, 2));
         AssertThat(player.GetEffectiveAccuracy()).IsEqual(55);
     }
-
-    // ---- Helper --------------------------------------------------------------
-
-    private static Character CreateTestCharacter() => new Character
-    {
-        Name             = "TestHero",
-        Level            = 1,
-        MaxHealth        = 100,
-        CurrentHealth    = 100,
-        Attack           = 20,
-        Defense          = 10,
-        Speed            = 15,
-        Experience       = 0,
-        ExperienceToNext = 100,
-        Gold             = 0,
-    };
 }

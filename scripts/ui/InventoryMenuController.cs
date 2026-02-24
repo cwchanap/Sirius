@@ -283,7 +283,7 @@ public partial class InventoryMenuController : Control
 				GD.Print($"Inventory slot {i}: {entry.Item.DisplayName} x{entry.Quantity}");
 				SetButtonIcon(slot.Button, entry.Item);
 				slot.Button.TooltipText = BuildInventoryTooltip(entry);
-				slot.Button.Disabled = entry.Item is not EquipmentItem;
+				slot.Button.Disabled = entry.Item is not EquipmentItem and not ConsumableItem;
 			}
 			else
 			{
@@ -370,22 +370,50 @@ public partial class InventoryMenuController : Control
 	}
 	private void OnInventorySlotPressed(int slotIndex)
 	{
-		if (_gameManager?.Player == null)
-		{
-			return;
-		}
-		if (slotIndex < 0 || slotIndex >= _inventorySlotEntries.Length)
-		{
-			return;
-		}
+		if (_gameManager?.Player == null) return;
+		if (slotIndex < 0 || slotIndex >= _inventorySlotEntries.Length) return;
 
 		var entry = _inventorySlotEntries[slotIndex];
-		if (entry?.Item is not EquipmentItem equipmentItem)
+		if (entry == null) return;
+
+		if (entry.Item is EquipmentItem equipmentItem)
 		{
+			EquipFromInventory(equipmentItem);
 			return;
 		}
 
-		EquipFromInventory(equipmentItem);
+		if (entry.Item is ConsumableItem consumable)
+		{
+			UseConsumableOutOfBattle(consumable);
+		}
+	}
+
+	private void UseConsumableOutOfBattle(ConsumableItem item)
+	{
+		if (_gameManager.IsInBattle)
+		{
+			GD.PushWarning("[InventoryMenuController] Cannot use consumable during battle from inventory menu");
+			return;
+		}
+
+		if (item.Effect?.RequiresBattle == true)
+		{
+			GD.Print($"[InventoryMenuController] '{item.DisplayName}' can only be used in battle");
+			return;
+		}
+
+		// Apply first; only consume the item if the effect succeeds
+		if (!item.Apply(_gameManager.Player))
+		{
+			GD.PushWarning($"[InventoryMenuController] Failed to apply '{item.DisplayName}'");
+			return;
+		}
+
+		_gameManager.Player.TryRemoveItem(item.Id, 1);
+		GD.Print($"[InventoryMenuController] Used {item.DisplayName} out of battle");
+
+		_gameManager.NotifyPlayerStatsChanged();
+		RefreshUI();
 	}
 
 	private void EquipFromInventory(EquipmentItem item)
@@ -501,6 +529,11 @@ public partial class InventoryMenuController : Control
 			}
 
 			sb.Append("Click to equip");
+		}
+		else if (entry.Item is ConsumableItem consumable)
+		{
+			sb.AppendLine(consumable.EffectDescription);
+			sb.Append(consumable.Effect?.RequiresBattle == true ? "Battle use only" : "Click to use");
 		}
 
 		return sb.ToString();

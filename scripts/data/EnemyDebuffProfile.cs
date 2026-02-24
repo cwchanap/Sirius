@@ -1,0 +1,57 @@
+using System.Collections.Generic;
+
+/// <summary>
+/// Data-driven debuff ability for one enemy action.
+/// BattleManager rolls Chance each time the enemy attacks; on success, the effect
+/// is applied to the player.
+/// </summary>
+public record EnemyDebuffAbility(
+    StatusEffectType EffectType,
+    int              Magnitude,
+    int              Duration,   // turns
+    float            Chance      // 0.0–1.0
+);
+
+/// <summary>
+/// Static lookup table mapping EnemyTypeId constants to the debuff abilities that
+/// enemy can inflict during auto-battle. Enemies not listed here do normal attacks only.
+///
+/// To add a new enemy ability: add or extend an entry below using EnemyTypeId constants.
+/// BattleManager.TryApplyEnemyDebuff() consumes this data without any per-enemy branching.
+/// </summary>
+public static class EnemyDebuffProfile
+{
+    private static readonly Dictionary<string, EnemyDebuffAbility[]> _profiles = new()
+    {
+        [EnemyTypeId.Goblin] = new[]
+        {
+            new EnemyDebuffAbility(StatusEffectType.Poison, 5, 3, 0.20f),
+        },
+        [EnemyTypeId.CaveSpider] = new[]
+        {
+            new EnemyDebuffAbility(StatusEffectType.Poison, 8, 4, 0.35f),
+            new EnemyDebuffAbility(StatusEffectType.Slow,   4, 2, 0.20f),
+        },
+        [EnemyTypeId.SkeletonWarrior] = new[]
+        {
+            new EnemyDebuffAbility(StatusEffectType.Weaken, 8, 3, 0.25f),
+        },
+        [EnemyTypeId.SwampWretch] = new[]
+        {
+            new EnemyDebuffAbility(StatusEffectType.Poison, 10, 4, 0.30f),
+            new EnemyDebuffAbility(StatusEffectType.Blind,   0, 2, 0.20f),
+        },
+        [EnemyTypeId.DarkMage] = new[]
+        {
+            new EnemyDebuffAbility(StatusEffectType.Weaken, 12, 3, 0.30f),
+            new EnemyDebuffAbility(StatusEffectType.Stun,    0, 1, 0.15f),
+        },
+    };
+
+    /// <summary>
+    /// Returns the debuff abilities for the given enemy type, or null if that
+    /// enemy has no debuff abilities (normal attacks only).
+    /// </summary>
+    public static EnemyDebuffAbility[]? GetAbilities(string? enemyType)
+        => _profiles.TryGetValue(enemyType?.ToLowerInvariant() ?? string.Empty, out var abilities) ? abilities : null;
+}

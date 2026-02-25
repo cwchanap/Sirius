@@ -235,7 +235,7 @@ public partial class BattleManager : AcceptDialog
 
         _player = player;
         _enemy = enemy;
-        _playerTurn = _player.Speed >= _enemy.Speed;
+        _playerTurn = true; // Placeholder; determined after pre-battle consumables in OnStartButtonPressed()
         _battleInProgress = false;
         _pendingLootDisplay = null;
         // Clean up any loot label left from a previous battle
@@ -366,6 +366,10 @@ public partial class BattleManager : AcceptDialog
             }
             _selectedConsumable = null;
         }
+
+        // Determine turn order using effective speed (accounts for pre-battle consumables)
+        _playerTurn = _player.GetEffectiveSpeed() >= _enemy.GetEffectiveSpeed();
+        GD.Print($"Turn order: {(_playerTurn ? "Player" : "Enemy")} goes first! (Player SPD: {_player.GetEffectiveSpeed()}, Enemy SPD: {_enemy.GetEffectiveSpeed()})");
 
         // Hide item panel — no longer needed during combat
         if (_itemPanel != null && IsInstanceValid(_itemPanel))
@@ -725,8 +729,8 @@ public partial class BattleManager : AcceptDialog
                 GD.Print($"[BattleManager] Status effect expired: {eff.Type} on {_enemy.Name}");
         }
 
-        // Switch turns
-        _playerTurn = !_playerTurn;
+        // Determine turn order based on effective speed (accounts for Slow/Haste status effects)
+        _playerTurn = _player.GetEffectiveSpeed() >= _enemy.GetEffectiveSpeed();
         UpdateUI();
         
         // Check for battle end conditions

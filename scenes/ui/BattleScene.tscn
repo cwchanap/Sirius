@@ -135,6 +135,11 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Run"
 
+[node name="ItemButton" type="Button" parent="BattleContent/ActionButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Item"
+
 [node name="StartButton" type="Button" parent="BattleContent/ActionButtons"]
 layout_mode = 2
 size_flags_horizontal = 3

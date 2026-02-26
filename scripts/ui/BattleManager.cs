@@ -23,6 +23,7 @@ public partial class BattleManager : AcceptDialog
     private Button _attackButton;
     private Button _defendButton;
     private Button _runButton;
+    private Button _itemButton;
     private Button _startButton;
     
     // Animation and Visual References
@@ -65,6 +66,7 @@ public partial class BattleManager : AcceptDialog
         _attackButton = GetNode<Button>("BattleContent/ActionButtons/AttackButton");
         _defendButton = GetNode<Button>("BattleContent/ActionButtons/DefendButton");
         _runButton = GetNode<Button>("BattleContent/ActionButtons/RunButton");
+        _itemButton = GetNodeOrNull<Button>("BattleContent/ActionButtons/ItemButton");
         _startButton = GetNodeOrNull<Button>("BattleContent/ActionButtons/StartButton");
 
         // Verify all UI elements are loaded
@@ -100,11 +102,16 @@ public partial class BattleManager : AcceptDialog
         _attackButton.Visible = false;
         _defendButton.Visible = false;
         _runButton.Visible = false;
+        _itemButton.Visible = false;
         if (_startButton != null)
         {
             _startButton.Visible = true;
             _startButton.Disabled = false;
             _startButton.Pressed += OnStartButtonPressed;
+        }
+        if (_itemButton != null)
+        {
+            _itemButton.Pressed += OnItemButtonPressed;
         }
         
         // Initialize damage labels as invisible
@@ -259,9 +266,10 @@ public partial class BattleManager : AcceptDialog
         // Skip building the consumable panel when auto-starting since there's no way to select items
         if (_startButton == null)
         {
+            _playerTurn = _player.GetEffectiveSpeed() >= _enemy.GetEffectiveSpeed();
             _battleInProgress = true;
             _battleTimer.Start();
-            GD.Print("StartButton not present; auto-battle started automatically (pre-battle items not available).");
+            GD.Print($"StartButton not present; auto-battle started. Turn order: {(_playerTurn ? "Player" : "Enemy")} first.");
         }
         else
         {
@@ -404,8 +412,102 @@ public partial class BattleManager : AcceptDialog
         {
             _startButton.Visible = false;
         }
+        if (_itemButton != null)
+        {
+            _itemButton.Visible = true;
+            _itemButton.Disabled = false;
+        }
         GD.Print("Battle started by user");
         _battleTimer.Start();
+    }
+
+    private void OnItemButtonPressed()
+    {
+        if (!_battleInProgress || _player == null) return;
+        if (_itemPanel != null && IsInstanceValid(_itemPanel) && _itemPanel.Visible) return;
+
+        ShowCombatItemPanel();
+    }
+
+    private void ShowCombatItemPanel()
+    {
+        if (_itemPanel != null && IsInstanceValid(_itemPanel))
+        {
+            _itemPanel.QueueFree();
+            _itemPanel = null;
+        }
+
+        var battleContent = GetNodeOrNull<VBoxContainer>("BattleContent");
+        if (battleContent == null) return;
+
+        _itemPanel = new VBoxContainer { Name = "ItemPanel" };
+
+        var title = new Label { Text = "Use an item (cures work mid-battle):" };
+        title.HorizontalAlignment = HorizontalAlignment.Center;
+        _itemPanel.AddChild(title);
+
+        bool hasConsumables = false;
+        foreach (var entry in _player.Inventory.GetAllEntries())
+        {
+            if (entry.Item is not ConsumableItem consumable) continue;
+
+            hasConsumables = true;
+            var btn = new Button
+            {
+                Text        = $"{consumable.DisplayName} x{entry.Quantity}  ({consumable.EffectDescription})",
+                TooltipText = consumable.Description
+            };
+            ConsumableItem captured = consumable;
+            btn.Pressed += () => OnCombatItemSelected(captured, btn);
+            _itemPanel.AddChild(btn);
+        }
+
+        if (!hasConsumables)
+        {
+            var none = new Label { Text = "(No consumables in inventory)" };
+            none.HorizontalAlignment = HorizontalAlignment.Center;
+            _itemPanel.AddChild(none);
+        }
+
+        var closeBtn = new Button { Text = "Cancel" };
+        closeBtn.Pressed += () =>
+        {
+            if (_itemPanel != null && IsInstanceValid(_itemPanel))
+            {
+                _itemPanel.Visible = false;
+            }
+        };
+        _itemPanel.AddChild(closeBtn);
+
+        battleContent.AddChild(_itemPanel);
+    }
+
+    private void OnCombatItemSelected(ConsumableItem item, Button sourceButton)
+    {
+        if (_player == null || !_player.IsAlive) return;
+
+        if (item.Effect is CureStatusEffect cureEffect)
+        {
+            if (_player.TryRemoveItem(item.Id, 1))
+            {
+                cureEffect.Apply(_player);
+                UpdateUI();
+                GD.Print($"[BattleManager] Used '{item.DisplayName}' mid-battle to cure status effects.");
+            }
+            else
+            {
+                GD.PushWarning($"[BattleManager] Could not consume '{item.DisplayName}'; item not removed.");
+            }
+        }
+        else
+        {
+            GD.Print($"[BattleManager] '{item.DisplayName}' cannot be used mid-battle (only cure items work).");
+        }
+
+        if (_itemPanel != null && IsInstanceValid(_itemPanel))
+        {
+            _itemPanel.Visible = false;
+        }
     }
     
     private void CenterSprites()

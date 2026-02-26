@@ -102,16 +102,16 @@ public partial class BattleManager : AcceptDialog
         _attackButton.Visible = false;
         _defendButton.Visible = false;
         _runButton.Visible = false;
-        _itemButton.Visible = false;
+        if (_itemButton != null)
+        {
+            _itemButton.Visible = false;
+            _itemButton.Pressed += OnItemButtonPressed;
+        }
         if (_startButton != null)
         {
             _startButton.Visible = true;
             _startButton.Disabled = false;
             _startButton.Pressed += OnStartButtonPressed;
-        }
-        if (_itemButton != null)
-        {
-            _itemButton.Pressed += OnItemButtonPressed;
         }
         
         // Initialize damage labels as invisible

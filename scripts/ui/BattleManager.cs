@@ -254,14 +254,18 @@ public partial class BattleManager : AcceptDialog
         
         UpdateUI();
         _selectedConsumable = null;
-        BuildConsumablePanel();
 
         // Start immediately if no StartButton exists (fallback), otherwise wait for user
+        // Skip building the consumable panel when auto-starting since there's no way to select items
         if (_startButton == null)
         {
             _battleInProgress = true;
             _battleTimer.Start();
-            GD.Print("StartButton not present; auto-battle started automatically.");
+            GD.Print("StartButton not present; auto-battle started automatically (pre-battle items not available).");
+        }
+        else
+        {
+            BuildConsumablePanel();
         }
     }
 
@@ -346,23 +350,41 @@ public partial class BattleManager : AcceptDialog
         }
 
         // Apply the selected pre-battle consumable (if any)
+        // Remove item first to prevent duplication if effect application succeeds but removal fails
         if (_selectedConsumable != null)
         {
             if (_selectedConsumable.Effect is EnemyDebuffEffect enemyEffect)
             {
-                // Enemy-targeting item: apply to enemy, always consumes
-                enemyEffect.ApplyToEnemy(_enemy);
-                _player.TryRemoveItem(_selectedConsumable.Id, 1);
-                GD.Print($"[BattleManager] Applied '{_selectedConsumable.DisplayName}' to {_enemy.Name}");
-            }
-            else if (_selectedConsumable.Apply(_player))
-            {
-                _player.TryRemoveItem(_selectedConsumable.Id, 1);
-                UpdateUI(); // Refresh HP display if a potion was used
+                // Enemy-targeting item: remove first, then apply to enemy
+                if (_player.TryRemoveItem(_selectedConsumable.Id, 1))
+                {
+                    enemyEffect.ApplyToEnemy(_enemy);
+                    GD.Print($"[BattleManager] Applied '{_selectedConsumable.DisplayName}' to {_enemy.Name}");
+                }
+                else
+                {
+                    GD.PushWarning($"[BattleManager] Could not consume '{_selectedConsumable.DisplayName}'; effect not applied to {_enemy.Name}");
+                }
             }
             else
             {
-                GD.PushWarning($"[BattleManager] Could not apply '{_selectedConsumable.DisplayName}'; item not consumed");
+                // Player-targeting item: remove first, then apply to player
+                if (_player.TryRemoveItem(_selectedConsumable.Id, 1))
+                {
+                    if (_selectedConsumable.Apply(_player))
+                    {
+                        UpdateUI(); // Refresh HP display if a potion was used
+                        GD.Print($"[BattleManager] Applied '{_selectedConsumable.DisplayName}' to {_player.Name}");
+                    }
+                    else
+                    {
+                        GD.PushWarning($"[BattleManager] '{_selectedConsumable.DisplayName}' was consumed but could not be applied");
+                    }
+                }
+                else
+                {
+                    GD.PushWarning($"[BattleManager] Could not consume '{_selectedConsumable.DisplayName}'; effect not applied");
+                }
             }
             _selectedConsumable = null;
         }
@@ -618,7 +640,7 @@ public partial class BattleManager : AcceptDialog
     /// doesn't exist yet, then updates its text. Uses GetNodeOrNull so it is safe
     /// when the scene node is absent.
     /// </summary>
-    private void UpdateStatusLabel(ref Label labelRef, string containerPath, StatusEffectSet effects)
+    private void UpdateStatusLabel(ref Label labelRef, string containerPath, StatusEffectSet? effects)
     {
         if (effects == null) return;
 

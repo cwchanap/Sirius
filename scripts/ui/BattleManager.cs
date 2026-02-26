@@ -729,8 +729,8 @@ public partial class BattleManager : AcceptDialog
                 GD.Print($"[BattleManager] Status effect expired: {eff.Type} on {_enemy.Name}");
         }
 
-        // Determine turn order based on effective speed (accounts for Slow/Haste status effects)
-        _playerTurn = _player.GetEffectiveSpeed() >= _enemy.GetEffectiveSpeed();
+        // Toggle turn: after player acts, enemy goes next and vice versa
+        _playerTurn = !_playerTurn;
         UpdateUI();
         
         // Check for battle end conditions

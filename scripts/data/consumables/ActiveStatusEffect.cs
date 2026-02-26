@@ -1,6 +1,9 @@
 /// <summary>
 /// Immutable record representing one active status effect on a combatant.
-/// Duration is measured in player turns (one player action = one turn).
+/// Duration is measured in turns taken by the owning combatant (one of that
+/// combatant's actions = one turn for its own effects). StatusEffectSet.Tick()
+/// is called after each combatant's action, so this applies equally to players
+/// and enemies.
 /// Replaces the old ActiveBuff record.
 ///
 /// Magnitude semantics depend on StatusEffectType — see StatusEffectType docs.

@@ -402,15 +402,17 @@ public partial class InventoryMenuController : Control
 			return;
 		}
 
-		if (!item.Apply(_gameManager.Player))
+		// Remove item first to prevent duplication if effect application succeeds but removal fails
+		if (!_gameManager.Player.TryRemoveItem(item.Id, 1))
 		{
-			GD.PushWarning($"[InventoryMenuController] Failed to apply '{item.DisplayName}'");
+			GD.PushWarning($"[InventoryMenuController] Failed to remove '{item.DisplayName}' from inventory; effect not applied");
 			return;
 		}
 
-		if (!_gameManager.Player.TryRemoveItem(item.Id, 1))
+		if (!item.Apply(_gameManager.Player))
 		{
-			GD.PushWarning($"[InventoryMenuController] Failed to remove '{item.DisplayName}' from inventory after applying effect");
+			GD.PushWarning($"[InventoryMenuController] Failed to apply '{item.DisplayName}' after removal, attempting rollback");
+			_gameManager.Player.TryAddItem(item, 1, out _);
 			return;
 		}
 

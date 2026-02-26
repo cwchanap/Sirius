@@ -49,7 +49,7 @@ Enemies with debuff abilities attempt to apply them each time they attack.
 |-------|--------|-----------|----------|--------|
 | Goblin | Poison | 5 dmg/turn | 3 turns | 20% |
 | Cave Spider | Poison | 8 dmg/turn | 4 turns | 35% |
-| Cave Spider | Slow | −4 SPD | 2 turns | 20% |
+| Cave Spider | Slow | −4% SPD | 2 turns | 20% |
 | Skeleton Warrior | Weaken | −8% ATK | 3 turns | 25% |
 | Swamp Wretch | Poison | 10 dmg/turn | 4 turns | 30% |
 | Swamp Wretch | Blind | — | 2 turns | 20% |

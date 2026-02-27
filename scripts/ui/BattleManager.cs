@@ -817,7 +817,7 @@ public partial class BattleManager : AcceptDialog
                 GD.Print($"[BattleManager] {_player.Name} takes {dotPlayer} status damage!");
                 ShowDamageNumber(_playerDamageLabel, dotPlayer);
             }
-            if (hotPlayer > 0)
+            if (hotPlayer > 0 && _player.IsAlive)
             {
                 _player.Heal(hotPlayer);
                 GD.Print($"[BattleManager] {_player.Name} regenerates {hotPlayer} HP!");
@@ -846,7 +846,7 @@ public partial class BattleManager : AcceptDialog
                 GD.Print($"[BattleManager] {_enemy.Name} takes {dotEnemy} status damage!");
                 ShowDamageNumber(_enemyDamageLabel, dotEnemy);
             }
-            if (hotEnemy > 0)
+            if (hotEnemy > 0 && _enemy.IsAlive)
             {
                 _enemy.CurrentHealth = Godot.Mathf.Min(_enemy.MaxHealth, _enemy.CurrentHealth + hotEnemy);
                 GD.Print($"[BattleManager] {_enemy.Name} regenerates {hotEnemy} HP!");

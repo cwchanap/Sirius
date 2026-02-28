@@ -22,6 +22,7 @@ public enum StatusEffectType
 
     // Buffs (values 10–14)
     Regen    = 10,  // HoT: flat HP heal per turn
+    // (11 is unassigned — do not use; reserved to avoid serialization conflicts)
     Haste    = 12,  // Flat Speed bonus (replaces BuffType.SpeedUp)
     Strength = 13,  // Flat Attack bonus (replaces BuffType.AttackUp)
     Fortify  = 14,  // Flat Defense bonus (replaces BuffType.DefenseUp)

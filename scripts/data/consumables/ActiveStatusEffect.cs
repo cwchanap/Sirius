@@ -1,3 +1,5 @@
+using System;
+
 /// <summary>
 /// Immutable record representing one active status effect on a combatant.
 /// Duration is measured in turns taken by the owning combatant (one of that
@@ -9,12 +11,21 @@
 /// Magnitude semantics depend on StatusEffectType — see StatusEffectType docs.
 /// For Stun and Blind, Magnitude is always 0 (presence alone determines behaviour).
 /// </summary>
-public record ActiveStatusEffect(
-    StatusEffectType Type,
-    int              Magnitude,
-    int              TurnsRemaining
-)
+public record ActiveStatusEffect
 {
+    public StatusEffectType Type           { get; init; }
+    public int              Magnitude      { get; init; }
+    public int              TurnsRemaining { get; init; }
+
+    public ActiveStatusEffect(StatusEffectType type, int magnitude, int turnsRemaining)
+    {
+        if (magnitude < 0)
+            throw new ArgumentOutOfRangeException(nameof(magnitude), magnitude, "Must be non-negative.");
+        Type           = type;
+        Magnitude      = magnitude;
+        TurnsRemaining = turnsRemaining;
+    }
+
     /// <summary>Returns a copy with TurnsRemaining decremented by one.</summary>
     public ActiveStatusEffect Tick() => this with { TurnsRemaining = TurnsRemaining - 1 };
 

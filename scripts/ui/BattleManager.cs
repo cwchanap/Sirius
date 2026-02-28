@@ -871,16 +871,8 @@ public partial class BattleManager : AcceptDialog
                 GD.Print($"[BattleManager] Status effect expired: {eff.Type} on {_enemy.Name}");
         }
 
-        // Determine next turn based on current effective speeds (allows mid-battle speed changes to affect turn order)
-        int playerSpeed = _player.GetEffectiveSpeed();
-        int enemySpeed = _enemy.GetEffectiveSpeed();
-
-        if (playerSpeed > enemySpeed)
-            _playerTurn = true;
-        else if (enemySpeed > playerSpeed)
-            _playerTurn = false;
-        else
-            _playerTurn = !_playerTurn; // Tie: alternate
+        // Alternate turns - speed determined initiative at battle start
+        _playerTurn = !_playerTurn;
         UpdateUI();
         
         // Check for battle end conditions

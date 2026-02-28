@@ -466,7 +466,7 @@ public partial class BattleManager : AcceptDialog
                 btn.TooltipText = "Can only be used outside battle or at battle start";
             }
             ConsumableItem captured = consumable;
-            btn.Pressed += () => OnCombatItemSelected(captured, btn);
+            btn.Pressed += () => OnCombatItemSelected(captured);
             _itemPanel.AddChild(btn);
         }
 
@@ -490,7 +490,7 @@ public partial class BattleManager : AcceptDialog
         battleContent.AddChild(_itemPanel);
     }
 
-    private void OnCombatItemSelected(ConsumableItem item, Button sourceButton)
+    private void OnCombatItemSelected(ConsumableItem item)
     {
         if (_player == null || !_player.IsAlive) return;
 
@@ -505,6 +505,8 @@ public partial class BattleManager : AcceptDialog
                 }
                 else
                 {
+                    // Defensive rollback — CureStatusEffect.Apply currently always returns true,
+                    // but this branch handles any future effect that can fail after the item is removed.
                     GD.PushWarning($"[BattleManager] '{item.DisplayName}' was consumed but Apply returned false, attempting rollback");
                     bool rollbackSuccess = _player.TryAddItem(item, 1, out _);
                     if (!rollbackSuccess)

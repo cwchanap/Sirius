@@ -398,7 +398,7 @@ public partial class InventoryMenuController : Control
 
 		if (item.Effect?.RequiresBattle == true)
 		{
-			GD.Print($"[InventoryMenuController] '{item.DisplayName}' can only be used in battle");
+			GD.PushWarning($"[InventoryMenuController] '{item.DisplayName}' can only be used in battle (RequiresBattle=true)");
 			return;
 		}
 
@@ -412,7 +412,9 @@ public partial class InventoryMenuController : Control
 		if (!item.Apply(_gameManager.Player))
 		{
 			GD.PushWarning($"[InventoryMenuController] Failed to apply '{item.DisplayName}' after removal, attempting rollback");
-			_gameManager.Player.TryAddItem(item, 1, out _);
+			bool rollbackSuccess = _gameManager.Player.TryAddItem(item, 1, out _);
+			if (!rollbackSuccess)
+				GD.PrintErr($"[InventoryMenuController] ROLLBACK FAILED for '{item.DisplayName}' — item lost permanently!");
 			return;
 		}
 

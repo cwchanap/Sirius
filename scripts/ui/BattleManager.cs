@@ -387,7 +387,9 @@ public partial class BattleManager : AcceptDialog
                     else
                     {
                         GD.PushWarning($"[BattleManager] '{_selectedConsumable.DisplayName}' was consumed but could not be applied, attempting rollback");
-                        _player.TryAddItem(_selectedConsumable, 1, out _);
+                        bool rollbackSuccess = _player.TryAddItem(_selectedConsumable, 1, out _);
+                        if (!rollbackSuccess)
+                            GD.PrintErr($"[BattleManager] ROLLBACK FAILED for '{_selectedConsumable.DisplayName}' — item lost permanently!");
                         UpdateUI();
                     }
                 }

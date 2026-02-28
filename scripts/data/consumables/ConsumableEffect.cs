@@ -16,7 +16,7 @@ public abstract class ConsumableEffect
     /// </summary>
     public virtual bool RequiresBattle => false;
 
-    public abstract void Apply(Character target);
+    public abstract bool Apply(Character target);
 }
 
 // ---- Instant effects --------------------------------------------------------
@@ -32,11 +32,16 @@ public sealed class HealEffect : ConsumableEffect
 
     public override string Description => $"Restores {Amount} HP";
 
-    public override void Apply(Character target)
+    public override bool Apply(Character target)
     {
-        if (target == null) return;
+        if (target == null)
+        {
+            GD.PushWarning($"[HealEffect] Apply called with null target");
+            return false;
+        }
         target.Heal(Amount);
         GD.Print($"[HealEffect] {target.Name} healed for {Amount} HP");
+        return true;
     }
 }
 
@@ -79,11 +84,16 @@ public sealed class StatusEffectEffect : ConsumableEffect
         _                                                  => $"+{Magnitude} {_label} for {Turns} turns",
     };
 
-    public override void Apply(Character target)
+    public override bool Apply(Character target)
     {
-        if (target == null) return;
+        if (target == null)
+        {
+            GD.PushWarning($"[StatusEffectEffect] Apply called with null target");
+            return false;
+        }
         target.ActiveBuffs.Add(new ActiveStatusEffect(_type, Magnitude, Turns));
         GD.Print($"[StatusEffectEffect] {target.Name} gains {_type} ({Magnitude}) for {Turns} turns");
+        return true;
     }
 }
 
@@ -107,14 +117,21 @@ public sealed class CureStatusEffect : ConsumableEffect
 
     public override string Description => $"Cures {_label}";
 
-    public override void Apply(Character target)
+    public override bool Apply(Character target)
     {
-        if (target == null) return;
+        if (target == null)
+        {
+            GD.PushWarning($"[CureStatusEffect] Apply called with null target");
+            return false;
+        }
         bool removed = false;
         foreach (var type in _cures)
             removed |= target.ActiveBuffs.RemoveType(type);
         if (removed)
             GD.Print($"[CureStatusEffect] {target.Name} cured of {_label}");
+        else
+            GD.Print($"[CureStatusEffect] {target.Name} had no {_label} to cure (item consumed)");
+        return true; // Apply succeeded even if nothing was cured — intended no-op
     }
 }
 
@@ -143,9 +160,15 @@ public sealed class EnemyDebuffEffect : ConsumableEffect
     public override string Description => $"Inflicts {EffectType} on enemy for {Turns} turns";
 
     /// <remarks>
-    /// No-op — this effect targets the enemy. BattleManager calls ApplyToEnemy() directly.
+    /// Always returns false and logs a warning — this effect targets the enemy.
+    /// BattleManager must call ApplyToEnemy() directly.
     /// </remarks>
-    public override void Apply(Character target) { }
+    public override bool Apply(Character target)
+    {
+        GD.PushWarning($"[EnemyDebuffEffect] Apply(Character) called on an enemy-targeting effect ({EffectType}). " +
+                       $"Call ApplyToEnemy(Enemy) instead.");
+        return false;
+    }
 
     public void ApplyToEnemy(Enemy enemy)
     {

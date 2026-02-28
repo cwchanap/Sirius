@@ -459,6 +459,12 @@ public partial class BattleManager : AcceptDialog
                 Text        = $"{consumable.DisplayName} x{entry.Quantity}  ({consumable.EffectDescription})",
                 TooltipText = consumable.Description
             };
+            bool isCureItem = consumable.Effect is CureStatusEffect;
+            btn.Disabled = !isCureItem;
+            if (!isCureItem)
+            {
+                btn.TooltipText = "Can only be used outside battle or at battle start";
+            }
             ConsumableItem captured = consumable;
             btn.Pressed += () => OnCombatItemSelected(captured, btn);
             _itemPanel.AddChild(btn);
@@ -492,18 +498,24 @@ public partial class BattleManager : AcceptDialog
         {
             if (_player.TryRemoveItem(item.Id, 1))
             {
-                cureEffect.Apply(_player);
-                UpdateUI();
-                GD.Print($"[BattleManager] Used '{item.DisplayName}' mid-battle to cure status effects.");
+                if (cureEffect.Apply(_player))
+                {
+                    UpdateUI();
+                    GD.Print($"[BattleManager] Used '{item.DisplayName}' mid-battle to cure status effects.");
+                }
+                else
+                {
+                    GD.PushWarning($"[BattleManager] '{item.DisplayName}' was consumed but Apply returned false, attempting rollback");
+                    bool rollbackSuccess = _player.TryAddItem(item, 1, out _);
+                    if (!rollbackSuccess)
+                        GD.PrintErr($"[BattleManager] ROLLBACK FAILED for '{item.DisplayName}' — item lost permanently!");
+                    UpdateUI();
+                }
             }
             else
             {
                 GD.PushWarning($"[BattleManager] Could not consume '{item.DisplayName}'; item not removed.");
             }
-        }
-        else
-        {
-            GD.Print($"[BattleManager] '{item.DisplayName}' cannot be used mid-battle (only cure items work).");
         }
 
         if (_itemPanel != null && IsInstanceValid(_itemPanel))

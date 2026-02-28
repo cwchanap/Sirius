@@ -56,7 +56,6 @@ public partial class ConsumableItem : Item
             return false;
         }
 
-        _effect.Apply(target);
-        return true;
+        return _effect.Apply(target);
     }
 }

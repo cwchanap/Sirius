@@ -36,7 +36,7 @@ public sealed class HealEffect : ConsumableEffect
     {
         if (target == null)
         {
-            GD.PushWarning($"[HealEffect] Apply called with null target");
+            GD.PushWarning("[HealEffect] Apply called with null target");
             return false;
         }
         target.Heal(Amount);
@@ -88,7 +88,7 @@ public sealed class StatusEffectEffect : ConsumableEffect
     {
         if (target == null)
         {
-            GD.PushWarning($"[StatusEffectEffect] Apply called with null target");
+            GD.PushWarning("[StatusEffectEffect] Apply called with null target");
             return false;
         }
         target.ActiveBuffs.Add(new ActiveStatusEffect(_type, Magnitude, Turns));
@@ -121,7 +121,7 @@ public sealed class CureStatusEffect : ConsumableEffect
     {
         if (target == null)
         {
-            GD.PushWarning($"[CureStatusEffect] Apply called with null target");
+            GD.PushWarning("[CureStatusEffect] Apply called with null target");
             return false;
         }
         bool removed = false;
@@ -172,7 +172,11 @@ public sealed class EnemyDebuffEffect : ConsumableEffect
 
     public void ApplyToEnemy(Enemy enemy)
     {
-        if (enemy == null) return;
+        if (enemy == null)
+        {
+            GD.PushWarning($"[EnemyDebuffEffect] ApplyToEnemy called with null enemy");
+            return;
+        }
         enemy.ActiveStatusEffects.Add(new ActiveStatusEffect(EffectType, Magnitude, Turns));
         GD.Print($"[EnemyDebuffEffect] {enemy.Name} inflicted with {EffectType} ({Magnitude}) for {Turns} turns");
     }

@@ -47,7 +47,7 @@ public partial class ConsumableItemTest : Godot.Node
     }
 
     [TestCase]
-    public void CureEffect_Apply_NothingToCure_ReturnsTrueAndItemConsumed()
+    public void CureEffect_Apply_NothingToCure_ReturnsTrue()
     {
         var character = TestHelpers.CreateTestCharacter(); // no debuffs
         var antidote = ConsumableCatalog.CreateAntidote();

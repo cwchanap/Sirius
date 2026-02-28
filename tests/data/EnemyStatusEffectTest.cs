@@ -178,7 +178,7 @@ public partial class EnemyStatusEffectTest : Godot.Node
         }
         else
         {
-            AssertThat("PoisonVial.Effect").IsEqual("EnemyDebuffEffect");
+            AssertThat(false).OverrideFailureMessage("PoisonVial.Effect should be EnemyDebuffEffect, but was: " + (vial.Effect?.GetType().Name ?? "null")).IsTrue();
         }
     }
 

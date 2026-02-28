@@ -1,3 +1,4 @@
+using System;
 using GdUnit4;
 using static GdUnit4.Assertions;
 
@@ -213,5 +214,32 @@ public partial class StatusEffectSetTest : Godot.Node
         set.Clear();
         AssertThat(set.Effects.Count).IsEqual(0);
         AssertThat(set.HasAny).IsFalse();
+    }
+
+    // ---- ActiveStatusEffect validation ------------------------------------------
+
+    [TestCase]
+    public void ActiveStatusEffect_NegativeMagnitude_Throws()
+    {
+        AssertThrown(() => new ActiveStatusEffect(StatusEffectType.Poison, -1, 3))
+            .IsInstanceOf<ArgumentOutOfRangeException>();
+    }
+
+    [TestCase]
+    public void ActiveStatusEffect_ZeroMagnitude_IsValid()
+    {
+        // Stun and Blind use Magnitude=0 by design
+        var effect = new ActiveStatusEffect(StatusEffectType.Stun, 0, 2);
+        AssertThat(effect.Magnitude).IsEqual(0);
+    }
+
+    [TestCase]
+    public void ActiveStatusEffect_Tick_CanProduceExpiredState()
+    {
+        // TurnsRemaining is NOT validated — Tick() must be able to produce TurnsRemaining=0
+        var effect = new ActiveStatusEffect(StatusEffectType.Poison, 5, 1);
+        var ticked = effect.Tick();
+        AssertThat(ticked.IsExpired).IsTrue();
+        AssertThat(ticked.TurnsRemaining).IsEqual(0);
     }
 }

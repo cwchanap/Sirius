@@ -36,6 +36,42 @@ public partial class ConsumableItemTest : Godot.Node
         AssertThat(result).IsFalse();
     }
 
+    [TestCase]
+    public void ConsumableItem_Apply_NullEffect_ReturnsFalse()
+    {
+        var item = new ConsumableItem { Id = "test_no_effect", DisplayName = "Broken Item" };
+        // Effect intentionally not set
+        var character = TestHelpers.CreateTestCharacter();
+        bool result = item.Apply(character);
+        AssertThat(result).IsFalse();
+    }
+
+    [TestCase]
+    public void CureEffect_Apply_NothingToCure_ReturnsTrueAndItemConsumed()
+    {
+        var character = TestHelpers.CreateTestCharacter(); // no debuffs
+        var antidote = ConsumableCatalog.CreateAntidote();
+
+        // Antidote on a clean character: Apply returns true (item is consumed by caller),
+        // but no debuff is actually removed.
+        bool result = antidote.Apply(character);
+        AssertThat(result).IsTrue();
+        AssertThat(character.ActiveBuffs.HasAny).IsFalse();
+    }
+
+    [TestCase]
+    public void CureEffect_Apply_WhenPoisoned_RemovesPoison()
+    {
+        var character = TestHelpers.CreateTestCharacter();
+        character.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Poison, 5, 3));
+
+        var antidote = ConsumableCatalog.CreateAntidote();
+        bool result = antidote.Apply(character);
+
+        AssertThat(result).IsTrue();
+        AssertThat(character.ActiveBuffs.HasAny).IsFalse();
+    }
+
     // ---- HealEffect ----------------------------------------------------------
 
     [TestCase]

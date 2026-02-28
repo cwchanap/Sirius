@@ -874,6 +874,7 @@ public partial class BattleManager : AcceptDialog
         }
 
         // Dynamic turn order based on effective speed - allows mid-battle speed changes to affect turn priority
+        bool justActed = _playerTurn; // Track who just acted BEFORE computing next turn
         bool playerFaster = _player.GetEffectiveSpeed() >= _enemy.GetEffectiveSpeed();
         if (playerFaster == _playerActedLast)
         {
@@ -885,7 +886,7 @@ public partial class BattleManager : AcceptDialog
             // Normal alternation follows speed advantage
             _playerTurn = playerFaster;
         }
-        _playerActedLast = _playerTurn;
+        _playerActedLast = justActed; // Track who actually acted, not who's next
         UpdateUI();
         
         // Check for battle end conditions

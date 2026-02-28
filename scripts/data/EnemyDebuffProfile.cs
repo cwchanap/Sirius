@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 /// <summary>
@@ -5,12 +6,26 @@ using System.Collections.Generic;
 /// BattleManager rolls Chance each time the enemy attacks; on success, the effect
 /// is applied to the player.
 /// </summary>
-public record EnemyDebuffAbility(
-    StatusEffectType EffectType,
-    int              Magnitude,
-    int              Duration,   // turns
-    float            Chance      // 0.0–1.0
-);
+public record EnemyDebuffAbility
+{
+    public StatusEffectType EffectType { get; }
+    public int              Magnitude  { get; }
+    public int              Duration   { get; }   // turns
+    public float            Chance     { get; }   // 0.0–1.0
+
+    public EnemyDebuffAbility(StatusEffectType effectType, int magnitude, int duration, float chance)
+    {
+        if (chance < 0f || chance > 1f)
+            throw new ArgumentOutOfRangeException(nameof(chance), chance, "Must be in [0.0, 1.0].");
+        if (duration < 1)
+            throw new ArgumentOutOfRangeException(nameof(duration), duration, "Must be at least 1 turn.");
+
+        EffectType = effectType;
+        Magnitude  = magnitude;
+        Duration   = duration;
+        Chance     = chance;
+    }
+}
 
 /// <summary>
 /// Static lookup table mapping EnemyTypeId constants to the debuff abilities that
@@ -21,7 +36,7 @@ public record EnemyDebuffAbility(
 /// </summary>
 public static class EnemyDebuffProfile
 {
-    private static readonly Dictionary<string, EnemyDebuffAbility[]> _profiles = new()
+    private static readonly Dictionary<string, IReadOnlyList<EnemyDebuffAbility>> _profiles = new()
     {
         [EnemyTypeId.Goblin] = new[]
         {
@@ -52,6 +67,6 @@ public static class EnemyDebuffProfile
     /// Returns the debuff abilities for the given enemy type, or null if that
     /// enemy has no debuff abilities (normal attacks only).
     /// </summary>
-    public static EnemyDebuffAbility[]? GetAbilities(string? enemyType)
+    public static IReadOnlyList<EnemyDebuffAbility>? GetAbilities(string? enemyType)
         => _profiles.TryGetValue(enemyType?.ToLowerInvariant() ?? string.Empty, out var abilities) ? abilities : null;
 }

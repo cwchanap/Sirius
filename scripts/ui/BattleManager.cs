@@ -432,7 +432,7 @@ public partial class BattleManager : AcceptDialog
         if (!_battleInProgress || _player == null) return;
         if (_itemPanel != null && IsInstanceValid(_itemPanel) && _itemPanel.Visible) return;
 
-        ShowCombatItemPanel();
+        CallDeferred(nameof(ShowCombatItemPanel));
     }
 
     private void ShowCombatItemPanel()

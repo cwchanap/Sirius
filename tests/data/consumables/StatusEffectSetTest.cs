@@ -242,4 +242,32 @@ public partial class StatusEffectSetTest : Godot.Node
         AssertThat(ticked.IsExpired).IsTrue();
         AssertThat(ticked.TurnsRemaining).IsEqual(0);
     }
+
+    // ---- Multi-effect accumulation ----------------------------------------------
+
+    [TestCase]
+    public void Tick_AccumulatesMultipleDoTs()
+    {
+        var set = new StatusEffectSet();
+        set.Add(new ActiveStatusEffect(StatusEffectType.Poison, 5, 2));
+        set.Add(new ActiveStatusEffect(StatusEffectType.Burn,   3, 2));
+
+        var (_, dot, _) = set.Tick();
+
+        // Both DoTs accumulate: max(1, 5) + max(1, 3) = 8
+        AssertThat(dot).IsEqual(8);
+    }
+
+    [TestCase]
+    public void Tick_DoTAndHoT_AccumulateSeparately()
+    {
+        var set = new StatusEffectSet();
+        set.Add(new ActiveStatusEffect(StatusEffectType.Poison, 5, 2));
+        set.Add(new ActiveStatusEffect(StatusEffectType.Regen,  3, 2));
+
+        var (_, dot, hot) = set.Tick();
+
+        AssertThat(dot).IsEqual(5);
+        AssertThat(hot).IsEqual(3);
+    }
 }

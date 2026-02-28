@@ -244,4 +244,28 @@ public partial class ConsumableItemTest : Godot.Node
         AssertThat(item is ConsumableItem).IsTrue();
         AssertThat(item!.Category).IsEqual(ItemCategory.Consumable);
     }
+
+    // ---- TakeDamage with status effect buffs ------------------------------------
+
+    [TestCase]
+    public void TakeDamage_WithFortifyBuff_ReducesDamageByBonusDefense()
+    {
+        var character = TestHelpers.CreateTestCharacter(); // Defense = 10, HP = 100
+        character.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Fortify, 5, 3));
+
+        // GetEffectiveDefense() = 10 (base) + 5 (Fortify) = 15
+        // actual damage = max(1, 20 - 15) = 5
+        character.TakeDamage(20);
+
+        AssertThat(character.CurrentHealth).IsEqual(95);
+    }
+
+    [TestCase]
+    public void TakeDamage_WithoutBuff_UsesBaseDefense()
+    {
+        var character = TestHelpers.CreateTestCharacter(); // Defense = 10, HP = 100
+        // actual damage = max(1, 20 - 10) = 10
+        character.TakeDamage(20);
+        AssertThat(character.CurrentHealth).IsEqual(90);
+    }
 }

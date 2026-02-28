@@ -110,7 +110,8 @@ public partial class Character : Resource
     public int GetEffectiveDefense()
     {
         EnsureEquipment();
-        return Defense + Equipment.GetDefenseBonus() + ActiveBuffs.GetDefenseFlatBonus();
+        int flatDefense = Defense + Equipment.GetDefenseBonus() + ActiveBuffs.GetDefenseFlatBonus();
+        return Mathf.Max(0, flatDefense);
     }
 
     public int GetEffectiveSpeed()

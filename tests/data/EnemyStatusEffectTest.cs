@@ -1,3 +1,4 @@
+using System;
 using GdUnit4;
 using static GdUnit4.Assertions;
 
@@ -96,7 +97,7 @@ public partial class EnemyStatusEffectTest : Godot.Node
     {
         var abilities = EnemyDebuffProfile.GetAbilities(EnemyTypeId.Goblin);
         AssertThat(abilities).IsNotNull();
-        AssertThat(abilities!.Length).IsGreaterEqual(1);
+        AssertThat(abilities!.Count).IsGreaterEqual(1);
         AssertThat((int)abilities[0].EffectType).IsEqual((int)StatusEffectType.Poison);
     }
 
@@ -196,5 +197,44 @@ public partial class EnemyStatusEffectTest : Godot.Node
         var player = TestHelpers.CreateTestCharacter();
         player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Blind, 0, 2));
         AssertThat(player.GetEffectiveAccuracy()).IsEqual(55);
+    }
+
+    // ---- EnemyDebuffAbility validation ------------------------------------------
+
+    [TestCase]
+    public void EnemyDebuffAbility_InvalidChance_Throws()
+    {
+        AssertThrown(() => new EnemyDebuffAbility(StatusEffectType.Poison, 5, 3, 1.5f))
+            .IsInstanceOf<ArgumentOutOfRangeException>();
+    }
+
+    [TestCase]
+    public void EnemyDebuffAbility_NegativeChance_Throws()
+    {
+        AssertThrown(() => new EnemyDebuffAbility(StatusEffectType.Poison, 5, 3, -0.1f))
+            .IsInstanceOf<ArgumentOutOfRangeException>();
+    }
+
+    [TestCase]
+    public void EnemyDebuffAbility_ZeroDuration_Throws()
+    {
+        AssertThrown(() => new EnemyDebuffAbility(StatusEffectType.Poison, 5, 0, 0.20f))
+            .IsInstanceOf<ArgumentOutOfRangeException>();
+    }
+
+    [TestCase]
+    public void EnemyDebuffProfile_GetAbilities_KnownEnemy_ReturnsAbilities()
+    {
+        var abilities = EnemyDebuffProfile.GetAbilities(EnemyTypeId.Goblin);
+        AssertThat(abilities).IsNotNull();
+        AssertThat(abilities!.Count).IsGreater(0);
+        AssertThat((int)abilities[0].EffectType).IsEqual((int)StatusEffectType.Poison);
+    }
+
+    [TestCase]
+    public void EnemyDebuffProfile_GetAbilities_UnknownEnemy_ReturnsNull()
+    {
+        var abilities = EnemyDebuffProfile.GetAbilities("unknown_xyz");
+        AssertThat(abilities).IsNull();
     }
 }

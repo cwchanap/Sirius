@@ -40,6 +40,7 @@ public partial class BattleManager : AcceptDialog
     private bool _resultEmitted = false; // Guards against double-emission in the common case; timer stop and signal emit must always be called together
     private readonly Random _rng = new();
     private LootResult? _pendingLootDisplay;
+    private bool _playerActedLast = false;
 
     // Pre-battle item selection
     private VBoxContainer _itemPanel;
@@ -243,6 +244,7 @@ public partial class BattleManager : AcceptDialog
         _player = player;
         _enemy = enemy;
         _playerTurn = true; // Placeholder; determined after pre-battle consumables in OnStartButtonPressed()
+        _playerActedLast = false; // Reset turn tracking for dynamic speed-based turn order
         _battleInProgress = false;
         _pendingLootDisplay = null;
         // Clean up any loot label left from a previous battle
@@ -871,8 +873,19 @@ public partial class BattleManager : AcceptDialog
                 GD.Print($"[BattleManager] Status effect expired: {eff.Type} on {_enemy.Name}");
         }
 
-        // Alternate turns - speed determined initiative at battle start
-        _playerTurn = !_playerTurn;
+        // Dynamic turn order based on effective speed - allows mid-battle speed changes to affect turn priority
+        bool playerFaster = _player.GetEffectiveSpeed() >= _enemy.GetEffectiveSpeed();
+        if (playerFaster == _playerActedLast)
+        {
+            // Same-side would act twice in a row - switch to give slower side a turn
+            _playerTurn = !_playerActedLast;
+        }
+        else
+        {
+            // Normal alternation follows speed advantage
+            _playerTurn = playerFaster;
+        }
+        _playerActedLast = _playerTurn;
         UpdateUI();
         
         // Check for battle end conditions

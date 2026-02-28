@@ -432,10 +432,15 @@ public partial class InventoryMenuController : Control
 
 		if (replacedItem != null)
 		{
-			_gameManager.Player.TryAddItem(replacedItem, 1, out _);
+			bool returned = _gameManager.Player.TryAddItem(replacedItem, 1, out _);
+			if (!returned)
+				GD.PrintErr($"[InventoryMenuController] Failed to return '{replacedItem.DisplayName}' to inventory after swap — item lost!");
 		}
 
-		_gameManager.Player.TryRemoveItem(item.Id, 1);
+		bool removed = _gameManager.Player.TryRemoveItem(item.Id, 1);
+		if (!removed)
+			GD.PrintErr($"[InventoryMenuController] Failed to remove '{item.DisplayName}' from inventory after equipping — possible duplication!");
+
 		GD.Print($"Equipped {item.DisplayName}");
 		RefreshUI();
 	}

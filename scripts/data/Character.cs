@@ -44,11 +44,12 @@ public partial class Character : Resource
         return Inventory.ContainsItem(itemId);
     }
 
-    public void TakeDamage(int damage)
+    public int TakeDamage(int damage)
     {
         int actualDamage = Mathf.Max(1, damage - GetEffectiveDefense());
         CurrentHealth = Mathf.Max(0, CurrentHealth - actualDamage);
         GD.Print($"{Name} takes {actualDamage} damage! Health: {CurrentHealth}/{GetEffectiveMaxHealth()}");
+        return actualDamage;
     }
 
     public void Heal(int amount)

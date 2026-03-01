@@ -34,11 +34,12 @@ public partial class Enemy : Resource
         return Mathf.Max(1, (int)(flat * ActiveStatusEffects.GetSpeedMultiplier()));
     }
 
-    public void TakeDamage(int damage)
+    public int TakeDamage(int damage)
     {
         int actualDamage = Mathf.Max(1, damage - GetEffectiveDefense());
         CurrentHealth = Mathf.Max(0, CurrentHealth - actualDamage);
         GD.Print($"{Name} takes {actualDamage} damage! Health: {CurrentHealth}/{MaxHealth}");
+        return actualDamage;
     }
 
     public static Enemy CreateGoblin()          => EnemyBlueprint.CreateGoblinBlueprint().CreateEnemy();

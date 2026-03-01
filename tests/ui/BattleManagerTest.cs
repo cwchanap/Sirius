@@ -14,6 +14,8 @@ using static GdUnit4.Assertions;
 [RequireGodotRuntime]
 public partial class BattleManagerTest : Node
 {
+    private const float ActionPointThreshold = 100f;
+
     // ---- Turn order (speed-based) --------------------------------------------
 
     [TestCase]
@@ -68,6 +70,24 @@ public partial class BattleManagerTest : Node
         bool playerGoesFirst = effectivePlayerSpeed >= effectiveEnemySpeed;
         AssertThat(playerGoesFirst).IsFalse()
             .OverrideFailureMessage("Slowed player should go second despite higher base speed");
+    }
+
+    [TestCase]
+    public void ActionPointScheduling_FastActorShare_MatchesSpeedRatio()
+    {
+        int playerActions = SimulateActionCount(playerSpeed: 18, enemySpeed: 6, ticks: 1000, out int enemyActions);
+        double share = (double)playerActions / (playerActions + enemyActions);
+
+        // Expected share = 18 / (18 + 6) = 0.75
+        AssertThat(share).IsEqual(0.75d);
+    }
+
+    [TestCase]
+    public void ActionPointScheduling_EqualSpeed_AlternatesTieBreaks()
+    {
+        int playerActions = SimulateActionCount(playerSpeed: 10, enemySpeed: 10, ticks: 300, out int enemyActions);
+        AssertThat(playerActions).IsEqual(enemyActions)
+            .OverrideFailureMessage("Equal speeds should produce equal action counts over time");
     }
 
     // ---- Pre-battle consumable application (mirrors OnStartButtonPressed) ----
@@ -145,5 +165,58 @@ public partial class BattleManagerTest : Node
         debuffEffect.ApplyToEnemy(enemy);
 
         AssertThat(enemy.ActiveStatusEffects.HasAny).IsTrue();
+    }
+
+    private static int SimulateActionCount(int playerSpeed, int enemySpeed, int ticks, out int enemyActions)
+    {
+        float playerAp = 0f;
+        float enemyAp = 0f;
+        bool playerActedLast = false;
+        int playerActions = 0;
+        enemyActions = 0;
+
+        for (int tick = 0; tick < ticks; tick++)
+        {
+            playerAp += playerSpeed * 6f;
+            enemyAp += enemySpeed * 6f;
+
+            const int maxActionsPerTick = 4;
+            for (int actionIndex = 0; actionIndex < maxActionsPerTick; actionIndex++)
+            {
+                bool playerReady = playerAp >= ActionPointThreshold;
+                bool enemyReady = enemyAp >= ActionPointThreshold;
+                if (!playerReady && !enemyReady)
+                    break;
+
+                bool playerActs;
+                if (playerReady && enemyReady)
+                {
+                    float apGap = Mathf.Abs(playerAp - enemyAp);
+                    if (apGap < 0.001f)
+                        playerActs = !playerActedLast;
+                    else
+                        playerActs = playerAp > enemyAp;
+                }
+                else
+                {
+                    playerActs = playerReady;
+                }
+
+                if (playerActs)
+                {
+                    playerAp -= ActionPointThreshold;
+                    playerActions++;
+                }
+                else
+                {
+                    enemyAp -= ActionPointThreshold;
+                    enemyActions++;
+                }
+
+                playerActedLast = playerActs;
+            }
+        }
+
+        return playerActions;
     }
 }

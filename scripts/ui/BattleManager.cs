@@ -876,7 +876,7 @@ public partial class BattleManager : AcceptDialog
         // Dynamic turn order based on effective speed - allows mid-battle speed changes to affect turn priority
         bool justActed = _playerTurn; // Track who just acted BEFORE computing next turn
         bool playerFaster = _player.GetEffectiveSpeed() >= _enemy.GetEffectiveSpeed();
-        if (playerFaster == _playerActedLast)
+        if (playerFaster == justActed)
         {
             // Same-side would act twice in a row - switch to give slower side a turn
             _playerTurn = !_playerActedLast;

@@ -887,18 +887,32 @@ public partial class BattleManager : AcceptDialog
         _playerActionPoints += _player.GetEffectiveSpeed();
         _enemyActionPoints += _enemy.GetEffectiveSpeed();
 
-        // Determine who acts next based on accumulated action points
+        // Determine who acts next based on threshold readiness (who has enough AP to act)
+        bool playerReady = _playerActionPoints >= ACTION_POINT_THRESHOLD;
+        bool enemyReady = _enemyActionPoints >= ACTION_POINT_THRESHOLD;
+
         bool justActed = _playerTurn;
-        if (_playerActionPoints >= _enemyActionPoints)
+
+        if (playerReady && enemyReady)
+        {
+            // Both ready - higher AP acts first (player wins ties)
+            _playerTurn = _playerActionPoints >= _enemyActionPoints;
+        }
+        else if (playerReady)
         {
             _playerTurn = true;
-            _playerActionPoints -= ACTION_POINT_THRESHOLD;
         }
-        else
+        else if (enemyReady)
         {
             _playerTurn = false;
-            _enemyActionPoints -= ACTION_POINT_THRESHOLD;
         }
+        // else: neither ready, keep current turn (will wait until next tick)
+
+        // Only spend AP when the actor actually qualifies to act
+        if (_playerTurn && playerReady)
+            _playerActionPoints -= ACTION_POINT_THRESHOLD;
+        else if (!_playerTurn && enemyReady)
+            _enemyActionPoints -= ACTION_POINT_THRESHOLD;
         _playerActedLast = justActed; // Track who actually acted, not who's next
         UpdateUI();
         

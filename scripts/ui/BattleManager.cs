@@ -879,7 +879,7 @@ public partial class BattleManager : AcceptDialog
         if (playerFaster == justActed)
         {
             // Same-side would act twice in a row - switch to give slower side a turn
-            _playerTurn = !_playerActedLast;
+            _playerTurn = !justActed;
         }
         else
         {

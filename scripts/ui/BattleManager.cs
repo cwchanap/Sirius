@@ -823,8 +823,39 @@ public partial class BattleManager : AcceptDialog
             _battleTimer.Stop();
             return;
         }
-        
-        if (_playerTurn)
+
+        // Action point system: speed determines turn frequency, not just initial priority
+        // Accumulate action points based on effective speed each turn
+        _playerActionPoints += _player.GetEffectiveSpeed();
+        _enemyActionPoints += _enemy.GetEffectiveSpeed();
+
+        // Check readiness BEFORE executing actions
+        bool playerReady = _playerActionPoints >= ACTION_POINT_THRESHOLD;
+        bool enemyReady = _enemyActionPoints >= ACTION_POINT_THRESHOLD;
+
+        // Determine who acts this tick based on threshold readiness
+        if (playerReady && enemyReady)
+        {
+            // Both ready - higher AP acts first (player wins ties)
+            _playerTurn = _playerActionPoints >= _enemyActionPoints;
+        }
+        else if (playerReady)
+        {
+            _playerTurn = true;
+        }
+        else if (enemyReady)
+        {
+            _playerTurn = false;
+        }
+        else
+        {
+            // Neither ready - skip this tick, no actions
+            UpdateUI();
+            return;
+        }
+
+        // Execute actions only if the actor is ready
+        if (_playerTurn && playerReady)
         {
             // Stun check: stunned player loses their action but still ticks
             if (_player.ActiveBuffs.IsStunned)
@@ -851,8 +882,11 @@ public partial class BattleManager : AcceptDialog
             }
             foreach (var eff in expiredPlayer)
                 GD.Print($"[BattleManager] Status effect expired: {eff.Type} on {_player.Name}");
+
+            // Spend AP after acting
+            _playerActionPoints -= ACTION_POINT_THRESHOLD;
         }
-        else
+        else if (!_playerTurn && enemyReady)
         {
             // Stun check: stunned enemy loses their action but still ticks
             if (_enemy.ActiveStatusEffects.IsStunned)
@@ -880,40 +914,12 @@ public partial class BattleManager : AcceptDialog
             }
             foreach (var eff in expiredEnemy)
                 GD.Print($"[BattleManager] Status effect expired: {eff.Type} on {_enemy.Name}");
-        }
 
-        // Action point system: speed determines turn frequency, not just initial priority
-        // Accumulate action points based on effective speed each turn
-        _playerActionPoints += _player.GetEffectiveSpeed();
-        _enemyActionPoints += _enemy.GetEffectiveSpeed();
-
-        // Determine who acts next based on threshold readiness (who has enough AP to act)
-        bool playerReady = _playerActionPoints >= ACTION_POINT_THRESHOLD;
-        bool enemyReady = _enemyActionPoints >= ACTION_POINT_THRESHOLD;
-
-        bool justActed = _playerTurn;
-
-        if (playerReady && enemyReady)
-        {
-            // Both ready - higher AP acts first (player wins ties)
-            _playerTurn = _playerActionPoints >= _enemyActionPoints;
-        }
-        else if (playerReady)
-        {
-            _playerTurn = true;
-        }
-        else if (enemyReady)
-        {
-            _playerTurn = false;
-        }
-        // else: neither ready, keep current turn (will wait until next tick)
-
-        // Only spend AP when the actor actually qualifies to act
-        if (_playerTurn && playerReady)
-            _playerActionPoints -= ACTION_POINT_THRESHOLD;
-        else if (!_playerTurn && enemyReady)
+            // Spend AP after acting
             _enemyActionPoints -= ACTION_POINT_THRESHOLD;
-        _playerActedLast = justActed; // Track who actually acted, not who's next
+        }
+
+        _playerActedLast = _playerTurn;
         UpdateUI();
         
         // Check for battle end conditions

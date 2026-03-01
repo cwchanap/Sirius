@@ -307,6 +307,27 @@ public partial class BattleManager : AcceptDialog
         _itemPanel.AddChild(title);
 
         bool hasConsumables = false;
+
+        var clearSelectionButton = new Button
+        {
+            Text = "Use no item"
+        };
+        clearSelectionButton.Pressed += () =>
+        {
+            _selectedConsumable = null;
+            GD.Print("[BattleManager] Pre-battle item selection cleared.");
+
+            if (_itemPanel != null && IsInstanceValid(_itemPanel))
+            {
+                foreach (var child in _itemPanel.GetChildren())
+                {
+                    if (child is Button btn && btn != clearSelectionButton)
+                        btn.Disabled = false;
+                }
+            }
+        };
+        _itemPanel.AddChild(clearSelectionButton);
+
         foreach (var entry in _player.Inventory.GetAllEntries())
         {
             if (entry.Item is not ConsumableItem consumable) continue;
@@ -318,7 +339,7 @@ public partial class BattleManager : AcceptDialog
                 TooltipText = consumable.Description
             };
             ConsumableItem captured = consumable;
-            btn.Pressed += () => OnConsumableSelected(captured, btn);
+            btn.Pressed += () => OnConsumableSelected(captured, btn, clearSelectionButton);
             _itemPanel.AddChild(btn);
         }
 
@@ -343,7 +364,7 @@ public partial class BattleManager : AcceptDialog
         battleContent.MoveChild(_itemPanel, insertIndex);
     }
 
-    private void OnConsumableSelected(ConsumableItem item, Button sourceButton)
+    private void OnConsumableSelected(ConsumableItem item, Button sourceButton, Button clearSelectionButton)
     {
         _selectedConsumable = item;
         GD.Print($"[BattleManager] Pre-battle item selected: {item.DisplayName}");
@@ -353,7 +374,7 @@ public partial class BattleManager : AcceptDialog
         {
             foreach (var child in _itemPanel.GetChildren())
             {
-                if (child is Button btn) btn.Disabled = false;
+                if (child is Button btn && btn != clearSelectionButton) btn.Disabled = false;
             }
         }
         sourceButton.Disabled = true;
@@ -829,97 +850,59 @@ public partial class BattleManager : AcceptDialog
         _playerActionPoints += _player.GetEffectiveSpeed() * 6f;
         _enemyActionPoints += _enemy.GetEffectiveSpeed() * 6f;
 
-        // Check readiness BEFORE executing actions
-        bool playerReady = _playerActionPoints >= ACTION_POINT_THRESHOLD;
-        bool enemyReady = _enemyActionPoints >= ACTION_POINT_THRESHOLD;
+        bool actedThisTick = false;
+        int maxActionsPerTick = 4;
+        for (int actionIndex = 0; actionIndex < maxActionsPerTick; actionIndex++)
+        {
+            bool playerReady = _playerActionPoints >= ACTION_POINT_THRESHOLD;
+            bool enemyReady = _enemyActionPoints >= ACTION_POINT_THRESHOLD;
 
-        // Determine who acts this tick based on threshold readiness
-        if (playerReady && enemyReady)
-        {
-            // Both ready - higher AP acts first (player wins ties)
-            _playerTurn = _playerActionPoints >= _enemyActionPoints;
+            if (!playerReady && !enemyReady)
+                break;
+
+            bool playerActs;
+            if (playerReady && enemyReady)
+            {
+                float apGap = Mathf.Abs(_playerActionPoints - _enemyActionPoints);
+                if (apGap < 0.001f)
+                {
+                    // Alternate exact AP ties to avoid deterministic tie starvation.
+                    playerActs = !_playerActedLast;
+                }
+                else
+                {
+                    playerActs = _playerActionPoints > _enemyActionPoints;
+                }
+            }
+            else
+            {
+                playerActs = playerReady;
+            }
+
+            _playerTurn = playerActs;
+            actedThisTick = true;
+
+            if (playerActs)
+            {
+                ExecutePlayerAction();
+            }
+            else
+            {
+                ExecuteEnemyAction();
+            }
+
+            _playerActedLast = playerActs;
+
+            if (!_player.IsAlive || !_enemy.IsAlive)
+                break;
         }
-        else if (playerReady)
+
+        if (!actedThisTick)
         {
-            _playerTurn = true;
-        }
-        else if (enemyReady)
-        {
-            _playerTurn = false;
-        }
-        else
-        {
-            // Neither ready - skip this tick, no actions
             UpdateUI();
             return;
         }
 
-        // Execute actions only if the actor is ready
-        if (_playerTurn && playerReady)
-        {
-            // Stun check: stunned player loses their action but still ticks
-            if (_player.ActiveBuffs.IsStunned)
-            {
-                GD.Print($"[BattleManager] {_player.Name} is Stunned and loses their turn!");
-            }
-            else
-            {
-                PlayerAutoAction();
-            }
-
-            // Tick player status effects (DoT, HoT, duration countdown)
-            var (expiredPlayer, dotPlayer, hotPlayer) = _player.ActiveBuffs.Tick();
-            if (dotPlayer > 0)
-            {
-                _player.CurrentHealth = Godot.Mathf.Max(0, _player.CurrentHealth - dotPlayer);
-                GD.Print($"[BattleManager] {_player.Name} takes {dotPlayer} status damage!");
-                ShowDamageNumber(_playerDamageLabel, dotPlayer);
-            }
-            if (hotPlayer > 0 && _player.IsAlive)
-            {
-                _player.Heal(hotPlayer);
-                GD.Print($"[BattleManager] {_player.Name} regenerates {hotPlayer} HP!");
-            }
-            foreach (var eff in expiredPlayer)
-                GD.Print($"[BattleManager] Status effect expired: {eff.Type} on {_player.Name}");
-
-            // Spend AP after acting
-            _playerActionPoints -= ACTION_POINT_THRESHOLD;
-        }
-        else if (!_playerTurn && enemyReady)
-        {
-            // Stun check: stunned enemy loses their action but still ticks
-            if (_enemy.ActiveStatusEffects.IsStunned)
-            {
-                GD.Print($"[BattleManager] {_enemy.Name} is Stunned and loses their turn!");
-            }
-            else
-            {
-                EnemyTurn(_playerDefendedLastTurn);
-            }
-            _playerDefendedLastTurn = false;
-
-            // Tick enemy status effects
-            var (expiredEnemy, dotEnemy, hotEnemy) = _enemy.ActiveStatusEffects.Tick();
-            if (dotEnemy > 0)
-            {
-                _enemy.CurrentHealth = Godot.Mathf.Max(0, _enemy.CurrentHealth - dotEnemy);
-                GD.Print($"[BattleManager] {_enemy.Name} takes {dotEnemy} status damage!");
-                ShowDamageNumber(_enemyDamageLabel, dotEnemy);
-            }
-            if (hotEnemy > 0 && _enemy.IsAlive)
-            {
-                _enemy.CurrentHealth = Godot.Mathf.Min(_enemy.MaxHealth, _enemy.CurrentHealth + hotEnemy);
-                GD.Print($"[BattleManager] {_enemy.Name} regenerates {hotEnemy} HP!");
-            }
-            foreach (var eff in expiredEnemy)
-                GD.Print($"[BattleManager] Status effect expired: {eff.Type} on {_enemy.Name}");
-
-            // Spend AP after acting
-            _enemyActionPoints -= ACTION_POINT_THRESHOLD;
-        }
-
-        _playerActedLast = _playerTurn;
         UpdateUI();
         
         // Check for battle end conditions
@@ -933,6 +916,71 @@ public partial class BattleManager : AcceptDialog
             _battleTimer.Stop();
             EndBattle(true);
         }
+    }
+
+    private void ExecutePlayerAction()
+    {
+        // Stun check: stunned player loses their action but still ticks
+        if (_player.ActiveBuffs.IsStunned)
+        {
+            GD.Print($"[BattleManager] {_player.Name} is Stunned and loses their turn!");
+        }
+        else
+        {
+            PlayerAutoAction();
+        }
+
+        // Tick player status effects (DoT, HoT, duration countdown)
+        var (expiredPlayer, dotPlayer, hotPlayer) = _player.ActiveBuffs.Tick();
+        if (dotPlayer > 0)
+        {
+            _player.CurrentHealth = Godot.Mathf.Max(0, _player.CurrentHealth - dotPlayer);
+            GD.Print($"[BattleManager] {_player.Name} takes {dotPlayer} status damage!");
+            ShowDamageNumber(_playerDamageLabel, dotPlayer);
+        }
+        if (hotPlayer > 0 && _player.IsAlive)
+        {
+            _player.Heal(hotPlayer);
+            GD.Print($"[BattleManager] {_player.Name} regenerates {hotPlayer} HP!");
+        }
+        foreach (var eff in expiredPlayer)
+            GD.Print($"[BattleManager] Status effect expired: {eff.Type} on {_player.Name}");
+
+        // Spend AP after acting
+        _playerActionPoints -= ACTION_POINT_THRESHOLD;
+    }
+
+    private void ExecuteEnemyAction()
+    {
+        // Stun check: stunned enemy loses their action but still ticks
+        if (_enemy.ActiveStatusEffects.IsStunned)
+        {
+            GD.Print($"[BattleManager] {_enemy.Name} is Stunned and loses their turn!");
+        }
+        else
+        {
+            EnemyTurn(_playerDefendedLastTurn);
+        }
+        _playerDefendedLastTurn = false;
+
+        // Tick enemy status effects
+        var (expiredEnemy, dotEnemy, hotEnemy) = _enemy.ActiveStatusEffects.Tick();
+        if (dotEnemy > 0)
+        {
+            _enemy.CurrentHealth = Godot.Mathf.Max(0, _enemy.CurrentHealth - dotEnemy);
+            GD.Print($"[BattleManager] {_enemy.Name} takes {dotEnemy} status damage!");
+            ShowDamageNumber(_enemyDamageLabel, dotEnemy);
+        }
+        if (hotEnemy > 0 && _enemy.IsAlive)
+        {
+            _enemy.CurrentHealth = Godot.Mathf.Min(_enemy.MaxHealth, _enemy.CurrentHealth + hotEnemy);
+            GD.Print($"[BattleManager] {_enemy.Name} regenerates {hotEnemy} HP!");
+        }
+        foreach (var eff in expiredEnemy)
+            GD.Print($"[BattleManager] Status effect expired: {eff.Type} on {_enemy.Name}");
+
+        // Spend AP after acting
+        _enemyActionPoints -= ACTION_POINT_THRESHOLD;
     }
     
     private void PlayerAutoAction()
@@ -975,18 +1023,22 @@ public partial class BattleManager : AcceptDialog
         if (criticalHit)
         {
             baseDamage = (int)(baseDamage * 1.5f);
-            GD.Print($"Critical hit! {_player.Name} deals {baseDamage} damage!");
-        }
-        else
-        {
-            GD.Print($"{_player.Name} attacks for {baseDamage} damage!");
         }
         
         baseDamage = Mathf.Max(1, baseDamage);
-        _enemy.TakeDamage(baseDamage);
+        int actualDamage = _enemy.TakeDamage(baseDamage);
+
+        if (criticalHit)
+        {
+            GD.Print($"Critical hit! {_player.Name} deals {actualDamage} damage!");
+        }
+        else
+        {
+            GD.Print($"{_player.Name} attacks for {actualDamage} damage!");
+        }
         
         // Show damage number on enemy
-        ShowDamageNumber(_enemyDamageLabel, baseDamage, criticalHit);
+        ShowDamageNumber(_enemyDamageLabel, actualDamage, criticalHit);
         
         // Play attack animation (flash the player sprite)
         PlayAttackAnimation(_playerSprite);
@@ -1031,15 +1083,15 @@ public partial class BattleManager : AcceptDialog
         }
         
         damage = Mathf.Max(1, damage);
-        _player.TakeDamage(damage);
+        int actualDamage = _player.TakeDamage(damage);
         
         if (!aggressiveAttack && !criticalHit)
         {
-            GD.Print($"{_enemy.Name} attacks for {damage} damage!");
+            GD.Print($"{_enemy.Name} attacks for {actualDamage} damage!");
         }
         
         // Show damage number on player
-        ShowDamageNumber(_playerDamageLabel, damage, criticalHit);
+        ShowDamageNumber(_playerDamageLabel, actualDamage, criticalHit);
 
         // Play attack animation (flash the enemy sprite)
         PlayAttackAnimation(_enemySprite);

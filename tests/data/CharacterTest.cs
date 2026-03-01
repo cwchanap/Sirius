@@ -48,10 +48,11 @@ public partial class CharacterTest : Node
         int expectedDamage = Mathf.Max(1, damageAmount - character.Defense);
 
         // Act
-        character.TakeDamage(damageAmount);
+        int actualDamage = character.TakeDamage(damageAmount);
 
         // Assert
         AssertThat(character.CurrentHealth).IsEqual(initialHealth - expectedDamage);
+        AssertThat(actualDamage).IsEqual(expectedDamage);
         AssertThat(character.IsAlive).IsTrue();
     }
 
@@ -65,10 +66,11 @@ public partial class CharacterTest : Node
         int damageAmount = 5;
 
         // Act
-        character.TakeDamage(damageAmount);
+        int actualDamage = character.TakeDamage(damageAmount);
 
         // Assert - Should still take 1 damage minimum
         AssertThat(character.CurrentHealth).IsEqual(initialHealth - 1);
+        AssertThat(actualDamage).IsEqual(1);
     }
 
     [TestCase]

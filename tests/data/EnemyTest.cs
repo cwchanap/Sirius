@@ -46,10 +46,11 @@ public partial class EnemyTest : Node
         int expectedDamage = Mathf.Max(1, damageAmount - enemy.Defense);
 
         // Act
-        enemy.TakeDamage(damageAmount);
+        int actualDamage = enemy.TakeDamage(damageAmount);
 
         // Assert
         AssertThat(enemy.CurrentHealth).IsEqual(initialHealth - expectedDamage);
+        AssertThat(actualDamage).IsEqual(expectedDamage);
         AssertThat(enemy.IsAlive).IsTrue();
     }
 
@@ -63,10 +64,11 @@ public partial class EnemyTest : Node
         int damageAmount = 5;
 
         // Act
-        enemy.TakeDamage(damageAmount);
+        int actualDamage = enemy.TakeDamage(damageAmount);
 
         // Assert - Should still take 1 damage minimum
         AssertThat(enemy.CurrentHealth).IsEqual(initialHealth - 1);
+        AssertThat(actualDamage).IsEqual(1);
     }
 
     [TestCase]

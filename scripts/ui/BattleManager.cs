@@ -8,7 +8,12 @@ public partial class BattleManager : AcceptDialog
     private Character _player;
     private Enemy _enemy;
     private bool _playerTurn = true;
-    
+
+    // Action point system for speed-based turn frequency
+    private float _playerActionPoints = 0f;
+    private float _enemyActionPoints = 0f;
+    private const float ACTION_POINT_THRESHOLD = 100f;
+
     // UI References
     private Label _playerLevelLabel;
     private Label _playerHealthLabel;
@@ -246,6 +251,10 @@ public partial class BattleManager : AcceptDialog
         _playerTurn = true; // Placeholder; determined after pre-battle consumables in OnStartButtonPressed()
         _playerActedLast = false; // Reset turn tracking for dynamic speed-based turn order
         _battleInProgress = false;
+
+        // Initialize action points for speed-based turn frequency
+        _playerActionPoints = 0f;
+        _enemyActionPoints = 0f;
         _pendingLootDisplay = null;
         // Clean up any loot label left from a previous battle
         if (_lootLabel != null && IsInstanceValid(_lootLabel))
@@ -873,18 +882,22 @@ public partial class BattleManager : AcceptDialog
                 GD.Print($"[BattleManager] Status effect expired: {eff.Type} on {_enemy.Name}");
         }
 
-        // Dynamic turn order based on effective speed - allows mid-battle speed changes to affect turn priority
-        bool justActed = _playerTurn; // Track who just acted BEFORE computing next turn
-        bool playerFaster = _player.GetEffectiveSpeed() >= _enemy.GetEffectiveSpeed();
-        if (playerFaster == justActed)
+        // Action point system: speed determines turn frequency, not just initial priority
+        // Accumulate action points based on effective speed each turn
+        _playerActionPoints += _player.GetEffectiveSpeed();
+        _enemyActionPoints += _enemy.GetEffectiveSpeed();
+
+        // Determine who acts next based on accumulated action points
+        bool justActed = _playerTurn;
+        if (_playerActionPoints >= _enemyActionPoints)
         {
-            // Same-side would act twice in a row - switch to give slower side a turn
-            _playerTurn = !justActed;
+            _playerTurn = true;
+            _playerActionPoints -= ACTION_POINT_THRESHOLD;
         }
         else
         {
-            // Normal alternation follows speed advantage
-            _playerTurn = playerFaster;
+            _playerTurn = false;
+            _enemyActionPoints -= ACTION_POINT_THRESHOLD;
         }
         _playerActedLast = justActed; // Track who actually acted, not who's next
         UpdateUI();

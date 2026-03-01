@@ -283,7 +283,7 @@ public partial class InventoryMenuController : Control
 				GD.Print($"Inventory slot {i}: {entry.Item.DisplayName} x{entry.Quantity}");
 				SetButtonIcon(slot.Button, entry.Item);
 				slot.Button.TooltipText = BuildInventoryTooltip(entry);
-				slot.Button.Disabled = entry.Item is not EquipmentItem;
+				slot.Button.Disabled = entry.Item is not EquipmentItem and not ConsumableItem;
 			}
 			else
 			{
@@ -370,22 +370,58 @@ public partial class InventoryMenuController : Control
 	}
 	private void OnInventorySlotPressed(int slotIndex)
 	{
-		if (_gameManager?.Player == null)
-		{
-			return;
-		}
-		if (slotIndex < 0 || slotIndex >= _inventorySlotEntries.Length)
-		{
-			return;
-		}
+		if (_gameManager?.Player == null) return;
+		if (slotIndex < 0 || slotIndex >= _inventorySlotEntries.Length) return;
 
 		var entry = _inventorySlotEntries[slotIndex];
-		if (entry?.Item is not EquipmentItem equipmentItem)
+		if (entry == null) return;
+
+		if (entry.Item is EquipmentItem equipmentItem)
 		{
+			EquipFromInventory(equipmentItem);
 			return;
 		}
 
-		EquipFromInventory(equipmentItem);
+		if (entry.Item is ConsumableItem consumable)
+		{
+			UseConsumableOutOfBattle(consumable);
+		}
+	}
+
+	private void UseConsumableOutOfBattle(ConsumableItem item)
+	{
+		if (_gameManager.IsInBattle)
+		{
+			GD.PushWarning("[InventoryMenuController] Cannot use consumable during battle from inventory menu");
+			return;
+		}
+
+		if (item.Effect?.RequiresBattle == true)
+		{
+			GD.PushWarning($"[InventoryMenuController] '{item.DisplayName}' can only be used in battle (RequiresBattle=true)");
+			return;
+		}
+
+		// Remove item first to prevent duplication if effect application succeeds but removal fails
+		if (!_gameManager.Player.TryRemoveItem(item.Id, 1))
+		{
+			GD.PushWarning($"[InventoryMenuController] Failed to remove '{item.DisplayName}' from inventory; effect not applied");
+			return;
+		}
+
+		if (!item.Apply(_gameManager.Player))
+		{
+			GD.PushWarning($"[InventoryMenuController] Failed to apply '{item.DisplayName}' after removal, attempting rollback");
+			bool rollbackSuccess = _gameManager.Player.TryAddItem(item, 1, out _);
+			if (!rollbackSuccess)
+				GD.PrintErr($"[InventoryMenuController] ROLLBACK FAILED for '{item.DisplayName}' — item lost permanently!");
+			return;
+		}
+
+		GD.Print($"[InventoryMenuController] Used {item.DisplayName} out of battle");
+
+		_gameManager.NotifyPlayerStatsChanged();
+		RefreshUI();
 	}
 
 	private void EquipFromInventory(EquipmentItem item)
@@ -398,10 +434,15 @@ public partial class InventoryMenuController : Control
 
 		if (replacedItem != null)
 		{
-			_gameManager.Player.TryAddItem(replacedItem, 1, out _);
+			bool returned = _gameManager.Player.TryAddItem(replacedItem, 1, out _);
+			if (!returned)
+				GD.PrintErr($"[InventoryMenuController] Failed to return '{replacedItem.DisplayName}' to inventory after swap — item lost!");
 		}
 
-		_gameManager.Player.TryRemoveItem(item.Id, 1);
+		bool removed = _gameManager.Player.TryRemoveItem(item.Id, 1);
+		if (!removed)
+			GD.PrintErr($"[InventoryMenuController] Failed to remove '{item.DisplayName}' from inventory after equipping — possible duplication!");
+
 		GD.Print($"Equipped {item.DisplayName}");
 		RefreshUI();
 	}
@@ -501,6 +542,11 @@ public partial class InventoryMenuController : Control
 			}
 
 			sb.Append("Click to equip");
+		}
+		else if (entry.Item is ConsumableItem consumable)
+		{
+			sb.AppendLine(consumable.EffectDescription);
+			sb.Append(consumable.Effect?.RequiresBattle == true ? "Battle use only" : "Click to use");
 		}
 
 		return sb.ToString();

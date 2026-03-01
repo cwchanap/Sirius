@@ -106,8 +106,16 @@ public partial class GameManager : Node
         };
 
         EquipStarterGear(Player);
+        GiveStarterConsumables(Player);
 
         GD.Print("Player character initialized!");
+    }
+
+    private void GiveStarterConsumables(Character player)
+    {
+        if (player == null) return;
+        player.TryAddItem(ConsumableCatalog.CreateHealthPotion(), 3, out _);
+        player.TryAddItem(ConsumableCatalog.CreateStrengthTonic(), 1, out _);
     }
 
     private void EquipStarterGear(Character player)

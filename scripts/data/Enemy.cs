@@ -14,11 +14,29 @@ public partial class Enemy : Resource
     [Export] public int ExperienceReward { get; set; } = 25;
     [Export] public int GoldReward { get; set; } = 10;
 
+    // Battle-scoped status effects. Not exported or persisted; cleared at battle end.
+    public StatusEffectSet ActiveStatusEffects { get; } = new StatusEffectSet();
+
     public bool IsAlive => CurrentHealth > 0;
+
+    public int GetEffectiveAttack()
+    {
+        int flat = Attack + ActiveStatusEffects.GetAttackFlatBonus();
+        return Mathf.Max(1, (int)(flat * ActiveStatusEffects.GetAttackMultiplier()));
+    }
+
+    public int GetEffectiveDefense()
+        => Mathf.Max(0, Defense + ActiveStatusEffects.GetDefenseFlatBonus());
+
+    public int GetEffectiveSpeed()
+    {
+        int flat = Speed + ActiveStatusEffects.GetSpeedFlatBonus();
+        return Mathf.Max(1, (int)(flat * ActiveStatusEffects.GetSpeedMultiplier()));
+    }
 
     public void TakeDamage(int damage)
     {
-        int actualDamage = Mathf.Max(1, damage - Defense);
+        int actualDamage = Mathf.Max(1, damage - GetEffectiveDefense());
         CurrentHealth = Mathf.Max(0, CurrentHealth - actualDamage);
         GD.Print($"{Name} takes {actualDamage} damage! Health: {CurrentHealth}/{MaxHealth}");
     }

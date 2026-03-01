@@ -277,7 +277,18 @@ public partial class BattleManager : AcceptDialog
         // Skip building the consumable panel when auto-starting since there's no way to select items
         if (_startButton == null)
         {
-            _playerTurn = _player.GetEffectiveSpeed() >= _enemy.GetEffectiveSpeed();
+            // Determine turn order with tie-break logic (alternate on equal speeds)
+            int playerSpeed = _player.GetEffectiveSpeed();
+            int enemySpeed = _enemy.GetEffectiveSpeed();
+            if (playerSpeed == enemySpeed)
+            {
+                _playerTurn = !_playerActedLast;
+            }
+            else
+            {
+                _playerTurn = playerSpeed > enemySpeed;
+            }
+            _playerActedLast = !_playerTurn;
             _battleInProgress = true;
             _battleTimer.Start();
             GD.Print($"StartButton not present; auto-battle started. Turn order: {(_playerTurn ? "Player" : "Enemy")} first.");
@@ -434,7 +445,18 @@ public partial class BattleManager : AcceptDialog
         }
 
         // Determine turn order using effective speed (accounts for pre-battle consumables)
-        _playerTurn = _player.GetEffectiveSpeed() >= _enemy.GetEffectiveSpeed();
+        // If speeds are equal, alternate based on who acted last to avoid AP starvation
+        int playerSpeed = _player.GetEffectiveSpeed();
+        int enemySpeed = _enemy.GetEffectiveSpeed();
+        if (playerSpeed == enemySpeed)
+        {
+            _playerTurn = !_playerActedLast; // Alternate turn order on ties
+        }
+        else
+        {
+            _playerTurn = playerSpeed > enemySpeed;
+        }
+        _playerActedLast = !_playerTurn; // Track who goes first for next tie
         GD.Print($"Turn order: {(_playerTurn ? "Player" : "Enemy")} goes first! (Player SPD: {_player.GetEffectiveSpeed()}, Enemy SPD: {_enemy.GetEffectiveSpeed()})");
 
         // Hide item panel — no longer needed during combat
@@ -467,6 +489,13 @@ public partial class BattleManager : AcceptDialog
 
     private void ShowCombatItemPanel()
     {
+        // Defensive guard: abort if battle has ended to avoid stale UI
+        if (!_battleInProgress)
+        {
+            GD.Print("[BattleManager] ShowCombatItemPanel: battle not in progress, aborting.");
+            return;
+        }
+
         if (_itemPanel != null && IsInstanceValid(_itemPanel))
         {
             _itemPanel.QueueFree();

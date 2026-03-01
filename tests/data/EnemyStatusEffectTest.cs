@@ -90,23 +90,40 @@ public partial class EnemyStatusEffectTest : Godot.Node
         AssertThat(enemy.ActiveStatusEffects.IsBlind).IsTrue();
     }
 
-    // ---- EnemyDebuffProfile --------------------------------------------------
+    // ---- EnemyDebuffProfile (parameterized tests) ---------------------------
 
-    [TestCase]
-    public void EnemyDebuffProfile_Goblin_HasPoisonAbility()
+    [TestCase(EnemyTypeId.Goblin, true)]
+    [TestCase(EnemyTypeId.Troll, false)]
+    public void EnemyDebuffProfile_GetAbilities_ReturnsExpected(string enemyTypeId, bool shouldHaveAbilities)
     {
-        var abilities = EnemyDebuffProfile.GetAbilities(EnemyTypeId.Goblin);
-        AssertThat(abilities).IsNotNull();
-        AssertThat(abilities!.Count).IsGreaterEqual(1);
-        AssertThat((int)abilities[0].EffectType).IsEqual((int)StatusEffectType.Poison);
+        var abilities = EnemyDebuffProfile.GetAbilities(enemyTypeId);
+        if (shouldHaveAbilities)
+        {
+            AssertThat(abilities).IsNotNull();
+            AssertThat(abilities!.Count).IsGreaterEqual(1);
+            AssertThat((int)abilities[0].EffectType).IsEqual((int)StatusEffectType.Poison);
+        }
+        else
+        {
+            AssertThat(abilities).IsNull();
+        }
     }
 
-    [TestCase]
-    public void EnemyDebuffProfile_Troll_ReturnsNull()
+    [TestCase("goblin", true)]
+    [TestCase("unknown_xyz", false)]
+    public void EnemyDebuffProfile_GetAbilities_ByStringId_ReturnsExpected(string enemyTypeId, bool shouldHaveAbilities)
     {
-        // Troll has no debuff profile
-        var abilities = EnemyDebuffProfile.GetAbilities(EnemyTypeId.Troll);
-        AssertThat(abilities).IsNull();
+        var abilities = EnemyDebuffProfile.GetAbilities(enemyTypeId);
+        if (shouldHaveAbilities)
+        {
+            AssertThat(abilities).IsNotNull();
+            AssertThat(abilities!.Count).IsGreater(0);
+            AssertThat((int)abilities[0].EffectType).IsEqual((int)StatusEffectType.Poison);
+        }
+        else
+        {
+            AssertThat(abilities).IsNull();
+        }
     }
 
     [TestCase]
@@ -115,8 +132,6 @@ public partial class EnemyStatusEffectTest : Godot.Node
         var abilities = EnemyDebuffProfile.GetAbilities(null);
         AssertThat(abilities).IsNull();
     }
-
-    // ---- Antidote / CureStatusEffect ----------------------------------------
 
     [TestCase]
     public void Antidote_CuresPoisonOnPlayer()
@@ -227,21 +242,5 @@ public partial class EnemyStatusEffectTest : Godot.Node
     {
         AssertThrown(() => new EnemyDebuffAbility(StatusEffectType.Poison, -5, 3, 0.20f))
             .IsInstanceOf<ArgumentOutOfRangeException>();
-    }
-
-    [TestCase]
-    public void EnemyDebuffProfile_GetAbilities_KnownEnemy_ReturnsAbilities()
-    {
-        var abilities = EnemyDebuffProfile.GetAbilities(EnemyTypeId.Goblin);
-        AssertThat(abilities).IsNotNull();
-        AssertThat(abilities!.Count).IsGreater(0);
-        AssertThat((int)abilities[0].EffectType).IsEqual((int)StatusEffectType.Poison);
-    }
-
-    [TestCase]
-    public void EnemyDebuffProfile_GetAbilities_UnknownEnemy_ReturnsNull()
-    {
-        var abilities = EnemyDebuffProfile.GetAbilities("unknown_xyz");
-        AssertThat(abilities).IsNull();
     }
 }

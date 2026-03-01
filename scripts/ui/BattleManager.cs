@@ -825,9 +825,9 @@ public partial class BattleManager : AcceptDialog
         }
 
         // Action point system: speed determines turn frequency, not just initial priority
-        // Accumulate action points based on effective speed each turn
-        _playerActionPoints += _player.GetEffectiveSpeed();
-        _enemyActionPoints += _enemy.GetEffectiveSpeed();
+        // Accumulate action points based on effective speed each turn (scaled for ~1-2 tick actions)
+        _playerActionPoints += _player.GetEffectiveSpeed() * 6f;
+        _enemyActionPoints += _enemy.GetEffectiveSpeed() * 6f;
 
         // Check readiness BEFORE executing actions
         bool playerReady = _playerActionPoints >= ACTION_POINT_THRESHOLD;

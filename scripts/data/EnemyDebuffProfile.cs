@@ -19,6 +19,8 @@ public record EnemyDebuffAbility
             throw new ArgumentOutOfRangeException(nameof(chance), chance, "Must be in [0.0, 1.0].");
         if (duration < 1)
             throw new ArgumentOutOfRangeException(nameof(duration), duration, "Must be at least 1 turn.");
+        if (magnitude < 0)
+            throw new ArgumentOutOfRangeException(nameof(magnitude), magnitude, "Must be non-negative.");
 
         EffectType = effectType;
         Magnitude  = magnitude;

@@ -43,8 +43,8 @@ public partial class BattleManager : AcceptDialog
     private bool _playerActedLast = false;
 
     // Pre-battle item selection
-    private VBoxContainer _itemPanel;
-    private ConsumableItem _selectedConsumable;
+    private VBoxContainer? _itemPanel;
+    private ConsumableItem? _selectedConsumable;
     
     public override void _Ready()
     {

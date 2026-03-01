@@ -223,6 +223,13 @@ public partial class EnemyStatusEffectTest : Godot.Node
     }
 
     [TestCase]
+    public void EnemyDebuffAbility_NegativeMagnitude_Throws()
+    {
+        AssertThrown(() => new EnemyDebuffAbility(StatusEffectType.Poison, -5, 3, 0.20f))
+            .IsInstanceOf<ArgumentOutOfRangeException>();
+    }
+
+    [TestCase]
     public void EnemyDebuffProfile_GetAbilities_KnownEnemy_ReturnsAbilities()
     {
         var abilities = EnemyDebuffProfile.GetAbilities(EnemyTypeId.Goblin);

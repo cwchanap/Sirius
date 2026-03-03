@@ -270,4 +270,18 @@ public partial class StatusEffectSetTest : Godot.Node
         AssertThat(dot).IsEqual(5);
         AssertThat(hot).IsEqual(3);
     }
+
+    [TestCase]
+    public void ActiveStatusEffect_ZeroTurns_Throws()
+    {
+        AssertThrown(() => new ActiveStatusEffect(StatusEffectType.Poison, 5, 0))
+            .IsInstanceOf<ArgumentOutOfRangeException>();
+    }
+
+    [TestCase]
+    public void ActiveStatusEffect_NegativeTurns_Throws()
+    {
+        AssertThrown(() => new ActiveStatusEffect(StatusEffectType.Poison, 5, -1))
+            .IsInstanceOf<ArgumentOutOfRangeException>();
+    }
 }

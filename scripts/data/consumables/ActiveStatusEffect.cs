@@ -21,6 +21,8 @@ public record ActiveStatusEffect
     {
         if (magnitude < 0)
             throw new ArgumentOutOfRangeException(nameof(magnitude), magnitude, "Must be non-negative.");
+        if (turnsRemaining <= 0)
+            throw new ArgumentOutOfRangeException(nameof(turnsRemaining), turnsRemaining, "Must be at least 1.");
         Type           = type;
         Magnitude      = magnitude;
         TurnsRemaining = turnsRemaining;

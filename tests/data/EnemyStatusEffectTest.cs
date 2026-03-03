@@ -243,4 +243,22 @@ public partial class EnemyStatusEffectTest : Godot.Node
         AssertThrown(() => new EnemyDebuffAbility(StatusEffectType.Poison, -5, 3, 0.20f))
             .IsInstanceOf<ArgumentOutOfRangeException>();
     }
+
+    [TestCase]
+    public void EnemyDebuffEffect_ApplyToEnemy_NullEnemy_ReturnsFalse()
+    {
+        var effect = new EnemyDebuffEffect(StatusEffectType.Poison, 5, 3);
+        bool result = effect.ApplyToEnemy(null);
+        AssertThat(result).IsFalse();
+    }
+
+    [TestCase]
+    public void EnemyDebuffEffect_ApplyToEnemy_ValidEnemy_ReturnsTrue()
+    {
+        var enemy = Enemy.CreateGoblin();
+        var effect = new EnemyDebuffEffect(StatusEffectType.Poison, 5, 3);
+        bool result = effect.ApplyToEnemy(enemy);
+        AssertThat(result).IsTrue();
+        AssertThat(enemy.ActiveStatusEffects.HasAny).IsTrue();
+    }
 }

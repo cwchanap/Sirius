@@ -409,8 +409,10 @@ public partial class BattleManager : AcceptDialog
                 // Enemy-targeting item: remove first, then apply to enemy
                 if (_player.TryRemoveItem(_selectedConsumable.Id, 1))
                 {
-                    enemyEffect.ApplyToEnemy(_enemy);
-                    GD.Print($"[BattleManager] Applied '{_selectedConsumable.DisplayName}' to {_enemy.Name}");
+                    if (enemyEffect.ApplyToEnemy(_enemy))
+                        GD.Print($"[BattleManager] Applied '{_selectedConsumable.DisplayName}' to {_enemy.Name}");
+                    else
+                        GD.PushWarning($"[BattleManager] Could not apply '{_selectedConsumable.DisplayName}' to enemy");
                 }
                 else
                 {

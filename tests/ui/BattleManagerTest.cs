@@ -162,7 +162,8 @@ public partial class BattleManagerTest : Node
 
         AssertThat(poisonVial.Effect is EnemyDebuffEffect).IsTrue();
         var debuffEffect = (EnemyDebuffEffect)poisonVial.Effect;
-        debuffEffect.ApplyToEnemy(enemy);
+        bool applied = debuffEffect.ApplyToEnemy(enemy);
+        AssertThat(applied).IsTrue();
 
         AssertThat(enemy.ActiveStatusEffects.HasAny).IsTrue();
     }

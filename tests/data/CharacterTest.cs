@@ -304,6 +304,24 @@ public partial class CharacterTest : Node
         AssertThat(character.Level).IsGreater(initialLevel + 1);
     }
 
+    [TestCase]
+    public void GetEffectiveAttack_Weakened25Percent_ReducesAttack()
+    {
+        var character = CreateTestCharacter(); // Attack = 20
+        character.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Weaken, 25, 3));
+        // flat = 20, multiplier = 1 - 25/100 = 0.75, effective = max(1, (int)(20 * 0.75)) = 15
+        AssertThat(character.GetEffectiveAttack()).IsEqual(15);
+    }
+
+    [TestCase]
+    public void GetEffectiveSpeed_Slowed50Percent_HalvesSpeed()
+    {
+        var character = CreateTestCharacter(); // Speed = 15
+        character.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Slow, 50, 3));
+        // flat = 15, multiplier = 1 - 50/100 = 0.5, effective = max(1, (int)(15 * 0.5)) = 7
+        AssertThat(character.GetEffectiveSpeed()).IsEqual(7);
+    }
+
     // Helper method to create a standard test character
     private Character CreateTestCharacter()
     {

@@ -485,7 +485,7 @@ public partial class BattleManager : AcceptDialog
     {
         if (!_battleInProgress || _player == null) return;
         if (_itemPanel != null && IsInstanceValid(_itemPanel) && _itemPanel.Visible) return;
-
+        _battleTimer.Stop();
         CallDeferred(nameof(ShowCombatItemPanel));
     }
 
@@ -549,6 +549,8 @@ public partial class BattleManager : AcceptDialog
             {
                 _itemPanel.Visible = false;
             }
+            if (_battleInProgress)
+                _battleTimer.Start();
         };
         _itemPanel.AddChild(closeBtn);
 
@@ -589,8 +591,10 @@ public partial class BattleManager : AcceptDialog
         {
             _itemPanel.Visible = false;
         }
+        if (_battleInProgress)
+            _battleTimer.Start();
     }
-    
+
     private void CenterSprites()
     {
         // Get the containers to center sprites within them

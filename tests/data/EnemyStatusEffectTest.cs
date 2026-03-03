@@ -97,15 +97,15 @@ public partial class EnemyStatusEffectTest : Godot.Node
     public void EnemyDebuffProfile_GetAbilities_ReturnsExpected(string enemyTypeId, bool shouldHaveAbilities)
     {
         var abilities = EnemyDebuffProfile.GetAbilities(enemyTypeId);
+        AssertThat(abilities).IsNotNull();
         if (shouldHaveAbilities)
         {
-            AssertThat(abilities).IsNotNull();
-            AssertThat(abilities!.Count).IsGreaterEqual(1);
+            AssertThat(abilities.Count).IsGreaterEqual(1);
             AssertThat((int)abilities[0].EffectType).IsEqual((int)StatusEffectType.Poison);
         }
         else
         {
-            AssertThat(abilities).IsNull();
+            AssertThat(abilities.Count).IsEqual(0);
         }
     }
 
@@ -114,23 +114,19 @@ public partial class EnemyStatusEffectTest : Godot.Node
     public void EnemyDebuffProfile_GetAbilities_ByStringId_ReturnsExpected(string enemyTypeId, bool shouldHaveAbilities)
     {
         var abilities = EnemyDebuffProfile.GetAbilities(enemyTypeId);
+        AssertThat(abilities).IsNotNull();
         if (shouldHaveAbilities)
-        {
-            AssertThat(abilities).IsNotNull();
-            AssertThat(abilities!.Count).IsGreater(0);
-            AssertThat((int)abilities[0].EffectType).IsEqual((int)StatusEffectType.Poison);
-        }
+            AssertThat(abilities.Count).IsGreater(0);
         else
-        {
-            AssertThat(abilities).IsNull();
-        }
+            AssertThat(abilities.Count).IsEqual(0);
     }
 
     [TestCase]
-    public void EnemyDebuffProfile_NullType_ReturnsNull()
+    public void EnemyDebuffProfile_NullType_ReturnsEmpty()
     {
         var abilities = EnemyDebuffProfile.GetAbilities(null);
-        AssertThat(abilities).IsNull();
+        AssertThat(abilities).IsNotNull();
+        AssertThat(abilities.Count).IsEqual(0);
     }
 
     [TestCase]

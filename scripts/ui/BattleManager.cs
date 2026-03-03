@@ -88,18 +88,25 @@ public partial class BattleManager : AcceptDialog
         GD.Print("BattleManager UI elements loaded");
 
         // Get animation and visual references
-        _playerSprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/LeftSide/PlayerSpriteContainer/PlayerSprite");
-        _enemySprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/RightSide/EnemySpriteContainer/EnemySprite");
-        _playerDamageLabel = GetNode<Label>("BattleContent/BattleArena/LeftSide/PlayerStatsContainer/PlayerDamageLabel");
-        _enemyDamageLabel = GetNode<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemyDamageLabel");
-        
+        _playerSprite = GetNodeOrNull<AnimatedSprite2D>("BattleContent/BattleArena/LeftSide/PlayerSpriteContainer/PlayerSprite");
+        _enemySprite = GetNodeOrNull<AnimatedSprite2D>("BattleContent/BattleArena/RightSide/EnemySpriteContainer/EnemySprite");
+        _playerDamageLabel = GetNodeOrNull<Label>("BattleContent/BattleArena/LeftSide/PlayerStatsContainer/PlayerDamageLabel");
+        _enemyDamageLabel = GetNodeOrNull<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemyDamageLabel");
+
+        if (_playerDamageLabel == null)
+            GD.PrintErr("[BattleManager] PlayerDamageLabel not found — damage numbers will not display.");
+        if (_enemyDamageLabel == null)
+            GD.PrintErr("[BattleManager] EnemyDamageLabel not found — damage numbers will not display.");
+
         // Get container references for responsive positioning
-        var playerContainer = GetNode<Control>("BattleContent/BattleArena/LeftSide/PlayerSpriteContainer");
-        var enemyContainer = GetNode<Control>("BattleContent/BattleArena/RightSide/EnemySpriteContainer");
-        
+        var playerContainer = GetNodeOrNull<Control>("BattleContent/BattleArena/LeftSide/PlayerSpriteContainer");
+        var enemyContainer = GetNodeOrNull<Control>("BattleContent/BattleArena/RightSide/EnemySpriteContainer");
+
         // Connect to container resizing events for responsive positioning
-        playerContainer.Resized += () => PositionPlayerSprite(playerContainer);
-        enemyContainer.Resized += () => PositionEnemySprite(enemyContainer);
+        if (playerContainer != null)
+            playerContainer.Resized += () => PositionPlayerSprite(playerContainer);
+        if (enemyContainer != null)
+            enemyContainer.Resized += () => PositionEnemySprite(enemyContainer);
         
         // Initial centering
         CenterSprites();
@@ -598,11 +605,10 @@ public partial class BattleManager : AcceptDialog
     private void CenterSprites()
     {
         // Get the containers to center sprites within them
-        var playerContainer = GetNode<Control>("BattleContent/BattleArena/LeftSide/PlayerSpriteContainer");
-        var enemyContainer = GetNode<Control>("BattleContent/BattleArena/RightSide/EnemySpriteContainer");
-        
-        // Center sprites when their containers are ready
-        CallDeferred(nameof(PositionSpritesInCenter), playerContainer, enemyContainer);
+        var playerContainer = GetNodeOrNull<Control>("BattleContent/BattleArena/LeftSide/PlayerSpriteContainer");
+        var enemyContainer = GetNodeOrNull<Control>("BattleContent/BattleArena/RightSide/EnemySpriteContainer");
+        if (playerContainer != null && enemyContainer != null)
+            CallDeferred(nameof(PositionSpritesInCenter), playerContainer, enemyContainer);
     }
     
     private void PositionSpritesInCenter(Control playerContainer, Control enemyContainer)

@@ -16,62 +16,6 @@ public partial class BattleManagerTest : Node
 {
     private const float ActionPointThreshold = 100f;
 
-    // ---- Turn order (speed-based) --------------------------------------------
-
-    [TestCase]
-    public void TestTurnOrder_PlayerFaster_GoesFirst()
-    {
-        var player = TestHelpers.CreateTestCharacter();
-        player.Speed = 20;
-        var enemy = Enemy.CreateGoblin();
-        enemy.Speed = 10;
-        bool playerGoesFirst = player.GetEffectiveSpeed() >= enemy.GetEffectiveSpeed();
-        AssertThat(playerGoesFirst).IsTrue()
-            .OverrideFailureMessage("Player with higher speed should go first");
-    }
-
-    [TestCase]
-    public void TestTurnOrder_EnemyFaster_GoesFirst()
-    {
-        var player = TestHelpers.CreateTestCharacter();
-        player.Speed = 10;
-        var enemy = Enemy.CreateGoblin();
-        enemy.Speed = 20;
-        bool playerGoesFirst = player.GetEffectiveSpeed() >= enemy.GetEffectiveSpeed();
-        AssertThat(playerGoesFirst).IsFalse()
-            .OverrideFailureMessage("Enemy with higher speed should go first");
-    }
-
-    [TestCase]
-    public void TestTurnOrder_EqualSpeeds_PlayerGoesFirst()
-    {
-        var player = TestHelpers.CreateTestCharacter();
-        player.Speed = 15;
-        var enemy = Enemy.CreateGoblin();
-        enemy.Speed = 15;
-        bool playerGoesFirst = player.GetEffectiveSpeed() >= enemy.GetEffectiveSpeed();
-        AssertThat(playerGoesFirst).IsTrue()
-            .OverrideFailureMessage("Player should go first on speed ties (>= operator)");
-    }
-
-    [TestCase]
-    public void TestTurnOrder_UsesEffectiveSpeed_WithStatusEffects()
-    {
-        var player = TestHelpers.CreateTestCharacter();
-        player.Speed = 20;
-        var enemy = Enemy.CreateGoblin();
-        enemy.Speed = 15;
-        AssertThat(player.GetEffectiveSpeed() >= enemy.GetEffectiveSpeed()).IsTrue();
-        player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Slow, 50, 3));
-        int effectivePlayerSpeed = player.GetEffectiveSpeed();
-        int effectiveEnemySpeed = enemy.GetEffectiveSpeed();
-        AssertThat(effectivePlayerSpeed).IsEqual(10);
-        AssertThat(effectiveEnemySpeed).IsEqual(15);
-        bool playerGoesFirst = effectivePlayerSpeed >= effectiveEnemySpeed;
-        AssertThat(playerGoesFirst).IsFalse()
-            .OverrideFailureMessage("Slowed player should go second despite higher base speed");
-    }
-
     [TestCase]
     public void ActionPointScheduling_FastActorShare_MatchesSpeedRatio()
     {

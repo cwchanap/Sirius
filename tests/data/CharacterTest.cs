@@ -322,6 +322,16 @@ public partial class CharacterTest : Node
         AssertThat(character.GetEffectiveSpeed()).IsEqual(7);
     }
 
+    [TestCase]
+    public void GetEffectiveSpeed_UsesEffectiveSpeedWithStatusEffects()
+    {
+        var player = CreateTestCharacter();
+        player.Speed = 20;
+        // Apply Slow 50% — effective speed becomes max(1, (int)(20 * 0.5)) = 10
+        player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Slow, 50, 3));
+        AssertThat(player.GetEffectiveSpeed()).IsEqual(10);
+    }
+
     // Helper method to create a standard test character
     private Character CreateTestCharacter()
     {

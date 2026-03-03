@@ -424,6 +424,7 @@ public partial class BattleManager : AcceptDialog
                 else
                 {
                     GD.PushWarning($"[BattleManager] Could not consume '{_selectedConsumable.DisplayName}'; effect not applied to {_enemy.Name}");
+                    ShowItemPanelError($"Could not use {_selectedConsumable.DisplayName}.");
                 }
             }
             else
@@ -441,13 +442,21 @@ public partial class BattleManager : AcceptDialog
                         GD.PushWarning($"[BattleManager] '{_selectedConsumable.DisplayName}' was consumed but could not be applied, attempting rollback");
                         bool rollbackSuccess = _player.TryAddItem(_selectedConsumable, 1, out _);
                         if (!rollbackSuccess)
+                        {
                             GD.PrintErr($"[BattleManager] ROLLBACK FAILED for '{_selectedConsumable.DisplayName}' — item lost permanently!");
+                            ShowItemPanelError($"Error: {_selectedConsumable.DisplayName} was lost. This is a bug — please report it.");
+                        }
+                        else
+                        {
+                            ShowItemPanelError($"Could not apply {_selectedConsumable.DisplayName}. Item returned.");
+                        }
                         UpdateUI();
                     }
                 }
                 else
                 {
                     GD.PushWarning($"[BattleManager] Could not consume '{_selectedConsumable.DisplayName}'; effect not applied");
+                    ShowItemPanelError($"Could not use {_selectedConsumable.DisplayName}.");
                 }
             }
             _selectedConsumable = null;
@@ -494,6 +503,16 @@ public partial class BattleManager : AcceptDialog
         if (_itemPanel != null && IsInstanceValid(_itemPanel) && _itemPanel.Visible) return;
         _battleTimer.Stop();
         CallDeferred(nameof(ShowCombatItemPanel));
+    }
+
+    private void ShowItemPanelError(string message)
+    {
+        if (_itemPanel == null || !IsInstanceValid(_itemPanel)) return;
+        var errorLabel = new Label { Text = message };
+        errorLabel.Modulate = new Color(1f, 0.3f, 0.3f); // Red tint
+        errorLabel.HorizontalAlignment = HorizontalAlignment.Center;
+        _itemPanel.AddChild(errorLabel);
+        _itemPanel.Visible = true; // Re-show panel so player sees the error
     }
 
     private void ShowCombatItemPanel()

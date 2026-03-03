@@ -170,14 +170,15 @@ public sealed class EnemyDebuffEffect : ConsumableEffect
         return false;
     }
 
-    public void ApplyToEnemy(Enemy enemy)
+    public bool ApplyToEnemy(Enemy enemy)
     {
         if (enemy == null)
         {
             GD.PushWarning($"[EnemyDebuffEffect] ApplyToEnemy called with null enemy");
-            return;
+            return false;
         }
         enemy.ActiveStatusEffects.Add(new ActiveStatusEffect(EffectType, Magnitude, Turns));
         GD.Print($"[EnemyDebuffEffect] {enemy.Name} inflicted with {EffectType} ({Magnitude}) for {Turns} turns");
+        return true;
     }
 }

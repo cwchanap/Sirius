@@ -257,4 +257,55 @@ public partial class EnemyStatusEffectTest : Godot.Node
         AssertThat(result).IsTrue();
         AssertThat(enemy.ActiveStatusEffects.HasAny).IsTrue();
     }
+
+    // ---- RequiresBattle contract ------------------------------------------------
+
+    [TestCase]
+    public void HealEffect_RequiresBattle_IsFalse()
+    {
+        AssertThat(ConsumableCatalog.CreateHealthPotion().Effect.RequiresBattle).IsFalse();
+    }
+
+    [TestCase]
+    public void StatusEffectEffect_RequiresBattle_IsTrue()
+    {
+        AssertThat(ConsumableCatalog.CreateStrengthTonic().Effect.RequiresBattle).IsTrue();
+    }
+
+    [TestCase]
+    public void CureStatusEffect_RequiresBattle_IsFalse()
+    {
+        AssertThat(ConsumableCatalog.CreateAntidote().Effect.RequiresBattle).IsFalse();
+    }
+
+    [TestCase]
+    public void EnemyDebuffEffect_RequiresBattle_IsTrue()
+    {
+        AssertThat(ConsumableCatalog.CreatePoisonVial().Effect.RequiresBattle).IsTrue();
+    }
+
+    // ---- Antidote cures Burn ----------------------------------------------------
+
+    [TestCase]
+    public void Antidote_CuresBurn()
+    {
+        var player = TestHelpers.CreateTestCharacter();
+        player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Burn, 5, 3));
+
+        ConsumableCatalog.CreateAntidote().Apply(player);
+
+        AssertThat(player.ActiveBuffs.HasAny).IsFalse();
+    }
+
+    [TestCase]
+    public void Antidote_CuresBothPoisonAndBurnTogether()
+    {
+        var player = TestHelpers.CreateTestCharacter();
+        player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Poison, 5, 3));
+        player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Burn, 8, 2));
+
+        ConsumableCatalog.CreateAntidote().Apply(player);
+
+        AssertThat(player.ActiveBuffs.HasAny).IsFalse();
+    }
 }

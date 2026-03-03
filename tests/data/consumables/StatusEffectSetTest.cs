@@ -284,4 +284,17 @@ public partial class StatusEffectSetTest : Godot.Node
         AssertThrown(() => new ActiveStatusEffect(StatusEffectType.Poison, 5, -1))
             .IsInstanceOf<ArgumentOutOfRangeException>();
     }
+
+    [TestCase]
+    public void Clear_StatsReturnToBaseline_AfterBuffApplied()
+    {
+        var character = TestHelpers.CreateTestCharacter();
+        int baseAttack = character.GetEffectiveAttack();
+        ConsumableCatalog.CreateStrengthTonic().Apply(character); // +15 ATK
+        AssertThat(character.GetEffectiveAttack()).IsGreater(baseAttack);
+
+        character.ActiveBuffs.Clear();
+
+        AssertThat(character.GetEffectiveAttack()).IsEqual(baseAttack);
+    }
 }

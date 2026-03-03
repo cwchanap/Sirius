@@ -128,8 +128,10 @@ public partial class BattleManager : AcceptDialog
         }
         
         // Initialize damage labels as invisible
-        _playerDamageLabel.Modulate = new Color(1, 0, 0, 0);
-        _enemyDamageLabel.Modulate = new Color(1, 0, 0, 0);
+        if (_playerDamageLabel != null)
+            _playerDamageLabel.Modulate = new Color(1, 0, 0, 0);
+        if (_enemyDamageLabel != null)
+            _enemyDamageLabel.Modulate = new Color(1, 0, 0, 0);
         
         // Create and configure battle timer for auto-combat
         _battleTimer = new Timer();
@@ -425,6 +427,7 @@ public partial class BattleManager : AcceptDialog
                 {
                     GD.PushWarning($"[BattleManager] Could not consume '{_selectedConsumable.DisplayName}'; effect not applied to {_enemy.Name}");
                     ShowItemPanelError($"Could not use {_selectedConsumable.DisplayName}.");
+                    return;
                 }
             }
             else
@@ -441,22 +444,25 @@ public partial class BattleManager : AcceptDialog
                     {
                         GD.PushWarning($"[BattleManager] '{_selectedConsumable.DisplayName}' was consumed but could not be applied, attempting rollback");
                         bool rollbackSuccess = _player.TryAddItem(_selectedConsumable, 1, out _);
+                        UpdateUI();
                         if (!rollbackSuccess)
                         {
                             GD.PrintErr($"[BattleManager] ROLLBACK FAILED for '{_selectedConsumable.DisplayName}' — item lost permanently!");
                             ShowItemPanelError($"Error: {_selectedConsumable.DisplayName} was lost. This is a bug — please report it.");
+                            return;
                         }
                         else
                         {
                             ShowItemPanelError($"Could not apply {_selectedConsumable.DisplayName}. Item returned.");
+                            return;
                         }
-                        UpdateUI();
                     }
                 }
                 else
                 {
                     GD.PushWarning($"[BattleManager] Could not consume '{_selectedConsumable.DisplayName}'; effect not applied");
                     ShowItemPanelError($"Could not use {_selectedConsumable.DisplayName}.");
+                    return;
                 }
             }
             _selectedConsumable = null;

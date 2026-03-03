@@ -1,3 +1,4 @@
+using System;
 using Godot;
 
 /// <summary>
@@ -13,10 +14,13 @@ public partial class ConsumableItem : Item
     [Export]
     public int MaxStackOverride { get; set; } = 99;
 
-    /// <summary>The effect applied when this item is used. Set by catalog factories.</summary>
+    /// <summary>The effect applied when this item is used. Set by catalog factories.
+    /// Throws if accessed before an effect is configured — always use ConsumableCatalog to create items.</summary>
     public ConsumableEffect Effect
     {
-        get => _effect!;
+        get => _effect ?? throw new InvalidOperationException(
+            $"ConsumableItem '{DisplayName}' (id: '{Id}') has no Effect configured. " +
+            "Create consumable items via ConsumableCatalog factory methods.");
         internal set => _effect = value;
     }
 

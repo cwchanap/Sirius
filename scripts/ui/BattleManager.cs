@@ -47,7 +47,7 @@ public partial class BattleManager : AcceptDialog
     private LootResult? _pendingLootDisplay;
     private bool _playerActedLast = false;
 
-    // Pre-battle item selection
+    // Item panel — shared between pre-battle selection and mid-battle cure use
     private VBoxContainer? _itemPanel;
     private ConsumableItem? _selectedConsumable;
     
@@ -474,7 +474,7 @@ public partial class BattleManager : AcceptDialog
         {
             _playerTurn = playerSpeed > enemySpeed;
         }
-        _playerActedLast = !_playerTurn; // Track who goes first for next tie
+        _playerActedLast = !_playerTurn; // Record who acts first so the AP tie-breaker alternates on the next tie
         GD.Print($"Turn order: {(_playerTurn ? "Player" : "Enemy")} goes first! (Player SPD: {_player.GetEffectiveSpeed()}, Enemy SPD: {_enemy.GetEffectiveSpeed()})");
 
         // Hide item panel — no longer needed during combat

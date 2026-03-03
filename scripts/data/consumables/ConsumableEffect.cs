@@ -139,8 +139,8 @@ public sealed class CureStatusEffect : ConsumableEffect
 
 /// <summary>
 /// Applies a debuff to the enemy rather than the player.
-/// Apply(Character) is an intentional no-op — BattleManager detects this type and
-/// routes it to ApplyToEnemy(Enemy) instead.
+/// Apply(Character) is not supported — it emits a warning and returns false.
+/// BattleManager detects EnemyDebuffEffect by type and calls ApplyToEnemy(Enemy) instead.
 /// </summary>
 public sealed class EnemyDebuffEffect : ConsumableEffect
 {

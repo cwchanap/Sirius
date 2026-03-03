@@ -66,9 +66,15 @@ public static class EnemyDebuffProfile
     };
 
     /// <summary>
-    /// Returns the debuff abilities for the given enemy type, or null if that
-    /// enemy has no debuff abilities (normal attacks only).
+    /// Returns the debuff abilities for the given enemy type.
+    /// Returns an empty list if the enemy has no debuff abilities (normal attacks only).
+    /// enemyType is compared case-insensitively. Null or empty input returns an empty list.
     /// </summary>
-    public static IReadOnlyList<EnemyDebuffAbility>? GetAbilities(string? enemyType)
-        => _profiles.TryGetValue(enemyType?.ToLowerInvariant() ?? string.Empty, out var abilities) ? abilities : null;
+    public static IReadOnlyList<EnemyDebuffAbility> GetAbilities(string? enemyType)
+    {
+        if (string.IsNullOrEmpty(enemyType)) return Array.Empty<EnemyDebuffAbility>();
+        return _profiles.TryGetValue(enemyType.ToLowerInvariant(), out var abilities)
+            ? abilities
+            : Array.Empty<EnemyDebuffAbility>();
+    }
 }

@@ -1134,7 +1134,7 @@ public partial class BattleManager : AcceptDialog
     private void TryApplyEnemyDebuff()
     {
         var abilities = EnemyDebuffProfile.GetAbilities(_enemy?.EnemyType);
-        if (abilities == null) return;
+        if (abilities.Count == 0) return;
 
         foreach (var ability in abilities)
         {

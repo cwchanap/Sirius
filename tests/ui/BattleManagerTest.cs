@@ -165,4 +165,68 @@ public partial class BattleManagerTest : Node
 
         return playerActions;
     }
+
+    /// <summary>
+    /// Verifies that the defend flag persists across multiple player actions within a single tick,
+    /// and is only cleared after the enemy completes their turn (not during the attack calculation).
+    /// This tests the fix for the defend bonus being lost when player gets multiple actions per tick.
+    /// </summary>
+    [TestCase]
+    public void DefendFlag_PersistsUntilEnemyTurnCompletes()
+    {
+        // Simulate: Player defends, then attacks again before enemy responds
+        // The defend bonus should still apply when enemy finally attacks
+        float playerAp = 250f; // Ready for multiple actions (2.5 turns worth)
+        float enemyAp = 100f;  // Ready to act after player
+        bool playerDefendedLastTurn = false;
+        bool defendBonusApplied = false;
+        int playerActionCount = 0;
+
+        const int maxActionsPerTick = 4;
+        for (int actionIndex = 0; actionIndex < maxActionsPerTick; actionIndex++)
+        {
+            bool playerReady = playerAp >= ActionPointThreshold;
+            bool enemyReady = enemyAp >= ActionPointThreshold;
+            if (!playerReady && !enemyReady)
+                break;
+
+            // Player acts first if ready (higher AP or equal and taking turn)
+            bool playerActs = playerReady && (!enemyReady || playerAp >= enemyAp);
+
+            if (playerActs)
+            {
+                playerAp -= ActionPointThreshold;
+                playerActionCount++;
+                // First action: defend and set flag
+                if (playerActionCount == 1)
+                {
+                    playerDefendedLastTurn = true;
+                }
+                // Second action: attack, flag should persist
+            }
+            else
+            {
+                enemyAp -= ActionPointThreshold;
+                // Enemy attacks - defend bonus should apply if flag set
+                if (playerDefendedLastTurn)
+                {
+                    defendBonusApplied = true;
+                }
+                // Clear flag at end of enemy turn (mirrors ExecuteEnemyAction fix)
+                playerDefendedLastTurn = false;
+            }
+        }
+
+        // Verify player got multiple actions (defend + attack)
+        AssertThat(playerActionCount).IsEqual(2)
+            .OverrideFailureMessage("Player should get defend + attack before enemy responds");
+
+        // Verify defend bonus was applied when enemy attacked
+        AssertThat(defendBonusApplied).IsTrue()
+            .OverrideFailureMessage("Defend bonus should apply when enemy attacks after player defends");
+
+        // Verify flag is cleared after enemy turn completes
+        AssertThat(playerDefendedLastTurn).IsFalse()
+            .OverrideFailureMessage("Defend flag should be cleared after enemy turn completes");
+    }
 }

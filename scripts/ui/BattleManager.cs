@@ -1026,10 +1026,6 @@ public partial class BattleManager : AcceptDialog
 
     private void ExecutePlayerAction()
     {
-        // Clear defend flag at start of each player action so defend only applies
-        // to the immediately following enemy exchange
-        _playerDefendedLastTurn = false;
-
         // Stun check: stunned player loses their action but still ticks
         if (_player.ActiveBuffs.IsStunned)
         {
@@ -1189,8 +1185,9 @@ public partial class BattleManager : AcceptDialog
         {
             damage = damage / 2;
             GD.Print($"The attack is weakened by {_player.Name}'s defense!");
+            _playerDefendedLastTurn = false; // Consume defend after it protects
         }
-        
+
         damage = Mathf.Max(1, damage);
         int actualDamage = _player.TakeDamage(damage);
         

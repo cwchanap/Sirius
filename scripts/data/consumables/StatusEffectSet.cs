@@ -37,8 +37,6 @@ public class StatusEffectSet
     /// </summary>
     public void Add(ActiveStatusEffect effect)
     {
-        if (effect == null) return;
-
         int idx = _effects.FindIndex(e => e.Type == effect.Type);
         if (idx >= 0)
         {

@@ -1,5 +1,6 @@
 using GdUnit4;
 using static GdUnit4.Assertions;
+using System;
 
 [TestSuite]
 [RequireGodotRuntime]
@@ -44,6 +45,15 @@ public partial class ConsumableItemTest : Godot.Node
         var character = TestHelpers.CreateTestCharacter();
         bool result = item.Apply(character);
         AssertThat(result).IsFalse();
+    }
+
+    [TestCase]
+    public void ConsumableItem_Effect_GetWithoutConfiguration_Throws()
+    {
+        var item = new ConsumableItem { Id = "test_no_effect", DisplayName = "Broken Item" };
+
+        AssertThrown(() => _ = item.Effect)
+            .IsInstanceOf<InvalidOperationException>();
     }
 
     [TestCase]

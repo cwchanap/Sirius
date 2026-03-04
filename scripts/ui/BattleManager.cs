@@ -28,8 +28,8 @@ public partial class BattleManager : AcceptDialog
     private Button _attackButton;
     private Button _defendButton;
     private Button _runButton;
-    private Button _itemButton;
-    private Button _startButton;
+    private Button? _itemButton;
+    private Button? _startButton;
     
     // Animation and Visual References
     private AnimatedSprite2D _playerSprite;
@@ -850,15 +850,15 @@ public partial class BattleManager : AcceptDialog
     // Status effect UI helpers
     // -------------------------------------------------------------------------
 
-    private Label _playerStatusLabel;
-    private Label _enemyStatusLabel;
+    private Label? _playerStatusLabel;
+    private Label? _enemyStatusLabel;
 
     /// <summary>
     /// Lazily creates a status label as a child of the given container path if one
     /// doesn't exist yet, then updates its text. Uses GetNodeOrNull so it is safe
     /// when the scene node is absent.
     /// </summary>
-    private void UpdateStatusLabel(ref Label labelRef, string containerPath, StatusEffectSet? effects)
+    private void UpdateStatusLabel(ref Label? labelRef, string containerPath, StatusEffectSet? effects)
     {
         if (effects == null) return;
 

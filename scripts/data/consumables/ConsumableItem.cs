@@ -40,7 +40,7 @@ public partial class ConsumableItem : Item
     /// Returns true if the effect was applied successfully.
     /// Does NOT remove the item from inventory — callers are responsible for that.
     /// </summary>
-    public bool Apply(Character target)
+    public bool Apply(Character? target)
     {
         if (target == null)
         {

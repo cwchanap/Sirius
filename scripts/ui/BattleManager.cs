@@ -1026,6 +1026,10 @@ public partial class BattleManager : AcceptDialog
 
     private void ExecutePlayerAction()
     {
+        // Clear defend flag at start of each player action so defend only applies
+        // to the immediately following enemy exchange
+        _playerDefendedLastTurn = false;
+
         // Stun check: stunned player loses their action but still ticks
         if (_player.ActiveBuffs.IsStunned)
         {
@@ -1067,7 +1071,6 @@ public partial class BattleManager : AcceptDialog
         {
             EnemyTurn(_playerDefendedLastTurn);
         }
-        _playerDefendedLastTurn = false;
 
         // Tick enemy status effects
         var (expiredEnemy, dotEnemy, hotEnemy) = _enemy.ActiveStatusEffects.Tick();

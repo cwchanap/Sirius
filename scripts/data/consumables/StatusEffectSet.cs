@@ -35,8 +35,9 @@ public class StatusEffectSet
     /// Adds an effect. If the same type already exists, keeps the higher magnitude
     /// and higher turns remaining (max-merge prevents waste from re-applying).
     /// </summary>
-    public void Add(ActiveStatusEffect effect)
+    public void Add(ActiveStatusEffect? effect)
     {
+        if (effect is null) return;
         int idx = _effects.FindIndex(e => e.Type == effect.Type);
         if (idx >= 0)
         {

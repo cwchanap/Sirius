@@ -32,8 +32,8 @@ public partial class BattleManager : AcceptDialog
     private Button? _startButton;
     
     // Animation and Visual References
-    private AnimatedSprite2D _playerSprite = null!;
-    private AnimatedSprite2D _enemySprite = null!;
+    private AnimatedSprite2D? _playerSprite;
+    private AnimatedSprite2D? _enemySprite;
     private Label? _playerDamageLabel;
     private Label? _enemyDamageLabel;
     private Label? _lootLabel;
@@ -87,12 +87,16 @@ public partial class BattleManager : AcceptDialog
 
         GD.Print("BattleManager UI elements loaded");
 
-        // Get animation and visual references (sprites are required, damage labels are optional)
-        _playerSprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/LeftSide/PlayerSpriteContainer/PlayerSprite");
-        _enemySprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/RightSide/EnemySpriteContainer/EnemySprite");
+        // Get animation and visual references (damage labels are optional; sprites may be absent in minimal test scenes)
+        _playerSprite = GetNodeOrNull<AnimatedSprite2D>("BattleContent/BattleArena/LeftSide/PlayerSpriteContainer/PlayerSprite");
+        _enemySprite = GetNodeOrNull<AnimatedSprite2D>("BattleContent/BattleArena/RightSide/EnemySpriteContainer/EnemySprite");
         _playerDamageLabel = GetNodeOrNull<Label>("BattleContent/BattleArena/LeftSide/PlayerStatsContainer/PlayerDamageLabel");
         _enemyDamageLabel = GetNodeOrNull<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemyDamageLabel");
 
+        if (_playerSprite == null)
+            GD.PushWarning("[BattleManager] PlayerSprite not found — attack animation visuals will be skipped.");
+        if (_enemySprite == null)
+            GD.PushWarning("[BattleManager] EnemySprite not found — attack animation visuals will be skipped.");
         if (_playerDamageLabel == null)
             GD.PrintErr("[BattleManager] PlayerDamageLabel not found — damage numbers will not display.");
         if (_enemyDamageLabel == null)
@@ -413,15 +417,34 @@ public partial class BattleManager : AcceptDialog
         // Remove item first to prevent duplication if effect application succeeds but removal fails
         if (_selectedConsumable != null)
         {
+            bool consumableApplied = false;
+
             if (_selectedConsumable.Effect is EnemyDebuffEffect enemyEffect)
             {
                 // Enemy-targeting item: remove first, then apply to enemy
                 if (_player.TryRemoveItem(_selectedConsumable.Id, 1))
                 {
                     if (enemyEffect.ApplyToEnemy(_enemy))
+                    {
+                        UpdateUI();
                         GD.Print($"[BattleManager] Applied '{_selectedConsumable.DisplayName}' to {_enemy.Name}");
+                        consumableApplied = true;
+                    }
                     else
-                        GD.PushWarning($"[BattleManager] Could not apply '{_selectedConsumable.DisplayName}' to enemy");
+                    {
+                        GD.PushWarning($"[BattleManager] '{_selectedConsumable.DisplayName}' was consumed but could not be applied to enemy, attempting rollback");
+                        bool rollbackSuccess = _player.TryAddItem(_selectedConsumable, 1, out _);
+                        UpdateUI();
+                        if (!rollbackSuccess)
+                        {
+                            GD.PrintErr($"[BattleManager] ROLLBACK FAILED for '{_selectedConsumable.DisplayName}' — item lost permanently!");
+                            ShowItemPanelError($"Error: {_selectedConsumable.DisplayName} was lost. This is a bug — please report it.");
+                            return;
+                        }
+
+                        ShowItemPanelError($"Could not apply {_selectedConsumable.DisplayName} to {_enemy.Name}. Item returned.");
+                        return;
+                    }
                 }
                 else
                 {
@@ -439,6 +462,7 @@ public partial class BattleManager : AcceptDialog
                     {
                         UpdateUI(); // Refresh HP display if a potion was used
                         GD.Print($"[BattleManager] Applied '{_selectedConsumable.DisplayName}' to {_player.Name}");
+                        consumableApplied = true;
                     }
                     else
                     {
@@ -465,7 +489,9 @@ public partial class BattleManager : AcceptDialog
                     return;
                 }
             }
-            _selectedConsumable = null;
+
+            if (consumableApplied)
+                _selectedConsumable = null;
         }
 
         // Determine turn order using effective speed (accounts for pre-battle consumables)
@@ -517,8 +543,8 @@ public partial class BattleManager : AcceptDialog
         var errorLabel = new Label { Text = message };
         errorLabel.Modulate = new Color(1f, 0.3f, 0.3f); // Red tint
         errorLabel.HorizontalAlignment = HorizontalAlignment.Center;
-        _itemPanel.AddChild(errorLabel);
-        _itemPanel.Visible = true; // Re-show panel so player sees the error
+        _itemPanel.CallDeferred(Node.MethodName.AddChild, errorLabel);
+        _itemPanel.SetDeferred(Control.PropertyName.Visible, true); // Re-show panel so player sees the error
     }
 
     private void ShowCombatItemPanel()
@@ -662,12 +688,17 @@ public partial class BattleManager : AcceptDialog
     
     private void SetupCharacterAnimations()
     {
+        if (_playerSprite == null)
+        {
+            GD.PushWarning("[BattleManager] SetupCharacterAnimations: Player sprite node missing; skipping player animation setup.");
+        }
+
         // Create animation resources for player
         var playerSpriteFrames = new SpriteFrames();
 
         // Load player sprite sheet and create animation - with fallback
         var playerTexture = GD.Load<Texture2D>("res://assets/sprites/characters/player_hero/sprite_sheet.png");
-        if (playerTexture != null)
+        if (_playerSprite != null && playerTexture != null)
         {
             playerSpriteFrames.AddAnimation("idle");
 
@@ -705,7 +736,13 @@ public partial class BattleManager : AcceptDialog
         }
         else
         {
-            GD.PushWarning("[BattleManager] Player sprite sheet not found; using fallback rendering.");
+            if (playerTexture == null)
+                GD.PushWarning("[BattleManager] Player sprite sheet not found; using fallback rendering.");
+        }
+
+        if (_enemySprite == null)
+        {
+            GD.PushWarning("[BattleManager] SetupCharacterAnimations: Enemy sprite node missing; skipping enemy animation setup.");
         }
 
         // Create animation resources for enemy
@@ -723,7 +760,7 @@ public partial class BattleManager : AcceptDialog
         {
             enemyTexture = GD.Load<Texture2D>(legacyGoblinPath);
         }
-        if (enemyTexture != null)
+        if (_enemySprite != null && enemyTexture != null)
         {
             enemySpriteFrames.AddAnimation("idle");
 
@@ -760,10 +797,13 @@ public partial class BattleManager : AcceptDialog
         }
         else
         {
-            // TODO: use _enemy.EnemyType to select the correct sprite path (currently always loads goblin)
-            GD.PushWarning("[BattleManager] Enemy sprite sheet not found; using fallback rendering.");
-            // Check if there are sprite files that need to be merged
-            CheckAndCreateSpriteSheet();
+            if (enemyTexture == null)
+            {
+                // TODO: use _enemy.EnemyType to select the correct sprite path (currently always loads goblin)
+                GD.PushWarning("[BattleManager] Enemy sprite sheet not found; using fallback rendering.");
+                // Check if there are sprite files that need to be merged
+                CheckAndCreateSpriteSheet();
+            }
         }
     }
     
@@ -1358,8 +1398,10 @@ public partial class BattleManager : AcceptDialog
         battleContent.AddChild(_lootLabel);
     }
 
-    private void PlayAttackAnimation(AnimatedSprite2D sprite)
+    private void PlayAttackAnimation(AnimatedSprite2D? sprite)
     {
+        if (sprite == null) return;
+
         // Create a quick flash effect for attack
         var tween = CreateTween();
         tween.SetParallel(true);

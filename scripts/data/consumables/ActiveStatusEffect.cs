@@ -33,6 +33,6 @@ public record ActiveStatusEffect
 
     public bool IsExpired => TurnsRemaining <= 0;
 
-    public bool IsDoT => Type is StatusEffectType.Poison or StatusEffectType.Burn;
-    public bool IsHoT => Type == StatusEffectType.Regen;
+    public bool IsDoT => Type.IsDoT();
+    public bool IsHoT => Type.IsHoT();
 }

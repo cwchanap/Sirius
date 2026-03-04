@@ -76,7 +76,8 @@ public partial class BattleManagerTest : Node
 
         // Rollback
         player.TryAddItem(brokenItem, 1, out _);
-        AssertThat(player.GetItemQuantity(brokenItem.Id)).IsEqual(1);
+        AssertThat(player.GetItemQuantity(brokenItem.Id)).IsEqual(1)
+            .OverrideFailureMessage("Rollback should restore the consumed item when Apply fails.");
     }
 
     /// <summary>

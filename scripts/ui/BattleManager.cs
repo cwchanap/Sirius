@@ -5,8 +5,8 @@ public partial class BattleManager : AcceptDialog
 {
     [Signal] public delegate void BattleFinishedEventHandler(bool playerWon, bool playerEscaped);
     
-    private Character _player;
-    private Enemy _enemy;
+    private Character _player = null!;
+    private Enemy _enemy = null!;
     private bool _playerTurn = true;
 
     // Action point system for speed-based turn frequency
@@ -15,31 +15,31 @@ public partial class BattleManager : AcceptDialog
     private const float ACTION_POINT_THRESHOLD = 100f;
 
     // UI References
-    private Label _playerLevelLabel;
-    private Label _playerHealthLabel;
-    private Label _playerAttackLabel;
-    private Label _playerDefenseLabel;
-    private Label _enemyLevelLabel;
-    private Label _enemyHealthLabel;
-    private Label _enemyAttackLabel;
-    private Label _enemyDefenseLabel;
-    private Label _playerSpeedLabel;
-    private Label _enemySpeedLabel;
-    private Button _attackButton;
-    private Button _defendButton;
-    private Button _runButton;
+    private Label _playerLevelLabel = null!;
+    private Label _playerHealthLabel = null!;
+    private Label _playerAttackLabel = null!;
+    private Label _playerDefenseLabel = null!;
+    private Label _enemyLevelLabel = null!;
+    private Label _enemyHealthLabel = null!;
+    private Label _enemyAttackLabel = null!;
+    private Label _enemyDefenseLabel = null!;
+    private Label? _playerSpeedLabel;
+    private Label? _enemySpeedLabel;
+    private Button _attackButton = null!;
+    private Button _defendButton = null!;
+    private Button _runButton = null!;
     private Button? _itemButton;
     private Button? _startButton;
     
     // Animation and Visual References
-    private AnimatedSprite2D _playerSprite;
-    private AnimatedSprite2D _enemySprite;
-    private Label _playerDamageLabel;
-    private Label _enemyDamageLabel;
-    private Label _lootLabel;
+    private AnimatedSprite2D _playerSprite = null!;
+    private AnimatedSprite2D _enemySprite = null!;
+    private Label? _playerDamageLabel;
+    private Label? _enemyDamageLabel;
+    private Label? _lootLabel;
 
     // Auto-battle properties
-    private Timer _battleTimer;
+    private Timer _battleTimer = null!;
     private bool _battleInProgress = false;
     private bool _playerDefendedLastTurn = false;
     private bool _resultEmitted = false; // Guards against double-emission in the common case; timer stop and signal emit must always be called together
@@ -87,9 +87,9 @@ public partial class BattleManager : AcceptDialog
 
         GD.Print("BattleManager UI elements loaded");
 
-        // Get animation and visual references
-        _playerSprite = GetNodeOrNull<AnimatedSprite2D>("BattleContent/BattleArena/LeftSide/PlayerSpriteContainer/PlayerSprite");
-        _enemySprite = GetNodeOrNull<AnimatedSprite2D>("BattleContent/BattleArena/RightSide/EnemySpriteContainer/EnemySprite");
+        // Get animation and visual references (sprites are required, damage labels are optional)
+        _playerSprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/LeftSide/PlayerSpriteContainer/PlayerSprite");
+        _enemySprite = GetNode<AnimatedSprite2D>("BattleContent/BattleArena/RightSide/EnemySpriteContainer/EnemySprite");
         _playerDamageLabel = GetNodeOrNull<Label>("BattleContent/BattleArena/LeftSide/PlayerStatsContainer/PlayerDamageLabel");
         _enemyDamageLabel = GetNodeOrNull<Label>("BattleContent/BattleArena/RightSide/EnemyStatsContainer/EnemyDamageLabel");
 
@@ -712,7 +712,7 @@ public partial class BattleManager : AcceptDialog
         var enemySpriteFrames = new SpriteFrames();
 
         // Load enemy sprite sheet and create animation - prefer new enemies/ path with fallback to legacy characters/
-        Texture2D enemyTexture = null;
+        Texture2D? enemyTexture = null;
         string newGoblinPath = "res://assets/sprites/enemies/goblin/sprite_sheet.png";
         string legacyGoblinPath = "res://assets/sprites/characters/enemy_goblin/sprite_sheet.png";
         if (FileAccess.FileExists(newGoblinPath))
@@ -1168,7 +1168,7 @@ public partial class BattleManager : AcceptDialog
 
     private void TryApplyEnemyDebuff()
     {
-        var abilities = EnemyDebuffProfile.GetAbilities(_enemy?.EnemyType);
+        var abilities = EnemyDebuffProfile.GetAbilities(_enemy.EnemyType);
         if (abilities.Count == 0) return;
 
         foreach (var ability in abilities)
@@ -1187,8 +1187,8 @@ public partial class BattleManager : AcceptDialog
 
         _battleInProgress = false;
         _battleTimer.Stop();
-        _player?.ActiveBuffs.Clear();
-        _enemy?.ActiveStatusEffects.Clear();
+        _player.ActiveBuffs.Clear();
+        _enemy.ActiveStatusEffects.Clear();
 
         // Add spacing and clear result display
         GD.Print("=== BATTLE RESULT ===");
@@ -1261,8 +1261,8 @@ public partial class BattleManager : AcceptDialog
 
         _battleInProgress = false;
         _battleTimer.Stop();
-        _player?.ActiveBuffs.Clear();
-        _enemy?.ActiveStatusEffects.Clear();
+        _player.ActiveBuffs.Clear();
+        _enemy.ActiveStatusEffects.Clear();
 
         // Add spacing and clear result display
         GD.Print("=== BATTLE RESULT ===");
@@ -1297,8 +1297,11 @@ public partial class BattleManager : AcceptDialog
         ShowLootDisplay(loot);
     }
 
-    private void ShowDamageNumber(Label damageLabel, int damage, bool isCritical = false)
+    private void ShowDamageNumber(Label? damageLabel, int damage, bool isCritical = false)
     {
+        // Gracefully skip if damage label is not available (optional UI element)
+        if (damageLabel == null) return;
+        
         // Set damage text
         damageLabel.Text = $"-{damage}";
         

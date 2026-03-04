@@ -157,7 +157,9 @@ public sealed class EnemyDebuffEffect : ConsumableEffect
         Turns      = Mathf.Max(1, turns);
     }
 
-    public override string Description => $"Inflicts {EffectType} on enemy for {Turns} turns";
+    public override string Description => EffectType.IsDoT()
+        ? $"Inflicts {EffectType} on enemy for {Turns} turns ({Magnitude} HP/turn)"
+        : $"Inflicts {EffectType} on enemy for {Turns} turns";
 
     /// <remarks>
     /// Always returns false and logs a warning — this effect targets the enemy.

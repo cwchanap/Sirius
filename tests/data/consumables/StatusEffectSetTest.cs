@@ -254,7 +254,7 @@ public partial class StatusEffectSetTest : Godot.Node
 
         var (_, dot, _) = set.Tick();
 
-        // Both DoTs accumulate: max(1, 5) + max(1, 3) = 8
+        // Both DoT magnitudes accumulate: 5 + 3 = 8
         AssertThat(dot).IsEqual(8);
     }
 

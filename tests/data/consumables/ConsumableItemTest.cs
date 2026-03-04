@@ -154,7 +154,8 @@ public partial class ConsumableItemTest : Godot.Node
         character.TryAddItem(potion, 3, out _);
 
         // Mirrors UseConsumableOutOfBattle logic
-        character.TryRemoveItem(potion.Id, 1);
+        bool removed = character.TryRemoveItem(potion.Id, 1);
+        AssertThat(removed).IsTrue();
         potion.Apply(character);
 
         AssertThat(character.GetItemQuantity("health_potion")).IsEqual(2);

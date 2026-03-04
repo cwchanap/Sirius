@@ -27,3 +27,12 @@ public enum StatusEffectType
     Strength = 13,  // Flat Attack bonus (replaces BuffType.AttackUp)
     Fortify  = 14,  // Flat Defense bonus (replaces BuffType.DefenseUp)
 }
+
+public static class StatusEffectTypeExtensions
+{
+    public static bool IsDoT(this StatusEffectType type)
+        => type is StatusEffectType.Poison or StatusEffectType.Burn;
+
+    public static bool IsHoT(this StatusEffectType type)
+        => type == StatusEffectType.Regen;
+}

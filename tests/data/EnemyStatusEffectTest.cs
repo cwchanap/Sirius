@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using GdUnit4;
 using static GdUnit4.Assertions;
 
@@ -170,9 +171,13 @@ public partial class EnemyStatusEffectTest : Godot.Node
     public void RegenPotion_Apply_AddsRegenToPlayer()
     {
         var player = TestHelpers.CreateTestCharacter();
-        ConsumableCatalog.CreateRegenPotion().Apply(player);
-        AssertThat(player.ActiveBuffs.HasAny).IsTrue();
-        AssertThat(player.ActiveBuffs.IsStunned).IsFalse();
+        bool applied = ConsumableCatalog.CreateRegenPotion().Apply(player);
+
+        AssertThat(applied).IsTrue();
+        var regen = player.ActiveBuffs.Effects.FirstOrDefault(e => e.Type == StatusEffectType.Regen);
+        AssertThat(regen).IsNotNull();
+        AssertThat(regen!.Magnitude).IsEqual(15);
+        AssertThat(regen.TurnsRemaining).IsEqual(3);
     }
 
     [TestCase]
@@ -184,8 +189,13 @@ public partial class EnemyStatusEffectTest : Godot.Node
         // EnemyDebuffEffect.Apply(Character) is a no-op; ApplyToEnemy is used by BattleManager
         if (vial.Effect is EnemyDebuffEffect ede)
         {
-            ede.ApplyToEnemy(enemy);
-            AssertThat(enemy.ActiveStatusEffects.HasAny).IsTrue();
+            bool applied = ede.ApplyToEnemy(enemy);
+            AssertThat(applied).IsTrue();
+
+            var poison = enemy.ActiveStatusEffects.Effects.FirstOrDefault(e => e.Type == StatusEffectType.Poison);
+            AssertThat(poison).IsNotNull();
+            AssertThat(poison!.Magnitude).IsEqual(8);
+            AssertThat(poison.TurnsRemaining).IsEqual(4);
         }
         else
         {

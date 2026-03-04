@@ -957,8 +957,9 @@ public partial class BattleManager : AcceptDialog
         _enemyActionPoints += _enemy.GetEffectiveSpeed() * 6f;
 
         bool actedThisTick = false;
-        int maxActionsPerTick = 4;
-        for (int actionIndex = 0; actionIndex < maxActionsPerTick; actionIndex++)
+        int safetyLimit = 20;
+        int actionCount = 0;
+        while (actionCount < safetyLimit)
         {
             bool playerReady = _playerActionPoints >= ACTION_POINT_THRESHOLD;
             bool enemyReady = _enemyActionPoints >= ACTION_POINT_THRESHOLD;
@@ -998,6 +999,7 @@ public partial class BattleManager : AcceptDialog
             }
 
             _playerActedLast = playerActs;
+            actionCount++;
 
             if (!_player.IsAlive || !_enemy.IsAlive)
                 break;
@@ -1086,6 +1088,10 @@ public partial class BattleManager : AcceptDialog
 
         // Spend AP after acting
         _enemyActionPoints -= ACTION_POINT_THRESHOLD;
+
+        // Clear defend flag AFTER enemy turn fully completes
+        // This ensures defend bonus is applied even if player gets multiple actions per tick
+        _playerDefendedLastTurn = false;
     }
     
     private void PlayerAutoAction()
@@ -1185,7 +1191,7 @@ public partial class BattleManager : AcceptDialog
         {
             damage = damage / 2;
             GD.Print($"The attack is weakened by {_player.Name}'s defense!");
-            _playerDefendedLastTurn = false; // Consume defend after it protects
+            // NOTE: _playerDefendedLastTurn cleared at end of ExecuteEnemyAction, not here
         }
 
         damage = Mathf.Max(1, damage);

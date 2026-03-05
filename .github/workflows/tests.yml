@@ -91,14 +91,14 @@ jobs:
         run: |
           # Run tests using GdUnit4's command line runner
           # Use the .NET test adapter which integrates with GdUnit4
-          dotnet test Sirius.sln --configuration Release --logger "console;verbosity=detailed" --settings test.runsettings
+          dotnet test Sirius.sln --configuration Release --logger "console;verbosity=detailed" --settings test.runsettings --collect:"XPlat Code Coverage"
         continue-on-error: false
 
       - name: Run .NET tests (alternative)
         if: failure()
         run: |
           # Fallback: try running via dotnet test without build requirement
-          dotnet test Sirius.sln --verbosity normal --logger "console;verbosity=detailed" || true
+          dotnet test Sirius.sln --verbosity normal --logger "console;verbosity=detailed" --collect:"XPlat Code Coverage" || true
 
       - name: Upload test results
         if: always()
@@ -109,6 +109,15 @@ jobs:
             .godot/
             TestResults/
           retention-days: 7
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./TestResults/**/coverage.cobertura.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
 
       - name: Test Report Summary
         if: always()

@@ -91,8 +91,36 @@ jobs:
         run: |
           # Run tests using GdUnit4's command line runner
           # Use the .NET test adapter which integrates with GdUnit4
-          dotnet test Sirius.sln --configuration Release --logger "console;verbosity=detailed" --settings test.runsettings --collect:"XPlat Code Coverage"
+          dotnet test Sirius.sln --configuration Release --logger "console;verbosity=detailed" --settings test.runsettings --collect:"XPlat Code Coverage" --diag diaglog.txt
         continue-on-error: false
+
+      - name: Check diagnostic log
+        if: always()
+        run: |
+          if [ -f diaglog.txt ]; then
+            echo "Diagnostic log:"
+            grep -i "coverlet\|coverage\|collector" diaglog.txt || true
+          else
+            echo "No diagnostic log found"
+          fi
+
+      - name: List coverage files
+        if: always()
+        run: |
+          echo "TestResults directory contents:"
+          ls -laR TestResults/ || echo "TestResults directory not found"
+          echo ""
+          echo "Searching for coverage files:"
+          find TestResults -name "*.xml" -o -name "*.coverage" || echo "No coverage files found"
+          echo ""
+          echo "Checking coverage file content:"
+          if [ -f TestResults/*/coverage.cobertura.xml ]; then
+            echo "Coverage file exists"
+            wc -l TestResults/*/coverage.cobertura.xml
+            head -20 TestResults/*/coverage.cobertura.xml
+          else
+            echo "No coverage.cobertura.xml file found"
+          fi
 
       - name: Run .NET tests (alternative)
         if: failure()
@@ -120,6 +148,7 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
 
       - name: Test Report Summary
         if: always()

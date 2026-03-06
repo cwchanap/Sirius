@@ -7,8 +7,22 @@
       <!-- For local development, create test.runsettings.local (gitignored) -->
       <GODOT_BIN>/home/runner/godot/godot</GODOT_BIN>
     </EnvironmentVariables>
+    <CollectSource>true</CollectSource>
+    <InformationalVersion>true</InformationalVersion>
   </RunConfiguration>
   <GdUnit4>
     <Parameters>"--headless"</Parameters>
   </GdUnit4>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage" enabled="True">
+        <Configuration>
+          <Format>cobertura</Format>
+          <CollectCoverage>true</CollectCoverage>
+          <Exclude>[Sirius.Tests]*</Exclude>
+          <ExcludeByAttribute>Obsolete,GeneratedCode,CompilerGenerated</ExcludeByAttribute>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
 </RunSettings>

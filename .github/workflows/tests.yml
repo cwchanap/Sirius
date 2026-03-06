@@ -106,8 +106,9 @@ jobs:
         with:
           name: test-results
           path: |
-            .godot/
-            TestResults/
+            .godot/**
+            TestResults/**
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Upload coverage to Codecov
@@ -118,6 +119,7 @@ jobs:
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Test Report Summary
         if: always()

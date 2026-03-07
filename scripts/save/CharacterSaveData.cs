@@ -1,7 +1,8 @@
 using Godot;
+using System.Collections.Generic;
 
 /// <summary>
-/// DTO for Character stats, inventory, and equipment.
+/// DTO for Character stats, inventory, equipment, mana, and skill loadout.
 /// </summary>
 public class CharacterSaveData
 {
@@ -17,6 +18,15 @@ public class CharacterSaveData
     public int Gold { get; set; }
     public InventorySaveData? Inventory { get; set; }
     public EquipmentSaveData? Equipment { get; set; }
+
+    // Mana (persists across battles; no auto-restore)
+    public int MaxMana { get; set; }
+    public int CurrentMana { get; set; }
+
+    // Skill IDs (skills are resolved via SkillCatalog at runtime)
+    public string? ActiveSkillId { get; set; }
+    public List<string> PassiveSkillIds { get; set; } = new();
+    public List<string> KnownSkillIds { get; set; } = new();
 
     public static CharacterSaveData? FromCharacter(Character? c)
     {
@@ -35,7 +45,12 @@ public class CharacterSaveData
             ExperienceToNext = c.ExperienceToNext,
             Gold = c.Gold,
             Inventory = InventorySaveData.FromInventory(c.Inventory),
-            Equipment = EquipmentSaveData.FromEquipmentSet(c.Equipment)
+            Equipment = EquipmentSaveData.FromEquipmentSet(c.Equipment),
+            MaxMana = c.MaxMana,
+            CurrentMana = c.CurrentMana,
+            ActiveSkillId = c.ActiveSkillId,
+            PassiveSkillIds = new List<string>(c.PassiveSkillIds),
+            KnownSkillIds = new List<string>(c.KnownSkillIds),
         };
     }
 
@@ -141,6 +156,16 @@ public class CharacterSaveData
 
         // Clamp CurrentHealth after equipment is restored so effective max HP is used.
         character.CurrentHealth = Mathf.Clamp(character.CurrentHealth, 0, character.GetEffectiveMaxHealth());
+
+        // Restore mana. Fall back to default (50) for saves written before mana was added.
+        int maxMana = this.MaxMana > 0 ? this.MaxMana : 50;
+        character.MaxMana = maxMana;
+        character.CurrentMana = Mathf.Clamp(this.CurrentMana, 0, maxMana);
+
+        // Restore skill loadout. Skill IDs are validated against the catalog at use-time.
+        character.ActiveSkillId = this.ActiveSkillId;
+        character.PassiveSkillIds = new List<string>(this.PassiveSkillIds ?? new List<string>());
+        character.KnownSkillIds = new List<string>(this.KnownSkillIds ?? new List<string>());
 
         return character;
     }

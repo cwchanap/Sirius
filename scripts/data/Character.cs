@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -70,6 +71,8 @@ public partial class Character : Resource
     /// </summary>
     public bool TryUseMana(int amount)
     {
+        if (amount < 0)
+            throw new ArgumentOutOfRangeException(nameof(amount), amount, "Mana amount cannot be negative.");
         if (CurrentMana < amount) return false;
         CurrentMana -= amount;
         return true;
@@ -77,6 +80,8 @@ public partial class Character : Resource
 
     public void RestoreMana(int amount)
     {
+        if (amount < 0)
+            throw new ArgumentOutOfRangeException(nameof(amount), amount, "Mana amount cannot be negative.");
         CurrentMana = Mathf.Min(MaxMana, CurrentMana + amount);
     }
 

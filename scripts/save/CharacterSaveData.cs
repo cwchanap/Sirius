@@ -20,8 +20,8 @@ public class CharacterSaveData
     public EquipmentSaveData? Equipment { get; set; }
 
     // Mana (persists across battles; no auto-restore)
-    public int MaxMana { get; set; }
-    public int CurrentMana { get; set; }
+    public int? MaxMana { get; set; }
+    public int? CurrentMana { get; set; }
 
     // Skill IDs (skills are resolved via SkillCatalog at runtime)
     public string? ActiveSkillId { get; set; }
@@ -158,15 +158,36 @@ public class CharacterSaveData
         character.CurrentHealth = Mathf.Clamp(character.CurrentHealth, 0, character.GetEffectiveMaxHealth());
 
         // Restore mana. Fall back to default (50) for saves written before mana was added.
-        int maxMana = this.MaxMana > 0 ? this.MaxMana : 50;
+        int maxMana = this.MaxMana.HasValue && this.MaxMana.Value > 0 ? this.MaxMana.Value : 50;
+        int currentMana = this.CurrentMana ?? maxMana;
         character.MaxMana = maxMana;
-        character.CurrentMana = Mathf.Clamp(this.CurrentMana, 0, maxMana);
+        character.CurrentMana = Mathf.Clamp(currentMana, 0, maxMana);
 
         // Restore skill loadout. Skill IDs are validated against the catalog at use-time.
-        character.ActiveSkillId = this.ActiveSkillId;
-        character.PassiveSkillIds = new List<string>(this.PassiveSkillIds ?? new List<string>());
-        character.KnownSkillIds = new List<string>(this.KnownSkillIds ?? new List<string>());
+        character.ActiveSkillId = FilterValidSkillId(this.ActiveSkillId);
+        character.PassiveSkillIds = FilterValidSkillIds(this.PassiveSkillIds);
+        character.KnownSkillIds = FilterValidSkillIds(this.KnownSkillIds);
 
         return character;
+    }
+
+    private static string? FilterValidSkillId(string? skillId)
+    {
+        return SkillCatalog.GetById(skillId) != null ? skillId : null;
+    }
+
+    private static List<string> FilterValidSkillIds(List<string>? skillIds)
+    {
+        var validSkillIds = new List<string>();
+        if (skillIds == null)
+            return validSkillIds;
+
+        foreach (var skillId in skillIds)
+        {
+            if (SkillCatalog.GetById(skillId) != null)
+                validSkillIds.Add(skillId);
+        }
+
+        return validSkillIds;
     }
 }

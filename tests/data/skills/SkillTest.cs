@@ -1,5 +1,6 @@
 using GdUnit4;
 using Godot;
+using System;
 using System.Collections.Generic;
 using static GdUnit4.Assertions;
 
@@ -54,12 +55,28 @@ public partial class SkillTest : Node
     }
 
     [TestCase]
+    public void TryUseMana_ThrowsForNegativeAmount()
+    {
+        var c = CreateCharacter(mana: 50);
+        AssertThrown(() => c.TryUseMana(-1)).IsInstanceOf<ArgumentOutOfRangeException>();
+        AssertThat(c.CurrentMana).IsEqual(50);
+    }
+
+    [TestCase]
     public void RestoreMana_ClampsToMaxMana()
     {
         var c = CreateCharacter(mana: 50);
         c.CurrentMana = 30;
         c.RestoreMana(100);
         AssertThat(c.CurrentMana).IsEqual(50); // capped at max
+    }
+
+    [TestCase]
+    public void RestoreMana_ThrowsForNegativeAmount()
+    {
+        var c = CreateCharacter(mana: 50);
+        AssertThrown(() => c.RestoreMana(-1)).IsInstanceOf<ArgumentOutOfRangeException>();
+        AssertThat(c.CurrentMana).IsEqual(50);
     }
 
     // ---- Skill learning and loadout ----------------------------------------
@@ -137,25 +154,6 @@ public partial class SkillTest : Node
         AssertThat(result).IsFalse();
     }
 
-    // ---- SkillCatalog ------------------------------------------------------
-
-    [TestCase]
-    public void SkillCatalog_GetById_ReturnsSkillForKnownId()
-    {
-        var skill = SkillCatalog.GetById("power_strike");
-        AssertThat(skill).IsNotNull();
-        AssertThat(skill!.DisplayName).IsEqual("Power Strike");
-        AssertThat(skill.Type).IsEqual(SkillType.Active);
-        AssertThat(skill.ActivePeriod).IsEqual(3);
-    }
-
-    [TestCase]
-    public void SkillCatalog_GetById_ReturnsNullForUnknownId()
-    {
-        var skill = SkillCatalog.GetById("nonexistent_skill");
-        AssertThat(skill).IsNull();
-    }
-
     [TestCase]
     public void SkillCatalog_GrantSkillsUpToLevel_LearnsEligibleSkills()
     {
@@ -177,6 +175,38 @@ public partial class SkillTest : Node
         foreach (var id in c.KnownSkillIds)
             if (id == "power_strike") count++;
         AssertThat(count).IsEqual(1);
+    }
+
+    [TestCase]
+    public void SkillCatalog_GrantSkillsUpToLevel_AutoEquipsPassiveSkill()
+    {
+        var c = CreateCharacter();
+
+        SkillCatalog.GrantSkillsUpToLevel(c, 2);
+
+        AssertThat(c.KnownSkillIds.Contains("heal")).IsTrue();
+        AssertThat(c.PassiveSkillIds.Count).IsEqual(1);
+        AssertThat(c.PassiveSkillIds[0]).IsEqual("heal");
+        AssertThat(c.ActiveSkillId).IsEqual("power_strike");
+    }
+
+    // ---- SkillCatalog ------------------------------------------------------
+
+    [TestCase]
+    public void SkillCatalog_GetById_ReturnsSkillForKnownId()
+    {
+        var skill = SkillCatalog.GetById("power_strike");
+        AssertThat(skill).IsNotNull();
+        AssertThat(skill!.DisplayName).IsEqual("Power Strike");
+        AssertThat(skill.Type).IsEqual(SkillType.Active);
+        AssertThat(skill.ActivePeriod).IsEqual(3);
+    }
+
+    [TestCase]
+    public void SkillCatalog_GetById_ReturnsNullForUnknownId()
+    {
+        var skill = SkillCatalog.GetById("nonexistent_skill");
+        AssertThat(skill).IsNull();
     }
 
     // ---- SkillEffect: Damage -----------------------------------------------

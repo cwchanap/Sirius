@@ -124,6 +124,65 @@ public partial class SaveDataTest : Node
     }
 
     [TestCase]
+    public void TestCharacterSaveData_ToCharacter_LegacyManaDefaultsToFull()
+    {
+        var saveData = new CharacterSaveData
+        {
+            Name = "LegacyHero",
+            Level = 3,
+            MaxHealth = 120,
+            CurrentHealth = 100,
+            Attack = 25,
+            Defense = 15,
+            Speed = 12,
+            Experience = 150,
+            ExperienceToNext = 190,
+            Gold = 75,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData(),
+            MaxMana = null,
+            CurrentMana = null,
+        };
+
+        var character = saveData.ToCharacter();
+
+        AssertThat(character.MaxMana).IsEqual(50);
+        AssertThat(character.CurrentMana).IsEqual(50);
+    }
+
+    [TestCase]
+    public void TestCharacterSaveData_ToCharacter_FiltersInvalidSkillIds()
+    {
+        var saveData = new CharacterSaveData
+        {
+            Name = "SkillHero",
+            Level = 3,
+            MaxHealth = 120,
+            CurrentHealth = 100,
+            Attack = 25,
+            Defense = 15,
+            Speed = 12,
+            Experience = 150,
+            ExperienceToNext = 190,
+            Gold = 75,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData(),
+            ActiveSkillId = "missing_skill",
+            PassiveSkillIds = new System.Collections.Generic.List<string> { "heal", "missing_skill" },
+            KnownSkillIds = new System.Collections.Generic.List<string> { "power_strike", "missing_skill", "heal" },
+        };
+
+        var character = saveData.ToCharacter();
+
+        AssertThat(character.ActiveSkillId).IsNull();
+        AssertThat(character.PassiveSkillIds.Count).IsEqual(1);
+        AssertThat(character.PassiveSkillIds[0]).IsEqual("heal");
+        AssertThat(character.KnownSkillIds.Count).IsEqual(2);
+        AssertThat(character.KnownSkillIds.Contains("power_strike")).IsTrue();
+        AssertThat(character.KnownSkillIds.Contains("heal")).IsTrue();
+    }
+
+    [TestCase]
     public void TestCharacterSaveData_RoundTrip()
     {
         // Arrange

@@ -1089,14 +1089,19 @@ public partial class BattleManager : AcceptDialog
 
             // Attempt to fire the active skill (every ActivePeriod turns)
             TryFireActiveSkill();
+            if (!_enemy.IsAlive)
+                goto FinishPlayerTurn;
 
             // Attempt to fire any equipped passive skills whose trigger conditions are met
             TryFirePassiveSkills();
+            if (!_enemy.IsAlive)
+                goto FinishPlayerTurn;
 
             // Normal auto-attack (always happens regardless of skill activations)
             PlayerAutoAction();
         }
 
+    FinishPlayerTurn:
         // Tick player status effects (DoT, HoT, duration countdown)
         var (expiredPlayer, dotPlayer, hotPlayer) = _player.ActiveBuffs.Tick();
         if (dotPlayer > 0)

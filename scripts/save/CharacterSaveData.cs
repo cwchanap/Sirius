@@ -25,8 +25,8 @@ public class CharacterSaveData
 
     // Skill IDs (skills are resolved via SkillCatalog at runtime)
     public string? ActiveSkillId { get; set; }
-    public List<string> PassiveSkillIds { get; set; } = new();
-    public List<string> KnownSkillIds { get; set; } = new();
+    public List<string>? PassiveSkillIds { get; set; }
+    public List<string>? KnownSkillIds { get; set; }
 
     public static CharacterSaveData? FromCharacter(Character? c)
     {
@@ -49,8 +49,8 @@ public class CharacterSaveData
             MaxMana = c.MaxMana,
             CurrentMana = c.CurrentMana,
             ActiveSkillId = c.ActiveSkillId,
-            PassiveSkillIds = new List<string>(c.PassiveSkillIds),
-            KnownSkillIds = new List<string>(c.KnownSkillIds),
+            PassiveSkillIds = c.PassiveSkillIds != null ? new List<string>(c.PassiveSkillIds) : null,
+            KnownSkillIds = c.KnownSkillIds != null ? new List<string>(c.KnownSkillIds) : null,
         };
     }
 
@@ -164,11 +164,20 @@ public class CharacterSaveData
         character.CurrentMana = Mathf.Clamp(currentMana, 0, maxMana);
 
         // Restore skill loadout. Skill IDs are validated against the catalog at use-time.
+        bool isLegacySkillSave = IsLegacySkillSave();
         character.ActiveSkillId = FilterValidSkillId(this.ActiveSkillId);
         character.PassiveSkillIds = FilterValidSkillIds(this.PassiveSkillIds);
         character.KnownSkillIds = FilterValidSkillIds(this.KnownSkillIds);
 
+        if (isLegacySkillSave)
+            SkillCatalog.GrantSkillsUpToLevel(character, character.Level);
+
         return character;
+    }
+
+    private bool IsLegacySkillSave()
+    {
+        return ActiveSkillId == null && PassiveSkillIds == null && KnownSkillIds == null;
     }
 
     private static string? FilterValidSkillId(string? skillId)

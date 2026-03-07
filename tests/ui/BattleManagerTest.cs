@@ -175,10 +175,8 @@ public partial class BattleManagerTest : Node
     [TestCase]
     public void DefendFlag_PersistsUntilEnemyTurnCompletes()
     {
-        // Simulate: Player defends, then attacks again before enemy responds
-        // The defend bonus should still apply when enemy finally attacks
-        float playerAp = 250f; // Ready for multiple actions (2.5 turns worth)
-        float enemyAp = 100f;  // Ready to act after player
+        float playerAp = 250f;
+        float enemyAp = 100f;
         bool playerDefendedLastTurn = false;
         bool defendBonusApplied = false;
         int playerActionCount = 0;
@@ -191,42 +189,28 @@ public partial class BattleManagerTest : Node
             if (!playerReady && !enemyReady)
                 break;
 
-            // Player acts first if ready (higher AP or equal and taking turn)
             bool playerActs = playerReady && (!enemyReady || playerAp >= enemyAp);
 
             if (playerActs)
             {
                 playerAp -= ActionPointThreshold;
                 playerActionCount++;
-                // First action: defend and set flag
                 if (playerActionCount == 1)
-                {
                     playerDefendedLastTurn = true;
-                }
-                // Second action: attack, flag should persist
             }
             else
             {
                 enemyAp -= ActionPointThreshold;
-                // Enemy attacks - defend bonus should apply if flag set
                 if (playerDefendedLastTurn)
-                {
                     defendBonusApplied = true;
-                }
-                // Clear flag at end of enemy turn (mirrors ExecuteEnemyAction fix)
                 playerDefendedLastTurn = false;
             }
         }
 
-        // Verify player got multiple actions (defend + attack)
         AssertThat(playerActionCount).IsEqual(2)
             .OverrideFailureMessage("Player should get defend + attack before enemy responds");
-
-        // Verify defend bonus was applied when enemy attacked
         AssertThat(defendBonusApplied).IsTrue()
             .OverrideFailureMessage("Defend bonus should apply when enemy attacks after player defends");
-
-        // Verify flag is cleared after enemy turn completes
         AssertThat(playerDefendedLastTurn).IsFalse()
             .OverrideFailureMessage("Defend flag should be cleared after enemy turn completes");
     }
@@ -250,6 +234,35 @@ public partial class BattleManagerTest : Node
         AssertThat(GetPrivateField<int>(battleManager, "_playerSkillTurnCount")).IsEqual(1);
         AssertThat(cooldowns["heal"]).IsEqual(1);
         AssertThat(player.ActiveBuffs.IsStunned).IsTrue();
+    }
+
+    [TestCase]
+    public void ExecutePlayerAction_LethalActiveSkill_SkipsPassiveProcessingAndAutoAttack()
+    {
+        var battleManager = new BattleManager();
+        var player = TestHelpers.CreateTestCharacter();
+        player.Level = 7;
+        player.Attack = 20;
+        player.MaxMana = 100;
+        player.CurrentMana = 100;
+        SkillCatalog.GrantSkillsUpToLevel(player, player.Level);
+        player.EquipActiveSkill("power_strike");
+        player.EquipPassiveSkill("battle_cry", 0);
+
+        var enemy = Enemy.CreateGoblin();
+        enemy.CurrentHealth = 1;
+        enemy.Defense = 0;
+
+        SetPrivateField(battleManager, "_player", player);
+        SetPrivateField(battleManager, "_enemy", enemy);
+        SetPrivateField(battleManager, "_playerActionPoints", ActionPointThreshold);
+        SetPrivateField(battleManager, "_playerSkillTurnCount", 2);
+
+        InvokePrivateMethod(battleManager, "ExecutePlayerAction");
+
+        AssertThat(enemy.IsAlive).IsFalse();
+        AssertThat(player.CurrentMana).IsEqual(90);
+        AssertThat(player.ActiveBuffs.GetAttackFlatBonus()).IsEqual(0);
     }
 
     private static T GetPrivateField<T>(object instance, string fieldName)

@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 public partial class BattleManager : AcceptDialog
 {
@@ -50,6 +51,11 @@ public partial class BattleManager : AcceptDialog
     // Item panel — shared between pre-battle selection and mid-battle cure use
     private VBoxContainer? _itemPanel;
     private ConsumableItem? _selectedConsumable;
+
+    // Skill tracking (battle-scoped)
+    private int _playerSkillTurnCount = 0;
+    private readonly Dictionary<string, int> _passiveSkillCooldowns = new(); // skillId → turns until next fire
+    private Label? _playerManaLabel;
     
     public override void _Ready()
     {
@@ -275,7 +281,11 @@ public partial class BattleManager : AcceptDialog
             _lootLabel.QueueFree();
             _lootLabel = null;
         }
-        
+
+        // Reset battle-scoped skill state
+        _playerSkillTurnCount = 0;
+        _passiveSkillCooldowns.Clear();
+
         // Setup character animations
         SetupCharacterAnimations();
         
@@ -847,6 +857,10 @@ public partial class BattleManager : AcceptDialog
             _playerSpeedLabel.Text = $"SPD: {_player.GetEffectiveSpeed()}";
         }
 
+        // Mana label — created dynamically if absent (graceful no-op until player is set)
+        if (_player != null)
+            UpdateManaLabel();
+
         if (_enemyLevelLabel != null && _enemy != null)
         {
             _enemyLevelLabel.Text = $"Lv: {_enemy.Level}";
@@ -884,6 +898,37 @@ public partial class BattleManager : AcceptDialog
         UpdateStatusLabel(ref _enemyStatusLabel,
             "BattleContent/BattleArena/RightSide/EnemyStatsContainer",
             _enemy?.ActiveStatusEffects);
+    }
+
+    // -------------------------------------------------------------------------
+    // Mana UI helpers
+    // -------------------------------------------------------------------------
+
+    private void UpdateManaLabel()
+    {
+        if (_player == null) return;
+
+        var container = GetNodeOrNull<Godot.Container>(
+            "BattleContent/BattleArena/LeftSide/PlayerStatsContainer");
+        if (container == null) return;
+
+        if (_playerManaLabel == null || !Godot.GodotObject.IsInstanceValid(_playerManaLabel))
+        {
+            _playerManaLabel = new Label { Name = "PlayerManaLabel" };
+            _playerManaLabel.HorizontalAlignment = Godot.HorizontalAlignment.Left;
+            container.AddChild(_playerManaLabel);
+        }
+
+        var activeSkill = _player.GetActiveSkill();
+        string skillInfo = "";
+        if (activeSkill != null)
+        {
+            // Show how many turns until next activation. Counter resets to 0 on fire, so
+            // turnsUntilNext goes from (period-1) down to 0, at which point it fires.
+            int turnsUntilNext = activeSkill.ActivePeriod - (_playerSkillTurnCount % activeSkill.ActivePeriod);
+            skillInfo = $" [{activeSkill.DisplayName} in {turnsUntilNext}t]";
+        }
+        _playerManaLabel.Text = $"MP: {_player.CurrentMana}/{_player.MaxMana}{skillInfo}";
     }
 
     // -------------------------------------------------------------------------
@@ -1035,6 +1080,19 @@ public partial class BattleManager : AcceptDialog
         }
         else
         {
+            _playerSkillTurnCount++;
+
+            // Tick cooldowns before checking passives so the cooldown value accurately reflects
+            // "turns remaining before next fire" at the moment of the trigger check.
+            TickPassiveCooldowns();
+
+            // Attempt to fire the active skill (every ActivePeriod turns)
+            TryFireActiveSkill();
+
+            // Attempt to fire any equipped passive skills whose trigger conditions are met
+            TryFirePassiveSkills();
+
+            // Normal auto-attack (always happens regardless of skill activations)
             PlayerAutoAction();
         }
 
@@ -1094,6 +1152,74 @@ public partial class BattleManager : AcceptDialog
         _playerDefendedLastTurn = false;
     }
     
+    // -------------------------------------------------------------------------
+    // Skill execution
+    // -------------------------------------------------------------------------
+
+    private void TryFireActiveSkill()
+    {
+        var skill = _player.GetActiveSkill();
+        if (skill == null) return;
+
+        if (_playerSkillTurnCount % skill.ActivePeriod != 0) return;
+
+        if (!_player.TryUseMana(skill.ManaCost))
+        {
+            GD.Print($"[Skill] {_player.Name} tried to use '{skill.DisplayName}' but has insufficient mana ({_player.CurrentMana}/{skill.ManaCost}).");
+            return;
+        }
+
+        GD.Print($"[Skill] {_player.Name} activates '{skill.DisplayName}'!");
+        bool applied = skill.Apply(_player, _enemy);
+        if (!applied)
+        {
+            _player.RestoreMana(skill.ManaCost);
+            GD.PushWarning($"[Skill] '{skill.DisplayName}' Apply() returned false; mana restored.");
+        }
+
+        // Reset counter so the display always counts up from 1 toward the next activation.
+        _playerSkillTurnCount = 0;
+    }
+
+    private void TryFirePassiveSkills()
+    {
+        foreach (var skill in _player.GetEquippedPassiveSkills())
+        {
+            // Check cooldown
+            if (_passiveSkillCooldowns.TryGetValue(skill.SkillId, out int cooldownLeft) && cooldownLeft > 0)
+                continue;
+
+            if (!skill.ShouldTriggerPassive(_player, _enemy, _rng)) continue;
+
+            if (!_player.TryUseMana(skill.ManaCost))
+            {
+                GD.Print($"[Skill] {_player.Name} cannot trigger '{skill.DisplayName}': insufficient mana.");
+                continue;
+            }
+
+            GD.Print($"[Skill] {_player.Name} passive triggers '{skill.DisplayName}'!");
+            bool applied = skill.Apply(_player, _enemy);
+            if (!applied)
+            {
+                _player.RestoreMana(skill.ManaCost);
+                GD.PushWarning($"[Skill] '{skill.DisplayName}' Apply() returned false; mana restored.");
+                continue;
+            }
+
+            if (skill.PassiveCooldown > 0)
+                _passiveSkillCooldowns[skill.SkillId] = skill.PassiveCooldown;
+        }
+    }
+
+    private void TickPassiveCooldowns()
+    {
+        var keys = new System.Collections.Generic.List<string>(_passiveSkillCooldowns.Keys);
+        foreach (var key in keys)
+        {
+            _passiveSkillCooldowns[key] = System.Math.Max(0, _passiveSkillCooldowns[key] - 1);
+        }
+    }
+
     private void PlayerAutoAction()
     {
         // Player auto-AI: defends with 30% probability when health drops below 40%, otherwise attacks.
@@ -1254,6 +1380,9 @@ public partial class BattleManager : AcceptDialog
             {
                 GD.Print($"⭐ LEVEL UP! {_player.Name} reached level {_player.Level}!");
                 GD.Print($"New stats: HP {_player.MaxHealth}, ATK {_player.Attack}, DEF {_player.Defense}");
+
+                // Grant any skills unlocked by the new level(s)
+                SkillCatalog.GrantSkillsUpToLevel(_player, _player.Level);
             }
 
             // Roll and award loot

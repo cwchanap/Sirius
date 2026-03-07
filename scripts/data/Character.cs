@@ -1,4 +1,6 @@
 using Godot;
+using System.Collections.Generic;
+using System.Linq;
 
 [System.Serializable]
 public partial class Character : Resource
@@ -17,6 +19,22 @@ public partial class Character : Resource
     [Export] public int Gold { get; set; } = 0;
     [Export] public Inventory Inventory { get; set; } = new Inventory();
     [Export] public EquipmentSet Equipment { get; set; } = new EquipmentSet();
+
+    // ---- Mana (persisted; no auto-restore between battles) -----------------
+
+    [Export] public int MaxMana { get; set; } = 50;
+    [Export] public int CurrentMana { get; set; } = 50;
+
+    // ---- Skill loadout (persisted as IDs; resolved via SkillCatalog) -------
+
+    /// <summary>ID of the equipped active skill, or null if none.</summary>
+    [Export] public string? ActiveSkillId { get; set; }
+
+    /// <summary>IDs of equipped passive skills (up to 3 slots). Not exported; persisted via JSON save system.</summary>
+    public List<string> PassiveSkillIds { get; set; } = new();
+
+    /// <summary>IDs of all skills the player has learned. Not exported; persisted via JSON save system.</summary>
+    public List<string> KnownSkillIds { get; set; } = new();
 
     public bool IsAlive => CurrentHealth > 0;
 
@@ -43,6 +61,68 @@ public partial class Character : Resource
         EnsureInventory();
         return Inventory.ContainsItem(itemId);
     }
+
+    // ---- Mana operations ---------------------------------------------------
+
+    /// <summary>
+    /// Tries to spend the given amount of mana.
+    /// Returns true and deducts mana if sufficient; returns false without side effects if not.
+    /// </summary>
+    public bool TryUseMana(int amount)
+    {
+        if (CurrentMana < amount) return false;
+        CurrentMana -= amount;
+        return true;
+    }
+
+    public void RestoreMana(int amount)
+    {
+        CurrentMana = Mathf.Min(MaxMana, CurrentMana + amount);
+    }
+
+    // ---- Skill management --------------------------------------------------
+
+    /// <summary>Records a skill as learned by ID. No-op if already known.</summary>
+    public void LearnSkill(string skillId)
+    {
+        if (!string.IsNullOrEmpty(skillId) && !KnownSkillIds.Contains(skillId))
+            KnownSkillIds.Add(skillId);
+    }
+
+    /// <summary>
+    /// Equips a skill as the active skill.
+    /// Returns false if the skill is not yet learned or is not an Active-type skill.
+    /// </summary>
+    public bool EquipActiveSkill(string skillId)
+    {
+        if (!KnownSkillIds.Contains(skillId)) return false;
+        var skill = SkillCatalog.GetById(skillId);
+        if (skill == null || skill.Type != SkillType.Active) return false;
+        ActiveSkillId = skillId;
+        return true;
+    }
+
+    /// <summary>
+    /// Equips a skill into a passive slot (0–2).
+    /// Returns false if the skill is not yet learned, is not a Passive-type skill, or slot is out of range.
+    /// </summary>
+    public bool EquipPassiveSkill(string skillId, int slot)
+    {
+        if (!KnownSkillIds.Contains(skillId) || slot < 0 || slot >= 3) return false;
+        var skill = SkillCatalog.GetById(skillId);
+        if (skill == null || skill.Type != SkillType.Passive) return false;
+        while (PassiveSkillIds.Count <= slot)
+            PassiveSkillIds.Add("");
+        PassiveSkillIds[slot] = skillId;
+        return true;
+    }
+
+    /// <summary>Resolved active skill object, or null if none is equipped.</summary>
+    public Skill? GetActiveSkill() => SkillCatalog.GetById(ActiveSkillId);
+
+    /// <summary>Resolved passive skill objects for all filled passive slots.</summary>
+    public IEnumerable<Skill> GetEquippedPassiveSkills()
+        => PassiveSkillIds.Select(SkillCatalog.GetById).Where(s => s != null)!;
 
     public int TakeDamage(int damage)
     {

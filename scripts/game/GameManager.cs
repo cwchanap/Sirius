@@ -102,13 +102,27 @@ public partial class GameManager : Node
             Speed = 15,
             Experience = 0,
             ExperienceToNext = 100 * 1 + 10 * (1 * 1), // 100 + 10 = 110 for level 1
-            Gold = 100 // Starting gold
+            Gold = 100, // Starting gold
+            MaxMana = 50,
+            CurrentMana = 50,
         };
 
         EquipStarterGear(Player);
         GiveStarterConsumables(Player);
+        GrantStarterSkills(Player);
 
         GD.Print("Player character initialized!");
+    }
+
+    private void GrantStarterSkills(Character player)
+    {
+        // Learn all skills available at the player's starting level.
+        SkillCatalog.GrantSkillsUpToLevel(player, player.Level);
+
+        // Auto-equip the first learned skill as the active skill.
+        var firstKnown = player.KnownSkillIds.Count > 0 ? player.KnownSkillIds[0] : null;
+        if (firstKnown != null)
+            player.EquipActiveSkill(firstKnown);
     }
 
     private void GiveStarterConsumables(Character player)

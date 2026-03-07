@@ -1,5 +1,6 @@
 using GdUnit4;
 using Godot;
+using System;
 using static GdUnit4.Assertions;
 
 /// <summary>
@@ -228,5 +229,50 @@ public partial class BattleManagerTest : Node
         // Verify flag is cleared after enemy turn completes
         AssertThat(playerDefendedLastTurn).IsFalse()
             .OverrideFailureMessage("Defend flag should be cleared after enemy turn completes");
+    }
+
+    [TestCase]
+    public void ExecutePlayerAction_StunnedPlayerStillTicksSkillCountersAndCooldowns()
+    {
+        var battleManager = new BattleManager();
+        var player = TestHelpers.CreateTestCharacter();
+        player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Stun, 0, 2));
+
+        SetPrivateField(battleManager, "_player", player);
+        SetPrivateField(battleManager, "_playerActionPoints", ActionPointThreshold);
+        SetPrivateField(battleManager, "_playerSkillTurnCount", 0);
+
+        var cooldowns = GetPrivateField<System.Collections.Generic.Dictionary<string, int>>(battleManager, "_passiveSkillCooldowns");
+        cooldowns["heal"] = 2;
+
+        InvokePrivateMethod(battleManager, "ExecutePlayerAction");
+
+        AssertThat(GetPrivateField<int>(battleManager, "_playerSkillTurnCount")).IsEqual(1);
+        AssertThat(cooldowns["heal"]).IsEqual(1);
+        AssertThat(player.ActiveBuffs.IsStunned).IsTrue();
+    }
+
+    private static T GetPrivateField<T>(object instance, string fieldName)
+    {
+        var field = instance.GetType().GetField(fieldName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (field == null)
+            throw new InvalidOperationException($"Field '{fieldName}' not found.");
+        return (T)field.GetValue(instance)!;
+    }
+
+    private static void SetPrivateField<T>(object instance, string fieldName, T value)
+    {
+        var field = instance.GetType().GetField(fieldName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (field == null)
+            throw new InvalidOperationException($"Field '{fieldName}' not found.");
+        field.SetValue(instance, value);
+    }
+
+    private static void InvokePrivateMethod(object instance, string methodName)
+    {
+        var method = instance.GetType().GetMethod(methodName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (method == null)
+            throw new InvalidOperationException($"Method '{methodName}' not found.");
+        method.Invoke(instance, null);
     }
 }

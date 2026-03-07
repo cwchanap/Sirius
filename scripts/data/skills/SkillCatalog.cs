@@ -51,6 +51,7 @@ public static class SkillCatalog
             if (skill.UnlockLevel <= level && !player.KnownSkillIds.Contains(skill.SkillId))
             {
                 player.LearnSkill(skill.SkillId);
+                AutoEquipLearnedSkill(player, skill);
                 GD.Print($"[SkillCatalog] {player.Name} learned '{skill.DisplayName}'!");
             }
         }
@@ -59,6 +60,25 @@ public static class SkillCatalog
     // ---- Private helpers ---------------------------------------------------
 
     private static void Register(Skill skill) => _registry[skill.SkillId] = skill;
+
+    private static void AutoEquipLearnedSkill(Character player, Skill skill)
+    {
+        if (skill.Type == SkillType.Active)
+        {
+            if (player.GetActiveSkill() == null)
+                player.EquipActiveSkill(skill.SkillId);
+            return;
+        }
+
+        for (int slot = 0; slot < 3; slot++)
+        {
+            if (slot >= player.PassiveSkillIds.Count || string.IsNullOrEmpty(player.PassiveSkillIds[slot]))
+            {
+                player.EquipPassiveSkill(skill.SkillId, slot);
+                break;
+            }
+        }
+    }
 
     // ---- Starter skills ----------------------------------------------------
 

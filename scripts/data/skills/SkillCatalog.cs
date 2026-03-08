@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 /// <summary>
@@ -59,7 +60,16 @@ public static class SkillCatalog
 
     // ---- Private helpers ---------------------------------------------------
 
-    private static void Register(Skill skill) => _registry[skill.SkillId] = skill;
+    private static void Register(Skill skill)
+    {
+        if (string.IsNullOrEmpty(skill.SkillId))
+            throw new InvalidOperationException($"Skill '{skill.DisplayName}' has an empty SkillId — every skill must have a unique non-empty ID.");
+        if (skill.Type == SkillType.Active && skill.ActivePeriod < 1)
+            throw new InvalidOperationException($"Skill '{skill.SkillId}' has ActivePeriod={skill.ActivePeriod} — must be >= 1 to avoid division-by-zero.");
+        if (_registry.ContainsKey(skill.SkillId))
+            throw new InvalidOperationException($"Duplicate SkillId '{skill.SkillId}' — each skill must have a unique ID. Check SkillCatalog factory methods.");
+        _registry[skill.SkillId] = skill;
+    }
 
     private static void AutoEquipLearnedSkill(Character player, Skill skill)
     {

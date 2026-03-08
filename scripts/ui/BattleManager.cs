@@ -925,7 +925,7 @@ public partial class BattleManager : AcceptDialog
         {
             // Show how many turns until next activation. Counter resets to 0 on fire, so
             // turnsUntilNext goes from (period-1) down to 0, at which point it fires.
-            int turnsUntilNext = activeSkill.ActivePeriod - (_playerSkillTurnCount % activeSkill.ActivePeriod);
+            int turnsUntilNext = (activeSkill.ActivePeriod - 1) - (_playerSkillTurnCount % activeSkill.ActivePeriod);
             skillInfo = $" [{activeSkill.DisplayName} in {turnsUntilNext}t]";
         }
         _playerManaLabel.Text = $"MP: {_player.CurrentMana}/{_player.MaxMana}{skillInfo}";

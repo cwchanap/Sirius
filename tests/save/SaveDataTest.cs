@@ -183,6 +183,132 @@ public partial class SaveDataTest : Node
     }
 
     [TestCase]
+    public void TestCharacterSaveData_ToCharacter_RejectsActiveSkillNotInKnownSkills()
+    {
+        // Test that active skills not in KnownSkillIds are rejected
+        var saveData = new CharacterSaveData
+        {
+            Name = "SkillHero",
+            Level = 3,
+            MaxHealth = 120,
+            CurrentHealth = 100,
+            Attack = 25,
+            Defense = 15,
+            Speed = 12,
+            Experience = 150,
+            ExperienceToNext = 190,
+            Gold = 75,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData(),
+            // Try to equip heal (passive) as active skill
+            ActiveSkillId = "heal",
+            PassiveSkillIds = new System.Collections.Generic.List<string>(),
+            KnownSkillIds = new System.Collections.Generic.List<string> { "power_strike" }, // heal NOT in known skills
+        };
+
+        var character = saveData.ToCharacter();
+
+        // Should reject the active skill since it's not in known skills
+        AssertThat(character.ActiveSkillId).IsNull();
+        AssertThat(character.KnownSkillIds.Contains("power_strike")).IsTrue();
+        AssertThat(character.KnownSkillIds.Contains("heal")).IsFalse();
+    }
+
+    [TestCase]
+    public void TestCharacterSaveData_ToCharacter_RejectsPassiveSkillNotInKnownSkills()
+    {
+        // Test that passive skills not in KnownSkillIds are rejected
+        var saveData = new CharacterSaveData
+        {
+            Name = "SkillHero",
+            Level = 5,
+            MaxHealth = 120,
+            CurrentHealth = 100,
+            Attack = 25,
+            Defense = 15,
+            Speed = 12,
+            Experience = 150,
+            ExperienceToNext = 190,
+            Gold = 75,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData(),
+            ActiveSkillId = "power_strike",
+            // Try to equip fire_bolt (active) as passive skill
+            PassiveSkillIds = new System.Collections.Generic.List<string> { "fire_bolt" },
+            KnownSkillIds = new System.Collections.Generic.List<string> { "power_strike", "heal" }, // fire_bolt NOT in known skills
+        };
+
+        var character = saveData.ToCharacter();
+
+        // Should reject the passive skill since it's not in known skills
+        AssertThat(character.PassiveSkillIds.Count).IsEqual(0);
+        AssertThat(character.KnownSkillIds.Contains("power_strike")).IsTrue();
+        AssertThat(character.KnownSkillIds.Contains("heal")).IsTrue();
+    }
+
+    [TestCase]
+    public void TestCharacterSaveData_ToCharacter_RejectsPassiveInActiveSlot()
+    {
+        // Test that passive skills cannot be equipped in active slot even if known
+        var saveData = new CharacterSaveData
+        {
+            Name = "SkillHero",
+            Level = 2,
+            MaxHealth = 120,
+            CurrentHealth = 100,
+            Attack = 25,
+            Defense = 15,
+            Speed = 12,
+            Experience = 150,
+            ExperienceToNext = 190,
+            Gold = 75,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData(),
+            // Try to equip heal (passive) in active slot
+            ActiveSkillId = "heal",
+            PassiveSkillIds = new System.Collections.Generic.List<string>(),
+            KnownSkillIds = new System.Collections.Generic.List<string> { "power_strike", "heal" },
+        };
+
+        var character = saveData.ToCharacter();
+
+        // Should reject the active skill since it's a passive type
+        AssertThat(character.ActiveSkillId).IsNull();
+        AssertThat(character.KnownSkillIds.Contains("heal")).IsTrue();
+    }
+
+    [TestCase]
+    public void TestCharacterSaveData_ToCharacter_RejectsActiveInPassiveSlot()
+    {
+        // Test that active skills cannot be equipped in passive slot even if known
+        var saveData = new CharacterSaveData
+        {
+            Name = "SkillHero",
+            Level = 3,
+            MaxHealth = 120,
+            CurrentHealth = 100,
+            Attack = 25,
+            Defense = 15,
+            Speed = 12,
+            Experience = 150,
+            ExperienceToNext = 190,
+            Gold = 75,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData(),
+            ActiveSkillId = "power_strike",
+            // Try to equip fire_bolt (active) in passive slot
+            PassiveSkillIds = new System.Collections.Generic.List<string> { "fire_bolt" },
+            KnownSkillIds = new System.Collections.Generic.List<string> { "power_strike", "heal", "fire_bolt" },
+        };
+
+        var character = saveData.ToCharacter();
+
+        // Should reject the passive skill since it's an active type
+        AssertThat(character.PassiveSkillIds.Count).IsEqual(0);
+        AssertThat(character.KnownSkillIds.Contains("fire_bolt")).IsTrue();
+    }
+
+    [TestCase]
     public void TestCharacterSaveData_ToCharacter_LegacySaveBackfillsUnlockedSkills()
     {
         var saveData = new CharacterSaveData

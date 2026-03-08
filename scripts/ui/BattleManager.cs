@@ -1075,8 +1075,6 @@ public partial class BattleManager : AcceptDialog
     {
         _playerSkillTurnCount++;
 
-        TickPassiveCooldowns();
-
         // Stun check: stunned player loses their action but still ticks
         if (_player.ActiveBuffs.IsStunned)
         {
@@ -1084,9 +1082,6 @@ public partial class BattleManager : AcceptDialog
         }
         else
         {
-            // Tick cooldowns before checking passives so the cooldown value accurately reflects
-            // "turns remaining before next fire" at the moment of the trigger check.
-
             // Attempt to fire the active skill (every ActivePeriod turns)
             TryFireActiveSkill();
             if (!_enemy.IsAlive)
@@ -1100,6 +1095,9 @@ public partial class BattleManager : AcceptDialog
             // Normal auto-attack (always happens regardless of skill activations)
             PlayerAutoAction();
         }
+
+        // Tick passive skill cooldowns after all skill checks so cooldowns wait full turns before re-triggering
+        TickPassiveCooldowns();
 
     FinishPlayerTurn:
         // Tick player status effects (DoT, HoT, duration countdown)

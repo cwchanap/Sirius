@@ -163,11 +163,13 @@ public class CharacterSaveData
         character.MaxMana = maxMana;
         character.CurrentMana = Mathf.Clamp(currentMana, 0, maxMana);
 
-        // Restore skill loadout. Skill IDs are validated against the catalog at use-time.
+        // Restore skill loadout. First filter known skills, then validate equipped skills against them.
         bool isLegacySkillSave = IsLegacySkillSave();
-        character.ActiveSkillId = FilterValidSkillId(this.ActiveSkillId);
-        character.PassiveSkillIds = FilterValidSkillIds(this.PassiveSkillIds);
         character.KnownSkillIds = FilterValidSkillIds(this.KnownSkillIds);
+
+        // Validate equipped skills: must be known and have correct type for the slot
+        character.ActiveSkillId = FilterValidActiveSkillId(this.ActiveSkillId, character.KnownSkillIds);
+        character.PassiveSkillIds = FilterValidPassiveSkillIds(this.PassiveSkillIds, character.KnownSkillIds);
 
         if (isLegacySkillSave)
             SkillCatalog.GrantSkillsUpToLevel(character, character.Level);
@@ -195,6 +197,77 @@ public class CharacterSaveData
         {
             if (SkillCatalog.GetById(skillId) != null)
                 validSkillIds.Add(skillId);
+        }
+
+        return validSkillIds;
+    }
+
+    /// <summary>
+    /// Filters an active skill ID to ensure it exists, is learned, and is an active skill type.
+    /// Returns null if the skill is invalid, not learned, or is a passive skill.
+    /// </summary>
+    private static string? FilterValidActiveSkillId(string? skillId, List<string> knownSkillIds)
+    {
+        if (string.IsNullOrEmpty(skillId))
+            return null;
+
+        var skill = SkillCatalog.GetById(skillId);
+        if (skill == null)
+        {
+            GD.PushWarning($"Save data: Active skill '{skillId}' not found in skill catalog");
+            return null;
+        }
+
+        if (!knownSkillIds.Contains(skillId))
+        {
+            GD.PushWarning($"Save data: Active skill '{skillId}' not in known skills; ignoring to prevent progression bypass");
+            return null;
+        }
+
+        if (skill.Type != SkillType.Active)
+        {
+            GD.PushWarning($"Save data: Active skill slot contains passive skill '{skillId}'; ignoring mismatched skill type");
+            return null;
+        }
+
+        return skillId;
+    }
+
+    /// <summary>
+    /// Filters passive skill IDs to ensure each exists, is learned, and is a passive skill type.
+    /// Returns a list containing only valid passive skills.
+    /// </summary>
+    private static List<string> FilterValidPassiveSkillIds(List<string>? skillIds, List<string> knownSkillIds)
+    {
+        var validSkillIds = new List<string>();
+        if (skillIds == null)
+            return validSkillIds;
+
+        foreach (var skillId in skillIds)
+        {
+            if (string.IsNullOrEmpty(skillId))
+                continue;
+
+            var skill = SkillCatalog.GetById(skillId);
+            if (skill == null)
+            {
+                GD.PushWarning($"Save data: Passive skill '{skillId}' not found in skill catalog");
+                continue;
+            }
+
+            if (!knownSkillIds.Contains(skillId))
+            {
+                GD.PushWarning($"Save data: Passive skill '{skillId}' not in known skills; ignoring to prevent progression bypass");
+                continue;
+            }
+
+            if (skill.Type != SkillType.Passive)
+            {
+                GD.PushWarning($"Save data: Passive skill slot contains active skill '{skillId}'; ignoring mismatched skill type");
+                continue;
+            }
+
+            validSkillIds.Add(skillId);
         }
 
         return validSkillIds;

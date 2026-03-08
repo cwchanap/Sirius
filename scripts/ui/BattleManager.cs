@@ -1085,16 +1085,18 @@ public partial class BattleManager : AcceptDialog
         {
             // Attempt to fire the active skill (every ActivePeriod turns)
             TryFireActiveSkill();
-            if (!_enemy.IsAlive)
-                goto FinishPlayerTurn;
 
             // Attempt to fire any equipped passive skills whose trigger conditions are met
-            triggeredPassiveSkillsThisTurn = TryFirePassiveSkills();
-            if (!_enemy.IsAlive)
-                goto FinishPlayerTurn;
+            if (_enemy.IsAlive)
+            {
+                triggeredPassiveSkillsThisTurn = TryFirePassiveSkills();
+            }
 
             // Normal auto-attack (always happens regardless of skill activations)
-            PlayerAutoAction();
+            if (_enemy.IsAlive)
+            {
+                PlayerAutoAction();
+            }
         }
 
         // Tick passive skill cooldowns after all skill checks so cooldowns wait full turns before re-triggering
@@ -1180,9 +1182,10 @@ public partial class BattleManager : AcceptDialog
         {
             _player.RestoreMana(skill.ManaCost);
             GD.PushWarning($"[Skill] '{skill.DisplayName}' Apply() returned false; mana restored.");
+            return; // Do NOT reset counter — failed activation has no cooldown penalty
         }
 
-        // Reset counter so the display always counts up from 1 toward the next activation.
+        // Reset counter only on successful activation.
         _playerSkillTurnCount = 0;
     }
 

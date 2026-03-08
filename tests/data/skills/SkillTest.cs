@@ -209,6 +209,16 @@ public partial class SkillTest : Node
         AssertThat(skill).IsNull();
     }
 
+    [TestCase]
+    public void SkillCatalog_GetById_BattleCry_HasPassiveCooldown()
+    {
+        var skill = SkillCatalog.GetById("battle_cry");
+
+        AssertThat(skill).IsNotNull();
+        AssertThat(skill!.Type).IsEqual(SkillType.Passive);
+        AssertThat(skill.PassiveCooldown).IsEqual(3);
+    }
+
     // ---- SkillEffect: Damage -----------------------------------------------
 
     [TestCase]

@@ -1,3 +1,4 @@
+using System;
 using Godot;
 
 /// <summary>
@@ -88,6 +89,7 @@ public sealed class ApplyBuffSkillEffect : SkillEffect
 
     public ApplyBuffSkillEffect(StatusEffectType buffType, int magnitude, int duration, string label)
     {
+        if (duration < 1) throw new ArgumentOutOfRangeException(nameof(duration), "Duration must be at least 1 turn.");
         BuffType = buffType;
         Magnitude = magnitude;
         Duration = duration;
@@ -120,6 +122,7 @@ public sealed class ApplyDebuffSkillEffect : SkillEffect
 
     public ApplyDebuffSkillEffect(StatusEffectType debuffType, int magnitude, int duration, float chance = 1.0f)
     {
+        if (duration < 1) throw new ArgumentOutOfRangeException(nameof(duration), "Duration must be at least 1 turn.");
         DebuffType = debuffType;
         Magnitude = magnitude;
         Duration = duration;
@@ -155,8 +158,8 @@ public sealed class ComboSkillEffect : SkillEffect
 
     public ComboSkillEffect(SkillEffect primary, SkillEffect secondary)
     {
-        Primary = primary;
-        Secondary = secondary;
+        Primary = primary ?? throw new ArgumentNullException(nameof(primary));
+        Secondary = secondary ?? throw new ArgumentNullException(nameof(secondary));
     }
 
     public override string Description => $"{Primary.Description}; {Secondary.Description}";

@@ -65,8 +65,7 @@ public static class SkillCatalog
     {
         if (skill.Type == SkillType.Active)
         {
-            if (player.GetActiveSkill() == null)
-                player.EquipActiveSkill(skill.SkillId);
+            player.EquipActiveSkill(skill.SkillId);
             return;
         }
 

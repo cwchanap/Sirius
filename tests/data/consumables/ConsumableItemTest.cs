@@ -108,6 +108,32 @@ public partial class ConsumableItemTest : Godot.Node
         AssertThat(character.CurrentHealth).IsEqual(character.MaxHealth);
     }
 
+    [TestCase]
+    public void RestoreManaEffect_Apply_RestoresMana()
+    {
+        var character = TestHelpers.CreateTestCharacter();
+        character.MaxMana = 50;
+        character.CurrentMana = 10;
+        var item = ConsumableCatalog.CreateManaPotion();
+
+        item.Apply(character);
+
+        AssertThat(character.CurrentMana).IsEqual(35);
+    }
+
+    [TestCase]
+    public void RestoreManaEffect_Apply_CannotExceedMaxMana()
+    {
+        var character = TestHelpers.CreateTestCharacter();
+        character.MaxMana = 50;
+        character.CurrentMana = 40;
+        var item = ConsumableCatalog.CreateManaPotion();
+
+        item.Apply(character);
+
+        AssertThat(character.CurrentMana).IsEqual(50);
+    }
+
     // ---- Buff effects --------------------------------------------------------
 
     [TestCase]
@@ -160,6 +186,23 @@ public partial class ConsumableItemTest : Godot.Node
 
         AssertThat(character.GetItemQuantity("health_potion")).IsEqual(2);
         AssertThat(character.CurrentHealth).IsEqual(100);
+    }
+
+    [TestCase]
+    public void UseFromInventory_RemovesOneFromStack_And_RestoresMana()
+    {
+        var character = TestHelpers.CreateTestCharacter();
+        character.MaxMana = 50;
+        character.CurrentMana = 10;
+        var potion = ConsumableCatalog.CreateManaPotion();
+        character.TryAddItem(potion, 2, out _);
+
+        bool removed = character.TryRemoveItem(potion.Id, 1);
+        AssertThat(removed).IsTrue();
+        potion.Apply(character);
+
+        AssertThat(character.GetItemQuantity("mana_potion")).IsEqual(1);
+        AssertThat(character.CurrentMana).IsEqual(35);
     }
 
     // ---- StatusEffectSet -----------------------------------------------------
@@ -238,10 +281,19 @@ public partial class ConsumableItemTest : Godot.Node
     }
 
     [TestCase]
+    public void ConsumableCatalog_ManaPotion_HasCorrectId()
+    {
+        var item = ConsumableCatalog.CreateManaPotion();
+        AssertThat(item.Id).IsEqual("mana_potion");
+        AssertThat(item.EffectDescription).IsEqual("Restores 25 MP");
+    }
+
+    [TestCase]
     public void ItemCatalog_RegistersAllConsumables()
     {
         AssertThat(ItemCatalog.ItemExists("health_potion")).IsTrue();
         AssertThat(ItemCatalog.ItemExists("greater_health_potion")).IsTrue();
+        AssertThat(ItemCatalog.ItemExists("mana_potion")).IsTrue();
         AssertThat(ItemCatalog.ItemExists("strength_tonic")).IsTrue();
         AssertThat(ItemCatalog.ItemExists("iron_skin")).IsTrue();
         AssertThat(ItemCatalog.ItemExists("swiftness_draught")).IsTrue();

@@ -45,6 +45,30 @@ public sealed class HealEffect : ConsumableEffect
     }
 }
 
+public sealed class RestoreManaEffect : ConsumableEffect
+{
+    public int Amount { get; }
+
+    public RestoreManaEffect(int amount)
+    {
+        Amount = Mathf.Max(1, amount);
+    }
+
+    public override string Description => $"Restores {Amount} MP";
+
+    public override bool Apply(Character target)
+    {
+        if (target == null)
+        {
+            GD.PushWarning("[RestoreManaEffect] Apply called with null target");
+            return false;
+        }
+        target.RestoreMana(Amount);
+        GD.Print($"[RestoreManaEffect] {target.Name} restored {Amount} MP");
+        return true;
+    }
+}
+
 // ---- Status effect buffs/debuffs (player-targeting) -------------------------
 
 /// <summary>

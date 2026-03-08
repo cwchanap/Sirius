@@ -289,6 +289,13 @@ public partial class GameManagerTest : Node
     }
 
     [TestCase]
+    public void TestPlayer_StartsWithManaRecoveryConsumable()
+    {
+        AssertThat(_gameManager.Player.HasItem("mana_potion")).IsTrue();
+        AssertThat(_gameManager.Player.GetItemQuantity("mana_potion")).IsEqual(1);
+    }
+
+    [TestCase]
     public void TestCollectSaveData_ReturnsNullWhenPlayerIsNull()
     {
         // Arrange - Set Player to null using backing field

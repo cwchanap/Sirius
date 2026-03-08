@@ -23,6 +23,15 @@ public static class ConsumableCatalog
         Effect      = new HealEffect(150),
     };
 
+    public static ConsumableItem CreateManaPotion() => new ConsumableItem
+    {
+        Id          = "mana_potion",
+        DisplayName = "Mana Potion",
+        Description = "Restores 25 MP instantly.",
+        Value       = 35,
+        Effect      = new RestoreManaEffect(25),
+    };
+
     public static ConsumableItem CreateStrengthTonic() => new ConsumableItem
     {
         Id               = "strength_tonic",

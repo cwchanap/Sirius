@@ -1102,7 +1102,6 @@ public partial class BattleManager : AcceptDialog
         // Tick passive skill cooldowns after all skill checks so cooldowns wait full turns before re-triggering
         TickPassiveCooldowns(triggeredPassiveSkillsThisTurn);
 
-    FinishPlayerTurn:
         // Tick player status effects (DoT, HoT, duration countdown)
         var (expiredPlayer, dotPlayer, hotPlayer) = _player.ActiveBuffs.Tick();
         if (dotPlayer > 0)

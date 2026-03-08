@@ -116,13 +116,7 @@ public partial class GameManager : Node
 
     private void GrantStarterSkills(Character player)
     {
-        // Learn all skills available at the player's starting level.
         SkillCatalog.GrantSkillsUpToLevel(player, player.Level);
-
-        // Auto-equip the first learned skill as the active skill.
-        var firstKnown = player.KnownSkillIds.Count > 0 ? player.KnownSkillIds[0] : null;
-        if (firstKnown != null)
-            player.EquipActiveSkill(firstKnown);
     }
 
     private void GiveStarterConsumables(Character player)

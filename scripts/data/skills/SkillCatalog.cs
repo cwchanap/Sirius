@@ -65,18 +65,25 @@ public static class SkillCatalog
     {
         if (skill.Type == SkillType.Active)
         {
-            player.EquipActiveSkill(skill.SkillId);
+            if (string.IsNullOrEmpty(player.ActiveSkillId))
+                player.EquipActiveSkill(skill.SkillId);
+            else
+                GD.Print($"[SkillCatalog] '{skill.DisplayName}' learned but active slot already has '{player.ActiveSkillId}' — not replaced.");
             return;
         }
 
+        bool slotFound = false;
         for (int slot = 0; slot < 3; slot++)
         {
             if (slot >= player.PassiveSkillIds.Count || string.IsNullOrEmpty(player.PassiveSkillIds[slot]))
             {
                 player.EquipPassiveSkill(skill.SkillId, slot);
+                slotFound = true;
                 break;
             }
         }
+        if (!slotFound)
+            GD.Print($"[SkillCatalog] All passive slots full — '{skill.DisplayName}' learned but not auto-equipped.");
     }
 
     // ---- Starter skills ----------------------------------------------------

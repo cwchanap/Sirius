@@ -201,7 +201,25 @@ public partial class SkillTest : Node
         SkillCatalog.GrantSkillsUpToLevel(c, 3);
 
         AssertThat(c.KnownSkillIds.Contains("fire_bolt")).IsTrue();
-        AssertThat(c.ActiveSkillId).IsEqual("fire_bolt");
+        // After fix: active slot already occupied — fire_bolt is learned but NOT auto-equipped
+        AssertThat(c.ActiveSkillId).IsEqual("power_strike");
+    }
+
+    [TestCase]
+    public void SkillCatalog_AutoEquip_DoesNotOverwriteExistingActiveSkill()
+    {
+        // Arrange: give player level 1 skills (power_strike = active, level 1)
+        var player = new Character { Name = "Hero", Level = 1, MaxHealth = 100, CurrentHealth = 100 };
+        SkillCatalog.GrantSkillsUpToLevel(player, 1);
+        // power_strike should be auto-equipped as the active skill
+        AssertThat(player.ActiveSkillId).IsEqual("power_strike");
+
+        // Act: grant level 3 skills (fire_bolt = active, level 3)
+        SkillCatalog.GrantSkillsUpToLevel(player, 3);
+
+        // Assert: player's active skill was NOT replaced — fire_bolt is learned but not auto-equipped
+        AssertThat(player.ActiveSkillId).IsEqual("power_strike");
+        AssertThat(player.KnownSkillIds).Contains("fire_bolt");
     }
 
     // ---- SkillCatalog ------------------------------------------------------

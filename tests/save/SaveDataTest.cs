@@ -397,7 +397,8 @@ public partial class SaveDataTest : Node
         AssertThat(character.KnownSkillIds.Contains("power_strike")).IsTrue();
         AssertThat(character.KnownSkillIds.Contains("heal")).IsTrue();
         AssertThat(character.KnownSkillIds.Contains("fire_bolt")).IsTrue();
-        AssertThat(character.ActiveSkillId).IsEqual("fire_bolt");
+        // power_strike (level 1) is auto-equipped first; fire_bolt (level 3) does not overwrite it
+        AssertThat(character.ActiveSkillId).IsEqual("power_strike");
         AssertThat(character.PassiveSkillIds.Count).IsEqual(1);
         AssertThat(character.PassiveSkillIds[0]).IsEqual("heal");
     }

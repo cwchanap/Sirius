@@ -1049,6 +1049,8 @@ public partial class BattleManager : AcceptDialog
             if (!_player.IsAlive || !_enemy.IsAlive)
                 break;
         }
+        if (actionCount >= safetyLimit)
+            GD.PushWarning($"[BattleManager] Safety limit of {safetyLimit} actions reached in one tick — possible AP accumulation bug.");
 
         if (!actedThisTick)
         {

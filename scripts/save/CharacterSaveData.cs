@@ -160,6 +160,11 @@ public class CharacterSaveData
         // Restore mana. Fall back to default (50) for saves written before mana was added.
         int maxMana = this.MaxMana.HasValue && this.MaxMana.Value > 0 ? this.MaxMana.Value : 50;
         int currentMana = this.CurrentMana ?? maxMana;
+        if (currentMana < 0 || currentMana > maxMana)
+        {
+            GD.PushWarning($"Save data: Invalid CurrentMana ({currentMana}) for MaxMana {maxMana} — clamping.");
+            hadInvalidData = true;
+        }
         character.MaxMana = maxMana;
         character.CurrentMana = Mathf.Clamp(currentMana, 0, maxMana);
 
@@ -172,7 +177,10 @@ public class CharacterSaveData
         character.PassiveSkillIds = FilterValidPassiveSkillIds(this.PassiveSkillIds, character.KnownSkillIds);
 
         if (isLegacySkillSave)
+        {
+            GD.Print($"[CharacterSaveData] Detected legacy save format (pre-skill-system) for '{character.Name}' — backfilling skills up to level {character.Level}.");
             SkillCatalog.GrantSkillsUpToLevel(character, character.Level);
+        }
 
         return character;
     }
@@ -180,11 +188,6 @@ public class CharacterSaveData
     private bool IsLegacySkillSave()
     {
         return ActiveSkillId == null && PassiveSkillIds == null && KnownSkillIds == null;
-    }
-
-    private static string? FilterValidSkillId(string? skillId)
-    {
-        return SkillCatalog.GetById(skillId) != null ? skillId : null;
     }
 
     private static List<string> FilterValidSkillIds(List<string>? skillIds, int characterLevel)

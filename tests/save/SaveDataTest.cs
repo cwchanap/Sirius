@@ -183,6 +183,38 @@ public partial class SaveDataTest : Node
     }
 
     [TestCase]
+    public void TestCharacterSaveData_ToCharacter_RejectsKnownSkillsAboveCharacterLevel()
+    {
+        var saveData = new CharacterSaveData
+        {
+            Name = "SkillHero",
+            Level = 2,
+            MaxHealth = 120,
+            CurrentHealth = 100,
+            Attack = 25,
+            Defense = 15,
+            Speed = 12,
+            Experience = 150,
+            ExperienceToNext = 190,
+            Gold = 75,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData(),
+            ActiveSkillId = "cleave",
+            PassiveSkillIds = new System.Collections.Generic.List<string> { "heal" },
+            KnownSkillIds = new System.Collections.Generic.List<string> { "power_strike", "heal", "cleave" },
+        };
+
+        var character = saveData.ToCharacter();
+
+        AssertThat(character.KnownSkillIds.Contains("power_strike")).IsTrue();
+        AssertThat(character.KnownSkillIds.Contains("heal")).IsTrue();
+        AssertThat(character.KnownSkillIds.Contains("cleave")).IsFalse();
+        AssertThat(character.ActiveSkillId).IsNull();
+        AssertThat(character.PassiveSkillIds.Count).IsEqual(1);
+        AssertThat(character.PassiveSkillIds[0]).IsEqual("heal");
+    }
+
+    [TestCase]
     public void TestCharacterSaveData_ToCharacter_RejectsActiveSkillNotInKnownSkills()
     {
         // Test that active skills not in KnownSkillIds are rejected
@@ -306,6 +338,36 @@ public partial class SaveDataTest : Node
         // Should reject the passive skill since it's an active type
         AssertThat(character.PassiveSkillIds.Count).IsEqual(0);
         AssertThat(character.KnownSkillIds.Contains("fire_bolt")).IsTrue();
+    }
+
+    [TestCase]
+    public void TestCharacterSaveData_ToCharacter_ClampsPassiveLoadoutToThreeSlots()
+    {
+        var saveData = new CharacterSaveData
+        {
+            Name = "SkillHero",
+            Level = 7,
+            MaxHealth = 120,
+            CurrentHealth = 100,
+            Attack = 25,
+            Defense = 15,
+            Speed = 12,
+            Experience = 150,
+            ExperienceToNext = 190,
+            Gold = 75,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData(),
+            ActiveSkillId = "power_strike",
+            PassiveSkillIds = new System.Collections.Generic.List<string> { "heal", "battle_cry", "heal", "battle_cry" },
+            KnownSkillIds = new System.Collections.Generic.List<string> { "power_strike", "heal", "battle_cry" },
+        };
+
+        var character = saveData.ToCharacter();
+
+        AssertThat(character.PassiveSkillIds.Count).IsEqual(3);
+        AssertThat(character.PassiveSkillIds[0]).IsEqual("heal");
+        AssertThat(character.PassiveSkillIds[1]).IsEqual("battle_cry");
+        AssertThat(character.PassiveSkillIds[2]).IsEqual("heal");
     }
 
     [TestCase]

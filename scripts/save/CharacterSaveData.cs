@@ -165,7 +165,7 @@ public class CharacterSaveData
 
         // Restore skill loadout. First filter known skills, then validate equipped skills against them.
         bool isLegacySkillSave = IsLegacySkillSave();
-        character.KnownSkillIds = FilterValidSkillIds(this.KnownSkillIds);
+        character.KnownSkillIds = FilterValidSkillIds(this.KnownSkillIds, character.Level);
 
         // Validate equipped skills: must be known and have correct type for the slot
         character.ActiveSkillId = FilterValidActiveSkillId(this.ActiveSkillId, character.KnownSkillIds);
@@ -187,7 +187,7 @@ public class CharacterSaveData
         return SkillCatalog.GetById(skillId) != null ? skillId : null;
     }
 
-    private static List<string> FilterValidSkillIds(List<string>? skillIds)
+    private static List<string> FilterValidSkillIds(List<string>? skillIds, int characterLevel)
     {
         var validSkillIds = new List<string>();
         if (skillIds == null)
@@ -195,8 +195,17 @@ public class CharacterSaveData
 
         foreach (var skillId in skillIds)
         {
-            if (SkillCatalog.GetById(skillId) != null)
-                validSkillIds.Add(skillId);
+            var skill = SkillCatalog.GetById(skillId);
+            if (skill == null)
+                continue;
+
+            if (skill.UnlockLevel > characterLevel)
+            {
+                GD.PushWarning($"Save data: Known skill '{skillId}' requires level {skill.UnlockLevel}, but character is level {characterLevel}; ignoring to prevent progression bypass");
+                continue;
+            }
+
+            validSkillIds.Add(skillId);
         }
 
         return validSkillIds;
@@ -245,6 +254,12 @@ public class CharacterSaveData
 
         foreach (var skillId in skillIds)
         {
+            if (validSkillIds.Count >= 3)
+            {
+                GD.PushWarning("Save data: Passive skill loadout exceeded 3 supported slots; ignoring extra passive skills");
+                break;
+            }
+
             if (string.IsNullOrEmpty(skillId))
                 continue;
 

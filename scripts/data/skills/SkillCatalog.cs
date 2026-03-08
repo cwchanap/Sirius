@@ -144,12 +144,13 @@ public static class SkillCatalog
     {
         SkillId = "battle_cry",
         DisplayName = "Battle Cry",
-        Description = "Boost Attack by 15 for 3 turns when the enemy is near death (HP < 30%).",
+        Description = "Boost Attack by 15 for 3 turns when the enemy is near death (HP < 30%). Cooldown: 3 turns.",
         ManaCost = 25,
         UnlockLevel = 7,
         Type = SkillType.Passive,
         TriggerType = SkillTriggerType.OnLowEnemyHp,
         TriggerHpThreshold = 0.3f,
+        PassiveCooldown = 3,
         Effect = new ApplyBuffSkillEffect(StatusEffectType.Strength, 15, 3, "ATK"),
     };
 

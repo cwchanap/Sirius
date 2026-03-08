@@ -1074,6 +1074,7 @@ public partial class BattleManager : AcceptDialog
     private void ExecutePlayerAction()
     {
         _playerSkillTurnCount++;
+        HashSet<string>? triggeredPassiveSkillsThisTurn = null;
 
         // Stun check: stunned player loses their action but still ticks
         if (_player.ActiveBuffs.IsStunned)
@@ -1088,7 +1089,7 @@ public partial class BattleManager : AcceptDialog
                 goto FinishPlayerTurn;
 
             // Attempt to fire any equipped passive skills whose trigger conditions are met
-            TryFirePassiveSkills();
+            triggeredPassiveSkillsThisTurn = TryFirePassiveSkills();
             if (!_enemy.IsAlive)
                 goto FinishPlayerTurn;
 
@@ -1097,7 +1098,7 @@ public partial class BattleManager : AcceptDialog
         }
 
         // Tick passive skill cooldowns after all skill checks so cooldowns wait full turns before re-triggering
-        TickPassiveCooldowns();
+        TickPassiveCooldowns(triggeredPassiveSkillsThisTurn);
 
     FinishPlayerTurn:
         // Tick player status effects (DoT, HoT, duration countdown)
@@ -1185,8 +1186,9 @@ public partial class BattleManager : AcceptDialog
         _playerSkillTurnCount = 0;
     }
 
-    private void TryFirePassiveSkills()
+    private HashSet<string> TryFirePassiveSkills()
     {
+        var triggeredSkillIds = new HashSet<string>();
         foreach (var skill in _player.GetEquippedPassiveSkills())
         {
             // Check cooldown
@@ -1211,15 +1213,23 @@ public partial class BattleManager : AcceptDialog
             }
 
             if (skill.PassiveCooldown > 0)
+            {
                 _passiveSkillCooldowns[skill.SkillId] = skill.PassiveCooldown;
+                triggeredSkillIds.Add(skill.SkillId);
+            }
         }
+
+        return triggeredSkillIds;
     }
 
-    private void TickPassiveCooldowns()
+    private void TickPassiveCooldowns(HashSet<string>? triggeredSkillIdsThisTurn = null)
     {
         var keys = new System.Collections.Generic.List<string>(_passiveSkillCooldowns.Keys);
         foreach (var key in keys)
         {
+            if (triggeredSkillIdsThisTurn != null && triggeredSkillIdsThisTurn.Contains(key))
+                continue;
+
             _passiveSkillCooldowns[key] = System.Math.Max(0, _passiveSkillCooldowns[key] - 1);
         }
     }

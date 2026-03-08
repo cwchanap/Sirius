@@ -265,6 +265,35 @@ public partial class BattleManagerTest : Node
         AssertThat(player.ActiveBuffs.GetAttackFlatBonus()).IsEqual(0);
     }
 
+    [TestCase]
+    public void ExecutePlayerAction_TriggeredPassiveCooldown_DoesNotTickDownSameTurn()
+    {
+        var battleManager = new BattleManager();
+        var player = TestHelpers.CreateTestCharacter();
+        player.Level = 2;
+        player.MaxMana = 100;
+        player.CurrentMana = 100;
+        player.CurrentHealth = 30;
+        SkillCatalog.GrantSkillsUpToLevel(player, player.Level);
+        player.EquipPassiveSkill("heal", 0);
+
+        var enemy = Enemy.CreateGoblin();
+        enemy.CurrentHealth = enemy.MaxHealth;
+
+        SetPrivateField(battleManager, "_player", player);
+        SetPrivateField(battleManager, "_enemy", enemy);
+        SetPrivateField(battleManager, "_playerActionPoints", ActionPointThreshold);
+
+        InvokePrivateMethod(battleManager, "ExecutePlayerAction");
+
+        var cooldowns = GetPrivateField<System.Collections.Generic.Dictionary<string, int>>(battleManager, "_passiveSkillCooldowns");
+        AssertThat(player.CurrentHealth).IsEqual(80);
+        AssertThat(player.CurrentMana).IsEqual(85);
+        AssertThat(cooldowns.ContainsKey("heal")).IsTrue();
+        AssertThat(cooldowns["heal"]).IsEqual(5)
+            .OverrideFailureMessage("A passive cooldown should not tick down on the same turn the passive triggers.");
+    }
+
     private static T GetPrivateField<T>(object instance, string fieldName)
     {
         var field = instance.GetType().GetField(fieldName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);

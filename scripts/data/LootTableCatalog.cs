@@ -38,6 +38,7 @@ public static class LootTableCatalog
         Entries = new()
         {
             new LootEntry { ItemId = "goblin_ear", Weight = 200, MinQuantity = 1, MaxQuantity = 2 },
+            new LootEntry { ItemId = "mana_potion", Weight = 40, MinQuantity = 1, MaxQuantity = 1 },
             new LootEntry { ItemId = "wooden_sword", Weight = 20, MinQuantity = 1, MaxQuantity = 1 }
         }
     };

@@ -129,6 +129,7 @@ public partial class GameManager : Node
     {
         if (player == null) return;
         player.TryAddItem(ConsumableCatalog.CreateHealthPotion(), 3, out _);
+        player.TryAddItem(ConsumableCatalog.CreateManaPotion(), 1, out _);
         player.TryAddItem(ConsumableCatalog.CreateStrengthTonic(), 1, out _);
     }
 

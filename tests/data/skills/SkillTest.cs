@@ -190,6 +190,20 @@ public partial class SkillTest : Node
         AssertThat(c.ActiveSkillId).IsEqual("power_strike");
     }
 
+    [TestCase]
+    public void SkillCatalog_GrantSkillsUpToLevel_AutoEquipsLatestLearnedActiveSkill()
+    {
+        var c = CreateCharacter();
+
+        SkillCatalog.GrantSkillsUpToLevel(c, 1);
+        AssertThat(c.ActiveSkillId).IsEqual("power_strike");
+
+        SkillCatalog.GrantSkillsUpToLevel(c, 3);
+
+        AssertThat(c.KnownSkillIds.Contains("fire_bolt")).IsTrue();
+        AssertThat(c.ActiveSkillId).IsEqual("fire_bolt");
+    }
+
     // ---- SkillCatalog ------------------------------------------------------
 
     [TestCase]

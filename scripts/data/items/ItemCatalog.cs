@@ -26,6 +26,7 @@ public static class ItemCatalog
         // Consumables
         ["health_potion"]         = ConsumableCatalog.CreateHealthPotion,
         ["greater_health_potion"] = ConsumableCatalog.CreateGreaterHealthPotion,
+        ["mana_potion"]           = ConsumableCatalog.CreateManaPotion,
         ["strength_tonic"]        = ConsumableCatalog.CreateStrengthTonic,
         ["iron_skin"]             = ConsumableCatalog.CreateIronSkin,
         ["swiftness_draught"]     = ConsumableCatalog.CreateSwiftnessDraught,

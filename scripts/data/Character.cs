@@ -127,7 +127,7 @@ public partial class Character : Resource
 
     /// <summary>Resolved passive skill objects for all filled passive slots.</summary>
     public IEnumerable<Skill> GetEquippedPassiveSkills()
-        => PassiveSkillIds.Select(SkillCatalog.GetById).Where(s => s != null)!;
+        => PassiveSkillIds.Select(SkillCatalog.GetById).OfType<Skill>();
 
     public int TakeDamage(int damage)
     {

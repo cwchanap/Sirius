@@ -345,6 +345,9 @@ public partial class BattleManagerTest : Node
         int counter = GetPrivateField<int>(battleManager, "_playerSkillTurnCount");
         AssertThat(counter).IsEqual(period)
             .OverrideFailureMessage("Counter must not reset when active skill Apply() returns false.");
+
+        // Cleanup: remove injected test skill from static registry to prevent cross-test contamination
+        registryDict.Remove(testSkillId);
     }
 
     [TestCase]
@@ -358,7 +361,6 @@ public partial class BattleManagerTest : Node
         player.MaxMana = 100;
         player.CurrentMana = 100;
         SkillCatalog.GrantSkillsUpToLevel(player, player.Level);
-        player.EquipActiveSkill("power_strike");
 
         var enemy = Enemy.CreateGoblin();
         enemy.CurrentHealth = 1;

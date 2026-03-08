@@ -127,7 +127,19 @@ public partial class Character : Resource
 
     /// <summary>Resolved passive skill objects for all filled passive slots.</summary>
     public IEnumerable<Skill> GetEquippedPassiveSkills()
-        => PassiveSkillIds.Select(SkillCatalog.GetById).OfType<Skill>();
+    {
+        foreach (var id in PassiveSkillIds)
+        {
+            if (string.IsNullOrEmpty(id)) continue;
+            var skill = SkillCatalog.GetById(id);
+            if (skill == null)
+            {
+                GD.PushWarning($"[Character] Equipped passive skill '{id}' not found in SkillCatalog — skipping.");
+                continue;
+            }
+            yield return skill;
+        }
+    }
 
     public int TakeDamage(int damage)
     {

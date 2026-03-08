@@ -45,7 +45,11 @@ public static class SkillCatalog
     /// </summary>
     public static void GrantSkillsUpToLevel(Character player, int level)
     {
-        if (player == null) return;
+        if (player == null)
+        {
+            GD.PushError("[SkillCatalog] GrantSkillsUpToLevel called with null player — this is a programming error.");
+            return;
+        }
 
         foreach (var skill in _registry.Values)
         {

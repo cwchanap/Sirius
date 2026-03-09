@@ -141,6 +141,8 @@ public sealed class ApplyDebuffSkillEffect : SkillEffect
             target.ActiveStatusEffects.Add(new ActiveStatusEffect(DebuffType, Magnitude, Duration));
             GD.Print($"[SkillEffect] {target.Name} inflicted with {DebuffType} for {Duration} turn(s)!");
         }
+        // BattleManager refunds mana only when Apply() returns false, so a missed roll still counts
+        // as an attempted activation that consumes mana.
         return true;
     }
 }

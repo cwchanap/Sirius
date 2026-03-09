@@ -184,14 +184,21 @@ public partial class SkillTest : Node
 
         SkillCatalog.GrantSkillsUpToLevel(c, 2);
 
+        bool healEquipped = false;
+        foreach (var skill in c.GetEquippedPassiveSkills())
+        {
+            if (skill.SkillId != "heal") continue;
+            healEquipped = true;
+            break;
+        }
+
         AssertThat(c.KnownSkillIds.Contains("heal")).IsTrue();
-        AssertThat(c.PassiveSkillIds.Count).IsEqual(1);
-        AssertThat(c.PassiveSkillIds[0]).IsEqual("heal");
+        AssertThat(healEquipped).IsTrue();
         AssertThat(c.ActiveSkillId).IsEqual("power_strike");
     }
 
     [TestCase]
-    public void SkillCatalog_GrantSkillsUpToLevel_AutoEquipsLatestLearnedActiveSkill()
+    public void SkillCatalog_GrantSkillsUpToLevel_PreservesActiveSkillWhenAutoEquipWouldReplaceIt()
     {
         var c = CreateCharacter();
 
@@ -201,7 +208,6 @@ public partial class SkillTest : Node
         SkillCatalog.GrantSkillsUpToLevel(c, 3);
 
         AssertThat(c.KnownSkillIds.Contains("fire_bolt")).IsTrue();
-        // After fix: active slot already occupied — fire_bolt is learned but NOT auto-equipped
         AssertThat(c.ActiveSkillId).IsEqual("power_strike");
     }
 

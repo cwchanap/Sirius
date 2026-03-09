@@ -193,6 +193,7 @@ public class CharacterSaveData
     private static List<string> FilterValidSkillIds(List<string>? skillIds, int characterLevel)
     {
         var validSkillIds = new List<string>();
+        var seenSkillIds = new HashSet<string>();
         if (skillIds == null)
             return validSkillIds;
 
@@ -205,6 +206,12 @@ public class CharacterSaveData
             if (skill.UnlockLevel > characterLevel)
             {
                 GD.PushWarning($"Save data: Known skill '{skillId}' requires level {skill.UnlockLevel}, but character is level {characterLevel}; ignoring to prevent progression bypass");
+                continue;
+            }
+
+            if (!seenSkillIds.Add(skillId))
+            {
+                GD.PushWarning($"Save data: Duplicate known skill '{skillId}' encountered; ignoring duplicate entry");
                 continue;
             }
 

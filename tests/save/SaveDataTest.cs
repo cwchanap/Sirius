@@ -215,6 +215,43 @@ public partial class SaveDataTest : Node
     }
 
     [TestCase]
+    public void TestCharacterSaveData_ToCharacter_DeduplicatesKnownSkills()
+    {
+        var saveData = new CharacterSaveData
+        {
+            Name = "SkillHero",
+            Level = 3,
+            MaxHealth = 120,
+            CurrentHealth = 100,
+            Attack = 25,
+            Defense = 15,
+            Speed = 12,
+            Experience = 150,
+            ExperienceToNext = 190,
+            Gold = 75,
+            Inventory = new InventorySaveData(),
+            Equipment = new EquipmentSaveData(),
+            ActiveSkillId = "power_strike",
+            PassiveSkillIds = new System.Collections.Generic.List<string> { "heal" },
+            KnownSkillIds = new System.Collections.Generic.List<string> { "power_strike", "heal", "power_strike", "heal" },
+        };
+
+        var character = saveData.ToCharacter();
+
+        int powerStrikeCount = 0;
+        int healCount = 0;
+        foreach (var skillId in character.KnownSkillIds)
+        {
+            if (skillId == "power_strike") powerStrikeCount++;
+            if (skillId == "heal") healCount++;
+        }
+
+        AssertThat(character.KnownSkillIds.Count).IsEqual(2);
+        AssertThat(powerStrikeCount).IsEqual(1);
+        AssertThat(healCount).IsEqual(1);
+    }
+
+    [TestCase]
     public void TestCharacterSaveData_ToCharacter_RejectsActiveSkillNotInKnownSkills()
     {
         // Test that active skills not in KnownSkillIds are rejected

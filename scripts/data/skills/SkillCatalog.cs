@@ -51,7 +51,16 @@ public static class SkillCatalog
             return;
         }
 
-        foreach (var skill in _registry.Values)
+        var sortedSkills = new List<Skill>(_registry.Values);
+        sortedSkills.Sort((left, right) =>
+        {
+            int byUnlockLevel = left.UnlockLevel.CompareTo(right.UnlockLevel);
+            return byUnlockLevel != 0
+                ? byUnlockLevel
+                : string.CompareOrdinal(left.SkillId, right.SkillId);
+        });
+
+        foreach (var skill in sortedSkills)
         {
             if (skill.UnlockLevel <= level && !player.KnownSkillIds.Contains(skill.SkillId))
             {

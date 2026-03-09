@@ -10,6 +10,8 @@ public partial class InventoryMenuController : Control
 	private readonly Dictionary<EquipmentSlotType, EquipmentSlotUI> _equipmentSlots = new();
 	private readonly List<AccessorySlotUI> _accessorySlots = new();
 	private readonly List<InventorySlotUI> _inventorySlots = new();
+	private OptionButton _activeSkillSelector = null!;
+	private bool _isRefreshingActiveSkillSelector;
 
 	private static readonly Vector2 EquipmentPanelSize = new(108, 108);
 	private static readonly Vector2 EquipmentButtonSize = new(96, 96);
@@ -36,6 +38,7 @@ public partial class InventoryMenuController : Control
 		}
 
 		CacheStyles();
+		InitializeSkillSelector();
 		InitializeEquipmentSlots();
 		InitializeAccessorySlots();
 		InitializeInventorySlots();
@@ -108,6 +111,12 @@ public partial class InventoryMenuController : Control
 
 		button.Pressed += () => OnEquipmentSlotPressed(slotType);
 		_equipmentSlots[slotType] = slot;
+	}
+
+	private void InitializeSkillSelector()
+	{
+		_activeSkillSelector = GetNode<OptionButton>("%ActiveSkillSelector");
+		_activeSkillSelector.ItemSelected += OnActiveSkillSelectorItemSelected;
 	}
 
 	private void InitializeAccessorySlots()
@@ -196,7 +205,65 @@ public partial class InventoryMenuController : Control
 
 		RefreshEquipmentSlots();
 		RefreshAccessorySlots();
+		RefreshActiveSkillSelector();
 		RefreshInventoryGrid();
+	}
+
+	private void RefreshActiveSkillSelector()
+	{
+		if (_gameManager?.Player == null)
+		{
+			return;
+		}
+
+		_isRefreshingActiveSkillSelector = true;
+		_activeSkillSelector.Clear();
+
+		var player = _gameManager.Player;
+		int selectedIndex = -1;
+
+		foreach (var skillId in player.KnownSkillIds)
+		{
+			var skill = SkillCatalog.GetById(skillId);
+			if (skill == null)
+			{
+				GD.PushWarning($"[InventoryMenuController] Known skill '{skillId}' was not found in SkillCatalog while refreshing the active skill selector.");
+				continue;
+			}
+
+			if (skill.Type != SkillType.Active)
+			{
+				continue;
+			}
+
+			int itemIndex = _activeSkillSelector.ItemCount;
+			_activeSkillSelector.AddItem(skill.DisplayName);
+			_activeSkillSelector.SetItemMetadata(itemIndex, skill.SkillId);
+
+			if (skill.SkillId == player.ActiveSkillId)
+			{
+				selectedIndex = itemIndex;
+			}
+		}
+
+		if (_activeSkillSelector.ItemCount == 0)
+		{
+			_activeSkillSelector.AddItem("No active skills");
+			_activeSkillSelector.Disabled = true;
+			_activeSkillSelector.TooltipText = "Learn active skills by leveling up to configure an active battle skill.";
+			_isRefreshingActiveSkillSelector = false;
+			return;
+		}
+
+		_activeSkillSelector.Disabled = false;
+		if (selectedIndex < 0)
+		{
+			selectedIndex = 0;
+		}
+
+		_activeSkillSelector.Select(selectedIndex);
+		UpdateActiveSkillSelectorTooltip(selectedIndex);
+		_isRefreshingActiveSkillSelector = false;
 	}
 
 	private void RefreshEquipmentSlots()
@@ -445,6 +512,68 @@ public partial class InventoryMenuController : Control
 
 		GD.Print($"Equipped {item.DisplayName}");
 		RefreshUI();
+	}
+
+	private void OnActiveSkillSelectorItemSelected(long index)
+	{
+		if (_isRefreshingActiveSkillSelector || _gameManager?.Player == null)
+		{
+			return;
+		}
+
+		string? skillId = GetActiveSkillIdForIndex((int)index);
+		if (string.IsNullOrEmpty(skillId))
+		{
+			return;
+		}
+
+		if (!_gameManager.Player.EquipActiveSkill(skillId))
+		{
+			GD.PushWarning($"[InventoryMenuController] Failed to equip active skill '{skillId}'.");
+			RefreshActiveSkillSelector();
+			return;
+		}
+
+		var equippedSkill = SkillCatalog.GetById(skillId);
+		GD.Print($"[InventoryMenuController] Equipped active skill '{equippedSkill?.DisplayName ?? skillId}'.");
+		UpdateActiveSkillSelectorTooltip((int)index);
+	}
+
+	private string? GetActiveSkillIdForIndex(int index)
+	{
+		if (index < 0 || index >= _activeSkillSelector.ItemCount)
+		{
+			return null;
+		}
+
+		Variant metadata = _activeSkillSelector.GetItemMetadata(index);
+		return metadata.VariantType == Variant.Type.Nil ? null : metadata.AsString();
+	}
+
+	private void UpdateActiveSkillSelectorTooltip(int index)
+	{
+		string? skillId = GetActiveSkillIdForIndex(index);
+		if (string.IsNullOrEmpty(skillId))
+		{
+			_activeSkillSelector.TooltipText = "Select the active skill that auto-fires in battle.";
+			return;
+		}
+
+		var skill = SkillCatalog.GetById(skillId);
+		if (skill == null)
+		{
+			_activeSkillSelector.TooltipText = $"Active skill '{skillId}' could not be resolved from SkillCatalog.";
+			return;
+		}
+
+		bool isEquipped = skill.SkillId == _gameManager.Player.ActiveSkillId;
+		var tooltip = new StringBuilder();
+		tooltip.AppendLine(skill.DisplayName);
+		tooltip.AppendLine(skill.Description);
+		tooltip.AppendLine($"Mana Cost: {skill.ManaCost}");
+		tooltip.AppendLine($"Auto-fires every {skill.ActivePeriod} turns");
+		tooltip.Append(isEquipped ? "Currently equipped" : "Select to equip this active skill");
+		_activeSkillSelector.TooltipText = tooltip.ToString();
 	}
 
 	private void SetButtonIcon(TextureButton button, Item item)

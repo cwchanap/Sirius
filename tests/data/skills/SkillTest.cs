@@ -228,6 +228,51 @@ public partial class SkillTest : Node
         AssertThat(player.KnownSkillIds).Contains("fire_bolt");
     }
 
+    [TestCase]
+    public void SkillCatalog_GrantSkillsUpToLevel_OrdersLearnedSkillsByUnlockLevelThenSkillId()
+    {
+        var player = CreateCharacter();
+
+        var registryField = typeof(SkillCatalog).GetField(
+            "_registry",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var registry = (Dictionary<string, Skill>)registryField!.GetValue(null)!;
+
+        const string injectedSkillId = "a_test_low_unlock";
+        var injectedSkill = new Skill
+        {
+            SkillId = injectedSkillId,
+            DisplayName = "Injected Low Unlock",
+            Description = "Test skill for deterministic ordering",
+            ManaCost = 1,
+            UnlockLevel = 1,
+            Type = SkillType.Passive,
+            TriggerType = SkillTriggerType.OnPlayerTurn,
+            TriggerChance = 1.0f,
+            PassiveCooldown = 0,
+        };
+
+        bool hadExisting = registry.TryGetValue(injectedSkillId, out Skill? previousSkill);
+        registry[injectedSkillId] = injectedSkill;
+
+        try
+        {
+            SkillCatalog.GrantSkillsUpToLevel(player, 2);
+
+            AssertThat(player.KnownSkillIds.Count).IsEqual(3);
+            AssertThat(player.KnownSkillIds[0]).IsEqual("a_test_low_unlock");
+            AssertThat(player.KnownSkillIds[1]).IsEqual("power_strike");
+            AssertThat(player.KnownSkillIds[2]).IsEqual("heal");
+        }
+        finally
+        {
+            if (hadExisting && previousSkill != null)
+                registry[injectedSkillId] = previousSkill;
+            else
+                registry.Remove(injectedSkillId);
+        }
+    }
+
     // ---- SkillCatalog ------------------------------------------------------
 
     [TestCase]

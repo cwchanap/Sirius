@@ -136,7 +136,7 @@ public sealed class ApplyDebuffSkillEffect : SkillEffect
     public override bool Apply(Character caster, Enemy target)
     {
         if (target == null) return false;
-        if (GD.Randf() <= Chance)
+        if (GD.Randf() < Chance)
         {
             target.ActiveStatusEffects.Add(new ActiveStatusEffect(DebuffType, Magnitude, Duration));
             GD.Print($"[SkillEffect] {target.Name} inflicted with {DebuffType} for {Duration} turn(s)!");

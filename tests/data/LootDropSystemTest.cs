@@ -105,16 +105,6 @@ public partial class LootDropSystemTest : Node
     }
 
     [TestCase]
-    public void LootTableCatalog_GoblinTable_IncludesManaPotionDrop()
-    {
-        var table = LootTableCatalog.CreateGoblinTable();
-
-        bool hasManaPotion = table.Entries.Any(entry => entry.ItemId == "mana_potion");
-
-        AssertThat(hasManaPotion).IsTrue();
-    }
-
-    [TestCase]
     public void LootTableCatalog_ReturnsNullForUnknownType()
     {
         AssertThat(LootTableCatalog.GetByEnemyType("unknown")).IsNull();

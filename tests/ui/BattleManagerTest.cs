@@ -321,33 +321,41 @@ public partial class BattleManagerTest : Node
             "_registry",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
         var registryDict = (System.Collections.Generic.Dictionary<string, Skill>)registry!.GetValue(null)!;
+        bool hadExistingSkill = registryDict.TryGetValue(testSkillId, out Skill? previousSkill);
         registryDict[testSkillId] = noEffectSkill;
 
-        player.KnownSkillIds.Add(testSkillId);
-        player.EquipActiveSkill(testSkillId);
+        try
+        {
+            player.KnownSkillIds.Add(testSkillId);
+            player.EquipActiveSkill(testSkillId);
 
-        var enemy = Enemy.CreateGoblin();
-        enemy.CurrentHealth = enemy.MaxHealth;
+            var enemy = Enemy.CreateGoblin();
+            enemy.CurrentHealth = enemy.MaxHealth;
 
-        SetPrivateField(battleManager, "_player", player);
-        SetPrivateField(battleManager, "_enemy", enemy);
-        SetPrivateField(battleManager, "_playerActionPoints", ActionPointThreshold);
+            SetPrivateField(battleManager, "_player", player);
+            SetPrivateField(battleManager, "_enemy", enemy);
+            SetPrivateField(battleManager, "_playerActionPoints", ActionPointThreshold);
 
-        int period = noEffectSkill.ActivePeriod; // 3
+            int period = noEffectSkill.ActivePeriod; // 3
 
-        // Set counter to period-1 so next turn increments to period (the "fire" turn)
-        SetPrivateField(battleManager, "_playerSkillTurnCount", period - 1);
+            // Set counter to period-1 so next turn increments to period (the "fire" turn)
+            SetPrivateField(battleManager, "_playerSkillTurnCount", period - 1);
 
-        // Act: execute one player action (counter increments to period, Apply() returns false)
-        InvokePrivateMethod(battleManager, "ExecutePlayerAction");
+            // Act: execute one player action (counter increments to period, Apply() returns false)
+            InvokePrivateMethod(battleManager, "ExecutePlayerAction");
 
-        // Counter must be period (incremented), NOT 0 (not reset when Apply() fails)
-        int counter = GetPrivateField<int>(battleManager, "_playerSkillTurnCount");
-        AssertThat(counter).IsEqual(period)
-            .OverrideFailureMessage("Counter must not reset when active skill Apply() returns false.");
-
-        // Cleanup: remove injected test skill from static registry to prevent cross-test contamination
-        registryDict.Remove(testSkillId);
+            // Counter must be period (incremented), NOT 0 (not reset when Apply() fails)
+            int counter = GetPrivateField<int>(battleManager, "_playerSkillTurnCount");
+            AssertThat(counter).IsEqual(period)
+                .OverrideFailureMessage("Counter must not reset when active skill Apply() returns false.");
+        }
+        finally
+        {
+            if (hadExistingSkill && previousSkill != null)
+                registryDict[testSkillId] = previousSkill;
+            else
+                registryDict.Remove(testSkillId);
+        }
     }
 
     [TestCase]

@@ -96,7 +96,7 @@ public static class SkillCatalog
         }
 
         bool slotFound = false;
-        for (int slot = 0; slot < 3; slot++)
+        for (int slot = 0; slot < Character.MaxPassiveSlots; slot++)
         {
             if (slot >= player.PassiveSkillIds.Count || string.IsNullOrEmpty(player.PassiveSkillIds[slot]))
             {

@@ -201,7 +201,10 @@ public class CharacterSaveData
         {
             var skill = SkillCatalog.GetById(skillId);
             if (skill == null)
+            {
+                GD.PushWarning($"Save data: Known skill '{skillId}' not found in SkillCatalog — dropping (possibly a removed or renamed skill).");
                 continue;
+            }
 
             if (skill.UnlockLevel > characterLevel)
             {

@@ -16,6 +16,13 @@ public abstract class SkillEffect
     /// Returns true if the effect was applied successfully.
     /// </summary>
     public abstract bool Apply(Character caster, Enemy target);
+
+    /// <summary>
+    /// Applies this skill's effect using a caller-supplied RNG for deterministic results.
+    /// Defaults to the parameterless overload for effects that do not use randomness.
+    /// Override in subclasses that perform their own random rolls (e.g. ApplyDebuffSkillEffect).
+    /// </summary>
+    public virtual bool Apply(Character caster, Enemy target, Random? rng) => Apply(caster, target);
 }
 
 // ---- Damage effects --------------------------------------------------------
@@ -41,7 +48,8 @@ public sealed class DamageSkillEffect : SkillEffect
 
     public override bool Apply(Character caster, Enemy target)
     {
-        if (caster == null || target == null) return false;
+        if (caster == null) { GD.PushError("[DamageSkillEffect] Apply called with null caster."); return false; }
+        if (target == null) { GD.PushError("[DamageSkillEffect] Apply called with null target."); return false; }
         int damage = Mathf.Max(1, (int)(caster.GetEffectiveAttack() * DamageMultiplier));
         int actualDamage = target.TakeDamage(damage);
         GD.Print($"[SkillEffect] {caster.Name} deals {actualDamage} {FlavorLabel} damage to {target.Name}!");
@@ -67,7 +75,7 @@ public sealed class HealSkillEffect : SkillEffect
 
     public override bool Apply(Character caster, Enemy target)
     {
-        if (caster == null) return false;
+        if (caster == null) { GD.PushError("[HealSkillEffect] Apply called with null caster."); return false; }
         caster.Heal(HealAmount);
         GD.Print($"[SkillEffect] {caster.Name} heals for {HealAmount} HP!");
         return true;
@@ -100,7 +108,7 @@ public sealed class ApplyBuffSkillEffect : SkillEffect
 
     public override bool Apply(Character caster, Enemy target)
     {
-        if (caster == null) return false;
+        if (caster == null) { GD.PushError("[ApplyBuffSkillEffect] Apply called with null caster."); return false; }
         caster.ActiveBuffs.Add(new ActiveStatusEffect(BuffType, Magnitude, Duration));
         GD.Print($"[SkillEffect] {caster.Name} gains {BuffType} +{Magnitude} for {Duration} turns!");
         return true;
@@ -133,10 +141,13 @@ public sealed class ApplyDebuffSkillEffect : SkillEffect
         ? $"{(int)(Chance * 100)}% chance to inflict {DebuffType} for {Duration} turn(s)"
         : $"Inflict {DebuffType} for {Duration} turn(s)";
 
-    public override bool Apply(Character caster, Enemy target)
+    public override bool Apply(Character caster, Enemy target) => Apply(caster, target, null);
+
+    public override bool Apply(Character caster, Enemy target, Random? rng)
     {
-        if (target == null) return false;
-        if (GD.Randf() < Chance)
+        if (target == null) { GD.PushError("[ApplyDebuffSkillEffect] Apply called with null target."); return false; }
+        double roll = rng != null ? rng.NextDouble() : GD.Randf();
+        if (roll < Chance)
         {
             target.ActiveStatusEffects.Add(new ActiveStatusEffect(DebuffType, Magnitude, Duration));
             GD.Print($"[SkillEffect] {target.Name} inflicted with {DebuffType} for {Duration} turn(s)!");
@@ -166,10 +177,18 @@ public sealed class ComboSkillEffect : SkillEffect
 
     public override string Description => $"{Primary.Description}; {Secondary.Description}";
 
-    public override bool Apply(Character caster, Enemy target)
+    public override bool Apply(Character caster, Enemy target) => Apply(caster, target, null);
+
+    public override bool Apply(Character caster, Enemy target, Random? rng)
     {
-        bool a = Primary.Apply(caster, target);
-        bool b = Secondary.Apply(caster, target);
+        bool a = Primary.Apply(caster, target, rng);
+        if (!a) GD.PushWarning($"[ComboSkillEffect] Primary '{Primary.Description}' returned false.");
+
+        // Do not apply secondary if the primary killed the target.
+        if (target != null && !target.IsAlive) return a;
+
+        bool b = Secondary.Apply(caster, target, rng);
+        if (!b) GD.PushWarning($"[ComboSkillEffect] Secondary '{Secondary.Description}' returned false.");
         return a || b;
     }
 }

@@ -1075,7 +1075,6 @@ public partial class BattleManager : AcceptDialog
 
     private void ExecutePlayerAction()
     {
-        _playerSkillTurnCount++;
         HashSet<string>? triggeredPassiveSkillsThisTurn = null;
 
         // Stun check: stunned player loses their action but still ticks
@@ -1085,6 +1084,10 @@ public partial class BattleManager : AcceptDialog
         }
         else
         {
+            // Only advance the counter on turns the player actually acts.
+            // A stunned turn must not advance the skill timer or the displayed countdown becomes wrong.
+            _playerSkillTurnCount++;
+
             // Attempt to fire the active skill (every ActivePeriod turns)
             TryFireActiveSkill();
 
@@ -1178,7 +1181,7 @@ public partial class BattleManager : AcceptDialog
         }
 
         GD.Print($"[Skill] {_player.Name} activates '{skill.DisplayName}'!");
-        bool applied = skill.Apply(_player, _enemy);
+        bool applied = skill.Apply(_player, _enemy, _rng);
         if (!applied)
         {
             _player.RestoreMana(skill.ManaCost);
@@ -1208,7 +1211,7 @@ public partial class BattleManager : AcceptDialog
             }
 
             GD.Print($"[Skill] {_player.Name} passive triggers '{skill.DisplayName}'!");
-            bool applied = skill.Apply(_player, _enemy);
+            bool applied = skill.Apply(_player, _enemy, _rng);
             if (!applied)
             {
                 _player.RestoreMana(skill.ManaCost);

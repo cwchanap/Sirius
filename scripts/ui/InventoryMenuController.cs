@@ -115,7 +115,12 @@ public partial class InventoryMenuController : Control
 
 	private void InitializeSkillSelector()
 	{
-		_activeSkillSelector = GetNode<OptionButton>("%ActiveSkillSelector");
+		_activeSkillSelector = GetNodeOrNull<OptionButton>("%ActiveSkillSelector");
+		if (_activeSkillSelector == null)
+		{
+			GD.PushError("[InventoryMenuController] ActiveSkillSelector node not found — active skill UI will not function.");
+			return;
+		}
 		_activeSkillSelector.ItemSelected += OnActiveSkillSelectorItemSelected;
 	}
 
@@ -200,6 +205,7 @@ public partial class InventoryMenuController : Control
 	{
 		if (_gameManager?.Player == null)
 		{
+			GD.PushError("[InventoryMenuController] RefreshUI called with no player data — UI will be empty.");
 			return;
 		}
 

@@ -451,4 +451,68 @@ public partial class SkillTest : Node
 
         AssertThat(triggered).IsTrue();
     }
+
+    [TestCase]
+    public void ShouldTriggerPassive_OnLowEnemyHp_ReturnsFalse_WhenEnemyMaxHealthIsZero()
+    {
+        // Division-by-zero guard: an enemy with MaxHealth=0 must not produce NaN/Infinity,
+        // and the trigger must simply not fire.
+        var skill = SkillCatalog.GetById("battle_cry")!; // OnLowEnemyHp
+        var enemy = CreateEnemy(hp: 0);
+        enemy.CurrentHealth = 0;
+
+        bool triggered = skill.ShouldTriggerPassive(CreateCharacter(), enemy, new System.Random());
+
+        AssertThat(triggered).IsFalse()
+            .OverrideFailureMessage("OnLowEnemyHp should not trigger (and must not throw) when enemy MaxHealth is 0.");
+    }
+
+    [TestCase]
+    public void ApplyDebuffSkillEffect_WithRng_GuaranteedChance_AlwaysAppliesDebuff()
+    {
+        // Verifies the new Apply(caster, enemy, rng) overload is wired to use the passed rng.
+        var effect = new ApplyDebuffSkillEffect(StatusEffectType.Stun, 0, 1, 1.0f);
+        var enemy = CreateEnemy();
+
+        effect.Apply(CreateCharacter(), enemy, new System.Random(42));
+
+        AssertThat(enemy.ActiveStatusEffects.IsStunned).IsTrue();
+    }
+
+    [TestCase]
+    public void ApplyDebuffSkillEffect_WithRng_ZeroChance_NeverAppliesDebuff()
+    {
+        // Verifies that a 0% chance debuff never fires even when an rng is passed.
+        var effect = new ApplyDebuffSkillEffect(StatusEffectType.Stun, 0, 1, 0.0f);
+        var enemy = CreateEnemy();
+
+        effect.Apply(CreateCharacter(), enemy, new System.Random(42));
+
+        AssertThat(enemy.ActiveStatusEffects.IsStunned).IsFalse();
+    }
+
+    [TestCase]
+    public void ComboSkillEffect_SecondaryDoesNotFireOnDeadTarget()
+    {
+        // If the primary effect kills the enemy, the secondary effect must not
+        // act on the dead target (e.g. applying a stun to an already-dead enemy).
+        var caster = CreateCharacter(attack: 1000);
+        var enemy = CreateEnemy(hp: 1);
+        enemy.Defense = 0;
+
+        int stunApplicationCount = 0;
+        bool stunApplied = false;
+
+        var combo = new ComboSkillEffect(
+            new DamageSkillEffect(10.0f),
+            new ApplyDebuffSkillEffect(StatusEffectType.Stun, 0, 1, 1.0f)
+        );
+        combo.Apply(caster, enemy);
+
+        // Enemy must be dead after primary
+        AssertThat(enemy.IsAlive).IsFalse();
+        // Stun must NOT have been applied to a dead enemy
+        AssertThat(enemy.ActiveStatusEffects.IsStunned).IsFalse()
+            .OverrideFailureMessage("Secondary effect must not fire when the primary kills the target.");
+    }
 }

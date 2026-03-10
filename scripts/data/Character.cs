@@ -27,6 +27,9 @@ public partial class Character : Resource
 
     // ---- Skill loadout (persisted as IDs; resolved via SkillCatalog) -------
 
+    /// <summary>Number of passive skill slots available to the player.</summary>
+    public const int MaxPassiveSlots = 3;
+
     /// <summary>ID of the equipped active skill, or null if none.</summary>
     [Export] public string? ActiveSkillId { get; set; }
 
@@ -112,7 +115,7 @@ public partial class Character : Resource
     /// </summary>
     public bool EquipPassiveSkill(string skillId, int slot)
     {
-        if (!KnownSkillIds.Contains(skillId) || slot < 0 || slot >= 3) return false;
+        if (!KnownSkillIds.Contains(skillId) || slot < 0 || slot >= MaxPassiveSlots) return false;
         var skill = SkillCatalog.GetById(skillId);
         if (skill == null || skill.Type != SkillType.Passive) return false;
         while (PassiveSkillIds.Count <= slot)

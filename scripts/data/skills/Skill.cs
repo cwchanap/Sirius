@@ -98,6 +98,7 @@ public class Skill
                 (float)caster.CurrentHealth / caster.GetEffectiveMaxHealth() < TriggerHpThreshold,
 
             SkillTriggerType.OnLowEnemyHp =>
+                target.MaxHealth > 0 &&
                 (float)target.CurrentHealth / target.MaxHealth < TriggerHpThreshold,
 
             _ => false
@@ -108,15 +109,16 @@ public class Skill
     /// Applies this skill's effect to the combatants.
     /// Returns true if the effect was applied successfully.
     /// Does NOT deduct mana — callers must call Character.TryUseMana() first.
+    /// Pass a seeded <paramref name="rng"/> for deterministic results (e.g. from BattleManager._rng).
     /// </summary>
-    public bool Apply(Character caster, Enemy target)
+    public bool Apply(Character caster, Enemy target, Random? rng = null)
     {
         if (_effect == null)
         {
             GD.PushWarning($"[Skill] '{DisplayName}' has no effect configured — skipping.");
             return false;
         }
-        return _effect.Apply(caster, target);
+        return _effect.Apply(caster, target, rng);
     }
 }
 

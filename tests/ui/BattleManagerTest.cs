@@ -216,8 +216,10 @@ public partial class BattleManagerTest : Node
     }
 
     [TestCase]
-    public void ExecutePlayerAction_StunnedPlayerStillTicksSkillCountersAndCooldowns()
+    public void ExecutePlayerAction_StunnedPlayer_TicksCooldownsButNotSkillCounter()
     {
+        // A stunned player loses their action, so the active skill turn counter
+        // must NOT advance. Passive cooldowns should still tick regardless.
         var battleManager = new BattleManager();
         var player = TestHelpers.CreateTestCharacter();
         player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Stun, 0, 2));
@@ -231,8 +233,10 @@ public partial class BattleManagerTest : Node
 
         InvokePrivateMethod(battleManager, "ExecutePlayerAction");
 
-        AssertThat(GetPrivateField<int>(battleManager, "_playerSkillTurnCount")).IsEqual(1);
-        AssertThat(cooldowns["heal"]).IsEqual(1);
+        AssertThat(GetPrivateField<int>(battleManager, "_playerSkillTurnCount")).IsEqual(0)
+            .OverrideFailureMessage("Skill turn counter must NOT advance when the player is stunned.");
+        AssertThat(cooldowns["heal"]).IsEqual(1)
+            .OverrideFailureMessage("Passive cooldowns must still tick even when player is stunned.");
         AssertThat(player.ActiveBuffs.IsStunned).IsTrue();
     }
 

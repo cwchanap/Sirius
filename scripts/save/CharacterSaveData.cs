@@ -262,6 +262,7 @@ public class CharacterSaveData
     private static List<string> FilterValidPassiveSkillIds(List<string>? skillIds, List<string> knownSkillIds)
     {
         var validSkillIds = new List<string>();
+        var seenSkillIds = new HashSet<string>();
         if (skillIds == null)
             return validSkillIds;
 
@@ -292,6 +293,12 @@ public class CharacterSaveData
             if (skill.Type != SkillType.Passive)
             {
                 GD.PushWarning($"Save data: Passive skill slot contains active skill '{skillId}'; ignoring mismatched skill type");
+                continue;
+            }
+
+            if (!seenSkillIds.Add(skillId))
+            {
+                GD.PushWarning($"Save data: Duplicate passive skill '{skillId}' in loadout; ignoring duplicate entry");
                 continue;
             }
 

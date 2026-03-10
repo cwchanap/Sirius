@@ -226,7 +226,10 @@ public partial class InventoryMenuController : Control
 		_activeSkillSelector.Clear();
 
 		var player = _gameManager.Player;
-		int selectedIndex = -1;
+
+		// Index 0 is always the explicit "none equipped" entry (null metadata).
+		_activeSkillSelector.AddItem("— None —");
+		int selectedIndex = 0; // default to "None" if no active skill is equipped
 
 		foreach (var skillId in player.KnownSkillIds)
 		{
@@ -252,9 +255,9 @@ public partial class InventoryMenuController : Control
 			}
 		}
 
-		if (_activeSkillSelector.ItemCount == 0)
+		if (_activeSkillSelector.ItemCount == 1)
 		{
-			_activeSkillSelector.AddItem("No active skills");
+			// Only the "None" placeholder — player has no active skills yet.
 			_activeSkillSelector.Disabled = true;
 			_activeSkillSelector.TooltipText = "Learn active skills by leveling up to configure an active battle skill.";
 			_isRefreshingActiveSkillSelector = false;
@@ -262,11 +265,6 @@ public partial class InventoryMenuController : Control
 		}
 
 		_activeSkillSelector.Disabled = false;
-		if (selectedIndex < 0)
-		{
-			selectedIndex = 0;
-		}
-
 		_activeSkillSelector.Select(selectedIndex);
 		UpdateActiveSkillSelectorTooltip(selectedIndex);
 		_isRefreshingActiveSkillSelector = false;
@@ -530,6 +528,9 @@ public partial class InventoryMenuController : Control
 		string? skillId = GetActiveSkillIdForIndex((int)index);
 		if (string.IsNullOrEmpty(skillId))
 		{
+			// "None" was selected — unequip any active skill.
+			_gameManager.Player.ActiveSkillId = null;
+			UpdateActiveSkillSelectorTooltip((int)index);
 			return;
 		}
 
@@ -561,7 +562,7 @@ public partial class InventoryMenuController : Control
 		string? skillId = GetActiveSkillIdForIndex(index);
 		if (string.IsNullOrEmpty(skillId))
 		{
-			_activeSkillSelector.TooltipText = "Select the active skill that auto-fires in battle.";
+			_activeSkillSelector.TooltipText = "No active skill equipped. Select one to auto-fire it in battle.";
 			return;
 		}
 

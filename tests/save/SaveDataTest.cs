@@ -378,8 +378,10 @@ public partial class SaveDataTest : Node
     }
 
     [TestCase]
-    public void TestCharacterSaveData_ToCharacter_ClampsPassiveLoadoutToThreeSlots()
+    public void TestCharacterSaveData_ToCharacter_DeduplicatesPassiveLoadout()
     {
+        // Duplicate entries in saved passive slots are stripped so each skill
+        // occupies at most one slot (prevents shared-cooldown collision).
         var saveData = new CharacterSaveData
         {
             Name = "SkillHero",
@@ -401,10 +403,9 @@ public partial class SaveDataTest : Node
 
         var character = saveData.ToCharacter();
 
-        AssertThat(character.PassiveSkillIds.Count).IsEqual(3);
+        AssertThat(character.PassiveSkillIds.Count).IsEqual(2);
         AssertThat(character.PassiveSkillIds[0]).IsEqual("heal");
         AssertThat(character.PassiveSkillIds[1]).IsEqual("battle_cry");
-        AssertThat(character.PassiveSkillIds[2]).IsEqual("heal");
     }
 
     [TestCase]

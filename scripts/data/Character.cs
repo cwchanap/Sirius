@@ -118,6 +118,11 @@ public partial class Character : Resource
         if (!KnownSkillIds.Contains(skillId) || slot < 0 || slot >= MaxPassiveSlots) return false;
         var skill = SkillCatalog.GetById(skillId);
         if (skill == null || skill.Type != SkillType.Passive) return false;
+        // Reject duplicates: the same passive in two slots would share a cooldown timer.
+        for (int i = 0; i < PassiveSkillIds.Count; i++)
+        {
+            if (i != slot && PassiveSkillIds[i] == skillId) return false;
+        }
         while (PassiveSkillIds.Count <= slot)
             PassiveSkillIds.Add("");
         PassiveSkillIds[slot] = skillId;

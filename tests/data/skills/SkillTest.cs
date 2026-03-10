@@ -146,6 +146,20 @@ public partial class SkillTest : Node
     }
 
     [TestCase]
+    public void EquipPassiveSkill_FailsForDuplicateSkillInAnotherSlot()
+    {
+        var c = CreateCharacter();
+        c.LearnSkill("heal");
+        c.LearnSkill("battle_cry");
+        c.EquipPassiveSkill("heal", 0);
+        c.EquipPassiveSkill("battle_cry", 1);
+        // Attempting to put "heal" into slot 2 (already in slot 0) must fail.
+        bool result = c.EquipPassiveSkill("heal", 2);
+        AssertThat(result).IsFalse();
+        AssertThat(c.PassiveSkillIds.Count).IsEqual(2); // slot 2 was never added
+    }
+
+    [TestCase]
     public void EquipPassiveSkill_FailsForActiveTypedSkill()
     {
         var c = CreateCharacter();

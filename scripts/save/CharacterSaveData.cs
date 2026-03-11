@@ -25,6 +25,7 @@ public class CharacterSaveData
 
     // Skill IDs (skills are resolved via SkillCatalog at runtime)
     public string? ActiveSkillId { get; set; }
+    public bool ActiveSkillExplicitlyNone { get; set; }
     public List<string>? PassiveSkillIds { get; set; }
     public List<string>? KnownSkillIds { get; set; }
 
@@ -49,6 +50,7 @@ public class CharacterSaveData
             MaxMana = c.MaxMana,
             CurrentMana = c.CurrentMana,
             ActiveSkillId = c.ActiveSkillId,
+            ActiveSkillExplicitlyNone = c.ActiveSkillExplicitlyNone,
             PassiveSkillIds = c.PassiveSkillIds != null ? new List<string>(c.PassiveSkillIds) : null,
             KnownSkillIds = c.KnownSkillIds != null ? new List<string>(c.KnownSkillIds) : null,
         };
@@ -174,6 +176,7 @@ public class CharacterSaveData
 
         // Validate equipped skills: must be known and have correct type for the slot
         character.ActiveSkillId = FilterValidActiveSkillId(this.ActiveSkillId, character.KnownSkillIds);
+        character.ActiveSkillExplicitlyNone = this.ActiveSkillExplicitlyNone;
         character.PassiveSkillIds = FilterValidPassiveSkillIds(this.PassiveSkillIds, character.KnownSkillIds);
 
         if (isLegacySkillSave)

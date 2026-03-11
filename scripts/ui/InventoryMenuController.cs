@@ -528,8 +528,9 @@ public partial class InventoryMenuController : Control
 		string? skillId = GetActiveSkillIdForIndex((int)index);
 		if (string.IsNullOrEmpty(skillId))
 		{
-			// "None" was selected — unequip any active skill.
+			// "None" was selected — unequip any active skill and preserve this deliberate choice.
 			_gameManager.Player.ActiveSkillId = null;
+			_gameManager.Player.ActiveSkillExplicitlyNone = true;
 			UpdateActiveSkillSelectorTooltip((int)index);
 			return;
 		}

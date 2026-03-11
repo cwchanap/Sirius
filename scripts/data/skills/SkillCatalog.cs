@@ -88,8 +88,10 @@ public static class SkillCatalog
     {
         if (skill.Type == SkillType.Active)
         {
-            if (string.IsNullOrEmpty(player.ActiveSkillId))
+            if (string.IsNullOrEmpty(player.ActiveSkillId) && !player.ActiveSkillExplicitlyNone)
                 player.EquipActiveSkill(skill.SkillId);
+            else if (player.ActiveSkillExplicitlyNone)
+                GD.Print($"[SkillCatalog] '{skill.DisplayName}' learned but player chose no active skill — not auto-equipped.");
             else
                 GD.Print($"[SkillCatalog] '{skill.DisplayName}' learned but active slot already has '{player.ActiveSkillId}' — not replaced.");
             return;

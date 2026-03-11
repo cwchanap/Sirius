@@ -96,13 +96,14 @@ public partial class InventoryMenuControllerTest : Node
 
         var selector = _inventoryMenu.GetNode<OptionButton>("%ActiveSkillSelector");
         AssertThat(selector.Disabled).IsFalse();
-        AssertThat(selector.ItemCount).IsEqual(2);
-        AssertThat(selector.GetItemText(0)).IsEqual("Power Strike");
-        AssertThat(selector.GetItemText(1)).IsEqual("Fire Bolt");
+        AssertThat(selector.ItemCount).IsEqual(3);
+        AssertThat(selector.GetItemText(0)).IsEqual("— None —");
+        AssertThat(selector.GetItemText(1)).IsEqual("Power Strike");
+        AssertThat(selector.GetItemText(2)).IsEqual("Fire Bolt");
         AssertThat(player.ActiveSkillId).IsEqual("power_strike");
 
-        selector.Select(1);
-        selector.EmitSignal(OptionButton.SignalName.ItemSelected, 1L);
+        selector.Select(2);
+        selector.EmitSignal(OptionButton.SignalName.ItemSelected, 2L);
 
         AssertThat(player.ActiveSkillId).IsEqual("fire_bolt");
         AssertThat(selector.TooltipText).Contains("Currently equipped");

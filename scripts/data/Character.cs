@@ -33,6 +33,12 @@ public partial class Character : Resource
     /// <summary>ID of the equipped active skill, or null if none.</summary>
     [Export] public string? ActiveSkillId { get; set; }
 
+    /// <summary>
+    /// True when the player has explicitly chosen to have no active skill via the inventory UI.
+    /// Prevents auto-equip on level-up from overriding a deliberate "no active skill" choice.
+    /// </summary>
+    public bool ActiveSkillExplicitlyNone { get; set; }
+
     /// <summary>IDs of equipped passive skills (up to 3 slots). Not exported; persisted via JSON save system.</summary>
     public List<string> PassiveSkillIds { get; set; } = new();
 
@@ -106,6 +112,7 @@ public partial class Character : Resource
         var skill = SkillCatalog.GetById(skillId);
         if (skill == null || skill.Type != SkillType.Active) return false;
         ActiveSkillId = skillId;
+        ActiveSkillExplicitlyNone = false;
         return true;
     }
 

@@ -1186,7 +1186,6 @@ public partial class BattleManager : AcceptDialog
         {
             _player.RestoreMana(skill.ManaCost);
             GD.PushWarning($"[Skill] '{skill.DisplayName}' Apply() returned false; mana restored.");
-            _playerSkillTurnCount = 0; // Reset so skill retries after a full period
             return;
         }
 

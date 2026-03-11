@@ -923,9 +923,9 @@ public partial class BattleManager : AcceptDialog
         string skillInfo = "";
         if (activeSkill != null)
         {
-            // Show how many turns until next activation. Counter resets to 0 on fire, so
-            // turnsUntilNext goes from (period-1) down to 0, at which point it fires.
-            int turnsUntilNext = (activeSkill.ActivePeriod - 1) - (_playerSkillTurnCount % activeSkill.ActivePeriod);
+            // Show how many turns until next activation. Skill fires when count % period == 0.
+            // turnsUntilNext goes from period down to 1.
+            int turnsUntilNext = activeSkill.ActivePeriod - (_playerSkillTurnCount % activeSkill.ActivePeriod);
             skillInfo = $" [{activeSkill.DisplayName} in {turnsUntilNext}t]";
         }
         _playerManaLabel.Text = $"MP: {_player.CurrentMana}/{_player.MaxMana}{skillInfo}";
@@ -1186,7 +1186,8 @@ public partial class BattleManager : AcceptDialog
         {
             _player.RestoreMana(skill.ManaCost);
             GD.PushWarning($"[Skill] '{skill.DisplayName}' Apply() returned false; mana restored.");
-            return; // Do NOT reset counter — failed activation has no cooldown penalty
+            _playerSkillTurnCount = 0; // Reset so skill retries after a full period
+            return;
         }
 
         // Reset counter only on successful activation.

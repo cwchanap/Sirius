@@ -48,10 +48,15 @@ python3 tools/sprite_sheet_merger.py
 ### Project Structure
 ```
 scripts/
-├── data/          # Data classes (Character.cs, Enemy.cs, Item.cs, Inventory.cs)
+├── data/
+│   ├── items/         # Item catalogs: ItemCatalog.cs, EquipmentCatalog.cs, ConsumableCatalog.cs, MonsterPartsCatalog.cs
+│   ├── consumables/   # Status effects: ConsumableItem.cs, StatusEffectSet.cs, ActiveStatusEffect.cs
+│   ├── skills/        # Skill system: Skill.cs, SkillCatalog.cs, SkillEffect.cs
+│   └── ...            # Core data: Character.cs, Enemy.cs, EnemyBlueprint.cs, LootManager.cs, LootTable.cs
 ├── game/          # Core game logic (GameManager.cs, GridMap.cs, FloorManager.cs, PlayerController.cs)
+├── save/          # Persistence: SaveManager.cs, SaveData.cs, CharacterSaveData.cs, EquipmentSaveData.cs
 ├── tilemap_json/  # Tilemap import/export (TilemapJsonImporter.cs, TilemapJsonExporter.cs)
-└── ui/            # UI controllers (BattleManager.cs, MainMenu.cs, InventoryMenuController.cs)
+└── ui/            # UI controllers (BattleManager.cs, MainMenu.cs, InventoryMenuController.cs, SaveLoadDialog.cs)
 
 scenes/
 ├── game/          # Game.tscn, floors/ (FloorGF.tscn, Floor1F.tscn)
@@ -86,6 +91,20 @@ _battleManager.BattleFinished += OnBattleFinished;
 - 4-frame animation cycles (idle → left step → idle variant → right step)
 - Graceful fallback to colored rectangles when sprites missing
 - Animation timing: 0.2 seconds per frame (5 FPS)
+
+### Skills System
+Skills are stored in `SkillCatalog` (static registry) and referenced on `Character` by string ID — never as Godot Resources. This avoids `.tres`-loaded skills losing their non-exported `Effect` field.
+- **Active skills**: fire automatically every `ActivePeriod` player turns
+- **Passive skills**: fire when trigger conditions are met (`OnPlayerTurn` chance, `OnLowPlayerHp`, `OnLowEnemyHp`)
+- Both cost mana; skipped silently if insufficient mana
+- `Character` tracks `KnownSkillIds`, `ActiveSkillId`, `PassiveSkillIds` (up to 3 slots); duplicate passives in different slots are rejected
+- `ActiveSkillExplicitlyNone` flag prevents auto-equip on level-up from overriding a deliberate "no active skill" choice
+
+### Save System
+`SaveManager` (autoload singleton) handles 3 manual slots (0-2) + autosave (slot 3, `autosave.json`). Saves use atomic write (temp → rename) with `.bak` backup for crash recovery. `SaveData` is serialized as JSON via `System.Text.Json`. `SaveManager.PendingLoadData` is the handoff mechanism between MainMenu and Game scenes — set before scene change, consumed on load.
+
+### Enemy & Loot Architecture
+Enemies are defined via `EnemyBlueprint` (data) and identified by `EnemyTypeId` enum. `LootTable` / `LootTableCatalog` define per-enemy drop rates. `LootManager` resolves loot on kill. Item definitions live in static catalogs (`ItemCatalog`, `EquipmentCatalog`, `ConsumableCatalog`, `MonsterPartsCatalog`) rather than Godot Resources.
 
 ### Performance Requirements
 - **Viewport culling** essential for 160x160 grid (must maintain 60fps)

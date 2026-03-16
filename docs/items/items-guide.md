@@ -11,6 +11,7 @@
 |----|-------------|--------|-------|--------|
 | health_potion | Health Potion | Restores 50 HP | 30g | Common |
 | greater_health_potion | Greater Health Potion | Restores 150 HP | 80g | Uncommon |
+| mana_potion | Mana Potion | Restores 25 MP | 35g | Common |
 | strength_tonic | Strength Tonic | +15 ATK for 3 turns | 50g | Common |
 | iron_skin | Iron Skin | +10 DEF for 4 turns | 50g | Common |
 | swiftness_draught | Swiftness Draught | +8 SPD for 3 turns | 40g | Common |

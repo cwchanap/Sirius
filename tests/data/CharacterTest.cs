@@ -332,6 +332,77 @@ public partial class CharacterTest : Node
         AssertThat(player.GetEffectiveSpeed()).IsEqual(10);
     }
 
+    // ---- TrySpendGold -----------------------------------------------------
+
+    [TestCase]
+    public void TrySpendGold_SufficientGold_DeductsAndReturnsTrue()
+    {
+        var character = CreateTestCharacter();
+        character.Gold = 100;
+
+        bool result = character.TrySpendGold(60);
+
+        AssertThat(result).IsTrue();
+        AssertThat(character.Gold).IsEqual(40);
+    }
+
+    [TestCase]
+    public void TrySpendGold_InsufficientGold_ReturnsFalseGoldUnchanged()
+    {
+        var character = CreateTestCharacter();
+        character.Gold = 30;
+
+        bool result = character.TrySpendGold(50);
+
+        AssertThat(result).IsFalse();
+        AssertThat(character.Gold).IsEqual(30);
+    }
+
+    [TestCase]
+    public void TrySpendGold_ExactAmount_ReducesToZero()
+    {
+        var character = CreateTestCharacter();
+        character.Gold = 50;
+
+        bool result = character.TrySpendGold(50);
+
+        AssertThat(result).IsTrue();
+        AssertThat(character.Gold).IsEqual(0);
+    }
+
+    [TestCase]
+    public void TrySpendGold_ZeroAmount_AlwaysSucceeds()
+    {
+        var character = CreateTestCharacter();
+        character.Gold = 0;
+
+        bool result = character.TrySpendGold(0);
+
+        AssertThat(result).IsTrue();
+        AssertThat(character.Gold).IsEqual(0);
+    }
+
+    [TestCase]
+    public void TrySpendGold_NegativeAmount_Throws()
+    {
+        var character = CreateTestCharacter();
+        character.Gold = 100;
+
+        AssertThrown(() => character.TrySpendGold(-1))
+            .IsInstanceOf<System.ArgumentOutOfRangeException>();
+    }
+
+    [TestCase]
+    public void GainGold_ThenSpend_RoundTrip()
+    {
+        var character = CreateTestCharacter();
+        character.Gold = 0;
+        character.GainGold(200);
+        character.TrySpendGold(75);
+
+        AssertThat(character.Gold).IsEqual(125);
+    }
+
     // Helper method to create a standard test character
     private Character CreateTestCharacter()
     {

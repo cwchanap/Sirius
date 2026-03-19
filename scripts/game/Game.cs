@@ -20,6 +20,8 @@ public partial class Game : Node2D
     private Label _playerGoldLabel;
     private BattleManager _battleManager;
     private Vector2I _lastEnemyPosition; // Store enemy position for after battle
+    private NpcInteractionController _npcInteractionController;
+    private readonly System.Collections.Generic.HashSet<string> _questFlags = new();
     private PlayerDisplay _playerDisplay; // Visual sprite for player when using baked TileMaps
     private InventoryMenuController _inventoryMenu;
     private bool _isAbortInitialization; // Set when save corruption causes initialization abort
@@ -234,7 +236,7 @@ public partial class Game : Node2D
         // Handle inventory toggle (I key)
         if (@event.IsActionPressed("toggle_inventory"))
         {
-            if (_inventoryMenu != null && !_gameManager.IsInBattle)
+            if (_inventoryMenu != null && !_gameManager.IsInBattle && !_gameManager.IsInNpcInteraction)
             {
                 if (_inventoryMenu.Visible)
                 {
@@ -331,6 +333,46 @@ public partial class Game : Node2D
         _gameManager.StartBattle(enemy);
     }
     
+    private void OnNpcInteracted(Vector2I npcPosition)
+    {
+        if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction) return;
+
+        Vector2I tilemapPos = _gridMap.InternalGridToTilemapCoords(npcPosition);
+        NpcSpawn foundSpawn = null;
+
+        foreach (Node n in GetTree().GetNodesInGroup("NpcSpawn"))
+        {
+            if (n is NpcSpawn spawn && spawn.GridPosition == tilemapPos)
+            {
+                foundSpawn = spawn;
+                break;
+            }
+        }
+
+        if (foundSpawn == null)
+        {
+            GD.PushWarning($"[Game] NPC encountered at {npcPosition} but no NpcSpawn found at tilemap {tilemapPos}.");
+            return;
+        }
+
+        var npcData = foundSpawn.GetNpcData();
+        if (npcData == null) return;
+
+        _gameManager.StartNpcInteraction();
+
+        _npcInteractionController = new NpcInteractionController(
+            _gameManager, GetNode("UI"), npcData, _gameManager.Player, _questFlags);
+        _npcInteractionController.InteractionComplete += OnNpcInteractionComplete;
+        _npcInteractionController.Begin();
+    }
+
+    private void OnNpcInteractionComplete()
+    {
+        _gameManager.EndNpcInteraction();
+        _npcInteractionController = null;
+        UpdatePlayerUI();
+    }
+
     private Enemy CreateEnemyByArea(Vector2I position)
     {
         int x = position.X;
@@ -889,6 +931,7 @@ public partial class Game : Node2D
         {
             _gridMap.EnemyEncountered -= OnEnemyEncountered;
             _gridMap.PlayerMoved -= OnPlayerMoved;
+            _gridMap.NpcInteracted -= OnNpcInteracted;
         }
 
         // Update dynamic GridMap reference
@@ -905,6 +948,7 @@ public partial class Game : Node2D
         {
             _gridMap.EnemyEncountered += OnEnemyEncountered;
             _gridMap.PlayerMoved += OnPlayerMoved;
+            _gridMap.NpcInteracted += OnNpcInteracted;
 
             if (_hasPendingSaveSpawnValidation)
             {
@@ -988,6 +1032,14 @@ public partial class Game : Node2D
         {
             _gridMap.EnemyEncountered -= OnEnemyEncountered;
             _gridMap.PlayerMoved -= OnPlayerMoved;
+            _gridMap.NpcInteracted -= OnNpcInteracted;
+        }
+
+        if (_npcInteractionController != null)
+        {
+            _npcInteractionController.InteractionComplete -= OnNpcInteractionComplete;
+            _npcInteractionController.Finish();
+            _npcInteractionController = null;
         }
 
         // Clean up save dialog if it exists

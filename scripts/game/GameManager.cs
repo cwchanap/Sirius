@@ -32,6 +32,7 @@ public partial class GameManager : Node
 
     public Character Player { get; private set; }
     public bool IsInBattle { get; private set; } = false;
+    public bool IsInNpcInteraction { get; private set; } = false;
 
     private FloorManager _floorManager;
 
@@ -196,9 +197,22 @@ public partial class GameManager : Node
         EmitSignal(SignalName.BattleEnded, playerWon);
     }
 
+    public void StartNpcInteraction()
+    {
+        IsInNpcInteraction = true;
+        GD.Print("NPC interaction started.");
+    }
+
+    public void EndNpcInteraction()
+    {
+        IsInNpcInteraction = false;
+        GD.Print("NPC interaction ended.");
+    }
+
     public void ResetBattleState()
     {
         IsInBattle = false;
+        IsInNpcInteraction = false;
         LastBattleStartedEnemy = null;
         BattleStartedCount = 0;
         GD.Print("Battle state reset. IsInBattle: false");

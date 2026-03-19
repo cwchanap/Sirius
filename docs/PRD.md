@@ -1,7 +1,7 @@
 # Sirius - Product Requirements Document
 
-**Version:** 1.0
-**Last Updated:** January 2026
+**Version:** 1.1
+**Last Updated:** March 2026
 **Product Owner:** TBD
 **Tech Lead:** TBD
 
@@ -12,6 +12,26 @@
 Sirius is a 2D turn-based tactical RPG built with Godot 4.5.1 and C# (.NET 8.0). The game features a 160x160 grid-based maze world with 8 themed areas, 14+ enemy types, automated turn-based combat, and a sprite animation system.
 
 This PRD outlines 16 features across 4 priority tiers that will transform Sirius from a functional prototype into a complete, engaging RPG experience. The features are designed to create a compelling gameplay loop with exploration, combat progression, itemization, and replayability.
+
+### Implementation Status Summary (as of March 2026)
+
+| Feature | Status | Phase |
+|---------|--------|-------|
+| Save/Load System | ✅ Complete | 1 |
+| Loot Drop System | ✅ Complete | 1 |
+| Consumable Item Effects | ✅ Complete | 1 |
+| Skills/Abilities System | ✅ Complete | 2 |
+| Status Effects System | ✅ Complete | 2 |
+| Boss Fight Mechanics | ⚠️ Partial (20%) | 2 |
+| Combat Animations & VFX | ⚠️ Partial (30%) | 4 |
+| Sound Effects Integration | ⚠️ Partial (10%) | 4 |
+| Procedural Maze Generation | ❌ Not Started | 3 |
+| NPC and Dialogue System | ❌ Not Started | 3 |
+| Quest System | ❌ Not Started | 3 |
+| Settings Menu | ❌ Not Started | 4 |
+| Minimap | ❌ Not Started | 4 |
+
+**Overall completion: ~55% of PRD scope**
 
 ### Strategic Vision
 
@@ -61,14 +81,21 @@ Transform Sirius into a polished tactical RPG that offers:
 | System | File | Responsibility |
 |--------|------|----------------|
 | GameManager | `scripts/game/GameManager.cs` | Singleton for global state, player data, battle state tracking |
-| Character | `scripts/data/Character.cs` | Player stats, inventory, equipment, leveling |
-| Enemy | `scripts/data/Enemy.cs` | Enemy data with 14+ factory methods |
-| BattleManager | `scripts/ui/BattleManager.cs` | Combat UI, auto-battle, damage calculations |
+| Character | `scripts/data/Character.cs` | Player stats, inventory, equipment, leveling, mana, skills, buffs |
+| Enemy | `scripts/data/Enemy.cs` | Enemy data with 14+ factory methods, status effects |
+| EnemyBlueprint | `scripts/data/EnemyBlueprint.cs` | Enemy data templates with factory methods |
+| BattleManager | `scripts/ui/BattleManager.cs` | Combat UI, auto-battle, damage calculations, skills, consumables |
 | GridMap | `scripts/game/GridMap.cs` | 160x160 grid rendering, viewport culling, theming |
 | FloorManager | `scripts/game/FloorManager.cs` | Multi-floor transitions, stair connections |
 | Inventory | `scripts/data/Inventory.cs` | Item storage with stacking, 100 item type limit |
 | EquipmentSet | `scripts/data/EquipmentSet.cs` | 5 main slots + 4 accessory slots |
 | Item | `scripts/data/Item.cs` | Base class with General, Equipment, Consumable, Quest categories |
+| SaveManager | `scripts/save/SaveManager.cs` | Autoload singleton, 3 slots + autosave, atomic writes, backup recovery |
+| LootManager | `scripts/data/LootManager.cs` | Weighted loot rolling, award to inventory |
+| LootTableCatalog | `scripts/data/LootTableCatalog.cs` | Per-enemy drop table registry |
+| SkillCatalog | `scripts/data/skills/SkillCatalog.cs` | Static skill registry and level-up grants |
+| ConsumableCatalog | `scripts/data/items/ConsumableCatalog.cs` | 10 consumable item definitions |
+| StatusEffectSet | `scripts/data/consumables/StatusEffectSet.cs` | Runtime buff/debuff collection per combatant |
 
 ### Key Design Patterns
 - **Signal-based communication** for loose coupling
@@ -138,13 +165,14 @@ public enum ItemCategory
 
 ## Phase 1: Core Gameplay Loop (HIGH PRIORITY)
 
-### 1.1 Save/Load System
+### 1.1 Save/Load System — ✅ Complete
 
 #### Executive Summary
 - **Feature Name**: Save/Load System
 - **One-Liner**: JSON-based persistence for player progress with multiple save slots
 - **Strategic Rationale**: Essential for player retention; no one plays an RPG they cannot save
 - **Success Metrics**: 100% data integrity after load, < 500ms save/load time
+- **Implementation Status**: Fully implemented. `SaveManager` autoload with 3 manual slots + autosave, atomic writes (temp→rename), `.bak` backup recovery, and slot metadata display. Covered by `tests/save/SaveManagerTest.cs`.
 
 #### Purpose and Problem Statement
 
@@ -276,13 +304,14 @@ public partial class SaveManager : Node
 
 ---
 
-### 1.2 Loot Drop System
+### 1.2 Loot Drop System — ✅ Complete
 
 #### Executive Summary
 - **Feature Name**: Loot Drop System
 - **One-Liner**: Enemy drop tables with weighted random loot and rare boss drops
 - **Strategic Rationale**: Core progression loop - defeating enemies should feel rewarding
 - **Success Metrics**: > 70% of players pick up loot, < 5% complaints about drop rates
+- **Implementation Status**: Fully implemented. `LootManager`, `LootTable`, `LootTableCatalog` in `scripts/data/`. All 14+ enemy types have configured drop tables. Inventory overflow goes to RecoveryChest. Covered by `tests/data/LootDropSystemTest.cs` and `tests/data/LootTableCatalogTest.cs`.
 
 #### Purpose and Problem Statement
 
@@ -421,13 +450,14 @@ if (playerWon)
 
 ---
 
-### 1.3 Consumable Item Effects
+### 1.3 Consumable Item Effects — ✅ Complete
 
 #### Executive Summary
 - **Feature Name**: Consumable Item Effects
 - **One-Liner**: Health/mana potions, buff items, and battle item usage
 - **Strategic Rationale**: Gives players tactical options and a reason to collect items
 - **Success Metrics**: Average 3+ consumables used per boss fight
+- **Implementation Status**: Fully implemented. 10 consumables in `ConsumableCatalog` (health potions, mana potion, stat tonics, antidote, regen potion, enemy debuff items). Pre-battle selection panel, mid-battle item button, and out-of-battle use from inventory. Covered by `tests/data/consumables/ConsumableItemTest.cs`.
 
 #### Purpose and Problem Statement
 
@@ -579,13 +609,14 @@ private void ShowContextMenu(ConsumableItem item, int slotIndex)
 
 ## Phase 2: Combat Depth (MEDIUM PRIORITY)
 
-### 2.1 Skills/Abilities System
+### 2.1 Skills/Abilities System — ✅ Complete
 
 #### Executive Summary
 - **Feature Name**: Skills/Abilities System
 - **One-Liner**: Unlockable skills with mana costs and strategic skill selection
 - **Strategic Rationale**: Transforms combat from auto-battle to tactical decision-making
 - **Success Metrics**: Players use skills in > 50% of combat turns
+- **Implementation Status**: Fully implemented. `Skill`, `SkillCatalog`, `SkillEffect` in `scripts/data/skills/`. Active skills fire every N turns; passive skills trigger on conditions (low HP, low enemy HP, per-turn chance). 6 starter skills unlock through level 10. Up to 3 passive slots + 1 active slot. `ActiveSkillExplicitlyNone` flag prevents unwanted auto-equip. Skills stored as string IDs (not Godot Resources) to avoid `.tres` serialization issues. Covered by `tests/data/skills/SkillTest.cs`.
 
 #### Purpose and Problem Statement
 
@@ -700,13 +731,14 @@ public partial class Character : Resource
 
 ---
 
-### 2.2 Boss Fight Mechanics
+### 2.2 Boss Fight Mechanics — ⚠️ Partial (20%)
 
 #### Executive Summary
 - **Feature Name**: Boss Fight Mechanics
 - **One-Liner**: Multi-phase boss battles with special attacks and minion summoning
 - **Strategic Rationale**: Boss fights are memorable moments that test player skill and mark progression milestones
 - **Success Metrics**: < 20% first-attempt boss clear rate, > 80% eventual clear rate
+- **Implementation Status**: Partial. `EnemyBlueprint.CreateBossBlueprint()` creates a high-stat "Ancient Dragon King" (Level 10, 500 HP) with boss-tier loot. **Not implemented**: multi-phase transitions (HP thresholds), `BossEnemy` subclass, phase-specific attack patterns, minion summoning, charge-up mechanics, and warning indicators.
 
 #### Purpose and Problem Statement
 
@@ -815,13 +847,14 @@ public class BossAttack : Resource
 
 ---
 
-### 2.3 Status Effects System
+### 2.3 Status Effects System — ✅ Complete
 
 #### Executive Summary
 - **Feature Name**: Status Effects System
 - **One-Liner**: Poison, Stun, Weaken, and buffs like Shield/Haste/Regen
 - **Strategic Rationale**: Adds tactical depth and makes combat more dynamic
 - **Success Metrics**: > 30% of battles involve status effects
+- **Implementation Status**: Fully implemented. `StatusEffectType`, `ActiveStatusEffect`, `StatusEffectSet` in `scripts/data/consumables/`. 11 effect types: Stun, Poison, Burn, Weaken, Slow, Blind (debuffs) + Regen, Fortify, Strength, Haste (buffs). `StatusEffectSet.Tick()` handles DoT/HoT and duration countdown. Magnitude-based stat modifiers. Applied by both consumables and skills. Covered by `tests/data/EnemyStatusEffectTest.cs`.
 
 #### Purpose and Problem Statement
 
@@ -940,13 +973,14 @@ public class ActiveStatusEffect
 
 ## Phase 3: World and Content (MEDIUM PRIORITY)
 
-### 3.1 Procedural Maze Generation
+### 3.1 Procedural Maze Generation — ❌ Not Started
 
 #### Executive Summary
 - **Feature Name**: Procedural Maze Generation
 - **One-Liner**: Infinite dungeon depth with room templates and themed areas
 - **Strategic Rationale**: Infinite content creation, replayability, and exploration excitement
 - **Success Metrics**: > 5 procedural floors explored per session
+- **Implementation Status**: Not started. Current system uses hand-authored static floor scenes (FloorGF.tscn, Floor1F.tscn) loaded by `FloorManager`. Tilemap JSON import/export (`TilemapJsonImporter.cs`) exists for tooling. No `ProceduralFloorGenerator` or BSP logic exists. Would require new module alongside existing `GridMap`/`FloorManager`.
 
 #### Purpose and Problem Statement
 
@@ -1058,13 +1092,15 @@ public enum RoomType
 
 ---
 
-### 3.2 NPC and Dialogue System
+### 3.2 NPC and Dialogue System — ❌ Not Started
 
 #### Executive Summary
 - **Feature Name**: NPC and Dialogue System
-- **One-Liner**: Town NPCs, shops, and dialogue choices
+- **One-Liner**: Scene-placed NPCs with branching dialogue, a shop system, and a healer — interactable by walking into them on the grid
 - **Strategic Rationale**: NPCs provide story context, services, and break up combat monotony
 - **Success Metrics**: > 60% of players interact with NPCs
+- **Implementation Status**: Not started. No NPC, DialogueSystem, DialogueTree, or ShopSystem classes exist. `MainMenu.cs` has expansion hooks but no NPC infrastructure. Requires entirely new systems.
+- **Scope Note**: Town hub (dedicated town area/floor) is intentionally out of scope here and tracked separately in Feature 3.5. NPCs are placed directly in existing floor scenes (FloorGF.tscn, Floor1F.tscn) as scene nodes, same as EnemySpawn nodes.
 
 #### Purpose and Problem Statement
 
@@ -1076,7 +1112,7 @@ public enum RoomType
 - No story or lore
 
 **Current State**: No NPCs exist
-**Desired State**: Town hub with shops, quest givers, and dialogue
+**Desired State**: NPCs placed in existing floors with branching dialogue, a ShopCatalog-driven item shop (buy/sell at 50% sell price), and a Healer NPC
 
 #### Technical Specifications
 
@@ -1158,13 +1194,14 @@ public class ShopInventory
 
 ---
 
-### 3.3 Quest System
+### 3.3 Quest System — ❌ Not Started
 
 #### Executive Summary
 - **Feature Name**: Quest System
 - **One-Liner**: Kill/collect/explore quests with tracking UI
 - **Strategic Rationale**: Quests provide goals, rewards, and narrative structure
 - **Success Metrics**: > 3 quests completed per session
+- **Implementation Status**: Not started. `SaveData` has a placeholder `Dictionary<string, QuestState> Quests` field that is never populated. No `Quest`, `QuestManager`, or quest UI classes exist.
 
 #### Technical Specifications
 
@@ -1236,14 +1273,32 @@ public partial class QuestManager : Node
 
 ---
 
+### 3.5 Town Hub — ❌ Not Started (Future)
+
+#### Executive Summary
+- **Feature Name**: Town Hub
+- **One-Liner**: A dedicated town floor with grouped NPC services, shops, and quest board
+- **Strategic Rationale**: Provides a safe social hub that breaks up dungeon exploration and serves as a central progression checkpoint
+- **Implementation Status**: Not started. Intentionally deferred from Feature 3.2 (NPC and Dialogue System). Depends on Feature 3.2 infrastructure (NPC, DialogueSystem, ShopSystem) and Feature 3.1 (Procedural Maze Generation) for floor generation.
+- **Dependencies**: Feature 3.2 (NPC infrastructure), Feature 3.3 (Quest System)
+
+#### Notes
+- A new `TownFloor.tscn` floor scene with NPC-dense layout
+- Town NPCs: Shopkeeper, Blacksmith, Healer, Quest Board NPC, Lore Teller
+- Fast-travel mechanic to return to town from dungeon floors
+- Town-specific music and visual theming
+
+---
+
 ## Phase 4: Polish (LOWER PRIORITY)
 
-### 4.1 Settings Menu
+### 4.1 Settings Menu — ❌ Not Started
 
 #### Executive Summary
 - **Feature Name**: Settings Menu
 - **One-Liner**: Audio, difficulty, and control customization
 - **Success Metrics**: > 20% of players adjust settings
+- **Implementation Status**: Not started. `MainMenu.cs` has a stub `_on_settings_button_pressed()` that shows "Settings menu coming soon!" message. No settings scene, persistence, or controls exist.
 
 #### Features
 - Master/Music/SFX volume sliders
@@ -1254,12 +1309,13 @@ public partial class QuestManager : Node
 
 ---
 
-### 4.2 Combat Animations and VFX
+### 4.2 Combat Animations and VFX — ⚠️ Partial (30%)
 
 #### Executive Summary
 - **Feature Name**: Combat Animations and VFX
 - **One-Liner**: Attack animations, particles, and screen effects
 - **Success Metrics**: Improved player satisfaction ratings
+- **Implementation Status**: Partial. `AnimatedSprite2D` with 4-frame idle animation (5 FPS) and graceful fallback to colored rectangles when sprites missing. Hit flash and damage labels work. **Not implemented**: attack swing animations, particle effects for spells/hits, screen shake on crits, skill-specific animations, status effect visual indicators in combat.
 
 #### Features
 - Attack swing animations
@@ -1270,12 +1326,13 @@ public partial class QuestManager : Node
 
 ---
 
-### 4.3 Sound Effects Integration
+### 4.3 Sound Effects Integration — ⚠️ Partial (10%)
 
 #### Executive Summary
 - **Feature Name**: Sound Effects Integration
 - **One-Liner**: Footsteps, battle SFX, and ambient music
 - **Success Metrics**: Audio present in > 90% of game moments
+- **Implementation Status**: Partial. `MainMenu.cs` plays background music via `AudioStreamPlayer` (supports MP3, OGG, WAV with loop). **Not implemented**: battle music, combat SFX (hit/miss/block/crit), footstep sounds, skill casting audio, UI sounds, victory/defeat fanfares, ambient music, or audio volume control.
 
 #### Reference: `docs/SoundEffects.md` contains detailed requirements
 
@@ -1288,12 +1345,13 @@ public partial class QuestManager : Node
 
 ---
 
-### 4.4 Minimap
+### 4.4 Minimap — ❌ Not Started
 
 #### Executive Summary
 - **Feature Name**: Minimap
 - **One-Liner**: Explored areas display with fog of war
 - **Success Metrics**: > 50% of players use minimap
+- **Implementation Status**: Not started. No minimap scene, controller, or fog-of-war tracking exists.
 
 #### Features
 - Corner HUD minimap
@@ -1329,36 +1387,36 @@ public partial class QuestManager : Node
 
 ## Implementation Timeline
 
-### Quarter 1: Foundation (Weeks 1-12)
+### Quarter 1: Foundation (Weeks 1-12) — ✅ COMPLETE
 
-| Week | Features | Milestone |
-|------|----------|-----------|
-| 1-2 | Save/Load System | Player can save and continue |
-| 3-4 | Loot Drop System | Enemies drop items |
-| 5-6 | Consumable Items | Potions usable in battle |
-| 7-9 | Skills/Abilities | Player has skill choices |
-| 10-11 | Status Effects | Buffs/debuffs functional |
-| 12 | Integration & Testing | Phase 1+2 complete |
+| Week | Features | Status |
+|------|----------|--------|
+| 1-2 | Save/Load System | ✅ Done — 3 slots + autosave, atomic writes, backup recovery |
+| 3-4 | Loot Drop System | ✅ Done — all 14 enemy types configured |
+| 5-6 | Consumable Items | ✅ Done — 10 consumables, pre/mid/post-battle use |
+| 7-9 | Skills/Abilities | ✅ Done — 6 skills, active/passive system, auto-equip |
+| 10-11 | Status Effects | ✅ Done — 11 effect types, DoT/HoT, stat modifiers |
+| 12 | Integration & Testing | ✅ Done — GdUnit4 test coverage across all systems |
 
-### Quarter 2: Content (Weeks 13-24)
+### Quarter 2: Content (Weeks 13-24) — IN PROGRESS
 
-| Week | Features | Milestone |
-|------|----------|-----------|
-| 13-15 | Boss Fight Mechanics | First real boss fight |
-| 16-18 | Procedural Generation | Infinite dungeon |
-| 19-20 | NPC/Dialogue System | Town hub functional |
-| 21-23 | Quest System | Quests give direction |
-| 24 | Integration & Testing | Phase 3 complete |
+| Week | Features | Status |
+|------|----------|--------|
+| 13-15 | Boss Fight Mechanics | ⚠️ Partial — high-stat boss exists; multi-phase/specials TBD |
+| 16-18 | Procedural Generation | ❌ Not started |
+| 19-20 | NPC/Dialogue System | ❌ Not started |
+| 21-23 | Quest System | ❌ Not started |
+| 24 | Integration & Testing | ❌ Pending |
 
-### Quarter 3: Polish (Weeks 25-36)
+### Quarter 3: Polish (Weeks 25-36) — NOT STARTED
 
-| Week | Features | Milestone |
-|------|----------|-----------|
-| 25-26 | Settings Menu | Full customization |
-| 27-29 | Combat VFX & Audio | Polished feel |
-| 30-31 | Minimap | Navigation aid |
-| 32-34 | Bug fixes & Balance | Stable release |
-| 35-36 | Launch preparation | V1.0 ready |
+| Week | Features | Status |
+|------|----------|--------|
+| 25-26 | Settings Menu | ❌ Stub only |
+| 27-29 | Combat VFX & Audio | ⚠️ Partial — basic sprite animation; no particles/SFX |
+| 30-31 | Minimap | ❌ Not started |
+| 32-34 | Bug fixes & Balance | ❌ Pending |
+| 35-36 | Launch preparation | ❌ Pending |
 
 ---
 
@@ -1432,6 +1490,7 @@ public partial class QuestManager : Node
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | Jan 2026 | Initial PRD creation |
+| 1.1 | Mar 2026 | Updated implementation status — Q1 features complete; added status badges and summary table |
 
 ---
 

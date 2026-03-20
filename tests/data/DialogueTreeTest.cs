@@ -50,8 +50,9 @@ public partial class DialogueTreeTest : Godot.Node
     public void DialogueCatalog_ShopkeeperGreeting_HasOpenShopOutcome()
     {
         var tree = DialogueCatalog.GetById("shopkeeper_greeting");
+        AssertThat(tree).IsNotNull();
         bool hasOpenShop = false;
-        foreach (var node in tree.Nodes.Values)
+        foreach (var node in tree!.Nodes.Values)
             foreach (var choice in node.Choices)
                 if (choice.Outcome == DialogueOutcomeType.OpenShop)
                     hasOpenShop = true;
@@ -62,8 +63,9 @@ public partial class DialogueTreeTest : Godot.Node
     public void DialogueCatalog_HealerGreeting_HasHealOutcome()
     {
         var tree = DialogueCatalog.GetById("healer_greeting");
+        AssertThat(tree).IsNotNull();
         bool hasHeal = false;
-        foreach (var node in tree.Nodes.Values)
+        foreach (var node in tree!.Nodes.Values)
             foreach (var choice in node.Choices)
                 if (choice.Outcome == DialogueOutcomeType.Heal)
                     hasHeal = true;
@@ -74,11 +76,12 @@ public partial class DialogueTreeTest : Godot.Node
     public void DialogueCatalog_Villager01_GrantsFlagOnCondolencesPath()
     {
         var tree = DialogueCatalog.GetById("villager_01");
-        var condolences = tree.GetNode("condolences");
+        AssertThat(tree).IsNotNull();
+        var condolences = tree!.GetNode("condolences");
         AssertThat(condolences).IsNotNull();
 
         bool grantsFlag = false;
-        foreach (var choice in condolences.Choices)
+        foreach (var choice in condolences!.Choices)
             if (choice.GrantFlag == "knows_about_locket")
                 grantsFlag = true;
         AssertThat(grantsFlag).IsTrue();
@@ -88,9 +91,11 @@ public partial class DialogueTreeTest : Godot.Node
     public void DialogueCatalog_BlacksmithGreeting_HasLevelConditionedChoice()
     {
         var tree = DialogueCatalog.GetById("blacksmith_greeting");
-        var root = tree.Root;
+        AssertThat(tree).IsNotNull();
+        var root = tree!.Root;
+        AssertThat(root).IsNotNull();
         bool hasConditionalChoice = false;
-        foreach (var choice in root.Choices)
+        foreach (var choice in root!.Choices)
             if (choice.Condition is LevelCondition lc && lc.MinLevel >= 3)
                 hasConditionalChoice = true;
         AssertThat(hasConditionalChoice).IsTrue();

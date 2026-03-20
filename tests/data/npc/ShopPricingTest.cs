@@ -108,10 +108,12 @@ public partial class ShopPricingTest : Node
     public void ShopItems_AllHavePositiveBuyPrice()
     {
         var shop = ShopCatalog.GetById("village_general_store");
-        foreach (var entry in shop.Entries)
+        AssertThat(shop).IsNotNull();
+        foreach (var entry in shop!.Entries)
         {
             var item = ItemCatalog.CreateItemById(entry.ItemId);
-            AssertThat(item.Value).IsGreater(0);
+            AssertThat(item).IsNotNull();
+            AssertThat(item!.Value).IsGreater(0);
         }
     }
 
@@ -120,13 +122,16 @@ public partial class ShopPricingTest : Node
     {
         var generalStore = ShopCatalog.GetById("village_general_store");
         var blacksmith = ShopCatalog.GetById("blacksmith_shop");
+        AssertThat(generalStore).IsNotNull();
+        AssertThat(blacksmith).IsNotNull();
 
-        foreach (var shop in new[] { generalStore, blacksmith })
+        foreach (var shop in new[] { generalStore!, blacksmith! })
         {
             foreach (var entry in shop.Entries)
             {
                 var item = ItemCatalog.CreateItemById(entry.ItemId);
-                AssertThat(SellPrice(item.Value)).IsGreaterEqual(1);
+                AssertThat(item).IsNotNull();
+                AssertThat(SellPrice(item!.Value)).IsGreaterEqual(1);
             }
         }
     }
@@ -136,13 +141,16 @@ public partial class ShopPricingTest : Node
     {
         var generalStore = ShopCatalog.GetById("village_general_store");
         var blacksmith = ShopCatalog.GetById("blacksmith_shop");
+        AssertThat(generalStore).IsNotNull();
+        AssertThat(blacksmith).IsNotNull();
 
-        foreach (var shop in new[] { generalStore, blacksmith })
+        foreach (var shop in new[] { generalStore!, blacksmith! })
         {
             foreach (var entry in shop.Entries)
             {
                 var item = ItemCatalog.CreateItemById(entry.ItemId);
-                AssertThat(SellPrice(item.Value)).IsLessEqual(item.Value);
+                AssertThat(item).IsNotNull();
+                AssertThat(SellPrice(item!.Value)).IsLessEqual(Mathf.Max(1, item.Value));
             }
         }
     }

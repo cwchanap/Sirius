@@ -94,6 +94,7 @@ public partial class Game : Node2D
         _gameManager.BattleStarted += OnBattleStarted;
         _gameManager.BattleEnded += OnBattleEnded;
         _gameManager.PlayerStatsChanged += OnPlayerStatsChanged;
+        _gameManager.NpcInteractionResetRequested += OnNpcInteractionResetRequested;
 
         // Connect to FloorManager for floor loading
         _floorManager.FloorLoaded += OnFloorLoaded;
@@ -368,9 +369,28 @@ public partial class Game : Node2D
 
     private void OnNpcInteractionComplete()
     {
+        if (_npcInteractionController != null)
+        {
+            _npcInteractionController.InteractionComplete -= OnNpcInteractionComplete;
+        }
+
         _gameManager.EndNpcInteraction();
         _npcInteractionController = null;
         UpdatePlayerUI();
+    }
+
+    private void OnNpcInteractionResetRequested()
+    {
+        if (_npcInteractionController != null)
+        {
+            _npcInteractionController.Finish();
+            return;
+        }
+
+        if (_gameManager.IsInNpcInteraction)
+        {
+            _gameManager.EndNpcInteraction();
+        }
     }
 
     private Enemy CreateEnemyByArea(Vector2I position)
@@ -1020,6 +1040,7 @@ public partial class Game : Node2D
             _gameManager.BattleStarted -= OnBattleStarted;
             _gameManager.BattleEnded -= OnBattleEnded;
             _gameManager.PlayerStatsChanged -= OnPlayerStatsChanged;
+            _gameManager.NpcInteractionResetRequested -= OnNpcInteractionResetRequested;
         }
 
         if (_floorManager != null)

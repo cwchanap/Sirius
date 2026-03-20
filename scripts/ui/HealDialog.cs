@@ -105,8 +105,10 @@ public partial class HealDialog : AcceptDialog
 
     public override void _ExitTree()
     {
-        _healBtn.Pressed -= OnHealPressed;
-        _cancelBtn.Pressed -= OnCancelPressed;
+        if (_healBtn != null)
+            _healBtn.Pressed -= OnHealPressed;
+        if (_cancelBtn != null)
+            _cancelBtn.Pressed -= OnCancelPressed;
         CloseRequested -= OnCancelPressed;
         Canceled -= OnCancelPressed;
     }

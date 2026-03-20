@@ -29,10 +29,10 @@ public partial class NpcSpawn : Sprite2D
 
         _gridMap = GetParent() as GridMap ?? GetNodeOrNull<GridMap>("../GridMap");
         if (_gridMap == null)
-            _gridMap = GetTree().Root.GetNodeOrNull<GridMap>("**/GridMap");
+            _gridMap = GetTree().Root.FindChild("GridMap", recursive: true, owned: false) as GridMap;
 
         if (_gridMap == null)
-            GD.PrintErr($"NpcSpawn '{NpcId}' at {GridPosition} could not find GridMap.");
+            GD.PrintErr($"NpcSpawn '{NpcId}' at {GridPosition} could not find GridMap via parent or scene-tree search.");
 
         TryLoadSpriteTexture();
 
@@ -45,7 +45,8 @@ public partial class NpcSpawn : Sprite2D
         if (_frameWidth > 0 && _frameHeight > 0)
             Scale = new Vector2(cell / (float)_frameWidth, cell / (float)_frameHeight);
 
-        UpdateVisual(_gridMap);
+        if (_gridMap != null)
+            UpdateVisual(_gridMap);
 
         SetProcess(true);
         ZIndex = 2;

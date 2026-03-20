@@ -8,6 +8,7 @@ public partial class GameManager : Node
     [Signal] public delegate void PlayerStatsChangedEventHandler();
 
     internal event Action<Enemy> BattleStartedManaged;
+    internal event Action NpcInteractionResetRequested;
     internal Enemy LastBattleStartedEnemy { get; private set; }
     internal int BattleStartedCount { get; private set; }
     private bool _autoSaveEnabled = true;
@@ -212,7 +213,14 @@ public partial class GameManager : Node
     public void ResetBattleState()
     {
         IsInBattle = false;
-        IsInNpcInteraction = false;
+        if (IsInNpcInteraction)
+        {
+            NpcInteractionResetRequested?.Invoke();
+            if (IsInNpcInteraction)
+            {
+                EndNpcInteraction();
+            }
+        }
         LastBattleStartedEnemy = null;
         BattleStartedCount = 0;
         GD.Print("Battle state reset. IsInBattle: false");

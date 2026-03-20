@@ -1,6 +1,7 @@
 using GdUnit4;
 using static GdUnit4.Assertions;
 using System.Collections.Generic;
+using System;
 using Godot;
 
 [TestSuite]
@@ -36,6 +37,14 @@ public partial class DialogueConditionTest : Node
     }
 
     [TestCase]
+    public void LevelCondition_NullPlayer_ThrowsArgumentNullException()
+    {
+        var cond = new LevelCondition { MinLevel = 1 };
+        AssertThrown(() => cond.Evaluate(null, new HashSet<string>()))
+            .IsInstanceOf<ArgumentNullException>();
+    }
+
+    [TestCase]
     public void QuestFlagCondition_PassesWhenFlagPresent()
     {
         var cond = new QuestFlagCondition { Flag = "quest_done", RequirePresent = true };
@@ -65,6 +74,16 @@ public partial class DialogueConditionTest : Node
         var cond = new QuestFlagCondition { Flag = "talked_to_elder", RequirePresent = false };
         var flags = new HashSet<string> { "talked_to_elder" };
         AssertThat(cond.Evaluate(CreatePlayer(), flags)).IsFalse();
+    }
+
+    [TestCase]
+    public void QuestFlagCondition_NullQuestFlags_TreatedAsEmptySet()
+    {
+        var presentCond = new QuestFlagCondition { Flag = "quest_done", RequirePresent = true };
+        var absentCond = new QuestFlagCondition { Flag = "quest_done", RequirePresent = false };
+
+        AssertThat(presentCond.Evaluate(CreatePlayer(), null)).IsFalse();
+        AssertThat(absentCond.Evaluate(CreatePlayer(), null)).IsTrue();
     }
 
     [TestCase]

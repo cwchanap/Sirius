@@ -26,12 +26,14 @@ This PRD outlines 16 features across 4 priority tiers that will transform Sirius
 | Combat Animations & VFX | ⚠️ Partial (30%) | 4 |
 | Sound Effects Integration | ⚠️ Partial (10%) | 4 |
 | Procedural Maze Generation | ❌ Not Started | 3 |
-| NPC and Dialogue System | ❌ Not Started | 3 |
+| NPC and Dialogue System | ✅ Complete | 3 |
 | Quest System | ❌ Not Started | 3 |
 | Settings Menu | ❌ Not Started | 4 |
 | Minimap | ❌ Not Started | 4 |
 
-**Overall completion: ~55% of PRD scope**
+**Overall completion: ~60% of PRD scope**
+
+**NPC system note:** `NpcData`, `DialogueTree` / `DialogueNode` / `DialogueChoice` / `DialogueCondition`, `ShopInventory`, `NpcCatalog` / `DialogueCatalog` / `ShopCatalog`, `DialogueDialog`, `ShopDialog`, `HealDialog`, `NpcInteractionController`, `GridMap` NPC support, `GameManager.IsInNpcInteraction`, `NpcSpawn`, and related tests are implemented.
 
 ### Strategic Vision
 
@@ -1092,14 +1094,14 @@ public enum RoomType
 
 ---
 
-### 3.2 NPC and Dialogue System — ❌ Not Started
+### 3.2 NPC and Dialogue System — ✅ Complete
 
 #### Executive Summary
 - **Feature Name**: NPC and Dialogue System
 - **One-Liner**: Scene-placed NPCs with branching dialogue, a shop system, and a healer — interactable by walking into them on the grid
 - **Strategic Rationale**: NPCs provide story context, services, and break up combat monotony
 - **Success Metrics**: > 60% of players interact with NPCs
-- **Implementation Status**: Not started. No NPC, DialogueSystem, DialogueTree, or ShopSystem classes exist. `MainMenu.cs` has expansion hooks but no NPC infrastructure. Requires entirely new systems.
+- **Implementation Status**: Implemented. The current system uses `NpcData`, `DialogueTree` / `DialogueNode` / `DialogueChoice`, `DialogueDialog`, `ShopInventory` with `ShopDialog`, `HealDialog`, `NpcInteractionController`, and the `NpcCatalog` / `DialogueCatalog` / `ShopCatalog` registries, plus `GridMap` NPC support, `NpcSpawn`, and `GameManager.IsInNpcInteraction`. Remaining work is limited to content/polish expansions such as more NPC dialogue, quest hookups, and the future Town Hub feature.
 - **Scope Note**: Town hub (dedicated town area/floor) is intentionally out of scope here and tracked separately in Feature 3.5. NPCs are placed directly in existing floor scenes (FloorGF.tscn, Floor1F.tscn) as scene nodes, same as EnemySpawn nodes.
 
 #### Purpose and Problem Statement
@@ -1111,8 +1113,8 @@ public enum RoomType
 - No way to buy/sell items
 - No story or lore
 
-**Current State**: No NPCs exist
-**Desired State**: NPCs placed in existing floors with branching dialogue, a ShopCatalog-driven item shop (buy/sell at 50% sell price), and a Healer NPC
+**Current State**: NPCs are already placed in existing floors with branching dialogue, a `ShopCatalog`-driven item shop (buy at full price, sell at 50% with a minimum sell floor), a Healer NPC flow, `GridMap` registration, and automated test coverage.
+**Desired State**: Build on the implemented NPC foundation with more dialogue content, quest integration, and town-hub-specific presentation as future follow-up work.
 
 #### Technical Specifications
 
@@ -1279,8 +1281,8 @@ public partial class QuestManager : Node
 - **Feature Name**: Town Hub
 - **One-Liner**: A dedicated town floor with grouped NPC services, shops, and quest board
 - **Strategic Rationale**: Provides a safe social hub that breaks up dungeon exploration and serves as a central progression checkpoint
-- **Implementation Status**: Not started. Intentionally deferred from Feature 3.2 (NPC and Dialogue System). Depends on Feature 3.2 infrastructure (NPC, DialogueSystem, ShopSystem) and Feature 3.1 (Procedural Maze Generation) for floor generation.
-- **Dependencies**: Feature 3.2 (NPC infrastructure), Feature 3.3 (Quest System)
+- **Implementation Status**: Not started. Intentionally deferred even though Feature 3.2's NPC, dialogue, and shop infrastructure is now implemented. Depends on that existing foundation plus Feature 3.1 (Procedural Maze Generation) for floor generation.
+- **Dependencies**: Existing Feature 3.2 NPC/dialogue/shop infrastructure, Feature 3.3 (Quest System)
 
 #### Notes
 - A new `TownFloor.tscn` floor scene with NPC-dense layout

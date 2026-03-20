@@ -53,7 +53,10 @@ public partial class NpcCatalogTest : Godot.Node
     public void NpcCatalog_AllNpcs_HaveDialogueTreeId()
     {
         foreach (var npc in NpcCatalog.AllNpcs)
-            AssertThat(string.IsNullOrEmpty(npc.DialogueTreeId)).IsFalse();
+        {
+            AssertThat(npc.DialogueTreeId).IsNotNull();
+            AssertThat(npc.DialogueTreeId).IsNotEmpty();
+        }
     }
 
     // ---- ShopCatalog -------------------------------------------------------

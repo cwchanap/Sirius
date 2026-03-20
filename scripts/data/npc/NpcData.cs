@@ -14,6 +14,7 @@ public enum NpcType
 /// Plain C# data class representing an NPC's definition.
 /// Resolved from NpcCatalog by string ID — not a Godot Resource.
 /// </summary>
+[System.Serializable]
 public class NpcData
 {
     public string NpcId { get; init; }

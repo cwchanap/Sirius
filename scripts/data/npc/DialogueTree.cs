@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 /// <summary>
@@ -43,7 +44,7 @@ public class DialogueNode
     /// <summary>
     /// Player choices shown after the text. Empty list = leaf node (shows a "Goodbye" close button).
     /// </summary>
-    public List<DialogueChoice> Choices { get; init; } = new();
+    public IReadOnlyList<DialogueChoice> Choices { get; init; } = Array.Empty<DialogueChoice>();
 }
 
 /// <summary>

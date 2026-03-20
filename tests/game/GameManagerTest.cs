@@ -201,6 +201,40 @@ public partial class GameManagerTest : Node
     }
 
     [TestCase]
+    public void TestResetBattleState_RequestsNpcInteractionCleanup()
+    {
+        // Arrange
+        _gameManager.StartNpcInteraction();
+        bool cleanupRequested = false;
+        _gameManager.NpcInteractionResetRequested += () =>
+        {
+            cleanupRequested = true;
+            AssertThat(_gameManager.IsInNpcInteraction).IsTrue();
+            _gameManager.EndNpcInteraction();
+        };
+
+        // Act
+        _gameManager.ResetBattleState();
+
+        // Assert
+        AssertThat(cleanupRequested).IsTrue();
+        AssertThat(_gameManager.IsInNpcInteraction).IsFalse();
+    }
+
+    [TestCase]
+    public void TestResetBattleState_ClearsNpcInteractionWithoutCleanupSubscriber()
+    {
+        // Arrange
+        _gameManager.StartNpcInteraction();
+
+        // Act
+        _gameManager.ResetBattleState();
+
+        // Assert
+        AssertThat(_gameManager.IsInNpcInteraction).IsFalse();
+    }
+
+    [TestCase]
     public void TestEnsureFreshPlayer_CreatesNewPlayerIfNull()
     {
         // Arrange - Set Player to null using backing field

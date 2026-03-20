@@ -61,7 +61,7 @@ public partial class ShopDialog : AcceptDialog
 
         var closeBtn = new Button();
         closeBtn.Text = "Close";
-        closeBtn.Pressed += () => EmitSignal(SignalName.ShopClosed);
+        closeBtn.Pressed += OnCloseButtonPressed;
         root.AddChild(closeBtn);
 
         CloseRequested += OnCloseRequested;
@@ -205,12 +205,14 @@ public partial class ShopDialog : AcceptDialog
         _feedbackLabel.Visible = true;
         _feedbackActive = true;
 
+        WeakRef weakDialog = GodotObject.WeakRef(this);
         GetTree().CreateTimer(2.0).Timeout += () =>
         {
-            if (_feedbackActive && IsInstanceValid(this))
+            var dialog = weakDialog.GetRef().As<ShopDialog>();
+            if (dialog != null && dialog._feedbackActive)
             {
-                _feedbackLabel.Visible = false;
-                _feedbackActive = false;
+                dialog._feedbackLabel.Visible = false;
+                dialog._feedbackActive = false;
             }
         };
     }
@@ -221,8 +223,16 @@ public partial class ShopDialog : AcceptDialog
             child.QueueFree();
     }
 
+    private void OnCloseButtonPressed()
+    {
+        Hide();
+        OnCloseRequested();
+    }
+
     private void OnCloseRequested()
     {
+        if (Visible)
+            Hide();
         EmitSignal(SignalName.ShopClosed);
     }
 

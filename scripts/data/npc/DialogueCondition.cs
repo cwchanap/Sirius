@@ -22,7 +22,11 @@ public sealed class AlwaysCondition : IDialogueCondition
 public sealed class LevelCondition : IDialogueCondition
 {
     public int MinLevel { get; init; }
-    public bool Evaluate(Character player, HashSet<string> questFlags) => player.Level >= MinLevel;
+    public bool Evaluate(Character player, HashSet<string> questFlags)
+    {
+        if (player == null) throw new ArgumentNullException(nameof(player));
+        return player.Level >= MinLevel;
+    }
 }
 
 /// <summary>Visible based on whether a quest flag is present or absent.</summary>
@@ -33,7 +37,10 @@ public sealed class QuestFlagCondition : IDialogueCondition
     public bool RequirePresent { get; init; } = true;
 
     public bool Evaluate(Character player, HashSet<string> questFlags)
-        => questFlags.Contains(Flag) == RequirePresent;
+    {
+        bool contains = questFlags?.Contains(Flag) == true;
+        return contains == RequirePresent;
+    }
 }
 
 /// <summary>Visible only when all sub-conditions are satisfied.</summary>

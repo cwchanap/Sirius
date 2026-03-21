@@ -2358,12 +2358,19 @@ public partial class GridMap : Node2D
 
     private void RegisterStaticNpcSpawns()
     {
+        var currentFloorRoot = GetParent();
+        if (currentFloorRoot == null)
+        {
+            GD.PrintErr("GridMap.RegisterStaticNpcSpawns: GridMap has no floor root parent.");
+            return;
+        }
+
         var nodes = GetTree().GetNodesInGroup("NpcSpawn");
-        GD.Print($"GridMap.RegisterStaticNpcSpawns: Found {nodes.Count} nodes in NpcSpawn group");
+        GD.Print($"GridMap.RegisterStaticNpcSpawns: Found {nodes.Count} total NpcSpawn nodes; filtering to floor '{currentFloorRoot.Name}'.");
 
         foreach (Node n in nodes)
         {
-            if (n is NpcSpawn spawn)
+            if (n is NpcSpawn spawn && spawn.BelongsToFloor(currentFloorRoot))
             {
                 Vector2I gp = spawn.GridPosition;
                 Vector2I gg = new Vector2I(gp.X - _tilemapOrigin.X, gp.Y - _tilemapOrigin.Y);

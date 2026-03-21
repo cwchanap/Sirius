@@ -78,7 +78,8 @@ public partial class GridMap : Node2D
         Empty = 0,
         Wall = 1,
         Enemy = 2,
-        Player = 3
+        Player = 3,
+        Npc = 4
     }
 
     // ===== Editor-only baking helpers =====
@@ -731,6 +732,7 @@ public partial class GridMap : Node2D
     
     [Signal] public delegate void PlayerMovedEventHandler(Vector2I newPosition);
     [Signal] public delegate void EnemyEncounteredEventHandler(Vector2I enemyPosition);
+    [Signal] public delegate void NpcInteractedEventHandler(Vector2I npcPosition);
     
     public override void _EnterTree()
     {
@@ -1864,6 +1866,7 @@ public partial class GridMap : Node2D
         if (cellType == CellType.Player) return Colors.Blue;
         if (cellType == CellType.Enemy) return GetEnemyColor(x, y);
         if (cellType == CellType.Wall) return Colors.DarkGray;
+        if (cellType == CellType.Npc) return Colors.Teal;
         
         // Empty cells get themed colors based on area
         return GetAreaColor(x, y);
@@ -1971,6 +1974,13 @@ public partial class GridMap : Node2D
         {
             EmitSignal(SignalName.EnemyEncountered, newPosition);
             return false; // Don't move onto enemy, handle in battle
+        }
+
+        // Handle NPC interaction
+        if (targetCell == CellType.Npc)
+        {
+            EmitSignal(SignalName.NpcInteracted, newPosition);
+            return false; // Don't move onto NPC cell
         }
         
         // Move player (guard grid writes by bounds)
@@ -2094,7 +2104,10 @@ public partial class GridMap : Node2D
         
         // Register all EnemySpawn nodes from this floor
         CallDeferred(nameof(RegisterStaticEnemySpawns));
-        
+
+        // Register all NpcSpawn nodes from this floor
+        CallDeferred(nameof(RegisterStaticNpcSpawns));
+
         // Register all StairConnection nodes from this floor
         CallDeferred(nameof(RegisterStairConnections), floorDef);
         
@@ -2338,6 +2351,39 @@ public partial class GridMap : Node2D
                     GD.PrintErr($"    ✗ Out of bounds! Grid size: {GridWidth}x{GridHeight}");
                 }
                 // Ensure visual alignment with current layer offset
+                spawn.UpdateVisual(this);
+            }
+        }
+    }
+
+    private void RegisterStaticNpcSpawns()
+    {
+        var currentFloorRoot = GetParent();
+        if (currentFloorRoot == null)
+        {
+            GD.PrintErr("GridMap.RegisterStaticNpcSpawns: GridMap has no floor root parent.");
+            return;
+        }
+
+        var nodes = GetTree().GetNodesInGroup("NpcSpawn");
+        GD.Print($"GridMap.RegisterStaticNpcSpawns: Found {nodes.Count} total NpcSpawn nodes; filtering to floor '{currentFloorRoot.Name}'.");
+
+        foreach (Node n in nodes)
+        {
+            if (n is NpcSpawn spawn && spawn.BelongsToFloor(currentFloorRoot))
+            {
+                Vector2I gp = spawn.GridPosition;
+                Vector2I gg = new Vector2I(gp.X - _tilemapOrigin.X, gp.Y - _tilemapOrigin.Y);
+
+                if (gg.X >= 0 && gg.X < GridWidth && gg.Y >= 0 && gg.Y < GridHeight)
+                {
+                    _grid[gg.X, gg.Y] = (int)CellType.Npc;
+                    GD.Print($"  NPC '{spawn.NpcId}' registered at grid[{gg.X}, {gg.Y}]");
+                }
+                else
+                {
+                    GD.PrintErr($"  NPC '{spawn.NpcId}' out of bounds! Grid size: {GridWidth}x{GridHeight}");
+                }
                 spawn.UpdateVisual(this);
             }
         }

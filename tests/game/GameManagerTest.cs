@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
 
@@ -198,6 +199,40 @@ public partial class GameManagerTest : Node
 
         // Assert
         AssertThat(_gameManager.IsInBattle).IsFalse();
+    }
+
+    [TestCase]
+    public void TestResetBattleState_RequestsNpcInteractionCleanup()
+    {
+        // Arrange
+        _gameManager.StartNpcInteraction();
+        bool cleanupRequested = false;
+        _gameManager.NpcInteractionResetRequested += () =>
+        {
+            cleanupRequested = true;
+            AssertThat(_gameManager.IsInNpcInteraction).IsTrue();
+            _gameManager.EndNpcInteraction();
+        };
+
+        // Act
+        _gameManager.ResetBattleState();
+
+        // Assert
+        AssertThat(cleanupRequested).IsTrue();
+        AssertThat(_gameManager.IsInNpcInteraction).IsFalse();
+    }
+
+    [TestCase]
+    public void TestResetBattleState_ClearsNpcInteractionWithoutCleanupSubscriber()
+    {
+        // Arrange
+        _gameManager.StartNpcInteraction();
+
+        // Act
+        _gameManager.ResetBattleState();
+
+        // Assert
+        AssertThat(_gameManager.IsInNpcInteraction).IsFalse();
     }
 
     [TestCase]
@@ -506,6 +541,44 @@ public partial class GameManagerTest : Node
     }
 
     [TestCase]
+    public async Task TestCollectSaveData_UsesQuestFlagProvider()
+    {
+        // Arrange
+        var floorManager = new FloorManager();
+        var gridMap = new GridMap();
+
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        sceneTree.Root.AddChild(floorManager);
+        floorManager.AddChild(gridMap);
+
+        var gridMapField = typeof(FloorManager).GetField("_currentGridMap",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        AssertThat(gridMapField).IsNotNull();
+        gridMapField!.SetValue(floorManager, gridMap);
+
+        var playerPosField = typeof(GridMap).GetField("_playerPosition",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        AssertThat(playerPosField).IsNotNull();
+        playerPosField!.SetValue(gridMap, new Vector2I(3, 4));
+
+        _gameManager.SetFloorManager(floorManager);
+        var questFlags = new HashSet<string> { "met_merchant", "knows_about_locket" };
+        _gameManager.QuestFlagProvider = () => questFlags;
+
+        // Act
+        var saveData = _gameManager.CollectSaveData();
+
+        // Assert
+        AssertThat(saveData).IsNotNull();
+        AssertThat(saveData!.QuestFlags.Count).IsEqual(2);
+        AssertThat(saveData.QuestFlags.Contains("knows_about_locket")).IsTrue();
+        AssertThat(saveData.QuestFlags.Contains("met_merchant")).IsTrue();
+
+        floorManager.QueueFree();
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+    }
+
+    [TestCase]
     public void TestTriggerAutoSave_SkipsWhenPlayerIsNull()
     {
         // Arrange - Set Player to null using backing field
@@ -596,6 +669,42 @@ public partial class GameManagerTest : Node
         // Assert - Player should be updated
         AssertThat(_gameManager.Player.Name).IsEqual("TestHero");
         AssertThat(_gameManager.Player.Level).IsEqual(5);
+    }
+
+    [TestCase]
+    public void TestLoadFromSaveData_RestoresQuestFlags()
+    {
+        // Arrange
+        var saveData = new SaveData
+        {
+            Version = SaveData.CurrentVersion,
+            Character = new CharacterSaveData
+            {
+                Name = "QuestHero",
+                Level = 4,
+                MaxHealth = 120,
+                CurrentHealth = 100,
+                Attack = 15,
+                Defense = 12,
+                Speed = 11,
+                Experience = 250,
+                ExperienceToNext = 320,
+                Gold = 80
+            },
+            CurrentFloorIndex = 0,
+            PlayerPosition = new Vector2IDto { X = 4, Y = 6 },
+            QuestFlags = new List<string> { "met_merchant", "knows_about_locket", "met_merchant" }
+        };
+        var questFlags = new HashSet<string> { "stale_flag" };
+
+        // Act
+        _gameManager.LoadFromSaveData(saveData, questFlags);
+
+        // Assert
+        AssertThat(questFlags.Contains("stale_flag")).IsFalse();
+        AssertThat(questFlags.Contains("met_merchant")).IsTrue();
+        AssertThat(questFlags.Contains("knows_about_locket")).IsTrue();
+        AssertThat(questFlags.Count).IsEqual(2);
     }
 
     [TestCase]

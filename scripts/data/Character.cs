@@ -86,6 +86,19 @@ public partial class Character : Resource
         return true;
     }
 
+    /// <summary>
+    /// Tries to spend the given amount of gold.
+    /// Returns true and deducts gold if sufficient; returns false without side effects if not.
+    /// </summary>
+    public bool TrySpendGold(int amount)
+    {
+        if (amount < 0)
+            throw new ArgumentOutOfRangeException(nameof(amount), amount, "Gold amount cannot be negative.");
+        if (Gold < amount) return false;
+        Gold -= amount;
+        return true;
+    }
+
     public void RestoreMana(int amount)
     {
         if (amount < 0)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// Root DTO for save file structure. JSON-serializable.
@@ -11,6 +12,7 @@ public class SaveData
     public CharacterSaveData? Character { get; set; }
     public int CurrentFloorIndex { get; set; }
     public Vector2IDto? PlayerPosition { get; set; }
+    public List<string> QuestFlags { get; set; } = new();
     public DateTime SaveTimestamp { get; set; }
 }
 

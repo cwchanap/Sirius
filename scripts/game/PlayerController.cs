@@ -42,12 +42,12 @@ public partial class PlayerController : Node
             GD.Print($"Input received: {keyEvent.Keycode}, InBattle: {_gameManager.IsInBattle}, ProcessingMove: {_isProcessingMove}");
         }
         
-        // Don't handle input during battle or while processing a move
-        if (_gameManager.IsInBattle || _isProcessingMove) 
+        // Don't handle input during battle, NPC interaction, or while processing a move
+        if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction || _isProcessingMove)
         {
             if (@event is InputEventKey key && key.Pressed)
             {
-                GD.Print($"Input blocked - InBattle: {_gameManager.IsInBattle}, ProcessingMove: {_isProcessingMove}");
+                GD.Print($"Input blocked - InBattle: {_gameManager.IsInBattle}, InNpcInteraction: {_gameManager.IsInNpcInteraction}, ProcessingMove: {_isProcessingMove}");
             }
             return;
         }

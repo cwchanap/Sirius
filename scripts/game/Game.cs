@@ -20,6 +20,8 @@ public partial class Game : Node2D
     private Label _playerGoldLabel;
     private BattleManager _battleManager;
     private Vector2I _lastEnemyPosition; // Store enemy position for after battle
+    private NpcInteractionController _npcInteractionController;
+    private readonly System.Collections.Generic.HashSet<string> _questFlags = new();
     private PlayerDisplay _playerDisplay; // Visual sprite for player when using baked TileMaps
     private InventoryMenuController _inventoryMenu;
     private bool _isAbortInitialization; // Set when save corruption causes initialization abort
@@ -70,6 +72,7 @@ public partial class Game : Node2D
 
         // Set FloorManager reference in GameManager for save system
         _gameManager.SetFloorManager(_floorManager);
+        _gameManager.QuestFlagProvider = () => _questFlags;
 
         // Initialize HUD labels BEFORE connecting signals (LoadFromSaveData may emit PlayerStatsChanged)
         _playerNameLabel =
@@ -92,6 +95,7 @@ public partial class Game : Node2D
         _gameManager.BattleStarted += OnBattleStarted;
         _gameManager.BattleEnded += OnBattleEnded;
         _gameManager.PlayerStatsChanged += OnPlayerStatsChanged;
+        _gameManager.NpcInteractionResetRequested += OnNpcInteractionResetRequested;
 
         // Connect to FloorManager for floor loading
         _floorManager.FloorLoaded += OnFloorLoaded;
@@ -137,7 +141,7 @@ public partial class Game : Node2D
                 GD.Print($"Loading save data: Floor {loadData.CurrentFloorIndex}, Position ({loadData.PlayerPosition.X}, {loadData.PlayerPosition.Y})");
 
                 // Load player state
-                _gameManager.LoadFromSaveData(loadData);
+                _gameManager.LoadFromSaveData(loadData, _questFlags);
 
                 // Load floor with saved position (deferred to after FloorManager is ready)
                 _pendingSaveSpawnPosition = loadData.PlayerPosition.ToVector2I();
@@ -234,7 +238,7 @@ public partial class Game : Node2D
         // Handle inventory toggle (I key)
         if (@event.IsActionPressed("toggle_inventory"))
         {
-            if (_inventoryMenu != null && !_gameManager.IsInBattle)
+            if (_inventoryMenu != null && !_gameManager.IsInBattle && !_gameManager.IsInNpcInteraction)
             {
                 if (_inventoryMenu.Visible)
                 {
@@ -259,6 +263,11 @@ public partial class Game : Node2D
                 {
                     _inventoryMenu.CloseMenu();
                     GetViewport().SetInputAsHandled();
+                    return;
+                }
+
+                if (_gameManager.IsInNpcInteraction)
+                {
                     return;
                 }
 
@@ -331,6 +340,68 @@ public partial class Game : Node2D
         _gameManager.StartBattle(enemy);
     }
     
+    private void OnNpcInteracted(Vector2I npcPosition)
+    {
+        if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction) return;
+
+        Vector2I tilemapPos = _gridMap.InternalGridToTilemapCoords(npcPosition);
+        NpcSpawn foundSpawn = null;
+        Node? currentFloorRoot = _gridMap.GetParent();
+
+        foreach (Node n in GetTree().GetNodesInGroup("NpcSpawn"))
+        {
+            if (n is NpcSpawn spawn &&
+                spawn.BelongsToFloor(currentFloorRoot) &&
+                spawn.GridPosition == tilemapPos)
+            {
+                foundSpawn = spawn;
+                break;
+            }
+        }
+
+        if (foundSpawn == null)
+        {
+            GD.PushWarning($"[Game] NPC encountered at {npcPosition} but no NpcSpawn found at tilemap {tilemapPos}.");
+            return;
+        }
+
+        var npcData = foundSpawn.GetNpcData();
+        if (npcData == null) return;
+
+        _gameManager.StartNpcInteraction();
+
+        _npcInteractionController = new NpcInteractionController(
+            _gameManager, GetNode("UI"), npcData, _gameManager.Player, _questFlags);
+        _npcInteractionController.InteractionComplete += OnNpcInteractionComplete;
+        _npcInteractionController.Begin();
+    }
+
+    private void OnNpcInteractionComplete()
+    {
+        if (_npcInteractionController != null)
+        {
+            _npcInteractionController.InteractionComplete -= OnNpcInteractionComplete;
+        }
+
+        _gameManager.EndNpcInteraction();
+        _npcInteractionController = null;
+        UpdatePlayerUI();
+    }
+
+    private void OnNpcInteractionResetRequested()
+    {
+        if (_npcInteractionController != null)
+        {
+            _npcInteractionController.Finish();
+            return;
+        }
+
+        if (_gameManager.IsInNpcInteraction)
+        {
+            _gameManager.EndNpcInteraction();
+        }
+    }
+
     private Enemy CreateEnemyByArea(Vector2I position)
     {
         int x = position.X;
@@ -734,6 +805,13 @@ public partial class Game : Node2D
     /// </summary>
     private void ShowSaveMenu()
     {
+        if (_gameManager.IsInNpcInteraction)
+        {
+            GD.PrintErr("Save blocked: NPC interaction in progress.");
+            ShowSaveError("Cannot save during NPC interaction.");
+            return;
+        }
+
         if (_saveLoadDialog != null)
         {
             _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
@@ -752,6 +830,13 @@ public partial class Game : Node2D
 
     private void OnSaveSlotSelected(int slot)
     {
+        if (_gameManager.IsInNpcInteraction)
+        {
+            GD.PrintErr("Save blocked: NPC interaction in progress.");
+            ShowSaveError("Cannot save during NPC interaction.");
+            return;
+        }
+
         // Defensive: re-check battle state in case a battle started while dialog was open
         if (_gameManager.IsInBattle)
         {
@@ -769,7 +854,7 @@ public partial class Game : Node2D
             return;
         }
 
-        var saveData = _gameManager.CollectSaveData();
+        var saveData = _gameManager.CollectSaveData(_questFlags);
         if (saveData == null)
         {
             GD.PrintErr("Save failed: unable to collect save data.");
@@ -889,6 +974,7 @@ public partial class Game : Node2D
         {
             _gridMap.EnemyEncountered -= OnEnemyEncountered;
             _gridMap.PlayerMoved -= OnPlayerMoved;
+            _gridMap.NpcInteracted -= OnNpcInteracted;
         }
 
         // Update dynamic GridMap reference
@@ -905,6 +991,7 @@ public partial class Game : Node2D
         {
             _gridMap.EnemyEncountered += OnEnemyEncountered;
             _gridMap.PlayerMoved += OnPlayerMoved;
+            _gridMap.NpcInteracted += OnNpcInteracted;
 
             if (_hasPendingSaveSpawnValidation)
             {
@@ -976,6 +1063,8 @@ public partial class Game : Node2D
             _gameManager.BattleStarted -= OnBattleStarted;
             _gameManager.BattleEnded -= OnBattleEnded;
             _gameManager.PlayerStatsChanged -= OnPlayerStatsChanged;
+            _gameManager.NpcInteractionResetRequested -= OnNpcInteractionResetRequested;
+            _gameManager.QuestFlagProvider = null;
         }
 
         if (_floorManager != null)
@@ -988,6 +1077,14 @@ public partial class Game : Node2D
         {
             _gridMap.EnemyEncountered -= OnEnemyEncountered;
             _gridMap.PlayerMoved -= OnPlayerMoved;
+            _gridMap.NpcInteracted -= OnNpcInteracted;
+        }
+
+        if (_npcInteractionController != null)
+        {
+            _npcInteractionController.InteractionComplete -= OnNpcInteractionComplete;
+            _npcInteractionController.Finish();
+            _npcInteractionController = null;
         }
 
         // Clean up save dialog if it exists

@@ -106,6 +106,12 @@ public partial class NpcSpawn : Sprite2D
         return data;
     }
 
+    public bool BelongsToFloor(Node? floorRoot)
+    {
+        return floorRoot != null &&
+               (ReferenceEquals(GetParent(), floorRoot) || floorRoot.IsAncestorOf(this));
+    }
+
     public override void _Draw()
     {
         if (Texture == null)

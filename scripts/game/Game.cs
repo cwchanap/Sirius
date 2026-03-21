@@ -72,6 +72,7 @@ public partial class Game : Node2D
 
         // Set FloorManager reference in GameManager for save system
         _gameManager.SetFloorManager(_floorManager);
+        _gameManager.QuestFlagProvider = () => _questFlags;
 
         // Initialize HUD labels BEFORE connecting signals (LoadFromSaveData may emit PlayerStatsChanged)
         _playerNameLabel =
@@ -140,7 +141,7 @@ public partial class Game : Node2D
                 GD.Print($"Loading save data: Floor {loadData.CurrentFloorIndex}, Position ({loadData.PlayerPosition.X}, {loadData.PlayerPosition.Y})");
 
                 // Load player state
-                _gameManager.LoadFromSaveData(loadData);
+                _gameManager.LoadFromSaveData(loadData, _questFlags);
 
                 // Load floor with saved position (deferred to after FloorManager is ready)
                 _pendingSaveSpawnPosition = loadData.PlayerPosition.ToVector2I();
@@ -265,6 +266,11 @@ public partial class Game : Node2D
                     return;
                 }
 
+                if (_gameManager.IsInNpcInteraction)
+                {
+                    return;
+                }
+
                 if (!_gameManager.IsInBattle)
                 {
                     // Not in battle: show save menu (or close it if open)
@@ -340,10 +346,13 @@ public partial class Game : Node2D
 
         Vector2I tilemapPos = _gridMap.InternalGridToTilemapCoords(npcPosition);
         NpcSpawn foundSpawn = null;
+        Node? currentFloorRoot = _gridMap.GetParent();
 
         foreach (Node n in GetTree().GetNodesInGroup("NpcSpawn"))
         {
-            if (n is NpcSpawn spawn && spawn.GridPosition == tilemapPos)
+            if (n is NpcSpawn spawn &&
+                spawn.BelongsToFloor(currentFloorRoot) &&
+                spawn.GridPosition == tilemapPos)
             {
                 foundSpawn = spawn;
                 break;
@@ -796,6 +805,13 @@ public partial class Game : Node2D
     /// </summary>
     private void ShowSaveMenu()
     {
+        if (_gameManager.IsInNpcInteraction)
+        {
+            GD.PrintErr("Save blocked: NPC interaction in progress.");
+            ShowSaveError("Cannot save during NPC interaction.");
+            return;
+        }
+
         if (_saveLoadDialog != null)
         {
             _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
@@ -814,6 +830,13 @@ public partial class Game : Node2D
 
     private void OnSaveSlotSelected(int slot)
     {
+        if (_gameManager.IsInNpcInteraction)
+        {
+            GD.PrintErr("Save blocked: NPC interaction in progress.");
+            ShowSaveError("Cannot save during NPC interaction.");
+            return;
+        }
+
         // Defensive: re-check battle state in case a battle started while dialog was open
         if (_gameManager.IsInBattle)
         {
@@ -831,7 +854,7 @@ public partial class Game : Node2D
             return;
         }
 
-        var saveData = _gameManager.CollectSaveData();
+        var saveData = _gameManager.CollectSaveData(_questFlags);
         if (saveData == null)
         {
             GD.PrintErr("Save failed: unable to collect save data.");
@@ -1041,6 +1064,7 @@ public partial class Game : Node2D
             _gameManager.BattleEnded -= OnBattleEnded;
             _gameManager.PlayerStatsChanged -= OnPlayerStatsChanged;
             _gameManager.NpcInteractionResetRequested -= OnNpcInteractionResetRequested;
+            _gameManager.QuestFlagProvider = null;
         }
 
         if (_floorManager != null)

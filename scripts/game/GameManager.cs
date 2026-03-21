@@ -1,5 +1,7 @@
 using Godot;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 public partial class GameManager : Node
 {
@@ -9,6 +11,7 @@ public partial class GameManager : Node
 
     internal event Action<Enemy> BattleStartedManaged;
     internal event Action NpcInteractionResetRequested;
+    internal Func<IEnumerable<string>>? QuestFlagProvider { get; set; }
     internal Enemy LastBattleStartedEnemy { get; private set; }
     internal int BattleStartedCount { get; private set; }
     private bool _autoSaveEnabled = true;
@@ -294,7 +297,7 @@ public partial class GameManager : Node
     /// Collects current game state into a SaveData object.
     /// Returns null if player or floor manager is not available.
     /// </summary>
-    public SaveData? CollectSaveData()
+    public SaveData? CollectSaveData(IEnumerable<string>? questFlags = null)
     {
         if (Player == null)
         {
@@ -308,12 +311,19 @@ public partial class GameManager : Node
             return null;
         }
 
+        var resolvedQuestFlags = questFlags ?? QuestFlagProvider?.Invoke();
+
         return new SaveData
         {
             Version = SaveData.CurrentVersion,
             Character = CharacterSaveData.FromCharacter(Player),
             CurrentFloorIndex = _floorManager.CurrentFloorIndex,
             PlayerPosition = new Vector2IDto(_floorManager.CurrentGridMap.GetPlayerPosition()),
+            QuestFlags = resolvedQuestFlags?
+                .Where(flag => !string.IsNullOrWhiteSpace(flag))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(flag => flag, StringComparer.Ordinal)
+                .ToList() ?? new List<string>(),
             SaveTimestamp = System.DateTime.UtcNow
         };
     }
@@ -327,7 +337,7 @@ public partial class GameManager : Node
     /// This method only restores the Character data; the caller (Game.cs) is responsible
     /// for loading the correct floor and setting the player position from SaveData.
     /// </summary>
-    public void LoadFromSaveData(SaveData? data)
+    public void LoadFromSaveData(SaveData? data, ISet<string>? questFlags = null)
     {
         if (data?.Character == null)
         {
@@ -361,6 +371,18 @@ public partial class GameManager : Node
         // Reset battle state after successful player assignment to avoid
         // inconsistent state if ToCharacter() throws or returns null
         ResetBattleState();
+
+        if (questFlags != null)
+        {
+            questFlags.Clear();
+            foreach (string flag in (data.QuestFlags ?? Enumerable.Empty<string>())
+                .Where(flag => !string.IsNullOrWhiteSpace(flag))
+                .Distinct(StringComparer.Ordinal))
+            {
+                questFlags.Add(flag);
+            }
+        }
+
         GD.Print($"Player loaded from save: {Player.Name}, Level {Player.Level}");
 
         NotifyPlayerStatsChanged();

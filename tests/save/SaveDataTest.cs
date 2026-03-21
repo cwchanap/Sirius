@@ -53,6 +53,27 @@ public partial class SaveDataTest : Node
     }
 
     [TestCase]
+    public void TestSaveData_QuestFlags_SerializeAndDeserialize()
+    {
+        var saveData = new SaveData
+        {
+            QuestFlags = new System.Collections.Generic.List<string>
+            {
+                "met_merchant",
+                "knows_about_locket"
+            }
+        };
+
+        string json = JsonSerializer.Serialize(saveData);
+        var deserialized = JsonSerializer.Deserialize<SaveData>(json);
+
+        AssertThat(deserialized).IsNotNull();
+        AssertThat(deserialized!.QuestFlags.Count).IsEqual(2);
+        AssertThat(deserialized.QuestFlags[0]).IsEqual("met_merchant");
+        AssertThat(deserialized.QuestFlags[1]).IsEqual("knows_about_locket");
+    }
+
+    [TestCase]
     public void TestCharacterSaveData_FromCharacter()
     {
         // Arrange

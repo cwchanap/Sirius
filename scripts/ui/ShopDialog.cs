@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 /// <summary>
@@ -17,6 +18,8 @@ public partial class ShopDialog : AcceptDialog
     private VBoxContainer _sellList;
     private Label _feedbackLabel;
     private bool _feedbackActive;
+    private SceneTreeTimer? _feedbackTimer;
+    private Action? _feedbackTimeoutHandler;
 
     public override void _Ready()
     {
@@ -114,8 +117,7 @@ public partial class ShopDialog : AcceptDialog
             btn.Disabled = _player.Gold < buyPrice;
             var capturedId = entry.ItemId;
             var capturedPrice = buyPrice;
-            var capturedBtn = btn;
-            btn.Pressed += () => OnBuyPressed(capturedId, capturedPrice, capturedBtn);
+            btn.Pressed += () => OnBuyPressed(capturedId, capturedPrice);
             row.AddChild(btn);
 
             _buyList.AddChild(row);
@@ -126,35 +128,38 @@ public partial class ShopDialog : AcceptDialog
     {
         ClearContainer(_sellList);
 
-        if (_player.Inventory == null) return;
-
-        foreach (var entry in _player.Inventory.GetAllEntries())
+        int addedCount = 0;
+        if (_player.Inventory != null)
         {
-            if (entry.Item == null || entry.Quantity <= 0) continue;
+            foreach (var entry in _player.Inventory.GetAllEntries())
+            {
+                if (entry.Item == null || entry.Quantity <= 0) continue;
 
-            int sellPrice = Mathf.Max(1, Mathf.FloorToInt(entry.Item.Value * 0.5f));
-            var row = new HBoxContainer();
+                int sellPrice = Mathf.Max(1, Mathf.FloorToInt(entry.Item.Value * 0.5f));
+                var row = new HBoxContainer();
 
-            var nameLabel = new Label();
-            nameLabel.Text = $"{entry.Item.DisplayName} x{entry.Quantity}";
-            nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            row.AddChild(nameLabel);
+                var nameLabel = new Label();
+                nameLabel.Text = $"{entry.Item.DisplayName} x{entry.Quantity}";
+                nameLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+                row.AddChild(nameLabel);
 
-            var priceLabel = new Label();
-            priceLabel.Text = $"{sellPrice}g";
-            row.AddChild(priceLabel);
+                var priceLabel = new Label();
+                priceLabel.Text = $"{sellPrice}g";
+                row.AddChild(priceLabel);
 
-            var btn = new Button();
-            btn.Text = "Sell";
-            var capturedId = entry.Item.Id;
-            var capturedPrice = sellPrice;
-            btn.Pressed += () => OnSellPressed(capturedId, capturedPrice);
-            row.AddChild(btn);
+                var btn = new Button();
+                btn.Text = "Sell";
+                var capturedId = entry.Item.Id;
+                var capturedPrice = sellPrice;
+                btn.Pressed += () => OnSellPressed(capturedId, capturedPrice);
+                row.AddChild(btn);
 
-            _sellList.AddChild(row);
+                _sellList.AddChild(row);
+                addedCount++;
+            }
         }
 
-        if (_sellList.GetChildCount() == 0)
+        if (addedCount == 0)
         {
             var emptyLabel = new Label();
             emptyLabel.Text = "Nothing to sell.";
@@ -162,7 +167,7 @@ public partial class ShopDialog : AcceptDialog
         }
     }
 
-    private void OnBuyPressed(string itemId, int buyPrice, Button btn)
+    private void OnBuyPressed(string itemId, int buyPrice)
     {
         var item = ItemCatalog.CreateItemById(itemId);
         if (item == null) return;
@@ -201,20 +206,31 @@ public partial class ShopDialog : AcceptDialog
 
     private void ShowFeedback(string message)
     {
+        CancelFeedbackTimer();
+
         _feedbackLabel.Text = message;
         _feedbackLabel.Visible = true;
         _feedbackActive = true;
 
-        WeakRef weakDialog = GodotObject.WeakRef(this);
-        GetTree().CreateTimer(2.0).Timeout += () =>
-        {
-            var dialog = weakDialog.GetRef().As<ShopDialog>();
-            if (dialog != null && dialog._feedbackActive)
-            {
-                dialog._feedbackLabel.Visible = false;
-                dialog._feedbackActive = false;
-            }
-        };
+        _feedbackTimer = GetTree().CreateTimer(2.0);
+        _feedbackTimeoutHandler = OnFeedbackTimeout;
+        _feedbackTimer.Timeout += _feedbackTimeoutHandler;
+    }
+
+    private void OnFeedbackTimeout()
+    {
+        _feedbackLabel.Visible = false;
+        _feedbackActive = false;
+        CancelFeedbackTimer();
+    }
+
+    private void CancelFeedbackTimer()
+    {
+        if (_feedbackTimer != null && _feedbackTimeoutHandler != null)
+            _feedbackTimer.Timeout -= _feedbackTimeoutHandler;
+
+        _feedbackTimer = null;
+        _feedbackTimeoutHandler = null;
     }
 
     private static void ClearContainer(VBoxContainer container)
@@ -238,6 +254,7 @@ public partial class ShopDialog : AcceptDialog
 
     public override void _ExitTree()
     {
+        CancelFeedbackTimer();
         CloseRequested -= OnCloseRequested;
         Canceled -= OnCloseRequested;
     }

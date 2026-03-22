@@ -5,6 +5,7 @@ using System;
 using Godot;
 
 [TestSuite]
+[RequireGodotRuntime]
 public partial class DialogueConditionTest : Node
 {
     private Character CreatePlayer(int level = 1, int gold = 100)

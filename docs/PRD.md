@@ -1406,7 +1406,7 @@ public partial class QuestManager : Node
 |------|----------|--------|
 | 13-15 | Boss Fight Mechanics | ⚠️ Partial — high-stat boss exists; multi-phase/specials TBD |
 | 16-18 | Procedural Generation | ❌ Not started |
-| 19-20 | NPC/Dialogue System | ❌ Not started |
+| 19-20 | NPC/Dialogue System | ✅ Complete — village NPCs, dialogue trees, and shop/heal interactions implemented |
 | 21-23 | Quest System | ❌ Not started |
 | 24 | Integration & Testing | ❌ Pending |
 

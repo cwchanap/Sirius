@@ -60,7 +60,15 @@ public partial class DialogueDialog : AcceptDialog
         _tree = tree;
         _player = player;
         _questFlags = questFlags;
-        ShowNode(tree.Root);
+        var rootNode = tree.Root;
+        if (rootNode == null)
+        {
+            GD.PushError($"[DialogueDialog] Dialogue tree '{tree.TreeId}' has no 'root' node.");
+            EmitSignal(SignalName.DialogueClosed);
+            return;
+        }
+
+        ShowNode(rootNode);
     }
 
     private void ShowNode(DialogueNode node)

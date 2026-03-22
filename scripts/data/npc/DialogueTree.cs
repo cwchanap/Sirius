@@ -20,7 +20,7 @@ public class DialogueChoice
     public string Label { get; init; }
 
     /// <summary>ID of the next node to navigate to. Null means close the dialogue.</summary>
-    public string NextNodeId { get; init; }
+    public string? NextNodeId { get; init; }
 
     /// <summary>Condition controlling whether this choice is shown. Defaults to always visible.</summary>
     public IDialogueCondition Condition { get; init; } = AlwaysCondition.Instance;
@@ -29,7 +29,7 @@ public class DialogueChoice
     public DialogueOutcomeType Outcome { get; init; } = DialogueOutcomeType.None;
 
     /// <summary>Optional quest flag granted to the player when this choice is selected.</summary>
-    public string GrantFlag { get; init; }
+    public string? GrantFlag { get; init; }
 }
 
 /// <summary>
@@ -55,8 +55,8 @@ public class DialogueTree
     public string TreeId { get; init; }
     public IReadOnlyDictionary<string, DialogueNode> Nodes { get; init; }
 
-    public DialogueNode Root => Nodes.TryGetValue("root", out var n) ? n : null;
+    public DialogueNode? Root => Nodes.TryGetValue("root", out var n) ? n : null;
 
-    public DialogueNode GetNode(string id)
-        => Nodes.TryGetValue(id, out var node) ? node : null;
+    public DialogueNode? GetNode(string? id)
+        => !string.IsNullOrEmpty(id) && Nodes.TryGetValue(id, out var node) ? node : null;
 }

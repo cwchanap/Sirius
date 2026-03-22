@@ -15,7 +15,7 @@ public static class ShopCatalog
     }
 
     /// <summary>Returns the ShopInventory for a given shop ID, or null if not found.</summary>
-    public static ShopInventory GetById(string shopId)
+    public static ShopInventory? GetById(string? shopId)
     {
         if (string.IsNullOrEmpty(shopId)) return null;
         return _registry.TryGetValue(shopId, out var inv) ? inv : null;

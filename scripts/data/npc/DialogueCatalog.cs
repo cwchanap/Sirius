@@ -19,7 +19,7 @@ public static class DialogueCatalog
     public static IReadOnlyCollection<DialogueTree> AllTrees => _registry.Values;
 
     /// <summary>Returns the DialogueTree for a given ID, or null if not found.</summary>
-    public static DialogueTree GetById(string treeId)
+    public static DialogueTree? GetById(string? treeId)
     {
         if (string.IsNullOrEmpty(treeId)) return null;
         return _registry.TryGetValue(treeId, out var tree) ? tree : null;

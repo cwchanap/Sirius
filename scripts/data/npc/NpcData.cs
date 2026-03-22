@@ -21,8 +21,10 @@ public class NpcData
     public string DisplayName { get; init; }
     public NpcType NpcType { get; init; }
 
-    /// <summary>Shop ID resolved via ShopCatalog. Non-null for Shopkeeper and Blacksmith.</summary>
-    public string ShopId { get; init; }
+    /// <summary>
+    /// Shop ID resolved via ShopCatalog. Non-null for Shopkeeper and Blacksmith; null for NPCs without a shop.
+    /// </summary>
+    public string? ShopId { get; init; }
 
     /// <summary>Gold cost to restore full HP. Used when NpcType is Healer.</summary>
     public int HealCost { get; init; }

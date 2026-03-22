@@ -2,6 +2,7 @@ using GdUnit4;
 using static GdUnit4.Assertions;
 
 [TestSuite]
+[RequireGodotRuntime]
 public partial class NpcCatalogTest : Godot.Node
 {
     // ---- NpcCatalog -------------------------------------------------------

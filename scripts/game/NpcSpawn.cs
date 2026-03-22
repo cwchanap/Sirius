@@ -16,9 +16,10 @@ public partial class NpcSpawn : Sprite2D
     [Export] public string NpcId { get; set; } = string.Empty;
     [Export] public bool EditorSnapEnabled { get; set; } = false;
 
-    private GridMap _gridMap;
+    private GridMap? _gridMap;
     private int _frameWidth = 32;
     private int _frameHeight = 32;
+    private Vector2I? _lastOutOfBoundsEditorGrid;
 
     public override void _Ready()
     {
@@ -48,7 +49,7 @@ public partial class NpcSpawn : Sprite2D
         if (_gridMap != null)
             UpdateVisual(_gridMap);
 
-        SetProcess(true);
+        SetProcess(Engine.IsEditorHint());
         ZIndex = 2;
     }
 
@@ -98,7 +99,7 @@ public partial class NpcSpawn : Sprite2D
     }
 
     /// <summary>Returns the NpcData for this spawn, or null if the NpcId is not registered.</summary>
-    public NpcData GetNpcData()
+    public NpcData? GetNpcData()
     {
         var data = NpcCatalog.GetById(NpcId);
         if (data == null)
@@ -123,26 +124,44 @@ public partial class NpcSpawn : Sprite2D
 
     public override void _Process(double delta)
     {
-        if (Engine.IsEditorHint())
-        {
-            if (_gridMap == null) return;
-            var ground = _gridMap.GetNodeOrNull<TileMapLayer>("GroundLayer");
-            var offset = ground != null ? ground.Position : Vector2.Zero;
-            int cellSize = _gridMap.CellSize;
-            Vector2 local = Position - offset;
-            int tx = Mathf.Max(0, Mathf.FloorToInt(local.X / cellSize));
-            int ty = Mathf.Max(0, Mathf.FloorToInt(local.Y / cellSize));
-            var newGrid = new Vector2I(tx, ty);
-            if (newGrid != GridPosition)
-                GridPosition = newGrid;
+        if (!Engine.IsEditorHint() || _gridMap == null) return;
 
-            if (EditorSnapEnabled)
+        var ground = _gridMap.GetNodeOrNull<TileMapLayer>("GroundLayer");
+        var offset = ground != null ? ground.Position : Vector2.Zero;
+        int cellSize = _gridMap.CellSize;
+        int maxX = Mathf.Max(0, _gridMap.GridWidth - 1);
+        int maxY = Mathf.Max(0, _gridMap.GridHeight - 1);
+
+        Vector2 local = Position - offset;
+        int rawTx = Mathf.FloorToInt(local.X / cellSize);
+        int rawTy = Mathf.FloorToInt(local.Y / cellSize);
+        var rawGrid = new Vector2I(rawTx, rawTy);
+
+        if (rawTx < 0 || rawTx > maxX || rawTy < 0 || rawTy > maxY)
+        {
+            if (_lastOutOfBoundsEditorGrid != rawGrid)
             {
-                Vector2 snapped = new Vector2(tx * cellSize + cellSize / 2f,
-                                              ty * cellSize + cellSize / 2f) + offset;
-                if (!snapped.IsEqualApprox(Position))
-                    Position = snapped;
+                GD.PrintErr($"NpcSpawn '{NpcId}' editor position {rawGrid} is outside grid bounds 0..{maxX},0..{maxY}; clamping to fit.");
+                _lastOutOfBoundsEditorGrid = rawGrid;
             }
+        }
+        else
+        {
+            _lastOutOfBoundsEditorGrid = null;
+        }
+
+        int tx = Mathf.Clamp(rawTx, 0, maxX);
+        int ty = Mathf.Clamp(rawTy, 0, maxY);
+        var newGrid = new Vector2I(tx, ty);
+        if (newGrid != GridPosition)
+            GridPosition = newGrid;
+
+        if (EditorSnapEnabled)
+        {
+            Vector2 snapped = new Vector2(tx * cellSize + cellSize / 2f,
+                                          ty * cellSize + cellSize / 2f) + offset;
+            if (!snapped.IsEqualApprox(Position))
+                Position = snapped;
         }
     }
 }

@@ -17,7 +17,7 @@ public static class NpcCatalog
     }
 
     /// <summary>Returns the NpcData for a given ID, or null if not found.</summary>
-    public static NpcData GetById(string npcId)
+    public static NpcData? GetById(string? npcId)
     {
         if (string.IsNullOrEmpty(npcId)) return null;
         return _registry.TryGetValue(npcId, out var data) ? data : null;

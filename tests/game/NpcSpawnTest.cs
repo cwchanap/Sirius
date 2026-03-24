@@ -56,4 +56,65 @@ public partial class NpcSpawnTest : Node
         floorRoot.QueueFree();
         await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
     }
+
+    [TestCase]
+    public void FloorGF_ContainsReachableNpcSpawns_WithRegisteredNpcIds()
+    {
+        var floorScene = GD.Load<PackedScene>("res://scenes/game/floors/FloorGF.tscn");
+        AssertThat(floorScene).IsNotNull();
+
+        var floorRoot = floorScene!.Instantiate<Node2D>();
+
+        try
+        {
+            var npcCount = AssertFloorNpcIds(floorRoot, "village_shopkeeper", "village_healer");
+            AssertThat(npcCount).IsEqual(2);
+        }
+        finally
+        {
+            floorRoot.Free();
+        }
+    }
+
+    [TestCase]
+    public void Floor1F_ContainsReachableNpcSpawn_WithRegisteredNpcId()
+    {
+        var floorScene = GD.Load<PackedScene>("res://scenes/game/floors/Floor1F.tscn");
+        AssertThat(floorScene).IsNotNull();
+
+        var floorRoot = floorScene!.Instantiate<Node2D>();
+
+        try
+        {
+            var npcCount = AssertFloorNpcIds(floorRoot, "old_farmer");
+            AssertThat(npcCount).IsEqual(1);
+        }
+        finally
+        {
+            floorRoot.Free();
+        }
+    }
+
+    private static int AssertFloorNpcIds(Node2D floorRoot, params string[] expectedNpcIds)
+    {
+        var gridMap = floorRoot.GetNode<GridMap>("GridMap");
+        var foundNpcIds = new Godot.Collections.Array<string>();
+
+        foreach (Node child in gridMap.GetChildren())
+        {
+            if (child is not NpcSpawn spawn)
+                continue;
+
+            foundNpcIds.Add(spawn.NpcId);
+            AssertThat(spawn.NpcId).IsNotEmpty();
+            AssertThat(NpcCatalog.GetById(spawn.NpcId)).IsNotNull();
+        }
+
+        foreach (var expectedNpcId in expectedNpcIds)
+        {
+            AssertThat(foundNpcIds.Contains(expectedNpcId)).IsTrue();
+        }
+
+        return foundNpcIds.Count;
+    }
 }

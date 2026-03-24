@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=4 uid="uid://dyllored836ht"]
+[gd_scene load_steps=15 format=4 uid="uid://dyllored836ht"]
 
 [ext_resource type="Script" uid="uid://dxou423ri263w" path="res://scripts/game/GridMap.cs" id="1"]
 [ext_resource type="TileSet" uid="uid://1oxxalqkpebn" path="res://assets/tiles/ground_tileset.tres" id="2"]
@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://bwq2hj8nt5ycq" path="res://scenes/spawns/EnemySpawn_Goblin.tscn" id="9_v6pew"]
 [ext_resource type="Texture2D" uid="uid://cptmkh2hg6xed" path="res://assets/sprites/enemies/goblin/sprite_sheet.png" id="9_wkmll"]
 [ext_resource type="PackedScene" uid="uid://cx3ik1aou60dr" path="res://scenes/spawns/EnemySpawn_Orc.tscn" id="10_wkmll"]
+[ext_resource type="Script" uid="uid://ctqkgexsrbfrd" path="res://scripts/game/NpcSpawn.cs" id="11"]
 
 [sub_resource type="Resource" id="Resource_01l1b"]
 script = ExtResource("8_wkmll")
@@ -83,13 +84,12 @@ DestinationStairId = "1F_001"
 z_index = 3
 script = ExtResource("6")
 
-[node name="EnemySpawn_Orc" parent="GridMap" instance=ExtResource("10_wkmll")]
+[node name="NpcSpawn_Shopkeeper" type="Sprite2D" parent="GridMap"]
 z_index = 2
 position = Vector2(176, 112)
-scale = Vector2(0.333333, 0.333333)
+script = ExtResource("11")
 GridPosition = Vector2i(5, 3)
-AutoMakeBlueprintUnique = true
-Blueprint = SubResource("Resource_01l1b")
+NpcId = "village_shopkeeper"
 
 [node name="EnemySpawn_Goblin" parent="GridMap" instance=ExtResource("9_v6pew")]
 z_index = 2
@@ -102,13 +102,9 @@ GridPosition = Vector2i(3, 6)
 AutoMakeBlueprintUnique = true
 Blueprint = SubResource("Resource_q1bue")
 
-[node name="EnemySpawn_Goblin2" parent="GridMap" instance=ExtResource("9_v6pew")]
+[node name="NpcSpawn_Healer" type="Sprite2D" parent="GridMap"]
 z_index = 2
 position = Vector2(240, 176)
-scale = Vector2(0.333333, 0.333333)
-texture = ExtResource("9_wkmll")
-region_enabled = true
-region_rect = Rect2(0, 0, 96, 96)
+script = ExtResource("11")
 GridPosition = Vector2i(7, 5)
-AutoMakeBlueprintUnique = true
-Blueprint = SubResource("Resource_4o1uq")
+NpcId = "village_healer"

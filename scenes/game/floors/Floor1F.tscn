@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=4 uid="uid://c5h8qw3m7xn2p"]
+[gd_scene load_steps=10 format=4 uid="uid://c5h8qw3m7xn2p"]
 
 [ext_resource type="Script" uid="uid://dxou423ri263w" path="res://scripts/game/GridMap.cs" id="1"]
 [ext_resource type="TileSet" uid="uid://1oxxalqkpebn" path="res://assets/tiles/ground_tileset.tres" id="2"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://dog8eagtv7b3n" path="res://scripts/game/PlayerDisplay.cs" id="6"]
 [ext_resource type="TileSet" uid="uid://d1w3h484c5fh0" path="res://assets/tiles/stair_tileset.tres" id="7"]
 [ext_resource type="Script" uid="uid://bio6oeyj3p53u" path="res://scripts/game/StairConnection.cs" id="8"]
+[ext_resource type="Script" uid="uid://ctqkgexsrbfrd" path="res://scripts/game/NpcSpawn.cs" id="9"]
 
 [node name="Floor1F" type="Node2D"]
 
@@ -49,13 +50,9 @@ IndicatorColor = Color(1, 0.5, 0, 0.5)
 z_index = 3
 script = ExtResource("6")
 
-[node name="EnemySpawn_Goblin_1F" type="Sprite2D" parent="GridMap"]
+[node name="NpcSpawn_OldFarmer" type="Sprite2D" parent="GridMap"]
 z_index = 2
 position = Vector2(176, 80)
-scale = Vector2(0.333333, 0.333333)
-texture = ExtResource("4")
-region_enabled = true
-region_rect = Rect2(0, 0, 96, 96)
-script = ExtResource("5")
+script = ExtResource("9")
 GridPosition = Vector2i(5, 2)
-EnemyType = "goblin"
+NpcId = "old_farmer"

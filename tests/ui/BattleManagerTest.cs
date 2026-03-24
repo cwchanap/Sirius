@@ -220,118 +220,71 @@ public partial class BattleManagerTest : Node
     {
         // A stunned player loses their action, so the active skill turn counter
         // must NOT advance. Passive cooldowns should still tick regardless.
-        var battleManager = new BattleManager();
-        var player = TestHelpers.CreateTestCharacter();
-        player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Stun, 0, 2));
+        WithBattleManager(battleManager =>
+        {
+            var player = TestHelpers.CreateTestCharacter();
+            player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Stun, 0, 2));
 
-        SetPrivateField(battleManager, "_player", player);
-        SetPrivateField(battleManager, "_playerActionPoints", ActionPointThreshold);
-        SetPrivateField(battleManager, "_playerSkillTurnCount", 0);
+            SetPrivateField(battleManager, "_player", player);
+            SetPrivateField(battleManager, "_playerActionPoints", ActionPointThreshold);
+            SetPrivateField(battleManager, "_playerSkillTurnCount", 0);
 
-        var cooldowns = GetPrivateField<System.Collections.Generic.Dictionary<string, int>>(battleManager, "_passiveSkillCooldowns");
-        cooldowns["heal"] = 2;
+            var cooldowns = GetPrivateField<System.Collections.Generic.Dictionary<string, int>>(battleManager, "_passiveSkillCooldowns");
+            cooldowns["heal"] = 2;
 
-        InvokePrivateMethod(battleManager, "ExecutePlayerAction");
+            InvokePrivateMethod(battleManager, "ExecutePlayerAction");
 
-        AssertThat(GetPrivateField<int>(battleManager, "_playerSkillTurnCount")).IsEqual(0)
-            .OverrideFailureMessage("Skill turn counter must NOT advance when the player is stunned.");
-        AssertThat(cooldowns["heal"]).IsEqual(1)
-            .OverrideFailureMessage("Passive cooldowns must still tick even when player is stunned.");
-        AssertThat(player.ActiveBuffs.IsStunned).IsTrue();
+            AssertThat(GetPrivateField<int>(battleManager, "_playerSkillTurnCount")).IsEqual(0)
+                .OverrideFailureMessage("Skill turn counter must NOT advance when the player is stunned.");
+            AssertThat(cooldowns["heal"]).IsEqual(1)
+                .OverrideFailureMessage("Passive cooldowns must still tick even when player is stunned.");
+            AssertThat(player.ActiveBuffs.IsStunned).IsTrue();
+        });
     }
 
     [TestCase]
     public void ExecutePlayerAction_LethalActiveSkill_SkipsPassiveProcessingAndAutoAttack()
     {
-        var battleManager = new BattleManager();
-        var player = TestHelpers.CreateTestCharacter();
-        player.Level = 7;
-        player.Attack = 20;
-        player.MaxMana = 100;
-        player.CurrentMana = 100;
-        SkillCatalog.GrantSkillsUpToLevel(player, player.Level);
-        player.EquipActiveSkill("power_strike");
-        player.EquipPassiveSkill("battle_cry", 0);
+        WithBattleManager(battleManager =>
+        {
+            var player = TestHelpers.CreateTestCharacter();
+            player.Level = 7;
+            player.Attack = 20;
+            player.MaxMana = 100;
+            player.CurrentMana = 100;
+            SkillCatalog.GrantSkillsUpToLevel(player, player.Level);
+            player.EquipActiveSkill("power_strike");
+            player.EquipPassiveSkill("battle_cry", 0);
 
-        var enemy = Enemy.CreateGoblin();
-        enemy.CurrentHealth = 1;
-        enemy.Defense = 0;
+            var enemy = Enemy.CreateGoblin();
+            enemy.CurrentHealth = 1;
+            enemy.Defense = 0;
 
-        SetPrivateField(battleManager, "_player", player);
-        SetPrivateField(battleManager, "_enemy", enemy);
-        SetPrivateField(battleManager, "_playerActionPoints", ActionPointThreshold);
-        SetPrivateField(battleManager, "_playerSkillTurnCount", 2);
+            SetPrivateField(battleManager, "_player", player);
+            SetPrivateField(battleManager, "_enemy", enemy);
+            SetPrivateField(battleManager, "_playerActionPoints", ActionPointThreshold);
+            SetPrivateField(battleManager, "_playerSkillTurnCount", 2);
 
-        InvokePrivateMethod(battleManager, "ExecutePlayerAction");
+            InvokePrivateMethod(battleManager, "ExecutePlayerAction");
 
-        AssertThat(enemy.IsAlive).IsFalse();
-        AssertThat(player.CurrentMana).IsEqual(90);
-        AssertThat(player.ActiveBuffs.GetAttackFlatBonus()).IsEqual(0);
+            AssertThat(enemy.IsAlive).IsFalse();
+            AssertThat(player.CurrentMana).IsEqual(90);
+            AssertThat(player.ActiveBuffs.GetAttackFlatBonus()).IsEqual(0);
+        });
     }
 
     [TestCase]
     public void ExecutePlayerAction_TriggeredPassiveCooldown_DoesNotTickDownSameTurn()
     {
-        var battleManager = new BattleManager();
-        var player = TestHelpers.CreateTestCharacter();
-        player.Level = 2;
-        player.MaxMana = 100;
-        player.CurrentMana = 100;
-        player.CurrentHealth = 30;
-        SkillCatalog.GrantSkillsUpToLevel(player, player.Level);
-        player.EquipPassiveSkill("heal", 0);
-
-        var enemy = Enemy.CreateGoblin();
-        enemy.CurrentHealth = enemy.MaxHealth;
-
-        SetPrivateField(battleManager, "_player", player);
-        SetPrivateField(battleManager, "_enemy", enemy);
-        SetPrivateField(battleManager, "_playerActionPoints", ActionPointThreshold);
-
-        InvokePrivateMethod(battleManager, "ExecutePlayerAction");
-
-        var cooldowns = GetPrivateField<System.Collections.Generic.Dictionary<string, int>>(battleManager, "_passiveSkillCooldowns");
-        AssertThat(player.CurrentHealth).IsEqual(80);
-        AssertThat(player.CurrentMana).IsEqual(85);
-        AssertThat(cooldowns.ContainsKey("heal")).IsTrue();
-        AssertThat(cooldowns["heal"]).IsEqual(5)
-            .OverrideFailureMessage("A passive cooldown should not tick down on the same turn the passive triggers.");
-    }
-
-    [TestCase]
-    public void ExecutePlayerAction_ActiveSkillApplyFails_CounterNotReset()
-    {
-        // Verifies that when an active skill fires but Apply() returns false (no effect configured),
-        // the counter is NOT reset to 0 (no cooldown penalty for a failed activation).
-        var battleManager = new BattleManager();
-        var player = TestHelpers.CreateTestCharacter();
-        player.MaxMana = 100;
-        player.CurrentMana = 100;
-
-        // Create a skill with no Effect (_effect == null) so Apply() returns false.
-        // Inject it into SkillCatalog._registry via reflection so GetActiveSkill() can resolve it.
-        const string testSkillId = "test_no_effect_active";
-        var noEffectSkill = new Skill
+        WithBattleManager(battleManager =>
         {
-            SkillId = testSkillId,
-            DisplayName = "TestNoEffect",
-            ManaCost = 5,
-            UnlockLevel = 1,
-            Type = SkillType.Active,
-            ActivePeriod = 3,
-            // Intentionally no Effect — Apply() will return false
-        };
-        var registry = typeof(SkillCatalog).GetField(
-            "_registry",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        var registryDict = (System.Collections.Generic.Dictionary<string, Skill>)registry!.GetValue(null)!;
-        bool hadExistingSkill = registryDict.TryGetValue(testSkillId, out Skill? previousSkill);
-        registryDict[testSkillId] = noEffectSkill;
-
-        try
-        {
-            player.KnownSkillIds.Add(testSkillId);
-            player.EquipActiveSkill(testSkillId);
+            var player = TestHelpers.CreateTestCharacter();
+            player.Level = 2;
+            player.MaxMana = 100;
+            player.CurrentMana = 100;
+            player.CurrentHealth = 30;
+            SkillCatalog.GrantSkillsUpToLevel(player, player.Level);
+            player.EquipPassiveSkill("heal", 0);
 
             var enemy = Enemy.CreateGoblin();
             enemy.CurrentHealth = enemy.MaxHealth;
@@ -340,63 +293,134 @@ public partial class BattleManagerTest : Node
             SetPrivateField(battleManager, "_enemy", enemy);
             SetPrivateField(battleManager, "_playerActionPoints", ActionPointThreshold);
 
-            int period = noEffectSkill.ActivePeriod; // 3
-
-            // Set counter to period-1 so next turn increments to period (the "fire" turn)
-            SetPrivateField(battleManager, "_playerSkillTurnCount", period - 1);
-
-            // Act: execute one player action (counter increments to period, Apply() returns false)
             InvokePrivateMethod(battleManager, "ExecutePlayerAction");
 
-            // Counter must be period (incremented), NOT 0 (not reset when Apply() fails)
-            int counter = GetPrivateField<int>(battleManager, "_playerSkillTurnCount");
-            AssertThat(counter).IsEqual(period)
-                .OverrideFailureMessage("Counter must not reset when active skill Apply() returns false.");
-        }
-        finally
+            var cooldowns = GetPrivateField<System.Collections.Generic.Dictionary<string, int>>(battleManager, "_passiveSkillCooldowns");
+            AssertThat(player.CurrentHealth).IsEqual(80);
+            AssertThat(player.CurrentMana).IsEqual(85);
+            AssertThat(cooldowns.ContainsKey("heal")).IsTrue();
+            AssertThat(cooldowns["heal"]).IsEqual(5)
+                .OverrideFailureMessage("A passive cooldown should not tick down on the same turn the passive triggers.");
+        });
+    }
+
+    [TestCase]
+    public void ExecutePlayerAction_ActiveSkillApplyFails_CounterNotReset()
+    {
+        // Verifies that when an active skill fires but Apply() returns false (no effect configured),
+        // the counter is NOT reset to 0 (no cooldown penalty for a failed activation).
+        WithBattleManager(battleManager =>
         {
-            if (hadExistingSkill && previousSkill != null)
-                registryDict[testSkillId] = previousSkill;
-            else
-                registryDict.Remove(testSkillId);
-        }
+            var player = TestHelpers.CreateTestCharacter();
+            player.MaxMana = 100;
+            player.CurrentMana = 100;
+
+            // Create a skill with no Effect (_effect == null) so Apply() returns false.
+            // Inject it into SkillCatalog._registry via reflection so GetActiveSkill() can resolve it.
+            const string testSkillId = "test_no_effect_active";
+            var noEffectSkill = new Skill
+            {
+                SkillId = testSkillId,
+                DisplayName = "TestNoEffect",
+                ManaCost = 5,
+                UnlockLevel = 1,
+                Type = SkillType.Active,
+                ActivePeriod = 3,
+                // Intentionally no Effect — Apply() will return false
+            };
+            var registry = typeof(SkillCatalog).GetField(
+                "_registry",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var registryDict = (System.Collections.Generic.Dictionary<string, Skill>)registry!.GetValue(null)!;
+            bool hadExistingSkill = registryDict.TryGetValue(testSkillId, out Skill? previousSkill);
+            registryDict[testSkillId] = noEffectSkill;
+
+            try
+            {
+                player.KnownSkillIds.Add(testSkillId);
+                player.EquipActiveSkill(testSkillId);
+
+                var enemy = Enemy.CreateGoblin();
+                enemy.CurrentHealth = enemy.MaxHealth;
+
+                SetPrivateField(battleManager, "_player", player);
+                SetPrivateField(battleManager, "_enemy", enemy);
+                SetPrivateField(battleManager, "_playerActionPoints", ActionPointThreshold);
+
+                int period = noEffectSkill.ActivePeriod; // 3
+
+                // Set counter to period-1 so next turn increments to period (the "fire" turn)
+                SetPrivateField(battleManager, "_playerSkillTurnCount", period - 1);
+
+                // Act: execute one player action (counter increments to period, Apply() returns false)
+                InvokePrivateMethod(battleManager, "ExecutePlayerAction");
+
+                // Counter must be period (incremented), NOT 0 (not reset when Apply() fails)
+                int counter = GetPrivateField<int>(battleManager, "_playerSkillTurnCount");
+                AssertThat(counter).IsEqual(period)
+                    .OverrideFailureMessage("Counter must not reset when active skill Apply() returns false.");
+            }
+            finally
+            {
+                if (hadExistingSkill && previousSkill != null)
+                    registryDict[testSkillId] = previousSkill;
+                else
+                    registryDict.Remove(testSkillId);
+            }
+        });
     }
 
     [TestCase]
     public void ExecutePlayerAction_EnemyDiesFromActiveSkill_PassiveCooldownsStillTick()
     {
         // When the active skill kills the enemy, passive cooldowns should still be ticked.
+        WithBattleManager(battleManager =>
+        {
+            var player = TestHelpers.CreateTestCharacter();
+            player.Level = 7;
+            player.Attack = 20;
+            player.MaxMana = 100;
+            player.CurrentMana = 100;
+            SkillCatalog.GrantSkillsUpToLevel(player, player.Level);
+
+            var enemy = Enemy.CreateGoblin();
+            enemy.CurrentHealth = 1;
+            enemy.Defense = 0;
+
+            SetPrivateField(battleManager, "_player", player);
+            SetPrivateField(battleManager, "_enemy", enemy);
+            SetPrivateField(battleManager, "_playerActionPoints", ActionPointThreshold);
+            // Set counter to 2 so next turn (count=3) fires the active skill (period=3)
+            SetPrivateField(battleManager, "_playerSkillTurnCount", 2);
+
+            // Pre-seed a passive cooldown that should tick down
+            var cooldowns = GetPrivateField<System.Collections.Generic.Dictionary<string, int>>(battleManager, "_passiveSkillCooldowns");
+            cooldowns["heal"] = 3; // currently on cooldown
+
+            // Act: execute player action — active skill fires and kills enemy
+            InvokePrivateMethod(battleManager, "ExecutePlayerAction");
+
+            // Enemy must be dead from active skill
+            AssertThat(enemy.IsAlive).IsFalse();
+
+            // Passive cooldown must have ticked down from 3 to 2 (TickPassiveCooldowns still called)
+            AssertThat(cooldowns["heal"]).IsEqual(2)
+                .OverrideFailureMessage("Passive cooldowns must tick even when the active skill kills the enemy on that turn.");
+        });
+    }
+
+    private static void WithBattleManager(Action<BattleManager> testBody)
+    {
         var battleManager = new BattleManager();
-        var player = TestHelpers.CreateTestCharacter();
-        player.Level = 7;
-        player.Attack = 20;
-        player.MaxMana = 100;
-        player.CurrentMana = 100;
-        SkillCatalog.GrantSkillsUpToLevel(player, player.Level);
-
-        var enemy = Enemy.CreateGoblin();
-        enemy.CurrentHealth = 1;
-        enemy.Defense = 0;
-
-        SetPrivateField(battleManager, "_player", player);
-        SetPrivateField(battleManager, "_enemy", enemy);
-        SetPrivateField(battleManager, "_playerActionPoints", ActionPointThreshold);
-        // Set counter to 2 so next turn (count=3) fires the active skill (period=3)
-        SetPrivateField(battleManager, "_playerSkillTurnCount", 2);
-
-        // Pre-seed a passive cooldown that should tick down
-        var cooldowns = GetPrivateField<System.Collections.Generic.Dictionary<string, int>>(battleManager, "_passiveSkillCooldowns");
-        cooldowns["heal"] = 3; // currently on cooldown
-
-        // Act: execute player action — active skill fires and kills enemy
-        InvokePrivateMethod(battleManager, "ExecutePlayerAction");
-
-        // Enemy must be dead from active skill
-        AssertThat(enemy.IsAlive).IsFalse();
-
-        // Passive cooldown must have ticked down from 3 to 2 (TickPassiveCooldowns still called)
-        AssertThat(cooldowns["heal"]).IsEqual(2)
-            .OverrideFailureMessage("Passive cooldowns must tick even when the active skill kills the enemy on that turn.");
+        try
+        {
+            testBody(battleManager);
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(battleManager))
+                battleManager.Free();
+        }
     }
 
     private static T GetPrivateField<T>(object instance, string fieldName)

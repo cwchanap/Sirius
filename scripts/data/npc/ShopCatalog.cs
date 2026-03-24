@@ -21,7 +21,7 @@ public static class ShopCatalog
         return _registry.TryGetValue(shopId, out var inv) ? inv : null;
     }
 
-    private static void Register(ShopInventory shop) => _registry[shop.ShopId] = shop;
+    private static void Register(ShopInventory shop) => _registry.Add(shop.ShopId, shop);
 
     // ---- Shop definitions -----------------------------------------------
 

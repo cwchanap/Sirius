@@ -2379,12 +2379,12 @@ public partial class GridMap : Node2D
                 {
                     _grid[gg.X, gg.Y] = (int)CellType.Npc;
                     GD.Print($"  NPC '{spawn.NpcId}' registered at grid[{gg.X}, {gg.Y}]");
+                    spawn.UpdateVisual(this);
                 }
                 else
                 {
                     GD.PrintErr($"  NPC '{spawn.NpcId}' out of bounds! Grid size: {GridWidth}x{GridHeight}");
                 }
-                spawn.UpdateVisual(this);
             }
         }
     }

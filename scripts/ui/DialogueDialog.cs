@@ -113,7 +113,7 @@ public partial class DialogueDialog : AcceptDialog
     {
         // Grant quest flag if specified
         if (!string.IsNullOrEmpty(choice.GrantFlag))
-            _questFlags.Add(choice.GrantFlag);
+            _questFlags?.Add(choice.GrantFlag);
 
         if (choice.Outcome != DialogueOutcomeType.None)
         {
@@ -130,7 +130,7 @@ public partial class DialogueDialog : AcceptDialog
         var nextNode = _tree.GetNode(choice.NextNodeId);
         if (nextNode == null)
         {
-            GD.PushWarning($"[DialogueDialog] NextNodeId '{choice.NextNodeId}' not found in tree '{_tree.TreeId}'.");
+            GD.PushError($"[DialogueDialog] Broken dialogue tree '{_tree.TreeId}': choice '{choice.Label}' references NextNodeId '{choice.NextNodeId}' which does not exist. Closing dialogue.");
             EmitSignal(SignalName.DialogueClosed);
             return;
         }

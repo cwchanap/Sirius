@@ -1,6 +1,6 @@
+using Godot;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 /// <summary>
 /// Evaluates whether a dialogue choice should be visible to the player.
@@ -38,6 +38,11 @@ public sealed class QuestFlagCondition : IDialogueCondition
 
     public bool Evaluate(Character player, HashSet<string> questFlags)
     {
+        if (string.IsNullOrEmpty(Flag))
+        {
+            GD.PushError("[QuestFlagCondition] Flag is null or empty — condition will always evaluate incorrectly. Check DialogueCatalog definition.");
+            return false;
+        }
         bool contains = questFlags?.Contains(Flag) == true;
         return contains == RequirePresent;
     }
@@ -48,5 +53,16 @@ public sealed class AndCondition : IDialogueCondition
 {
     public IDialogueCondition[] Conditions { get; init; } = Array.Empty<IDialogueCondition>();
     public bool Evaluate(Character player, HashSet<string> questFlags)
-        => Conditions.All(c => c.Evaluate(player, questFlags));
+    {
+        foreach (var c in Conditions)
+        {
+            if (c == null)
+            {
+                GD.PushError("[AndCondition] Null sub-condition found — treating as false. Check DialogueCatalog.");
+                return false;
+            }
+            if (!c.Evaluate(player, questFlags)) return false;
+        }
+        return true;
+    }
 }

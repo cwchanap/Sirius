@@ -13,6 +13,7 @@ public partial class ShopDialog : AcceptDialog
 
     private Character _player;
     private ShopInventory _shop;
+    private bool _closed;
     private Label _goldLabel;
     private VBoxContainer _buyList;
     private VBoxContainer _sellList;
@@ -170,7 +171,12 @@ public partial class ShopDialog : AcceptDialog
     private void OnBuyPressed(string itemId, int buyPrice)
     {
         var item = ItemCatalog.CreateItemById(itemId);
-        if (item == null) return;
+        if (item == null)
+        {
+            GD.PushError($"[ShopDialog] OnBuyPressed: item '{itemId}' was in shop list but CreateItemById returned null.");
+            RefreshBuyList();
+            return;
+        }
 
         if (!_player.TrySpendGold(buyPrice))
         {
@@ -195,7 +201,13 @@ public partial class ShopDialog : AcceptDialog
 
     private void OnSellPressed(string itemId, int sellPrice)
     {
-        if (!_player.TryRemoveItem(itemId, 1)) return;
+        if (!_player.TryRemoveItem(itemId, 1))
+        {
+            GD.PushWarning($"[ShopDialog] TryRemoveItem('{itemId}') returned false — item not in inventory. Refreshing sell list.");
+            ShowFeedback("Item no longer available.");
+            RefreshSellList();
+            return;
+        }
 
         _player.GainGold(sellPrice);
         GameManager.Instance?.NotifyPlayerStatsChanged();
@@ -247,6 +259,8 @@ public partial class ShopDialog : AcceptDialog
 
     private void OnCloseRequested()
     {
+        if (_closed) return;
+        _closed = true;
         if (Visible)
             Hide();
         EmitSignal(SignalName.ShopClosed);

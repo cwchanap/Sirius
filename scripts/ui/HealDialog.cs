@@ -58,6 +58,8 @@ public partial class HealDialog : AcceptDialog
     /// <summary>Opens the heal dialog for the given NPC and player.</summary>
     public void OpenHeal(NpcData npc, Character player)
     {
+        if (npc.HealCost <= 0)
+            GD.PushWarning($"[HealDialog] NPC '{npc.NpcId}' has HealCost={npc.HealCost}. This allows free healing — check NpcCatalog.");
         Title = npc.DisplayName;
         _npc = npc;
         _player = player;

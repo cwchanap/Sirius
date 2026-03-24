@@ -207,19 +207,28 @@ public partial class GameManagerTest : Node
         // Arrange
         _gameManager.StartNpcInteraction();
         bool cleanupRequested = false;
-        _gameManager.NpcInteractionResetRequested += () =>
+        Action handler = null;
+        handler = () =>
         {
             cleanupRequested = true;
             AssertThat(_gameManager.IsInNpcInteraction).IsTrue();
             _gameManager.EndNpcInteraction();
         };
+        _gameManager.NpcInteractionResetRequested += handler;
 
-        // Act
-        _gameManager.ResetBattleState();
+        try
+        {
+            // Act
+            _gameManager.ResetBattleState();
 
-        // Assert
-        AssertThat(cleanupRequested).IsTrue();
-        AssertThat(_gameManager.IsInNpcInteraction).IsFalse();
+            // Assert
+            AssertThat(cleanupRequested).IsTrue();
+            AssertThat(_gameManager.IsInNpcInteraction).IsFalse();
+        }
+        finally
+        {
+            _gameManager.NpcInteractionResetRequested -= handler;
+        }
     }
 
     [TestCase]

@@ -67,7 +67,10 @@ public class NpcInteractionController
                 OpenHeal();
                 break;
             case DialogueOutcomeType.CloseAndReturn:
+                Finish();
+                break;
             default:
+                GD.PushWarning($"[NpcInteractionController] Unhandled DialogueOutcomeType value {outcomeInt} — treating as CloseAndReturn.");
                 Finish();
                 break;
         }

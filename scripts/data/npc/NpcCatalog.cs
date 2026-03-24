@@ -25,7 +25,7 @@ public static class NpcCatalog
 
     public static IReadOnlyCollection<NpcData> AllNpcs => _registry.Values;
 
-    private static void Register(NpcData npc) => _registry[npc.NpcId] = npc;
+    private static void Register(NpcData npc) => _registry.Add(npc.NpcId, npc);
 
     // ---- NPC definitions -----------------------------------------------
 

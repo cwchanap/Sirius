@@ -17,5 +17,5 @@ public class ShopInventory
 {
     public string ShopId { get; init; }
     public string DisplayName { get; init; }
-    public List<ShopEntry> Entries { get; init; } = new();
+    public IReadOnlyList<ShopEntry> Entries { get; init; } = new List<ShopEntry>();
 }

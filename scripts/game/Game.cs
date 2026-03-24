@@ -373,7 +373,17 @@ public partial class Game : Node2D
         _npcInteractionController = new NpcInteractionController(
             _gameManager, GetNode("UI"), npcData, _gameManager.Player, _questFlags);
         _npcInteractionController.InteractionComplete += OnNpcInteractionComplete;
-        _npcInteractionController.Begin();
+        try
+        {
+            _npcInteractionController.Begin();
+        }
+        catch (Exception ex)
+        {
+            GD.PushError($"[Game] NpcInteractionController.Begin() threw: {ex.Message}. Ending NPC interaction.");
+            _npcInteractionController.InteractionComplete -= OnNpcInteractionComplete;
+            _npcInteractionController = null;
+            _gameManager.EndNpcInteraction();
+        }
     }
 
     private void OnNpcInteractionComplete()

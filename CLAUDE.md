@@ -52,20 +52,24 @@ scripts/
 │   ├── items/         # Item catalogs: ItemCatalog.cs, EquipmentCatalog.cs, ConsumableCatalog.cs, MonsterPartsCatalog.cs
 │   ├── consumables/   # Status effects: ConsumableItem.cs, StatusEffectSet.cs, ActiveStatusEffect.cs
 │   ├── skills/        # Skill system: Skill.cs, SkillCatalog.cs, SkillEffect.cs
-│   └── ...            # Core data: Character.cs, Enemy.cs, EnemyBlueprint.cs, LootManager.cs, LootTable.cs
-├── game/          # Core game logic (GameManager.cs, GridMap.cs, FloorManager.cs, PlayerController.cs)
+│   ├── npc/           # NPC system: NpcCatalog.cs, NpcData.cs, DialogueCatalog.cs, DialogueTree.cs, DialogueCondition.cs, ShopCatalog.cs, ShopInventory.cs
+│   └── ...            # Core data: Character.cs, Enemy.cs, EnemyBlueprint.cs, LootManager.cs, LootTable.cs, RecoveryChest.cs
+├── game/          # Core game logic (GameManager.cs, GridMap.cs, FloorManager.cs, PlayerController.cs, EnemySpawn.cs, NpcSpawn.cs)
 ├── save/          # Persistence: SaveManager.cs, SaveData.cs, CharacterSaveData.cs, EquipmentSaveData.cs
 ├── tilemap_json/  # Tilemap import/export (TilemapJsonImporter.cs, TilemapJsonExporter.cs)
-└── ui/            # UI controllers (BattleManager.cs, MainMenu.cs, InventoryMenuController.cs, SaveLoadDialog.cs)
+└── ui/            # UI controllers (BattleManager.cs, MainMenu.cs, InventoryMenuController.cs, SaveLoadDialog.cs, ShopDialog.cs, HealDialog.cs, DialogueDialog.cs, NpcInteractionController.cs)
 
 scenes/
 ├── game/          # Game.tscn, floors/ (FloorGF.tscn, Floor1F.tscn)
 ├── ui/            # MainMenu.tscn, BattleScene.tscn, InventoryMenu.tscn
-└── spawns/        # Enemy spawn scenes (EnemySpawn_Goblin.tscn, etc.)
+└── spawns/        # Enemy/NPC spawn scenes
 
 tests/             # GdUnit4 tests mirroring scripts/ structure
-├── data/          # CharacterTest.cs, EnemyTest.cs, InventoryTest.cs, ItemTest.cs
-└── game/          # GameManagerTest.cs
+├── TestHelpers.cs # Shared test utilities
+├── data/          # CharacterTest.cs, EnemyTest.cs, InventoryTest.cs, skills/, consumables/, npc/
+├── game/          # GameManagerTest.cs, FloorManagerTest.cs, EnemySpawnTest.cs, NpcSpawnTest.cs
+├── save/          # SaveDataTest.cs, SaveManagerTest.cs
+└── ui/            # BattleManagerTest.cs, ShopDialogTest.cs, InventoryMenuControllerTest.cs
 
 assets/sprites/    # Sprite sheets and individual frames
 tools/             # sprite_sheet_merger.py for asset pipeline
@@ -102,6 +106,16 @@ Skills are stored in `SkillCatalog` (static registry) and referenced on `Charact
 
 ### Save System
 `SaveManager` (autoload singleton) handles 3 manual slots (0-2) + autosave (slot 3, `autosave.json`). Saves use atomic write (temp → rename) with `.bak` backup for crash recovery. `SaveData` is serialized as JSON via `System.Text.Json`. `SaveManager.PendingLoadData` is the handoff mechanism between MainMenu and Game scenes — set before scene change, consumed on load.
+
+### NPC & Dialogue System
+NPCs follow the same catalog-and-spawn pattern as enemies. `NpcCatalog` is a static registry of `NpcData` objects, referenced by string `NpcId`. `NpcSpawn` is a scene node (mirroring `EnemySpawn`) placed in floor `.tscn` files with `NpcId` and `GridPosition` exports. `GridMap.RegisterStaticNpcSpawns()` picks them up via the `"NpcSpawn"` group.
+
+NPC types: `Villager`, `Shopkeeper`, `Blacksmith`, `QuestGiver`, `Healer`. Each type wires to a subsystem:
+- **Shopkeeper/Blacksmith**: `ShopCatalog` → `ShopInventory` → `ShopDialog`
+- **Healer**: `HealCost` field on `NpcData` → `HealDialog`
+- **All**: `DialogueTreeId` → `DialogueCatalog` → `DialogueTree` (nodes + `DialogueChoice` options)
+
+`DialogueCondition` (`IDialogueCondition`) gates choice visibility on player level, quest flags, etc. Quest flags are stored in `GameManager` and persisted in `SaveData`.
 
 ### Enemy & Loot Architecture
 Enemies are defined via `EnemyBlueprint` (data) and identified by `EnemyTypeId` enum. `LootTable` / `LootTableCatalog` define per-enemy drop rates. `LootManager` resolves loot on kill. Item definitions live in static catalogs (`ItemCatalog`, `EquipmentCatalog`, `ConsumableCatalog`, `MonsterPartsCatalog`) rather than Godot Resources.

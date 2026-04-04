@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 SaveManager="*res://scripts/save/SaveManager.cs"
 RecoveryChest="*res://scripts/data/RecoveryChest.cs"
+SettingsManager="*res://scripts/settings/SettingsManager.cs"
 
 [dotnet]
 

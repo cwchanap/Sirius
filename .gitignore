@@ -16,3 +16,6 @@ test.runsettings.local
 
 # Claude settings
 .claude/settings.local.json
+
+# Local git worktrees
+.worktrees/

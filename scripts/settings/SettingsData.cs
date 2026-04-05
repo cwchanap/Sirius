@@ -16,16 +16,21 @@ public class SettingsData
     public bool AutoSaveEnabled { get; set; } = true;
     public Dictionary<string, long> PrimaryKeybindings { get; set; } = new();
 
+    public static Dictionary<string, long> CreateDefaultKeybindings()
+    {
+        return new Dictionary<string, long>
+        {
+            ["toggle_inventory"] = (long)Key.I,
+            ["interact"] = (long)Key.E,
+            ["pause_menu"] = (long)Key.Escape
+        };
+    }
+
     public static SettingsData CreateDefaults()
     {
         return new SettingsData
         {
-            PrimaryKeybindings = new Dictionary<string, long>
-            {
-                ["toggle_inventory"] = (long)Key.I,
-                ["interact"] = (long)Key.E,
-                ["pause_menu"] = (long)Key.Escape
-            }
+            PrimaryKeybindings = CreateDefaultKeybindings()
         };
     }
 

@@ -6,18 +6,25 @@ public partial class SettingsManager : Node
 {
     public static SettingsManager Instance { get; private set; }
     private const string SettingsFile = "user://settings.json";
+    private const string TempSettingsFile = "user://settings.json.tmp";
+    private const string BackupSettingsFile = "user://settings.json.bak";
+    private const int MinimumResolutionWidth = 640;
+    private const int MinimumResolutionHeight = 360;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true
     };
 
     private SettingsData _settings = SettingsData.CreateDefaults();
+    internal DisplayServer.WindowMode LastAppliedWindowMode { get; private set; } = DisplayServer.WindowMode.Windowed;
+    internal Vector2I LastAppliedWindowSize { get; private set; } = new(1280, 720);
 
     public override void _Ready()
     {
         if (Instance == null || !IsInstanceValid(Instance))
         {
             Instance = this;
+            GetTree().NodeAdded += OnNodeAdded;
             LoadFromDisk();
             ApplyToRuntime(_settings);
             GD.Print("SettingsManager initialized as autoload singleton");
@@ -35,6 +42,11 @@ public partial class SettingsManager : Node
         {
             Instance = null;
         }
+
+        if (GetTree() != null)
+        {
+            GetTree().NodeAdded -= OnNodeAdded;
+        }
     }
 
     public SettingsData GetSnapshot() => _settings.Clone();
@@ -43,13 +55,17 @@ public partial class SettingsManager : Node
 
     public bool ApplyAndSave(SettingsData candidate)
     {
-        var sanitized = Sanitize(candidate);
-        if (!SaveToFile(sanitized))
+        if (!TryValidateForSave(candidate, out var validated))
         {
             return false;
         }
 
-        _settings = sanitized;
+        if (!SaveToFile(validated))
+        {
+            return false;
+        }
+
+        _settings = validated;
         ApplyToRuntime(_settings);
         return true;
     }
@@ -58,13 +74,14 @@ public partial class SettingsManager : Node
     {
         try
         {
-            if (!FileAccess.FileExists(SettingsFile))
+            var pathToRead = ResolveSettingsPathForLoad();
+            if (pathToRead == null)
             {
                 _settings = SettingsData.CreateDefaults();
                 return;
             }
 
-            using var file = FileAccess.Open(SettingsFile, FileAccess.ModeFlags.Read);
+            using var file = FileAccess.Open(pathToRead, FileAccess.ModeFlags.Read);
             if (file == null)
             {
                 GD.PushWarning($"Failed to open settings file: {FileAccess.GetOpenError()}");
@@ -76,6 +93,11 @@ public partial class SettingsManager : Node
             var loaded = JsonSerializer.Deserialize<SettingsData>(json, JsonOptions);
             _settings = loaded == null ? SettingsData.CreateDefaults() : Sanitize(loaded);
             GD.Print("Settings loaded from disk");
+        }
+        catch (JsonException ex)
+        {
+            GD.PushError($"Failed to parse settings file. Falling back to defaults. {ex.Message}");
+            _settings = SettingsData.CreateDefaults();
         }
         catch (Exception ex)
         {
@@ -89,47 +111,34 @@ public partial class SettingsManager : Node
         var defaults = SettingsData.CreateDefaults();
         var sanitized = new SettingsData
         {
-            Version = data.Version,
+            Version = SettingsData.CurrentVersion,
             MasterVolumePercent = Mathf.Clamp(data.MasterVolumePercent, 0, 100),
             MusicVolumePercent = Mathf.Clamp(data.MusicVolumePercent, 0, 100),
             SfxVolumePercent = Mathf.Clamp(data.SfxVolumePercent, 0, 100),
-            Difficulty = string.IsNullOrEmpty(data.Difficulty) ? "Normal" : data.Difficulty,
+            Difficulty = string.IsNullOrWhiteSpace(data.Difficulty) ? defaults.Difficulty : data.Difficulty,
             FullscreenEnabled = data.FullscreenEnabled,
-            ResolutionWidth = data.ResolutionWidth > 0 ? data.ResolutionWidth : 1280,
-            ResolutionHeight = data.ResolutionHeight > 0 ? data.ResolutionHeight : 720,
+            ResolutionWidth = IsValidResolution(data.ResolutionWidth, data.ResolutionHeight)
+                ? data.ResolutionWidth
+                : defaults.ResolutionWidth,
+            ResolutionHeight = IsValidResolution(data.ResolutionWidth, data.ResolutionHeight)
+                ? data.ResolutionHeight
+                : defaults.ResolutionHeight,
             AutoSaveEnabled = data.AutoSaveEnabled,
-            PrimaryKeybindings = new System.Collections.Generic.Dictionary<string, long>()
+            PrimaryKeybindings = NormalizeKeybindings(data.PrimaryKeybindings)
         };
-
-        // Validate each keybinding: positive value = valid key, otherwise fall back to default.
-        foreach (var (action, keyValue) in data.PrimaryKeybindings)
-        {
-            if (keyValue > 0)
-                sanitized.PrimaryKeybindings[action] = keyValue;
-            else if (defaults.PrimaryKeybindings.TryGetValue(action, out var defaultKey))
-                sanitized.PrimaryKeybindings[action] = defaultKey;
-        }
-
-        // Ensure all default actions have a binding.
-        foreach (var (action, defaultKey) in defaults.PrimaryKeybindings)
-        {
-            if (!sanitized.PrimaryKeybindings.ContainsKey(action))
-                sanitized.PrimaryKeybindings[action] = defaultKey;
-        }
 
         return sanitized;
     }
 
     private bool SaveToFile(SettingsData data)
     {
-        var tempFile = $"{SettingsFile}.tmp";
         try
         {
             var json = JsonSerializer.Serialize(data, JsonOptions);
-            using var file = FileAccess.Open(tempFile, FileAccess.ModeFlags.Write);
+            using var file = FileAccess.Open(TempSettingsFile, FileAccess.ModeFlags.Write);
             if (file == null)
             {
-                GD.PushError($"Failed to open settings file for writing: {tempFile}");
+                GD.PushError($"Failed to open settings file for writing: {TempSettingsFile}");
                 return false;
             }
 
@@ -138,18 +147,41 @@ public partial class SettingsManager : Node
             file.Close();
 
             var absoluteTargetPath = ProjectSettings.GlobalizePath(SettingsFile);
-            var absoluteTempPath = ProjectSettings.GlobalizePath(tempFile);
-            if (System.IO.File.Exists(absoluteTargetPath))
+            var absoluteTempPath = ProjectSettings.GlobalizePath(TempSettingsFile);
+            var absoluteBackupPath = ProjectSettings.GlobalizePath(BackupSettingsFile);
+
+            if (System.IO.File.Exists(absoluteBackupPath))
             {
-                System.IO.File.Delete(absoluteTargetPath);
+                System.IO.File.Delete(absoluteBackupPath);
             }
 
-            System.IO.File.Move(absoluteTempPath, absoluteTargetPath);
+            if (System.IO.File.Exists(absoluteTargetPath))
+            {
+                System.IO.File.Move(absoluteTargetPath, absoluteBackupPath);
+            }
+
+            try
+            {
+                System.IO.File.Move(absoluteTempPath, absoluteTargetPath);
+            }
+            catch
+            {
+                if (!System.IO.File.Exists(absoluteTargetPath) && System.IO.File.Exists(absoluteBackupPath))
+                {
+                    System.IO.File.Move(absoluteBackupPath, absoluteTargetPath);
+                }
+
+                throw;
+            }
+
+            TryDeleteBackup(absoluteBackupPath);
+
             return true;
         }
         catch (Exception ex)
         {
             GD.PushError($"Failed to save settings: {ex.Message}");
+            CleanupFileIfPresent(TempSettingsFile);
             return false;
         }
     }
@@ -162,8 +194,13 @@ public partial class SettingsManager : Node
         ApplyAutoSaveSetting(settings.AutoSaveEnabled);
     }
 
-    private static void ApplyWindowMode(bool fullscreenEnabled, int width, int height)
+    private void ApplyWindowMode(bool fullscreenEnabled, int width, int height)
     {
+        LastAppliedWindowMode = fullscreenEnabled
+            ? DisplayServer.WindowMode.Fullscreen
+            : DisplayServer.WindowMode.Windowed;
+        LastAppliedWindowSize = new Vector2I(width, height);
+
         DisplayServer.WindowSetMode(fullscreenEnabled
             ? DisplayServer.WindowMode.Fullscreen
             : DisplayServer.WindowMode.Windowed);
@@ -172,14 +209,13 @@ public partial class SettingsManager : Node
 
     private static void ApplyAudioSettings(SettingsData settings)
     {
-        ApplyBusVolume("Master", settings.MasterVolumePercent);
-        ApplyBusVolume("Music", settings.MusicVolumePercent);
-        ApplyBusVolume("SFX", settings.SfxVolumePercent);
+        ApplyBusVolume(EnsureAudioBusExists("Master"), settings.MasterVolumePercent);
+        ApplyBusVolume(EnsureAudioBusExists("Music"), settings.MusicVolumePercent);
+        ApplyBusVolume(EnsureAudioBusExists("SFX"), settings.SfxVolumePercent);
     }
 
-    private static void ApplyBusVolume(string busName, int volumePercent)
+    private static void ApplyBusVolume(int busIndex, int volumePercent)
     {
-        var busIndex = AudioServer.GetBusIndex(busName);
         if (busIndex < 0)
         {
             return;
@@ -188,6 +224,25 @@ public partial class SettingsManager : Node
         var linear = Mathf.Clamp(volumePercent / 100.0f, 0.0f, 1.0f);
         var decibels = linear <= 0.0f ? -80.0f : Mathf.LinearToDb(linear);
         AudioServer.SetBusVolumeDb(busIndex, decibels);
+    }
+
+    private static int EnsureAudioBusExists(string busName)
+    {
+        var busIndex = AudioServer.GetBusIndex(busName);
+        if (busIndex >= 0)
+        {
+            return busIndex;
+        }
+
+        AudioServer.AddBus(AudioServer.BusCount);
+        var newIndex = AudioServer.BusCount - 1;
+        AudioServer.SetBusName(newIndex, busName);
+        if (busName != "Master")
+        {
+            AudioServer.SetBusSend(newIndex, "Master");
+        }
+
+        return newIndex;
     }
 
     private static void ApplyInputBindings(SettingsData settings)
@@ -217,6 +272,116 @@ public partial class SettingsManager : Node
         if (GameManager.Instance != null && IsInstanceValid(GameManager.Instance))
         {
             GameManager.Instance.AutoSaveEnabled = autoSaveEnabled;
+        }
+    }
+
+    private static bool TryValidateForSave(SettingsData candidate, out SettingsData validated)
+    {
+        if (!IsValidResolution(candidate.ResolutionWidth, candidate.ResolutionHeight))
+        {
+            validated = SettingsData.CreateDefaults();
+            return false;
+        }
+
+        validated = Sanitize(candidate);
+        validated.ResolutionWidth = candidate.ResolutionWidth;
+        validated.ResolutionHeight = candidate.ResolutionHeight;
+        return true;
+    }
+
+    private static System.Collections.Generic.Dictionary<string, long> NormalizeKeybindings(System.Collections.Generic.Dictionary<string, long>? keybindings)
+    {
+        var normalized = SettingsData.CreateDefaultKeybindings();
+        if (keybindings == null)
+        {
+            return normalized;
+        }
+
+        foreach (var (actionName, defaultKeycode) in SettingsData.CreateDefaultKeybindings())
+        {
+            if (keybindings.TryGetValue(actionName, out var keycode) && IsValidKeycode(keycode))
+            {
+                normalized[actionName] = keycode;
+            }
+            else
+            {
+                normalized[actionName] = defaultKeycode;
+            }
+        }
+
+        return normalized;
+    }
+
+    private static bool IsValidResolution(int width, int height) =>
+        width >= MinimumResolutionWidth && height >= MinimumResolutionHeight;
+
+    private static bool IsValidKeycode(long value)
+    {
+        if (value <= 0 || value > int.MaxValue)
+        {
+            return false;
+        }
+
+        return Enum.IsDefined(typeof(Key), (Key)value);
+    }
+
+    private static void CleanupFileIfPresent(string userPath)
+    {
+        var absolutePath = ProjectSettings.GlobalizePath(userPath);
+        if (System.IO.File.Exists(absolutePath))
+        {
+            System.IO.File.Delete(absolutePath);
+        }
+    }
+
+    private static void TryDeleteBackup(string absoluteBackupPath)
+    {
+        if (!System.IO.File.Exists(absoluteBackupPath))
+        {
+            return;
+        }
+
+        try
+        {
+            System.IO.File.Delete(absoluteBackupPath);
+        }
+        catch (Exception ex)
+        {
+            GD.PushWarning($"Failed to delete settings backup after successful save: {ex.Message}");
+        }
+    }
+
+    private string? ResolveSettingsPathForLoad()
+    {
+        if (FileAccess.FileExists(SettingsFile))
+        {
+            return SettingsFile;
+        }
+
+        if (!FileAccess.FileExists(BackupSettingsFile))
+        {
+            return null;
+        }
+
+        try
+        {
+            var backupPath = ProjectSettings.GlobalizePath(BackupSettingsFile);
+            var targetPath = ProjectSettings.GlobalizePath(SettingsFile);
+            System.IO.File.Move(backupPath, targetPath);
+            return SettingsFile;
+        }
+        catch (Exception ex)
+        {
+            GD.PushWarning($"Failed to restore settings backup, reading backup directly: {ex.Message}");
+            return BackupSettingsFile;
+        }
+    }
+
+    private void OnNodeAdded(Node node)
+    {
+        if (node is GameManager gameManager)
+        {
+            gameManager.AutoSaveEnabled = _settings.AutoSaveEnabled;
         }
     }
 }

@@ -16,6 +16,7 @@ public partial class SettingsManagerTest : Node
     private DisplayServer.WindowMode _originalWindowMode;
     private Vector2I _originalWindowSize;
     private float _originalMasterDb;
+    private int _originalBusCount;
 
     private static readonly string[] ManagedActions =
     {
@@ -155,10 +156,53 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
+    public async Task SettingsManager_Ready_CorruptPrimaryUsesValidBackup()
+    {
+        var settingsPath = ProjectSettings.GlobalizePath("user://settings.json");
+        var backupPath = ProjectSettings.GlobalizePath("user://settings.json.bak");
+        var validBackupJson = """
+            {
+              "Version": 1,
+              "MasterVolumePercent": 55,
+              "MusicVolumePercent": 40,
+              "SfxVolumePercent": 30,
+              "Difficulty": "Normal",
+              "FullscreenEnabled": false,
+              "ResolutionWidth": 1280,
+              "ResolutionHeight": 720,
+              "AutoSaveEnabled": true,
+              "PrimaryKeybindings": {
+                "toggle_inventory": 73,
+                "interact": 69,
+                "pause_menu": 4194305
+              }
+            }
+            """;
+        File.WriteAllText(settingsPath, "{ invalid primary json");
+        File.WriteAllText(backupPath, validBackupJson);
+
+        var manager = await BootstrapSettingsManager();
+
+        AssertThat(manager.GetSnapshot().MasterVolumePercent).IsEqual(55);
+        AssertThat(File.ReadAllText(settingsPath)).Contains("\"MasterVolumePercent\": 55");
+    }
+
+    [TestCase]
     public async Task SettingsManager_Ready_CorruptBackupFallsBackToDefaults()
     {
+        var gameManager = await BootstrapGameManager(autoSaveEnabled: false);
+        var settingsPath = ProjectSettings.GlobalizePath("user://settings.json");
         var backupPath = ProjectSettings.GlobalizePath("user://settings.json.bak");
+        if (File.Exists(settingsPath))
+        {
+            File.Delete(settingsPath);
+        }
+
         File.WriteAllText(backupPath, "{ invalid backup json");
+        DisplayServer.WindowSetMode(DisplayServer.WindowMode.Fullscreen);
+        DisplayServer.WindowSetSize(new Vector2I(1600, 900));
+        AudioServer.SetBusVolumeDb(AudioServer.GetBusIndex("Master"), -20.0f);
+        SetPrimaryKey("pause_menu", Key.P);
 
         var manager = await BootstrapSettingsManager();
         var snapshot = manager.GetSnapshot();
@@ -166,6 +210,12 @@ public partial class SettingsManagerTest : Node
         AssertThat(snapshot.MasterVolumePercent).IsEqual(100);
         AssertThat(snapshot.Difficulty).IsEqual("Normal");
         AssertThat(snapshot.AutoSaveEnabled).IsTrue();
+        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Escape);
+        AssertThat(manager.LastAppliedWindowMode).IsEqual(DisplayServer.WindowMode.Windowed);
+        AssertThat(manager.LastAppliedWindowSize).IsEqual(new Vector2I(1280, 720));
+        AssertThat(Mathf.Abs(AudioServer.GetBusVolumeDb(AudioServer.GetBusIndex("Master")))).IsLess(0.01f);
+        AssertThat(gameManager.AutoSaveEnabled).IsTrue();
+        AssertThat(File.ReadAllText(settingsPath)).Contains("\"MasterVolumePercent\": 100");
     }
 
     [TestCase]
@@ -298,6 +348,22 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
+    public async Task SettingsManager_OversizedResolution_ReturnsFalseWithoutChangingLiveSettings()
+    {
+        var manager = await BootstrapSettingsManager();
+        var originalSnapshot = manager.GetSnapshot();
+        var candidate = manager.GetSnapshot();
+        candidate.ResolutionWidth = 10000;
+        candidate.ResolutionHeight = 8000;
+
+        var saved = manager.ApplyAndSave(candidate);
+
+        AssertThat(saved).IsFalse();
+        AssertThat(manager.GetSnapshot().ResolutionWidth).IsEqual(originalSnapshot.ResolutionWidth);
+        AssertThat(manager.GetSnapshot().ResolutionHeight).IsEqual(originalSnapshot.ResolutionHeight);
+    }
+
+    [TestCase]
     public async Task SettingsManager_ApplyAndSave_WriteFailKeepsLiveStateUnchanged()
     {
         var manager = await BootstrapSettingsManager();
@@ -385,6 +451,17 @@ public partial class SettingsManagerTest : Node
     {
         await FreeSettingsManager();
         await FreeGameManager();
+
+        var root = ((SceneTree)Engine.GetMainLoop()).Root;
+        foreach (var child in root.GetChildren())
+        {
+            if (child is SettingsManager || child is GameManager)
+            {
+                child.QueueFree();
+            }
+        }
+
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
     }
 
     private static void ResetSingleton()
@@ -442,6 +519,7 @@ public partial class SettingsManagerTest : Node
         _originalWindowMode = DisplayServer.WindowGetMode();
         _originalWindowSize = DisplayServer.WindowGetSize();
         _originalMasterDb = AudioServer.GetBusVolumeDb(AudioServer.GetBusIndex("Master"));
+        _originalBusCount = AudioServer.BusCount;
     }
 
     private void RestoreRuntimeState()
@@ -458,6 +536,11 @@ public partial class SettingsManagerTest : Node
             {
                 SetPrimaryKey(action, (Key)originalKey.Value);
             }
+        }
+
+        while (AudioServer.BusCount > _originalBusCount)
+        {
+            AudioServer.RemoveBus(AudioServer.BusCount - 1);
         }
 
         DisplayServer.WindowSetMode(_originalWindowMode);

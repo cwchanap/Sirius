@@ -10,6 +10,8 @@ public partial class SettingsManager : Node
     private const string BackupSettingsFile = "user://settings.json.bak";
     private const int MinimumResolutionWidth = 640;
     private const int MinimumResolutionHeight = 360;
+    private const int MaximumResolutionWidth = 7680;
+    private const int MaximumResolutionHeight = 4320;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true
@@ -72,9 +74,10 @@ public partial class SettingsManager : Node
 
     private void LoadFromDisk()
     {
+        string? pathToRead = null;
         try
         {
-            var pathToRead = ResolveSettingsPathForLoad();
+            pathToRead = ResolveSettingsPathForLoad();
             if (pathToRead == null)
             {
                 _settings = SettingsData.CreateDefaults();
@@ -96,8 +99,17 @@ public partial class SettingsManager : Node
         }
         catch (JsonException ex)
         {
+            if (pathToRead == SettingsFile && TryLoadBackupAfterPrimaryCorruption(ex))
+            {
+                return;
+            }
+
             GD.PushError($"Failed to parse settings file. Falling back to defaults. {ex.Message}");
             _settings = SettingsData.CreateDefaults();
+            if (!SaveToFile(_settings))
+            {
+                GD.PushWarning("Failed to rewrite defaults after settings corruption was detected.");
+            }
         }
         catch (Exception ex)
         {
@@ -313,7 +325,10 @@ public partial class SettingsManager : Node
     }
 
     private static bool IsValidResolution(int width, int height) =>
-        width >= MinimumResolutionWidth && height >= MinimumResolutionHeight;
+        width >= MinimumResolutionWidth &&
+        height >= MinimumResolutionHeight &&
+        width <= MaximumResolutionWidth &&
+        height <= MaximumResolutionHeight;
 
     private static bool IsValidKeycode(long value)
     {
@@ -374,6 +389,48 @@ public partial class SettingsManager : Node
         {
             GD.PushWarning($"Failed to restore settings backup, reading backup directly: {ex.Message}");
             return BackupSettingsFile;
+        }
+    }
+
+    private bool TryLoadBackupAfterPrimaryCorruption(JsonException primaryException)
+    {
+        if (!FileAccess.FileExists(BackupSettingsFile))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var backupFile = FileAccess.Open(BackupSettingsFile, FileAccess.ModeFlags.Read);
+            if (backupFile == null)
+            {
+                return false;
+            }
+
+            var backupJson = backupFile.GetAsText();
+            var backupSettings = JsonSerializer.Deserialize<SettingsData>(backupJson, JsonOptions);
+            if (backupSettings == null)
+            {
+                return false;
+            }
+
+            GD.PushWarning($"Primary settings file was corrupt. Restoring from backup. {primaryException.Message}");
+            _settings = Sanitize(backupSettings);
+            if (!SaveToFile(_settings))
+            {
+                GD.PushWarning("Failed to rewrite settings after recovering from backup.");
+            }
+
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (Exception ex)
+        {
+            GD.PushWarning($"Failed to recover settings from backup: {ex.Message}");
+            return false;
         }
     }
 

@@ -14,7 +14,7 @@ public class SettingsData
     public int ResolutionWidth { get; set; } = 1280;
     public int ResolutionHeight { get; set; } = 720;
     public bool AutoSaveEnabled { get; set; } = true;
-    public Dictionary<string, long> PrimaryKeybindings { get; set; } = new();
+    public Dictionary<string, long> PrimaryKeybindings { get; set; } = CreateDefaultKeybindings();
 
     public static Dictionary<string, long> CreateDefaultKeybindings()
     {
@@ -26,13 +26,7 @@ public class SettingsData
         };
     }
 
-    public static SettingsData CreateDefaults()
-    {
-        return new SettingsData
-        {
-            PrimaryKeybindings = CreateDefaultKeybindings()
-        };
-    }
+    public static SettingsData CreateDefaults() => new();
 
     public SettingsData Clone()
     {

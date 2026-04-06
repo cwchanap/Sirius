@@ -57,7 +57,7 @@ public partial class PlayerController : Node
             Vector2I direction = Vector2I.Zero;
             
             // Handle stair interaction
-            if (keyEvent2.Keycode == Key.E && _pendingStairTransition)
+            if (@event.IsActionPressed("interact") && _pendingStairTransition)
             {
                 GD.Print($"Taking stairs {(_isGoingUp ? "up" : "down")} to floor {_targetFloor}");
                 _floorManager?.TransitionToFloor(_targetFloor, _isGoingUp);

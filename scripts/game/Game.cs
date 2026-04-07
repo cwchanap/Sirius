@@ -266,6 +266,7 @@ public partial class Game : Node2D
 
             if (_gameManager.IsInNpcInteraction)
             {
+                GetViewport().SetInputAsHandled();
                 return;
             }
 
@@ -289,6 +290,7 @@ public partial class Game : Node2D
                 {
                     GD.Print("ESC pressed during battle - requesting battle dialog to close as escape");
                     _battleManager.ForceCloseAsEscape();
+                    GetViewport().SetInputAsHandled();
                 }
                 else
                 {
@@ -296,6 +298,7 @@ public partial class Game : Node2D
                     GD.PrintErr("ESC pressed during battle but BattleManager is null - forcing EndBattle(escaped)");
                     _gameManager.EndBattle(false); // treat as not won (escape); no enemy removal here
                     UpdatePlayerUI();
+                    GetViewport().SetInputAsHandled();
                 }
             }
         }

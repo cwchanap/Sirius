@@ -22,6 +22,7 @@ public partial class GameManager : Node
         {
             if (_autoSaveEnabled == value)
             {
+                UpdateAutoSaveSubscription();
                 return;
             }
 

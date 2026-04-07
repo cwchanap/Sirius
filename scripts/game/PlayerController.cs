@@ -11,6 +11,7 @@ public partial class PlayerController : Node
     private bool _pendingStairTransition = false;
     private int _targetFloor = -1;
     private bool _isGoingUp = false;
+    private int _targetStairIndex = -1;
     
     public override void _Ready()
     {
@@ -52,18 +53,25 @@ public partial class PlayerController : Node
             return;
         }
         
+        // Handle stair interaction
+        if (@event.IsActionPressed("interact") && _pendingStairTransition)
+        {
+            if (_targetFloor < 0 || _targetStairIndex < 0)
+            {
+                GD.PrintErr("Stair transition requested with invalid pending state. Clearing pending transition.");
+                ClearPendingStairTransition();
+                return;
+            }
+
+            GD.Print($"Taking stairs {(_isGoingUp ? "up" : "down")} to floor {_targetFloor}");
+            _floorManager?.TransitionToFloor(_targetFloor, _isGoingUp, _targetStairIndex);
+            ClearPendingStairTransition();
+            return;
+        }
+
         if (@event is InputEventKey keyEvent2 && keyEvent2.Pressed)
         {
             Vector2I direction = Vector2I.Zero;
-            
-            // Handle stair interaction
-            if (@event.IsActionPressed("interact") && _pendingStairTransition)
-            {
-                GD.Print($"Taking stairs {(_isGoingUp ? "up" : "down")} to floor {_targetFloor}");
-                _floorManager?.TransitionToFloor(_targetFloor, _isGoingUp);
-                _pendingStairTransition = false;
-                return;
-            }
             
             switch (keyEvent2.Keycode)
             {
@@ -138,9 +146,9 @@ public partial class PlayerController : Node
             if (hasStair && !_pendingStairTransition)
             {
                 // Automatically transition to the target floor
-                _pendingStairTransition = true;
+                QueueStairTransition(targetFloor, isUp, stairIndex);
                 GD.Print($"🪜 Stepping on stairs! Auto-transitioning {(isUp ? "up" : "down")} to floor {targetFloor}...");
-                _floorManager.TransitionToFloor(targetFloor, isUp, stairIndex);
+                _floorManager.TransitionToFloor(_targetFloor, _isGoingUp, _targetStairIndex);
             }
         }
         else
@@ -149,8 +157,24 @@ public partial class PlayerController : Node
             if (_pendingStairTransition)
             {
                 GD.Print("🚶 Moved away from stairs, clearing transition flag");
-                _pendingStairTransition = false;
+                ClearPendingStairTransition();
             }
         }
+    }
+
+    private void QueueStairTransition(int targetFloor, bool isGoingUp, int stairIndex)
+    {
+        _pendingStairTransition = true;
+        _targetFloor = targetFloor;
+        _isGoingUp = isGoingUp;
+        _targetStairIndex = stairIndex;
+    }
+
+    private void ClearPendingStairTransition()
+    {
+        _pendingStairTransition = false;
+        _targetFloor = -1;
+        _isGoingUp = false;
+        _targetStairIndex = -1;
     }
 }

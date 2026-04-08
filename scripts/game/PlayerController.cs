@@ -149,6 +149,7 @@ public partial class PlayerController : Node
                 QueueStairTransition(targetFloor, isUp, stairIndex);
                 GD.Print($"🪜 Stepping on stairs! Auto-transitioning {(isUp ? "up" : "down")} to floor {targetFloor}...");
                 _floorManager.TransitionToFloor(_targetFloor, _isGoingUp, _targetStairIndex);
+                ClearPendingStairTransition();
             }
         }
         else

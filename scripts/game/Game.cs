@@ -266,7 +266,10 @@ public partial class Game : Node2D
 
             if (_gameManager.IsInNpcInteraction)
             {
-                GetViewport().SetInputAsHandled();
+                // Don't consume the event — AcceptDialog-based NPC modals
+                // (DialogueDialog, ShopDialog, HealDialog) rely on ESC reaching
+                // them to emit Canceled/CloseRequested.  Just skip pause-menu
+                // logic so the dialog can dismiss itself.
                 return;
             }
 

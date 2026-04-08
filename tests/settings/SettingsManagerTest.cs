@@ -333,6 +333,45 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
+    public async Task SettingsManager_DuplicateKeybindings_DefaultAlsoTaken_Unbinds()
+    {
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        // Remap toggle_inventory from I to E — now both toggle_inventory and interact are on E.
+        // interact is later in default-order iteration, so it's the "duplicate".
+        // Its default is also E, which is already taken → should be unbound (-1).
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.E;
+        candidate.PrimaryKeybindings["interact"] = (long)Key.E;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        var snapshot = manager.GetSnapshot();
+        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.E);
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual(-1);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_DuplicateKeybindings_ThreeWayConflict_ResolvesCorrectly()
+    {
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        // All three actions on the same key — only the first keeps it.
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.Space;
+        candidate.PrimaryKeybindings["interact"] = (long)Key.Space;
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Space;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        var snapshot = manager.GetSnapshot();
+        // toggle_inventory keeps Space (first in default order)
+        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.Space);
+        // interact defaults to E (not taken) → resets to E
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
+        // pause_menu defaults to Escape (not taken) → resets to Escape
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
+    }
+
+    [TestCase]
     public async Task SettingsManager_InvalidResolution_ReturnsFalseWithoutChangingLiveSettings()
     {
         var manager = await BootstrapSettingsManager();

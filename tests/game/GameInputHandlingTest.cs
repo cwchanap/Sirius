@@ -38,43 +38,52 @@ public partial class GameInputHandlingTest : Node
     [After]
     public async Task Cleanup()
     {
+        // Reset interaction/battle state before freeing to prevent signal
+        // callbacks from firing on half-freed nodes during teardown.
+        if (_gameManager != null && IsInstanceValid(_gameManager))
+        {
+            if (_gameManager.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+            if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+        }
+
+        // Use Free() for immediate cleanup to avoid state leaking between tests.
+        // Game must be freed before its viewport parent.
         if (_game != null && IsInstanceValid(_game))
         {
-            _game.QueueFree();
+            _game.Free();
+            _game = null;
         }
 
         if (_viewport != null && IsInstanceValid(_viewport))
         {
-            _viewport.QueueFree();
+            _viewport.Free();
+            _viewport = null;
         }
 
         if (_gameManager != null && IsInstanceValid(_gameManager))
         {
             _gameManager.Free();
+            _gameManager = null;
         }
 
         await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
     }
 
-    [TestCase]
-    public void PauseMenu_WhenInNpcInteraction_MarksInputAsHandled()
-    {
-        _gameManager!.StartNpcInteraction();
-
-        _game!._Input(CreatePauseEvent());
-
-        AssertThat(_game.GetViewport().IsInputHandled()).IsTrue();
-    }
-
+    // NOTE: This test must run BEFORE any test that does NOT consume input.
+    // Test ordering matters because the SubViewport's IsInputHandled flag
+    // appears to be affected by prior tests that push input events without
+    // calling SetInputAsHandled.  GdUnit4 executes test methods in declaration
+    // order, so battle tests are placed first.
     [TestCase]
     public void PauseMenu_WhenInBattleWithDialog_MarksInputAsHandled()
     {
         _gameManager!.StartBattle(Enemy.CreateGoblin());
         SetPrivateField(_game!, "_battleManager", new BattleManager());
 
-        _game!._Input(CreatePauseEvent());
+        var evt = CreatePauseEvent();
+        _viewport!.PushInput(evt);
 
-        AssertThat(_game.GetViewport().IsInputHandled()).IsTrue();
+        AssertThat(_viewport.IsInputHandled()).IsTrue();
     }
 
     [TestCase]
@@ -83,9 +92,29 @@ public partial class GameInputHandlingTest : Node
         _gameManager!.StartBattle(Enemy.CreateGoblin());
         SetPrivateField(_game!, "_battleManager", null);
 
-        _game!._Input(CreatePauseEvent());
+        var evt = CreatePauseEvent();
+        _viewport!.PushInput(evt);
 
-        AssertThat(_game.GetViewport().IsInputHandled()).IsTrue();
+        AssertThat(_viewport.IsInputHandled()).IsTrue();
+    }
+
+    [TestCase]
+    public void PauseMenu_WhenInNpcInteraction_DoesNotConsumeInput()
+    {
+        _gameManager!.StartNpcInteraction();
+
+        PushPauseEvent();
+
+        // Input must NOT be marked as handled — AcceptDialog-based NPC modals
+        // (DialogueDialog, ShopDialog, HealDialog) need ESC to reach them so
+        // they can emit Canceled / CloseRequested and dismiss themselves.
+        AssertThat(_viewport!.IsInputHandled()).IsFalse();
+    }
+
+    private void PushPauseEvent()
+    {
+        var evt = CreatePauseEvent();
+        _viewport!.PushInput(evt);
     }
 
     private static InputEventAction CreatePauseEvent()

@@ -318,17 +318,37 @@ public partial class SettingsManager : Node
         }
 
         // Reject duplicate keys: if two actions share the same keycode, reset
-        // the later one to its default to prevent one key consuming events for another.
-        var seenKeys = new System.Collections.Generic.HashSet<long>();
+        // the later one to its default. If the default is also taken, unbind it.
+        // Repeat until stable (bounded by action count) to handle cascading conflicts,
+        // e.g. toggle_inventory→E forces interact→default(E) → still duplicate.
         var defaultBindings = SettingsData.CreateDefaultKeybindings();
-        foreach (var (actionName, _) in defaultBindings)
+        var actionOrder = new System.Collections.Generic.List<string>(defaultBindings.Keys);
+        int maxPasses = actionOrder.Count + 1;
+        for (int pass = 0; pass < maxPasses; pass++)
         {
-            var keycode = normalized[actionName];
-            if (!seenKeys.Add(keycode))
+            bool changed = false;
+            var seenKeys = new System.Collections.Generic.HashSet<long>();
+            foreach (var actionName in actionOrder)
             {
-                GD.PushWarning($"Duplicate keybinding: '{actionName}' shares keycode {keycode} with another action. Resetting to default.");
-                normalized[actionName] = defaultBindings[actionName];
+                var keycode = normalized[actionName];
+                if (!seenKeys.Add(keycode))
+                {
+                    var resolvedKeycode = defaultBindings[actionName];
+                    if (seenKeys.Contains(resolvedKeycode))
+                    {
+                        // Default is also taken — unbind to avoid any conflict.
+                        GD.PushWarning($"Duplicate keybinding: '{actionName}' keycode {keycode} conflicts and default {resolvedKeycode} is also taken. Unbinding.");
+                        resolvedKeycode = -1;
+                    }
+                    else
+                    {
+                        GD.PushWarning($"Duplicate keybinding: '{actionName}' shares keycode {keycode} with another action. Resetting to default {resolvedKeycode}.");
+                    }
+                    normalized[actionName] = resolvedKeycode;
+                    changed = true;
+                }
             }
+            if (!changed) break;
         }
 
         return normalized;

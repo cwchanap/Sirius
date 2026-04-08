@@ -314,6 +314,25 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
+    public async Task SettingsManager_DuplicateKeybindings_SecondActionResetsToDefault()
+    {
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        // Bind both interact and pause_menu to the same key (E)
+        candidate.PrimaryKeybindings["interact"] = (long)Key.E;
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.E;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        var snapshot = manager.GetSnapshot();
+        // interact keeps E (set first in default keybinding order), pause_menu resets to Escape
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
+        AssertThat(GetPrimaryKey("interact")).IsEqual((long)Key.E);
+        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Escape);
+    }
+
+    [TestCase]
     public async Task SettingsManager_InvalidResolution_ReturnsFalseWithoutChangingLiveSettings()
     {
         var manager = await BootstrapSettingsManager();

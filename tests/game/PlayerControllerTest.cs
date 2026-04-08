@@ -39,6 +39,20 @@ public partial class PlayerControllerTest : Node
         AssertThat(GetPrivateField<int>(controller, "_targetStairIndex")).IsEqual(3);
     }
 
+    [TestCase]
+    public void ClearPendingStairTransition_ResetsAllStairState()
+    {
+        var controller = new PlayerController();
+        InvokePrivateMethod(controller, "QueueStairTransition", 2, true, 3);
+
+        InvokePrivateMethod(controller, "ClearPendingStairTransition");
+
+        AssertThat(GetPrivateField<bool>(controller, "_pendingStairTransition")).IsFalse();
+        AssertThat(GetPrivateField<int>(controller, "_targetFloor")).IsEqual(-1);
+        AssertThat(GetPrivateField<bool>(controller, "_isGoingUp")).IsFalse();
+        AssertThat(GetPrivateField<int>(controller, "_targetStairIndex")).IsEqual(-1);
+    }
+
     private static InputEventAction CreateInteractEvent()
     {
         return new InputEventAction

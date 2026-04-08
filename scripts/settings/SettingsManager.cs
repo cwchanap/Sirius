@@ -317,6 +317,20 @@ public partial class SettingsManager : Node
             }
         }
 
+        // Reject duplicate keys: if two actions share the same keycode, reset
+        // the later one to its default to prevent one key consuming events for another.
+        var seenKeys = new System.Collections.Generic.HashSet<long>();
+        var defaultBindings = SettingsData.CreateDefaultKeybindings();
+        foreach (var (actionName, _) in defaultBindings)
+        {
+            var keycode = normalized[actionName];
+            if (!seenKeys.Add(keycode))
+            {
+                GD.PushWarning($"Duplicate keybinding: '{actionName}' shares keycode {keycode} with another action. Resetting to default.");
+                normalized[actionName] = defaultBindings[actionName];
+            }
+        }
+
         return normalized;
     }
 

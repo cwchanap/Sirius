@@ -121,6 +121,7 @@ public partial class SettingsManager : Node
     private static SettingsData Sanitize(SettingsData data)
     {
         var defaults = SettingsData.CreateDefaults();
+        var isResolutionValid = IsValidResolution(data.ResolutionWidth, data.ResolutionHeight);
         var sanitized = new SettingsData
         {
             Version = SettingsData.CurrentVersion,
@@ -129,12 +130,8 @@ public partial class SettingsManager : Node
             SfxVolumePercent = Mathf.Clamp(data.SfxVolumePercent, 0, 100),
             Difficulty = string.IsNullOrWhiteSpace(data.Difficulty) ? defaults.Difficulty : data.Difficulty,
             FullscreenEnabled = data.FullscreenEnabled,
-            ResolutionWidth = IsValidResolution(data.ResolutionWidth, data.ResolutionHeight)
-                ? data.ResolutionWidth
-                : defaults.ResolutionWidth,
-            ResolutionHeight = IsValidResolution(data.ResolutionWidth, data.ResolutionHeight)
-                ? data.ResolutionHeight
-                : defaults.ResolutionHeight,
+            ResolutionWidth = isResolutionValid ? data.ResolutionWidth : defaults.ResolutionWidth,
+            ResolutionHeight = isResolutionValid ? data.ResolutionHeight : defaults.ResolutionHeight,
             AutoSaveEnabled = data.AutoSaveEnabled,
             PrimaryKeybindings = NormalizeKeybindings(data.PrimaryKeybindings)
         };
@@ -273,8 +270,7 @@ public partial class SettingsManager : Node
 
             InputMap.ActionAddEvent(binding.Key, new InputEventKey
             {
-                PhysicalKeycode = (Key)binding.Value,
-                Keycode = (Key)binding.Value
+                PhysicalKeycode = (Key)binding.Value
             });
         }
     }

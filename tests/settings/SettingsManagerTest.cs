@@ -562,8 +562,7 @@ public partial class SettingsManagerTest : Node
 
         InputMap.ActionAddEvent(actionName, new InputEventKey
         {
-            PhysicalKeycode = key,
-            Keycode = key
+            PhysicalKeycode = key
         });
     }
 

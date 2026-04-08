@@ -12,6 +12,16 @@ public partial class SettingsManager : Node
     private const int MinimumResolutionHeight = 360;
     private const int MaximumResolutionWidth = 7680;
     private const int MaximumResolutionHeight = 4320;
+
+    // Keys reserved for hard-coded movement in PlayerController._UnhandledInput().
+    // Until movement is action-based, the settings layer must reject these to avoid
+    // swallowing directional input via Game._Input().
+    private static readonly System.Collections.Generic.HashSet<long> ReservedMovementKeys = new()
+    {
+        (long)Key.W, (long)Key.A, (long)Key.S, (long)Key.D,
+        (long)Key.Up, (long)Key.Down, (long)Key.Left, (long)Key.Right
+    };
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true
@@ -273,6 +283,32 @@ public partial class SettingsManager : Node
                 PhysicalKeycode = (Key)binding.Value
             });
         }
+
+        // Mirror the pause_menu key onto ui_cancel so that AcceptDialog-based
+        // modals (DialogueDialog, ShopDialog, HealDialog, BattleManager) close
+        // with the same key the player configured for pause/cancel.
+        if (settings.PrimaryKeybindings.TryGetValue("pause_menu", out var pauseKey))
+        {
+            RebindAction("ui_cancel", (Key)pauseKey);
+        }
+    }
+
+    private static void RebindAction(string actionName, Key physicalKey)
+    {
+        if (!InputMap.HasAction(actionName))
+        {
+            return;
+        }
+
+        foreach (var inputEvent in InputMap.ActionGetEvents(actionName))
+        {
+            InputMap.ActionEraseEvent(actionName, inputEvent);
+        }
+
+        InputMap.ActionAddEvent(actionName, new InputEventKey
+        {
+            PhysicalKeycode = physicalKey
+        });
     }
 
     private static void ApplyAutoSaveSetting(bool autoSaveEnabled)
@@ -314,6 +350,29 @@ public partial class SettingsManager : Node
             else
             {
                 normalized[actionName] = defaultKeycode;
+            }
+        }
+
+        // Reject keys reserved for hard-coded movement.  If a managed action
+        // collides with W/A/S/D or arrow keys, reset it to default so the
+        // player doesn't lose a movement direction.
+        var defaultsForReserved = SettingsData.CreateDefaultKeybindings();
+        foreach (var actionName in new System.Collections.Generic.List<string>(normalized.Keys))
+        {
+            var keycode = normalized[actionName];
+            if (keycode > 0 && ReservedMovementKeys.Contains(keycode))
+            {
+                var defaultKey = defaultsForReserved[actionName];
+                if (ReservedMovementKeys.Contains(defaultKey))
+                {
+                    GD.PushWarning($"Keybinding '{actionName}' uses reserved movement key {keycode} and default {defaultKey} is also reserved. Unbinding.");
+                    normalized[actionName] = -1;
+                }
+                else
+                {
+                    GD.PushWarning($"Keybinding '{actionName}' uses reserved movement key {keycode}. Resetting to default {defaultKey}.");
+                    normalized[actionName] = defaultKey;
+                }
             }
         }
 

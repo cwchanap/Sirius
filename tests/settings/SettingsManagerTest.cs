@@ -13,6 +13,7 @@ public partial class SettingsManagerTest : Node
     private SettingsManager? _settingsManager;
     private GameManager? _gameManager;
     private Dictionary<string, long?> _originalBindings = new();
+    private long? _originalUiCancelKey;
     private DisplayServer.WindowMode _originalWindowMode;
     private Vector2I _originalWindowSize;
     private float _originalMasterDb;
@@ -372,6 +373,79 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
+    public async Task SettingsManager_PauseMenuRemap_MirrorsOntoUiCancel()
+    {
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.P;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        // pause_menu should be P
+        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.P);
+        // ui_cancel should also be rebound to P
+        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.P);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_PauseMenuRemapToTab_MirrorsOntoUiCancel()
+    {
+        // Second key to confirm the mirror is not hardcoded to a specific key.
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Tab;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Tab);
+        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Tab);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_MovementKeyW_RejectedAndResetToDefault()
+    {
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        // Try to map pause_menu to W — a movement key
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.W;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        var snapshot = manager.GetSnapshot();
+        // pause_menu should be reset to its default (Escape), not W
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_MovementKeyA_RejectedAndResetToDefault()
+    {
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        // Try to map toggle_inventory to A — a movement key
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.A;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        var snapshot = manager.GetSnapshot();
+        // toggle_inventory should be reset to its default (I), not A
+        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_MovementArrowKeys_RejectedAndResetToDefault()
+    {
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        candidate.PrimaryKeybindings["interact"] = (long)Key.Up;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        var snapshot = manager.GetSnapshot();
+        // interact should be reset to its default (E), not Up arrow
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
+    }
+
+    [TestCase]
     public async Task SettingsManager_InvalidResolution_ReturnsFalseWithoutChangingLiveSettings()
     {
         var manager = await BootstrapSettingsManager();
@@ -574,6 +648,9 @@ public partial class SettingsManagerTest : Node
             _originalBindings[action] = InputMap.HasAction(action) ? GetPrimaryKey(action) : null;
         }
 
+        // Also capture ui_cancel since ApplyInputBindings now mirrors pause_menu onto it.
+        _originalUiCancelKey = InputMap.HasAction("ui_cancel") ? GetPrimaryKey("ui_cancel") : null;
+
         _originalWindowMode = DisplayServer.WindowGetMode();
         _originalWindowSize = DisplayServer.WindowGetSize();
         _originalMasterDb = AudioServer.GetBusVolumeDb(AudioServer.GetBusIndex("Master"));
@@ -594,6 +671,12 @@ public partial class SettingsManagerTest : Node
             {
                 SetPrimaryKey(action, (Key)originalKey.Value);
             }
+        }
+
+        // Restore ui_cancel to its original binding.
+        if (_originalUiCancelKey.HasValue && InputMap.HasAction("ui_cancel"))
+        {
+            SetPrimaryKey("ui_cancel", (Key)_originalUiCancelKey.Value);
         }
 
         while (AudioServer.BusCount > _originalBusCount)

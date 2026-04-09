@@ -352,25 +352,71 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
-    public async Task SettingsManager_InteractRemappedToEscape_PauseMenuNeverUnbound()
+    public async Task SettingsManager_InteractRemappedToEscape_PauseMenuLeftUnboundNotDuplicated()
     {
         var manager = await BootstrapSettingsManager();
         var candidate = manager.GetSnapshot();
         // Player remaps interact to Escape — now interact and pause_menu both use Escape.
         // interact is earlier in default-order iteration, so it keeps Escape.
         // pause_menu is the "duplicate". Its default is also Escape (already taken).
-        // Without the pause_menu guard, it would be unbound (-1), breaking ui_cancel.
+        // The fallback must NOT force pause_menu back to Escape because that would
+        // recreate the duplicate the loop just resolved.
         candidate.PrimaryKeybindings["interact"] = (long)Key.Escape;
         candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Escape;
 
         AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
 
         var snapshot = manager.GetSnapshot();
-        // pause_menu must NEVER be unbound — it mirrors to ui_cancel.
-        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
-        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Escape);
-        // ui_cancel must also remain functional.
-        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Escape);
+        // interact keeps Escape (first in default order)
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.Escape);
+        // pause_menu default (Escape) is taken by interact → stays unbound (-1)
+        // to avoid recreating the duplicate.
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual(-1);
+        // interact should be the one bound to Escape in the InputMap
+        AssertThat(GetPrimaryKey("interact")).IsEqual((long)Key.Escape);
+        // ui_cancel should NOT be rebound to an invalid key when pause_menu is -1
+        // (it retains whatever Godot's built-in default is)
+    }
+
+    [TestCase]
+    public async Task SettingsManager_ToggleInventoryRemappedToEscape_PauseMenuLeftUnbound()
+    {
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        // Player remaps toggle_inventory to Escape — now toggle_inventory and
+        // pause_menu both use Escape.  toggle_inventory is first in default
+        // order so it keeps Escape.  pause_menu is a duplicate; its default
+        // (Escape) is also taken.  The fallback must NOT force pause_menu back
+        // to Escape because that would recreate the duplicate.
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.Escape;
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Escape;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        var snapshot = manager.GetSnapshot();
+        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.Escape);
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual(-1);
+        AssertThat(GetPrimaryKey("toggle_inventory")).IsEqual((long)Key.Escape);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_PauseMenuUnbound_DefaultTaken_UiCancelNotCorrupted()
+    {
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        // Force pause_menu to -1 indirectly: bind toggle_inventory to Escape so
+        // the conflict loop unbinds pause_menu, and the fallback skips because
+        // Escape is taken.  ui_cancel must not receive an invalid key.
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.Escape;
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Escape;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        // ui_cancel should retain its original Godot default (Escape) rather
+        // than being rebound to an invalid key.  The guard in ApplyInputBindings
+        // skips the mirror when pause_menu is -1.
+        var uiCancelKey = GetPrimaryKey("ui_cancel");
+        AssertThat(uiCancelKey).IsEqual((long)Key.Escape);
     }
 
     [TestCase]

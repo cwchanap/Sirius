@@ -287,7 +287,10 @@ public partial class SettingsManager : Node
         // Mirror the pause_menu key onto ui_cancel so that AcceptDialog-based
         // modals (DialogueDialog, ShopDialog, HealDialog, BattleManager) close
         // with the same key the player configured for pause/cancel.
-        if (settings.PrimaryKeybindings.TryGetValue("pause_menu", out var pauseKey))
+        // Skip mirroring when pause_menu is unbound (-1) to avoid casting to
+        // an invalid Key value.
+        if (settings.PrimaryKeybindings.TryGetValue("pause_menu", out var pauseKey)
+            && pauseKey > 0)
         {
             RebindAction("ui_cancel", (Key)pauseKey);
         }
@@ -412,11 +415,31 @@ public partial class SettingsManager : Node
 
         // pause_menu mirrors onto ui_cancel (AcceptDialog dismiss).  It must
         // never be left unbound or every modal in the game becomes unclosable.
+        // Only force back to default if the default key is not already claimed
+        // by another action — otherwise we'd recreate the duplicate the loop
+        // just resolved.
         if (normalized["pause_menu"] == -1)
         {
             var pauseDefault = defaultBindings["pause_menu"];
-            GD.PushWarning($"pause_menu resolved to unbound; forcing back to default {pauseDefault} to preserve ui_cancel.");
-            normalized["pause_menu"] = pauseDefault;
+            bool defaultTaken = false;
+            foreach (var actionName in actionOrder)
+            {
+                if (actionName != "pause_menu" && normalized[actionName] == pauseDefault)
+                {
+                    defaultTaken = true;
+                    break;
+                }
+            }
+
+            if (!defaultTaken)
+            {
+                GD.PushWarning($"pause_menu resolved to unbound; forcing back to default {pauseDefault} to preserve ui_cancel.");
+                normalized["pause_menu"] = pauseDefault;
+            }
+            else
+            {
+                GD.PushWarning($"pause_menu resolved to unbound and its default {pauseDefault} is already taken by another action. Leaving unbound — the player must reassign pause_menu manually.");
+            }
         }
 
         return normalized;

@@ -352,6 +352,28 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
+    public async Task SettingsManager_InteractRemappedToEscape_PauseMenuNeverUnbound()
+    {
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        // Player remaps interact to Escape — now interact and pause_menu both use Escape.
+        // interact is earlier in default-order iteration, so it keeps Escape.
+        // pause_menu is the "duplicate". Its default is also Escape (already taken).
+        // Without the pause_menu guard, it would be unbound (-1), breaking ui_cancel.
+        candidate.PrimaryKeybindings["interact"] = (long)Key.Escape;
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Escape;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        var snapshot = manager.GetSnapshot();
+        // pause_menu must NEVER be unbound — it mirrors to ui_cancel.
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
+        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Escape);
+        // ui_cancel must also remain functional.
+        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Escape);
+    }
+
+    [TestCase]
     public async Task SettingsManager_DuplicateKeybindings_ThreeWayConflict_ResolvesCorrectly()
     {
         var manager = await BootstrapSettingsManager();

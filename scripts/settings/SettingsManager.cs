@@ -410,6 +410,15 @@ public partial class SettingsManager : Node
             if (!changed) break;
         }
 
+        // pause_menu mirrors onto ui_cancel (AcceptDialog dismiss).  It must
+        // never be left unbound or every modal in the game becomes unclosable.
+        if (normalized["pause_menu"] == -1)
+        {
+            var pauseDefault = defaultBindings["pause_menu"];
+            GD.PushWarning($"pause_menu resolved to unbound; forcing back to default {pauseDefault} to preserve ui_cancel.");
+            normalized["pause_menu"] = pauseDefault;
+        }
+
         return normalized;
     }
 

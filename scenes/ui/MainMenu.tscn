@@ -32,6 +32,7 @@ grow_vertical = 2
 texture = SubResource("GradientTexture2D_background")
 
 [node name="BackgroundMusic" type="AudioStreamPlayer" parent="."]
+bus = &"Music"
 stream = ExtResource("2_whispering_grove")
 autoplay = true
 

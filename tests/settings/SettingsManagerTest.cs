@@ -133,8 +133,33 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
+    public async Task SettingsManager_BackupPersistsAfterSuccessfulSave()
+    {
+        var manager = await BootstrapSettingsManager();
+        var backupPath = ProjectSettings.GlobalizePath("user://settings.json.bak");
+
+        // First save — no backup yet.
+        var first = manager.GetSnapshot();
+        first.MasterVolumePercent = 40;
+        AssertThat(manager.ApplyAndSave(first)).IsTrue();
+
+        // Second save — the first save's settings.json should now exist as .bak.
+        var second = manager.GetSnapshot();
+        second.MasterVolumePercent = 80;
+        AssertThat(manager.ApplyAndSave(second)).IsTrue();
+
+        AssertThat(File.Exists(backupPath)).IsTrue();
+        var backupContent = File.ReadAllText(backupPath);
+        AssertThat(backupContent).Contains("\"MasterVolumePercent\": 40");
+    }
+
+    [TestCase]
     public async Task SettingsManager_CorruptJson_FallsBackToDefaultsWithoutThrowing()
     {
+        // Ensure no leftover backup interferes with the "no backup" scenario.
+        var backupPath = ProjectSettings.GlobalizePath("user://settings.json.bak");
+        if (File.Exists(backupPath)) File.Delete(backupPath);
+
         var gameManager = await BootstrapGameManager(autoSaveEnabled: false);
         var settingsPath = ProjectSettings.GlobalizePath("user://settings.json");
         File.WriteAllText(settingsPath, "{ invalid json");
@@ -257,6 +282,8 @@ public partial class SettingsManagerTest : Node
 
         var settingsPath = ProjectSettings.GlobalizePath("user://settings.json");
         var backupPath = ProjectSettings.GlobalizePath("user://settings.json.bak");
+        // Delete any pre-existing backup (now that ApplyAndSave preserves it).
+        if (File.Exists(backupPath)) File.Delete(backupPath);
         File.Move(settingsPath, backupPath);
 
         var recoveredManager = await BootstrapSettingsManager();
@@ -374,8 +401,9 @@ public partial class SettingsManagerTest : Node
         AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual(-1);
         // interact should be the one bound to Escape in the InputMap
         AssertThat(GetPrimaryKey("interact")).IsEqual((long)Key.Escape);
-        // ui_cancel should NOT be rebound to an invalid key when pause_menu is -1
-        // (it retains whatever Godot's built-in default is)
+        // ui_cancel should be explicitly reset to the default pause_menu key
+        // (Escape) rather than retaining a stale binding or being left with
+        // an invalid key when pause_menu is -1.
     }
 
     [TestCase]
@@ -412,11 +440,35 @@ public partial class SettingsManagerTest : Node
 
         AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
 
-        // ui_cancel should retain its original Godot default (Escape) rather
-        // than being rebound to an invalid key.  The guard in ApplyInputBindings
-        // skips the mirror when pause_menu is -1.
+        // ui_cancel should be explicitly reset to the default pause_menu key
+        // (Escape) rather than being rebound to an invalid key.  The else
+        // branch in ApplyInputBindings resets ui_cancel when pause_menu is -1.
         var uiCancelKey = GetPrimaryKey("ui_cancel");
         AssertThat(uiCancelKey).IsEqual((long)Key.Escape);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_PauseMenuUnboundAfterRemap_UiCancelResetsToDefault()
+    {
+        // First save: bind pause_menu to P, which mirrors ui_cancel to P.
+        var manager = await BootstrapSettingsManager();
+        var firstCandidate = manager.GetSnapshot();
+        firstCandidate.PrimaryKeybindings["pause_menu"] = (long)Key.P;
+
+        AssertThat(manager.ApplyAndSave(firstCandidate)).IsTrue();
+        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.P);
+
+        // Second save: force pause_menu to -1 by claiming its default key
+        // (Escape) with toggle_inventory.  ui_cancel must reset to Escape
+        // rather than retaining the stale P binding from the first save.
+        var secondCandidate = manager.GetSnapshot();
+        secondCandidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.Escape;
+        secondCandidate.PrimaryKeybindings["pause_menu"] = (long)Key.Escape;
+
+        AssertThat(manager.ApplyAndSave(secondCandidate)).IsTrue();
+
+        AssertThat(manager.GetSnapshot().PrimaryKeybindings["pause_menu"]).IsEqual(-1);
+        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Escape);
     }
 
     [TestCase]

@@ -193,7 +193,10 @@ public partial class SettingsManager : Node
                 throw;
             }
 
-            TryDeleteBackup(absoluteBackupPath);
+            // Keep the backup file around so that startup recovery paths
+            // (ResolveSettingsPathForLoad, TryLoadBackupAfterPrimaryCorruption)
+            // can restore the player's last good settings if settings.json is
+            // deleted or corrupted between launches.
 
             return true;
         }
@@ -287,12 +290,18 @@ public partial class SettingsManager : Node
         // Mirror the pause_menu key onto ui_cancel so that AcceptDialog-based
         // modals (DialogueDialog, ShopDialog, HealDialog, BattleManager) close
         // with the same key the player configured for pause/cancel.
-        // Skip mirroring when pause_menu is unbound (-1) to avoid casting to
-        // an invalid Key value.
+        // When pause_menu is unbound (-1), reset ui_cancel to the default
+        // pause_menu key (Escape) so it never retains a stale binding from a
+        // previous apply.
+        var defaultPauseKey = SettingsData.CreateDefaultKeybindings()["pause_menu"];
         if (settings.PrimaryKeybindings.TryGetValue("pause_menu", out var pauseKey)
             && pauseKey > 0)
         {
             RebindAction("ui_cancel", (Key)pauseKey);
+        }
+        else
+        {
+            RebindAction("ui_cancel", (Key)defaultPauseKey);
         }
     }
 
@@ -467,23 +476,6 @@ public partial class SettingsManager : Node
         if (System.IO.File.Exists(absolutePath))
         {
             System.IO.File.Delete(absolutePath);
-        }
-    }
-
-    private static void TryDeleteBackup(string absoluteBackupPath)
-    {
-        if (!System.IO.File.Exists(absoluteBackupPath))
-        {
-            return;
-        }
-
-        try
-        {
-            System.IO.File.Delete(absoluteBackupPath);
-        }
-        catch (Exception ex)
-        {
-            GD.PushWarning($"Failed to delete settings backup after successful save: {ex.Message}");
         }
     }
 

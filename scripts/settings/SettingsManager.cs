@@ -229,15 +229,23 @@ public partial class SettingsManager : Node
 
     private void ApplyWindowMode(bool fullscreenEnabled, int width, int height)
     {
-        LastAppliedWindowMode = fullscreenEnabled
+        var targetMode = fullscreenEnabled
             ? DisplayServer.WindowMode.Fullscreen
             : DisplayServer.WindowMode.Windowed;
-        LastAppliedWindowSize = new Vector2I(width, height);
+        var targetSize = new Vector2I(width, height);
 
-        DisplayServer.WindowSetMode(fullscreenEnabled
-            ? DisplayServer.WindowMode.Fullscreen
-            : DisplayServer.WindowMode.Windowed);
-        DisplayServer.WindowSetSize(new Vector2I(width, height));
+        try
+        {
+            DisplayServer.WindowSetMode(targetMode);
+            DisplayServer.WindowSetSize(targetSize);
+            LastAppliedWindowMode = targetMode;
+            LastAppliedWindowSize = targetSize;
+        }
+        catch (Exception ex)
+        {
+            GD.PushError($"Failed to apply window mode {targetMode} at {targetSize}: {ex.Message}");
+            // Do not update LastApplied* — they must reflect what is actually applied
+        }
     }
 
     private static void ApplyAudioSettings(SettingsData settings)

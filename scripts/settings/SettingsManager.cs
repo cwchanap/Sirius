@@ -478,9 +478,14 @@ public partial class SettingsManager : Node
     private static void CleanupFileIfPresent(string userPath)
     {
         var absolutePath = ProjectSettings.GlobalizePath(userPath);
-        if (System.IO.File.Exists(absolutePath))
+        if (!System.IO.File.Exists(absolutePath)) return;
+        try
         {
             System.IO.File.Delete(absolutePath);
+        }
+        catch (Exception ex)
+        {
+            GD.PushWarning($"Failed to clean up temp settings file '{userPath}': {ex.Message}");
         }
     }
 

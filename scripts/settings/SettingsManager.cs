@@ -275,6 +275,7 @@ public partial class SettingsManager : Node
             return busIndex;
         }
 
+        GD.PushWarning($"Audio bus '{busName}' not found in project audio layout — creating it dynamically. Check Godot project audio settings.");
         AudioServer.AddBus(AudioServer.BusCount);
         var newIndex = AudioServer.BusCount - 1;
         AudioServer.SetBusName(newIndex, busName);
@@ -358,6 +359,8 @@ public partial class SettingsManager : Node
     {
         if (!IsValidResolution(candidate.ResolutionWidth, candidate.ResolutionHeight))
         {
+            GD.PushWarning($"Resolution {candidate.ResolutionWidth}x{candidate.ResolutionHeight} is outside the allowed range " +
+                           $"({MinimumResolutionWidth}x{MinimumResolutionHeight} – {MaximumResolutionWidth}x{MaximumResolutionHeight}). Settings not saved.");
             validated = SettingsData.CreateDefaults();
             return false;
         }
@@ -570,6 +573,7 @@ public partial class SettingsManager : Node
             var backupSettings = JsonSerializer.Deserialize<SettingsData>(backupJson, JsonOptions);
             if (backupSettings == null)
             {
+                GD.PushWarning("Backup settings file deserialized to null — treating backup as corrupt. Falling back to defaults.");
                 return false;
             }
 
@@ -582,8 +586,10 @@ public partial class SettingsManager : Node
 
             return true;
         }
-        catch (JsonException)
+        catch (JsonException backupEx)
         {
+            GD.PushError($"Backup settings file is also corrupt — both primary and backup are unreadable. " +
+                         $"Primary error: {primaryException.Message} | Backup error: {backupEx.Message}. Falling back to defaults.");
             return false;
         }
         catch (Exception ex)

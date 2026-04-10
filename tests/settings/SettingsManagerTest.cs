@@ -736,6 +736,29 @@ public partial class SettingsManagerTest : Node
         AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.E);
     }
 
+    [TestCase]
+    public async Task SettingsManager_ApplyAndSave_UnboundActionHasNoEvents()
+    {
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+
+        // toggle_inventory=T, interact=T (duplicate), pause_menu=E (takes interact's default)
+        // → interact resolves to -1 (unbound)
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.T;
+        candidate.PrimaryKeybindings["interact"] = (long)Key.T;
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.E;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+        var snapshot = manager.GetSnapshot();
+
+        // interact must be unbound
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual(-1L);
+
+        // The "interact" action in the InputMap must have NO events (not a broken -1 event)
+        var events = InputMap.ActionGetEvents("interact");
+        AssertThat(events.Count).IsEqual(0);
+    }
+
     private async Task<SettingsManager> BootstrapSettingsManager()
     {
         ResetSingleton();

@@ -292,10 +292,14 @@ public partial class SettingsManager : Node
                 InputMap.ActionEraseEvent(binding.Key, inputEvent);
             }
 
-            InputMap.ActionAddEvent(binding.Key, new InputEventKey
+            if (binding.Value > 0)
             {
-                PhysicalKeycode = (Key)binding.Value
-            });
+                InputMap.ActionAddEvent(binding.Key, new InputEventKey
+                {
+                    PhysicalKeycode = (Key)binding.Value
+                });
+            }
+            // else: action intentionally unbound — leave it with no events
         }
 
         // Mirror the pause_menu key onto ui_cancel so that AcceptDialog-based

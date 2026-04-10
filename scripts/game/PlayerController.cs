@@ -37,6 +37,8 @@ public partial class PlayerController : Node
     
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (_gameManager == null) return;
+
         // Debug output to help track the issue
         if (@event is InputEventKey keyEvent && keyEvent.Pressed)
         {

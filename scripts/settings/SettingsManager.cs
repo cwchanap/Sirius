@@ -420,7 +420,21 @@ public partial class SettingsManager : Node
                 if (!seenKeys.Add(keycode))
                 {
                     var resolvedKeycode = defaultBindings[actionName];
-                    if (seenKeys.Contains(resolvedKeycode))
+                    // Check if the default is already taken in seenKeys OR in normalized (not yet processed)
+                    bool defaultTaken = seenKeys.Contains(resolvedKeycode);
+                    if (!defaultTaken)
+                    {
+                        foreach (var otherAction in actionOrder)
+                        {
+                            if (otherAction != actionName && normalized[otherAction] == resolvedKeycode && resolvedKeycode > 0)
+                            {
+                                defaultTaken = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (defaultTaken)
                     {
                         // Default is also taken — unbind to avoid any conflict.
                         GD.PushWarning($"Duplicate keybinding: '{actionName}' keycode {keycode} conflicts and default {resolvedKeycode} is also taken. Unbinding.");

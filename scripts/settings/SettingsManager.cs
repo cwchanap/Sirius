@@ -169,40 +169,49 @@ public partial class SettingsManager : Node
             var absoluteTempPath = ProjectSettings.GlobalizePath(TempSettingsFile);
             var absoluteBackupPath = ProjectSettings.GlobalizePath(BackupSettingsFile);
 
-            if (System.IO.File.Exists(absoluteBackupPath))
-            {
-                System.IO.File.Delete(absoluteBackupPath);
-            }
-
-            if (System.IO.File.Exists(absoluteTargetPath))
-            {
-                System.IO.File.Move(absoluteTargetPath, absoluteBackupPath);
-            }
-
+            // Safe rotation order:
+            // 1. Rename current settings.json → settings.json.bak  (overwrites old backup)
+            // 2. Rename temp → settings.json
+            // At no point is the previous backup deleted before the new primary is confirmed.
             try
             {
-                System.IO.File.Move(absoluteTempPath, absoluteTargetPath);
-            }
-            catch
-            {
-                if (!System.IO.File.Exists(absoluteTargetPath) && System.IO.File.Exists(absoluteBackupPath))
+                if (System.IO.File.Exists(absoluteTargetPath))
                 {
-                    System.IO.File.Move(absoluteBackupPath, absoluteTargetPath);
+                    System.IO.File.Move(absoluteTargetPath, absoluteBackupPath, overwrite: true);
                 }
 
+                System.IO.File.Move(absoluteTempPath, absoluteTargetPath);
+            }
+            catch (Exception renameEx) when (renameEx is System.IO.IOException or UnauthorizedAccessException)
+            {
+                GD.PushError($"Atomic rename of temp settings file failed: {renameEx.Message}");
+                // If the backup move succeeded but the final rename failed, try to restore
+                // the primary from the backup so the player doesn't lose their settings.
+                if (!System.IO.File.Exists(absoluteTargetPath) && System.IO.File.Exists(absoluteBackupPath))
+                {
+                    try
+                    {
+                        System.IO.File.Move(absoluteBackupPath, absoluteTargetPath);
+                    }
+                    catch (Exception rollbackEx)
+                    {
+                        GD.PushError($"Settings rollback also failed — settings.json may be missing: {rollbackEx.Message}");
+                    }
+                }
                 throw;
             }
 
-            // Keep the backup file around so that startup recovery paths
-            // (ResolveSettingsPathForLoad, TryLoadBackupAfterPrimaryCorruption)
-            // can restore the player's last good settings if settings.json is
-            // deleted or corrupted between launches.
-
             return true;
+        }
+        catch (Exception ex) when (ex is not System.IO.IOException and not UnauthorizedAccessException)
+        {
+            GD.PushError($"Failed to save settings ({ex.GetType().Name}): {ex.Message}");
+            CleanupFileIfPresent(TempSettingsFile);
+            return false;
         }
         catch (Exception ex)
         {
-            GD.PushError($"Failed to save settings: {ex.Message}");
+            GD.PushError($"Failed to save settings ({ex.GetType().Name}): {ex.Message}");
             CleanupFileIfPresent(TempSettingsFile);
             return false;
         }

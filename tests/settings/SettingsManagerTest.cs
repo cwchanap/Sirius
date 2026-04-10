@@ -647,6 +647,39 @@ public partial class SettingsManagerTest : Node
         AssertThat(reloadedManager.GetSnapshot().MasterVolumePercent).IsEqual(60);
     }
 
+    [TestCase]
+    public async Task SettingsManager_SaveToFile_BackupSurvivesFailedRename()
+    {
+        // Arrange: bootstrap with known settings so settings.json and .bak exist
+        var manager = await BootstrapSettingsManager();
+        var first = manager.GetSnapshot();
+        first.MasterVolumePercent = 60;
+        AssertThat(manager.ApplyAndSave(first)).IsTrue();
+
+        // Both files should now exist after two saves
+        var second = manager.GetSnapshot();
+        second.MasterVolumePercent = 80;
+        AssertThat(manager.ApplyAndSave(second)).IsTrue();
+
+        var backupPath = ProjectSettings.GlobalizePath("user://settings.json.bak");
+
+        // Verify backup exists (should contain the 60% save)
+        AssertThat(System.IO.File.Exists(backupPath)).IsTrue();
+
+        // Backup content before the next save should contain 80 (second save became backup)
+        var backupContentBefore = System.IO.File.ReadAllText(backupPath);
+        AssertThat(backupContentBefore.Contains("80")).IsTrue();
+
+        var third = manager.GetSnapshot();
+        third.MasterVolumePercent = 90;
+        AssertThat(manager.ApplyAndSave(third)).IsTrue();
+
+        // After successful save, backup should contain the previous (80%) settings
+        var backupContentAfter = System.IO.File.ReadAllText(backupPath);
+        AssertThat(backupContentAfter.Contains("80")).IsTrue();
+        AssertThat(backupContentAfter.Contains("90")).IsFalse();
+    }
+
     private async Task<SettingsManager> BootstrapSettingsManager()
     {
         ResetSingleton();

@@ -413,6 +413,10 @@ public partial class SettingsManager : Node
             foreach (var actionName in actionOrder)
             {
                 var keycode = normalized[actionName];
+                if (keycode <= 0)
+                {
+                    continue; // unbound actions cannot conflict with each other
+                }
                 if (!seenKeys.Add(keycode))
                 {
                     var resolvedKeycode = defaultBindings[actionName];

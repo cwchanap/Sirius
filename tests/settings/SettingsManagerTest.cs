@@ -696,6 +696,25 @@ public partial class SettingsManagerTest : Node
         AssertThat(snapshot.Difficulty).IsEqual("Normal");
     }
 
+    [TestCase]
+    public async Task SettingsManager_ApplyAndSave_TwoUnboundActionsDoNotConflict()
+    {
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+
+        // Both W and A are reserved movement keys — both get reset to their defaults
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.W;
+        candidate.PrimaryKeybindings["interact"] = (long)Key.A;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+        var snapshot = manager.GetSnapshot();
+
+        // toggle_inventory default (I) is not reserved — resets to I
+        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
+        // interact default (E) is not reserved — resets to E (not treated as duplicate of I)
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
+    }
+
     private async Task<SettingsManager> BootstrapSettingsManager()
     {
         ResetSingleton();

@@ -198,16 +198,12 @@ public partial class SettingsManager : Node
                         GD.PushError($"Settings rollback also failed — settings.json may be missing: {rollbackEx.Message}");
                     }
                 }
-                throw;
+
+                CleanupFileIfPresent(TempSettingsFile);
+                return false;
             }
 
             return true;
-        }
-        catch (Exception ex) when (ex is not System.IO.IOException and not UnauthorizedAccessException)
-        {
-            GD.PushError($"Failed to save settings ({ex.GetType().Name}): {ex.Message}");
-            CleanupFileIfPresent(TempSettingsFile);
-            return false;
         }
         catch (Exception ex)
         {

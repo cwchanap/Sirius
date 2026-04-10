@@ -104,7 +104,13 @@ public partial class SettingsManager : Node
 
             var json = file.GetAsText();
             var loaded = JsonSerializer.Deserialize<SettingsData>(json, JsonOptions);
-            _settings = loaded == null ? SettingsData.CreateDefaults() : Sanitize(loaded);
+            if (loaded == null)
+            {
+                GD.PushError("Settings file deserialized to null — file may be corrupt or empty. Falling back to defaults.");
+                _settings = SettingsData.CreateDefaults();
+                return;
+            }
+            _settings = Sanitize(loaded);
             GD.Print("Settings loaded from disk");
         }
         catch (JsonException ex)
@@ -123,7 +129,7 @@ public partial class SettingsManager : Node
         }
         catch (Exception ex)
         {
-            GD.PushWarning($"Failed to load settings (using defaults): {ex.Message}");
+            GD.PushError($"Unexpected error loading settings ({ex.GetType().Name}): {ex.Message}. Falling back to defaults.");
             _settings = SettingsData.CreateDefaults();
         }
     }

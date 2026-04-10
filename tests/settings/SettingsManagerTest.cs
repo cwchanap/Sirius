@@ -680,6 +680,22 @@ public partial class SettingsManagerTest : Node
         AssertThat(backupContentAfter.Contains("90")).IsFalse();
     }
 
+    [TestCase]
+    public async Task SettingsManager_Ready_NullJsonFileUsesDefaults()
+    {
+        // Write a settings file that contains only the JSON null token
+        var primaryPath = ProjectSettings.GlobalizePath("user://settings.json");
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(primaryPath)!);
+        System.IO.File.WriteAllText(primaryPath, "null");
+
+        // Booting should not crash, and should produce defaults
+        var manager = await BootstrapSettingsManager();
+        var snapshot = manager.GetSnapshot();
+
+        AssertThat(snapshot.MasterVolumePercent).IsEqual(100);
+        AssertThat(snapshot.Difficulty).IsEqual("Normal");
+    }
+
     private async Task<SettingsManager> BootstrapSettingsManager()
     {
         ResetSingleton();

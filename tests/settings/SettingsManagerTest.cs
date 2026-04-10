@@ -715,6 +715,27 @@ public partial class SettingsManagerTest : Node
         AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
     }
 
+    [TestCase]
+    public async Task SettingsManager_NormalizeKeybindings_MultipleUnboundActionsNonConflicting()
+    {
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+
+        // toggle_inventory=T, interact=T (duplicate), pause_menu=E (takes interact's default)
+        // → interact should resolve to -1 (unbound) because T is taken and E is taken by pause_menu
+        // The -1 for interact must NOT collide with any other -1 in the HashSet
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.T;
+        candidate.PrimaryKeybindings["interact"] = (long)Key.T;
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.E;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+        var snapshot = manager.GetSnapshot();
+
+        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.T);
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual(-1L);
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.E);
+    }
+
     private async Task<SettingsManager> BootstrapSettingsManager()
     {
         ResetSingleton();

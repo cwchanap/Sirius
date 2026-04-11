@@ -76,13 +76,35 @@ public partial class SettingsManager : Node
             return false;
         }
 
-        if (!SaveToFile(validated))
+        // Apply to runtime first so we can detect platform failures (e.g. an
+        // unsupported window mode) before persisting to disk.  If the runtime
+        // rejects the setting, rolling back avoids saving a config that
+        // doesn't match the live state and would fail again on next launch.
+        var previousSettings = _settings;
+        _settings = validated;
+        ApplyToRuntime(_settings);
+
+        // ApplyWindowMode logs but swallows exceptions; LastApplied* only
+        // update on success.  If they don't match, the platform rejected the
+        // mode — roll back both memory and runtime.
+        var expectedMode = validated.FullscreenEnabled
+            ? DisplayServer.WindowMode.Fullscreen
+            : DisplayServer.WindowMode.Windowed;
+        if (LastAppliedWindowMode != expectedMode)
         {
+            GD.PushWarning($"Window mode {expectedMode} was rejected by the platform. Settings not saved.");
+            _settings = previousSettings;
+            ApplyToRuntime(_settings);
             return false;
         }
 
-        _settings = validated;
-        ApplyToRuntime(_settings);
+        if (!SaveToFile(validated))
+        {
+            _settings = previousSettings;
+            ApplyToRuntime(_settings);
+            return false;
+        }
+
         return true;
     }
 
@@ -398,12 +420,25 @@ public partial class SettingsManager : Node
         // Reject reserved keys (movement + built-in UI keys).  If a managed action
         // collides with one, reset it to default so movement and dialog controls
         // remain functional.
+        //
+        // Exception: pause_menu is allowed to use UI navigation keys (Escape,
+        // Enter, Space, Tab) because Game._Input() already avoids consuming
+        // the event during NPC interactions (see Game._Input ~line 267), and
+        // ApplyInputBindings mirrors pause_menu onto ui_cancel so AcceptDialog
+        // dismissal works.  Movement keys are still rejected for pause_menu
+        // because Game._Input() would swallow them before PlayerController
+        // can process movement.
         var defaultsForReserved = SettingsData.CreateDefaultKeybindings();
         foreach (var actionName in new System.Collections.Generic.List<string>(normalized.Keys))
         {
             var keycode = normalized[actionName];
             if (keycode > 0 && ReservedKeys.Contains(keycode))
             {
+                if (actionName == "pause_menu" && !IsMovementKey(keycode))
+                {
+                    continue;
+                }
+
                 var defaultKey = defaultsForReserved[actionName];
                 if (ReservedKeys.Contains(defaultKey))
                 {
@@ -517,6 +552,12 @@ public partial class SettingsManager : Node
 
         return Enum.IsDefined(typeof(Key), (Key)value);
     }
+
+    private static bool IsMovementKey(long keycode) =>
+        keycode == (long)Key.W || keycode == (long)Key.A ||
+        keycode == (long)Key.S || keycode == (long)Key.D ||
+        keycode == (long)Key.Up || keycode == (long)Key.Down ||
+        keycode == (long)Key.Left || keycode == (long)Key.Right;
 
     private static void CleanupFileIfPresent(string userPath)
     {

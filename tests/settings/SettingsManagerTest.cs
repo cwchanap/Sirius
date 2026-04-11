@@ -526,6 +526,66 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
+    public async Task SettingsManager_PauseMenuRemapToEnter_MirrorsOntoUiCancel()
+    {
+        // Enter is a UI key (backs ui_accept); pause_menu should be allowed
+        // to use it because Game._Input() avoids consuming the event during
+        // NPC interactions and the key is mirrored onto ui_cancel.
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Enter;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Enter);
+        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Enter);
+
+        var snapshot = manager.GetSnapshot();
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Enter);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_PauseMenuRemapToSpace_MirrorsOntoUiCancel()
+    {
+        // Space is a UI key (backs ui_accept); pause_menu should be allowed
+        // to use it for the same reason as Enter and Tab.
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Space;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Space);
+        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Space);
+
+        var snapshot = manager.GetSnapshot();
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Space);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_PauseMenuRemapToEscape_AcceptedAsDefault()
+    {
+        // Escape is the default pause_menu key and is also a UI key; remapping
+        // back to it explicitly should work (no regression from the reserved
+        // key fix).
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        // First remap away from default
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.P;
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.P);
+
+        // Now remap back to Escape
+        candidate = manager.GetSnapshot();
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Escape;
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Escape);
+        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Escape);
+        AssertThat(manager.GetSnapshot().PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
+    }
+
+    [TestCase]
     public async Task SettingsManager_MovementKeyW_RejectedAndResetToDefault()
     {
         var manager = await BootstrapSettingsManager();

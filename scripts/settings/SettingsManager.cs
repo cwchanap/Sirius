@@ -579,6 +579,11 @@ public partial class SettingsManager : Node
 
             GD.PushWarning($"Primary settings file was corrupt. Restoring from backup. {primaryException.Message}");
             _settings = Sanitize(backupSettings);
+
+            // Delete the corrupt primary before saving so that SaveToFile's rotation
+            // does not overwrite the good backup with the corrupt file.
+            CleanupFileIfPresent(SettingsFile);
+
             if (!SaveToFile(_settings))
             {
                 GD.PushWarning("Failed to rewrite settings after recovering from backup.");

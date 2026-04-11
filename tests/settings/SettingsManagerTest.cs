@@ -211,6 +211,10 @@ public partial class SettingsManagerTest : Node
 
         AssertThat(manager.GetSnapshot().MasterVolumePercent).IsEqual(55);
         AssertThat(File.ReadAllText(settingsPath)).Contains("\"MasterVolumePercent\": 55");
+
+        // The good backup must be preserved — not overwritten with the corrupt primary.
+        AssertThat(File.Exists(backupPath)).IsTrue();
+        AssertThat(File.ReadAllText(backupPath)).Contains("\"MasterVolumePercent\": 55");
     }
 
     [TestCase]

@@ -13,13 +13,17 @@ public partial class SettingsManager : Node
     private const int MaximumResolutionWidth = 7680;
     private const int MaximumResolutionHeight = 4320;
 
-    // Keys reserved for hard-coded movement in PlayerController._UnhandledInput().
-    // Until movement is action-based, the settings layer must reject these to avoid
-    // swallowing directional input via Game._Input().
-    private static readonly System.Collections.Generic.HashSet<long> ReservedMovementKeys = new()
+    // Keys that must not be used as remappable game action bindings.
+    // Movement keys (W/A/S/D, arrows) are hard-coded in PlayerController._UnhandledInput()
+    // and would be swallowed by Game._Input() if also mapped to an action.
+    // UI keys (Escape, Enter, Space, Tab) back Godot's built-in ui_cancel / ui_accept /
+    // ui_focus_next actions; binding a game action to one of these causes Game._Input()
+    // to consume the event before AcceptDialog / SaveLoadDialog controls can see it.
+    private static readonly System.Collections.Generic.HashSet<long> ReservedKeys = new()
     {
         (long)Key.W, (long)Key.A, (long)Key.S, (long)Key.D,
-        (long)Key.Up, (long)Key.Down, (long)Key.Left, (long)Key.Right
+        (long)Key.Up, (long)Key.Down, (long)Key.Left, (long)Key.Right,
+        (long)Key.Escape, (long)Key.Enter, (long)Key.KpEnter, (long)Key.Space, (long)Key.Tab
     };
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -391,24 +395,24 @@ public partial class SettingsManager : Node
             }
         }
 
-        // Reject keys reserved for hard-coded movement.  If a managed action
-        // collides with W/A/S/D or arrow keys, reset it to default so the
-        // player doesn't lose a movement direction.
+        // Reject reserved keys (movement + built-in UI keys).  If a managed action
+        // collides with one, reset it to default so movement and dialog controls
+        // remain functional.
         var defaultsForReserved = SettingsData.CreateDefaultKeybindings();
         foreach (var actionName in new System.Collections.Generic.List<string>(normalized.Keys))
         {
             var keycode = normalized[actionName];
-            if (keycode > 0 && ReservedMovementKeys.Contains(keycode))
+            if (keycode > 0 && ReservedKeys.Contains(keycode))
             {
                 var defaultKey = defaultsForReserved[actionName];
-                if (ReservedMovementKeys.Contains(defaultKey))
+                if (ReservedKeys.Contains(defaultKey))
                 {
-                    GD.PushWarning($"Keybinding '{actionName}' uses reserved movement key {keycode} and default {defaultKey} is also reserved. Unbinding.");
+                    GD.PushWarning($"Keybinding '{actionName}' uses reserved key {keycode} and default {defaultKey} is also reserved. Unbinding.");
                     normalized[actionName] = -1;
                 }
                 else
                 {
-                    GD.PushWarning($"Keybinding '{actionName}' uses reserved movement key {keycode}. Resetting to default {defaultKey}.");
+                    GD.PushWarning($"Keybinding '{actionName}' uses reserved key {keycode}. Resetting to default {defaultKey}.");
                     normalized[actionName] = defaultKey;
                 }
             }

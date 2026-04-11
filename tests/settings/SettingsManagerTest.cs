@@ -706,7 +706,7 @@ public partial class SettingsManagerTest : Node
         var manager = await BootstrapSettingsManager();
         var candidate = manager.GetSnapshot();
 
-        // Both W and A are reserved movement keys — both get reset to their defaults
+        // Both W and A are reserved keys — both get reset to their defaults
         candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.W;
         candidate.PrimaryKeybindings["interact"] = (long)Key.A;
 
@@ -716,6 +716,25 @@ public partial class SettingsManagerTest : Node
         // toggle_inventory default (I) is not reserved — resets to I
         AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
         // interact default (E) is not reserved — resets to E (not treated as duplicate of I)
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_ApplyAndSave_UiKeysAreRejected()
+    {
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+
+        // Enter and Space back Godot's ui_accept; binding a game action to them
+        // would let Game._Input() steal events from AcceptDialog controls.
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.Enter;
+        candidate.PrimaryKeybindings["interact"] = (long)Key.Space;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+        var snapshot = manager.GetSnapshot();
+
+        // Both must be reset to their non-reserved defaults
+        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
         AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
     }
 

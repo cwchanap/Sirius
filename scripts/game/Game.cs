@@ -253,52 +253,55 @@ public partial class Game : Node2D
             }
         }
 
-        // Handle ESC
-        if (@event is InputEventKey keyEvent && keyEvent.Pressed)
+        // Handle pause menu (ESC / remapped key)
+        if (@event.IsActionPressed("pause_menu"))
         {
-            if (keyEvent.Keycode == Key.Escape)
+            // Close inventory if open
+            if (_inventoryMenu != null && _inventoryMenu.Visible)
             {
-                // Close inventory if open
-                if (_inventoryMenu != null && _inventoryMenu.Visible)
-                {
-                    _inventoryMenu.CloseMenu();
-                    GetViewport().SetInputAsHandled();
-                    return;
-                }
+                _inventoryMenu.CloseMenu();
+                GetViewport().SetInputAsHandled();
+                return;
+            }
 
-                if (_gameManager.IsInNpcInteraction)
-                {
-                    return;
-                }
+            if (_gameManager.IsInNpcInteraction)
+            {
+                // Don't consume the event — AcceptDialog-based NPC modals
+                // (DialogueDialog, ShopDialog, HealDialog) rely on ESC reaching
+                // them to emit Canceled/CloseRequested.  Just skip pause-menu
+                // logic so the dialog can dismiss itself.
+                return;
+            }
 
-                if (!_gameManager.IsInBattle)
+            if (!_gameManager.IsInBattle)
+            {
+                // Not in battle: show save menu (or close it if open)
+                if (_saveLoadDialog != null && _saveLoadDialog.Visible)
                 {
-                    // Not in battle: show save menu (or close it if open)
-                    if (_saveLoadDialog != null && _saveLoadDialog.Visible)
-                    {
-                        CleanupSaveDialog();
-                    }
-                    else
-                    {
-                        ShowSaveMenu();
-                    }
+                    CleanupSaveDialog();
+                }
+                else
+                {
+                    ShowSaveMenu();
+                }
+                GetViewport().SetInputAsHandled();
+            }
+            else
+            {
+                // In battle: close the battle dialog as an escape to unlock input
+                if (_battleManager != null)
+                {
+                    GD.Print("ESC pressed during battle - requesting battle dialog to close as escape");
+                    _battleManager.ForceCloseAsEscape();
                     GetViewport().SetInputAsHandled();
                 }
                 else
                 {
-                    // In battle: close the battle dialog as an escape to unlock input
-                    if (_battleManager != null)
-                    {
-                        GD.Print("ESC pressed during battle - requesting battle dialog to close as escape");
-                        _battleManager.ForceCloseAsEscape();
-                    }
-                    else
-                    {
-                        // Fallback safety: if dialog reference missing, force-clear battle state
-                        GD.PrintErr("ESC pressed during battle but BattleManager is null - forcing EndBattle(escaped)");
-                        _gameManager.EndBattle(false); // treat as not won (escape); no enemy removal here
-                        UpdatePlayerUI();
-                    }
+                    // Fallback safety: if dialog reference missing, force-clear battle state
+                    GD.PrintErr("ESC pressed during battle but BattleManager is null - forcing EndBattle(escaped)");
+                    _gameManager.EndBattle(false); // treat as not won (escape); no enemy removal here
+                    UpdatePlayerUI();
+                    GetViewport().SetInputAsHandled();
                 }
             }
         }

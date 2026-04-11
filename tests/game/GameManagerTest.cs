@@ -39,14 +39,30 @@ public partial class GameManagerTest : Node
     {
         _originalVerboseOrphans = ProjectSettings.GetSetting("gdunit4/report/verbose_orphans");
         ProjectSettings.SetSetting("gdunit4/report/verbose_orphans", false);
+
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        await PurgeManagerNodes(sceneTree);
+
         ResetSingleton();
         // Create a fresh GameManager instance for each test
         _gameManager = new GameManager
         {
             AutoSaveEnabled = false
         };
-        var sceneTree = (SceneTree)Engine.GetMainLoop();
         sceneTree.Root.AddChild(_gameManager);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+    }
+
+    private async Task PurgeManagerNodes(SceneTree sceneTree)
+    {
+        foreach (var child in sceneTree.Root.GetChildren())
+        {
+            if (child is GameManager || child is SettingsManager)
+            {
+                child.QueueFree();
+            }
+        }
+
         await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
     }
 

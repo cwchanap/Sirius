@@ -53,6 +53,34 @@ public partial class PlayerControllerTest : Node
         AssertThat(GetPrivateField<int>(controller, "_targetStairIndex")).IsEqual(-1);
     }
 
+    [TestCase]
+    public void UnhandledInput_PendingStairTransitionWithValidState_ClearsPendingAndCallsTransition()
+    {
+        var controller = new PlayerController();
+        var gameManager = new GameManager();
+        var floorManager = new FloorManager();
+        SetPrivateField(controller, "_gameManager", gameManager);
+        SetPrivateField(controller, "_floorManager", floorManager);
+        // Arm valid pending stair state
+        SetPrivateField(controller, "_pendingStairTransition", true);
+        SetPrivateField(controller, "_targetFloor", 1);
+        SetPrivateField(controller, "_isGoingUp", true);
+        SetPrivateField(controller, "_targetStairIndex", 0);
+
+        controller._UnhandledInput(CreateInteractEvent());
+
+        // The happy path clears all pending state after calling TransitionToFloor
+        AssertThat(GetPrivateField<bool>(controller, "_pendingStairTransition")).IsFalse();
+        AssertThat(GetPrivateField<int>(controller, "_targetFloor")).IsEqual(-1);
+        AssertThat(GetPrivateField<bool>(controller, "_isGoingUp")).IsFalse();
+        AssertThat(GetPrivateField<int>(controller, "_targetStairIndex")).IsEqual(-1);
+
+        // Cleanup
+        floorManager.Free();
+        gameManager.Free();
+        controller.Free();
+    }
+
     private static InputEventAction CreateInteractEvent()
     {
         return new InputEventAction

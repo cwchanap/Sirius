@@ -7,7 +7,7 @@ using static GdUnit4.Assertions;
 
 [TestSuite]
 [RequireGodotRuntime]
-public partial class GameInputHandlingTest : Node
+public partial class GameTest : Node
 {
     private TestableGame? _game;
     private SubViewport? _viewport;

@@ -514,54 +514,65 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
-    public async Task SettingsManager_PauseMenuRemapToTab_MirrorsOntoUiCancel()
+    public async Task SettingsManager_PauseMenuRemapToTab_ReservedKeyRejected()
     {
-        // Second key to confirm the mirror is not hardcoded to a specific key.
+        // Tab is a UI key that backs ui_focus_next.  Remapping pause_menu to
+        // Tab would mirror it onto ui_cancel, creating a dual-action where a
+        // single Tab press both changes focus AND cancels the dialog.
+        // NormalizeKeybindings must reject it and reset to default (Escape).
         var manager = await BootstrapSettingsManager();
         var candidate = manager.GetSnapshot();
         candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Tab;
 
         AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
 
-        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Tab);
-        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Tab);
+        var snapshot = manager.GetSnapshot();
+        // Tab is rejected; pause_menu reset to default Escape
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
+        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Escape);
+        // ui_cancel mirrors the reset pause_menu key (Escape)
+        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Escape);
     }
 
     [TestCase]
-    public async Task SettingsManager_PauseMenuRemapToEnter_MirrorsOntoUiCancel()
+    public async Task SettingsManager_PauseMenuRemapToEnter_ReservedKeyRejected()
     {
-        // Enter is a UI key (backs ui_accept); pause_menu should be allowed
-        // to use it because Game._Input() avoids consuming the event during
-        // NPC interactions and the key is mirrored onto ui_cancel.
+        // Enter is a UI key that backs ui_accept.  Remapping pause_menu to
+        // Enter would mirror it onto ui_cancel, creating a dual-action where a
+        // single Enter press both confirms AND cancels modals (NPC AcceptDialog,
+        // SaveLoadDialog, etc.).  NormalizeKeybindings must reject it and reset
+        // to default (Escape).
         var manager = await BootstrapSettingsManager();
         var candidate = manager.GetSnapshot();
         candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Enter;
 
         AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
 
-        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Enter);
-        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Enter);
-
         var snapshot = manager.GetSnapshot();
-        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Enter);
+        // Enter is rejected; pause_menu reset to default Escape
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
+        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Escape);
+        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Escape);
     }
 
     [TestCase]
-    public async Task SettingsManager_PauseMenuRemapToSpace_MirrorsOntoUiCancel()
+    public async Task SettingsManager_PauseMenuRemapToSpace_ReservedKeyRejected()
     {
-        // Space is a UI key (backs ui_accept); pause_menu should be allowed
-        // to use it for the same reason as Enter and Tab.
+        // Space is a UI key that backs ui_accept.  Remapping pause_menu to
+        // Space would mirror it onto ui_cancel, creating a dual-action where a
+        // single Space press both confirms AND cancels modals.
+        // NormalizeKeybindings must reject it and reset to default (Escape).
         var manager = await BootstrapSettingsManager();
         var candidate = manager.GetSnapshot();
         candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Space;
 
         AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
 
-        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Space);
-        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Space);
-
         var snapshot = manager.GetSnapshot();
-        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Space);
+        // Space is rejected; pause_menu reset to default Escape
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
+        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Escape);
+        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Escape);
     }
 
     [TestCase]

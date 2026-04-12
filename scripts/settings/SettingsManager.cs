@@ -421,20 +421,21 @@ public partial class SettingsManager : Node
         // collides with one, reset it to default so movement and dialog controls
         // remain functional.
         //
-        // Exception: pause_menu is allowed to use UI navigation keys (Escape,
-        // Enter, Space, Tab) because Game._Input() already avoids consuming
-        // the event during NPC interactions (see Game._Input ~line 267), and
-        // ApplyInputBindings mirrors pause_menu onto ui_cancel so AcceptDialog
-        // dismissal works.  Movement keys are still rejected for pause_menu
-        // because Game._Input() would swallow them before PlayerController
-        // can process movement.
+        // Exception: pause_menu is allowed to use Escape because it only backs
+        // ui_cancel — the same action ApplyInputBindings mirrors pause_menu onto
+        // — so there is no dual-action conflict.  Enter/Space/Tab are rejected
+        // because they also back ui_accept / ui_focus_next; mirroring pause_menu
+        // onto ui_cancel for those keys means a single press simultaneously
+        // confirms AND cancels modals (NPC AcceptDialog, SaveLoadDialog, etc.).
+        // Movement keys are still rejected for pause_menu because Game._Input()
+        // would swallow them before PlayerController can process movement.
         var defaultsForReserved = SettingsData.CreateDefaultKeybindings();
         foreach (var actionName in new System.Collections.Generic.List<string>(normalized.Keys))
         {
             var keycode = normalized[actionName];
             if (keycode > 0 && ReservedKeys.Contains(keycode))
             {
-                if (actionName == "pause_menu" && !IsMovementKey(keycode))
+                if (actionName == "pause_menu" && keycode == (long)Key.Escape)
                 {
                     continue;
                 }

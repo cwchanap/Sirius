@@ -80,7 +80,7 @@ public partial class SettingsManagerTest : Node
         candidate.ResolutionWidth = 1600;
         candidate.ResolutionHeight = 900;
         candidate.PrimaryKeybindings["pause_menu"] = (long)Key.P;
-        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.Tab;
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.Q;
 
         AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
 
@@ -100,7 +100,7 @@ public partial class SettingsManagerTest : Node
         AssertThat(snapshot.ResolutionHeight).IsEqual(900);
         AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.P);
         AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.P);
-        AssertThat(GetPrimaryKey("toggle_inventory")).IsEqual((long)Key.Tab);
+        AssertThat(GetPrimaryKey("toggle_inventory")).IsEqual((long)Key.Q);
         AssertThat(rebootedManager.LastAppliedWindowMode).IsEqual(DisplayServer.WindowMode.Fullscreen);
         AssertThat(rebootedManager.LastAppliedWindowSize).IsEqual(new Vector2I(1600, 900));
         AssertThat(Mathf.Abs(AudioServer.GetBusVolumeDb(AudioServer.GetBusIndex("Master")) - expectedMasterDb)).IsLess(0.01f);
@@ -383,52 +383,55 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
-    public async Task SettingsManager_InteractRemappedToEscape_PauseMenuLeftUnboundNotDuplicated()
+    public async Task SettingsManager_InteractRemappedToEscape_ReservedKeyRejected()
     {
         var manager = await BootstrapSettingsManager();
         var candidate = manager.GetSnapshot();
-        // Player remaps interact to Escape — now interact and pause_menu both use Escape.
-        // interact is earlier in default-order iteration, so it keeps Escape.
-        // pause_menu is the "duplicate". Its default is also Escape (already taken).
-        // The fallback must NOT force pause_menu back to Escape because that would
-        // recreate the duplicate the loop just resolved.
+        // Reset all bindings to defaults to ensure a clean slate regardless of
+        // what previous tests left in the live SettingsManager state.
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
+        candidate.PrimaryKeybindings["interact"] = (long)Key.E;
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Escape;
+
+        // Player tries to remap interact to Escape.  Escape is a reserved UI
+        // key, and interact is not pause_menu, so NormalizeKeybindings rejects
+        // it and resets interact to its default (E).  pause_menu is unaffected
+        // — it keeps Escape (its default) because pause_menu is exempted from
+        // reserved-key rejection for non-movement keys.
         candidate.PrimaryKeybindings["interact"] = (long)Key.Escape;
         candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Escape;
 
         AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
 
         var snapshot = manager.GetSnapshot();
-        // interact keeps Escape (first in default order)
-        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.Escape);
-        // pause_menu default (Escape) is taken by interact → stays unbound (-1)
-        // to avoid recreating the duplicate.
-        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual(-1);
-        // interact should be the one bound to Escape in the InputMap
-        AssertThat(GetPrimaryKey("interact")).IsEqual((long)Key.Escape);
-        // ui_cancel should be explicitly reset to the default pause_menu key
-        // (Escape) rather than retaining a stale binding or being left with
-        // an invalid key when pause_menu is -1.
+        // interact is reset to its default E (reserved key rejected)
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
+        // pause_menu keeps Escape — no conflict because interact was reset
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
+        // InputMap reflects the normalized bindings
+        AssertThat(GetPrimaryKey("interact")).IsEqual((long)Key.E);
+        AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Escape);
     }
 
     [TestCase]
-    public async Task SettingsManager_ToggleInventoryRemappedToEscape_PauseMenuLeftUnbound()
+    public async Task SettingsManager_ToggleInventoryRemappedToEscape_ReservedKeyRejected()
     {
         var manager = await BootstrapSettingsManager();
         var candidate = manager.GetSnapshot();
-        // Player remaps toggle_inventory to Escape — now toggle_inventory and
-        // pause_menu both use Escape.  toggle_inventory is first in default
-        // order so it keeps Escape.  pause_menu is a duplicate; its default
-        // (Escape) is also taken.  The fallback must NOT force pause_menu back
-        // to Escape because that would recreate the duplicate.
+        // Player tries to remap toggle_inventory to Escape.  Escape is a
+        // reserved UI key and toggle_inventory is not pause_menu, so it gets
+        // reset to its default (I).  pause_menu keeps Escape (exempted).
         candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.Escape;
         candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Escape;
 
         AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
 
         var snapshot = manager.GetSnapshot();
-        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.Escape);
-        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual(-1);
-        AssertThat(GetPrimaryKey("toggle_inventory")).IsEqual((long)Key.Escape);
+        // toggle_inventory is reset to its default I (reserved key rejected)
+        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
+        // pause_menu keeps Escape — no conflict because toggle_inventory was reset
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
+        AssertThat(GetPrimaryKey("toggle_inventory")).IsEqual((long)Key.I);
     }
 
     [TestCase]
@@ -452,7 +455,7 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
-    public async Task SettingsManager_PauseMenuUnboundAfterRemap_UiCancelResetsToDefault()
+    public async Task SettingsManager_PauseMenuRemapRestored_UiCancelMirrorsChange()
     {
         // First save: bind pause_menu to P, which mirrors ui_cancel to P.
         var manager = await BootstrapSettingsManager();
@@ -462,16 +465,15 @@ public partial class SettingsManagerTest : Node
         AssertThat(manager.ApplyAndSave(firstCandidate)).IsTrue();
         AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.P);
 
-        // Second save: force pause_menu to -1 by claiming its default key
-        // (Escape) with toggle_inventory.  ui_cancel must reset to Escape
-        // rather than retaining the stale P binding from the first save.
+        // Second save: restore pause_menu to its default (Escape).
+        // ui_cancel must mirror to Escape rather than retaining the stale P
+        // binding from the first save.
         var secondCandidate = manager.GetSnapshot();
-        secondCandidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.Escape;
         secondCandidate.PrimaryKeybindings["pause_menu"] = (long)Key.Escape;
 
         AssertThat(manager.ApplyAndSave(secondCandidate)).IsTrue();
 
-        AssertThat(manager.GetSnapshot().PrimaryKeybindings["pause_menu"]).IsEqual(-1);
+        AssertThat(manager.GetSnapshot().PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
         AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Escape);
     }
 
@@ -480,16 +482,16 @@ public partial class SettingsManagerTest : Node
     {
         var manager = await BootstrapSettingsManager();
         var candidate = manager.GetSnapshot();
-        // All three actions on the same key — only the first keeps it.
-        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.Space;
-        candidate.PrimaryKeybindings["interact"] = (long)Key.Space;
-        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.Space;
+        // All three actions on the same non-reserved key — only the first keeps it.
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.T;
+        candidate.PrimaryKeybindings["interact"] = (long)Key.T;
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.T;
 
         AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
 
         var snapshot = manager.GetSnapshot();
-        // toggle_inventory keeps Space (first in default order)
-        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.Space);
+        // toggle_inventory keeps T (first in default order)
+        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.T);
         // interact defaults to E (not taken) → resets to E
         AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
         // pause_menu defaults to Escape (not taken) → resets to Escape

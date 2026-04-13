@@ -16,7 +16,7 @@ public partial class SettingsManagerTest : Node
     private long? _originalUiCancelKey;
     private DisplayServer.WindowMode _originalWindowMode;
     private Vector2I _originalWindowSize;
-    private float _originalMasterDb;
+    private Dictionary<int, float> _originalBusVolumes = new();
     private int _originalBusCount;
 
     private static readonly string[] ManagedActions =
@@ -725,7 +725,7 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
-    public async Task SettingsManager_SaveToFile_BackupSurvivesFailedRename()
+    public async Task SettingsManager_SaveToFile_BackupRotatedAfterSuccessfulSave()
     {
         // Arrange: bootstrap with known settings so settings.json and .bak exist
         var manager = await BootstrapSettingsManager();
@@ -981,8 +981,12 @@ public partial class SettingsManagerTest : Node
 
         _originalWindowMode = DisplayServer.WindowGetMode();
         _originalWindowSize = DisplayServer.WindowGetSize();
-        _originalMasterDb = AudioServer.GetBusVolumeDb(AudioServer.GetBusIndex("Master"));
         _originalBusCount = AudioServer.BusCount;
+        _originalBusVolumes = new Dictionary<int, float>();
+        for (int i = 0; i < _originalBusCount; i++)
+        {
+            _originalBusVolumes[i] = AudioServer.GetBusVolumeDb(i);
+        }
     }
 
     private void RestoreRuntimeState()
@@ -1014,7 +1018,15 @@ public partial class SettingsManagerTest : Node
 
         DisplayServer.WindowSetMode(_originalWindowMode);
         DisplayServer.WindowSetSize(_originalWindowSize);
-        AudioServer.SetBusVolumeDb(AudioServer.GetBusIndex("Master"), _originalMasterDb);
+
+        // Restore all bus volumes (Master, Music, SFX, etc.)
+        foreach (var (busIndex, volumeDb) in _originalBusVolumes)
+        {
+            if (busIndex < AudioServer.BusCount)
+            {
+                AudioServer.SetBusVolumeDb(busIndex, volumeDb);
+            }
+        }
     }
 
     private static void SetPrimaryKey(string actionName, Key key)

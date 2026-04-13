@@ -153,7 +153,7 @@ public partial class GameTest : Node
         return null;
     }
 
-    private partial class TestableGame : Game
+    public partial class TestableGame : Game
     {
         public override void _Ready()
         {

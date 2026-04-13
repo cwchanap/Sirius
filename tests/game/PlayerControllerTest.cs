@@ -81,6 +81,25 @@ public partial class PlayerControllerTest : Node
         controller.Free();
     }
 
+    [TestCase]
+    public void QueueStairTransition_OnlyQueuesDoesNotAutoTransition()
+    {
+        var controller = new PlayerController();
+        var floorManager = new FloorManager();
+        SetPrivateField(controller, "_floorManager", floorManager);
+
+        // QueueStairTransition should only set pending state — NOT call TransitionToFloor
+        InvokePrivateMethod(controller, "QueueStairTransition", 2, true, 0);
+
+        AssertThat(GetPrivateField<bool>(controller, "_pendingStairTransition")).IsTrue();
+        AssertThat(GetPrivateField<int>(controller, "_targetFloor")).IsEqual(2);
+        AssertThat(GetPrivateField<bool>(controller, "_isGoingUp")).IsTrue();
+        AssertThat(GetPrivateField<int>(controller, "_targetStairIndex")).IsEqual(0);
+
+        floorManager.Free();
+        controller.Free();
+    }
+
     private static InputEventAction CreateInteractEvent()
     {
         return new InputEventAction

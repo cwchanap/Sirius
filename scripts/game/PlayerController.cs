@@ -147,11 +147,10 @@ public partial class PlayerController : Node
             
             if (hasStair && !_pendingStairTransition)
             {
-                // Automatically transition to the target floor
+                // Queue the transition — the player must press the interact
+                // action to actually change floors.
                 QueueStairTransition(targetFloor, isUp, stairIndex);
-                GD.Print($"🪜 Stepping on stairs! Auto-transitioning {(isUp ? "up" : "down")} to floor {targetFloor}...");
-                _floorManager.TransitionToFloor(_targetFloor, _isGoingUp, _targetStairIndex);
-                ClearPendingStairTransition();
+                GD.Print($"🪜 Standing on stairs. Press interact to go {(isUp ? "up" : "down")} to floor {targetFloor}.");
             }
         }
         else

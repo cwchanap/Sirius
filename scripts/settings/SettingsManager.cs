@@ -132,6 +132,14 @@ public partial class SettingsManager : Node
             var loaded = JsonSerializer.Deserialize<SettingsData>(json, JsonOptions);
             if (loaded == null)
             {
+                // `null` JSON token deserializes without throwing, but the file is
+                // still corrupt.  Try the backup before giving up on the player's
+                // settings entirely.
+                if (pathToRead == SettingsFile && TryLoadBackupAfterPrimaryCorruption(null))
+                {
+                    return;
+                }
+
                 GD.PushError("Settings file deserialized to null — file may be corrupt or empty. Falling back to defaults.");
                 _settings = SettingsData.CreateDefaults();
                 return;
@@ -600,7 +608,7 @@ public partial class SettingsManager : Node
         }
     }
 
-    private bool TryLoadBackupAfterPrimaryCorruption(JsonException primaryException)
+    private bool TryLoadBackupAfterPrimaryCorruption(JsonException? primaryException)
     {
         if (!FileAccess.FileExists(BackupSettingsFile))
         {
@@ -623,7 +631,8 @@ public partial class SettingsManager : Node
                 return false;
             }
 
-            GD.PushWarning($"Primary settings file was corrupt. Restoring from backup. {primaryException.Message}");
+            var reason = primaryException?.Message ?? "File deserialized to null";
+            GD.PushWarning($"Primary settings file was corrupt. Restoring from backup. {reason}");
             _settings = Sanitize(backupSettings);
 
             // Delete the corrupt primary before saving so that SaveToFile's rotation
@@ -640,7 +649,7 @@ public partial class SettingsManager : Node
         catch (JsonException backupEx)
         {
             GD.PushError($"Backup settings file is also corrupt — both primary and backup are unreadable. " +
-                         $"Primary error: {primaryException.Message} | Backup error: {backupEx.Message}. Falling back to defaults.");
+                         $"Primary error: {primaryException?.Message ?? "File deserialized to null"} | Backup error: {backupEx.Message}. Falling back to defaults.");
             return false;
         }
         catch (Exception ex)

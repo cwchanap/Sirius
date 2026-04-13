@@ -56,18 +56,30 @@ public partial class PlayerController : Node
         }
         
         // Handle stair interaction
-        if (@event.IsActionPressed("interact") && _pendingStairTransition)
+        if (@event.IsActionPressed("interact"))
         {
-            if (_targetFloor < 0 || _targetStairIndex < 0)
+            // Re-check for stairs in case we arrived via floor transition.
+            // CheckForStairs is normally called only after movement, so a player
+            // landing directly on a stair via TransitionToFloor would have no
+            // pending transition queued.
+            if (!_pendingStairTransition)
             {
-                GD.PrintErr("Stair transition requested with invalid pending state. Clearing pending transition.");
-                ClearPendingStairTransition();
-                return;
+                CheckForStairs();
             }
 
-            GD.Print($"Taking stairs {(_isGoingUp ? "up" : "down")} to floor {_targetFloor}");
-            _floorManager?.TransitionToFloor(_targetFloor, _isGoingUp, _targetStairIndex);
-            ClearPendingStairTransition();
+            if (_pendingStairTransition)
+            {
+                if (_targetFloor < 0 || _targetStairIndex < 0)
+                {
+                    GD.PrintErr("Stair transition requested with invalid pending state. Clearing pending transition.");
+                    ClearPendingStairTransition();
+                    return;
+                }
+
+                GD.Print($"Taking stairs {(_isGoingUp ? "up" : "down")} to floor {_targetFloor}");
+                _floorManager?.TransitionToFloor(_targetFloor, _isGoingUp, _targetStairIndex);
+                ClearPendingStairTransition();
+            }
             return;
         }
 

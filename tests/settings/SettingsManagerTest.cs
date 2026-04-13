@@ -760,10 +760,17 @@ public partial class SettingsManagerTest : Node
     [TestCase]
     public async Task SettingsManager_Ready_NullJsonFileUsesDefaults()
     {
-        // Write a settings file that contains only the JSON null token
+        // Write a settings file that contains only the JSON null token.
+        // Explicitly ensure no backup exists so the manager falls to defaults
+        // (not a leaked backup from a previous test).
         var primaryPath = ProjectSettings.GlobalizePath("user://settings.json");
+        var backupPath = ProjectSettings.GlobalizePath("user://settings.json.bak");
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(primaryPath)!);
         System.IO.File.WriteAllText(primaryPath, "null");
+        if (System.IO.File.Exists(backupPath))
+        {
+            System.IO.File.Delete(backupPath);
+        }
 
         // Booting should not crash, and should produce defaults
         var manager = await BootstrapSettingsManager();
@@ -771,6 +778,45 @@ public partial class SettingsManagerTest : Node
 
         AssertThat(snapshot.MasterVolumePercent).IsEqual(100);
         AssertThat(snapshot.Difficulty).IsEqual("Normal");
+    }
+
+    [TestCase]
+    public async Task SettingsManager_Ready_NullJsonFileWithValidBackup_RecoversFromBackup()
+    {
+        // Primary contains "null" — deserialize succeeds but returns null.
+        // A valid backup exists and should be recovered instead of defaults.
+        var primaryPath = ProjectSettings.GlobalizePath("user://settings.json");
+        var backupPath = ProjectSettings.GlobalizePath("user://settings.json.bak");
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(primaryPath)!);
+        System.IO.File.WriteAllText(primaryPath, "null");
+        System.IO.File.WriteAllText(backupPath, """
+            {
+              "Version": 1,
+              "MasterVolumePercent": 42,
+              "MusicVolumePercent": 60,
+              "SfxVolumePercent": 70,
+              "Difficulty": "Hard",
+              "FullscreenEnabled": false,
+              "ResolutionWidth": 1280,
+              "ResolutionHeight": 720,
+              "AutoSaveEnabled": true,
+              "PrimaryKeybindings": {
+                "toggle_inventory": 73,
+                "interact": 69,
+                "pause_menu": 4194305
+              }
+            }
+            """);
+
+        var manager = await BootstrapSettingsManager();
+        var snapshot = manager.GetSnapshot();
+
+        // Backup values must be recovered, not factory defaults
+        AssertThat(snapshot.MasterVolumePercent).IsEqual(42);
+        AssertThat(snapshot.Difficulty).IsEqual("Hard");
+
+        // Primary must be rewritten with recovered settings
+        AssertThat(File.ReadAllText(primaryPath)).Contains("\"MasterVolumePercent\": 42");
     }
 
     [TestCase]

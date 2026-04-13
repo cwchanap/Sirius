@@ -111,6 +111,56 @@ public partial class GameTest : Node
         AssertThat(_viewport!.IsInputHandled()).IsFalse();
     }
 
+    [TestCase]
+    public void PauseMenu_WhenSaveDialogHasActiveChildDialog_DismissesOnlyChild()
+    {
+        // Simulate the save dialog being open with an overwrite confirmation
+        var saveLoadDialog = new SaveLoadDialog();
+        SetPrivateField(_game!, "_saveLoadDialog", saveLoadDialog);
+        // The dialog needs to be in the tree for IsInstanceValid to work
+        _viewport!.AddChild(saveLoadDialog);
+        saveLoadDialog.Hide(); // Simulate "visible but child dialog on top"
+
+        // Manually set up an active confirm dialog on the SaveLoadDialog
+        var confirmDialog = new AcceptDialog();
+        SetPrivateField(saveLoadDialog, "_activeConfirmDialog", confirmDialog);
+        SetPrivateField(saveLoadDialog, "_pendingSaveSlot", 1);
+
+        // Verify pre-condition: HasActiveChildDialog is true
+        AssertThat(saveLoadDialog.HasActiveChildDialog).IsTrue();
+
+        // Simulate the save dialog being visible
+        saveLoadDialog.Show();
+
+        PushPauseEvent();
+
+        // The child dialog should have been dismissed, not the entire save flow
+        AssertThat(saveLoadDialog.HasActiveChildDialog).IsFalse();
+        // The save dialog itself should still be referenced (not cleaned up)
+        AssertThat(GetPrivateField<SaveLoadDialog?>(_game!, "_saveLoadDialog")).IsNotNull();
+
+        // Cleanup
+        if (IsInstanceValid(saveLoadDialog)) saveLoadDialog.QueueFree();
+    }
+
+    [TestCase]
+    public void PauseMenu_WhenSaveDialogVisibleWithoutChild_CleansUpEntireDialog()
+    {
+        // Simulate the save dialog being open without any child dialog
+        var saveLoadDialog = new SaveLoadDialog();
+        SetPrivateField(_game!, "_saveLoadDialog", saveLoadDialog);
+        _viewport!.AddChild(saveLoadDialog);
+        saveLoadDialog.Show();
+
+        // Verify pre-condition: no active child dialog
+        AssertThat(saveLoadDialog.HasActiveChildDialog).IsFalse();
+
+        PushPauseEvent();
+
+        // The entire save dialog should have been cleaned up
+        AssertThat(GetPrivateField<SaveLoadDialog?>(_game!, "_saveLoadDialog")).IsNull();
+    }
+
     private void PushPauseEvent()
     {
         var evt = CreatePauseEvent();
@@ -135,6 +185,17 @@ public partial class GameTest : Node
         }
 
         field.SetValue(instance, value);
+    }
+
+    private static T GetPrivateField<T>(object instance, string fieldName)
+    {
+        var field = FindPrivateField(instance.GetType(), fieldName);
+        if (field == null)
+        {
+            throw new MissingFieldException(instance.GetType().FullName, fieldName);
+        }
+
+        return (T)field.GetValue(instance)!;
     }
 
     private static FieldInfo? FindPrivateField(Type? type, string fieldName)

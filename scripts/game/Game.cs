@@ -278,7 +278,16 @@ public partial class Game : Node2D
                 // Not in battle: show save menu (or close it if open)
                 if (_saveLoadDialog != null && _saveLoadDialog.Visible)
                 {
-                    CleanupSaveDialog();
+                    // If a child confirmation dialog (e.g. overwrite) is active,
+                    // dismiss just the child so the player stays in the save flow.
+                    if (_saveLoadDialog.HasActiveChildDialog)
+                    {
+                        _saveLoadDialog.DismissActiveChildDialog();
+                    }
+                    else
+                    {
+                        CleanupSaveDialog();
+                    }
                 }
                 else
                 {

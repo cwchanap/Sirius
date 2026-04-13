@@ -327,6 +327,28 @@ public partial class SaveLoadDialog : AcceptDialog
         EmitSignal(SignalName.DialogClosed);
     }
 
+    /// <summary>
+    /// True when an overwrite-confirmation (or similar) child dialog is showing.
+    /// Used by Game._Input to avoid tearing down the entire save flow when the
+    /// player presses the cancel key during a child dialog.
+    /// </summary>
+    public bool HasActiveChildDialog =>
+        _activeConfirmDialog != null && IsInstanceValid(_activeConfirmDialog);
+
+    /// <summary>
+    /// Dismiss just the active child confirmation dialog, leaving the save
+    /// dialog itself open so the player can pick a different slot.
+    /// </summary>
+    public void DismissActiveChildDialog()
+    {
+        if (_activeConfirmDialog != null && IsInstanceValid(_activeConfirmDialog))
+        {
+            _activeConfirmDialog.QueueFree();
+        }
+        _activeConfirmDialog = null;
+        _pendingSaveSlot = -1;
+    }
+
     private void OnCloseRequested()
     {
         Hide();

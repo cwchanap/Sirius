@@ -901,6 +901,57 @@ public partial class SettingsManagerTest : Node
         AssertThat(events.Count).IsEqual(0);
     }
 
+    [TestCase]
+    public async Task SettingsManager_InteractUnbound_DefaultAvailable_ForcedBackToDefault()
+    {
+        // Step 1: Create a conflict that leaves interact=-1.
+        var manager = await BootstrapSettingsManager();
+        var first = manager.GetSnapshot();
+        first.PrimaryKeybindings["toggle_inventory"] = (long)Key.E;
+        first.PrimaryKeybindings["interact"] = (long)Key.E;
+        AssertThat(manager.ApplyAndSave(first)).IsTrue();
+        var snap = manager.GetSnapshot();
+        AssertThat(snap.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.E);
+        // interact default (E) is taken by toggle_inventory → stays -1
+        AssertThat(snap.PrimaryKeybindings["interact"]).IsEqual(-1L);
+
+        // Step 2: Change toggle_inventory away from E but keep interact at -1.
+        // On reload, the fallback should recover interact to E (now available).
+        var second = manager.GetSnapshot();
+        second.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
+        AssertThat(manager.ApplyAndSave(second)).IsTrue();
+
+        var reloadedManager = await RebootSettingsManager();
+        var final = reloadedManager.GetSnapshot();
+        AssertThat(final.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
+        // interact recovered from -1 to its default E because E is no longer taken
+        AssertThat(final.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
+        AssertThat(GetPrimaryKey("interact")).IsEqual((long)Key.E);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_InteractUnbound_DefaultTaken_StaysUnboundAfterReload()
+    {
+        // interact resolves to -1 because both its key and default are taken.
+        // After save/reload, the -1 sentinel should survive normalization (Fix 2)
+        // and the fallback should leave it -1 because the default is still taken.
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.E;
+        candidate.PrimaryKeybindings["interact"] = (long)Key.E;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        var reloadedManager = await RebootSettingsManager();
+        var snapshot = reloadedManager.GetSnapshot();
+
+        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.E);
+        // interact stays -1: default E is taken by toggle_inventory
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual(-1L);
+        // InputMap should have no events for the unbound action
+        AssertThat(InputMap.ActionGetEvents("interact").Count).IsEqual(0);
+    }
+
     private async Task<SettingsManager> BootstrapSettingsManager()
     {
         ResetSingleton();

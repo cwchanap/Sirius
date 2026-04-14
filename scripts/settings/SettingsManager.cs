@@ -415,7 +415,7 @@ public partial class SettingsManager : Node
 
         foreach (var (actionName, defaultKeycode) in SettingsData.CreateDefaultKeybindings())
         {
-            if (keybindings.TryGetValue(actionName, out var keycode) && IsValidKeycode(keycode))
+            if (keybindings.TryGetValue(actionName, out var keycode) && (keycode == -1 || IsValidKeycode(keycode)))
             {
                 normalized[actionName] = keycode;
             }
@@ -514,36 +514,55 @@ public partial class SettingsManager : Node
             if (!changed) break;
         }
 
-        // pause_menu mirrors onto ui_cancel (AcceptDialog dismiss).  It must
-        // never be left unbound or every modal in the game becomes unclosable.
-        // Only force back to default if the default key is not already claimed
-        // by another action — otherwise we'd recreate the duplicate the loop
-        // just resolved.
+        // Required actions must never be left unbound.  For each, if the
+        // duplicate-resolution loop set it to -1, try to force it back to its
+        // default key — unless another action already claimed that key, in which
+        // case we log a warning and leave it unbound (the player must reassign
+        // manually via the settings menu).
+
+        // pause_menu mirrors onto ui_cancel (AcceptDialog dismiss).  Without it,
+        // every modal in the game becomes unclosable.
         if (normalized["pause_menu"] == -1)
         {
-            var pauseDefault = defaultBindings["pause_menu"];
-            bool defaultTaken = false;
-            foreach (var actionName in actionOrder)
-            {
-                if (actionName != "pause_menu" && normalized[actionName] == pauseDefault)
-                {
-                    defaultTaken = true;
-                    break;
-                }
-            }
+            ForceDefaultIfAvailable(normalized, actionOrder, "pause_menu", defaultBindings);
+        }
 
-            if (!defaultTaken)
-            {
-                GD.PushWarning($"pause_menu resolved to unbound; forcing back to default {pauseDefault} to preserve ui_cancel.");
-                normalized["pause_menu"] = pauseDefault;
-            }
-            else
-            {
-                GD.PushWarning($"pause_menu resolved to unbound and its default {pauseDefault} is already taken by another action. Leaving unbound — the player must reassign pause_menu manually.");
-            }
+        // interact gates stair traversal (PlayerController._UnhandledInput).
+        // Leaving it unbound prevents floor changes and blocks game progress.
+        if (normalized["interact"] == -1)
+        {
+            ForceDefaultIfAvailable(normalized, actionOrder, "interact", defaultBindings);
         }
 
         return normalized;
+    }
+
+    private static void ForceDefaultIfAvailable(
+        System.Collections.Generic.Dictionary<string, long> normalized,
+        System.Collections.Generic.List<string> actionOrder,
+        string actionName,
+        System.Collections.Generic.Dictionary<string, long> defaultBindings)
+    {
+        var defaultKey = defaultBindings[actionName];
+        bool defaultTaken = false;
+        foreach (var other in actionOrder)
+        {
+            if (other != actionName && normalized[other] == defaultKey)
+            {
+                defaultTaken = true;
+                break;
+            }
+        }
+
+        if (!defaultTaken)
+        {
+            GD.PushWarning($"{actionName} resolved to unbound; forcing back to default {defaultKey}.");
+            normalized[actionName] = defaultKey;
+        }
+        else
+        {
+            GD.PushWarning($"{actionName} resolved to unbound and its default {defaultKey} is already taken by another action. Leaving unbound — the player must reassign {actionName} manually.");
+        }
     }
 
     private static bool IsValidResolution(int width, int height) =>

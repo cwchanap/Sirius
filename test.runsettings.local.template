@@ -11,6 +11,6 @@
     </EnvironmentVariables>
   </RunConfiguration>
   <GdUnit4>
-    <Parameters>"--headless"</Parameters>
+    <Parameters>--headless</Parameters>
   </GdUnit4>
 </RunSettings>

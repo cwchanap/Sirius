@@ -142,6 +142,10 @@ public partial class SettingsManager : Node
 
                 GD.PushError("Settings file deserialized to null — file may be corrupt or empty. Falling back to defaults.");
                 _settings = SettingsData.CreateDefaults();
+                if (!SaveToFile(_settings))
+                {
+                    GD.PushWarning("Failed to rewrite defaults after settings corruption was detected.");
+                }
                 return;
             }
             _settings = Sanitize(loaded);

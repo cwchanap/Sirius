@@ -778,6 +778,34 @@ public partial class SettingsManagerTest : Node
 
         AssertThat(snapshot.MasterVolumePercent).IsEqual(100);
         AssertThat(snapshot.Difficulty).IsEqual("Normal");
+
+        // The corrupt "null" file must be rewritten with defaults so the next
+        // launch does not hit the same error path again.
+        AssertThat(File.ReadAllText(primaryPath)).Contains("\"MasterVolumePercent\": 100");
+    }
+
+    [TestCase]
+    public async Task SettingsManager_Ready_NullJsonFile_SelfHealsOnNextBoot()
+    {
+        // Write a settings file that contains only the JSON null token.
+        var primaryPath = ProjectSettings.GlobalizePath("user://settings.json");
+        var backupPath = ProjectSettings.GlobalizePath("user://settings.json.bak");
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(primaryPath)!);
+        System.IO.File.WriteAllText(primaryPath, "null");
+        if (System.IO.File.Exists(backupPath))
+        {
+            System.IO.File.Delete(backupPath);
+        }
+
+        // First boot — should rewrite defaults to disk.
+        var first = await BootstrapSettingsManager();
+        AssertThat(first.GetSnapshot().MasterVolumePercent).IsEqual(100);
+
+        // Second boot — the file should no longer be "null"; settings should
+        // load normally from the rewritten file without hitting the error path.
+        var second = await RebootSettingsManager();
+        AssertThat(second.GetSnapshot().MasterVolumePercent).IsEqual(100);
+        AssertThat(second.GetSnapshot().Difficulty).IsEqual("Normal");
     }
 
     [TestCase]

@@ -99,21 +99,11 @@ public partial class GameTest : Node
     }
 
     [TestCase]
-    public void PauseMenu_WhenInNpcInteraction_DoesNotConsumeInput()
-    {
-        _gameManager!.StartNpcInteraction();
-
-        PushPauseEvent();
-
-        // Input must NOT be marked as handled — AcceptDialog-based NPC modals
-        // (DialogueDialog, ShopDialog, HealDialog) need ESC to reach them so
-        // they can emit Canceled / CloseRequested and dismiss themselves.
-        AssertThat(_viewport!.IsInputHandled()).IsFalse();
-    }
-
-    [TestCase]
     public void PauseMenu_WhenSaveDialogHasActiveChildDialog_DismissesOnlyChild()
     {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
         // Simulate the save dialog being open with an overwrite confirmation
         var saveLoadDialog = new SaveLoadDialog();
         SetPrivateField(_game!, "_saveLoadDialog", saveLoadDialog);
@@ -132,7 +122,7 @@ public partial class GameTest : Node
         // Simulate the save dialog being visible
         saveLoadDialog.Show();
 
-        PushPauseEvent();
+        _game!.InvokePauseMenu();
 
         // The child dialog should have been dismissed, not the entire save flow
         AssertThat(saveLoadDialog.HasActiveChildDialog).IsFalse();
@@ -146,6 +136,9 @@ public partial class GameTest : Node
     [TestCase]
     public void PauseMenu_WhenSaveDialogVisibleWithoutChild_CleansUpEntireDialog()
     {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
         // Simulate the save dialog being open without any child dialog
         var saveLoadDialog = new SaveLoadDialog();
         SetPrivateField(_game!, "_saveLoadDialog", saveLoadDialog);
@@ -155,10 +148,23 @@ public partial class GameTest : Node
         // Verify pre-condition: no active child dialog
         AssertThat(saveLoadDialog.HasActiveChildDialog).IsFalse();
 
-        PushPauseEvent();
+        _game!.InvokePauseMenu();
 
         // The entire save dialog should have been cleaned up
         AssertThat(GetPrivateField<SaveLoadDialog?>(_game!, "_saveLoadDialog")).IsNull();
+    }
+
+    [TestCase]
+    public void PauseMenu_WhenInNpcInteraction_DoesNotConsumeInput()
+    {
+        _gameManager!.StartNpcInteraction();
+
+        PushPauseEvent();
+
+        // Input must NOT be marked as handled — AcceptDialog-based NPC modals
+        // (DialogueDialog, ShopDialog, HealDialog) need ESC to reach them so
+        // they can emit Canceled / CloseRequested and dismiss themselves.
+        AssertThat(_viewport!.IsInputHandled()).IsFalse();
     }
 
     private void PushPauseEvent()
@@ -218,6 +224,11 @@ public partial class GameTest : Node
     {
         public override void _Ready()
         {
+        }
+
+        public void InvokePauseMenu()
+        {
+            HandlePauseMenuInput();
         }
     }
 }

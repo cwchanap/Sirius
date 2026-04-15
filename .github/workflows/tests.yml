@@ -53,7 +53,13 @@ jobs:
         run: echo "$HOME/godot" >> $GITHUB_PATH
       
       - name: Set GODOT_BIN
-        run: echo "GODOT_BIN=$HOME/godot/godot" >> $GITHUB_ENV
+        run: |
+          cat <<'EOF' > "$HOME/godot/godot-headless"
+          #!/usr/bin/env bash
+          exec "$HOME/godot/godot" --headless "$@"
+          EOF
+          chmod +x "$HOME/godot/godot-headless"
+          echo "GODOT_BIN=$HOME/godot/godot-headless" >> $GITHUB_ENV
 
       - name: Verify Godot installation
         run: |

@@ -103,8 +103,8 @@ jobs:
       - name: Run .NET tests (alternative)
         if: failure()
         run: |
-          # Fallback: try running via dotnet test without build requirement
-          dotnet test Sirius.csproj --no-build --verbosity normal --logger "console;verbosity=detailed" || true
+          # Fallback: re-run under xvfb-run to reproduce display-related failures
+          xvfb-run -a dotnet test Sirius.csproj --configuration Release --no-build --verbosity normal -m:1 --logger "console;verbosity=detailed" --settings test.runsettings || true
 
       - name: Upload test results
         if: always()

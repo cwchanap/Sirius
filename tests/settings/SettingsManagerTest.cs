@@ -12,8 +12,8 @@ public partial class SettingsManagerTest : Node
 {
     private SettingsManager? _settingsManager;
     private GameManager? _gameManager;
-    private Dictionary<string, long?> _originalBindings = new();
-    private long? _originalUiCancelKey;
+    private Dictionary<string, List<InputEvent>> _originalBindings = new();
+    private List<InputEvent> _originalUiCancelEvents = new();
     private DisplayServer.WindowMode _originalWindowMode;
     private Vector2I _originalWindowSize;
     private Dictionary<int, float> _originalBusVolumes = new();
@@ -740,21 +740,24 @@ public partial class SettingsManagerTest : Node
 
         var backupPath = ProjectSettings.GlobalizePath("user://settings.json.bak");
 
-        // Verify backup exists (should contain the 60% save)
+        // Verify backup exists (should contain the first save, i.e. 60%)
         AssertThat(System.IO.File.Exists(backupPath)).IsTrue();
 
-        // Backup content before the next save should contain 80 (second save became backup)
+        // After the second save (80%), the backup should hold the previous settings (60%)
         var backupContentBefore = System.IO.File.ReadAllText(backupPath);
-        AssertThat(backupContentBefore.Contains("80")).IsTrue();
+        var backupBefore = System.Text.Json.JsonSerializer.Deserialize<SettingsData>(backupContentBefore);
+        AssertThat(backupBefore).IsNotNull();
+        AssertThat(backupBefore!.MasterVolumePercent).IsEqual(60);
 
         var third = manager.GetSnapshot();
         third.MasterVolumePercent = 90;
         AssertThat(manager.ApplyAndSave(third)).IsTrue();
 
-        // After successful save, backup should contain the previous (80%) settings
+        // After the third save (90%), the backup should hold the second save's values (80%)
         var backupContentAfter = System.IO.File.ReadAllText(backupPath);
-        AssertThat(backupContentAfter.Contains("80")).IsTrue();
-        AssertThat(backupContentAfter.Contains("90")).IsFalse();
+        var backupAfter = System.Text.Json.JsonSerializer.Deserialize<SettingsData>(backupContentAfter);
+        AssertThat(backupAfter).IsNotNull();
+        AssertThat(backupAfter!.MasterVolumePercent).IsEqual(80);
     }
 
     [TestCase]
@@ -1095,14 +1098,18 @@ public partial class SettingsManagerTest : Node
 
     private void CaptureRuntimeState()
     {
-        _originalBindings = new Dictionary<string, long?>();
+        _originalBindings = new Dictionary<string, List<InputEvent>>();
         foreach (var action in ManagedActions)
         {
-            _originalBindings[action] = InputMap.HasAction(action) ? GetPrimaryKey(action) : null;
+            _originalBindings[action] = InputMap.HasAction(action)
+                ? new List<InputEvent>(InputMap.ActionGetEvents(action))
+                : new List<InputEvent>();
         }
 
         // Also capture ui_cancel since ApplyInputBindings now mirrors pause_menu onto it.
-        _originalUiCancelKey = InputMap.HasAction("ui_cancel") ? GetPrimaryKey("ui_cancel") : null;
+        _originalUiCancelEvents = InputMap.HasAction("ui_cancel")
+            ? new List<InputEvent>(InputMap.ActionGetEvents("ui_cancel"))
+            : new List<InputEvent>();
 
         _originalWindowMode = DisplayServer.WindowGetMode();
         _originalWindowSize = DisplayServer.WindowGetSize();
@@ -1123,17 +1130,34 @@ public partial class SettingsManagerTest : Node
                 InputMap.EraseAction(action);
             }
 
-            var originalKey = _originalBindings[action];
-            if (originalKey.HasValue)
+            var originalEvents = _originalBindings[action];
+            if (originalEvents.Count > 0)
             {
-                SetPrimaryKey(action, (Key)originalKey.Value);
+                if (!InputMap.HasAction(action))
+                {
+                    InputMap.AddAction(action);
+                }
+
+                foreach (var evt in originalEvents)
+                {
+                    InputMap.ActionAddEvent(action, evt);
+                }
             }
         }
 
-        // Restore ui_cancel to its original binding.
-        if (_originalUiCancelKey.HasValue && InputMap.HasAction("ui_cancel"))
+        // Restore ui_cancel to its original full event list.
+        if (_originalUiCancelEvents.Count > 0)
         {
-            SetPrimaryKey("ui_cancel", (Key)_originalUiCancelKey.Value);
+            if (InputMap.HasAction("ui_cancel"))
+            {
+                InputMap.EraseAction("ui_cancel");
+            }
+
+            InputMap.AddAction("ui_cancel");
+            foreach (var evt in _originalUiCancelEvents)
+            {
+                InputMap.ActionAddEvent("ui_cancel", evt);
+            }
         }
 
         while (AudioServer.BusCount > _originalBusCount)

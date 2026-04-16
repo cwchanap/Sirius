@@ -31,6 +31,7 @@ public partial class SettingsManagerTest : Node
     {
         ResetSingleton();
         ResetGameManagerSingleton();
+        ResetSettingsManagerOverrides();
         DeleteSettingsFiles();
         CaptureRuntimeState();
         await EnsureManagersFreed();
@@ -42,6 +43,7 @@ public partial class SettingsManagerTest : Node
         await EnsureManagersFreed();
         ResetSingleton();
         ResetGameManagerSingleton();
+        ResetSettingsManagerOverrides();
         RestoreRuntimeState();
         DeleteSettingsFiles();
     }
@@ -410,6 +412,7 @@ public partial class SettingsManagerTest : Node
         var snapshot = manager.GetSnapshot();
         // interact keeps E (set first in default keybinding order), pause_menu resets to Escape
         AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
+        // pause_menu defaults to Escape (not taken) → resets to Escape
         AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
         AssertThat(GetPrimaryKey("interact")).IsEqual((long)Key.E);
         AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.Escape);
@@ -770,6 +773,77 @@ public partial class SettingsManagerTest : Node
                 Directory.Delete(tmpPath, true);
             }
         }
+
+        var reloadedManager = await RebootSettingsManager();
+        AssertThat(reloadedManager.GetSnapshot().MasterVolumePercent).IsEqual(60);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_ApplyAndSave_RejectedWindowSizeDoesNotPersistResolution()
+    {
+        var manager = await BootstrapSettingsManager();
+        var baseline = manager.GetSnapshot();
+        AssertThat(manager.ApplyAndSave(baseline)).IsTrue();
+
+        var settingsPath = ProjectSettings.GlobalizePath("user://settings.json");
+        SettingsManager.WindowSetModeOverride = mode => DisplayServer.WindowSetMode(mode);
+        SettingsManager.WindowSetSizeOverride = size =>
+        {
+            if (size == new Vector2I(1600, 900))
+            {
+                throw new InvalidOperationException("simulated size rejection");
+            }
+
+            DisplayServer.WindowSetSize(size);
+        };
+
+        var candidate = manager.GetSnapshot();
+        candidate.ResolutionWidth = 1600;
+        candidate.ResolutionHeight = 900;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsFalse();
+        AssertThat(manager.GetSnapshot().ResolutionWidth).IsEqual(1280);
+        AssertThat(manager.GetSnapshot().ResolutionHeight).IsEqual(720);
+        AssertThat(manager.LastAppliedWindowMode).IsEqual(DisplayServer.WindowMode.Windowed);
+        AssertThat(manager.LastAppliedWindowSize).IsEqual(new Vector2I(1280, 720));
+        AssertThat(File.ReadAllText(settingsPath)).Contains("\"ResolutionWidth\": 1280");
+        AssertThat(File.ReadAllText(settingsPath)).Contains("\"ResolutionHeight\": 720");
+
+        ResetSettingsManagerOverrides();
+
+        var reloadedManager = await RebootSettingsManager();
+        AssertThat(reloadedManager.GetSnapshot().ResolutionWidth).IsEqual(1280);
+        AssertThat(reloadedManager.GetSnapshot().ResolutionHeight).IsEqual(720);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_ApplyAndSave_RenameFailureRollbackPreservesBackup()
+    {
+        var manager = await BootstrapSettingsManager();
+        var baseline = manager.GetSnapshot();
+        baseline.MasterVolumePercent = 60;
+        AssertThat(manager.ApplyAndSave(baseline)).IsTrue();
+
+        var settingsPath = ProjectSettings.GlobalizePath("user://settings.json");
+        var backupPath = ProjectSettings.GlobalizePath("user://settings.json.bak");
+        var tempPath = ProjectSettings.GlobalizePath("user://settings.json.tmp");
+        var originalJson = File.ReadAllText(settingsPath);
+
+        SettingsManager.FileMoveWithOverwriteOverride = (sourcePath, destinationPath, overwrite) => System.IO.File.Move(sourcePath, destinationPath, overwrite);
+        SettingsManager.FileMoveOverride = (_, _) => throw new IOException("simulated rename failure");
+
+        var candidate = manager.GetSnapshot();
+        candidate.MasterVolumePercent = 80;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsFalse();
+        AssertThat(manager.GetSnapshot().MasterVolumePercent).IsEqual(60);
+        AssertThat(File.Exists(settingsPath)).IsTrue();
+        AssertThat(File.Exists(backupPath)).IsTrue();
+        AssertThat(File.Exists(tempPath)).IsFalse();
+        AssertThat(File.ReadAllText(settingsPath)).IsEqual(originalJson);
+        AssertThat(File.ReadAllText(backupPath)).IsEqual(originalJson);
+
+        ResetSettingsManagerOverrides();
 
         var reloadedManager = await RebootSettingsManager();
         AssertThat(reloadedManager.GetSnapshot().MasterVolumePercent).IsEqual(60);
@@ -1145,6 +1219,14 @@ public partial class SettingsManagerTest : Node
         }
 
         throw new InvalidOperationException("Failed to reset GameManager singleton.");
+    }
+
+    private static void ResetSettingsManagerOverrides()
+    {
+        SettingsManager.WindowSetModeOverride = null;
+        SettingsManager.WindowSetSizeOverride = null;
+        SettingsManager.FileMoveWithOverwriteOverride = null;
+        SettingsManager.FileMoveOverride = null;
     }
 
     private void CaptureRuntimeState()

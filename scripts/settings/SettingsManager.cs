@@ -34,6 +34,10 @@ public partial class SettingsManager : Node
     private SettingsData _settings = SettingsData.CreateDefaults();
     internal DisplayServer.WindowMode LastAppliedWindowMode { get; private set; } = DisplayServer.WindowMode.Windowed;
     internal Vector2I LastAppliedWindowSize { get; private set; } = new(1280, 720);
+    internal static Action<DisplayServer.WindowMode>? WindowSetModeOverride { get; set; }
+    internal static Action<Vector2I>? WindowSetSizeOverride { get; set; }
+    internal static Action<string, string, bool>? FileMoveWithOverwriteOverride { get; set; }
+    internal static Action<string, string>? FileMoveOverride { get; set; }
 
     public override void _Ready()
     {
@@ -84,15 +88,13 @@ public partial class SettingsManager : Node
         _settings = validated;
         ApplyToRuntime(_settings);
 
-        // ApplyWindowMode logs but swallows exceptions; LastApplied* only
-        // update on success.  If they don't match, the platform rejected the
-        // mode — roll back both memory and runtime.
         var expectedMode = validated.FullscreenEnabled
             ? DisplayServer.WindowMode.Fullscreen
             : DisplayServer.WindowMode.Windowed;
-        if (LastAppliedWindowMode != expectedMode)
+        var expectedSize = new Vector2I(validated.ResolutionWidth, validated.ResolutionHeight);
+        if (LastAppliedWindowMode != expectedMode || LastAppliedWindowSize != expectedSize)
         {
-            GD.PushWarning($"Window mode {expectedMode} was rejected by the platform. Settings not saved.");
+            GD.PushWarning($"Window settings {expectedMode} at {expectedSize} were rejected by the platform. Settings not saved.");
             _settings = previousSettings;
             ApplyToRuntime(_settings);
             return false;
@@ -227,10 +229,10 @@ public partial class SettingsManager : Node
             {
                 if (System.IO.File.Exists(absoluteTargetPath))
                 {
-                    System.IO.File.Move(absoluteTargetPath, absoluteBackupPath, overwrite: true);
+                    MoveFile(absoluteTargetPath, absoluteBackupPath, overwrite: true);
                 }
 
-                System.IO.File.Move(absoluteTempPath, absoluteTargetPath);
+                MoveFile(absoluteTempPath, absoluteTargetPath);
             }
             catch (Exception renameEx) when (renameEx is System.IO.IOException or UnauthorizedAccessException)
             {
@@ -241,7 +243,7 @@ public partial class SettingsManager : Node
                 {
                     try
                     {
-                        System.IO.File.Move(absoluteBackupPath, absoluteTargetPath);
+                        System.IO.File.Copy(absoluteBackupPath, absoluteTargetPath, overwrite: true);
                     }
                     catch (Exception rollbackEx)
                     {
@@ -280,8 +282,8 @@ public partial class SettingsManager : Node
 
         try
         {
-            DisplayServer.WindowSetMode(targetMode);
-            DisplayServer.WindowSetSize(targetSize);
+            SetWindowMode(targetMode);
+            SetWindowSize(targetSize);
             LastAppliedWindowMode = targetMode;
             LastAppliedWindowSize = targetSize;
         }
@@ -596,6 +598,50 @@ public partial class SettingsManager : Node
         keycode == (long)Key.S || keycode == (long)Key.D ||
         keycode == (long)Key.Up || keycode == (long)Key.Down ||
         keycode == (long)Key.Left || keycode == (long)Key.Right;
+
+    private static void SetWindowMode(DisplayServer.WindowMode mode)
+    {
+        if (WindowSetModeOverride != null)
+        {
+            WindowSetModeOverride(mode);
+            return;
+        }
+
+        DisplayServer.WindowSetMode(mode);
+    }
+
+    private static void SetWindowSize(Vector2I size)
+    {
+        if (WindowSetSizeOverride != null)
+        {
+            WindowSetSizeOverride(size);
+            return;
+        }
+
+        DisplayServer.WindowSetSize(size);
+    }
+
+    private static void MoveFile(string sourcePath, string destinationPath, bool overwrite)
+    {
+        if (FileMoveWithOverwriteOverride != null)
+        {
+            FileMoveWithOverwriteOverride(sourcePath, destinationPath, overwrite);
+            return;
+        }
+
+        System.IO.File.Move(sourcePath, destinationPath, overwrite);
+    }
+
+    private static void MoveFile(string sourcePath, string destinationPath)
+    {
+        if (FileMoveOverride != null)
+        {
+            FileMoveOverride(sourcePath, destinationPath);
+            return;
+        }
+
+        System.IO.File.Move(sourcePath, destinationPath);
+    }
 
     private static void CleanupFileIfPresent(string userPath)
     {

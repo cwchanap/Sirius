@@ -290,9 +290,14 @@ public partial class Game : Node2D
                 {
                     _saveLoadDialog.DismissActiveChildDialog();
                 }
+                else if (_saveLoadDialog.Visible)
+                {
+                    CleanupSaveDialog();
+                }
                 else
                 {
                     CleanupSaveDialog();
+                    ShowSaveMenu();
                 }
             }
             else

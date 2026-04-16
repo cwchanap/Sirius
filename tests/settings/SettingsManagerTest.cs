@@ -218,6 +218,57 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
+    public async Task SettingsManager_Ready_UnreadablePrimaryUsesValidBackup()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var settingsPath = ProjectSettings.GlobalizePath("user://settings.json");
+        var backupPath = ProjectSettings.GlobalizePath("user://settings.json.bak");
+        var validBackupJson = """
+            {
+              "Version": 1,
+              "MasterVolumePercent": 55,
+              "MusicVolumePercent": 40,
+              "SfxVolumePercent": 30,
+              "Difficulty": "Normal",
+              "FullscreenEnabled": false,
+              "ResolutionWidth": 1280,
+              "ResolutionHeight": 720,
+              "AutoSaveEnabled": true,
+              "PrimaryKeybindings": {
+                "toggle_inventory": 73,
+                "interact": 69,
+                "pause_menu": 4194305
+              }
+            }
+            """;
+        File.WriteAllText(settingsPath, "{ unreadable primary");
+        File.WriteAllText(backupPath, validBackupJson);
+
+        try
+        {
+            File.SetUnixFileMode(settingsPath, UnixFileMode.None);
+
+            var manager = await BootstrapSettingsManager();
+
+            AssertThat(manager.GetSnapshot().MasterVolumePercent).IsEqual(55);
+            AssertThat(File.ReadAllText(settingsPath)).Contains("\"MasterVolumePercent\": 55");
+            AssertThat(File.Exists(backupPath)).IsTrue();
+            AssertThat(File.ReadAllText(backupPath)).Contains("\"MasterVolumePercent\": 55");
+        }
+        finally
+        {
+            if (File.Exists(settingsPath))
+            {
+                File.SetUnixFileMode(settingsPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
+        }
+    }
+
+    [TestCase]
     public async Task SettingsManager_Ready_CorruptBackupFallsBackToDefaults()
     {
         var gameManager = await BootstrapGameManager(autoSaveEnabled: false);

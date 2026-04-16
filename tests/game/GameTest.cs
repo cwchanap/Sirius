@@ -155,6 +155,31 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void PauseMenu_WhenSaveDialogIsHidden_ReopensSaveMenu()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        var ui = new CanvasLayer
+        {
+            Name = "UI"
+        };
+        _game!.AddChild(ui);
+
+        var staleDialog = new SaveLoadDialog();
+        SetPrivateField(_game, "_saveLoadDialog", staleDialog);
+        _viewport!.AddChild(staleDialog);
+        staleDialog.Hide();
+
+        _game.InvokePauseMenu();
+
+        var currentDialog = GetPrivateField<SaveLoadDialog?>(_game, "_saveLoadDialog");
+        AssertThat(currentDialog).IsNotNull();
+        AssertThat(currentDialog).IsNotEqual(staleDialog);
+        AssertThat(currentDialog!.GetParent()).IsEqual(ui);
+    }
+
+    [TestCase]
     public void PauseMenu_WhenInNpcInteraction_DoesNotConsumeInput()
     {
         _gameManager!.StartNpcInteraction();

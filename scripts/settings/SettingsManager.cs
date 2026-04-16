@@ -123,7 +123,13 @@ public partial class SettingsManager : Node
             using var file = FileAccess.Open(pathToRead, FileAccess.ModeFlags.Read);
             if (file == null)
             {
-                GD.PushWarning($"Failed to open settings file: {FileAccess.GetOpenError()}");
+                var openError = FileAccess.GetOpenError();
+                if (pathToRead == SettingsFile && TryLoadBackupAfterPrimaryCorruption($"Failed to open settings file: {openError}"))
+                {
+                    return;
+                }
+
+                GD.PushWarning($"Failed to open settings file: {openError}");
                 _settings = SettingsData.CreateDefaults();
                 return;
             }
@@ -135,7 +141,7 @@ public partial class SettingsManager : Node
                 // `null` JSON token deserializes without throwing, but the file is
                 // still corrupt.  Try the backup before giving up on the player's
                 // settings entirely.
-                if (pathToRead == SettingsFile && TryLoadBackupAfterPrimaryCorruption(null))
+                if (pathToRead == SettingsFile && TryLoadBackupAfterPrimaryCorruption("File deserialized to null"))
                 {
                     return;
                 }
@@ -153,7 +159,7 @@ public partial class SettingsManager : Node
         }
         catch (JsonException ex)
         {
-            if (pathToRead == SettingsFile && TryLoadBackupAfterPrimaryCorruption(ex))
+            if (pathToRead == SettingsFile && TryLoadBackupAfterPrimaryCorruption(ex.Message))
             {
                 return;
             }
@@ -631,7 +637,7 @@ public partial class SettingsManager : Node
         }
     }
 
-    private bool TryLoadBackupAfterPrimaryCorruption(JsonException? primaryException)
+    private bool TryLoadBackupAfterPrimaryCorruption(string primaryFailureReason)
     {
         if (!FileAccess.FileExists(BackupSettingsFile))
         {
@@ -654,8 +660,7 @@ public partial class SettingsManager : Node
                 return false;
             }
 
-            var reason = primaryException?.Message ?? "File deserialized to null";
-            GD.PushWarning($"Primary settings file was corrupt. Restoring from backup. {reason}");
+            GD.PushWarning($"Primary settings file was corrupt. Restoring from backup. {primaryFailureReason}");
             _settings = Sanitize(backupSettings);
 
             // Delete the corrupt primary before saving so that SaveToFile's rotation
@@ -672,7 +677,7 @@ public partial class SettingsManager : Node
         catch (JsonException backupEx)
         {
             GD.PushError($"Backup settings file is also corrupt — both primary and backup are unreadable. " +
-                         $"Primary error: {primaryException?.Message ?? "File deserialized to null"} | Backup error: {backupEx.Message}. Falling back to defaults.");
+                         $"Primary error: {primaryFailureReason} | Backup error: {backupEx.Message}. Falling back to defaults.");
             return false;
         }
         catch (Exception ex)

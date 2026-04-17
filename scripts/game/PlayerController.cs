@@ -12,6 +12,7 @@ public partial class PlayerController : Node
     private int _targetFloor = -1;
     private bool _isGoingUp = false;
     private int _targetStairIndex = -1;
+    private bool _awaitingStairInteractRelease = false;
     
     public override void _Ready()
     {
@@ -39,6 +40,11 @@ public partial class PlayerController : Node
     {
         if (_gameManager == null) return;
 
+        if (@event.IsActionReleased("interact"))
+        {
+            _awaitingStairInteractRelease = false;
+        }
+
         // Debug output to help track the issue
         if (@event is InputEventKey keyEvent && keyEvent.Pressed)
         {
@@ -58,6 +64,11 @@ public partial class PlayerController : Node
         // Handle stair interaction
         if (@event.IsActionPressed("interact"))
         {
+            if (_awaitingStairInteractRelease)
+            {
+                return;
+            }
+
             // Re-check for stairs in case we arrived via floor transition.
             // CheckForStairs is normally called only after movement, so a player
             // landing directly on a stair via TransitionToFloor would have no
@@ -76,6 +87,7 @@ public partial class PlayerController : Node
                     return;
                 }
 
+                _awaitingStairInteractRelease = true;
                 GD.Print($"Taking stairs {(_isGoingUp ? "up" : "down")} to floor {_targetFloor}");
                 _floorManager?.TransitionToFloor(_targetFloor, _isGoingUp, _targetStairIndex);
                 ClearPendingStairTransition();

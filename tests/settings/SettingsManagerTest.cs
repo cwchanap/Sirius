@@ -421,21 +421,25 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
-    public async Task SettingsManager_DuplicateKeybindings_DefaultAlsoTaken_Unbinds()
+    public async Task SettingsManager_DuplicateKeybindings_DefaultAlsoTaken_EvictsNonRequired()
     {
         var manager = await BootstrapSettingsManager();
         var candidate = manager.GetSnapshot();
         // Remap toggle_inventory from I to E — now both toggle_inventory and interact are on E.
         // interact is later in default-order iteration, so it's the "duplicate".
-        // Its default is also E, which is already taken → should be unbound (-1).
+        // Its default is also E, which is already taken by toggle_inventory.
+        // interact is a required action — ForceRequiredAction evicts toggle_inventory
+        // (non-required) to restore interact to its default E.
         candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.E;
         candidate.PrimaryKeybindings["interact"] = (long)Key.E;
 
         AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
 
         var snapshot = manager.GetSnapshot();
-        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.E);
-        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual(-1);
+        // toggle_inventory is evicted (non-required thief)
+        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual(-1L);
+        // interact reclaims its default E
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
     }
 
     [TestCase]
@@ -1129,21 +1133,22 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
-    public async Task SettingsManager_InteractUnbound_DefaultAvailable_ForcedBackToDefault()
+    public async Task SettingsManager_InteractUnbound_DefaultTakenByNonRequired_EvictsThief()
     {
-        // Step 1: Create a conflict that leaves interact=-1.
+        // When a non-required action steals interact's default key, the
+        // required-action eviction restores interact and unbinds the thief.
         var manager = await BootstrapSettingsManager();
         var first = manager.GetSnapshot();
         first.PrimaryKeybindings["toggle_inventory"] = (long)Key.E;
         first.PrimaryKeybindings["interact"] = (long)Key.E;
         AssertThat(manager.ApplyAndSave(first)).IsTrue();
         var snap = manager.GetSnapshot();
-        AssertThat(snap.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.E);
-        // interact default (E) is taken by toggle_inventory → stays -1
-        AssertThat(snap.PrimaryKeybindings["interact"]).IsEqual(-1L);
+        // toggle_inventory is evicted (non-required), interact reclaims E
+        AssertThat(snap.PrimaryKeybindings["toggle_inventory"]).IsEqual(-1L);
+        AssertThat(snap.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
 
-        // Step 2: Change toggle_inventory away from E but keep interact at -1.
-        // On reload, the fallback should recover interact to E (now available).
+        // Reassigning toggle_inventory to a free key should stick, and interact
+        // keeps E.
         var second = manager.GetSnapshot();
         second.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
         AssertThat(manager.ApplyAndSave(second)).IsTrue();
@@ -1151,17 +1156,17 @@ public partial class SettingsManagerTest : Node
         var reloadedManager = await RebootSettingsManager();
         var final = reloadedManager.GetSnapshot();
         AssertThat(final.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
-        // interact recovered from -1 to its default E because E is no longer taken
         AssertThat(final.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
         AssertThat(GetPrimaryKey("interact")).IsEqual((long)Key.E);
     }
 
     [TestCase]
-    public async Task SettingsManager_InteractUnbound_DefaultTaken_StaysUnboundAfterReload()
+    public async Task SettingsManager_InteractUnbound_DefaultTaken_EvictedAfterReload()
     {
-        // interact resolves to -1 because both its key and default are taken.
-        // After save/reload, the -1 sentinel should survive normalization (Fix 2)
-        // and the fallback should leave it -1 because the default is still taken.
+        // interact resolves to -1 in the duplicate loop because toggle_inventory
+        // took its key E, but ForceRequiredAction evicts toggle_inventory and
+        // restores interact to E. After save/reload, interact must still be E
+        // and toggle_inventory must be -1.
         var manager = await BootstrapSettingsManager();
         var candidate = manager.GetSnapshot();
         candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.E;
@@ -1172,11 +1177,79 @@ public partial class SettingsManagerTest : Node
         var reloadedManager = await RebootSettingsManager();
         var snapshot = reloadedManager.GetSnapshot();
 
-        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.E);
-        // interact stays -1: default E is taken by toggle_inventory
+        // toggle_inventory was evicted (non-required thief)
+        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual(-1L);
+        // interact reclaims its default E
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.E);
+        // InputMap should have no events for the evicted action
+        AssertThat(InputMap.ActionGetEvents("toggle_inventory").Count).IsEqual(0);
+        AssertThat(GetPrimaryKey("interact")).IsEqual((long)Key.E);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_FullscreenSave_SucceedsDespiteSizeMismatch()
+    {
+        // In fullscreen mode the OS/WM reports the monitor's native resolution,
+        // which typically differs from the configured ResolutionWidth/Height.
+        // ApplyAndSave must not roll back just because the sizes don't match.
+        var manager = await BootstrapSettingsManager();
+        var baseline = manager.GetSnapshot();
+        AssertThat(manager.ApplyAndSave(baseline)).IsTrue();
+
+        // Simulate: SetMode works, SetSize is accepted, but GetSize reports the
+        // monitor's native resolution (1920×1080) rather than the configured 1600×900.
+        SettingsManager.WindowSetModeOverride = mode => _simulatedWindowMode = mode;
+        SettingsManager.WindowSetSizeOverride = size => _simulatedWindowSize = size;
+        SettingsManager.WindowGetModeOverride = () => _simulatedWindowMode;
+        SettingsManager.WindowGetSizeOverride = () => new Vector2I(1920, 1080);
+
+        var candidate = manager.GetSnapshot();
+        candidate.FullscreenEnabled = true;
+        candidate.ResolutionWidth = 1600;
+        candidate.ResolutionHeight = 900;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+        AssertThat(manager.GetSnapshot().FullscreenEnabled).IsTrue();
+        AssertThat(manager.GetSnapshot().ResolutionWidth).IsEqual(1600);
+        AssertThat(manager.GetSnapshot().ResolutionHeight).IsEqual(900);
+        AssertThat(manager.LastAppliedWindowMode).IsEqual(DisplayServer.WindowMode.Fullscreen);
+
+        // The persisted file should contain the fullscreen + 1600×900 settings
+        var settingsPath = ProjectSettings.GlobalizePath("user://settings.json");
+        AssertThat(File.ReadAllText(settingsPath)).Contains("\"FullscreenEnabled\": true");
+        AssertThat(File.ReadAllText(settingsPath)).Contains("\"ResolutionWidth\": 1600");
+
+        ResetSettingsManagerOverrides();
+
+        var reloadedManager = await RebootSettingsManager();
+        AssertThat(reloadedManager.GetSnapshot().FullscreenEnabled).IsTrue();
+        AssertThat(reloadedManager.GetSnapshot().ResolutionWidth).IsEqual(1600);
+        AssertThat(reloadedManager.GetSnapshot().ResolutionHeight).IsEqual(900);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_RequiredActionEviction_SkipsRequiredThief()
+    {
+        // When interact's default key (E) is held by pause_menu (also required),
+        // the eviction must NOT evict pause_menu.  interact stays -1 because
+        // two required actions are in conflict and the player must resolve manually.
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        // toggle_inventory=T, interact=T (duplicate), pause_menu=E
+        // After duplicate resolution: interact=-1 (default E taken by pause_menu)
+        // ForceRequiredAction: thief is pause_menu (required) → skip eviction
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.T;
+        candidate.PrimaryKeybindings["interact"] = (long)Key.T;
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.E;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+        var snapshot = manager.GetSnapshot();
+
+        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.T);
+        // interact stays -1 — can't evict a required action (pause_menu)
         AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual(-1L);
-        // InputMap should have no events for the unbound action
-        AssertThat(InputMap.ActionGetEvents("interact").Count).IsEqual(0);
+        // pause_menu keeps E — not evicted
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.E);
     }
 
     private async Task<SettingsManager> BootstrapSettingsManager()

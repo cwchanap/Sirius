@@ -13,6 +13,16 @@ public partial class SettingsManager : Node
     private const int MaximumResolutionWidth = 7680;
     private const int MaximumResolutionHeight = 4320;
 
+    // Actions that must never be left unbound because they gate critical
+    // gameplay (stair traversal, dialog dismissal).  If the duplicate-
+    // resolution loop leaves one of these at -1, ForceRequiredAction will
+    // evict a non-required action that holds the required action's default key.
+    private static readonly System.Collections.Generic.HashSet<string> RequiredActions = new()
+    {
+        "pause_menu",
+        "interact"
+    };
+
     // Keys that must not be used as remappable game action bindings.
     // Movement keys (W/A/S/D, arrows) are hard-coded in PlayerController._UnhandledInput()
     // and would be swallowed by Game._Input() if also mapped to an action.
@@ -94,7 +104,14 @@ public partial class SettingsManager : Node
             ? DisplayServer.WindowMode.Fullscreen
             : DisplayServer.WindowMode.Windowed;
         var expectedSize = new Vector2I(validated.ResolutionWidth, validated.ResolutionHeight);
-        if (LastAppliedWindowMode != expectedMode || LastAppliedWindowSize != expectedSize)
+        var modeRejected = LastAppliedWindowMode != expectedMode;
+        // In fullscreen mode, the OS/WM resizes the window to the monitor's native
+        // resolution regardless of the configured size, so comparing the reported
+        // size against the configured size would always fail on non-matching
+        // displays.  Only verify the size in windowed mode.
+        var sizeRejected = !validated.FullscreenEnabled
+            && LastAppliedWindowSize != expectedSize;
+        if (modeRejected || sizeRejected)
         {
             GD.PushWarning($"Window settings {expectedMode} at {expectedSize} were rejected by the platform. Settings not saved.");
             _settings = previousSettings;
@@ -554,6 +571,7 @@ public partial class SettingsManager : Node
         if (normalized["pause_menu"] == -1)
         {
             ForceDefaultIfAvailable(normalized, actionOrder, "pause_menu", defaultBindings);
+            ForceRequiredAction(normalized, actionOrder, "pause_menu", defaultBindings);
         }
 
         // interact gates stair traversal (PlayerController._UnhandledInput).
@@ -561,6 +579,7 @@ public partial class SettingsManager : Node
         if (normalized["interact"] == -1)
         {
             ForceDefaultIfAvailable(normalized, actionOrder, "interact", defaultBindings);
+            ForceRequiredAction(normalized, actionOrder, "interact", defaultBindings);
         }
 
         return normalized;
@@ -592,6 +611,58 @@ public partial class SettingsManager : Node
         {
             GD.PushWarning($"{actionName} resolved to unbound and its default {defaultKey} is already taken by another action. Leaving unbound — the player must reassign {actionName} manually.");
         }
+    }
+
+    /// <summary>
+    /// If <paramref name="actionName"/> is still at -1 after
+    /// <see cref="ForceDefaultIfAvailable"/>, and the action holding its default
+    /// key is NOT itself a required action, evict the thief and assign the
+    /// default key to the required action.  This prevents critical gameplay
+    /// actions (interact, pause_menu) from being left unusable.
+    /// </summary>
+    private static void ForceRequiredAction(
+        System.Collections.Generic.Dictionary<string, long> normalized,
+        System.Collections.Generic.List<string> actionOrder,
+        string actionName,
+        System.Collections.Generic.Dictionary<string, long> defaultBindings)
+    {
+        if (normalized[actionName] != -1)
+        {
+            return;
+        }
+
+        var defaultKey = defaultBindings[actionName];
+        string? thief = null;
+        foreach (var other in actionOrder)
+        {
+            if (other != actionName && normalized[other] == defaultKey)
+            {
+                thief = other;
+                break;
+            }
+        }
+
+        if (thief == null)
+        {
+            // No one holds the default key — ForceDefaultIfAvailable should
+            // have already assigned it.  Nothing to do.
+            return;
+        }
+
+        if (RequiredActions.Contains(thief))
+        {
+            GD.PushWarning(
+                $"Required action '{actionName}' cannot reclaim default key {defaultKey} " +
+                $"because another required action '{thief}' holds it. " +
+                $"Leaving '{actionName}' unbound — the player must reassign manually.");
+            return;
+        }
+
+        GD.PushWarning(
+            $"Evicting '{thief}' from key {defaultKey} to restore required " +
+            $"'{actionName}' action. '{thief}' is now unbound.");
+        normalized[thief] = -1;
+        normalized[actionName] = defaultKey;
     }
 
     private static bool IsValidResolution(int width, int height) =>

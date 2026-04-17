@@ -16,6 +16,8 @@ public partial class SettingsManagerTest : Node
     private List<InputEvent> _originalUiCancelEvents = new();
     private DisplayServer.WindowMode _originalWindowMode;
     private Vector2I _originalWindowSize;
+    private DisplayServer.WindowMode _simulatedWindowMode;
+    private Vector2I _simulatedWindowSize;
     private Dictionary<int, float> _originalBusVolumes = new();
     private int _originalBusCount;
 
@@ -532,6 +534,39 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
+    public async Task SettingsManager_PauseMenuRemap_PreservesNonKeyUiCancelEvents()
+    {
+        var manager = await BootstrapSettingsManager();
+        if (!InputMap.HasAction("ui_cancel"))
+        {
+            InputMap.AddAction("ui_cancel");
+        }
+
+        InputMap.ActionAddEvent("ui_cancel", new InputEventJoypadButton
+        {
+            ButtonIndex = (JoyButton)10
+        });
+
+        var candidate = manager.GetSnapshot();
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.P;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        var hasJoypadEvent = false;
+        foreach (var inputEvent in InputMap.ActionGetEvents("ui_cancel"))
+        {
+            if (inputEvent is InputEventJoypadButton joypadEvent && (int)joypadEvent.ButtonIndex == 10)
+            {
+                hasJoypadEvent = true;
+                break;
+            }
+        }
+
+        AssertThat(hasJoypadEvent).IsTrue();
+        AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.P);
+    }
+
+    [TestCase]
     public async Task SettingsManager_DuplicateKeybindings_ThreeWayConflict_ResolvesCorrectly()
     {
         var manager = await BootstrapSettingsManager();
@@ -786,7 +821,7 @@ public partial class SettingsManagerTest : Node
         AssertThat(manager.ApplyAndSave(baseline)).IsTrue();
 
         var settingsPath = ProjectSettings.GlobalizePath("user://settings.json");
-        SettingsManager.WindowSetModeOverride = mode => DisplayServer.WindowSetMode(mode);
+        SettingsManager.WindowSetModeOverride = mode => _simulatedWindowMode = mode;
         SettingsManager.WindowSetSizeOverride = size =>
         {
             if (size == new Vector2I(1600, 900))
@@ -794,7 +829,7 @@ public partial class SettingsManagerTest : Node
                 throw new InvalidOperationException("simulated size rejection");
             }
 
-            DisplayServer.WindowSetSize(size);
+            _simulatedWindowSize = size;
         };
 
         var candidate = manager.GetSnapshot();
@@ -814,6 +849,42 @@ public partial class SettingsManagerTest : Node
         var reloadedManager = await RebootSettingsManager();
         AssertThat(reloadedManager.GetSnapshot().ResolutionWidth).IsEqual(1280);
         AssertThat(reloadedManager.GetSnapshot().ResolutionHeight).IsEqual(720);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_ApplyAndSave_SilentlyRejectedWindowStateDoesNotPersistResolution()
+    {
+        var manager = await BootstrapSettingsManager();
+        var baseline = manager.GetSnapshot();
+        AssertThat(manager.ApplyAndSave(baseline)).IsTrue();
+
+        var settingsPath = ProjectSettings.GlobalizePath("user://settings.json");
+        var originalWindowMode = _simulatedWindowMode;
+        var originalWindowSize = _simulatedWindowSize;
+        SettingsManager.WindowSetModeOverride = _ => { };
+        SettingsManager.WindowSetSizeOverride = _ => { };
+
+        var candidate = manager.GetSnapshot();
+        candidate.FullscreenEnabled = true;
+        candidate.ResolutionWidth = 1600;
+        candidate.ResolutionHeight = 900;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsFalse();
+        AssertThat(manager.GetSnapshot().FullscreenEnabled).IsEqual(baseline.FullscreenEnabled);
+        AssertThat(manager.GetSnapshot().ResolutionWidth).IsEqual(baseline.ResolutionWidth);
+        AssertThat(manager.GetSnapshot().ResolutionHeight).IsEqual(baseline.ResolutionHeight);
+        AssertThat(manager.LastAppliedWindowMode).IsEqual(originalWindowMode);
+        AssertThat(manager.LastAppliedWindowSize).IsEqual(originalWindowSize);
+        AssertThat(File.ReadAllText(settingsPath)).Contains("\"FullscreenEnabled\": false");
+        AssertThat(File.ReadAllText(settingsPath)).Contains("\"ResolutionWidth\": 1280");
+        AssertThat(File.ReadAllText(settingsPath)).Contains("\"ResolutionHeight\": 720");
+
+        ResetSettingsManagerOverrides();
+
+        var reloadedManager = await RebootSettingsManager();
+        AssertThat(reloadedManager.GetSnapshot().FullscreenEnabled).IsEqual(baseline.FullscreenEnabled);
+        AssertThat(reloadedManager.GetSnapshot().ResolutionWidth).IsEqual(baseline.ResolutionWidth);
+        AssertThat(reloadedManager.GetSnapshot().ResolutionHeight).IsEqual(baseline.ResolutionHeight);
     }
 
     [TestCase]
@@ -1111,6 +1182,7 @@ public partial class SettingsManagerTest : Node
     private async Task<SettingsManager> BootstrapSettingsManager()
     {
         ResetSingleton();
+        EnsureWindowStateOverrides();
         _settingsManager = new SettingsManager();
         var sceneTree = (SceneTree)Engine.GetMainLoop();
         sceneTree.Root.AddChild(_settingsManager);
@@ -1225,8 +1297,18 @@ public partial class SettingsManagerTest : Node
     {
         SettingsManager.WindowSetModeOverride = null;
         SettingsManager.WindowSetSizeOverride = null;
+        SettingsManager.WindowGetModeOverride = null;
+        SettingsManager.WindowGetSizeOverride = null;
         SettingsManager.FileMoveWithOverwriteOverride = null;
         SettingsManager.FileMoveOverride = null;
+    }
+
+    private void EnsureWindowStateOverrides()
+    {
+        SettingsManager.WindowGetModeOverride ??= () => _simulatedWindowMode;
+        SettingsManager.WindowGetSizeOverride ??= () => _simulatedWindowSize;
+        SettingsManager.WindowSetModeOverride ??= mode => _simulatedWindowMode = mode;
+        SettingsManager.WindowSetSizeOverride ??= size => _simulatedWindowSize = size;
     }
 
     private void CaptureRuntimeState()
@@ -1246,6 +1328,8 @@ public partial class SettingsManagerTest : Node
 
         _originalWindowMode = DisplayServer.WindowGetMode();
         _originalWindowSize = DisplayServer.WindowGetSize();
+        _simulatedWindowMode = _originalWindowMode;
+        _simulatedWindowSize = _originalWindowSize;
         _originalBusCount = AudioServer.BusCount;
         _originalBusVolumes = new Dictionary<int, float>();
         for (int i = 0; i < _originalBusCount; i++)

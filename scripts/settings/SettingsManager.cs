@@ -36,6 +36,8 @@ public partial class SettingsManager : Node
     internal Vector2I LastAppliedWindowSize { get; private set; } = new(1280, 720);
     internal static Action<DisplayServer.WindowMode>? WindowSetModeOverride { get; set; }
     internal static Action<Vector2I>? WindowSetSizeOverride { get; set; }
+    internal static Func<DisplayServer.WindowMode>? WindowGetModeOverride { get; set; }
+    internal static Func<Vector2I>? WindowGetSizeOverride { get; set; }
     internal static Action<string, string, bool>? FileMoveWithOverwriteOverride { get; set; }
     internal static Action<string, string>? FileMoveOverride { get; set; }
 
@@ -284,8 +286,8 @@ public partial class SettingsManager : Node
         {
             SetWindowMode(targetMode);
             SetWindowSize(targetSize);
-            LastAppliedWindowMode = targetMode;
-            LastAppliedWindowSize = targetSize;
+            LastAppliedWindowMode = GetWindowMode();
+            LastAppliedWindowSize = GetWindowSize();
         }
         catch (Exception ex)
         {
@@ -382,9 +384,24 @@ public partial class SettingsManager : Node
             return;
         }
 
-        foreach (var inputEvent in InputMap.ActionGetEvents(actionName))
+        var existingEvents = InputMap.ActionGetEvents(actionName);
+        var preservedEvents = new System.Collections.Generic.List<InputEvent>();
+        foreach (var inputEvent in existingEvents)
+        {
+            if (inputEvent is not InputEventKey)
+            {
+                preservedEvents.Add(inputEvent);
+            }
+        }
+
+        foreach (var inputEvent in existingEvents)
         {
             InputMap.ActionEraseEvent(actionName, inputEvent);
+        }
+
+        foreach (var inputEvent in preservedEvents)
+        {
+            InputMap.ActionAddEvent(actionName, inputEvent);
         }
 
         InputMap.ActionAddEvent(actionName, new InputEventKey
@@ -619,6 +636,26 @@ public partial class SettingsManager : Node
         }
 
         DisplayServer.WindowSetSize(size);
+    }
+
+    private static DisplayServer.WindowMode GetWindowMode()
+    {
+        if (WindowGetModeOverride != null)
+        {
+            return WindowGetModeOverride();
+        }
+
+        return DisplayServer.WindowGetMode();
+    }
+
+    private static Vector2I GetWindowSize()
+    {
+        if (WindowGetSizeOverride != null)
+        {
+            return WindowGetSizeOverride();
+        }
+
+        return DisplayServer.WindowGetSize();
     }
 
     private static void MoveFile(string sourcePath, string destinationPath, bool overwrite)

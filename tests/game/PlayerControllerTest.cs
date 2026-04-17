@@ -74,6 +74,7 @@ public partial class PlayerControllerTest : Node
         AssertThat(GetPrivateField<int>(controller, "_targetFloor")).IsEqual(-1);
         AssertThat(GetPrivateField<bool>(controller, "_isGoingUp")).IsFalse();
         AssertThat(GetPrivateField<int>(controller, "_targetStairIndex")).IsEqual(-1);
+        AssertThat(GetPrivateField<bool>(controller, "_awaitingStairInteractRelease")).IsTrue();
 
         // Cleanup
         floorManager.Free();
@@ -156,12 +157,69 @@ public partial class PlayerControllerTest : Node
         controller.Free();
     }
 
+    [TestCase]
+    public void UnhandledInput_StairTransitionRequiresInteractReleaseBeforeNextTransition()
+    {
+        var controller = new PlayerController();
+        var gameManager = new GameManager();
+        var floorManager = new FloorManager();
+        SetPrivateField(controller, "_gameManager", gameManager);
+        SetPrivateField(controller, "_floorManager", floorManager);
+        SetPrivateField(controller, "_pendingStairTransition", true);
+        SetPrivateField(controller, "_targetFloor", 1);
+        SetPrivateField(controller, "_isGoingUp", true);
+        SetPrivateField(controller, "_targetStairIndex", 0);
+
+        controller._UnhandledInput(CreateInteractEvent());
+
+        AssertThat(GetPrivateField<bool>(controller, "_pendingStairTransition")).IsFalse();
+        AssertThat(GetPrivateField<bool>(controller, "_awaitingStairInteractRelease")).IsTrue();
+
+        SetPrivateField(controller, "_pendingStairTransition", true);
+        SetPrivateField(controller, "_targetFloor", 2);
+        SetPrivateField(controller, "_isGoingUp", false);
+        SetPrivateField(controller, "_targetStairIndex", 1);
+
+        controller._UnhandledInput(CreateInteractEvent());
+
+        AssertThat(GetPrivateField<bool>(controller, "_pendingStairTransition")).IsTrue();
+        AssertThat(GetPrivateField<int>(controller, "_targetFloor")).IsEqual(2);
+        AssertThat(GetPrivateField<bool>(controller, "_isGoingUp")).IsFalse();
+        AssertThat(GetPrivateField<int>(controller, "_targetStairIndex")).IsEqual(1);
+        AssertThat(GetPrivateField<bool>(controller, "_awaitingStairInteractRelease")).IsTrue();
+
+        controller._UnhandledInput(CreateInteractReleaseEvent());
+
+        AssertThat(GetPrivateField<bool>(controller, "_awaitingStairInteractRelease")).IsFalse();
+
+        controller._UnhandledInput(CreateInteractEvent());
+
+        AssertThat(GetPrivateField<bool>(controller, "_pendingStairTransition")).IsFalse();
+        AssertThat(GetPrivateField<int>(controller, "_targetFloor")).IsEqual(-1);
+        AssertThat(GetPrivateField<bool>(controller, "_isGoingUp")).IsFalse();
+        AssertThat(GetPrivateField<int>(controller, "_targetStairIndex")).IsEqual(-1);
+        AssertThat(GetPrivateField<bool>(controller, "_awaitingStairInteractRelease")).IsTrue();
+
+        floorManager.Free();
+        gameManager.Free();
+        controller.Free();
+    }
+
     private static InputEventAction CreateInteractEvent()
     {
         return new InputEventAction
         {
             Action = "interact",
             Pressed = true
+        };
+    }
+
+    private static InputEventAction CreateInteractReleaseEvent()
+    {
+        return new InputEventAction
+        {
+            Action = "interact",
+            Pressed = false
         };
     }
 

@@ -222,6 +222,58 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
+    public async Task SettingsManager_CorruptPrimary_UndeletableFile_PreservesGoodBackup()
+    {
+        // When the corrupt primary cannot be deleted, SaveToFile must NOT be
+        // called because its rotation would overwrite the good backup with the
+        // corrupt primary.  Settings should be recovered into memory only.
+        var settingsPath = ProjectSettings.GlobalizePath("user://settings.json");
+        var backupPath = ProjectSettings.GlobalizePath("user://settings.json.bak");
+        var validBackupJson = """
+            {
+              "Version": 1,
+              "MasterVolumePercent": 55,
+              "MusicVolumePercent": 40,
+              "SfxVolumePercent": 30,
+              "Difficulty": "Normal",
+              "FullscreenEnabled": false,
+              "ResolutionWidth": 1280,
+              "ResolutionHeight": 720,
+              "AutoSaveEnabled": true,
+              "PrimaryKeybindings": {
+                "toggle_inventory": 73,
+                "interact": 69,
+                "pause_menu": 4194305
+              }
+            }
+            """;
+        File.WriteAllText(settingsPath, "{ invalid primary json");
+        File.WriteAllText(backupPath, validBackupJson);
+
+        // Simulate primary file deletion failure
+        SettingsManager.FileDeleteOverride = path =>
+        {
+            if (path == settingsPath)
+                throw new UnauthorizedAccessException("simulated undeletable file");
+            System.IO.File.Delete(path);
+        };
+
+        var manager = await BootstrapSettingsManager();
+
+        // Settings are recovered from the good backup into memory
+        AssertThat(manager.GetSnapshot().MasterVolumePercent).IsEqual(55);
+
+        // The corrupt primary file still exists (deletion failed)
+        AssertThat(File.Exists(settingsPath)).IsTrue();
+
+        // The good backup must NOT have been overwritten by SaveToFile's rotation
+        AssertThat(File.Exists(backupPath)).IsTrue();
+        AssertThat(File.ReadAllText(backupPath)).Contains("\"MasterVolumePercent\": 55");
+
+        ResetSettingsManagerOverrides();
+    }
+
+    [TestCase]
     public async Task SettingsManager_Ready_UnreadablePrimaryUsesValidBackup()
     {
         if (OperatingSystem.IsWindows())
@@ -1421,6 +1473,7 @@ public partial class SettingsManagerTest : Node
         SettingsManager.WindowGetSizeOverride = null;
         SettingsManager.FileMoveWithOverwriteOverride = null;
         SettingsManager.FileMoveOverride = null;
+        SettingsManager.FileDeleteOverride = null;
     }
 
     private void EnsureWindowStateOverrides()

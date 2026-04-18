@@ -61,6 +61,7 @@ public partial class SettingsManager : Node
     internal static Func<Vector2I>? WindowGetSizeOverride { get; set; }
     internal static Action<string, string, bool>? FileMoveWithOverwriteOverride { get; set; }
     internal static Action<string, string>? FileMoveOverride { get; set; }
+    internal static Action<string>? FileDeleteOverride { get; set; }
 
     public override void _Ready()
     {
@@ -809,17 +810,26 @@ public partial class SettingsManager : Node
         System.IO.File.Move(sourcePath, destinationPath);
     }
 
-    private static void CleanupFileIfPresent(string userPath)
+    private static bool CleanupFileIfPresent(string userPath)
     {
         var absolutePath = ProjectSettings.GlobalizePath(userPath);
-        if (!System.IO.File.Exists(absolutePath)) return;
+        if (!System.IO.File.Exists(absolutePath)) return true;
         try
         {
-            System.IO.File.Delete(absolutePath);
+            if (FileDeleteOverride != null)
+            {
+                FileDeleteOverride(absolutePath);
+            }
+            else
+            {
+                System.IO.File.Delete(absolutePath);
+            }
+            return true;
         }
         catch (Exception ex)
         {
             GD.PushWarning($"Failed to clean up temp settings file '{userPath}': {ex.Message}");
+            return false;
         }
     }
 
@@ -877,7 +887,16 @@ public partial class SettingsManager : Node
 
             // Delete the corrupt primary before saving so that SaveToFile's rotation
             // does not overwrite the good backup with the corrupt file.
-            CleanupFileIfPresent(SettingsFile);
+            // If deletion fails, skip rewriting — the recovered settings are in memory
+            // and will be persisted on the next ApplyAndSave call.  This avoids the
+            // scenario where SaveToFile rotates the undeletable corrupt primary into
+            // .bak, destroying the last known-good backup.
+            if (!CleanupFileIfPresent(SettingsFile))
+            {
+                GD.PushWarning("Could not delete corrupt primary settings file. " +
+                               "Recovered settings are in memory but not yet persisted to disk.");
+                return true;
+            }
 
             if (!SaveToFile(_settings))
             {

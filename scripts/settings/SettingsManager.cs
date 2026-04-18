@@ -36,6 +36,17 @@ public partial class SettingsManager : Node
         (long)Key.Escape, (long)Key.Enter, (long)Key.KpEnter, (long)Key.Space, (long)Key.Tab
     };
 
+    // Candidate keys used when two required actions conflict over the same
+    // default key and neither can be evicted.  The first key that is not
+    // reserved, not already claimed by another action, and is a valid keycode
+    // is assigned to the unbound required action so gameplay is never blocked.
+    private static readonly long[] FallbackKeys =
+    {
+        (long)Key.F, (long)Key.R, (long)Key.Q, (long)Key.G,
+        (long)Key.C, (long)Key.V, (long)Key.B, (long)Key.H,
+        (long)Key.X, (long)Key.Z, (long)Key.N
+    };
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true
@@ -572,6 +583,7 @@ public partial class SettingsManager : Node
         {
             ForceDefaultIfAvailable(normalized, actionOrder, "pause_menu", defaultBindings);
             ForceRequiredAction(normalized, actionOrder, "pause_menu", defaultBindings);
+            AssignFallbackKey(normalized, "pause_menu");
         }
 
         // interact gates stair traversal (PlayerController._UnhandledInput).
@@ -580,6 +592,7 @@ public partial class SettingsManager : Node
         {
             ForceDefaultIfAvailable(normalized, actionOrder, "interact", defaultBindings);
             ForceRequiredAction(normalized, actionOrder, "interact", defaultBindings);
+            AssignFallbackKey(normalized, "interact");
         }
 
         return normalized;
@@ -663,6 +676,51 @@ public partial class SettingsManager : Node
             $"'{actionName}' action. '{thief}' is now unbound.");
         normalized[thief] = -1;
         normalized[actionName] = defaultKey;
+    }
+
+    /// <summary>
+    /// Last-resort fallback: when a required action is still at -1 after
+    /// <see cref="ForceDefaultIfAvailable"/> and <see cref="ForceRequiredAction"/>
+    /// (i.e. its default key is held by another required action), pick the first
+    /// available key from <see cref="FallbackKeys"/> that is not reserved, not
+    /// already claimed, and is a valid keycode.
+    /// </summary>
+    private static void AssignFallbackKey(
+        System.Collections.Generic.Dictionary<string, long> normalized,
+        string actionName)
+    {
+        if (normalized[actionName] != -1)
+        {
+            return;
+        }
+
+        var claimedKeys = new System.Collections.Generic.HashSet<long>();
+        foreach (var kv in normalized)
+        {
+            if (kv.Key != actionName && kv.Value > 0)
+            {
+                claimedKeys.Add(kv.Value);
+            }
+        }
+
+        foreach (var fallback in FallbackKeys)
+        {
+            if (!ReservedKeys.Contains(fallback) &&
+                !claimedKeys.Contains(fallback) &&
+                IsValidKeycode(fallback))
+            {
+                GD.PushWarning(
+                    $"Required action '{actionName}' has no available default key. " +
+                    $"Assigning fallback key {fallback} ({(Key)fallback}).");
+                normalized[actionName] = fallback;
+                return;
+            }
+        }
+
+        // Extremely unlikely: every fallback key is taken or reserved.
+        GD.PushWarning(
+            $"Required action '{actionName}' remains unbound — all fallback keys " +
+            $"are exhausted. The player must reassign manually.");
     }
 
     private static bool IsValidResolution(int width, int height) =>

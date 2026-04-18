@@ -1095,8 +1095,9 @@ public partial class SettingsManagerTest : Node
         var candidate = manager.GetSnapshot();
 
         // toggle_inventory=T, interact=T (duplicate), pause_menu=E (takes interact's default)
-        // → interact should resolve to -1 (unbound) because T is taken and E is taken by pause_menu
-        // The -1 for interact must NOT collide with any other -1 in the HashSet
+        // → interact resolves to -1 in duplicate loop because T is taken and E is taken by pause_menu.
+        // → ForceRequiredAction can't evict pause_menu (required), so AssignFallbackKey
+        //   picks the first available fallback key (F) so interact is never left unbound.
         candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.T;
         candidate.PrimaryKeybindings["interact"] = (long)Key.T;
         candidate.PrimaryKeybindings["pause_menu"] = (long)Key.E;
@@ -1105,7 +1106,8 @@ public partial class SettingsManagerTest : Node
         var snapshot = manager.GetSnapshot();
 
         AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.T);
-        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual(-1L);
+        // interact gets fallback F instead of staying -1
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.F);
         AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.E);
     }
 
@@ -1115,8 +1117,9 @@ public partial class SettingsManagerTest : Node
         var manager = await BootstrapSettingsManager();
         var candidate = manager.GetSnapshot();
 
-        // toggle_inventory=T, interact=T (duplicate), pause_menu=E (takes interact's default)
-        // → interact resolves to -1 (unbound)
+        // interact=T (duplicate with toggle_inventory), pause_menu=E (takes interact's default)
+        // → interact gets fallback F, so it must NOT be -1.
+        // Verify the InputMap has exactly one event mapped to the fallback key.
         candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.T;
         candidate.PrimaryKeybindings["interact"] = (long)Key.T;
         candidate.PrimaryKeybindings["pause_menu"] = (long)Key.E;
@@ -1124,12 +1127,12 @@ public partial class SettingsManagerTest : Node
         AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
         var snapshot = manager.GetSnapshot();
 
-        // interact must be unbound
-        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual(-1L);
+        // interact must be bound to fallback F (never left at -1 for a required action)
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.F);
 
-        // The "interact" action in the InputMap must have NO events (not a broken -1 event)
+        // The "interact" action in the InputMap must have exactly one event
         var events = InputMap.ActionGetEvents("interact");
-        AssertThat(events.Count).IsEqual(0);
+        AssertThat(events.Count).IsEqual(1);
     }
 
     [TestCase]
@@ -1231,13 +1234,15 @@ public partial class SettingsManagerTest : Node
     public async Task SettingsManager_RequiredActionEviction_SkipsRequiredThief()
     {
         // When interact's default key (E) is held by pause_menu (also required),
-        // the eviction must NOT evict pause_menu.  interact stays -1 because
-        // two required actions are in conflict and the player must resolve manually.
+        // the eviction must NOT evict pause_menu.  Instead, AssignFallbackKey
+        // picks the first available fallback key (F) for interact so it is never
+        // left unbound and game progress is never blocked.
         var manager = await BootstrapSettingsManager();
         var candidate = manager.GetSnapshot();
         // toggle_inventory=T, interact=T (duplicate), pause_menu=E
         // After duplicate resolution: interact=-1 (default E taken by pause_menu)
         // ForceRequiredAction: thief is pause_menu (required) → skip eviction
+        // AssignFallbackKey: picks F (first available fallback)
         candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.T;
         candidate.PrimaryKeybindings["interact"] = (long)Key.T;
         candidate.PrimaryKeybindings["pause_menu"] = (long)Key.E;
@@ -1246,9 +1251,51 @@ public partial class SettingsManagerTest : Node
         var snapshot = manager.GetSnapshot();
 
         AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.T);
-        // interact stays -1 — can't evict a required action (pause_menu)
-        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual(-1L);
+        // interact gets fallback F — never left at -1 for a required action
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.F);
         // pause_menu keeps E — not evicted
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.E);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_FallbackKey_SurvivesReload()
+    {
+        // When interact gets a fallback key assignment, it must persist
+        // correctly through save and reload so the binding sticks.
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.T;
+        candidate.PrimaryKeybindings["interact"] = (long)Key.T;
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.E;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+
+        var reloadedManager = await RebootSettingsManager();
+        var final = reloadedManager.GetSnapshot();
+
+        AssertThat(final.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.T);
+        AssertThat(final.PrimaryKeybindings["interact"]).IsEqual((long)Key.F);
+        AssertThat(final.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.E);
+        AssertThat(GetPrimaryKey("interact")).IsEqual((long)Key.F);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_FallbackKey_SkipsClaimedKeys()
+    {
+        // When the first fallback key F is already taken by another action,
+        // the fallback logic must skip it and assign the next available key (R).
+        var manager = await BootstrapSettingsManager();
+        var candidate = manager.GetSnapshot();
+        candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.F;
+        candidate.PrimaryKeybindings["interact"] = (long)Key.F;
+        candidate.PrimaryKeybindings["pause_menu"] = (long)Key.E;
+
+        AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
+        var snapshot = manager.GetSnapshot();
+
+        AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.F);
+        // interact can't get F (taken by toggle_inventory), gets next fallback R
+        AssertThat(snapshot.PrimaryKeybindings["interact"]).IsEqual((long)Key.R);
         AssertThat(snapshot.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.E);
     }
 

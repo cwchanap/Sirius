@@ -3,9 +3,9 @@
   <RunConfiguration>
     <TestSessionTimeout>1800000</TestSessionTimeout>
     <EnvironmentVariables>
-      <!-- Default GODOT_BIN for CI -->
+      <!-- Default GODOT_BIN for CI (headless wrapper to avoid display errors) -->
       <!-- For local development, create test.runsettings.local (gitignored) -->
-      <GODOT_BIN>/home/runner/godot/godot</GODOT_BIN>
+      <GODOT_BIN>/home/runner/godot/godot-headless</GODOT_BIN>
     </EnvironmentVariables>
   </RunConfiguration>
   <GdUnit4>

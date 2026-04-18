@@ -31,6 +31,7 @@ public partial class Game : Node2D
     private bool _hasShownCorruptedSaveError;
 
     private SaveLoadDialog _saveLoadDialog;
+    private AcceptDialog _activeErrorPopup;
 
     public override void _EnterTree()
     {
@@ -262,6 +263,16 @@ public partial class Game : Node2D
 
     protected void HandlePauseMenuInput()
     {
+        // Dismiss an active error popup first — it must not be left orphaned
+        // while HandlePauseMenuInput closes/reopens the save flow.
+        if (_activeErrorPopup != null && IsInstanceValid(_activeErrorPopup))
+        {
+            _activeErrorPopup.QueueFree();
+            _activeErrorPopup = null;
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         // Close inventory if open
         if (_inventoryMenu != null && _inventoryMenu.Visible)
         {
@@ -940,22 +951,34 @@ public partial class Game : Node2D
 
     private void ShowSaveError(string message)
     {
+        // Dismiss any previous error popup before creating a new one.
+        if (_activeErrorPopup != null && IsInstanceValid(_activeErrorPopup))
+        {
+            _activeErrorPopup.QueueFree();
+            _activeErrorPopup = null;
+        }
+
         var popup = new AcceptDialog();
         popup.Title = "Save Failed";
         popup.DialogText = message;
         GetNode("UI").AddChild(popup);
         popup.PopupCentered();
+        _activeErrorPopup = popup;
 
         // Clean up when confirmed or canceled
         popup.Confirmed += () =>
         {
             if (IsInstanceValid(popup))
                 popup.QueueFree();
+            if (_activeErrorPopup == popup)
+                _activeErrorPopup = null;
         };
         popup.Canceled += () =>
         {
             if (IsInstanceValid(popup))
                 popup.QueueFree();
+            if (_activeErrorPopup == popup)
+                _activeErrorPopup = null;
         };
     }
 
@@ -1126,6 +1149,13 @@ public partial class Game : Node2D
             _saveLoadDialog.MainMenuRequested -= OnMainMenuRequested;
             _saveLoadDialog.QueueFree();
             _saveLoadDialog = null;
+        }
+
+        // Clean up error popup if it exists
+        if (_activeErrorPopup != null && IsInstanceValid(_activeErrorPopup))
+        {
+            _activeErrorPopup.QueueFree();
+            _activeErrorPopup = null;
         }
 
         if (_battleManager != null)

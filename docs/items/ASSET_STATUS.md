@@ -109,9 +109,10 @@ Enemy type IDs come from `EnemyTypeId.cs`. The game resolves sprite sheets via
 
 ---
 
-## 3. Item Icons (64×64 px)
+## 3. Item Icons (current repo convention: 96×96 px)
 
 See `ITEM_PROMPT_GUIDE.md` for full AI prompts. Paths come from `EquipmentCatalog.cs`.
+Generate the source icon art, then resize the saved repo asset to match the existing item icon convention with `tools/resize_item_icons.py`.
 
 ### Equipment — Wooden Tier
 
@@ -127,14 +128,13 @@ See `ITEM_PROMPT_GUIDE.md` for full AI prompts. Paths come from `EquipmentCatalo
 
 | Status | ID | Asset Path |
 |--------|----|-----------|
-| ❌ missing | `iron_sword` | `assets/sprites/items/weapons/iron_sword.png` |
+| ✅ exists | `iron_sword` | `assets/sprites/items/weapons/iron_sword.png` |
 | ❌ missing | `iron_armor` | `assets/sprites/items/armor/iron_armor.png` |
 | ❌ missing | `iron_shield` | `assets/sprites/items/shields/iron_shield.png` |
 | ❌ missing | `iron_helmet` | `assets/sprites/items/helmet/iron_helmet.png` |
 | ❌ missing | `iron_boots` | `assets/sprites/items/shoes/iron_boots.png` |
 
-> **Stale import file:** `assets/sprites/items/weapons/iron_sword.png.import` exists without
-> its source PNG. Delete it or regenerate the PNG.
+> `assets/sprites/items/weapons/iron_sword.png` now exists. Keep the `.import` file alongside it.
 
 ### Consumables
 
@@ -233,13 +233,13 @@ No code currently loads these; reserved for future battle animations.
 |----------|----------|-----------|
 | Terrain tiles | 9 | 7 (1 floor + 6 stair/gate) |
 | Characters/Enemies | 2 (+ 1 legacy) | 13 |
-| Item icons — equipment | 5 | 5 |
+| Item icons — equipment | 6 | 4 |
 | Item icons — consumables | 0 | 10 |
 | Item icons — monster parts | 0 | 5 |
 | UI backgrounds | 2 | 0 |
 | UI buttons & icons | 0 | 6 |
 | Effects | 0 | 3 |
-| **Total** | **18** | **49** |
+| **Total** | **19** | **48** |
 
 ---
 

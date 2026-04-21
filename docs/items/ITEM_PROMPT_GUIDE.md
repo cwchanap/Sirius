@@ -13,7 +13,8 @@ All asset paths listed here must match the `AssetPath` field in the catalog sour
 ## Global Art Direction
 
 - **Style**: Clean Japanese anime illustration with bold outlines and cel shading
-- **Resolution**: 64×64 pixels, transparent PNG background
+- **Generation resolution**: 64×64 pixels or larger source image, transparent PNG background
+- **Final repo asset size**: Resize saved item icons to match the existing repo item icon convention, which is currently 96×96 for the wooden equipment set
 - **Lighting**: Soft top-left key light, subtle rim glow for readability
 - **Color Palette**: Saturated anime hues with high contrast between silhouette and interior details
 - **Outline**: 2px bold outline around icon, inner line work as needed
@@ -56,7 +57,7 @@ File name = item `Id` in the catalog (e.g. `iron_sword` → `iron_sword.png`).
 
 | Status | ID | Asset Path |
 |--------|----|-----------|
-| ❌ missing | `iron_sword` | `assets/sprites/items/weapons/iron_sword.png` |
+| ✅ exists | `iron_sword` | `assets/sprites/items/weapons/iron_sword.png` |
 | ❌ missing | `iron_armor` | `assets/sprites/items/armor/iron_armor.png` |
 | ❌ missing | `iron_shield` | `assets/sprites/items/shields/iron_shield.png` |
 | ❌ missing | `iron_helmet` | `assets/sprites/items/helmet/iron_helmet.png` |
@@ -111,9 +112,7 @@ They may be kept as source material but should not be imported into Godot as act
 | `assets/sprites/items/consumables/mana_berry.png` | mana_berry | No matching catalog entry |
 | `assets/sprites/items/consumables/elixir_of_fortitude.png` | elixir_of_fortitude | No matching catalog entry |
 
-> **Note:** `assets/sprites/items/weapons/iron_sword.png.import` exists without its source PNG —
-> the PNG was likely deleted without cleaning up the Godot import file. Delete the stale `.import`
-> or regenerate the PNG.
+> `assets/sprites/items/weapons/iron_sword.png` now exists, so the matching `.import` file is no longer stale.
 
 ---
 
@@ -126,6 +125,8 @@ They may be kept as source material but should not be imported into Godot as act
 [angle]. Bold 2px outline, cel shading with [material/color details].
 Lighting from top-left with soft rim glow. Centered in frame, no background elements."
 ```
+
+After generation, resize the repo copy to match the existing item icon size used by comparable assets, currently `python3 tools/resize_item_icons.py --size 96` for the wooden equipment set.
 
 - Equipment: use **three-quarter top-down** angle
 - Consumables / Monster Parts: use **straight-on hero shot**

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manage Asset Generation"
+  short_description: "Generate missing game assets safely"
+  default_prompt: "Use $manage-asset-generation to check whether a Sirius asset already exists, generate it only if missing, save it to the canonical repo path, and update the asset status docs."

@@ -5,14 +5,29 @@ For overall asset status see `docs/items/ASSET_STATUS.md`.
 
 ---
 
+## Current Repo References
+
+- `assets/sprites/ui/ui_main_menu_background.png` — existing background, `1920×1080`
+- `assets/sprites/ui/ui_battle_background.png` — existing background, `1280×720`
+- `assets/sprites/ui/original/` contains reference copies of both existing shipped backgrounds
+- Buttons, status icons, and combat effects do not have shipped runtime assets yet, so their documented target sizes remain the current planning reference
+
+## Generation Notes
+
+- Check the exact runtime asset path on disk before generating.
+- When replacing or extending a class that already has shipped art, match the existing repo dimensions first.
+- For future UI buttons, icons, and effects with no same-class repo asset yet, use the target size in the checklist below.
+
+---
+
 ## Production Checklist
 
 ### Backgrounds
 
 | Status | File | Size | Loaded By |
 |--------|------|------|-----------|
-| ✅ exists | `assets/sprites/ui/ui_main_menu_background.png` | 320×240 | `BattleManager.cs:710` |
-| ✅ exists | `assets/sprites/ui/ui_battle_background.png` | 320×240 | `BattleManager.cs:763` |
+| ✅ exists | `assets/sprites/ui/ui_main_menu_background.png` | 1920×1080 | `MainMenu.cs:27` |
+| ✅ exists | `assets/sprites/ui/ui_battle_background.png` | 1280×720 | `BattleManager.cs:180` |
 
 ### Battle Buttons
 
@@ -45,10 +60,10 @@ For overall asset status see `docs/items/ASSET_STATUS.md`.
 ## Background Prompts
 
 **Main Menu Background** (`ui_main_menu_background.png`) — ✅ exists
-> "Create a 320x240 anime-style background for an RPG main menu. Beautiful anime landscape with rolling hills, a distant castle, and magical sky. Bright anime colors with dramatic lighting. Include anime-style clouds, magical stars, and a large moon. Epic and adventurous, typical anime opening scene aesthetics — inspiring, grand. Cel-shading with vibrant blues, purples, and golden highlights."
+> "Create a 1920x1080 anime-style background for an RPG main menu. Beautiful anime landscape with rolling hills, a distant castle, and magical sky. Bright anime colors with dramatic lighting. Include anime-style clouds, magical stars, and a large moon. Epic and adventurous, typical anime opening scene aesthetics — inspiring, grand. Cel-shading with vibrant blues, purples, and golden highlights."
 
 **Battle Background** (`ui_battle_background.png`) — ✅ exists
-> "Create a 320x240 anime-style background for battle scenes. Mystical battleground with energy effects and dramatic sky. Bright anime colors with dynamic lighting. Include anime-style energy auras, floating particles, and dramatic shadows. Intense and exciting, anime battle aesthetics — dynamic, powerful. Cel-shading with deep purples, electric blues, and energy highlights."
+> "Create a 1280x720 anime-style background for battle scenes. Mystical battleground with energy effects and dramatic sky. Bright anime colors with dynamic lighting. Include anime-style energy auras, floating particles, and dramatic shadows. Intense and exciting, anime battle aesthetics — dynamic, powerful. Cel-shading with deep purples, electric blues, and energy highlights."
 
 ---
 

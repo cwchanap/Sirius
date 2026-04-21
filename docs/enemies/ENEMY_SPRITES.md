@@ -10,7 +10,7 @@ For overall asset status across all categories see `docs/items/ASSET_STATUS.md`.
 - **Style**: Japanese anime with chibi/super deformed proportions
 - **Resolution**: 96×96 pixels per frame
 - **Animation**: 4-frame walking cycle per character
-- **Format**: Individual frame PNGs merged into `sprite_sheet.png` via `tools/sprite_sheet_merger.py`
+- **Format**: Generate 4 individual frame PNGs when needed, then merge them into `sprite_sheet.png` via `tools/sprite_sheet_merger.py`
 - **Background**: Transparent (PNG with alpha channel)
 - **Color Palette**: Bright, saturated anime colors with cel-shading contrast
 - **Outlines**: Bold black lines for definition
@@ -41,38 +41,48 @@ For overall asset status across all categories see `docs/items/ASSET_STATUS.md`.
 
 ## Asset Path Convention
 
-New path (preferred): `assets/sprites/enemies/{type}/frames/frame1-4.png`
-Sprite sheet (auto-built): `assets/sprites/enemies/{type}/sprite_sheet.png`
+Canonical runtime check: `assets/sprites/enemies/{type}/sprite_sheet.png`
+Legacy runtime path still used by some shipped assets: `assets/sprites/characters/{type}/sprite_sheet.png`
+Optional generation frames: `assets/sprites/enemies/{type}/frames/frame1-4.png`
 
 Run `python3 tools/sprite_sheet_merger.py` after placing frames to generate the sheet.
+
+### Current Repo References
+
+- `assets/sprites/characters/player_hero/sprite_sheet.png` — existing runtime sheet, `384×96`
+- `assets/sprites/enemies/goblin/sprite_sheet.png` — existing runtime sheet, `384×96`
+- `assets/sprites/characters/forest_spirit/sprite_sheet.png` — legacy runtime sheet, `384×96`
+
+Per-entity `Files` entries below describe where to create frame sources when generating new art. Treat the runtime `sprite_sheet.png` path as the authoritative existence check.
 
 ---
 
 ## Production Checklist
 
-| Status | Entity | Frames Path |
-|--------|--------|------------|
-| ✅ exists | Player Hero | `assets/sprites/characters/player_hero/frames/` |
-| ✅ exists | Goblin | `assets/sprites/enemies/goblin/frames/` |
-| ⚠️ legacy | Forest Spirit | `assets/sprites/characters/forest_spirit/frames/` — migrate to `enemies/forest_spirit/` |
-| ❌ missing | Orc | `assets/sprites/enemies/orc/frames/` |
-| ❌ missing | Skeleton Warrior | `assets/sprites/enemies/skeleton_warrior/frames/` |
-| ❌ missing | Cave Spider | `assets/sprites/enemies/cave_spider/frames/` |
-| ❌ missing | Troll | `assets/sprites/enemies/troll/frames/` |
-| ❌ missing | Desert Scorpion | `assets/sprites/enemies/desert_scorpion/frames/` |
-| ❌ missing | Swamp Wretch | `assets/sprites/enemies/swamp_wretch/frames/` |
-| ❌ missing | Mountain Wyvern | `assets/sprites/enemies/mountain_wyvern/frames/` |
-| ❌ missing | Dragon | `assets/sprites/enemies/dragon/frames/` |
-| ❌ missing | Dark Mage | `assets/sprites/enemies/dark_mage/frames/` |
-| ❌ missing | Dungeon Guardian | `assets/sprites/enemies/dungeon_guardian/frames/` |
-| ❌ missing | Demon Lord | `assets/sprites/enemies/demon_lord/frames/` |
-| ❌ missing | Boss | `assets/sprites/enemies/boss/frames/` |
+| Status | Entity | Runtime Sheet |
+|--------|--------|--------------|
+| ✅ exists | Player Hero | `assets/sprites/characters/player_hero/sprite_sheet.png` |
+| ✅ exists | Goblin | `assets/sprites/enemies/goblin/sprite_sheet.png` |
+| ⚠️ legacy | Forest Spirit | `assets/sprites/characters/forest_spirit/sprite_sheet.png` — runtime asset exists on legacy path |
+| ❌ missing | Orc | `assets/sprites/enemies/orc/sprite_sheet.png` |
+| ❌ missing | Skeleton Warrior | `assets/sprites/enemies/skeleton_warrior/sprite_sheet.png` |
+| ❌ missing | Cave Spider | `assets/sprites/enemies/cave_spider/sprite_sheet.png` |
+| ❌ missing | Troll | `assets/sprites/enemies/troll/sprite_sheet.png` |
+| ❌ missing | Desert Scorpion | `assets/sprites/enemies/desert_scorpion/sprite_sheet.png` |
+| ❌ missing | Swamp Wretch | `assets/sprites/enemies/swamp_wretch/sprite_sheet.png` |
+| ❌ missing | Mountain Wyvern | `assets/sprites/enemies/mountain_wyvern/sprite_sheet.png` |
+| ❌ missing | Dragon | `assets/sprites/enemies/dragon/sprite_sheet.png` |
+| ❌ missing | Dark Mage | `assets/sprites/enemies/dark_mage/sprite_sheet.png` |
+| ❌ missing | Dungeon Guardian | `assets/sprites/enemies/dungeon_guardian/sprite_sheet.png` |
+| ❌ missing | Demon Lord | `assets/sprites/enemies/demon_lord/sprite_sheet.png` |
+| ❌ missing | Boss | `assets/sprites/enemies/boss/sprite_sheet.png` |
 
 ---
 
 ## Player Character
 
-**Files**: `assets/sprites/characters/player_hero/frames/frame1-4.png` (96×96)
+**Generation frames**: `assets/sprites/characters/player_hero/frames/frame1-4.png` (96×96)
+Runtime sheet exists at `assets/sprites/characters/player_hero/sprite_sheet.png`
 
 **Frame 1 (Idle/Standing)**
 > "Create a 96x96 anime-style sprite of a young adventurer standing ready, top-down view, facing downward toward camera. Large expressive anime eyes, spiky brown hair, simple blue tunic, brown pants, small leather boots. Standing confidently with arms at sides, character oriented with head facing downward toward camera. Bright anime colors with bold black outlines. Heroic and determined. Cel-shading with vibrant blues, browns, skin tones. Important: Use transparent background (PNG with alpha channel)."
@@ -92,7 +102,8 @@ Run `python3 tools/sprite_sheet_merger.py` after placing frames to generate the 
 
 ### Goblin (`goblin`)
 
-**Files**: `assets/sprites/enemies/goblin/frames/frame1-4.png` (96×96) — ✅ exists
+**Generation frames**: `assets/sprites/enemies/goblin/frames/frame1-4.png` (96×96)
+Runtime sheet exists at `assets/sprites/enemies/goblin/sprite_sheet.png`
 
 **Frame 1 (Idle)**
 > "Create a 96x96 anime-style sprite of a cute goblin in top-down view, standing, facing downward toward camera. The goblin should have large round eyes, green skin, pointed ears, wearing simple brown rags. Include a small wooden club held at side. Character facing toward bottom of screen. Use bright anime colors with bold black outlines. Make it look mischievous but cute with anime kawaii style. Use cel-shading with vibrant greens and browns. Important: Use transparent background (PNG with alpha channel)."
@@ -122,8 +133,9 @@ Run `python3 tools/sprite_sheet_merger.py` after placing frames to generate the 
 
 ### Forest Spirit (`forest_spirit`)
 
-**Files**: `assets/sprites/characters/forest_spirit/frames/frame1-4.png` (96×96) — ✅ exists (legacy path)
-> Migrate to `assets/sprites/enemies/forest_spirit/frames/` to match the new convention.
+**Generation frames**: `assets/sprites/characters/forest_spirit/frames/frame1-4.png` (96×96)
+Legacy runtime sheet exists at `assets/sprites/characters/forest_spirit/sprite_sheet.png`
+> Migrate to `assets/sprites/enemies/forest_spirit/frames/` only when the repo is ready to move the runtime asset to the new convention.
 
 **Frame 1 (Idle Float)**
 > "Create a 96x96 anime-style sprite of a forest spirit in idle pose, top-down view, facing downward toward camera. Large gentle green eyes, translucent green-blue body, flower crown, leaf clothing. Arms at sides, gentle glow, character facing toward bottom of screen. Bright anime colors with soft black outlines. Mystical and beautiful with sparkles around. Cel-shading with ethereal greens, blues, magical light. Important: Use transparent background (PNG with alpha channel)."

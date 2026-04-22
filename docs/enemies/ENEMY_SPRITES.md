@@ -42,7 +42,7 @@ For overall asset status across all categories see `docs/items/ASSET_STATUS.md`.
 ## Asset Path Convention
 
 Canonical runtime check: `assets/sprites/enemies/{type}/sprite_sheet.png`
-Legacy runtime path still used by some shipped assets: `assets/sprites/characters/{type}/sprite_sheet.png`
+Legacy runtime path still used by some shipped assets: `assets/sprites/characters/enemy_{type}/sprite_sheet.png`
 Optional generation frames: `assets/sprites/enemies/{type}/frames/frame1-4.png`
 
 Run `python3 tools/sprite_sheet_merger.py` after placing frames to generate the sheet.

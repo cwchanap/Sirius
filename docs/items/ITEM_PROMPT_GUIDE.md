@@ -167,7 +167,7 @@ After generation, resize the repo copy to match the existing item icon size used
 
 ### Iron Tier
 
-**Iron Sword** (`iron_sword.png`) — **⚠ needs generation**
+**Iron Sword** (`iron_sword.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a sturdy iron sword with a simple cross-guard and
 > dark leather grip, transparent background. Three-quarter top-down angle, bold 2px outline,
 > cel shading with cool grey iron and subtle forge-marks along the blade. Lighting from top-left,

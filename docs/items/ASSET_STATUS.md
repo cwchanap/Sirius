@@ -14,7 +14,7 @@ generation prompts.
 | **Character/Enemy sprites** | `sprite_sheet.png` per entity in `EnemySpawn.cs:262` / `PlayerDisplay.cs:26` | `assets/sprites/enemies/{type}/sprite_sheet.png` (new) or `assets/sprites/characters/{name}/sprite_sheet.png` (legacy) |
 | **Sprite sheets** | Auto-built by `tools/sprite_sheet_merger.py` from `frames/frame1-4.png` | Same dir as `frames/` |
 | **Item icons** | `AssetPath` field in `EquipmentCatalog.cs` | `assets/sprites/items/{slot}/{id}.png` |
-| **UI backgrounds** | Hard-coded paths in `BattleManager.cs:710,763` | `assets/sprites/ui/*.png` |
+| **UI backgrounds** | Hard-coded paths in `MainMenu.cs:27` and `BattleManager.cs:180` | `assets/sprites/ui/*.png` |
 | **Effects/Icons** | Currently no code loads these; reserved for future use | `assets/sprites/effects/*.png`, `assets/sprites/ui/icon_*.png` |
 
 ---
@@ -190,8 +190,8 @@ Originals of the above are preserved under `assets/sprites/items/original/` as r
 
 | Status | Asset Path | Size | Loaded By |
 |--------|-----------|------|-----------|
-| ✅ exists | `assets/sprites/ui/ui_main_menu_background.png` | 320×240 | `BattleManager.cs:710` |
-| ✅ exists | `assets/sprites/ui/ui_battle_background.png` | 320×240 | `BattleManager.cs:763` |
+| ✅ exists | `assets/sprites/ui/ui_main_menu_background.png` | 1920×1080 | `MainMenu.cs:27` |
+| ✅ exists | `assets/sprites/ui/ui_battle_background.png` | 1280×720 | `BattleManager.cs:180` |
 
 ### Battle Buttons
 

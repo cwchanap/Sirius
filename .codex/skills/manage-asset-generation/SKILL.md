@@ -24,10 +24,10 @@ Follow the repo's asset SOP instead of generating art blindly. Check the runtime
 ## Source Of Truth
 
 - Use the path referenced by the code or catalog as the canonical target.
-- For item icons, prefer `scripts/data/items/EquipmentCatalog.cs`, [docs/items/ASSET_STATUS.md](/Users/chanwaichan/workspace/sirius/docs/items/ASSET_STATUS.md), and [docs/items/ITEM_PROMPT_GUIDE.md](/Users/chanwaichan/workspace/sirius/docs/items/ITEM_PROMPT_GUIDE.md).
-- For enemies, prefer `scripts/game/EnemySpawn.cs`, `scripts/game/GridMap.cs`, `scripts/ui/BattleManager.cs`, and [docs/enemies/ENEMY_SPRITES.md](/Users/chanwaichan/workspace/sirius/docs/enemies/ENEMY_SPRITES.md).
-- For terrain, prefer `scripts/game/GridMap.cs` and [docs/terrain/TERRAIN_SPRITES.md](/Users/chanwaichan/workspace/sirius/docs/terrain/TERRAIN_SPRITES.md).
-- For UI and effects, prefer `scripts/ui/MainMenu.cs`, `scripts/ui/BattleManager.cs`, and [docs/ui/UI_SPRITES.md](/Users/chanwaichan/workspace/sirius/docs/ui/UI_SPRITES.md).
+- For item icons, prefer `scripts/data/items/EquipmentCatalog.cs`, [docs/items/ASSET_STATUS.md](../../docs/items/ASSET_STATUS.md), and [docs/items/ITEM_PROMPT_GUIDE.md](../../docs/items/ITEM_PROMPT_GUIDE.md).
+- For enemies, prefer `scripts/game/EnemySpawn.cs`, `scripts/game/GridMap.cs`, `scripts/ui/BattleManager.cs`, and [docs/enemies/ENEMY_SPRITES.md](../../docs/enemies/ENEMY_SPRITES.md).
+- For terrain, prefer `scripts/game/GridMap.cs` and [docs/terrain/TERRAIN_SPRITES.md](../../docs/terrain/TERRAIN_SPRITES.md).
+- For UI and effects, prefer `scripts/ui/MainMenu.cs`, `scripts/ui/BattleManager.cs`, and [docs/ui/UI_SPRITES.md](../../docs/ui/UI_SPRITES.md).
 
 ## Category Conventions
 
@@ -87,30 +87,32 @@ Follow the repo's asset SOP instead of generating art blindly. Check the runtime
 
 ## Item Icon Resize Step
 
-- Use [tools/resize_item_icons.py](/Users/chanwaichan/workspace/sirius/tools/resize_item_icons.py) for item icon downscaling.
+- Use [tools/resize_item_icons.py](../../tools/resize_item_icons.py) for item icon downscaling.
 - The current known convention for existing wooden item icons is `96x96`; verify same-category assets before resizing a newly generated icon.
 - The helper works on directories, so for a single generated asset use a temporary source directory containing only that file, then copy the resized output back to the canonical asset path.
 - Example:
   ```bash
   python3 tools/resize_item_icons.py --size 96 --source /tmp/item_icon_source --dest /tmp/item_icon_out
   ```
-- Verify the final repo file dimensions with:
+- Verify the final repo file dimensions with (requires Pillow: `pip install Pillow`):
   ```bash
-  sips -g pixelWidth -g pixelHeight assets/sprites/items/weapons/iron_sword.png
+  python3 -c "from PIL import Image; img=Image.open('assets/sprites/items/weapons/iron_sword.png'); print(f'{img.width}x{img.height}')"
   ```
+  The output should match the target size (e.g. `96x96`) used by `tools/resize_item_icons.py`.
 
 ## Enemy Sprite Sheet Step
 
-- Use the per-enemy prompts in [docs/enemies/ENEMY_SPRITES.md](/Users/chanwaichan/workspace/sirius/docs/enemies/ENEMY_SPRITES.md) to generate four frames when the runtime sheet is missing.
+- Use the per-enemy prompts in [docs/enemies/ENEMY_SPRITES.md](../../docs/enemies/ENEMY_SPRITES.md) to generate four frames when the runtime sheet is missing.
 - The committed runtime asset to verify is `assets/sprites/enemies/{type}/sprite_sheet.png`, not the frame directory.
 - After generating or placing `frame1.png` through `frame4.png`, run the repo merger:
   ```bash
   python3 tools/sprite_sheet_merger.py
   ```
-- Verify the merged runtime sheet dimensions with:
+- Verify the merged runtime sheet dimensions with (requires Pillow: `pip install Pillow`):
   ```bash
-  sips -g pixelWidth -g pixelHeight assets/sprites/enemies/goblin/sprite_sheet.png
+  python3 -c "from PIL import Image; img=Image.open('assets/sprites/enemies/goblin/sprite_sheet.png'); print(f'{img.width}x{img.height}')"
   ```
+  The output should be `384x96` (4 frames × 96 px wide, 96 px tall) as produced by `tools/sprite_sheet_merger.py`.
 - If the asset exists only on a legacy runtime path, do not regenerate it just because the preferred new path is absent; note the legacy state in the docs instead.
 
 ## Terrain And UI Reference Step
@@ -125,13 +127,13 @@ Follow the repo's asset SOP instead of generating art blindly. Check the runtime
 
 ## Documentation Updates
 
-- After saving a newly generated asset, update the matching row in [docs/items/ASSET_STATUS.md](/Users/chanwaichan/workspace/sirius/docs/items/ASSET_STATUS.md) from `❌ missing` to `✅ exists`.
+- After saving a newly generated asset, update the matching row in [docs/items/ASSET_STATUS.md](../../docs/items/ASSET_STATUS.md) from `❌ missing` to `✅ exists`.
 - Update summary totals if the document includes category counts.
-- If [docs/items/ITEM_PROMPT_GUIDE.md](/Users/chanwaichan/workspace/sirius/docs/items/ITEM_PROMPT_GUIDE.md) includes status tables or stale-file notes for the same asset, update those too so the docs do not drift.
+- If [docs/items/ITEM_PROMPT_GUIDE.md](../../docs/items/ITEM_PROMPT_GUIDE.md) includes status tables or stale-file notes for the same asset, update those too so the docs do not drift.
 - Remove or rewrite notes that are no longer true, such as "PNG missing" warnings after the PNG has been restored.
-- For enemy work, also update [docs/enemies/ENEMY_SPRITES.md](/Users/chanwaichan/workspace/sirius/docs/enemies/ENEMY_SPRITES.md) if the runtime sheet status or path note changed.
-- For terrain work, also update [docs/terrain/TERRAIN_SPRITES.md](/Users/chanwaichan/workspace/sirius/docs/terrain/TERRAIN_SPRITES.md) if the file status, target size, or repo convention note changed.
-- For UI or effects work, also update [docs/ui/UI_SPRITES.md](/Users/chanwaichan/workspace/sirius/docs/ui/UI_SPRITES.md) if the status, loading note, or size reference changed.
+- For enemy work, also update [docs/enemies/ENEMY_SPRITES.md](../../docs/enemies/ENEMY_SPRITES.md) if the runtime sheet status or path note changed.
+- For terrain work, also update [docs/terrain/TERRAIN_SPRITES.md](../../docs/terrain/TERRAIN_SPRITES.md) if the file status, target size, or repo convention note changed.
+- For UI or effects work, also update [docs/ui/UI_SPRITES.md](../../docs/ui/UI_SPRITES.md) if the status, loading note, or size reference changed.
 - When docs mention a target size that no longer matches shipped assets, correct the doc to the repo's current convention instead of following stale text blindly.
 
 ## Response Pattern

@@ -41,17 +41,23 @@ For overall asset status across all categories see `docs/items/ASSET_STATUS.md`.
 
 ## Asset Path Convention
 
-Canonical runtime check: `assets/sprites/enemies/{type}/sprite_sheet.png`
-Legacy runtime path still used by some shipped assets: `assets/sprites/characters/enemy_{type}/sprite_sheet.png`
-Optional generation frames: `assets/sprites/enemies/{type}/frames/frame1-4.png`
+Canonical enemy runtime path: `assets/sprites/enemies/{type}/sprite_sheet.png`
+Optional generation frames for enemy art: `assets/sprites/enemies/{type}/frames/frame1-4.png`
+Legacy character-sheet paths currently present in the repo:
+- `assets/sprites/characters/player_hero/sprite_sheet.png` — used by the player hero
+- `assets/sprites/characters/forest_spirit/sprite_sheet.png` — exists on disk but **not reachable** at runtime (see Forest Spirit note below)
+
+> **Note on legacy paths:** `EnemySpawn.cs` falls back to `assets/sprites/characters/enemy_{type}/sprite_sheet.png`,
+> but no assets currently exist at that `enemy_`-prefixed pattern. The `player_hero` and `forest_spirit` folders
+> under `characters/` are legacy locations that predate the current code's fallback logic.
 
 Run `python3 tools/sprite_sheet_merger.py` after placing frames to generate the sheet.
 
 ### Current Repo References
 
-- `assets/sprites/characters/player_hero/sprite_sheet.png` — existing runtime sheet, `384×96`
-- `assets/sprites/enemies/goblin/sprite_sheet.png` — existing runtime sheet, `384×96`
-- `assets/sprites/characters/forest_spirit/sprite_sheet.png` — legacy runtime sheet, `384×96`
+- `assets/sprites/characters/player_hero/sprite_sheet.png` — existing legacy character sheet, `384×96`
+- `assets/sprites/enemies/goblin/sprite_sheet.png` — existing canonical enemy runtime sheet, `384×96`
+- `assets/sprites/characters/forest_spirit/sprite_sheet.png` — existing file on disk, `384×96`, but not reachable by `EnemySpawn.cs` at runtime (see note above)
 
 Per-entity `Files` entries below describe where to create frame sources when generating new art. Treat the runtime `sprite_sheet.png` path as the authoritative existence check.
 
@@ -63,7 +69,7 @@ Per-entity `Files` entries below describe where to create frame sources when gen
 |--------|--------|--------------|
 | ✅ exists | Player Hero | `assets/sprites/characters/player_hero/sprite_sheet.png` |
 | ✅ exists | Goblin | `assets/sprites/enemies/goblin/sprite_sheet.png` |
-| ⚠️ legacy | Forest Spirit | `assets/sprites/characters/forest_spirit/sprite_sheet.png` — runtime asset exists on legacy path |
+| ⚠️ unreachable | Forest Spirit | `assets/sprites/characters/forest_spirit/sprite_sheet.png` — file exists on disk but `EnemySpawn.cs` cannot find it (checks `enemies/forest_spirit/` then `characters/enemy_forest_spirit/` — neither exists). Migrate to `assets/sprites/enemies/forest_sprite/sprite_sheet.png` to fix. |
 | ❌ missing | Orc | `assets/sprites/enemies/orc/sprite_sheet.png` |
 | ❌ missing | Skeleton Warrior | `assets/sprites/enemies/skeleton_warrior/sprite_sheet.png` |
 | ❌ missing | Cave Spider | `assets/sprites/enemies/cave_spider/sprite_sheet.png` |
@@ -134,8 +140,10 @@ Runtime sheet exists at `assets/sprites/enemies/goblin/sprite_sheet.png`
 ### Forest Spirit (`forest_spirit`)
 
 **Generation frames**: `assets/sprites/characters/forest_spirit/frames/frame1-4.png` (96×96)
-Legacy runtime sheet exists at `assets/sprites/characters/forest_spirit/sprite_sheet.png`
-> Migrate to `assets/sprites/enemies/forest_spirit/frames/` only when the repo is ready to move the runtime asset to the new convention.
+Legacy file exists at `assets/sprites/characters/forest_spirit/sprite_sheet.png` but **is not reachable at runtime**.
+`EnemySpawn.cs` checks `enemies/forest_spirit/` (new path) then `characters/enemy_forest_spirit/` (legacy fallback) —
+neither matches the actual file location. Migrate the runtime asset to `assets/sprites/enemies/forest_spirit/sprite_sheet.png`
+to make it loadable.
 
 **Frame 1 (Idle Float)**
 > "Create a 96x96 anime-style sprite of a forest spirit in idle pose, top-down view, facing downward toward camera. Large gentle green eyes, translucent green-blue body, flower crown, leaf clothing. Arms at sides, gentle glow, character facing toward bottom of screen. Bright anime colors with soft black outlines. Mystical and beautiful with sparkles around. Cel-shading with ethereal greens, blues, magical light. Important: Use transparent background (PNG with alpha channel)."

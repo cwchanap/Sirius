@@ -24,10 +24,10 @@ Follow the repo's asset SOP instead of generating art blindly. Check the runtime
 ## Source Of Truth
 
 - Use the path referenced by the code or catalog as the canonical target.
-- For item icons, prefer `scripts/data/items/EquipmentCatalog.cs`, [docs/items/ASSET_STATUS.md](../../docs/items/ASSET_STATUS.md), and [docs/items/ITEM_PROMPT_GUIDE.md](../../docs/items/ITEM_PROMPT_GUIDE.md).
-- For enemies, prefer `scripts/game/EnemySpawn.cs`, `scripts/game/GridMap.cs`, `scripts/ui/BattleManager.cs`, and [docs/enemies/ENEMY_SPRITES.md](../../docs/enemies/ENEMY_SPRITES.md).
-- For terrain, prefer `scripts/game/GridMap.cs` and [docs/terrain/TERRAIN_SPRITES.md](../../docs/terrain/TERRAIN_SPRITES.md).
-- For UI and effects, prefer `scripts/ui/MainMenu.cs`, `scripts/ui/BattleManager.cs`, and [docs/ui/UI_SPRITES.md](../../docs/ui/UI_SPRITES.md).
+- For item icons, prefer `scripts/data/items/EquipmentCatalog.cs`, [docs/items/ASSET_STATUS.md](../../../docs/items/ASSET_STATUS.md), and [docs/items/ITEM_PROMPT_GUIDE.md](../../../docs/items/ITEM_PROMPT_GUIDE.md).
+- For enemies, prefer `scripts/game/EnemySpawn.cs`, `scripts/game/GridMap.cs`, `scripts/ui/BattleManager.cs`, and [docs/enemies/ENEMY_SPRITES.md](../../../docs/enemies/ENEMY_SPRITES.md).
+- For terrain, prefer `scripts/game/GridMap.cs` and [docs/terrain/TERRAIN_SPRITES.md](../../../docs/terrain/TERRAIN_SPRITES.md).
+- For UI and effects, prefer `scripts/ui/MainMenu.cs`, `scripts/ui/BattleManager.cs`, and [docs/ui/UI_SPRITES.md](../../../docs/ui/UI_SPRITES.md).
 
 ## Category Conventions
 
@@ -38,7 +38,7 @@ Follow the repo's asset SOP instead of generating art blindly. Check the runtime
 - Enemy sprites:
   - Canonical runtime existence check is the merged `sprite_sheet.png`.
   - Prefer `assets/sprites/enemies/{type}/sprite_sheet.png`.
-  - Legacy sheets still exist under `assets/sprites/characters/*/sprite_sheet.png` for some entities such as `player_hero` and `forest_spirit`.
+  - Legacy sheets still exist under `assets/sprites/characters/*/sprite_sheet.png` for some entities such as `player_hero` and `forest_spirit`, but note that `EnemySpawn.cs` legacy fallback checks `characters/enemy_{type}/` — so `forest_spirit` is NOT reachable at its current location.
   - Existing reference sheets are `assets/sprites/characters/player_hero/sprite_sheet.png`, `assets/sprites/enemies/goblin/sprite_sheet.png`, and `assets/sprites/characters/forest_spirit/sprite_sheet.png`, all currently `384x96`.
 - Terrain:
   - Canonical paths are the top-level files in `assets/sprites/terrain/`.
@@ -87,7 +87,7 @@ Follow the repo's asset SOP instead of generating art blindly. Check the runtime
 
 ## Item Icon Resize Step
 
-- Use [tools/resize_item_icons.py](../../tools/resize_item_icons.py) for item icon downscaling.
+- Use [tools/resize_item_icons.py](../../../tools/resize_item_icons.py) for item icon downscaling.
 - The current known convention for existing wooden item icons is `96x96`; verify same-category assets before resizing a newly generated icon.
 - The helper works on directories, so for a single generated asset use a temporary source directory containing only that file, then copy the resized output back to the canonical asset path.
 - Example:
@@ -102,7 +102,7 @@ Follow the repo's asset SOP instead of generating art blindly. Check the runtime
 
 ## Enemy Sprite Sheet Step
 
-- Use the per-enemy prompts in [docs/enemies/ENEMY_SPRITES.md](../../docs/enemies/ENEMY_SPRITES.md) to generate four frames when the runtime sheet is missing.
+- Use the per-enemy prompts in [docs/enemies/ENEMY_SPRITES.md](../../../docs/enemies/ENEMY_SPRITES.md) to generate four frames when the runtime sheet is missing.
 - The committed runtime asset to verify is `assets/sprites/enemies/{type}/sprite_sheet.png`, not the frame directory.
 - After generating or placing `frame1.png` through `frame4.png`, run the repo merger:
   ```bash
@@ -127,13 +127,13 @@ Follow the repo's asset SOP instead of generating art blindly. Check the runtime
 
 ## Documentation Updates
 
-- After saving a newly generated asset, update the matching row in [docs/items/ASSET_STATUS.md](../../docs/items/ASSET_STATUS.md) from `❌ missing` to `✅ exists`.
+- After saving a newly generated asset, update the matching row in [docs/items/ASSET_STATUS.md](../../../docs/items/ASSET_STATUS.md) from `❌ missing` to `✅ exists`.
 - Update summary totals if the document includes category counts.
-- If [docs/items/ITEM_PROMPT_GUIDE.md](../../docs/items/ITEM_PROMPT_GUIDE.md) includes status tables or stale-file notes for the same asset, update those too so the docs do not drift.
+- If [docs/items/ITEM_PROMPT_GUIDE.md](../../../docs/items/ITEM_PROMPT_GUIDE.md) includes status tables or stale-file notes for the same asset, update those too so the docs do not drift.
 - Remove or rewrite notes that are no longer true, such as "PNG missing" warnings after the PNG has been restored.
-- For enemy work, also update [docs/enemies/ENEMY_SPRITES.md](../../docs/enemies/ENEMY_SPRITES.md) if the runtime sheet status or path note changed.
-- For terrain work, also update [docs/terrain/TERRAIN_SPRITES.md](../../docs/terrain/TERRAIN_SPRITES.md) if the file status, target size, or repo convention note changed.
-- For UI or effects work, also update [docs/ui/UI_SPRITES.md](../../docs/ui/UI_SPRITES.md) if the status, loading note, or size reference changed.
+- For enemy work, also update [docs/enemies/ENEMY_SPRITES.md](../../../docs/enemies/ENEMY_SPRITES.md) if the runtime sheet status or path note changed.
+- For terrain work, also update [docs/terrain/TERRAIN_SPRITES.md](../../../docs/terrain/TERRAIN_SPRITES.md) if the file status, target size, or repo convention note changed.
+- For UI or effects work, also update [docs/ui/UI_SPRITES.md](../../../docs/ui/UI_SPRITES.md) if the status, loading note, or size reference changed.
 - When docs mention a target size that no longer matches shipped assets, correct the doc to the repo's current convention instead of following stale text blindly.
 
 ## Response Pattern

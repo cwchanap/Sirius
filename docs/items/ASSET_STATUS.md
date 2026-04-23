@@ -82,7 +82,7 @@ Enemy type IDs come from `EnemyTypeId.cs`. The game resolves sprite sheets via
 | Status | EnemyTypeId | New Path (`enemies/{type}/sprite_sheet.png`) | Legacy Path |
 |--------|------------|---------------------------------------------|-------------|
 | ✅ exists | `goblin` | `assets/sprites/enemies/goblin/sprite_sheet.png` | — |
-| ⚠️ legacy only | `forest_spirit` | ❌ not at `enemies/forest_spirit/` | `assets/sprites/characters/forest_spirit/sprite_sheet.png` ✅ |
+| ⚠️ unreachable | `forest_spirit` | ❌ not at `enemies/forest_spirit/` | `assets/sprites/characters/forest_spirit/sprite_sheet.png` exists on disk but code checks `characters/enemy_forest_spirit/` — **not reachable** |
 | ❌ missing | `orc` | `assets/sprites/enemies/orc/sprite_sheet.png` | — |
 | ❌ missing | `skeleton_warrior` | `assets/sprites/enemies/skeleton_warrior/sprite_sheet.png` | — |
 | ❌ missing | `troll` | `assets/sprites/enemies/troll/sprite_sheet.png` | — |
@@ -103,9 +103,9 @@ Enemy type IDs come from `EnemyTypeId.cs`. The game resolves sprite sheets via
 
 **AI prompts** for all enemies are in `docs/ASSET_REQUIREMENTS.md §Priority 1`.
 
-> **`forest_spirit` migration:** The sprite exists at the legacy path. Consider moving it to
-> `assets/sprites/enemies/forest_spirit/` to align with the new convention, then delete the
-> legacy directory.
+> **`forest_spirit` migration:** The sprite exists at `assets/sprites/characters/forest_spirit/sprite_sheet.png`
+> but `EnemySpawn.cs` cannot find it at runtime (checks `enemies/forest_spirit/` then `characters/enemy_forest_spirit/`).
+> Move it to `assets/sprites/enemies/forest_spirit/sprite_sheet.png` to make it loadable, then delete the legacy directory.
 
 ---
 
@@ -134,7 +134,7 @@ Generate the source icon art, then resize the saved repo asset to match the exis
 | ❌ missing | `iron_helmet` | `assets/sprites/items/helmet/iron_helmet.png` |
 | ❌ missing | `iron_boots` | `assets/sprites/items/shoes/iron_boots.png` |
 
-> `assets/sprites/items/weapons/iron_sword.png` now exists. Keep the `.import` file alongside it.
+> `assets/sprites/items/weapons/iron_sword.png` now exists. Godot import metadata (`.import` files) is generated locally by the editor and is not tracked in this repository.
 
 ### Consumables
 

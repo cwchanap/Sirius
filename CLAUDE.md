@@ -18,6 +18,9 @@ cp test.runsettings.local.template test.runsettings.local
 # Edit test.runsettings.local with your Godot path, then:
 dotnet test Sirius.sln --settings test.runsettings.local
 
+# Run a single test class
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~CharacterTest"
+
 # Run from Godot editor (F5) or launch editor
 godot
 
@@ -78,11 +81,14 @@ tools/             # sprite_sheet_merger.py for asset pipeline
 ## Critical Development Patterns
 
 ### Battle State Management
-Always check `GameManager.IsInBattle` before allowing player movement:
+Two flags on `GameManager` block player movement — check both:
 ```csharp
-if (_gameManager.IsInBattle) return;
+if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction) return;
 _battleManager.BattleFinished += OnBattleFinished;
 ```
+- `IsInBattle`: set during modal battle dialog; cleared by `BattleEnded` signal
+- `IsInNpcInteraction`: set during NPC dialogue/shop/heal; cleared via `NpcInteractionResetRequested` event
+- Emergency reset: `GameManager.ResetBattleState()`
 
 ### Grid Coordinate System
 - Grid coordinates: (0,0) top-left, (159,159) bottom-right
@@ -119,6 +125,21 @@ NPC types: `Villager`, `Shopkeeper`, `Blacksmith`, `QuestGiver`, `Healer`. Each 
 
 ### Enemy & Loot Architecture
 Enemies are defined via `EnemyBlueprint` (data) and identified by `EnemyTypeId` enum. `LootTable` / `LootTableCatalog` define per-enemy drop rates. `LootManager` resolves loot on kill. Item definitions live in static catalogs (`ItemCatalog`, `EquipmentCatalog`, `ConsumableCatalog`, `MonsterPartsCatalog`) rather than Godot Resources.
+
+Enemy debuff abilities are declared as `EnemyDebuffAbility` records on `EnemyBlueprint`. `BattleManager` rolls `Chance` (0–1) on each enemy attack; on success, the `StatusEffectType` is applied to the player via `StatusEffectSet.Add()`.
+
+### Status Effects
+`StatusEffectSet` tracks active effects on each combatant (one entry per type, max-merge on re-apply). `BattleManager.Tick()` advances durations after each combatant action and applies DoT/HoT directly to HP.
+
+Available `StatusEffectType` values:
+- **Debuffs**: `Poison`/`Burn` (DoT, bypasses defense), `Stun` (skip action), `Weaken` (−Magnitude% ATK), `Slow` (−Magnitude% SPD), `Blind` (55% accuracy)
+- **Buffs**: `Regen` (HoT), `Haste` (+flat SPD), `Strength` (+flat ATK), `Fortify` (+flat DEF)
+
+`ActiveStatusEffect` is an immutable record: `(Type, Magnitude, TurnsRemaining)`. Value 11 is reserved — do not use.
+
+### Equipment & Inventory Limits
+- `EquipmentSet`: 5 main slots (Weapon, Shield, Armor, Helmet, Shoe) + 4 Accessory slots
+- `Inventory`: max 100 distinct item types (`MaxItemTypes`); individual stacks are unbounded
 
 ### Performance Requirements
 - **Viewport culling** essential for 160x160 grid (must maintain 60fps)
@@ -175,5 +196,11 @@ Test files must mirror source structure: `scripts/data/Character.cs` → `tests/
 - Walk into colored enemies on grid to trigger battles
 - Auto-combat proceeds without input, ESC returns to menu
 - Console provides detailed battle logs and state transitions
-- **Battle state stuck**: Use `GameManager.ResetBattleState()` method
 - **Grid bounds errors**: Always validate coordinates before accessing grid arrays
+
+## Architecture Docs
+
+Deep-dive docs live in `docs/`:
+- `docs/PRD.md` — feature roadmap and implementation status (~60% complete as of March 2026)
+- `docs/architecture/MULTI_FLOOR_ARCHITECTURE.md` — multi-floor system design
+- `docs/items/items-guide.md` — item catalog conventions

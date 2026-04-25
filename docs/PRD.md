@@ -1,7 +1,7 @@
 # Sirius - Product Requirements Document
 
-**Version:** 1.1
-**Last Updated:** March 2026
+**Version:** 1.2
+**Last Updated:** April 2026
 **Product Owner:** TBD
 **Tech Lead:** TBD
 
@@ -28,12 +28,14 @@ This PRD outlines 16 features across 4 priority tiers that will transform Sirius
 | Procedural Maze Generation | ❌ Not Started | 3 |
 | NPC and Dialogue System | ✅ Complete | 3 |
 | Quest System | ❌ Not Started | 3 |
-| Settings Menu | ❌ Not Started | 4 |
+| Settings Menu | ⚠️ Partial (60%) | 4 |
 | Minimap | ❌ Not Started | 4 |
 
-**Overall completion: ~60% of PRD scope**
+**Overall completion: ~65% of PRD scope**
 
 **NPC system note:** `NpcData`, `DialogueTree` / `DialogueNode` / `DialogueChoice` / `DialogueCondition`, `ShopInventory`, `NpcCatalog` / `DialogueCatalog` / `ShopCatalog`, `DialogueDialog`, `ShopDialog`, `HealDialog`, `NpcInteractionController`, `GridMap` NPC support, `GameManager.IsInNpcInteraction`, `NpcSpawn`, and related tests are implemented.
+
+**Settings system note:** `SettingsData` and `SettingsManager` (autoload singleton) are fully implemented — Master/Music/SFX volume, Difficulty, Fullscreen, Resolution, keybindings (toggle_inventory, interact, pause_menu), and AutoSave toggle. Atomic writes with `.bak` backup recovery, identical to `SaveManager`. Test coverage in `tests/settings/`. **Missing**: in-game settings UI scene; `MainMenu.cs` still shows a stub ("Settings menu coming soon!"). The settings backend auto-applies on launch and is wired to `GameManager.AutoSaveEnabled`, but players cannot yet change settings from within the game.
 
 ### Strategic Vision
 
@@ -93,6 +95,8 @@ Transform Sirius into a polished tactical RPG that offers:
 | EquipmentSet | `scripts/data/EquipmentSet.cs` | 5 main slots + 4 accessory slots |
 | Item | `scripts/data/Item.cs` | Base class with General, Equipment, Consumable, Quest categories |
 | SaveManager | `scripts/save/SaveManager.cs` | Autoload singleton, 3 slots + autosave, atomic writes, backup recovery |
+| SettingsManager | `scripts/settings/SettingsManager.cs` | Autoload singleton, volume/difficulty/display/keybinding persistence, atomic writes, backup recovery |
+| SettingsData | `scripts/settings/SettingsData.cs` | Settings DTO: Master/Music/SFX volume, Difficulty, Fullscreen, Resolution, AutoSave, keybindings |
 | LootManager | `scripts/data/LootManager.cs` | Weighted loot rolling, award to inventory |
 | LootTableCatalog | `scripts/data/LootTableCatalog.cs` | Per-enemy drop table registry |
 | SkillCatalog | `scripts/data/skills/SkillCatalog.cs` | Static skill registry and level-up grants |
@@ -1203,7 +1207,7 @@ public class ShopInventory
 - **One-Liner**: Kill/collect/explore quests with tracking UI
 - **Strategic Rationale**: Quests provide goals, rewards, and narrative structure
 - **Success Metrics**: > 3 quests completed per session
-- **Implementation Status**: Not started. `SaveData` has a placeholder `Dictionary<string, QuestState> Quests` field that is never populated. No `Quest`, `QuestManager`, or quest UI classes exist.
+- **Implementation Status**: Not started. `SaveData` persists a `List<string> QuestFlags` (string flag set, not a full quest state map) used only for `DialogueCondition` gating. No `Quest`, `QuestManager`, quest UI classes, or formal quest state tracking exist. The quest flags mechanism in `GameManager` and `DialogueCondition` forms a minimal prerequisite scaffold but is not a quest system.
 
 #### Technical Specifications
 
@@ -1294,20 +1298,23 @@ public partial class QuestManager : Node
 
 ## Phase 4: Polish (LOWER PRIORITY)
 
-### 4.1 Settings Menu — ❌ Not Started
+### 4.1 Settings Menu — ⚠️ Partial (60%)
 
 #### Executive Summary
 - **Feature Name**: Settings Menu
 - **One-Liner**: Audio, difficulty, and control customization
 - **Success Metrics**: > 20% of players adjust settings
-- **Implementation Status**: Not started. `MainMenu.cs` has a stub `_on_settings_button_pressed()` that shows "Settings menu coming soon!" message. No settings scene, persistence, or controls exist.
+- **Implementation Status**: Partial. The persistence and logic layer is fully implemented: `SettingsData` holds all settings fields; `SettingsManager` (autoload singleton in `scripts/settings/`) loads/saves/applies settings at startup with atomic writes and `.bak` backup recovery, mirrors `SaveManager`'s reliability pattern. Audio bus volumes (Master, Music, SFX), window mode/resolution, `InputMap` key bindings, and `GameManager.AutoSaveEnabled` are all applied on load. Covered by `tests/settings/SettingsDataTest.cs` and `tests/settings/SettingsManagerTest.cs`. **Not implemented**: the in-game settings UI — no `.tscn` scene, no UI controller. `MainMenu.cs` `_on_settings_button_pressed()` still shows "Settings menu coming soon!" stub. Players cannot change settings in-game.
 
-#### Features
-- Master/Music/SFX volume sliders
-- Difficulty selection (Easy/Normal/Hard)
-- Control rebinding
-- Display options (fullscreen, resolution)
-- Auto-save toggle
+#### Implemented
+- `SettingsData`: Master/Music/SFX volume (0–100%), Difficulty string, Fullscreen bool, Resolution (width × height), AutoSave bool, keybindings dict
+- `SettingsManager`: autoload singleton, atomic JSON write (temp → rename → .bak), corruption recovery, validation + sanitization, runtime apply (audio buses, DisplayServer, InputMap)
+- Keybinding guard rails: reserved key rejection (movement + UI keys), duplicate resolution, required-action protection (interact, pause_menu), fallback key assignment
+
+#### Not Yet Implemented
+- In-game settings UI scene (volume sliders, difficulty picker, keybinding rebind table, fullscreen/resolution selectors)
+- MainMenu settings button wired to actual UI (currently shows stub)
+- In-game pause menu settings access
 
 ---
 
@@ -1410,12 +1417,12 @@ public partial class QuestManager : Node
 | 21-23 | Quest System | ❌ Not started |
 | 24 | Integration & Testing | ❌ Pending |
 
-### Quarter 3: Polish (Weeks 25-36) — NOT STARTED
+### Quarter 3: Polish (Weeks 25-36) — IN PROGRESS
 
 | Week | Features | Status |
 |------|----------|--------|
-| 25-26 | Settings Menu | ❌ Stub only |
-| 27-29 | Combat VFX & Audio | ⚠️ Partial — basic sprite animation; no particles/SFX |
+| 25-26 | Settings Menu | ⚠️ Partial — backend/persistence complete; UI scene not yet built |
+| 27-29 | Combat VFX & Audio | ⚠️ Partial — attack tween+flash animation; no particles/SFX |
 | 30-31 | Minimap | ❌ Not started |
 | 32-34 | Bug fixes & Balance | ❌ Pending |
 | 35-36 | Launch preparation | ❌ Pending |
@@ -1476,6 +1483,8 @@ public partial class QuestManager : Node
 | `/scripts/ui/BattleManager.cs` | Combat system |
 | `/scripts/game/GridMap.cs` | World rendering |
 | `/scripts/game/FloorManager.cs` | Floor transitions |
+| `/scripts/settings/SettingsData.cs` | Settings DTO (volume, difficulty, display, keybindings) |
+| `/scripts/settings/SettingsManager.cs` | Settings autoload singleton with persistence |
 | `/docs/SoundEffects.md` | Audio requirements |
 | `/docs/ASSET_REQUIREMENTS.md` | Art asset specs |
 
@@ -1493,6 +1502,7 @@ public partial class QuestManager : Node
 |---------|------|---------|
 | 1.0 | Jan 2026 | Initial PRD creation |
 | 1.1 | Mar 2026 | Updated implementation status — Q1 features complete; added status badges and summary table |
+| 1.2 | Apr 2026 | Settings Menu upgraded to Partial (60%) — `SettingsData`/`SettingsManager` autoload fully implemented (volume, difficulty, display, keybindings, atomic saves); UI scene still missing. Added `SettingsManager`/`SettingsData` to Core Systems table. Updated `SaveData.QuestFlags` note (now `List<string>`, not `Dictionary<string, QuestState>`). Overall completion revised to ~65%. |
 
 ---
 

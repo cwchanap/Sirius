@@ -8,9 +8,10 @@ For overall asset status across all categories see `docs/items/ASSET_STATUS.md`.
 ## Art Style Guidelines
 
 - **Style**: Japanese anime with chibi/super deformed proportions
-- **Resolution**: 96×96 pixels per frame
+- **Frame size on disk**: Frames are stored at **1024×1024** px (the size AI generation tools produce). `tools/sprite_sheet_merger.py` resizes each frame to 96×96 when building the sheet — do not manually resize before running the merger.
+- **Runtime sheet size**: 384×96 px (4 frames × 96px, built by the merger)
 - **Animation**: 4-frame walking cycle per character
-- **Format**: Generate 4 individual frame PNGs when needed, then merge them into `sprite_sheet.png` via `tools/sprite_sheet_merger.py`
+- **Format**: Generate 4 individual frame PNGs, place in `assets/sprites/enemies/{type}/frames/`, then run `python3 tools/sprite_sheet_merger.py` to produce `sprite_sheet.png`
 - **Background**: Transparent (PNG with alpha channel)
 - **Color Palette**: Bright, saturated anime colors with cel-shading contrast
 - **Outlines**: Bold black lines for definition
@@ -51,13 +52,14 @@ Legacy character-sheet paths currently present in the repo:
 > but no assets currently exist at that `enemy_`-prefixed pattern. The `player_hero` and `forest_spirit` folders
 > under `characters/` are legacy locations that predate the current code's fallback logic.
 
-Run `python3 tools/sprite_sheet_merger.py` after placing frames to generate the sheet.
+Run `python3 tools/sprite_sheet_merger.py` after placing frames to generate the sheet. The merger resizes frames to 96×96 automatically — save the AI output at whatever resolution the tool produces (typically 1024×1024) and let the merger handle downscaling.
 
 ### Current Repo References
 
 - `assets/sprites/characters/player_hero/sprite_sheet.png` — existing legacy character sheet, `384×96`
 - `assets/sprites/enemies/goblin/sprite_sheet.png` — existing canonical enemy runtime sheet, `384×96`
 - `assets/sprites/characters/forest_spirit/sprite_sheet.png` — existing file on disk, `384×96`, but not reachable by `EnemySpawn.cs` at runtime (see note above)
+- Individual frame PNGs (e.g. `goblin/frames/frame1.png`) are stored at **1024×1024** — the merger resizes them to 96×96 per frame when building the sheet
 
 Per-entity `Files` entries below describe where to create frame sources when generating new art. Treat the runtime `sprite_sheet.png` path as the authoritative existence check.
 
@@ -69,7 +71,7 @@ Per-entity `Files` entries below describe where to create frame sources when gen
 |--------|--------|--------------|
 | ✅ exists | Player Hero | `assets/sprites/characters/player_hero/sprite_sheet.png` |
 | ✅ exists | Goblin | `assets/sprites/enemies/goblin/sprite_sheet.png` |
-| ⚠️ unreachable | Forest Spirit | `assets/sprites/characters/forest_spirit/sprite_sheet.png` — file exists on disk but `EnemySpawn.cs` cannot find it (checks `enemies/forest_spirit/` then `characters/enemy_forest_spirit/` — neither exists). Migrate to `assets/sprites/enemies/forest_sprite/sprite_sheet.png` to fix. |
+| ⚠️ unreachable | Forest Spirit | `assets/sprites/characters/forest_spirit/sprite_sheet.png` — file exists on disk but `EnemySpawn.cs` cannot find it (checks `enemies/forest_spirit/` then `characters/enemy_forest_spirit/` — neither exists). Migrate to `assets/sprites/enemies/forest_spirit/sprite_sheet.png` to fix. |
 | ❌ missing | Orc | `assets/sprites/enemies/orc/sprite_sheet.png` |
 | ❌ missing | Skeleton Warrior | `assets/sprites/enemies/skeleton_warrior/sprite_sheet.png` |
 | ❌ missing | Cave Spider | `assets/sprites/enemies/cave_spider/sprite_sheet.png` |

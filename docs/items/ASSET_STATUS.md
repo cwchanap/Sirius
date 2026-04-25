@@ -12,6 +12,7 @@ generation prompts.
 |----------|------------------|-----------------|
 | **Terrain tiles** | `GD.Load<Texture2D>(path)` in `GridMap.cs:473–479` | `assets/sprites/terrain/*.png` |
 | **Character/Enemy sprites** | `sprite_sheet.png` per entity in `EnemySpawn.cs:262` / `PlayerDisplay.cs:26` | `assets/sprites/enemies/{type}/sprite_sheet.png` (new) or `assets/sprites/characters/{name}/sprite_sheet.png` (legacy) |
+| **NPC sprites** | `NpcSpawn.cs:66–67` tries new path then legacy fallback | `assets/sprites/npcs/{type}/sprite_sheet.png` (new) or `assets/sprites/characters/npc_{type}/sprite_sheet.png` (legacy) |
 | **Sprite sheets** | Auto-built by `tools/sprite_sheet_merger.py` from `frames/frame1-4.png` | Same dir as `frames/` |
 | **Item icons** | `AssetPath` field in `EquipmentCatalog.cs` | `assets/sprites/items/{slot}/{id}.png` |
 | **UI backgrounds** | Hard-coded paths in `MainMenu.cs:27` and `BattleManager.cs:180` | `assets/sprites/ui/*.png` |
@@ -109,7 +110,28 @@ Enemy type IDs come from `EnemyTypeId.cs`. The game resolves sprite sheets via
 
 ---
 
-## 3. Item Icons (current repo convention: 96×96 px)
+## 3. NPC Sprites
+
+NPC sprite sheets follow the same 128×32 px / 4-frame format as enemies. `NpcSpawn.cs` tries
+`assets/sprites/npcs/{type}/sprite_sheet.png` first, then `assets/sprites/characters/npc_{type}/sprite_sheet.png`
+as a legacy fallback. All 4 registered NPCs are missing their sprites; the `assets/sprites/npcs/`
+directory does not yet exist.
+
+| Status | NpcId | SpriteType | Expected Path |
+|--------|-------|-----------|---------------|
+| ❌ missing | `village_shopkeeper` | `shopkeeper` | `assets/sprites/npcs/shopkeeper/sprite_sheet.png` |
+| ❌ missing | `village_healer` | `healer` | `assets/sprites/npcs/healer/sprite_sheet.png` |
+| ❌ missing | `old_farmer` | `villager` | `assets/sprites/npcs/villager/sprite_sheet.png` |
+| ❌ missing | `village_blacksmith` | `blacksmith` | `assets/sprites/npcs/blacksmith/sprite_sheet.png` |
+
+**How to add an NPC sprite:**
+1. Place 4 frames as `assets/sprites/npcs/{type}/frames/frame1.png` … `frame4.png`
+2. Run `python3 tools/sprite_sheet_merger.py` to generate `sprite_sheet.png`
+3. The game auto-loads it via the path above
+
+---
+
+## 4. Item Icons (current repo convention: 96×96 px)
 
 See `ITEM_PROMPT_GUIDE.md` for full AI prompts. Paths come from `EquipmentCatalog.cs`.
 Generate the source icon art, then resize the saved repo asset to match the existing item icon convention with `tools/resize_item_icons.py`.
@@ -184,7 +206,7 @@ Originals of the above are preserved under `assets/sprites/items/original/` as r
 
 ---
 
-## 4. UI Assets
+## 5. UI Assets
 
 ### Backgrounds
 
@@ -213,7 +235,7 @@ Originals of the above are preserved under `assets/sprites/items/original/` as r
 
 ---
 
-## 5. Effect Sprites
+## 6. Effect Sprites
 
 No code currently loads these; reserved for future battle animations.
 
@@ -231,15 +253,16 @@ No code currently loads these; reserved for future battle animations.
 
 | Category | ✅ Exists | ❌ Missing |
 |----------|----------|-----------|
-| Terrain tiles | 9 | 7 (1 floor + 6 stair/gate) |
+| Terrain tiles | 10 | 7 (1 floor + 6 stair/gate) |
 | Characters/Enemies | 2 (+ 1 legacy) | 13 |
+| NPC sprites | 0 | 4 |
 | Item icons — equipment | 6 | 4 |
 | Item icons — consumables | 0 | 10 |
 | Item icons — monster parts | 0 | 5 |
 | UI backgrounds | 2 | 0 |
 | UI buttons & icons | 0 | 6 |
 | Effects | 0 | 3 |
-| **Total** | **19** | **48** |
+| **Total** | **20** | **52** |
 
 ---
 
@@ -247,5 +270,6 @@ No code currently loads these; reserved for future battle animations.
 
 - When a new item is added to any `*Catalog.cs`, add a row here and in `ITEM_PROMPT_GUIDE.md`.
 - When a new `EnemyTypeId` constant is added, add a row to the Enemies table.
+- When a new NPC is added to `NpcCatalog.cs`, add a row to the NPC Sprites table.
 - When an asset file is generated and placed, change ❌ to ✅.
 - Keep the Summary counts in sync.

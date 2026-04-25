@@ -151,10 +151,10 @@ Generate the source icon art, then resize the saved repo asset to match the exis
 | Status | ID | Asset Path |
 |--------|----|-----------|
 | ✅ exists | `iron_sword` | `assets/sprites/items/weapons/iron_sword.png` |
-| ❌ missing | `iron_armor` | `assets/sprites/items/armor/iron_armor.png` |
-| ❌ missing | `iron_shield` | `assets/sprites/items/shields/iron_shield.png` |
-| ❌ missing | `iron_helmet` | `assets/sprites/items/helmet/iron_helmet.png` |
-| ❌ missing | `iron_boots` | `assets/sprites/items/shoes/iron_boots.png` |
+| ✅ exists | `iron_armor` | `assets/sprites/items/armor/iron_armor.png` |
+| ✅ exists | `iron_shield` | `assets/sprites/items/shields/iron_shield.png` |
+| ✅ exists | `iron_helmet` | `assets/sprites/items/helmet/iron_helmet.png` |
+| ✅ exists | `iron_boots` | `assets/sprites/items/shoes/iron_boots.png` |
 
 > `assets/sprites/items/weapons/iron_sword.png` now exists. Godot import metadata (`.import` files) is generated locally by the editor and is not tracked in this repository.
 
@@ -164,28 +164,28 @@ Generate the source icon art, then resize the saved repo asset to match the exis
 
 | Status | ID | Intended Asset Path |
 |--------|----|-------------------|
-| ❌ missing | `health_potion` | `assets/sprites/items/consumables/health_potion.png` |
-| ❌ missing | `greater_health_potion` | `assets/sprites/items/consumables/greater_health_potion.png` |
-| ❌ missing | `mana_potion` | `assets/sprites/items/consumables/mana_potion.png` |
-| ❌ missing | `strength_tonic` | `assets/sprites/items/consumables/strength_tonic.png` |
-| ❌ missing | `iron_skin` | `assets/sprites/items/consumables/iron_skin.png` |
-| ❌ missing | `swiftness_draught` | `assets/sprites/items/consumables/swiftness_draught.png` |
-| ❌ missing | `antidote` | `assets/sprites/items/consumables/antidote.png` |
-| ❌ missing | `regen_potion` | `assets/sprites/items/consumables/regen_potion.png` |
-| ❌ missing | `poison_vial` | `assets/sprites/items/consumables/poison_vial.png` |
-| ❌ missing | `flash_powder` | `assets/sprites/items/consumables/flash_powder.png` |
+| ✅ exists | `health_potion` | `assets/sprites/items/consumables/health_potion.png` |
+| ✅ exists | `greater_health_potion` | `assets/sprites/items/consumables/greater_health_potion.png` |
+| ✅ exists | `mana_potion` | `assets/sprites/items/consumables/mana_potion.png` |
+| ✅ exists | `strength_tonic` | `assets/sprites/items/consumables/strength_tonic.png` |
+| ✅ exists | `iron_skin` | `assets/sprites/items/consumables/iron_skin.png` |
+| ✅ exists | `swiftness_draught` | `assets/sprites/items/consumables/swiftness_draught.png` |
+| ✅ exists | `antidote` | `assets/sprites/items/consumables/antidote.png` |
+| ✅ exists | `regen_potion` | `assets/sprites/items/consumables/regen_potion.png` |
+| ✅ exists | `poison_vial` | `assets/sprites/items/consumables/poison_vial.png` |
+| ✅ exists | `flash_powder` | `assets/sprites/items/consumables/flash_powder.png` |
 
 ### Monster Parts
 
-`MonsterPartsCatalog.cs` does not set `AssetPath`. No icons needed until inventory shows them visually.
+`MonsterPartsCatalog.cs` does not set `AssetPath`. The generated icons live at the intended locations for future inventory display.
 
 | Status | ID | Intended Asset Path |
 |--------|----|-------------------|
-| ❌ missing | `goblin_ear` | `assets/sprites/items/monster_parts/goblin_ear.png` |
-| ❌ missing | `orc_tusk` | `assets/sprites/items/monster_parts/orc_tusk.png` |
-| ❌ missing | `skeleton_bone` | `assets/sprites/items/monster_parts/skeleton_bone.png` |
-| ❌ missing | `spider_silk` | `assets/sprites/items/monster_parts/spider_silk.png` |
-| ❌ missing | `dragon_scale` | `assets/sprites/items/monster_parts/dragon_scale.png` |
+| ✅ exists | `goblin_ear` | `assets/sprites/items/monster_parts/goblin_ear.png` |
+| ✅ exists | `orc_tusk` | `assets/sprites/items/monster_parts/orc_tusk.png` |
+| ✅ exists | `skeleton_bone` | `assets/sprites/items/monster_parts/skeleton_bone.png` |
+| ✅ exists | `spider_silk` | `assets/sprites/items/monster_parts/spider_silk.png` |
+| ✅ exists | `dragon_scale` | `assets/sprites/items/monster_parts/dragon_scale.png` |
 
 ### Orphaned Item Assets
 
@@ -256,13 +256,13 @@ No code currently loads these; reserved for future battle animations.
 | Terrain tiles | 10 | 7 (1 floor + 6 stair/gate) |
 | Characters/Enemies | 2 (+ 1 legacy) | 13 |
 | NPC sprites | 0 | 4 |
-| Item icons — equipment | 6 | 4 |
-| Item icons — consumables | 0 | 10 |
-| Item icons — monster parts | 0 | 5 |
+| Item icons — equipment | 10 | 0 |
+| Item icons — consumables | 10 | 0 |
+| Item icons — monster parts | 5 | 0 |
 | UI backgrounds | 2 | 0 |
 | UI buttons & icons | 0 | 6 |
 | Effects | 0 | 3 |
-| **Total** | **20** | **52** |
+| **Total** | **39** | **33** |
 
 ---
 

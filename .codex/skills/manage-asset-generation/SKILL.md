@@ -17,7 +17,7 @@ Follow the repo's asset SOP instead of generating art blindly. Check the runtime
 4. Inspect existing same-category assets and record the current size, sheet layout, and visual convention before generating.
 5. If the file is missing, generate the asset using the prompt guidance in the relevant doc, adjusted to match the repo's current reference assets.
 6. Copy the generated image into the exact repo path under `assets/`.
-7. Run any required category-specific processing such as item icon resizing or enemy sprite-sheet merging.
+7. Run any required category-specific processing such as item icon alpha cleanup, resizing, or enemy sprite-sheet merging.
 8. Re-check the filesystem to confirm the file now exists and has the expected dimensions.
 9. Update the relevant asset docs so the status rows, notes, and size references stay correct.
 
@@ -35,6 +35,7 @@ Follow the repo's asset SOP instead of generating art blindly. Check the runtime
   - Canonical paths come from `EquipmentCatalog.cs` and related item docs.
   - Use existing same-category icons as the size and composition reference.
   - Current known equipment icon convention is `96x96`.
+  - Existing shipped item icons use real transparent backgrounds; outside-silhouette pixels should include `alpha=0`, not just a light checker or matte fill.
 - Enemy sprites:
   - Canonical runtime existence check is the merged `sprite_sheet.png`.
   - Prefer `assets/sprites/enemies/{type}/sprite_sheet.png`.
@@ -79,7 +80,7 @@ Follow the repo's asset SOP instead of generating art blindly. Check the runtime
 - Keep the original generated file in the Codex generated-images folder. Copy it into the repo path instead of moving it.
 - Match the existing repo convention for the specific category, not an older doc assumption.
 - Preserve the asset class requirements:
-  - Item icons: convert the saved repo asset to match the established item icon size already used in the repo.
+  - Item icons: convert the saved repo asset to match the established item icon size already used in the repo, and verify the final PNG has real transparency rather than a baked opaque background.
   - Enemy sprites: generate four `96x96` frames when needed, then merge them into a `384x96` `sprite_sheet.png`.
   - Terrain tiles: match the current shipped `96x96` terrain source-art convention unless the repo standard changes.
   - UI backgrounds: match the existing shipped background sizes when replacing or extending that set.
@@ -87,8 +88,10 @@ Follow the repo's asset SOP instead of generating art blindly. Check the runtime
 
 ## Item Icon Resize Step
 
-- Use [tools/resize_item_icons.py](../../../tools/resize_item_icons.py) for item icon downscaling.
+- Use [tools/resize_item_icons.py](../../../tools/resize_item_icons.py) for item icon alpha cleanup and downscaling.
+- Do not trust the image-generation prompt alone to produce true PNG alpha. In this repo, the generator can return fully opaque images even when the prompt explicitly asks for a transparent background.
 - The current known convention for existing wooden item icons is `96x96`; verify same-category assets before resizing a newly generated icon.
+- The resize helper now strips edge-connected opaque background pixels before resizing unless `--skip-background-removal` is set.
 - The helper works on directories, so for a single generated asset use a temporary source directory containing only that file, then copy the resized output back to the canonical asset path.
 - Example:
   ```bash
@@ -99,6 +102,11 @@ Follow the repo's asset SOP instead of generating art blindly. Check the runtime
   python3 -c "from PIL import Image; img=Image.open('assets/sprites/items/weapons/iron_sword.png'); print(f'{img.width}x{img.height}')"
   ```
   The output should match the target size (e.g. `96x96`) used by `tools/resize_item_icons.py`.
+- Verify the final repo file has real transparency:
+  ```bash
+  python3 -c "from PIL import Image; img=Image.open('assets/sprites/items/weapons/iron_sword.png').convert('RGBA'); a=img.getchannel('A'); print(a.getextrema(), img.getpixel((0, 0))[3])"
+  ```
+  Existing item-style output should report a minimum alpha below `255`, and corner pixels should normally be `0`.
 
 ## Enemy Sprite Sheet Step
 

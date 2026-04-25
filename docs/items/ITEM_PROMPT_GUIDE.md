@@ -129,7 +129,8 @@ Lighting from top-left with soft rim glow. Centered in frame, no background elem
 After generation, save the full-size source PNG into a source directory (by default
 `assets/sprites/items/original/`), then run the resize tool to write the final asset into the
 appropriate destination tree. `tools/resize_item_icons.py` resizes images from a **source directory**
-into a **destination directory**; it does not resize a single repo copy in place. To avoid
+into a **destination directory** and can strip edge-connected opaque matte backgrounds when the
+generator fails to emit real alpha. It does not resize a single repo copy in place. To avoid
 unintentionally processing the entire default source directory, prefer passing explicit `--source` and
 `--dest` paths when working on a single item or subset, for example:
 `python3 tools/resize_item_icons.py --source assets/sprites/items/original --dest assets/sprites/items --size 96`
@@ -179,22 +180,22 @@ unintentionally processing the entire default source directory, prefer passing e
 > cel shading with cool grey iron and subtle forge-marks along the blade. Lighting from top-left,
 > faint metallic sheen, no background."
 
-**Iron Armor** (`iron_armor.png`) — **⚠ needs generation**
+**Iron Armor** (`iron_armor.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a heavy iron chestplate with riveted pauldrons,
 > transparent background. Three-quarter top-down angle, bold outline, cel shading with dark grey
 > iron plates and subtle rust highlights at edges. Soft top-left lighting, centered, no background."
 
-**Iron Shield** (`iron_shield.png`) — **⚠ needs generation**
+**Iron Shield** (`iron_shield.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a solid iron kite shield with a raised central boss
 > and reinforced rim, transparent background. Three-quarter top-down angle, bold outline, cel shading
 > with dark grey metal and blue-grey shadow accents. Soft top-left lighting, no extra elements."
 
-**Iron Helmet** (`iron_helmet.png`) — **⚠ needs generation**
+**Iron Helmet** (`iron_helmet.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of an iron open-faced helmet with cheek guards and a
 > nasal bar, transparent background. Three-quarter top-down angle, bold outline, cel shading with
 > dark iron and cool metallic reflections. Soft top-left lighting, no background."
 
-**Iron Boots** (`iron_boots.png`) — **⚠ needs generation**
+**Iron Boots** (`iron_boots.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of heavy iron-plated boots with leather straps,
 > transparent background. Three-quarter top-down angle, bold outline, cel shading with dark grey
 > iron plates over brown leather. Soft top-left lighting, no background elements."
@@ -203,59 +204,59 @@ unintentionally processing the entire default source directory, prefer passing e
 
 ## Consumable Prompts
 
-**Health Potion** (`health_potion.png`) — **⚠ needs generation**
+**Health Potion** (`health_potion.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a small round potion bottle filled with bright red
 > liquid and a cork stopper, transparent background. Straight-on hero shot, bold outline, cel shading
 > with glass reflections and a liquid swirl. Soft top-left lighting, tiny heart sparkle, no background."
 
-**Greater Health Potion** (`greater_health_potion.png`) — **⚠ needs generation**
+**Greater Health Potion** (`greater_health_potion.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a large ornate potion bottle filled with deep crimson
 > liquid, gold trim, and a wax-sealed stopper, transparent background. Straight-on hero shot, bold
 > outline, cel shading with rich glass reflections and a swirling liquid interior. Soft top-left
 > lighting, glowing red aura, no background. Visibly larger and more impressive than a basic health
 > potion."
 
-**Mana Potion** (`mana_potion.png`) — **⚠ needs generation**
+**Mana Potion** (`mana_potion.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a small glass vial filled with glowing blue liquid
 > and a cork stopper, transparent background. Straight-on hero shot, bold outline, cel shading with
 > cool blue glass reflections. Soft top-left lighting, magical sparkle, no background."
 
-**Strength Tonic** (`strength_tonic.png`) — **⚠ needs generation**
+**Strength Tonic** (`strength_tonic.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a square flask filled with orange-red bubbling liquid,
 > transparent background. Straight-on hero shot, bold outline, cel shading with amber tones and rising
 > bubble effects. Soft top-left lighting, faint flame glow at base, no background."
 
-**Iron Skin** (`iron_skin.png`) — **⚠ needs generation**
+**Iron Skin** (`iron_skin.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a grey-silver potion bottle with metallic sheen
 > and a steel-capped stopper, transparent background. Straight-on hero shot, bold outline, cel shading
 > with cool metallic grey tones and a subtle iron texture swirling inside. Soft top-left lighting,
 > faint armor-plate highlight, no background."
 
-**Swiftness Draught** (`swiftness_draught.png`) — **⚠ needs generation**
+**Swiftness Draught** (`swiftness_draught.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a slim tapered flask filled with bright green-yellow
 > sparkling liquid, transparent background. Straight-on hero shot, bold outline, cel shading with
 > vivid lime tones. Add faint horizontal speed streaks around the flask. Soft top-left lighting,
 > no background."
 
-**Antidote** (`antidote.png`) — **⚠ needs generation**
+**Antidote** (`antidote.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a small vial filled with bright green liquid and
 > a leaf motif on the label, transparent background. Straight-on hero shot, bold outline, cel shading
 > with fresh green tones and a clean white cork. Soft top-left lighting, small leaf sparkles,
 > no background."
 
-**Regen Potion** (`regen_potion.png`) — **⚠ needs generation**
+**Regen Potion** (`regen_potion.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a round flask filled with soft pink-white glowing
 > liquid with a heart motif etched on the glass, transparent background. Straight-on hero shot,
 > bold outline, cel shading with warm pink tones and a gentle glow. Soft top-left lighting,
 > tiny healing cross sparkle, no background."
 
-**Poison Vial** (`poison_vial.png`) — **⚠ needs generation**
+**Poison Vial** (`poison_vial.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a dark vial filled with murky purple-green toxic
 > liquid and a skull-embossed stopper, transparent background. Straight-on hero shot, bold outline,
 > cel shading with deep purple and sickly green swirling inside. Soft top-left lighting, dripping
 > droplet accent, no background."
 
-**Flash Powder** (`flash_powder.png`) — **⚠ needs generation**
+**Flash Powder** (`flash_powder.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a small paper pouch tied with string, filled with
 > glowing yellow-white powder leaking from the top, transparent background. Straight-on hero shot,
 > bold outline, cel shading with bright white-gold hues and radiant burst lines. Soft top-left
@@ -265,27 +266,27 @@ unintentionally processing the entire default source directory, prefer passing e
 
 ## Monster Part Prompts
 
-**Goblin Ear** (`goblin_ear.png`) — **⚠ needs generation**
+**Goblin Ear** (`goblin_ear.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a pointed green goblin ear with a small gold earring,
 > transparent background. Straight-on hero shot, bold outline, cel shading with muted green skin tones.
 > Soft top-left lighting, no background."
 
-**Orc Tusk** (`orc_tusk.png`) — **⚠ needs generation**
+**Orc Tusk** (`orc_tusk.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a heavy yellowed orc tusk with a rough broken base,
 > transparent background. Straight-on hero shot, bold outline, cel shading with ivory yellow tones
 > and brown root staining. Soft top-left lighting, no background."
 
-**Skeleton Bone** (`skeleton_bone.png`) — **⚠ needs generation**
+**Skeleton Bone** (`skeleton_bone.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a single femur bone with a faint dark energy aura,
 > transparent background. Straight-on hero shot, bold outline, cel shading with aged off-white tones
 > and a subtle purple glow at the joints. Soft top-left lighting, no background."
 
-**Spider Silk** (`spider_silk.png`) — **⚠ needs generation**
+**Spider Silk** (`spider_silk.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a shimmering bundle of iridescent white silk threads
 > loosely wound into a spool, transparent background. Straight-on hero shot, bold outline, cel shading
 > with cool silver-white and faint rainbow shimmer. Soft top-left lighting, no background."
 
-**Dragon Scale** (`dragon_scale.png`) — **⚠ needs generation**
+**Dragon Scale** (`dragon_scale.png`) — *asset exists*
 > "Create a 64x64 anime-style inventory icon of a single large iridescent dragon scale with intricate
 > surface patterns, transparent background. Straight-on hero shot, bold outline, cel shading with deep
 > teal-gold hues and a metallic rainbow sheen. Soft top-left lighting, magical radiance glow,

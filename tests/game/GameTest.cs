@@ -159,7 +159,7 @@ public partial class GameTest : Node
     }
 
     [TestCase]
-    public void PauseMenu_WhenSettingsRequested_OpensSettingsAndKeepsPauseMenuOpen()
+    public void PauseMenu_WhenSettingsRequested_OpensSettingsAndHidesPauseMenu()
     {
         if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
         if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
@@ -185,9 +185,9 @@ public partial class GameTest : Node
         var settingsMenu = GetPrivateField<SettingsMenuController?>(_game, "_settingsMenu");
         AssertThat(settingsMenu).IsNotNull();
 
-        // Pause menu must still be open — settings opens on top, does not close it
+        // Pause menu must be hidden while settings is open
         AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNotNull();
-        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")!.Visible).IsTrue();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")!.Visible).IsFalse();
 
         if (IsInstanceValid(pauseDialog)) pauseDialog.QueueFree();
     }

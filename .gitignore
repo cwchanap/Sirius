@@ -16,6 +16,7 @@ test.runsettings.local
 
 # Claude settings
 .claude/settings.local.json
+.mcp.json
 
 # Local git worktrees
 .worktrees/

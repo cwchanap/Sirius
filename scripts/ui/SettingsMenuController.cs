@@ -56,9 +56,177 @@ public partial class SettingsMenuController : Control
         Show();
     }
 
-    // Stubs — implemented in Tasks 4 and 5
-    private void BuildUI(VBoxContainer content) { }
-    private void PopulateControls() { }
+    private void BuildUI(VBoxContainer content)
+    {
+        content.AddChild(new Label { Text = "Settings" });
+
+        var tabs = new TabContainer();
+        tabs.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+        content.AddChild(tabs);
+
+        tabs.AddChild(BuildAudioTab());
+        tabs.AddChild(BuildDisplayTab());
+        tabs.AddChild(BuildGameplayTab());
+        tabs.AddChild(BuildControlsTab());
+
+        _errorLabel = new Label { Modulate = Colors.Red, Visible = false };
+        content.AddChild(_errorLabel);
+
+        var btnRow = new HBoxContainer();
+        btnRow.AddThemeConstantOverride("separation", 8);
+        content.AddChild(btnRow);
+
+        var applyBtn = new Button { Text = "Apply" };
+        applyBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        applyBtn.Pressed += OnApplyPressed;
+        btnRow.AddChild(applyBtn);
+
+        var cancelBtn = new Button { Text = "Cancel" };
+        cancelBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        cancelBtn.Pressed += OnCancelPressed;
+        btnRow.AddChild(cancelBtn);
+    }
+
+    private VBoxContainer BuildAudioTab()
+    {
+        var tab = new VBoxContainer { Name = "Audio" };
+        tab.AddThemeConstantOverride("separation", 8);
+
+        (_masterSlider, _masterValueLabel) = AddSliderRow(tab, "Master Volume");
+        (_musicSlider,  _musicValueLabel)  = AddSliderRow(tab, "Music Volume");
+        (_sfxSlider,    _sfxValueLabel)    = AddSliderRow(tab, "SFX Volume");
+
+        _masterSlider.ValueChanged += v => _masterValueLabel.Text = $"{(int)v}%";
+        _musicSlider.ValueChanged  += v => _musicValueLabel.Text  = $"{(int)v}%";
+        _sfxSlider.ValueChanged    += v => _sfxValueLabel.Text    = $"{(int)v}%";
+
+        return tab;
+    }
+
+    private static (HSlider slider, Label valueLabel) AddSliderRow(VBoxContainer parent, string labelText)
+    {
+        var row = new HBoxContainer();
+        parent.AddChild(row);
+
+        var lbl = new Label { Text = labelText };
+        lbl.CustomMinimumSize = new Vector2(140, 0);
+        row.AddChild(lbl);
+
+        var slider = new HSlider { MinValue = 0, MaxValue = 100, Step = 1 };
+        slider.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        row.AddChild(slider);
+
+        var val = new Label { Text = "100%" };
+        val.CustomMinimumSize = new Vector2(45, 0);
+        row.AddChild(val);
+
+        return (slider, val);
+    }
+
+    private VBoxContainer BuildDisplayTab()
+    {
+        var tab = new VBoxContainer { Name = "Display" };
+        tab.AddThemeConstantOverride("separation", 8);
+
+        var fsRow = new HBoxContainer();
+        tab.AddChild(fsRow);
+        fsRow.AddChild(new Label { Text = "Fullscreen" });
+        _fullscreenCheck = new CheckBox();
+        fsRow.AddChild(_fullscreenCheck);
+
+        var resRow = new HBoxContainer();
+        tab.AddChild(resRow);
+        resRow.AddChild(new Label { Text = "Resolution" });
+        _resolutionOption = new OptionButton();
+        foreach (var (w, h) in ResolutionPresets)
+            _resolutionOption.AddItem($"{w}\u00d7{h}");
+        resRow.AddChild(_resolutionOption);
+
+        return tab;
+    }
+
+    private VBoxContainer BuildGameplayTab()
+    {
+        var tab = new VBoxContainer { Name = "Gameplay" };
+        tab.AddThemeConstantOverride("separation", 8);
+
+        var diffRow = new HBoxContainer();
+        tab.AddChild(diffRow);
+        diffRow.AddChild(new Label { Text = "Difficulty" });
+        _difficultyOption = new OptionButton();
+        foreach (var d in Difficulties)
+            _difficultyOption.AddItem(d);
+        diffRow.AddChild(_difficultyOption);
+
+        var asRow = new HBoxContainer();
+        tab.AddChild(asRow);
+        asRow.AddChild(new Label { Text = "Auto Save" });
+        _autoSaveCheck = new CheckBox();
+        asRow.AddChild(_autoSaveCheck);
+
+        return tab;
+    }
+
+    private VBoxContainer BuildControlsTab()
+    {
+        var tab = new VBoxContainer { Name = "Controls" };
+        tab.AddThemeConstantOverride("separation", 8);
+
+        _inventoryKeyBtn = AddKeyRow(tab, "Toggle Inventory", "toggle_inventory");
+        _interactKeyBtn  = AddKeyRow(tab, "Interact",         "interact");
+        _pauseKeyBtn     = AddKeyRow(tab, "Pause / Cancel",   "pause_menu");
+
+        return tab;
+    }
+
+    private Button AddKeyRow(VBoxContainer parent, string displayName, string action)
+    {
+        var row = new HBoxContainer();
+        parent.AddChild(row);
+
+        var lbl = new Label { Text = displayName };
+        lbl.CustomMinimumSize = new Vector2(160, 0);
+        row.AddChild(lbl);
+
+        var btn = new Button();
+        btn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        btn.Pressed += () => StartKeyCapture(action);
+        row.AddChild(btn);
+
+        return btn;
+    }
+
+    private void PopulateControls()
+    {
+        _masterSlider.Value      = _editedSettings.MasterVolumePercent;
+        _masterValueLabel.Text   = $"{_editedSettings.MasterVolumePercent}%";
+        _musicSlider.Value       = _editedSettings.MusicVolumePercent;
+        _musicValueLabel.Text    = $"{_editedSettings.MusicVolumePercent}%";
+        _sfxSlider.Value         = _editedSettings.SfxVolumePercent;
+        _sfxValueLabel.Text      = $"{_editedSettings.SfxVolumePercent}%";
+
+        _fullscreenCheck.ButtonPressed = _editedSettings.FullscreenEnabled;
+
+        int resIdx = ResolutionIndexFor(_editedSettings.ResolutionWidth, _editedSettings.ResolutionHeight);
+        _resolutionOption.Selected = resIdx >= 0 ? resIdx : 1;
+
+        int diffIdx = System.Array.IndexOf(Difficulties, _editedSettings.Difficulty);
+        _difficultyOption.Selected = diffIdx >= 0 ? diffIdx : 1;
+
+        _autoSaveCheck.ButtonPressed = _editedSettings.AutoSaveEnabled;
+
+        UpdateKeyButtonText(_inventoryKeyBtn, "toggle_inventory");
+        UpdateKeyButtonText(_interactKeyBtn,  "interact");
+        UpdateKeyButtonText(_pauseKeyBtn,     "pause_menu");
+    }
+
+    private static int ResolutionIndexFor(int w, int h)
+    {
+        for (int i = 0; i < ResolutionPresets.Length; i++)
+            if (ResolutionPresets[i].W == w && ResolutionPresets[i].H == h) return i;
+        return -1;
+    }
+
     private void StartKeyCapture(string action) { }
     private void OnApplyPressed() { }
 

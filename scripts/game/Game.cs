@@ -31,6 +31,7 @@ public partial class Game : Node2D
     private bool _hasShownCorruptedSaveError;
 
     private SaveLoadDialog _saveLoadDialog;
+    private PauseMenuDialog _pauseMenuDialog;
     private AcceptDialog _activeErrorPopup;
 
     public override void _EnterTree()
@@ -292,28 +293,13 @@ public partial class Game : Node2D
 
         if (!_gameManager.IsInBattle)
         {
-            // Not in battle: show save menu (or close it if open)
-            if (_saveLoadDialog != null)
+            if (_pauseMenuDialog != null && GodotObject.IsInstanceValid(_pauseMenuDialog) && _pauseMenuDialog.Visible)
             {
-                // If a child confirmation dialog (e.g. overwrite) is active,
-                // dismiss just the child so the player stays in the save flow.
-                if (_saveLoadDialog.HasActiveChildDialog)
-                {
-                    _saveLoadDialog.DismissActiveChildDialog();
-                }
-                else if (_saveLoadDialog.Visible)
-                {
-                    CleanupSaveDialog();
-                }
-                else
-                {
-                    CleanupSaveDialog();
-                    ShowSaveMenu();
-                }
+                CleanupPauseMenu();
             }
             else
             {
-                ShowSaveMenu();
+                ShowPauseMenu();
             }
             GetViewport().SetInputAsHandled();
             return;
@@ -942,11 +928,108 @@ public partial class Game : Node2D
         if (_saveLoadDialog != null)
         {
             _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
+            _saveLoadDialog.LoadSlotSelected -= OnInGameLoadSlotSelected;
             _saveLoadDialog.DialogClosed -= OnSaveDialogClosed;
             _saveLoadDialog.MainMenuRequested -= OnMainMenuRequested;
             _saveLoadDialog.QueueFree();
             _saveLoadDialog = null;
         }
+    }
+
+    private void ShowPauseMenu()
+    {
+        if (_pauseMenuDialog != null) CleanupPauseMenu();
+        _pauseMenuDialog = new PauseMenuDialog();
+        GetNode("UI").AddChild(_pauseMenuDialog);
+        _pauseMenuDialog.ResumeRequested += OnPauseResumeRequested;
+        _pauseMenuDialog.SaveRequested += OnPauseSaveRequested;
+        _pauseMenuDialog.LoadRequested += OnPauseLoadRequested;
+        _pauseMenuDialog.SettingsRequested += OnPauseSettingsRequested;
+        _pauseMenuDialog.QuitToMenuRequested += OnPauseQuitRequested;
+        _pauseMenuDialog.PopupCentered();
+    }
+
+    private void CleanupPauseMenu()
+    {
+        if (_pauseMenuDialog == null) return;
+        _pauseMenuDialog.ResumeRequested -= OnPauseResumeRequested;
+        _pauseMenuDialog.SaveRequested -= OnPauseSaveRequested;
+        _pauseMenuDialog.LoadRequested -= OnPauseLoadRequested;
+        _pauseMenuDialog.SettingsRequested -= OnPauseSettingsRequested;
+        _pauseMenuDialog.QuitToMenuRequested -= OnPauseQuitRequested;
+        if (GodotObject.IsInstanceValid(_pauseMenuDialog))
+            _pauseMenuDialog.QueueFree();
+        _pauseMenuDialog = null;
+    }
+
+    private void OnPauseResumeRequested() => CleanupPauseMenu();
+
+    private void OnPauseSaveRequested()
+    {
+        CleanupPauseMenu();
+        ShowSaveMenu();
+    }
+
+    private void OnPauseLoadRequested()
+    {
+        CleanupPauseMenu();
+        ShowLoadMenu();
+    }
+
+    private void OnPauseSettingsRequested()
+    {
+        // Fully wired in Task 7 after SettingsMenuController exists.
+        GD.Print("[Game] Settings from pause menu — not yet implemented.");
+    }
+
+    private void OnPauseQuitRequested()
+    {
+        CleanupPauseMenu();
+        ReturnToMainMenu();
+    }
+
+    private void ShowLoadMenu()
+    {
+        if (_gameManager.IsInNpcInteraction)
+        {
+            GD.PrintErr("Load blocked: NPC interaction in progress.");
+            ShowSaveError("Cannot load during NPC interaction.");
+            return;
+        }
+
+        if (_saveLoadDialog != null)
+        {
+            _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
+            _saveLoadDialog.LoadSlotSelected -= OnInGameLoadSlotSelected;
+            _saveLoadDialog.DialogClosed -= OnSaveDialogClosed;
+            _saveLoadDialog.MainMenuRequested -= OnMainMenuRequested;
+            _saveLoadDialog.QueueFree();
+        }
+
+        _saveLoadDialog = new SaveLoadDialog();
+        GetNode("UI").AddChild(_saveLoadDialog);
+        _saveLoadDialog.LoadSlotSelected += OnInGameLoadSlotSelected;
+        _saveLoadDialog.DialogClosed += OnSaveDialogClosed;
+        _saveLoadDialog.MainMenuRequested += OnMainMenuRequested;
+        _saveLoadDialog.ShowDialog(SaveLoadDialog.DialogMode.Load);
+    }
+
+    private void OnInGameLoadSlotSelected(int slot)
+    {
+        var saveData = slot == 3
+            ? SaveManager.Instance?.LoadAutosave()
+            : SaveManager.Instance?.LoadGame(slot);
+
+        if (saveData == null || SaveManager.Instance == null)
+        {
+            ShowSaveError("Failed to load save file.");
+            CleanupSaveDialog();
+            return;
+        }
+
+        SaveManager.Instance.PendingLoadData = saveData;
+        CleanupSaveDialog();
+        GetTree().ChangeSceneToFile("res://scenes/game/Game.tscn");
     }
 
     private void ShowSaveError(string message)
@@ -1145,6 +1228,7 @@ public partial class Game : Node2D
         if (_saveLoadDialog != null)
         {
             _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
+            _saveLoadDialog.LoadSlotSelected -= OnInGameLoadSlotSelected;
             _saveLoadDialog.DialogClosed -= OnSaveDialogClosed;
             _saveLoadDialog.MainMenuRequested -= OnMainMenuRequested;
             _saveLoadDialog.QueueFree();
@@ -1164,6 +1248,18 @@ public partial class Game : Node2D
             _battleManager.Confirmed -= OnBattleDialogConfirmed;
             _battleManager.QueueFree();
             _battleManager = null;
+        }
+
+        if (_pauseMenuDialog != null)
+        {
+            _pauseMenuDialog.ResumeRequested -= OnPauseResumeRequested;
+            _pauseMenuDialog.SaveRequested -= OnPauseSaveRequested;
+            _pauseMenuDialog.LoadRequested -= OnPauseLoadRequested;
+            _pauseMenuDialog.SettingsRequested -= OnPauseSettingsRequested;
+            _pauseMenuDialog.QuitToMenuRequested -= OnPauseQuitRequested;
+            if (GodotObject.IsInstanceValid(_pauseMenuDialog))
+                _pauseMenuDialog.QueueFree();
+            _pauseMenuDialog = null;
         }
     }
 }

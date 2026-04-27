@@ -208,6 +208,31 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void PauseMenu_WhenSettingsOpen_ConsumesEscWithoutOpeningPauseMenu()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        // Ensure no stale pause menu from prior tests
+        SetPrivateField(_game!, "_pauseMenuDialog", null);
+
+        var fakeSettings = new SettingsMenuController();
+        SetPrivateField(_game!, "_settingsMenu", fakeSettings);
+        _viewport!.AddChild(fakeSettings);
+
+        var evt = CreatePauseEvent();
+        _viewport!.PushInput(evt);
+
+        // ESC must be consumed so the pause menu does not open
+        AssertThat(_viewport.IsInputHandled()).IsTrue();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNull();
+
+        // Clean up so subsequent tests are not affected by the settings guard
+        SetPrivateField(_game!, "_settingsMenu", null);
+        if (IsInstanceValid(fakeSettings)) fakeSettings.QueueFree();
+    }
+
+    [TestCase]
     public void PauseMenu_WhenInNpcInteraction_DoesNotConsumeInput()
     {
         _gameManager!.StartNpcInteraction();

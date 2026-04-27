@@ -283,6 +283,13 @@ public partial class Game : Node2D
             return;
         }
 
+        // Don't open pause menu while settings is visible
+        if (_settingsMenu != null && GodotObject.IsInstanceValid(_settingsMenu))
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         if (_gameManager.IsInNpcInteraction)
         {
             // Don't consume the event — AcceptDialog-based NPC modals

@@ -48,9 +48,11 @@ public partial class SettingsMenuController : Control
         Hide();
     }
 
-    public void OpenSettings(SettingsData snapshot = null)
+    public void OpenSettings(SettingsData snapshot = null, bool showOverlay = true)
     {
         if (_listeningAction != null) CancelKeyCapture();
+        var bg = GetNodeOrNull<ColorRect>("Background");
+        if (bg != null) bg.Visible = showOverlay;
         var source = snapshot ?? SettingsManager.Instance?.GetSnapshot() ?? SettingsData.CreateDefaults();
         _editedSettings = source.Clone();
         PopulateControls();

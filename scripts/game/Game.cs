@@ -986,7 +986,7 @@ public partial class Game : Node2D
         _settingsMenu = scene.Instantiate<SettingsMenuController>();
         _settingsMenu.Closed += OnPauseSettingsClosed;
         GetNode("UI").AddChild(_settingsMenu);
-        _settingsMenu.OpenSettings();
+        _settingsMenu.OpenSettings(showOverlay: false);
     }
 
     private void OnPauseSettingsClosed()

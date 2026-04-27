@@ -50,6 +50,7 @@ public partial class SettingsMenuController : Control
 
     public void OpenSettings(SettingsData snapshot = null)
     {
+        if (_listeningAction != null) CancelKeyCapture();
         var source = snapshot ?? SettingsManager.Instance?.GetSnapshot() ?? SettingsData.CreateDefaults();
         _editedSettings = source.Clone();
         PopulateControls();
@@ -227,7 +228,57 @@ public partial class SettingsMenuController : Control
         return -1;
     }
 
-    private void StartKeyCapture(string action) { }
+    private void StartKeyCapture(string action)
+    {
+        if (_listeningAction != null) CancelKeyCapture();
+        _listeningAction = action;
+        GetKeyButton(action).Text = "Press a key...";
+        if (_errorLabel != null) _errorLabel.Visible = false;
+        SetProcessInput(true);
+    }
+
+    public override void _Input(InputEvent @event)
+    {
+        if (_listeningAction == null) return;
+        if (@event is not InputEventKey keyEvent || !keyEvent.Pressed || keyEvent.Echo) return;
+
+        var key = keyEvent.PhysicalKeycode;
+
+        if (key == Key.Escape)
+        {
+            CancelKeyCapture();
+            GetViewport()?.SetInputAsHandled();
+            return;
+        }
+
+        if (IsReservedKey((long)key))
+        {
+            ShowError("Key reserved");
+            GetViewport()?.SetInputAsHandled();
+            return;
+        }
+
+        _editedSettings.PrimaryKeybindings[_listeningAction] = (long)key;
+        UpdateKeyButtonText(GetKeyButton(_listeningAction), _listeningAction);
+        _listeningAction = null;
+        if (_errorLabel != null) _errorLabel.Visible = false;
+        SetProcessInput(false);
+        GetViewport()?.SetInputAsHandled();
+    }
+
+    private static bool IsReservedKey(long code) => code is
+        (long)Key.W or (long)Key.A or (long)Key.S or (long)Key.D or
+        (long)Key.Up or (long)Key.Down or (long)Key.Left or (long)Key.Right or
+        (long)Key.Escape or (long)Key.Enter or (long)Key.KpEnter or
+        (long)Key.Space or (long)Key.Tab;
+
+    private void ShowError(string msg)
+    {
+        if (_errorLabel == null) return;
+        _errorLabel.Text    = msg;
+        _errorLabel.Visible = true;
+    }
+
     private void OnApplyPressed() { }
 
     private void OnCancelPressed()
@@ -243,8 +294,7 @@ public partial class SettingsMenuController : Control
         _listeningAction = null;
         if (_errorLabel != null) _errorLabel.Visible = false;
         SetProcessInput(false);
-        if (GetKeyButtonSafe(prev) is Button btn)
-            UpdateKeyButtonText(btn, prev);
+        UpdateKeyButtonText(GetKeyButton(prev), prev);
     }
 
     private void UpdateKeyButtonText(Button btn, string action)
@@ -255,11 +305,11 @@ public partial class SettingsMenuController : Control
             btn.Text = "(unbound)";
     }
 
-    private Button GetKeyButtonSafe(string action) => action switch
+    private Button GetKeyButton(string action) => action switch
     {
         "toggle_inventory" => _inventoryKeyBtn,
         "interact"         => _interactKeyBtn,
         "pause_menu"       => _pauseKeyBtn,
-        _                  => null
+        _ => throw new System.ArgumentException($"Unknown action: {action}")
     };
 }

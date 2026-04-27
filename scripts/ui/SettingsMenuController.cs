@@ -43,7 +43,7 @@ public partial class SettingsMenuController : Control
 
     public override void _Ready()
     {
-        var content = GetNode<VBoxContainer>("Center/Panel/Content");
+        var content = GetNode<VBoxContainer>("Panel/Content");
         BuildUI(content);
         Hide();
     }
@@ -51,8 +51,24 @@ public partial class SettingsMenuController : Control
     public void OpenSettings(SettingsData snapshot = null, bool showOverlay = true)
     {
         if (_listeningAction != null) CancelKeyCapture();
+
         var bg = GetNodeOrNull<ColorRect>("Background");
         if (bg != null) bg.Visible = showOverlay;
+
+        var panel = GetNodeOrNull<PanelContainer>("Panel");
+        if (panel != null)
+        {
+            if (showOverlay)
+            {
+                panel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+            }
+            else
+            {
+                panel.CustomMinimumSize = new Vector2(580, 500);
+                panel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.Center, Control.LayoutPresetMode.Minsize);
+            }
+        }
+
         var source = snapshot ?? SettingsManager.Instance?.GetSnapshot() ?? SettingsData.CreateDefaults();
         _editedSettings = source.Clone();
         PopulateControls();

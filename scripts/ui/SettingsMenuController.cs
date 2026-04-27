@@ -46,6 +46,7 @@ public partial class SettingsMenuController : Control
         var content = GetNode<VBoxContainer>("Panel/Content");
         BuildUI(content);
         Hide();
+        SetProcessInput(false);
     }
 
     public void OpenSettings(SettingsData snapshot = null, bool showOverlay = true)
@@ -72,6 +73,7 @@ public partial class SettingsMenuController : Control
         var source = snapshot ?? SettingsManager.Instance?.GetSnapshot() ?? SettingsData.CreateDefaults();
         _editedSettings = source.Clone();
         PopulateControls();
+        SetProcessInput(true);
         Show();
     }
 
@@ -257,17 +259,21 @@ public partial class SettingsMenuController : Control
 
     public override void _Input(InputEvent @event)
     {
-        if (_listeningAction == null) return;
         if (@event is not InputEventKey keyEvent || !keyEvent.Pressed || keyEvent.Echo) return;
 
         var key = keyEvent.PhysicalKeycode;
 
         if (key == Key.Escape)
         {
-            CancelKeyCapture();
             GetViewport()?.SetInputAsHandled();
+            if (_listeningAction != null)
+                CancelKeyCapture();
+            else
+                OnCancelPressed();
             return;
         }
+
+        if (_listeningAction == null) return;
 
         if (IsReservedKey((long)key))
         {
@@ -280,7 +286,6 @@ public partial class SettingsMenuController : Control
         UpdateKeyButtonText(GetKeyButton(_listeningAction), _listeningAction);
         _listeningAction = null;
         if (_errorLabel != null) _errorLabel.Visible = false;
-        SetProcessInput(false);
         GetViewport()?.SetInputAsHandled();
     }
 
@@ -327,12 +332,14 @@ public partial class SettingsMenuController : Control
             return;
         }
 
+        SetProcessInput(false);
         EmitSignal(SignalName.Closed);
     }
 
     private void OnCancelPressed()
     {
         CancelKeyCapture();
+        SetProcessInput(false);
         EmitSignal(SignalName.Closed);
     }
 
@@ -342,7 +349,6 @@ public partial class SettingsMenuController : Control
         var prev = _listeningAction;
         _listeningAction = null;
         if (_errorLabel != null) _errorLabel.Visible = false;
-        SetProcessInput(false);
         UpdateKeyButtonText(GetKeyButton(prev), prev);
     }
 

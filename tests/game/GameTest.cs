@@ -159,6 +159,55 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void PauseMenu_WhenSettingsRequested_OpensSettingsAndKeepsPauseMenuOpen()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        // Ensure clean settings state
+        SetPrivateField(_game!, "_settingsMenu", null);
+
+        if (_game!.GetNodeOrNull("UI") == null)
+            _game.AddChild(new CanvasLayer { Name = "UI" });
+
+        // Simulate a visible pause menu dialog
+        var pauseDialog = new PauseMenuDialog();
+        SetPrivateField(_game, "_pauseMenuDialog", pauseDialog);
+        _viewport!.AddChild(pauseDialog);
+        pauseDialog.Show();
+
+        // Invoke OnPauseSettingsRequested (private) via reflection
+        var method = typeof(Game).GetMethod("OnPauseSettingsRequested",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        method.Invoke(_game, null);
+
+        // Settings controller should be open
+        var settingsMenu = GetPrivateField<SettingsMenuController?>(_game, "_settingsMenu");
+        AssertThat(settingsMenu).IsNotNull();
+
+        // Pause menu must still be open — settings opens on top, does not close it
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNotNull();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")!.Visible).IsTrue();
+
+        if (IsInstanceValid(pauseDialog)) pauseDialog.QueueFree();
+    }
+
+    [TestCase]
+    public void PauseMenu_WhenSettingsClosed_NullsSettingsMenu()
+    {
+        // Simulate an open settings menu by setting the private field
+        var fakeSettings = new SettingsMenuController();
+        SetPrivateField(_game!, "_settingsMenu", fakeSettings);
+        _viewport!.AddChild(fakeSettings);
+
+        var method = typeof(Game).GetMethod("OnPauseSettingsClosed",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        method.Invoke(_game, null);
+
+        AssertThat(GetPrivateField<SettingsMenuController?>(_game, "_settingsMenu")).IsNull();
+    }
+
+    [TestCase]
     public void PauseMenu_WhenInNpcInteraction_DoesNotConsumeInput()
     {
         _gameManager!.StartNpcInteraction();

@@ -982,6 +982,7 @@ public partial class Game : Node2D
         if (_settingsMenu != null) return;
         var scene = GD.Load<PackedScene>("res://scenes/ui/SettingsMenu.tscn");
         if (scene == null) { GD.PushError("[Game] SettingsMenu.tscn not found."); return; }
+        _pauseMenuDialog?.Hide();
         _settingsMenu = scene.Instantiate<SettingsMenuController>();
         _settingsMenu.Closed += OnPauseSettingsClosed;
         GetNode("UI").AddChild(_settingsMenu);
@@ -994,6 +995,8 @@ public partial class Game : Node2D
         _settingsMenu.Closed -= OnPauseSettingsClosed;
         _settingsMenu.QueueFree();
         _settingsMenu = null;
+        if (_pauseMenuDialog != null && GodotObject.IsInstanceValid(_pauseMenuDialog))
+            _pauseMenuDialog.PopupCentered();
     }
 
     private void OnPauseQuitRequested()

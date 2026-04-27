@@ -5,6 +5,7 @@ public partial class MainMenu : Control
 	private TextureRect _backgroundRect;
 	private AudioStreamPlayer _backgroundMusic;
 	private SaveLoadDialog _loadDialog;
+	private SettingsMenuController _settingsMenu;
 
 	public override void _Ready()
 	{
@@ -163,9 +164,21 @@ public partial class MainMenu : Control
 
 	private void _on_settings_button_pressed()
 	{
-		GD.Print("Settings button pressed");
-		// TODO: Load settings scene or show settings panel
-		ShowMessage("Settings menu coming soon!");
+		if (_settingsMenu != null) return;
+		var scene = GD.Load<PackedScene>("res://scenes/ui/SettingsMenu.tscn");
+		if (scene == null) { ShowMessage("Settings unavailable."); return; }
+		_settingsMenu = scene.Instantiate<SettingsMenuController>();
+		_settingsMenu.Closed += OnSettingsClosed;
+		AddChild(_settingsMenu);
+		_settingsMenu.OpenSettings();
+	}
+
+	private void OnSettingsClosed()
+	{
+		if (_settingsMenu == null) return;
+		_settingsMenu.Closed -= OnSettingsClosed;
+		_settingsMenu.QueueFree();
+		_settingsMenu = null;
 	}
 
 	private void _on_quit_button_pressed()

@@ -32,6 +32,7 @@ public partial class Game : Node2D
 
     private SaveLoadDialog _saveLoadDialog;
     private PauseMenuDialog _pauseMenuDialog;
+    private SettingsMenuController _settingsMenu;
     private AcceptDialog _activeErrorPopup;
 
     public override void _EnterTree()
@@ -978,8 +979,21 @@ public partial class Game : Node2D
 
     private void OnPauseSettingsRequested()
     {
-        // Fully wired in Task 7 after SettingsMenuController exists.
-        GD.Print("[Game] Settings from pause menu — not yet implemented.");
+        if (_settingsMenu != null) return;
+        var scene = GD.Load<PackedScene>("res://scenes/ui/SettingsMenu.tscn");
+        if (scene == null) { GD.PushError("[Game] SettingsMenu.tscn not found."); return; }
+        _settingsMenu = scene.Instantiate<SettingsMenuController>();
+        _settingsMenu.Closed += OnPauseSettingsClosed;
+        GetNode("UI").AddChild(_settingsMenu);
+        _settingsMenu.OpenSettings();
+    }
+
+    private void OnPauseSettingsClosed()
+    {
+        if (_settingsMenu == null) return;
+        _settingsMenu.Closed -= OnPauseSettingsClosed;
+        _settingsMenu.QueueFree();
+        _settingsMenu = null;
     }
 
     private void OnPauseQuitRequested()
@@ -1260,6 +1274,14 @@ public partial class Game : Node2D
             if (GodotObject.IsInstanceValid(_pauseMenuDialog))
                 _pauseMenuDialog.QueueFree();
             _pauseMenuDialog = null;
+        }
+
+        if (_settingsMenu != null)
+        {
+            _settingsMenu.Closed -= OnPauseSettingsClosed;
+            if (GodotObject.IsInstanceValid(_settingsMenu))
+                _settingsMenu.QueueFree();
+            _settingsMenu = null;
         }
     }
 }

@@ -118,6 +118,65 @@ public partial class SettingsMenuControllerTest : Node
             .IsEqual(OS.GetKeycodeString(Key.J));
     }
 
+    [TestCase]
+    public void StartKeyCapture_SetsButtonTextToPrompt()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        InvokePrivate(_ctrl, "StartKeyCapture", "toggle_inventory");
+
+        AssertThat(GetField<Button>(_ctrl, "_inventoryKeyBtn").Text).IsEqual("Press a key...");
+    }
+
+    [TestCase]
+    public void InputDuringCapture_ValidKey_UpdatesEditedSettings()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        InvokePrivate(_ctrl, "StartKeyCapture", "toggle_inventory");
+
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.J, Pressed = true });
+
+        AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.J);
+    }
+
+    [TestCase]
+    public void InputDuringCapture_EscapeKey_CancelsAndRestoresPreviousText()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
+        _ctrl.OpenSettings(data);
+        InvokePrivate(_ctrl, "StartKeyCapture", "toggle_inventory");
+
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.Escape, Pressed = true });
+
+        AssertThat(GetField<Button>(_ctrl, "_inventoryKeyBtn").Text)
+            .IsEqual(OS.GetKeycodeString(Key.I));
+    }
+
+    [TestCase]
+    public void InputDuringCapture_ReservedKey_ShowsError()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        InvokePrivate(_ctrl, "StartKeyCapture", "toggle_inventory");
+
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.W, Pressed = true });
+
+        AssertThat(GetField<Label>(_ctrl, "_errorLabel").Visible).IsTrue();
+        AssertThat(GetField<Label>(_ctrl, "_errorLabel").Text).IsEqual("Key reserved");
+    }
+
+    [TestCase]
+    public void InputOutsideCaptureMode_IsIgnored()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
+        _ctrl.OpenSettings(data);
+        // Not in capture mode — key press should be ignored
+
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.J, Pressed = true });
+
+        AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
+    }
+
     protected static void InvokePrivate(object obj, string method, params object[] args)
     {
         var m = obj.GetType().GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance)

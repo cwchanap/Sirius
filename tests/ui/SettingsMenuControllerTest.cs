@@ -177,6 +177,31 @@ public partial class SettingsMenuControllerTest : Node
         AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
     }
 
+    [TestCase]
+    public void OnCancelPressed_EmitsClosed_WhenSettingsManagerIsNull()
+    {
+        // SettingsManager.Instance is null in unit tests (not autoloaded).
+        // Cancel must never need it.
+        bool closed = false;
+        _ctrl.Closed += () => closed = true;
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        InvokePrivate(_ctrl, "OnCancelPressed");
+        AssertThat(closed).IsTrue();
+    }
+
+    [TestCase]
+    public void OnApplyPressed_WhenSettingsManagerNull_ShowsErrorAndDoesNotEmitClosed()
+    {
+        // SettingsManager.Instance is null in unit tests.
+        bool closed = false;
+        _ctrl.Closed += () => closed = true;
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        InvokePrivate(_ctrl, "OnApplyPressed");
+
+        AssertThat(GetField<Label>(_ctrl, "_errorLabel").Visible).IsTrue();
+        AssertThat(closed).IsFalse();
+    }
+
     protected static void InvokePrivate(object obj, string method, params object[] args)
     {
         var m = obj.GetType().GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance)

@@ -279,7 +279,38 @@ public partial class SettingsMenuController : Control
         _errorLabel.Visible = true;
     }
 
-    private void OnApplyPressed() { }
+    private void OnApplyPressed()
+    {
+        CancelKeyCapture();
+
+        var mgr = SettingsManager.Instance;
+        if (mgr == null || !GodotObject.IsInstanceValid(mgr))
+        {
+            ShowError("Settings system unavailable.");
+            return;
+        }
+
+        var candidate = new SettingsData
+        {
+            MasterVolumePercent = (int)_masterSlider.Value,
+            MusicVolumePercent  = (int)_musicSlider.Value,
+            SfxVolumePercent    = (int)_sfxSlider.Value,
+            FullscreenEnabled   = _fullscreenCheck.ButtonPressed,
+            ResolutionWidth     = ResolutionPresets[_resolutionOption.Selected].W,
+            ResolutionHeight    = ResolutionPresets[_resolutionOption.Selected].H,
+            Difficulty          = Difficulties[_difficultyOption.Selected],
+            AutoSaveEnabled     = _autoSaveCheck.ButtonPressed,
+            PrimaryKeybindings  = new System.Collections.Generic.Dictionary<string, long>(_editedSettings.PrimaryKeybindings)
+        };
+
+        if (!mgr.ApplyAndSave(candidate))
+        {
+            ShowError("Invalid settings — could not apply.");
+            return;
+        }
+
+        EmitSignal(SignalName.Closed);
+    }
 
     private void OnCancelPressed()
     {

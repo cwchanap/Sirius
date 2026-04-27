@@ -60,6 +60,64 @@ public partial class SettingsMenuControllerTest : Node
         AssertThat(fired).IsTrue();
     }
 
+    [TestCase]
+    public void OpenSettings_SetsAudioSliderValues()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.MasterVolumePercent = 75;
+        data.MusicVolumePercent  = 50;
+        data.SfxVolumePercent    = 25;
+        _ctrl.OpenSettings(data);
+
+        AssertThat((int)GetField<HSlider>(_ctrl, "_masterSlider").Value).IsEqual(75);
+        AssertThat((int)GetField<HSlider>(_ctrl, "_musicSlider").Value).IsEqual(50);
+        AssertThat((int)GetField<HSlider>(_ctrl, "_sfxSlider").Value).IsEqual(25);
+    }
+
+    [TestCase]
+    public void OpenSettings_SetsFullscreenCheckbox()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.FullscreenEnabled = true;
+        _ctrl.OpenSettings(data);
+
+        AssertThat(GetField<CheckBox>(_ctrl, "_fullscreenCheck").ButtonPressed).IsTrue();
+    }
+
+    [TestCase]
+    public void OpenSettings_SetsResolutionPreset()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.ResolutionWidth  = 1920;
+        data.ResolutionHeight = 1080;
+        _ctrl.OpenSettings(data);
+
+        // ResolutionPresets: index 0=640×360, 1=1280×720, 2=1920×1080, 3=2560×1440
+        AssertThat(GetField<OptionButton>(_ctrl, "_resolutionOption").Selected).IsEqual(2);
+    }
+
+    [TestCase]
+    public void OpenSettings_SetsDifficultyOption()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.Difficulty = "Hard";
+        _ctrl.OpenSettings(data);
+
+        // Difficulties: index 0=Easy, 1=Normal, 2=Hard
+        AssertThat(GetField<OptionButton>(_ctrl, "_difficultyOption").Selected).IsEqual(2);
+    }
+
+    [TestCase]
+    public void OpenSettings_SetsKeyButtonText()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.PrimaryKeybindings["toggle_inventory"] = (long)Key.J;
+        _ctrl.OpenSettings(data);
+
+        AssertThat(GetField<Button>(_ctrl, "_inventoryKeyBtn").Text)
+            .IsEqual(OS.GetKeycodeString(Key.J));
+    }
+
     protected static void InvokePrivate(object obj, string method, params object[] args)
     {
         var m = obj.GetType().GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance)

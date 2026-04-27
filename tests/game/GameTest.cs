@@ -99,84 +99,63 @@ public partial class GameTest : Node
     }
 
     [TestCase]
-    public void PauseMenu_WhenSaveDialogHasActiveChildDialog_DismissesOnlyChild()
+    public void PauseMenu_WhenNoPauseMenu_OpensPauseMenuDialog()
     {
         if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
         if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
 
-        // Simulate the save dialog being open with an overwrite confirmation
-        var saveLoadDialog = new SaveLoadDialog();
-        SetPrivateField(_game!, "_saveLoadDialog", saveLoadDialog);
-        // The dialog needs to be in the tree for IsInstanceValid to work
-        _viewport!.AddChild(saveLoadDialog);
-        saveLoadDialog.Hide(); // Simulate "visible but child dialog on top"
-
-        // Manually set up an active confirm dialog on the SaveLoadDialog
-        var confirmDialog = new AcceptDialog();
-        SetPrivateField(saveLoadDialog, "_activeConfirmDialog", confirmDialog);
-        SetPrivateField(saveLoadDialog, "_pendingSaveSlot", 1);
-
-        // Verify pre-condition: HasActiveChildDialog is true
-        AssertThat(saveLoadDialog.HasActiveChildDialog).IsTrue();
-
-        // Simulate the save dialog being visible
-        saveLoadDialog.Show();
-
-        _game!.InvokePauseMenu();
-
-        // The child dialog should have been dismissed, not the entire save flow
-        AssertThat(saveLoadDialog.HasActiveChildDialog).IsFalse();
-        // The save dialog itself should still be referenced (not cleaned up)
-        AssertThat(GetPrivateField<SaveLoadDialog?>(_game!, "_saveLoadDialog")).IsNotNull();
-
-        // Cleanup
-        if (IsInstanceValid(saveLoadDialog)) saveLoadDialog.QueueFree();
-    }
-
-    [TestCase]
-    public void PauseMenu_WhenSaveDialogVisibleWithoutChild_CleansUpEntireDialog()
-    {
-        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
-        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
-
-        // Simulate the save dialog being open without any child dialog
-        var saveLoadDialog = new SaveLoadDialog();
-        SetPrivateField(_game!, "_saveLoadDialog", saveLoadDialog);
-        _viewport!.AddChild(saveLoadDialog);
-        saveLoadDialog.Show();
-
-        // Verify pre-condition: no active child dialog
-        AssertThat(saveLoadDialog.HasActiveChildDialog).IsFalse();
-
-        _game!.InvokePauseMenu();
-
-        // The entire save dialog should have been cleaned up
-        AssertThat(GetPrivateField<SaveLoadDialog?>(_game!, "_saveLoadDialog")).IsNull();
-    }
-
-    [TestCase]
-    public void PauseMenu_WhenSaveDialogIsHidden_ReopensSaveMenu()
-    {
-        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
-        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
-
-        var ui = new CanvasLayer
-        {
-            Name = "UI"
-        };
+        var ui = new CanvasLayer { Name = "UI" };
         _game!.AddChild(ui);
-
-        var staleDialog = new SaveLoadDialog();
-        SetPrivateField(_game, "_saveLoadDialog", staleDialog);
-        _viewport!.AddChild(staleDialog);
-        staleDialog.Hide();
 
         _game.InvokePauseMenu();
 
-        var currentDialog = GetPrivateField<SaveLoadDialog?>(_game, "_saveLoadDialog");
-        AssertThat(currentDialog).IsNotNull();
-        AssertThat(currentDialog).IsNotEqual(staleDialog);
-        AssertThat(currentDialog!.GetParent()).IsEqual(ui);
+        var dialog = GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog");
+        AssertThat(dialog).IsNotNull();
+        AssertThat(dialog!.GetParent()).IsEqual(ui);
+    }
+
+    [TestCase]
+    public void PauseMenu_WhenPauseMenuIsVisible_ClosesPauseMenu()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        // Reset any pause menu state left by earlier tests (shared instance)
+        SetPrivateField(_game!, "_pauseMenuDialog", null);
+
+        // Reuse the existing "UI" node from the previous test if present
+        if (_game!.GetNodeOrNull("UI") == null)
+        {
+            _game.AddChild(new CanvasLayer { Name = "UI" });
+        }
+
+        // First press opens the pause menu
+        _game.InvokePauseMenu();
+        var dialog = GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog");
+        AssertThat(dialog).IsNotNull();
+
+        // Make it appear visible so the toggle branch fires
+        dialog!.Show();
+
+        // Second press closes it
+        _game.InvokePauseMenu();
+
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNull();
+    }
+
+    [TestCase]
+    public void PauseMenu_WhenPauseMenuIsOpen_InputIsHandled()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        var ui = new CanvasLayer { Name = "UI" };
+        _game!.AddChild(ui);
+
+        var evt = CreatePauseEvent();
+        _viewport!.PushInput(evt);
+
+        AssertThat(_viewport.IsInputHandled()).IsTrue();
     }
 
     [TestCase]

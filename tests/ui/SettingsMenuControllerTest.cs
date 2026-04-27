@@ -170,11 +170,25 @@ public partial class SettingsMenuControllerTest : Node
         var data = SettingsData.CreateDefaults();
         data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
         _ctrl.OpenSettings(data);
-        // Not in capture mode — key press should be ignored
+        // Not in capture mode — non-ESC key press should be ignored
 
         _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.J, Pressed = true });
 
         AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
+    }
+
+    [TestCase]
+    public void EscapeKey_WhenNotCapturing_EmitsClosed()
+    {
+        bool closed = false;
+        void OnClosed() => closed = true;
+        _ctrl.Closed += OnClosed;
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.Escape, Pressed = true });
+
+        _ctrl.Closed -= OnClosed;
+        AssertThat(closed).IsTrue();
     }
 
     [TestCase]

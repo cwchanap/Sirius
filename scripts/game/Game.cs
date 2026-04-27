@@ -283,9 +283,10 @@ public partial class Game : Node2D
             return;
         }
 
-        // Don't open pause menu while settings is visible
+        // ESC closes settings when open; prevent pause menu from appearing
         if (_settingsMenu != null && GodotObject.IsInstanceValid(_settingsMenu))
         {
+            OnPauseSettingsClosed();
             GetViewport().SetInputAsHandled();
             return;
         }

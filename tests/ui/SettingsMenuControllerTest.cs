@@ -216,6 +216,43 @@ public partial class SettingsMenuControllerTest : Node
         AssertThat(closed).IsFalse();
     }
 
+    [TestCase]
+    public async Task OnApplyPressed_WhenSelectionsAreUnset_DoesNotIndexPastOptions()
+    {
+        SettingsManager.WindowGetModeOverride = () => DisplayServer.WindowMode.Windowed;
+        SettingsManager.WindowGetSizeOverride = () => new Vector2I(640, 360);
+        SettingsManager.WindowSetModeOverride = _ => { };
+        SettingsManager.WindowSetSizeOverride = _ => { };
+
+        var settingsManager = new SettingsManager();
+        _sceneTree.Root.AddChild(settingsManager);
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            bool closed = false;
+            _ctrl.Closed += () => closed = true;
+            _ctrl.OpenSettings(SettingsData.CreateDefaults());
+
+            GetField<OptionButton>(_ctrl, "_resolutionOption").Selected = -1;
+            GetField<OptionButton>(_ctrl, "_difficultyOption").Selected = -1;
+
+            InvokePrivate(_ctrl, "OnApplyPressed");
+
+            AssertThat(closed).IsTrue();
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(settingsManager))
+                settingsManager.QueueFree();
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+            SettingsManager.WindowGetModeOverride = null;
+            SettingsManager.WindowGetSizeOverride = null;
+            SettingsManager.WindowSetModeOverride = null;
+            SettingsManager.WindowSetSizeOverride = null;
+        }
+    }
+
     protected static void InvokePrivate(object obj, string method, params object[] args)
     {
         var m = obj.GetType().GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance)

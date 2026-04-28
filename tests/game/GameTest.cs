@@ -99,6 +99,19 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void PauseMenu_WhenInNpcInteraction_DoesNotConsumeInput()
+    {
+        _gameManager!.StartNpcInteraction();
+
+        PushPauseEvent();
+
+        // Input must NOT be marked as handled — AcceptDialog-based NPC modals
+        // (DialogueDialog, ShopDialog, HealDialog) need ESC to reach them so
+        // they can emit Canceled / CloseRequested and dismiss themselves.
+        AssertThat(_viewport!.IsInputHandled()).IsFalse();
+    }
+
+    [TestCase]
     public void PauseMenu_WhenNoPauseMenu_OpensPauseMenuDialog()
     {
         if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
@@ -208,6 +221,47 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public async Task PauseMenu_WhenSettingsCloseTriggersEscape_DefersPauseMenuRestore()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");
+        if (ui == null)
+        {
+            ui = new CanvasLayer { Name = "UI" };
+            _game.AddChild(ui);
+        }
+
+        var pauseDialog = new PauseMenuDialog();
+        ui.AddChild(pauseDialog);
+        pauseDialog.Hide();
+        SetPrivateField(_game, "_pauseMenuDialog", pauseDialog);
+
+        var fakeSettings = new SettingsMenuController();
+        ui.AddChild(fakeSettings);
+        SetPrivateField(_game, "_settingsMenu", fakeSettings);
+
+        var closeMethod = typeof(Game).GetMethod("OnPauseSettingsClosed",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        closeMethod.Invoke(_game, null);
+
+        AssertThat(GetPrivateField<SettingsMenuController?>(_game, "_settingsMenu")).IsNull();
+        AssertThat(pauseDialog.Visible).IsFalse();
+
+        _game.InvokePauseMenu();
+
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNotNull();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")!.Visible).IsFalse();
+
+        await ToSignal((SceneTree)Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal((SceneTree)Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNotNull();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")!.Visible).IsTrue();
+    }
+
+    [TestCase]
     public void PauseMenu_WhenSettingsOpen_ConsumesEscWithoutOpeningPauseMenu()
     {
         if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
@@ -233,16 +287,43 @@ public partial class GameTest : Node
     }
 
     [TestCase]
-    public void PauseMenu_WhenInNpcInteraction_DoesNotConsumeInput()
+    public void ShowLoadMenu_WhenNpcInteractionBlocksLoad_UsesLoadFailedTitle()
     {
+        var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");
+        if (ui == null)
+        {
+            ui = new CanvasLayer { Name = "UI" };
+            _game.AddChild(ui);
+        }
+
         _gameManager!.StartNpcInteraction();
 
-        PushPauseEvent();
+        var method = typeof(Game).GetMethod("ShowLoadMenu",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(_game, null);
 
-        // Input must NOT be marked as handled — AcceptDialog-based NPC modals
-        // (DialogueDialog, ShopDialog, HealDialog) need ESC to reach them so
-        // they can emit Canceled / CloseRequested and dismiss themselves.
-        AssertThat(_viewport!.IsInputHandled()).IsFalse();
+        var popup = GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup");
+        AssertThat(popup).IsNotNull();
+        AssertThat(popup!.Title).IsEqual("Load Failed");
+    }
+
+    [TestCase]
+    public void LoadSlot_WhenLoadFails_UsesLoadFailedTitle()
+    {
+        var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");
+        if (ui == null)
+        {
+            ui = new CanvasLayer { Name = "UI" };
+            _game.AddChild(ui);
+        }
+
+        var method = typeof(Game).GetMethod("OnInGameLoadSlotSelected",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(_game, [0]);
+
+        var popup = GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup");
+        AssertThat(popup).IsNotNull();
+        AssertThat(popup!.Title).IsEqual("Load Failed");
     }
 
     private void PushPauseEvent()

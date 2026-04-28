@@ -264,7 +264,7 @@ public partial class SettingsMenuController : Control
 
         var key = keyEvent.PhysicalKeycode;
 
-        if (key == Key.Escape)
+        if (key == Key.Escape && !IsPauseMenuCapture(_listeningAction))
         {
             GetViewport()?.SetInputAsHandled();
             if (_listeningAction != null)
@@ -276,7 +276,7 @@ public partial class SettingsMenuController : Control
 
         if (_listeningAction == null) return;
 
-        if (IsReservedKey((long)key))
+        if (IsReservedKey(_listeningAction, (long)key))
         {
             ShowError("Key reserved");
             GetViewport()?.SetInputAsHandled();
@@ -290,11 +290,19 @@ public partial class SettingsMenuController : Control
         GetViewport()?.SetInputAsHandled();
     }
 
-    private static bool IsReservedKey(long code) => code is
-        (long)Key.W or (long)Key.A or (long)Key.S or (long)Key.D or
-        (long)Key.Up or (long)Key.Down or (long)Key.Left or (long)Key.Right or
-        (long)Key.Escape or (long)Key.Enter or (long)Key.KpEnter or
-        (long)Key.Space or (long)Key.Tab;
+    private static bool IsPauseMenuCapture(string action) => action == "pause_menu";
+
+    private static bool IsReservedKey(string action, long code)
+    {
+        if (action == "pause_menu" && code == (long)Key.Escape)
+            return false;
+
+        return code is
+            (long)Key.W or (long)Key.A or (long)Key.S or (long)Key.D or
+            (long)Key.Up or (long)Key.Down or (long)Key.Left or (long)Key.Right or
+            (long)Key.Escape or (long)Key.Enter or (long)Key.KpEnter or
+            (long)Key.Space or (long)Key.Tab;
+    }
 
     private void ShowError(string msg)
     {

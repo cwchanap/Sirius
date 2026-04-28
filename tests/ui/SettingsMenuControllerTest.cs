@@ -153,6 +153,22 @@ public partial class SettingsMenuControllerTest : Node
     }
 
     [TestCase]
+    public void InputDuringCapture_PauseMenuEscape_AcceptsBinding()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.PrimaryKeybindings["pause_menu"] = (long)Key.P;
+        _ctrl.OpenSettings(data);
+        InvokePrivate(_ctrl, "StartKeyCapture", "pause_menu");
+
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.Escape, Pressed = true });
+
+        AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
+        AssertThat(GetField<Button>(_ctrl, "_pauseKeyBtn").Text)
+            .IsEqual(OS.GetKeycodeString(Key.Escape));
+        AssertThat(GetField<Label>(_ctrl, "_errorLabel").Visible).IsFalse();
+    }
+
+    [TestCase]
     public void InputDuringCapture_ReservedKey_ShowsError()
     {
         _ctrl.OpenSettings(SettingsData.CreateDefaults());
@@ -223,6 +239,10 @@ public partial class SettingsMenuControllerTest : Node
         SettingsManager.WindowGetSizeOverride = () => new Vector2I(640, 360);
         SettingsManager.WindowSetModeOverride = _ => { };
         SettingsManager.WindowSetSizeOverride = _ => { };
+        SettingsManager.FileWriteTextOverride = (_, _) => { };
+        SettingsManager.FileMoveWithOverwriteOverride = (_, _, _) => { };
+        SettingsManager.FileMoveOverride = (_, _) => { };
+        SettingsManager.FileDeleteOverride = _ => { };
 
         var settingsManager = new SettingsManager();
         _sceneTree.Root.AddChild(settingsManager);
@@ -230,6 +250,10 @@ public partial class SettingsMenuControllerTest : Node
 
         try
         {
+            var tempSettingsPath = ProjectSettings.GlobalizePath("user://settings.json.tmp");
+            if (System.IO.File.Exists(tempSettingsPath))
+                System.IO.File.Delete(tempSettingsPath);
+
             bool closed = false;
             _ctrl.Closed += () => closed = true;
             _ctrl.OpenSettings(SettingsData.CreateDefaults());
@@ -240,6 +264,7 @@ public partial class SettingsMenuControllerTest : Node
             InvokePrivate(_ctrl, "OnApplyPressed");
 
             AssertThat(closed).IsTrue();
+            AssertThat(System.IO.File.Exists(tempSettingsPath)).IsFalse();
         }
         finally
         {
@@ -250,6 +275,10 @@ public partial class SettingsMenuControllerTest : Node
             SettingsManager.WindowGetSizeOverride = null;
             SettingsManager.WindowSetModeOverride = null;
             SettingsManager.WindowSetSizeOverride = null;
+            SettingsManager.FileWriteTextOverride = null;
+            SettingsManager.FileMoveWithOverwriteOverride = null;
+            SettingsManager.FileMoveOverride = null;
+            SettingsManager.FileDeleteOverride = null;
         }
     }
 

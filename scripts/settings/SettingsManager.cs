@@ -59,6 +59,7 @@ public partial class SettingsManager : Node
     internal static Action<Vector2I>? WindowSetSizeOverride { get; set; }
     internal static Func<DisplayServer.WindowMode>? WindowGetModeOverride { get; set; }
     internal static Func<Vector2I>? WindowGetSizeOverride { get; set; }
+    internal static Action<string, string>? FileWriteTextOverride { get; set; }
     internal static Action<string, string, bool>? FileMoveWithOverwriteOverride { get; set; }
     internal static Action<string, string>? FileMoveOverride { get; set; }
     internal static Action<string>? FileDeleteOverride { get; set; }
@@ -237,16 +238,10 @@ public partial class SettingsManager : Node
         try
         {
             var json = JsonSerializer.Serialize(data, JsonOptions);
-            using var file = FileAccess.Open(TempSettingsFile, FileAccess.ModeFlags.Write);
-            if (file == null)
+            if (!WriteTextFile(TempSettingsFile, json))
             {
-                GD.PushError($"Failed to open settings file for writing: {TempSettingsFile}");
                 return false;
             }
-
-            file.StoreString(json);
-            file.Flush();
-            file.Close();
 
             var absoluteTargetPath = ProjectSettings.GlobalizePath(SettingsFile);
             var absoluteTempPath = ProjectSettings.GlobalizePath(TempSettingsFile);
@@ -786,6 +781,27 @@ public partial class SettingsManager : Node
         }
 
         return DisplayServer.WindowGetSize();
+    }
+
+    private static bool WriteTextFile(string userPath, string content)
+    {
+        if (FileWriteTextOverride != null)
+        {
+            FileWriteTextOverride(userPath, content);
+            return true;
+        }
+
+        using var file = FileAccess.Open(userPath, FileAccess.ModeFlags.Write);
+        if (file == null)
+        {
+            GD.PushError($"Failed to open settings file for writing: {userPath}");
+            return false;
+        }
+
+        file.StoreString(content);
+        file.Flush();
+        file.Close();
+        return true;
     }
 
     private static void MoveFile(string sourcePath, string destinationPath, bool overwrite)

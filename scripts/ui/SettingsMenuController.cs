@@ -274,7 +274,13 @@ public partial class SettingsMenuController : Control
             return;
         }
 
-        if (_listeningAction == null) return;
+        if (_listeningAction == null)
+        {
+            // Consume the event so gameplay input (movement, inventory, etc.)
+            // does not leak through while the settings panel is open.
+            GetViewport()?.SetInputAsHandled();
+            return;
+        }
 
         if (IsReservedKey(_listeningAction, (long)key))
         {

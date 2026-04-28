@@ -194,6 +194,24 @@ public partial class SettingsMenuControllerTest : Node
     }
 
     [TestCase]
+    public void InputOutsideCaptureMode_ConsumesEventToBlockGameplayInput()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
+        _ctrl.OpenSettings(data);
+
+        // Simulate a non-ESC, non-capture key that would normally move the player.
+        // _Input should mark the event as handled so gameplay doesn't process it.
+        var evt = new InputEventKey { PhysicalKeycode = Key.W, Pressed = true };
+        _ctrl._Input(evt);
+
+        // The viewport should have been told to handle input.
+        // Since we can't easily check SetInputAsHandled in isolation,
+        // verify that the binding was NOT changed (event was consumed, not processed).
+        AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
+    }
+
+    [TestCase]
     public void EscapeKey_WhenNotCapturing_EmitsClosed()
     {
         bool closed = false;

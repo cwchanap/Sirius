@@ -287,6 +287,36 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void PauseMenu_WhenSaveDialogOpen_EscClosesSaveDialogNotOpenPauseMenu()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        // Ensure no stale pause menu
+        SetPrivateField(_game!, "_pauseMenuDialog", null);
+
+        var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");
+        if (ui == null)
+        {
+            ui = new CanvasLayer { Name = "UI" };
+            _game.AddChild(ui);
+        }
+
+        // Simulate an open save/load dialog
+        var saveDialog = new SaveLoadDialog();
+        ui.AddChild(saveDialog);
+        SetPrivateField(_game, "_saveLoadDialog", saveDialog);
+
+        var evt = CreatePauseEvent();
+        _viewport!.PushInput(evt);
+
+        // ESC should close the save dialog, NOT open the pause menu
+        AssertThat(_viewport.IsInputHandled()).IsTrue();
+        AssertThat(GetPrivateField<SaveLoadDialog?>(_game, "_saveLoadDialog")).IsNull();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNull();
+    }
+
+    [TestCase]
     public void ShowLoadMenu_WhenNpcInteractionBlocksLoad_UsesLoadFailedTitle()
     {
         var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");

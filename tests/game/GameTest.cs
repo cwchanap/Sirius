@@ -209,7 +209,7 @@ public partial class GameTest : Node
     public void PauseMenu_WhenSettingsClosed_NullsSettingsMenu()
     {
         // Simulate an open settings menu by setting the private field
-        var fakeSettings = new SettingsMenuController();
+        var fakeSettings = InstantiateSettingsMenu();
         SetPrivateField(_game!, "_settingsMenu", fakeSettings);
         _viewport!.AddChild(fakeSettings);
 
@@ -238,7 +238,7 @@ public partial class GameTest : Node
         pauseDialog.Hide();
         SetPrivateField(_game, "_pauseMenuDialog", pauseDialog);
 
-        var fakeSettings = new SettingsMenuController();
+        var fakeSettings = InstantiateSettingsMenu();
         ui.AddChild(fakeSettings);
         SetPrivateField(_game, "_settingsMenu", fakeSettings);
 
@@ -270,7 +270,7 @@ public partial class GameTest : Node
         // Ensure no stale pause menu from prior tests
         SetPrivateField(_game!, "_pauseMenuDialog", null);
 
-        var fakeSettings = new SettingsMenuController();
+        var fakeSettings = InstantiateSettingsMenu();
         SetPrivateField(_game!, "_settingsMenu", fakeSettings);
         _viewport!.AddChild(fakeSettings);
 
@@ -339,6 +339,13 @@ public partial class GameTest : Node
             Action = "pause_menu",
             Pressed = true
         };
+    }
+
+    private static SettingsMenuController InstantiateSettingsMenu()
+    {
+        var scene = GD.Load<PackedScene>("res://scenes/ui/SettingsMenu.tscn")
+            ?? throw new InvalidOperationException("Failed to load SettingsMenu.tscn.");
+        return scene.Instantiate<SettingsMenuController>();
     }
 
     private static void SetPrivateField(object instance, string fieldName, object? value)

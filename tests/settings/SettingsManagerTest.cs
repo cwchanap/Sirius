@@ -1471,6 +1471,7 @@ public partial class SettingsManagerTest : Node
         SettingsManager.WindowSetSizeOverride = null;
         SettingsManager.WindowGetModeOverride = null;
         SettingsManager.WindowGetSizeOverride = null;
+        SettingsManager.FileWriteTextOverride = null;
         SettingsManager.FileMoveWithOverwriteOverride = null;
         SettingsManager.FileMoveOverride = null;
         SettingsManager.FileDeleteOverride = null;

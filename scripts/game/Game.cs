@@ -242,7 +242,8 @@ public partial class Game : Node2D
         // Handle inventory toggle (I key)
         if (@event.IsActionPressed("toggle_inventory"))
         {
-            if (_inventoryMenu != null && !_gameManager.IsInBattle && !_gameManager.IsInNpcInteraction)
+            if (_inventoryMenu != null && !_gameManager.IsInBattle && !_gameManager.IsInNpcInteraction
+                && (_settingsMenu == null || !GodotObject.IsInstanceValid(_settingsMenu)))
             {
                 if (_inventoryMenu.Visible)
                 {

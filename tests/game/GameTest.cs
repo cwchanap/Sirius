@@ -317,6 +317,38 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void InventoryToggle_WhenSettingsOpen_IsBlocked()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        // Set up an inventory menu so the toggle code path can run
+        var invScene = GD.Load<PackedScene>("res://scenes/ui/InventoryMenu.tscn");
+        var invMenu = invScene!.Instantiate<InventoryMenuController>();
+        SetPrivateField(_game!, "_inventoryMenu", invMenu);
+        _viewport!.AddChild(invMenu);
+        invMenu.Hide();
+
+        // Simulate an open settings menu
+        var fakeSettings = InstantiateSettingsMenu();
+        SetPrivateField(_game, "_settingsMenu", fakeSettings);
+        _viewport.AddChild(fakeSettings);
+
+        // Push toggle_inventory event
+        var evt = new InputEventAction { Action = "toggle_inventory", Pressed = true };
+        _viewport.PushInput(evt);
+
+        // Inventory must NOT become visible — settings guard blocked the toggle
+        AssertThat(invMenu.Visible).IsFalse();
+
+        // Clean up
+        SetPrivateField(_game, "_settingsMenu", null);
+        SetPrivateField(_game, "_inventoryMenu", null);
+        if (IsInstanceValid(fakeSettings)) fakeSettings.QueueFree();
+        if (IsInstanceValid(invMenu)) invMenu.QueueFree();
+    }
+
+    [TestCase]
     public void ShowLoadMenu_WhenNpcInteractionBlocksLoad_UsesLoadFailedTitle()
     {
         var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");

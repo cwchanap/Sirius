@@ -44,7 +44,7 @@ public partial class SettingsMenuController : Control
 
     public override void _Ready()
     {
-        var content = GetNode<VBoxContainer>("Panel/Content");
+        var content = GetNode<VBoxContainer>("Panel/ScrollContainer/Content");
         BuildUI(content);
         Hide();
         SetProcessInput(false);
@@ -66,7 +66,13 @@ public partial class SettingsMenuController : Control
             }
             else
             {
-                panel.CustomMinimumSize = new Vector2(580, 500);
+                // Cap the panel to 90% of viewport so it always fits, even at
+                // the minimum supported resolution (640×360).  The
+                // ScrollContainer handles overflow when content is taller.
+                var vpSize = GetViewport().GetVisibleRect().Size;
+                var maxW = Mathf.Min(580f, vpSize.X * 0.9f);
+                var maxH = Mathf.Min(500f, vpSize.Y * 0.9f);
+                panel.CustomMinimumSize = new Vector2(maxW, maxH);
                 panel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.Center, Control.LayoutPresetMode.Minsize);
             }
         }

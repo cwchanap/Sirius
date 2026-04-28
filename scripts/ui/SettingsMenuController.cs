@@ -9,7 +9,7 @@ public partial class SettingsMenuController : Control
     internal SettingsData EditedSettings => _editedSettings;
 
     private SettingsData _editedSettings = SettingsData.CreateDefaults();
-    private string _listeningAction;
+    private string? _listeningAction;
 
     // Audio
     private HSlider _masterSlider;
@@ -50,7 +50,7 @@ public partial class SettingsMenuController : Control
         SetProcessInput(false);
     }
 
-    public void OpenSettings(SettingsData snapshot = null, bool showOverlay = true)
+    public void OpenSettings(SettingsData? snapshot = null, bool showOverlay = true)
     {
         if (_listeningAction != null) CancelKeyCapture();
 
@@ -311,6 +311,16 @@ public partial class SettingsMenuController : Control
         _errorLabel.Visible = true;
     }
 
+    private (int W, int H) ResolveSelectedResolution(int selectedIndex) =>
+        selectedIndex >= 0 && selectedIndex < ResolutionPresets.Length
+            ? ResolutionPresets[selectedIndex]
+            : (W: _editedSettings.ResolutionWidth, H: _editedSettings.ResolutionHeight);
+
+    private string ResolveSelectedDifficulty(int selectedIndex) =>
+        selectedIndex >= 0 && selectedIndex < Difficulties.Length
+            ? Difficulties[selectedIndex]
+            : _editedSettings.Difficulty;
+
     private void OnApplyPressed()
     {
         CancelKeyCapture();
@@ -322,12 +332,8 @@ public partial class SettingsMenuController : Control
             return;
         }
 
-        var resolution = ResolutionPresets.Length > 0
-            ? ResolutionPresets[Math.Clamp(_resolutionOption.Selected, 0, ResolutionPresets.Length - 1)]
-            : (W: _editedSettings.ResolutionWidth, H: _editedSettings.ResolutionHeight);
-        var difficulty = Difficulties.Length > 0
-            ? Difficulties[Math.Clamp(_difficultyOption.Selected, 0, Difficulties.Length - 1)]
-            : _editedSettings.Difficulty;
+        var resolution = ResolveSelectedResolution(_resolutionOption.Selected);
+        var difficulty = ResolveSelectedDifficulty(_difficultyOption.Selected);
 
         var candidate = new SettingsData
         {

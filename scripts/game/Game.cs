@@ -30,10 +30,10 @@ public partial class Game : Node2D
     private int _pendingSaveSpawnFloorIndex = -1;
     private bool _hasShownCorruptedSaveError;
 
-    private SaveLoadDialog _saveLoadDialog;
-    private PauseMenuDialog _pauseMenuDialog;
-    private SettingsMenuController _settingsMenu;
-    private AcceptDialog _activeErrorPopup;
+    private SaveLoadDialog? _saveLoadDialog;
+    private PauseMenuDialog? _pauseMenuDialog;
+    private SettingsMenuController? _settingsMenu;
+    private AcceptDialog? _activeErrorPopup;
     private bool _pauseMenuRestorePending;
 
     public override void _EnterTree()

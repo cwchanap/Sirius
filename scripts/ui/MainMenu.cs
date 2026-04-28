@@ -4,8 +4,8 @@ public partial class MainMenu : Control
 {
 	private TextureRect _backgroundRect;
 	private AudioStreamPlayer _backgroundMusic;
-	private SaveLoadDialog _loadDialog;
-	private SettingsMenuController _settingsMenu;
+	private SaveLoadDialog? _loadDialog;
+	private SettingsMenuController? _settingsMenu;
 
 	public override void _Ready()
 	{

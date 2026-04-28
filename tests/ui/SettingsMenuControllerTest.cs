@@ -235,10 +235,12 @@ public partial class SettingsMenuControllerTest : Node
     [TestCase]
     public async Task OnApplyPressed_WhenSelectionsAreUnset_DoesNotIndexPastOptions()
     {
-        SettingsManager.WindowGetModeOverride = () => DisplayServer.WindowMode.Windowed;
-        SettingsManager.WindowGetSizeOverride = () => new Vector2I(640, 360);
-        SettingsManager.WindowSetModeOverride = _ => { };
-        SettingsManager.WindowSetSizeOverride = _ => { };
+        var simulatedWindowMode = DisplayServer.WindowMode.Windowed;
+        var simulatedWindowSize = new Vector2I(1280, 720);
+        SettingsManager.WindowGetModeOverride = () => simulatedWindowMode;
+        SettingsManager.WindowGetSizeOverride = () => simulatedWindowSize;
+        SettingsManager.WindowSetModeOverride = mode => simulatedWindowMode = mode;
+        SettingsManager.WindowSetSizeOverride = size => simulatedWindowSize = size;
         SettingsManager.FileWriteTextOverride = (_, _) => { };
         SettingsManager.FileMoveWithOverwriteOverride = (_, _, _) => { };
         SettingsManager.FileMoveOverride = (_, _) => { };
@@ -258,8 +260,12 @@ public partial class SettingsMenuControllerTest : Node
             _ctrl.Closed += () => closed = true;
             _ctrl.OpenSettings(SettingsData.CreateDefaults());
 
-            GetField<OptionButton>(_ctrl, "_resolutionOption").Selected = -1;
-            GetField<OptionButton>(_ctrl, "_difficultyOption").Selected = -1;
+            var resolutionOption = GetField<OptionButton>(_ctrl, "_resolutionOption");
+            var difficultyOption = GetField<OptionButton>(_ctrl, "_difficultyOption");
+            resolutionOption.Set("selected", -1);
+            difficultyOption.Set("selected", -1);
+            AssertThat(resolutionOption.Selected).IsEqual(-1);
+            AssertThat(difficultyOption.Selected).IsEqual(-1);
 
             InvokePrivate(_ctrl, "OnApplyPressed");
 
@@ -282,11 +288,44 @@ public partial class SettingsMenuControllerTest : Node
         }
     }
 
+    [TestCase]
+    public void ResolveSelectedResolution_WhenIndexIsOutOfRange_KeepsEditedResolution()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.ResolutionWidth = 1920;
+        data.ResolutionHeight = 1080;
+        _ctrl.OpenSettings(data);
+
+        var resolution = ((System.ValueTuple<int, int>)InvokePrivateWithResult(_ctrl, "ResolveSelectedResolution", -1)!);
+
+        AssertThat(resolution.Item1).IsEqual(1920);
+        AssertThat(resolution.Item2).IsEqual(1080);
+    }
+
+    [TestCase]
+    public void ResolveSelectedDifficulty_WhenIndexIsOutOfRange_KeepsEditedDifficulty()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.Difficulty = "Hard";
+        _ctrl.OpenSettings(data);
+
+        var difficulty = (string)InvokePrivateWithResult(_ctrl, "ResolveSelectedDifficulty", -1)!;
+
+        AssertThat(difficulty).IsEqual("Hard");
+    }
+
     protected static void InvokePrivate(object obj, string method, params object[] args)
     {
         var m = obj.GetType().GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance)
             ?? throw new System.InvalidOperationException($"Method '{method}' not found.");
         m.Invoke(obj, args);
+    }
+
+    protected static object? InvokePrivateWithResult(object obj, string method, params object[] args)
+    {
+        var m = obj.GetType().GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new System.InvalidOperationException($"Method '{method}' not found.");
+        return m.Invoke(obj, args);
     }
 
     protected static T GetField<T>(object obj, string field) where T : class

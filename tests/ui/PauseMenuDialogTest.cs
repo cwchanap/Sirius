@@ -106,6 +106,17 @@ public partial class PauseMenuDialogTest : Node
         AssertThat(fired).IsTrue();
     }
 
+    [TestCase]
+    public void OnCloseRequested_CalledTwice_EmitsResumeRequestedOnlyOnce()
+    {
+        int count = 0;
+        _dialog.ResumeRequested += () => count++;
+        _dialog.Show();
+        InvokePrivate(_dialog, "OnCloseRequested");
+        InvokePrivate(_dialog, "OnCloseRequested");
+        AssertThat(count).IsEqual(1);
+    }
+
     private static void InvokePrivate(object obj, string method, params object[] args)
     {
         var m = obj.GetType().GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance)

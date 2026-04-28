@@ -284,7 +284,9 @@ public partial class Game : Node2D
             return;
         }
 
-        // ESC closes settings when open; prevent pause menu from appearing
+        // Safety fallback: SettingsMenuController._Input normally consumes ESC and
+        // emits Closed synchronously, but if it fails to handle it (e.g. process input
+        // disabled), close settings here so ESC never opens the pause menu on top.
         if (_settingsMenu != null && GodotObject.IsInstanceValid(_settingsMenu))
         {
             OnPauseSettingsClosed();
@@ -1046,14 +1048,7 @@ public partial class Game : Node2D
             return;
         }
 
-        if (_saveLoadDialog != null)
-        {
-            _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
-            _saveLoadDialog.LoadSlotSelected -= OnInGameLoadSlotSelected;
-            _saveLoadDialog.DialogClosed -= OnSaveDialogClosed;
-            _saveLoadDialog.MainMenuRequested -= OnMainMenuRequested;
-            _saveLoadDialog.QueueFree();
-        }
+        CleanupSaveDialog();
 
         _saveLoadDialog = new SaveLoadDialog();
         GetNode("UI").AddChild(_saveLoadDialog);

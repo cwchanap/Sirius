@@ -8,7 +8,7 @@ public partial class PauseMenuDialog : AcceptDialog
     [Signal] public delegate void SettingsRequestedEventHandler();
     [Signal] public delegate void QuitToMenuRequestedEventHandler();
 
-    private bool _resumed;
+    private bool _closeEmitted;
 
     public override void _Ready()
     {
@@ -67,8 +67,8 @@ public partial class PauseMenuDialog : AcceptDialog
 
     private void OnCloseRequested()
     {
-        if (_resumed) return;
-        _resumed = true;
+        if (_closeEmitted) return;
+        _closeEmitted = true;
         if (Visible) Hide();
         EmitSignal(SignalName.ResumeRequested);
     }

@@ -294,6 +294,15 @@ public partial class Game : Node2D
             return;
         }
 
+        // Dismiss save/load dialog before toggling the pause menu so ESC
+        // cancels out of the modal first rather than stacking pause on top.
+        if (_saveLoadDialog != null && GodotObject.IsInstanceValid(_saveLoadDialog))
+        {
+            CleanupSaveDialog();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         if (_pauseMenuRestorePending)
         {
             GetViewport().SetInputAsHandled();

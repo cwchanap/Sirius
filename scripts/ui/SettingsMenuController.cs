@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 public partial class SettingsMenuController : Control
@@ -313,15 +314,22 @@ public partial class SettingsMenuController : Control
             return;
         }
 
+        var resolution = ResolutionPresets.Length > 0
+            ? ResolutionPresets[Math.Clamp(_resolutionOption.Selected, 0, ResolutionPresets.Length - 1)]
+            : (W: _editedSettings.ResolutionWidth, H: _editedSettings.ResolutionHeight);
+        var difficulty = Difficulties.Length > 0
+            ? Difficulties[Math.Clamp(_difficultyOption.Selected, 0, Difficulties.Length - 1)]
+            : _editedSettings.Difficulty;
+
         var candidate = new SettingsData
         {
             MasterVolumePercent = (int)_masterSlider.Value,
             MusicVolumePercent  = (int)_musicSlider.Value,
             SfxVolumePercent    = (int)_sfxSlider.Value,
             FullscreenEnabled   = _fullscreenCheck.ButtonPressed,
-            ResolutionWidth     = ResolutionPresets[_resolutionOption.Selected].W,
-            ResolutionHeight    = ResolutionPresets[_resolutionOption.Selected].H,
-            Difficulty          = Difficulties[_difficultyOption.Selected],
+            ResolutionWidth     = resolution.W,
+            ResolutionHeight    = resolution.H,
+            Difficulty          = difficulty,
             AutoSaveEnabled     = _autoSaveCheck.ButtonPressed,
             PrimaryKeybindings  = new System.Collections.Generic.Dictionary<string, long>(_editedSettings.PrimaryKeybindings)
         };

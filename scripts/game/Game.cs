@@ -34,6 +34,7 @@ public partial class Game : Node2D
     private PauseMenuDialog _pauseMenuDialog;
     private SettingsMenuController _settingsMenu;
     private AcceptDialog _activeErrorPopup;
+    private bool _pauseMenuRestorePending;
 
     public override void _EnterTree()
     {
@@ -287,6 +288,12 @@ public partial class Game : Node2D
         if (_settingsMenu != null && GodotObject.IsInstanceValid(_settingsMenu))
         {
             OnPauseSettingsClosed();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        if (_pauseMenuRestorePending)
+        {
             GetViewport().SetInputAsHandled();
             return;
         }
@@ -947,6 +954,7 @@ public partial class Game : Node2D
 
     private void ShowPauseMenu()
     {
+        _pauseMenuRestorePending = false;
         if (_pauseMenuDialog != null) CleanupPauseMenu();
         _pauseMenuDialog = new PauseMenuDialog();
         GetNode("UI").AddChild(_pauseMenuDialog);
@@ -960,6 +968,7 @@ public partial class Game : Node2D
 
     private void CleanupPauseMenu()
     {
+        _pauseMenuRestorePending = false;
         if (_pauseMenuDialog == null) return;
         _pauseMenuDialog.ResumeRequested -= OnPauseResumeRequested;
         _pauseMenuDialog.SaveRequested -= OnPauseSaveRequested;
@@ -999,12 +1008,27 @@ public partial class Game : Node2D
 
     private void OnPauseSettingsClosed()
     {
-        if (_settingsMenu == null) return;
-        _settingsMenu.Closed -= OnPauseSettingsClosed;
-        _settingsMenu.QueueFree();
-        _settingsMenu = null;
+        if (_settingsMenu != null)
+        {
+            _settingsMenu.Closed -= OnPauseSettingsClosed;
+            _settingsMenu.QueueFree();
+            _settingsMenu = null;
+        }
+
+        if (_pauseMenuDialog != null && GodotObject.IsInstanceValid(_pauseMenuDialog) && !_pauseMenuRestorePending)
+        {
+            _pauseMenuRestorePending = true;
+            CallDeferred(nameof(RestorePauseMenuAfterSettings));
+        }
+    }
+
+    private void RestorePauseMenuAfterSettings()
+    {
+        _pauseMenuRestorePending = false;
         if (_pauseMenuDialog != null && GodotObject.IsInstanceValid(_pauseMenuDialog))
+        {
             _pauseMenuDialog.PopupCentered();
+        }
     }
 
     private void OnPauseQuitRequested()
@@ -1018,7 +1042,7 @@ public partial class Game : Node2D
         if (_gameManager.IsInNpcInteraction)
         {
             GD.PrintErr("Load blocked: NPC interaction in progress.");
-            ShowSaveError("Cannot load during NPC interaction.");
+            ShowSaveError("Cannot load during NPC interaction.", "Load Failed");
             return;
         }
 
@@ -1047,7 +1071,7 @@ public partial class Game : Node2D
 
         if (saveData == null || SaveManager.Instance == null)
         {
-            ShowSaveError("Failed to load save file.");
+            ShowSaveError("Failed to load save file.", "Load Failed");
             CleanupSaveDialog();
             return;
         }
@@ -1057,7 +1081,7 @@ public partial class Game : Node2D
         GetTree().ChangeSceneToFile("res://scenes/game/Game.tscn");
     }
 
-    private void ShowSaveError(string message)
+    private void ShowSaveError(string message, string title = "Save Failed")
     {
         // Dismiss any previous error popup before creating a new one.
         if (_activeErrorPopup != null && IsInstanceValid(_activeErrorPopup))
@@ -1067,7 +1091,7 @@ public partial class Game : Node2D
         }
 
         var popup = new AcceptDialog();
-        popup.Title = "Save Failed";
+        popup.Title = title;
         popup.DialogText = message;
         GetNode("UI").AddChild(popup);
         popup.PopupCentered();

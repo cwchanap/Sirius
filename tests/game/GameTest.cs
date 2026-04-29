@@ -317,6 +317,82 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void PauseMenu_WhenSaveDialogHasChildDialog_EscDismissesChildOnly()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        // Ensure no stale pause menu
+        SetPrivateField(_game!, "_pauseMenuDialog", null);
+
+        var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");
+        if (ui == null)
+        {
+            ui = new CanvasLayer { Name = "UI" };
+            _game.AddChild(ui);
+        }
+
+        // Simulate an open save/load dialog with an active overwrite confirmation
+        var saveDialog = new SaveLoadDialog();
+        ui.AddChild(saveDialog);
+        SetPrivateField(_game, "_saveLoadDialog", saveDialog);
+
+        var confirmDialog = new AcceptDialog();
+        saveDialog.AddChild(confirmDialog);
+        SetPrivateField(saveDialog, "_activeConfirmDialog", confirmDialog);
+
+        AssertThat(saveDialog.HasActiveChildDialog).IsTrue();
+
+        var evt = CreatePauseEvent();
+        _viewport!.PushInput(evt);
+
+        // ESC should dismiss only the child dialog, NOT the save dialog
+        AssertThat(_viewport.IsInputHandled()).IsTrue();
+        AssertThat(GetPrivateField<SaveLoadDialog?>(_game, "_saveLoadDialog")).IsNotNull();
+        AssertThat(saveDialog.HasActiveChildDialog).IsFalse();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNull();
+
+        // Clean up
+        if (IsInstanceValid(confirmDialog)) confirmDialog.QueueFree();
+        if (IsInstanceValid(saveDialog)) saveDialog.QueueFree();
+    }
+
+    [TestCase]
+    public void OnSaveSlotSelected_WhenSaveBlocked_CleansUpSaveDialog()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");
+        if (ui == null)
+        {
+            ui = new CanvasLayer { Name = "UI" };
+            _game.AddChild(ui);
+        }
+
+        // Simulate a hidden save dialog (SaveLoadDialog hides itself before
+        // emitting SaveSlotSelected, so it's invisible but still referenced).
+        var saveDialog = new SaveLoadDialog();
+        ui.AddChild(saveDialog);
+        saveDialog.Hide();
+        SetPrivateField(_game, "_saveLoadDialog", saveDialog);
+
+        // Block the save by putting the game in battle state
+        _gameManager.StartBattle(Enemy.CreateGoblin());
+
+        var method = typeof(Game).GetMethod("OnSaveSlotSelected",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(_game, [0]);
+
+        // The error path must clean up _saveLoadDialog so the next pause press
+        // opens the pause menu instead of silently discarding a stale reference.
+        AssertThat(GetPrivateField<SaveLoadDialog?>(_game, "_saveLoadDialog")).IsNull();
+
+        // Clean up battle state
+        _gameManager.EndBattle(false);
+    }
+
+    [TestCase]
     public void InventoryToggle_WhenSettingsOpen_IsBlocked()
     {
         if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();

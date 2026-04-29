@@ -299,7 +299,16 @@ public partial class Game : Node2D
         // cancels out of the modal first rather than stacking pause on top.
         if (_saveLoadDialog != null && GodotObject.IsInstanceValid(_saveLoadDialog))
         {
-            CleanupSaveDialog();
+            // If the save dialog has an active child confirmation (e.g. overwrite
+            // prompt), dismiss only the child so the player stays in the save flow.
+            if (_saveLoadDialog.HasActiveChildDialog)
+            {
+                _saveLoadDialog.DismissActiveChildDialog();
+            }
+            else
+            {
+                CleanupSaveDialog();
+            }
             GetViewport().SetInputAsHandled();
             return;
         }
@@ -889,6 +898,7 @@ public partial class Game : Node2D
         if (_gameManager.IsInNpcInteraction)
         {
             GD.PrintErr("Save blocked: NPC interaction in progress.");
+            CleanupSaveDialog();
             ShowSaveError("Cannot save during NPC interaction.");
             return;
         }
@@ -897,6 +907,7 @@ public partial class Game : Node2D
         if (_gameManager.IsInBattle)
         {
             GD.PrintErr("Save blocked: Battle in progress.");
+            CleanupSaveDialog();
             ShowSaveError("Cannot save during battle.");
             return;
         }
@@ -906,6 +917,7 @@ public partial class Game : Node2D
         if (_gameManager.Player != null && !_gameManager.Player.IsAlive)
         {
             GD.PrintErr("Save blocked: Player is defeated.");
+            CleanupSaveDialog();
             ShowSaveError("Cannot save while defeated.");
             return;
         }
@@ -914,6 +926,7 @@ public partial class Game : Node2D
         if (saveData == null)
         {
             GD.PrintErr("Save failed: unable to collect save data.");
+            CleanupSaveDialog();
             ShowSaveError("Unable to collect save data.");
             return;
         }
@@ -921,6 +934,7 @@ public partial class Game : Node2D
         if (SaveManager.Instance == null)
         {
             GD.PushError("Save failed: SaveManager not initialized.");
+            CleanupSaveDialog();
             ShowSaveError("Save system unavailable.");
             return;
         }
@@ -934,6 +948,7 @@ public partial class Game : Node2D
         else
         {
             GD.PrintErr($"Save failed for slot {slot}.");
+            CleanupSaveDialog();
             ShowSaveError("Failed to save game.");
         }
     }

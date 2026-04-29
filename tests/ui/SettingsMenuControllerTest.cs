@@ -320,6 +320,106 @@ public partial class SettingsMenuControllerTest : Node
     }
 
     [TestCase]
+    public void JoypadUiCancel_WhenNotCapturing_EmitsClosed()
+    {
+        // Temporarily add a joypad button to ui_cancel so IsActionPressed matches.
+        var joyEvent = new InputEventJoypadButton { ButtonIndex = JoyButton.B, Pressed = true };
+        InputMap.ActionAddEvent("ui_cancel", joyEvent);
+        try
+        {
+            bool closed = false;
+            _ctrl.Closed += () => closed = true;
+            _ctrl.OpenSettings(SettingsData.CreateDefaults());
+
+            _ctrl._Input(new InputEventJoypadButton { ButtonIndex = JoyButton.B, Pressed = true });
+
+            AssertThat(closed).IsTrue();
+        }
+        finally
+        {
+            InputMap.ActionEraseEvent("ui_cancel", joyEvent);
+        }
+    }
+
+    [TestCase]
+    public void JoypadUiCancel_WhenCapturing_CancelsKeyCapture()
+    {
+        var joyEvent = new InputEventJoypadButton { ButtonIndex = JoyButton.B, Pressed = true };
+        InputMap.ActionAddEvent("ui_cancel", joyEvent);
+        try
+        {
+            var data = SettingsData.CreateDefaults();
+            data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
+            _ctrl.OpenSettings(data);
+            InvokePrivate(_ctrl, "StartKeyCapture", "toggle_inventory");
+            AssertThat(GetField<Button>(_ctrl, "_inventoryKeyBtn").Text).IsEqual("Press a key...");
+
+            _ctrl._Input(new InputEventJoypadButton { ButtonIndex = JoyButton.B, Pressed = true });
+
+            // Capture cancelled, text restored to previous binding
+            AssertThat(GetField<Button>(_ctrl, "_inventoryKeyBtn").Text)
+                .IsEqual(OS.GetKeycodeString(Key.I));
+        }
+        finally
+        {
+            InputMap.ActionEraseEvent("ui_cancel", joyEvent);
+        }
+    }
+
+    [TestCase]
+    public void JoypadUiCancel_DoesNotCloseWhenCapturingPauseMenu()
+    {
+        // When capturing pause_menu, ui_cancel should NOT close the panel;
+        // the capture must continue so the user can assign a key.
+        var joyEvent = new InputEventJoypadButton { ButtonIndex = JoyButton.B, Pressed = true };
+        InputMap.ActionAddEvent("ui_cancel", joyEvent);
+        InputMap.ActionAddEvent("pause_menu", joyEvent);
+        try
+        {
+            _ctrl.OpenSettings(SettingsData.CreateDefaults());
+            InvokePrivate(_ctrl, "StartKeyCapture", "pause_menu");
+
+            bool closed = false;
+            _ctrl.Closed += () => closed = true;
+
+            _ctrl._Input(new InputEventJoypadButton { ButtonIndex = JoyButton.B, Pressed = true });
+
+            // Should NOT have closed — still in capture mode
+            AssertThat(closed).IsFalse();
+            var listening = GetField<string>(_ctrl, "_listeningAction");
+            AssertThat(listening).IsEqual("pause_menu");
+        }
+        finally
+        {
+            InputMap.ActionEraseEvent("ui_cancel", joyEvent);
+            InputMap.ActionEraseEvent("pause_menu", joyEvent);
+        }
+    }
+
+    [TestCase]
+    public void PauseMenuAction_WhenNotCapturing_EmitsClosed()
+    {
+        // Verify that a keyboard key mapped to pause_menu (but NOT Escape) can
+        // close the settings via the action-based path.
+        var keyEvent = new InputEventKey { PhysicalKeycode = Key.P, Pressed = true };
+        InputMap.ActionAddEvent("pause_menu", keyEvent);
+        try
+        {
+            bool closed = false;
+            _ctrl.Closed += () => closed = true;
+            _ctrl.OpenSettings(SettingsData.CreateDefaults());
+
+            _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.P, Pressed = true });
+
+            AssertThat(closed).IsTrue();
+        }
+        finally
+        {
+            InputMap.ActionEraseEvent("pause_menu", keyEvent);
+        }
+    }
+
+    [TestCase]
     public void ResolveSelectedResolution_WhenIndexIsOutOfRange_KeepsEditedResolution()
     {
         var data = SettingsData.CreateDefaults();

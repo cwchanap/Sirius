@@ -266,11 +266,13 @@ public partial class SettingsMenuController : Control
 
     public override void _Input(InputEvent @event)
     {
-        if (@event is not InputEventKey keyEvent || !keyEvent.Pressed || keyEvent.Echo) return;
-
-        var key = keyEvent.PhysicalKeycode;
-
-        if (key == Key.Escape && !IsPauseMenuCapture(_listeningAction))
+        // Handle cancel/close via remappable actions (supports keyboard remaps
+        // and non-keyboard inputs like joypad).  Check BEFORE the InputEventKey
+        // filter so that preserved controller bindings on ui_cancel can dismiss
+        // the panel, matching the intent of SettingsManager.RebindAction which
+        // mirrors pause_menu onto ui_cancel and preserves non-key events.
+        if ((@event.IsActionPressed("ui_cancel") || @event.IsActionPressed("pause_menu"))
+            && !IsPauseMenuCapture(_listeningAction))
         {
             GetViewport()?.SetInputAsHandled();
             if (_listeningAction != null)
@@ -279,6 +281,11 @@ public partial class SettingsMenuController : Control
                 OnCancelPressed();
             return;
         }
+
+        // Key capture only works with keyboard events
+        if (@event is not InputEventKey keyEvent || !keyEvent.Pressed || keyEvent.Echo) return;
+
+        var key = keyEvent.PhysicalKeycode;
 
         if (_listeningAction == null)
         {

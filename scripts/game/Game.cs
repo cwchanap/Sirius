@@ -289,7 +289,11 @@ public partial class Game : Node2D
         // Safety fallback: SettingsMenuController._Input normally consumes ESC and
         // emits Closed synchronously, but if it fails to handle it (e.g. process input
         // disabled), close settings here so ESC never opens the pause menu on top.
-        if (_settingsMenu != null && GodotObject.IsInstanceValid(_settingsMenu))
+        // Skip this fallback while the player is actively rebinding a key — especially
+        // when reassigning the pause_menu binding itself, the key press must reach the
+        // settings controller's capture logic rather than force-closing the panel.
+        if (_settingsMenu != null && GodotObject.IsInstanceValid(_settingsMenu)
+            && !_settingsMenu.IsRebinding)
         {
             OnPauseSettingsClosed();
             GetViewport().SetInputAsHandled();

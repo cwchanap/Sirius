@@ -420,6 +420,32 @@ public partial class SettingsMenuControllerTest : Node
     }
 
     [TestCase]
+    public void IsRebinding_False_WhenNotCapturing()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        AssertThat(_ctrl.IsRebinding).IsFalse();
+    }
+
+    [TestCase]
+    public void IsRebinding_True_WhileCapturing()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        InvokePrivate(_ctrl, "StartKeyCapture", "toggle_inventory");
+        AssertThat(_ctrl.IsRebinding).IsTrue();
+    }
+
+    [TestCase]
+    public void IsRebinding_False_AfterCaptureCompletes()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        InvokePrivate(_ctrl, "StartKeyCapture", "toggle_inventory");
+        AssertThat(_ctrl.IsRebinding).IsTrue();
+
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.J, Pressed = true });
+        AssertThat(_ctrl.IsRebinding).IsFalse();
+    }
+
+    [TestCase]
     public void ResolveSelectedResolution_WhenIndexIsOutOfRange_KeepsEditedResolution()
     {
         var data = SettingsData.CreateDefaults();

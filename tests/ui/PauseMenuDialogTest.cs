@@ -1,6 +1,6 @@
 using GdUnit4;
 using Godot;
-using System.Reflection;
+using System.Linq;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
 
@@ -38,87 +38,87 @@ public partial class PauseMenuDialogTest : Node
     }
 
     [TestCase]
-    public void OnResumePressed_EmitsResumeRequested()
+    public void ResumeButton_Pressed_EmitsResumeRequested()
     {
         bool fired = false;
         _dialog.ResumeRequested += () => fired = true;
-        InvokePrivate(_dialog, "OnResumePressed");
+        FindButton("Resume").EmitSignal(Button.SignalName.Pressed);
         AssertThat(fired).IsTrue();
     }
 
     [TestCase]
-    public void OnSavePressed_EmitsSaveRequested()
+    public void SaveButton_Pressed_EmitsSaveRequested()
     {
         bool fired = false;
         _dialog.SaveRequested += () => fired = true;
-        InvokePrivate(_dialog, "OnSavePressed");
+        FindButton("Save Game").EmitSignal(Button.SignalName.Pressed);
         AssertThat(fired).IsTrue();
     }
 
     [TestCase]
-    public void OnLoadPressed_EmitsLoadRequested()
+    public void LoadButton_Pressed_EmitsLoadRequested()
     {
         bool fired = false;
         _dialog.LoadRequested += () => fired = true;
-        InvokePrivate(_dialog, "OnLoadPressed");
+        FindButton("Load Game").EmitSignal(Button.SignalName.Pressed);
         AssertThat(fired).IsTrue();
     }
 
     [TestCase]
-    public void OnSettingsPressed_EmitsSettingsRequested()
+    public void SettingsButton_Pressed_EmitsSettingsRequested()
     {
         bool fired = false;
         _dialog.SettingsRequested += () => fired = true;
-        InvokePrivate(_dialog, "OnSettingsPressed");
+        FindButton("Settings").EmitSignal(Button.SignalName.Pressed);
         AssertThat(fired).IsTrue();
     }
 
     [TestCase]
-    public void OnQuitToMenuPressed_EmitsQuitToMenuRequested()
+    public void QuitToMenuButton_Pressed_EmitsQuitToMenuRequested()
     {
         bool fired = false;
         _dialog.QuitToMenuRequested += () => fired = true;
-        InvokePrivate(_dialog, "OnQuitToMenuPressed");
+        FindButton("Quit to Main Menu").EmitSignal(Button.SignalName.Pressed);
         AssertThat(fired).IsTrue();
     }
 
     [TestCase]
-    public async Task OnResumePressed_HidesDialog()
+    public async Task ResumeButton_Pressed_HidesDialog()
     {
         await OpenDialog();
-        InvokePrivate(_dialog, "OnResumePressed");
+        FindButton("Resume").EmitSignal(Button.SignalName.Pressed);
         await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
         AssertThat(_dialog.Visible).IsFalse();
     }
 
     [TestCase]
-    public async Task OnSettingsPressed_DoesNotHideDialog()
+    public async Task SettingsButton_Pressed_DoesNotHideDialog()
     {
         await OpenDialog();
-        InvokePrivate(_dialog, "OnSettingsPressed");
+        FindButton("Settings").EmitSignal(Button.SignalName.Pressed);
         AssertThat(_dialog.Visible).IsTrue();
     }
 
     [TestCase]
-    public async Task OnCloseRequested_HidesDialogAndEmitsResumeRequested()
+    public async Task CloseRequestedSignal_HidesDialogAndEmitsResumeRequested()
     {
         bool fired = false;
         _dialog.ResumeRequested += () => fired = true;
         await OpenDialog();
-        InvokePrivate(_dialog, "OnCloseRequested");
+        _dialog.EmitSignal(AcceptDialog.SignalName.CloseRequested);
         await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
         AssertThat(_dialog.Visible).IsFalse();
         AssertThat(fired).IsTrue();
     }
 
     [TestCase]
-    public async Task OnCloseRequested_CalledTwice_EmitsResumeRequestedOnlyOnce()
+    public async Task CloseRequestedSignal_EmittedTwice_EmitsResumeRequestedOnlyOnce()
     {
         int count = 0;
         _dialog.ResumeRequested += () => count++;
         await OpenDialog();
-        InvokePrivate(_dialog, "OnCloseRequested");
-        InvokePrivate(_dialog, "OnCloseRequested");
+        _dialog.EmitSignal(AcceptDialog.SignalName.CloseRequested);
+        _dialog.EmitSignal(AcceptDialog.SignalName.CloseRequested);
         await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
         AssertThat(count).IsEqual(1);
     }
@@ -143,10 +143,20 @@ public partial class PauseMenuDialogTest : Node
         await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
     }
 
-    private static void InvokePrivate(object obj, string method, params object[] args)
+    /// <summary>
+    /// Finds a Button child of the PauseMenuDialog by its display text.
+    /// Buttons are created in _Ready() inside a VBoxContainer.
+    /// </summary>
+    private Button FindButton(string text)
     {
-        var m = obj.GetType().GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance)
-            ?? throw new System.InvalidOperationException($"Method '{method}' not found.");
-        m.Invoke(obj, args);
+        foreach (var child in _dialog.GetChildren())
+        {
+            if (child is VBoxContainer vbox)
+            {
+                var btn = vbox.GetChildren().OfType<Button>().FirstOrDefault(b => b.Text == text);
+                if (btn != null) return btn;
+            }
+        }
+        throw new System.InvalidOperationException($"Button '{text}' not found on PauseMenuDialog.");
     }
 }

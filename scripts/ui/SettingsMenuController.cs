@@ -287,8 +287,15 @@ public partial class SettingsMenuController : Control
             return;
         }
 
-        // Key capture only works with keyboard events
-        if (@event is not InputEventKey keyEvent || !keyEvent.Pressed || keyEvent.Echo) return;
+        // Key capture only works with keyboard events.
+        // Consume the event so non-keyboard input (mouse, joypad) and
+        // key-up / echo events do not leak through to gameplay while the
+        // settings panel is open.
+        if (@event is not InputEventKey keyEvent || !keyEvent.Pressed || keyEvent.Echo)
+        {
+            GetViewport()?.SetInputAsHandled();
+            return;
+        }
 
         var key = keyEvent.PhysicalKeycode;
 

@@ -471,6 +471,35 @@ public partial class SettingsMenuControllerTest : Node
         AssertThat(difficulty).IsEqual("Hard");
     }
 
+    [TestCase]
+    public void Input_NonKeyEvent_ConsumesEvent()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        var data = SettingsData.CreateDefaults();
+        data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
+        _ctrl.OpenSettings(data);
+
+        // Non-key event (mouse motion) should be consumed and not leak to gameplay.
+        var evt = new InputEventMouseMotion();
+        _ctrl._Input(evt);
+
+        // Verify binding was NOT changed — the event was consumed at the early-return.
+        AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
+    }
+
+    [TestCase]
+    public void Input_KeyUpEvent_ConsumesEvent()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
+        _ctrl.OpenSettings(data);
+
+        // Key-up event (Pressed=false) should be consumed at the early-return.
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.W, Pressed = false });
+
+        AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
+    }
+
     protected static void InvokePrivate(object obj, string method, params object[] args)
     {
         var m = obj.GetType().GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance)

@@ -35,6 +35,7 @@ public partial class Game : Node2D
     private SettingsMenuController? _settingsMenu;
     private AcceptDialog? _activeErrorPopup;
     private bool _pauseMenuRestorePending;
+    private bool _saveLoadFromPause;
 
     public override void _EnterTree()
     {
@@ -307,7 +308,7 @@ public partial class Game : Node2D
             }
             else
             {
-                CleanupSaveDialog();
+                CleanupSaveDialogAndRestorePause();
             }
             GetViewport().SetInputAsHandled();
             return;
@@ -898,7 +899,7 @@ public partial class Game : Node2D
         if (_gameManager.IsInNpcInteraction)
         {
             GD.PrintErr("Save blocked: NPC interaction in progress.");
-            CleanupSaveDialog();
+            CleanupSaveDialogAndRestorePause();
             ShowSaveError("Cannot save during NPC interaction.");
             return;
         }
@@ -907,7 +908,7 @@ public partial class Game : Node2D
         if (_gameManager.IsInBattle)
         {
             GD.PrintErr("Save blocked: Battle in progress.");
-            CleanupSaveDialog();
+            CleanupSaveDialogAndRestorePause();
             ShowSaveError("Cannot save during battle.");
             return;
         }
@@ -917,7 +918,7 @@ public partial class Game : Node2D
         if (_gameManager.Player != null && !_gameManager.Player.IsAlive)
         {
             GD.PrintErr("Save blocked: Player is defeated.");
-            CleanupSaveDialog();
+            CleanupSaveDialogAndRestorePause();
             ShowSaveError("Cannot save while defeated.");
             return;
         }
@@ -926,7 +927,7 @@ public partial class Game : Node2D
         if (saveData == null)
         {
             GD.PrintErr("Save failed: unable to collect save data.");
-            CleanupSaveDialog();
+            CleanupSaveDialogAndRestorePause();
             ShowSaveError("Unable to collect save data.");
             return;
         }
@@ -934,7 +935,7 @@ public partial class Game : Node2D
         if (SaveManager.Instance == null)
         {
             GD.PushError("Save failed: SaveManager not initialized.");
-            CleanupSaveDialog();
+            CleanupSaveDialogAndRestorePause();
             ShowSaveError("Save system unavailable.");
             return;
         }
@@ -943,26 +944,27 @@ public partial class Game : Node2D
         if (success)
         {
             GD.Print($"Game saved to slot {slot}");
-            CleanupSaveDialog();
+            CleanupSaveDialogAndRestorePause();
         }
         else
         {
             GD.PrintErr($"Save failed for slot {slot}.");
-            CleanupSaveDialog();
+            CleanupSaveDialogAndRestorePause();
             ShowSaveError("Failed to save game.");
         }
     }
 
     private void OnSaveDialogClosed()
     {
-        CleanupSaveDialog();
+        CleanupSaveDialogAndRestorePause();
     }
 
     private void OnMainMenuRequested()
     {
         GD.Print("Main menu requested from save dialog");
-        // Cleanup save dialog and return to main menu
+        _saveLoadFromPause = false;
         CleanupSaveDialog();
+        CleanupPauseMenu();
         ReturnToMainMenu();
     }
 
@@ -976,6 +978,21 @@ public partial class Game : Node2D
             _saveLoadDialog.MainMenuRequested -= OnMainMenuRequested;
             _saveLoadDialog.QueueFree();
             _saveLoadDialog = null;
+        }
+    }
+
+    /// <summary>
+    /// Cleans up the save/load dialog and restores the hidden pause menu
+    /// if the save/load was opened from the pause menu.
+    /// </summary>
+    private void CleanupSaveDialogAndRestorePause()
+    {
+        bool fromPause = _saveLoadFromPause;
+        _saveLoadFromPause = false;
+        CleanupSaveDialog();
+        if (fromPause && _pauseMenuDialog != null && GodotObject.IsInstanceValid(_pauseMenuDialog))
+        {
+            _pauseMenuDialog.PopupCentered();
         }
     }
 
@@ -1011,13 +1028,15 @@ public partial class Game : Node2D
 
     private void OnPauseSaveRequested()
     {
-        CleanupPauseMenu();
+        _saveLoadFromPause = true;
+        _pauseMenuDialog?.Hide();
         ShowSaveMenu();
     }
 
     private void OnPauseLoadRequested()
     {
-        CleanupPauseMenu();
+        _saveLoadFromPause = true;
+        _pauseMenuDialog?.Hide();
         ShowLoadMenu();
     }
 
@@ -1091,12 +1110,13 @@ public partial class Game : Node2D
 
         if (saveData == null || SaveManager.Instance == null)
         {
+            CleanupSaveDialogAndRestorePause();
             ShowSaveError("Failed to load save file.", "Load Failed");
-            CleanupSaveDialog();
             return;
         }
 
         SaveManager.Instance.PendingLoadData = saveData;
+        _saveLoadFromPause = false;
         CleanupSaveDialog();
         GetTree().ChangeSceneToFile("res://scenes/game/Game.tscn");
     }

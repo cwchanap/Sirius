@@ -8,6 +8,11 @@ public partial class SettingsMenuController : Control
 
     internal SettingsData EditedSettings => _editedSettings;
 
+    /// True while the player is in the middle of pressing a key to assign
+    /// to a key-binding action.  Used by Game._Input to avoid force-closing
+    /// the settings panel when the pause_menu key itself is being rebound.
+    public bool IsRebinding => _listeningAction != null;
+
     private SettingsData _editedSettings = SettingsData.CreateDefaults();
     private string? _listeningAction;
 

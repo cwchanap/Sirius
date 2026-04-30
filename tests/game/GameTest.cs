@@ -287,6 +287,38 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void PauseMenu_WhenSettingsIsRebinding_DoesNotForceClose()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        SetPrivateField(_game!, "_pauseMenuDialog", null);
+
+        var fakeSettings = InstantiateSettingsMenu();
+        _viewport!.AddChild(fakeSettings);
+        fakeSettings.OpenSettings(SettingsData.CreateDefaults());
+        SetPrivateField(_game!, "_settingsMenu", fakeSettings);
+
+        // Put the settings controller into key-capture mode (rebinding pause_menu)
+        var startCapture = typeof(SettingsMenuController).GetMethod(
+            "StartKeyCapture", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        startCapture.Invoke(fakeSettings, new object[] { "pause_menu" });
+        AssertThat(fakeSettings.IsRebinding).IsTrue();
+
+        // Push a pause_menu action — the fallback must NOT close settings
+        var evt = CreatePauseEvent();
+        _viewport!.PushInput(evt);
+
+        // Settings should still be alive and rebinding should still be active
+        AssertThat(GetPrivateField<SettingsMenuController?>(_game, "_settingsMenu")).IsNotNull();
+        AssertThat(fakeSettings.IsRebinding).IsTrue();
+
+        // Clean up
+        SetPrivateField(_game!, "_settingsMenu", null);
+        if (IsInstanceValid(fakeSettings)) fakeSettings.QueueFree();
+    }
+
+    [TestCase]
     public void PauseMenu_WhenSaveDialogOpen_EscClosesSaveDialogNotOpenPauseMenu()
     {
         if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();

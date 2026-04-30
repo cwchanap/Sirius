@@ -12,23 +12,26 @@ public partial class PauseMenuDialogTest : Node
     private SceneTree _sceneTree = null!;
     private Variant _originalVerboseOrphans;
 
-    [Before]
+    [BeforeTest]
     public async Task Setup()
     {
         _originalVerboseOrphans = ProjectSettings.GetSetting("gdunit4/report/verbose_orphans");
         ProjectSettings.SetSetting("gdunit4/report/verbose_orphans", false);
         _sceneTree = (SceneTree)Engine.GetMainLoop();
+        await PurgePauseMenuDialogs(_sceneTree);
         _dialog = new PauseMenuDialog();
         _sceneTree.Root.AddChild(_dialog);
         await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
     }
 
-    [After]
+    [AfterTest]
     public async Task Cleanup()
     {
         if (_dialog != null && GodotObject.IsInstanceValid(_dialog))
             _dialog.QueueFree();
         await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        await PurgePauseMenuDialogs((SceneTree)Engine.GetMainLoop());
         _dialog = null!;
         _sceneTree = null!;
         ProjectSettings.SetSetting("gdunit4/report/verbose_orphans", _originalVerboseOrphans);
@@ -80,41 +83,64 @@ public partial class PauseMenuDialogTest : Node
     }
 
     [TestCase]
-    public void OnResumePressed_HidesDialog()
+    public async Task OnResumePressed_HidesDialog()
     {
-        _dialog.Show();
+        await OpenDialog();
         InvokePrivate(_dialog, "OnResumePressed");
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
         AssertThat(_dialog.Visible).IsFalse();
     }
 
     [TestCase]
-    public void OnSettingsPressed_DoesNotHideDialog()
+    public async Task OnSettingsPressed_DoesNotHideDialog()
     {
-        _dialog.Show();
+        await OpenDialog();
         InvokePrivate(_dialog, "OnSettingsPressed");
         AssertThat(_dialog.Visible).IsTrue();
     }
 
     [TestCase]
-    public void OnCloseRequested_HidesDialogAndEmitsResumeRequested()
+    public async Task OnCloseRequested_HidesDialogAndEmitsResumeRequested()
     {
         bool fired = false;
         _dialog.ResumeRequested += () => fired = true;
-        _dialog.Show();
+        await OpenDialog();
         InvokePrivate(_dialog, "OnCloseRequested");
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
         AssertThat(_dialog.Visible).IsFalse();
         AssertThat(fired).IsTrue();
     }
 
     [TestCase]
-    public void OnCloseRequested_CalledTwice_EmitsResumeRequestedOnlyOnce()
+    public async Task OnCloseRequested_CalledTwice_EmitsResumeRequestedOnlyOnce()
     {
         int count = 0;
         _dialog.ResumeRequested += () => count++;
-        _dialog.Show();
+        await OpenDialog();
         InvokePrivate(_dialog, "OnCloseRequested");
         InvokePrivate(_dialog, "OnCloseRequested");
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
         AssertThat(count).IsEqual(1);
+    }
+
+    private async Task OpenDialog()
+    {
+        _dialog.PopupCentered();
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+    }
+
+    private async Task PurgePauseMenuDialogs(SceneTree sceneTree)
+    {
+        foreach (var child in sceneTree.Root.GetChildren())
+        {
+            if (child is PauseMenuDialog dialog && GodotObject.IsInstanceValid(dialog))
+            {
+                dialog.QueueFree();
+            }
+        }
+
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
     }
 
     private static void InvokePrivate(object obj, string method, params object[] args)

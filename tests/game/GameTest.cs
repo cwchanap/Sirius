@@ -393,6 +393,248 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void PauseMenu_WhenSaveRequested_HidesPauseInsteadOfDestroying()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");
+        if (ui == null)
+        {
+            ui = new CanvasLayer { Name = "UI" };
+            _game.AddChild(ui);
+        }
+
+        // Create and show a pause menu
+        var pauseDialog = new PauseMenuDialog();
+        ui.AddChild(pauseDialog);
+        pauseDialog.Show();
+        SetPrivateField(_game, "_pauseMenuDialog", pauseDialog);
+
+        var method = typeof(Game).GetMethod("OnPauseSaveRequested",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(_game, null);
+
+        // Pause menu must still exist but be hidden
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNotNull();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")!.Visible).IsFalse();
+
+        // The save-load-from-pause flag must be set
+        AssertThat(GetPrivateField<bool>(_game, "_saveLoadFromPause")).IsTrue();
+
+        // Clean up save dialog that was opened
+        var saveDialog = GetPrivateField<SaveLoadDialog?>(_game, "_saveLoadDialog");
+        if (saveDialog != null && IsInstanceValid(saveDialog)) saveDialog.QueueFree();
+        SetPrivateField(_game, "_saveLoadDialog", null);
+        SetPrivateField(_game, "_saveLoadFromPause", false);
+        if (IsInstanceValid(pauseDialog)) pauseDialog.QueueFree();
+    }
+
+    [TestCase]
+    public void PauseMenu_WhenLoadRequested_HidesPauseInsteadOfDestroying()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");
+        if (ui == null)
+        {
+            ui = new CanvasLayer { Name = "UI" };
+            _game.AddChild(ui);
+        }
+
+        // Create and show a pause menu
+        var pauseDialog = new PauseMenuDialog();
+        ui.AddChild(pauseDialog);
+        pauseDialog.Show();
+        SetPrivateField(_game, "_pauseMenuDialog", pauseDialog);
+
+        var method = typeof(Game).GetMethod("OnPauseLoadRequested",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(_game, null);
+
+        // Pause menu must still exist but be hidden
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNotNull();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")!.Visible).IsFalse();
+
+        AssertThat(GetPrivateField<bool>(_game, "_saveLoadFromPause")).IsTrue();
+
+        // Clean up
+        var saveDialog = GetPrivateField<SaveLoadDialog?>(_game, "_saveLoadDialog");
+        if (saveDialog != null && IsInstanceValid(saveDialog)) saveDialog.QueueFree();
+        SetPrivateField(_game, "_saveLoadDialog", null);
+        SetPrivateField(_game, "_saveLoadFromPause", false);
+        if (IsInstanceValid(pauseDialog)) pauseDialog.QueueFree();
+    }
+
+    [TestCase]
+    public void PauseMenu_WhenSaveDialogClosedFromPause_RestoresPauseMenu()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");
+        if (ui == null)
+        {
+            ui = new CanvasLayer { Name = "UI" };
+            _game.AddChild(ui);
+        }
+
+        // Simulate a hidden pause menu (as set by OnPauseSaveRequested)
+        var pauseDialog = new PauseMenuDialog();
+        ui.AddChild(pauseDialog);
+        pauseDialog.Hide();
+        SetPrivateField(_game, "_pauseMenuDialog", pauseDialog);
+
+        // Simulate an open save dialog
+        var saveDialog = new SaveLoadDialog();
+        ui.AddChild(saveDialog);
+        SetPrivateField(_game, "_saveLoadDialog", saveDialog);
+        SetPrivateField(_game, "_saveLoadFromPause", true);
+
+        var method = typeof(Game).GetMethod("OnSaveDialogClosed",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(_game, null);
+
+        // Save dialog must be cleaned up
+        AssertThat(GetPrivateField<SaveLoadDialog?>(_game, "_saveLoadDialog")).IsNull();
+
+        // Pause menu must be restored (visible again)
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNotNull();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")!.Visible).IsTrue();
+
+        // Flag must be cleared
+        AssertThat(GetPrivateField<bool>(_game, "_saveLoadFromPause")).IsFalse();
+
+        if (IsInstanceValid(pauseDialog)) pauseDialog.QueueFree();
+    }
+
+    [TestCase]
+    public void PauseMenu_WhenSaveDialogClosedNotFromPause_DoesNotRestorePauseMenu()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");
+        if (ui == null)
+        {
+            ui = new CanvasLayer { Name = "UI" };
+            _game.AddChild(ui);
+        }
+
+        // No pause menu exists (save opened from elsewhere, e.g. direct keybind)
+        SetPrivateField(_game, "_pauseMenuDialog", null);
+
+        // Simulate an open save dialog
+        var saveDialog = new SaveLoadDialog();
+        ui.AddChild(saveDialog);
+        SetPrivateField(_game, "_saveLoadDialog", saveDialog);
+        SetPrivateField(_game, "_saveLoadFromPause", false);
+
+        var method = typeof(Game).GetMethod("OnSaveDialogClosed",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(_game, null);
+
+        // Save dialog must be cleaned up
+        AssertThat(GetPrivateField<SaveLoadDialog?>(_game, "_saveLoadDialog")).IsNull();
+
+        // No pause menu should exist
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNull();
+    }
+
+    [TestCase]
+    public void PauseMenu_WhenSaveBlockedFromPause_RestoresPauseMenu()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");
+        if (ui == null)
+        {
+            ui = new CanvasLayer { Name = "UI" };
+            _game.AddChild(ui);
+        }
+
+        // Simulate hidden pause menu and open save dialog (from pause)
+        var pauseDialog = new PauseMenuDialog();
+        ui.AddChild(pauseDialog);
+        pauseDialog.Hide();
+        SetPrivateField(_game, "_pauseMenuDialog", pauseDialog);
+
+        var saveDialog = new SaveLoadDialog();
+        ui.AddChild(saveDialog);
+        saveDialog.Hide();
+        SetPrivateField(_game, "_saveLoadDialog", saveDialog);
+        SetPrivateField(_game, "_saveLoadFromPause", true);
+
+        // Block save by entering battle
+        _gameManager.StartBattle(Enemy.CreateGoblin());
+
+        var method = typeof(Game).GetMethod("OnSaveSlotSelected",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(_game, [0]);
+
+        // Save dialog must be cleaned up
+        AssertThat(GetPrivateField<SaveLoadDialog?>(_game, "_saveLoadDialog")).IsNull();
+
+        // Pause menu must be restored
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNotNull();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")!.Visible).IsTrue();
+
+        AssertThat(GetPrivateField<bool>(_game, "_saveLoadFromPause")).IsFalse();
+
+        _gameManager.EndBattle(false);
+
+        // Clean up error popup if created
+        var errorPopup = GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup");
+        if (errorPopup != null && IsInstanceValid(errorPopup)) errorPopup.QueueFree();
+        SetPrivateField(_game, "_activeErrorPopup", null);
+    }
+
+    [TestCase]
+    public void PauseMenu_WhenMainMenuRequestedFromPause_CleansUpBothDialogs()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");
+        if (ui == null)
+        {
+            ui = new CanvasLayer { Name = "UI" };
+            _game.AddChild(ui);
+        }
+
+        // Simulate hidden pause menu and open save dialog (from pause)
+        var pauseDialog = new PauseMenuDialog();
+        ui.AddChild(pauseDialog);
+        pauseDialog.Hide();
+        SetPrivateField(_game, "_pauseMenuDialog", pauseDialog);
+
+        var saveDialog = new SaveLoadDialog();
+        ui.AddChild(saveDialog);
+        SetPrivateField(_game, "_saveLoadDialog", saveDialog);
+        SetPrivateField(_game, "_saveLoadFromPause", true);
+
+        var method = typeof(Game).GetMethod("OnMainMenuRequested",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        // OnMainMenuRequested calls ReturnToMainMenu which changes scene;
+        // we only verify the cleanup part, so catch any scene-change errors.
+        try
+        {
+            method.Invoke(_game, null);
+        }
+        catch (Exception)
+        {
+            // Scene change may fail in test; that's expected
+        }
+
+        // Both dialogs must be cleaned up
+        AssertThat(GetPrivateField<SaveLoadDialog?>(_game, "_saveLoadDialog")).IsNull();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNull();
+        AssertThat(GetPrivateField<bool>(_game, "_saveLoadFromPause")).IsFalse();
+    }
+
+    [TestCase]
     public void InventoryToggle_WhenSettingsOpen_IsBlocked()
     {
         if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();

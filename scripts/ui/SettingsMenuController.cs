@@ -85,8 +85,15 @@ public partial class SettingsMenuController : Control
         var source = snapshot ?? SettingsManager.Instance?.GetSnapshot() ?? SettingsData.CreateDefaults();
         _editedSettings = source.Clone();
         PopulateControls();
-        SetProcessInput(true);
         Show();
+        SetProcessInput(true);
+
+        // Grab focus on the first interactive control so that UI navigation
+        // keys (ui_up, ui_down, ui_accept, etc.) are handled by Godot's GUI
+        // focus system rather than leaking through to the game scene behind
+        // the modal.
+        if (_masterSlider != null)
+            _masterSlider.GrabFocus();
     }
 
     private void BuildUI(VBoxContainer content)
@@ -297,9 +304,19 @@ public partial class SettingsMenuController : Control
             return;
         }
 
+        // Let non-keyboard UI navigation actions (joypad dpad, face buttons
+        // mapped to ui_up/down/etc.) pass through to Godot's GUI focus system
+        // so controller users can navigate the settings panel.  This mirrors
+        // the IsUiNavigationAction check below for keyboard events.
+        if (@event is not InputEventKey && IsDeviceUiNavigationAction(@event))
+        {
+            return;
+        }
+
         // Key capture only works with keyboard events.
-        // Consume non-keyboard input (joypad, etc.) and key-up / echo events
-        // so they do not leak through to gameplay while the settings panel is open.
+        // Consume remaining non-keyboard input (joypad non-nav, etc.) and
+        // key-up / echo events so they do not leak through to gameplay while
+        // the settings panel is open.
         if (@event is not InputEventKey keyEvent || !keyEvent.Pressed || keyEvent.Echo)
         {
             GetViewport()?.SetInputAsHandled();
@@ -355,6 +372,20 @@ public partial class SettingsMenuController : Control
                keyEvent.IsActionPressed("ui_accept") ||
                keyEvent.IsActionPressed("ui_focus_next") ||
                keyEvent.IsActionPressed("ui_focus_prev");
+    }
+
+    /// Checks whether a non-keyboard event (e.g. joypad button / motion)
+    /// matches a UI navigation action.  Uses the same action list as
+    /// <see cref="IsUiNavigationAction"/> but works on any <see cref="InputEvent"/>.
+    private static bool IsDeviceUiNavigationAction(InputEvent evt)
+    {
+        return evt.IsActionPressed("ui_up") ||
+               evt.IsActionPressed("ui_down") ||
+               evt.IsActionPressed("ui_left") ||
+               evt.IsActionPressed("ui_right") ||
+               evt.IsActionPressed("ui_accept") ||
+               evt.IsActionPressed("ui_focus_next") ||
+               evt.IsActionPressed("ui_focus_prev");
     }
 
     private bool IsDuplicateKey(string action, long keycode)

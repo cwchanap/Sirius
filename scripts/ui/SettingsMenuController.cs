@@ -287,10 +287,19 @@ public partial class SettingsMenuController : Control
             return;
         }
 
+        // Let mouse events pass through to child GUI controls (buttons,
+        // sliders, checkboxes, OptionButtons) so the settings UI is usable.
+        // _Input() runs before the viewport's GUI dispatch, so calling
+        // SetInputAsHandled() here would prevent clicks/drags from reaching
+        // those controls at all.
+        if (@event is InputEventMouseMotion || @event is InputEventMouseButton)
+        {
+            return;
+        }
+
         // Key capture only works with keyboard events.
-        // Consume the event so non-keyboard input (mouse, joypad) and
-        // key-up / echo events do not leak through to gameplay while the
-        // settings panel is open.
+        // Consume non-keyboard input (joypad, etc.) and key-up / echo events
+        // so they do not leak through to gameplay while the settings panel is open.
         if (@event is not InputEventKey keyEvent || !keyEvent.Pressed || keyEvent.Echo)
         {
             GetViewport()?.SetInputAsHandled();

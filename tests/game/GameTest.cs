@@ -699,6 +699,39 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void InventoryToggle_WhenPauseMenuVisible_IsBlocked()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        // Set up an inventory menu so the toggle code path can run
+        var invScene = GD.Load<PackedScene>("res://scenes/ui/InventoryMenu.tscn");
+        var invMenu = invScene!.Instantiate<InventoryMenuController>();
+        SetPrivateField(_game!, "_inventoryMenu", invMenu);
+        _viewport!.AddChild(invMenu);
+        invMenu.Hide();
+
+        // Simulate a visible pause menu dialog
+        var pauseDialog = new PauseMenuDialog();
+        SetPrivateField(_game, "_pauseMenuDialog", pauseDialog);
+        _viewport.AddChild(pauseDialog);
+        pauseDialog.Show();
+
+        // Push toggle_inventory event
+        var evt = new InputEventAction { Action = "toggle_inventory", Pressed = true };
+        _viewport.PushInput(evt);
+
+        // Inventory must NOT become visible — pause menu guard blocked the toggle
+        AssertThat(invMenu.Visible).IsFalse();
+
+        // Clean up
+        SetPrivateField(_game, "_pauseMenuDialog", null);
+        SetPrivateField(_game, "_inventoryMenu", null);
+        if (IsInstanceValid(pauseDialog)) pauseDialog.QueueFree();
+        if (IsInstanceValid(invMenu)) invMenu.QueueFree();
+    }
+
+    [TestCase]
     public void ShowLoadMenu_WhenNpcInteractionBlocksLoad_UsesLoadFailedTitle()
     {
         var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");

@@ -597,6 +597,42 @@ public partial class SettingsMenuControllerTest : Node
         AssertThat(GetField<Label>(_ctrl, "_errorLabel").Visible).IsFalse();
     }
 
+    [TestCase]
+    public void OpenSettings_GrabsFocusOnFirstControl()
+    {
+        // After opening, the first interactive control (master slider) should
+        // have focus so that UI navigation keys are captured by Godot's GUI
+        // focus system instead of leaking to the game scene.
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+
+        var masterSlider = GetField<HSlider>(_ctrl, "_masterSlider");
+        AssertThat(_ctrl.GetViewport().GuiGetFocusOwner()).IsEqual(masterSlider);
+    }
+
+    [TestCase]
+    public void JoypadUiNavigation_PassesThrough()
+    {
+        // Joypad buttons mapped to ui_up/ui_down/ui_accept must pass through
+        // _Input() so Godot's GUI focus system can handle controller navigation.
+        var joyUp = new InputEventJoypadButton { ButtonIndex = JoyButton.DpadUp, Pressed = true };
+        InputMap.ActionAddEvent("ui_up", joyUp);
+        try
+        {
+            _ctrl.OpenSettings(SettingsData.CreateDefaults());
+            var originalBinding = _ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"];
+
+            _ctrl._Input(new InputEventJoypadButton { ButtonIndex = JoyButton.DpadUp, Pressed = true });
+
+            // Event passed through — no state change
+            AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"])
+                .IsEqual(originalBinding);
+        }
+        finally
+        {
+            InputMap.ActionEraseEvent("ui_up", joyUp);
+        }
+    }
+
     protected static void InvokePrivate(object obj, string method, params object[] args)
     {
         var m = obj.GetType().GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance)

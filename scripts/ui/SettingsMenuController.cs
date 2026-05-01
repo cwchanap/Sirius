@@ -310,8 +310,17 @@ public partial class SettingsMenuController : Control
 
         if (_listeningAction == null)
         {
-            // Consume the event so gameplay input (movement, inventory, etc.)
-            // does not leak through while the settings panel is open.
+            // Let UI navigation actions (arrow keys, Tab, Enter via ui_accept,
+            // etc.) pass through to Godot's built-in GUI focus/activation system
+            // so keyboard users can navigate TabContainer, OptionButtons,
+            // CheckBoxes, and Buttons.
+            if (IsUiNavigationAction(keyEvent))
+            {
+                return;
+            }
+
+            // Consume all other key events so gameplay input (movement, inventory,
+            // etc.) does not leak through while the settings panel is open.
             GetViewport()?.SetInputAsHandled();
             return;
         }
@@ -323,11 +332,39 @@ public partial class SettingsMenuController : Control
             return;
         }
 
+        if (IsDuplicateKey(_listeningAction, (long)key))
+        {
+            ShowError("Key already in use");
+            GetViewport()?.SetInputAsHandled();
+            return;
+        }
+
         _editedSettings.PrimaryKeybindings[_listeningAction] = (long)key;
         UpdateKeyButtonText(GetKeyButton(_listeningAction), _listeningAction);
         _listeningAction = null;
         if (_errorLabel != null) _errorLabel.Visible = false;
         GetViewport()?.SetInputAsHandled();
+    }
+
+    private static bool IsUiNavigationAction(InputEventKey keyEvent)
+    {
+        return keyEvent.IsActionPressed("ui_up") ||
+               keyEvent.IsActionPressed("ui_down") ||
+               keyEvent.IsActionPressed("ui_left") ||
+               keyEvent.IsActionPressed("ui_right") ||
+               keyEvent.IsActionPressed("ui_accept") ||
+               keyEvent.IsActionPressed("ui_focus_next") ||
+               keyEvent.IsActionPressed("ui_focus_prev");
+    }
+
+    private bool IsDuplicateKey(string action, long keycode)
+    {
+        foreach (var (act, code) in _editedSettings.PrimaryKeybindings)
+        {
+            if (act != action && code == keycode)
+                return true;
+        }
+        return false;
     }
 
     private static bool IsPauseMenuCapture(string action) => action == "pause_menu";

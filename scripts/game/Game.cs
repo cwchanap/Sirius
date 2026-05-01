@@ -244,7 +244,8 @@ public partial class Game : Node2D
         if (@event.IsActionPressed("toggle_inventory"))
         {
             if (_inventoryMenu != null && !_gameManager.IsInBattle && !_gameManager.IsInNpcInteraction
-                && (_settingsMenu == null || !GodotObject.IsInstanceValid(_settingsMenu)))
+                && (_settingsMenu == null || !GodotObject.IsInstanceValid(_settingsMenu))
+                && (_pauseMenuDialog == null || !GodotObject.IsInstanceValid(_pauseMenuDialog) || !_pauseMenuDialog.Visible))
             {
                 if (_inventoryMenu.Visible)
                 {

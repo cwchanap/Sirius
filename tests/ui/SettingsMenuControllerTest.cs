@@ -472,18 +472,54 @@ public partial class SettingsMenuControllerTest : Node
     }
 
     [TestCase]
-    public void Input_NonKeyEvent_ConsumesEvent()
+    public void Input_MouseMotion_DoesNotConsumeEvent()
     {
         _ctrl.OpenSettings(SettingsData.CreateDefaults());
         var data = SettingsData.CreateDefaults();
         data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
         _ctrl.OpenSettings(data);
 
-        // Non-key event (mouse motion) should be consumed and not leak to gameplay.
+        // Mouse motion must NOT be consumed — it needs to reach GUI controls
+        // (sliders, buttons, checkboxes) for the settings panel to be usable.
         var evt = new InputEventMouseMotion();
         _ctrl._Input(evt);
 
-        // Verify binding was NOT changed — the event was consumed at the early-return.
+        // Verify binding was NOT changed — the event passed through without
+        // modifying state, which is correct for mouse events.
+        AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
+    }
+
+    [TestCase]
+    public void Input_MouseButtonClick_DoesNotConsumeEvent()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        var data = SettingsData.CreateDefaults();
+        data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
+        _ctrl.OpenSettings(data);
+
+        // Mouse button click must NOT be consumed — it needs to reach GUI
+        // controls (buttons, sliders, checkboxes, OptionButtons).
+        var evt = new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true };
+        _ctrl._Input(evt);
+
+        // Verify binding was NOT changed.
+        AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
+    }
+
+    [TestCase]
+    public void Input_JoypadEvent_ConsumesEvent()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        var data = SettingsData.CreateDefaults();
+        data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
+        _ctrl.OpenSettings(data);
+
+        // Non-key, non-mouse events (joypad) should still be consumed to
+        // prevent gameplay input leaks.
+        var evt = new InputEventJoypadButton { ButtonIndex = JoyButton.A, Pressed = true };
+        _ctrl._Input(evt);
+
+        // Verify binding was NOT changed — event was consumed at the early-return.
         AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
     }
 

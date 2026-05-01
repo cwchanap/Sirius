@@ -536,6 +536,67 @@ public partial class SettingsMenuControllerTest : Node
         AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
     }
 
+    [TestCase]
+    public void InputOutsideCapture_UiNavigationKey_DoesNotConsumeEvent()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        var originalBinding = _ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"];
+
+        // Up arrow maps to ui_up by default — should pass through to Godot's
+        // built-in GUI focus system, not be consumed as gameplay input.
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.Up, Pressed = true });
+
+        AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual(originalBinding);
+    }
+
+    [TestCase]
+    public void InputOutsideCapture_UiAcceptKey_DoesNotConsumeEvent()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        var originalBinding = _ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"];
+
+        // Enter maps to ui_accept by default — should pass through to GUI.
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.Enter, Pressed = true });
+
+        AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual(originalBinding);
+    }
+
+    [TestCase]
+    public void InputDuringCapture_DuplicateKey_ShowsErrorAndKeepsCapture()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.PrimaryKeybindings["interact"] = (long)Key.E;
+        _ctrl.OpenSettings(data);
+        InvokePrivate(_ctrl, "StartKeyCapture", "toggle_inventory");
+
+        // Press E, which is already assigned to "interact"
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.E, Pressed = true });
+
+        AssertThat(GetField<Label>(_ctrl, "_errorLabel").Visible).IsTrue();
+        AssertThat(GetField<Label>(_ctrl, "_errorLabel").Text).IsEqual("Key already in use");
+        // toggle_inventory should NOT have been changed
+        var defaults = SettingsData.CreateDefaultKeybindings();
+        AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual(defaults["toggle_inventory"]);
+        // Should still be in capture mode
+        AssertThat(_ctrl.IsRebinding).IsTrue();
+    }
+
+    [TestCase]
+    public void InputDuringCapture_SameKeySameAction_AcceptsBinding()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
+        _ctrl.OpenSettings(data);
+        InvokePrivate(_ctrl, "StartKeyCapture", "toggle_inventory");
+
+        // Press I — same key, same action — not a duplicate, should accept.
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.I, Pressed = true });
+
+        AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
+        AssertThat(_ctrl.IsRebinding).IsFalse();
+        AssertThat(GetField<Label>(_ctrl, "_errorLabel").Visible).IsFalse();
+    }
+
     protected static void InvokePrivate(object obj, string method, params object[] args)
     {
         var m = obj.GetType().GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance)

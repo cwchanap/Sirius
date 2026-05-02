@@ -37,7 +37,10 @@ public partial class PauseMenuDialog : AcceptDialog
     {
         base._Notification(what);
         if (what == NotificationVisibilityChanged && Visible && _resumeButton != null)
+        {
+            _closeEmitted = false;
             Callable.From(() => _resumeButton.GrabFocus()).CallDeferred();
+        }
     }
 
     private static Button MakeBtn(string text, System.Action handler)

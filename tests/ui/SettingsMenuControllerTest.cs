@@ -581,7 +581,6 @@ public partial class SettingsMenuControllerTest : Node
     [TestCase]
     public void Input_MouseMotion_DoesNotConsumeEvent()
     {
-        _ctrl.OpenSettings(SettingsData.CreateDefaults());
         var data = SettingsData.CreateDefaults();
         data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
         _ctrl.OpenSettings(data);
@@ -599,7 +598,6 @@ public partial class SettingsMenuControllerTest : Node
     [TestCase]
     public void Input_MouseButtonClick_DoesNotConsumeEvent()
     {
-        _ctrl.OpenSettings(SettingsData.CreateDefaults());
         var data = SettingsData.CreateDefaults();
         data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
         _ctrl.OpenSettings(data);
@@ -616,7 +614,6 @@ public partial class SettingsMenuControllerTest : Node
     [TestCase]
     public void Input_JoypadEvent_ConsumesEvent()
     {
-        _ctrl.OpenSettings(SettingsData.CreateDefaults());
         var data = SettingsData.CreateDefaults();
         data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
         _ctrl.OpenSettings(data);

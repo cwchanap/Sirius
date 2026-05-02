@@ -732,6 +732,38 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void InventoryToggle_WhenSaveLoadDialogOpen_IsBlocked()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        // Set up an inventory menu so the toggle code path can run
+        var invScene = GD.Load<PackedScene>("res://scenes/ui/InventoryMenu.tscn");
+        var invMenu = invScene!.Instantiate<InventoryMenuController>();
+        SetPrivateField(_game!, "_inventoryMenu", invMenu);
+        _viewport!.AddChild(invMenu);
+        invMenu.Hide();
+
+        // Simulate an active save/load dialog
+        var saveDialog = new SaveLoadDialog();
+        SetPrivateField(_game, "_saveLoadDialog", saveDialog);
+        _viewport.AddChild(saveDialog);
+
+        // Push toggle_inventory event
+        var evt = new InputEventAction { Action = "toggle_inventory", Pressed = true };
+        _viewport.PushInput(evt);
+
+        // Inventory must NOT become visible — save/load dialog guard blocked the toggle
+        AssertThat(invMenu.Visible).IsFalse();
+
+        // Clean up
+        SetPrivateField(_game, "_saveLoadDialog", null);
+        SetPrivateField(_game, "_inventoryMenu", null);
+        if (IsInstanceValid(saveDialog)) saveDialog.QueueFree();
+        if (IsInstanceValid(invMenu)) invMenu.QueueFree();
+    }
+
+    [TestCase]
     public void ShowLoadMenu_WhenNpcInteractionBlocksLoad_UsesLoadFailedTitle()
     {
         var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");

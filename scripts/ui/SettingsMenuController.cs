@@ -247,8 +247,7 @@ public partial class SettingsMenuController : Control
 
         _fullscreenCheck.ButtonPressed = _editedSettings.FullscreenEnabled;
 
-        int resIdx = ResolutionIndexFor(_editedSettings.ResolutionWidth, _editedSettings.ResolutionHeight);
-        _resolutionOption.Selected = resIdx >= 0 ? resIdx : 1;
+        PopulateResolutionOption();
 
         int diffIdx = System.Array.IndexOf(Difficulties, _editedSettings.Difficulty);
         _difficultyOption.Selected = diffIdx >= 0 ? diffIdx : 1;
@@ -258,6 +257,47 @@ public partial class SettingsMenuController : Control
         UpdateKeyButtonText(_inventoryKeyBtn, "toggle_inventory");
         UpdateKeyButtonText(_interactKeyBtn,  "interact");
         UpdateKeyButtonText(_pauseKeyBtn,     "pause_menu");
+    }
+
+    /// Ensures the resolution OptionButton shows the current edited resolution.
+    /// If it matches a preset, selects that preset.  Otherwise adds or updates a
+    /// dynamic "Custom (W×H)" entry so non-preset resolutions are preserved when
+    /// the user applies settings without touching the resolution field.
+    private void PopulateResolutionOption()
+    {
+        int resIdx = ResolutionIndexFor(_editedSettings.ResolutionWidth, _editedSettings.ResolutionHeight);
+        if (resIdx >= 0)
+        {
+            // Matches a preset — remove any stale custom entry and select it.
+            RemoveCustomResolutionEntry();
+            _resolutionOption.Selected = resIdx;
+        }
+        else
+        {
+            // Non-preset resolution — ensure a custom entry exists and select it.
+            EnsureCustomResolutionEntry(_editedSettings.ResolutionWidth, _editedSettings.ResolutionHeight);
+            _resolutionOption.Selected = ResolutionPresets.Length;
+        }
+    }
+
+    private void RemoveCustomResolutionEntry()
+    {
+        while (_resolutionOption.ItemCount > ResolutionPresets.Length)
+            _resolutionOption.RemoveItem(ResolutionPresets.Length);
+    }
+
+    private void EnsureCustomResolutionEntry(int w, int h)
+    {
+        var customIdx = ResolutionPresets.Length;
+        var label = $"Custom ({w}\u00d7{h})";
+        if (_resolutionOption.ItemCount > customIdx)
+        {
+            _resolutionOption.SetItemText(customIdx, label);
+        }
+        else
+        {
+            _resolutionOption.AddItem(label);
+        }
     }
 
     private static int ResolutionIndexFor(int w, int h)
@@ -287,8 +327,16 @@ public partial class SettingsMenuController : Control
         // During key capture, consult the *edited* pause key rather than the
         // live InputMap so that swapping the pause binding with another action
         // works within a single settings session.
+        //
+        // When an OptionButton popup is open, skip the cancel/close handling so
+        // the popup can dismiss itself instead of the entire settings menu.
         if (ShouldCancelOrClose(@event))
         {
+            if (IsAnyOptionPopupOpen())
+            {
+                // Let the popup handle the event — do not consume it here.
+                return;
+            }
             GetViewport()?.SetInputAsHandled();
             if (_listeningAction != null)
                 CancelKeyCapture();
@@ -377,6 +425,24 @@ public partial class SettingsMenuController : Control
                keyEvent.IsActionPressed("ui_focus_prev");
     }
 
+    /// Returns true when an OptionButton dropdown popup is currently visible,
+    /// meaning ui_cancel should dismiss the popup rather than the entire
+    /// settings menu.
+    private bool IsAnyOptionPopupOpen()
+    {
+        if (_resolutionOption != null)
+        {
+            var popup = _resolutionOption.GetPopup();
+            if (popup != null && popup.Visible) return true;
+        }
+        if (_difficultyOption != null)
+        {
+            var popup = _difficultyOption.GetPopup();
+            if (popup != null && popup.Visible) return true;
+        }
+        return false;
+    }
+
     /// Checks whether a non-keyboard event (e.g. joypad button / motion)
     /// matches a UI navigation action.  Uses the same action list as
     /// <see cref="IsUiNavigationAction"/> but works on any <see cref="InputEvent"/>.
@@ -442,10 +508,14 @@ public partial class SettingsMenuController : Control
         _errorLabel.Visible = true;
     }
 
-    private (int W, int H) ResolveSelectedResolution(int selectedIndex) =>
-        selectedIndex >= 0 && selectedIndex < ResolutionPresets.Length
-            ? ResolutionPresets[selectedIndex]
-            : (W: _editedSettings.ResolutionWidth, H: _editedSettings.ResolutionHeight);
+    private (int W, int H) ResolveSelectedResolution(int selectedIndex)
+    {
+        if (selectedIndex >= 0 && selectedIndex < ResolutionPresets.Length)
+            return ResolutionPresets[selectedIndex];
+
+        // Custom entry or invalid index — keep the edited resolution as-is.
+        return (_editedSettings.ResolutionWidth, _editedSettings.ResolutionHeight);
+    }
 
     private string ResolveSelectedDifficulty(int selectedIndex) =>
         selectedIndex >= 0 && selectedIndex < Difficulties.Length

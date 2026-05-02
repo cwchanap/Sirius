@@ -97,6 +97,55 @@ public partial class SettingsMenuControllerTest : Node
     }
 
     [TestCase]
+    public void OpenSettings_NonPresetResolution_AddsCustomEntry()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.ResolutionWidth  = 1600;
+        data.ResolutionHeight = 900;
+        _ctrl.OpenSettings(data);
+
+        // A custom entry should be added after the 4 presets
+        var option = GetField<OptionButton>(_ctrl, "_resolutionOption");
+        AssertThat(option.ItemCount).IsEqual(5); // 4 presets + 1 custom
+        AssertThat(option.Selected).IsEqual(4); // custom entry index
+        AssertThat(option.GetItemText(4)).IsEqual("Custom (1600\u00d7900)");
+    }
+
+    [TestCase]
+    public void OpenSettings_NonPresetResolution_SelectedMatchesCustomEntry()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.ResolutionWidth  = 1600;
+        data.ResolutionHeight = 900;
+        _ctrl.OpenSettings(data);
+
+        // The custom entry should be selected, not a preset.
+        var option = GetField<OptionButton>(_ctrl, "_resolutionOption");
+        AssertThat(option.Selected).IsEqual(4);
+    }
+
+    [TestCase]
+    public void OpenSettings_SwitchFromCustomToPreset_RemovesCustomEntry()
+    {
+        // First open with a custom resolution
+        var customData = SettingsData.CreateDefaults();
+        customData.ResolutionWidth  = 1600;
+        customData.ResolutionHeight = 900;
+        _ctrl.OpenSettings(customData);
+        var option = GetField<OptionButton>(_ctrl, "_resolutionOption");
+        AssertThat(option.ItemCount).IsEqual(5);
+
+        // Re-open with a preset resolution — custom entry should be removed
+        var presetData = SettingsData.CreateDefaults();
+        presetData.ResolutionWidth  = 1920;
+        presetData.ResolutionHeight = 1080;
+        _ctrl.OpenSettings(presetData);
+
+        AssertThat(option.ItemCount).IsEqual(4); // back to just presets
+        AssertThat(option.Selected).IsEqual(2); // 1920×1080
+    }
+
+    [TestCase]
     public void OpenSettings_SetsDifficultyOption()
     {
         var data = SettingsData.CreateDefaults();
@@ -460,6 +509,21 @@ public partial class SettingsMenuControllerTest : Node
     }
 
     [TestCase]
+    public void ResolveSelectedResolution_CustomEntryIndex_KeepsEditedResolution()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.ResolutionWidth = 1600;
+        data.ResolutionHeight = 900;
+        _ctrl.OpenSettings(data);
+
+        // Custom entry is at index 4 (ResolutionPresets.Length)
+        var resolution = ((System.ValueTuple<int, int>)InvokePrivateWithResult(_ctrl, "ResolveSelectedResolution", 4)!);
+
+        AssertThat(resolution.Item1).IsEqual(1600);
+        AssertThat(resolution.Item2).IsEqual(900);
+    }
+
+    [TestCase]
     public void ResolveSelectedDifficulty_WhenIndexIsOutOfRange_KeepsEditedDifficulty()
     {
         var data = SettingsData.CreateDefaults();
@@ -690,6 +754,56 @@ public partial class SettingsMenuControllerTest : Node
         {
             InputMap.ActionEraseEvent("ui_up", joyUp);
         }
+    }
+
+    [TestCase]
+    public void EscapeKey_WhenResolutionPopupOpen_DoesNotCloseSettings()
+    {
+        bool closed = false;
+        _ctrl.Closed += () => closed = true;
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+
+        // Simulate the OptionButton popup being visible (as it would be when
+        // the user has opened the dropdown list).
+        var resolutionOption = GetField<OptionButton>(_ctrl, "_resolutionOption");
+        resolutionOption.GetPopup().Visible = true;
+
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.Escape, Pressed = true });
+
+        // Settings should NOT have closed — the popup should handle the event.
+        AssertThat(closed).IsFalse();
+
+        // Clean up
+        resolutionOption.GetPopup().Visible = false;
+    }
+
+    [TestCase]
+    public void EscapeKey_WhenDifficultyPopupOpen_DoesNotCloseSettings()
+    {
+        bool closed = false;
+        _ctrl.Closed += () => closed = true;
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+
+        var difficultyOption = GetField<OptionButton>(_ctrl, "_difficultyOption");
+        difficultyOption.GetPopup().Visible = true;
+
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.Escape, Pressed = true });
+
+        AssertThat(closed).IsFalse();
+
+        difficultyOption.GetPopup().Visible = false;
+    }
+
+    [TestCase]
+    public void EscapeKey_WhenNoPopupOpen_ClosesSettings()
+    {
+        bool closed = false;
+        _ctrl.Closed += () => closed = true;
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+
+        _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.Escape, Pressed = true });
+
+        AssertThat(closed).IsTrue();
     }
 
     protected static void InvokePrivate(object obj, string method, params object[] args)

@@ -495,6 +495,49 @@ public partial class SettingsMenuControllerTest : Node
     }
 
     [TestCase]
+    public void IsPopupOpen_False_WhenNoDropdownVisible()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        AssertThat(_ctrl.IsPopupOpen).IsFalse();
+    }
+
+    [TestCase]
+    public void IsPopupOpen_True_WhenResolutionPopupVisible()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        var resolutionOption = GetField<OptionButton>(_ctrl, "_resolutionOption");
+        resolutionOption.GetPopup().Visible = true;
+
+        AssertThat(_ctrl.IsPopupOpen).IsTrue();
+
+        resolutionOption.GetPopup().Visible = false;
+    }
+
+    [TestCase]
+    public void IsPopupOpen_True_WhenDifficultyPopupVisible()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        var difficultyOption = GetField<OptionButton>(_ctrl, "_difficultyOption");
+        difficultyOption.GetPopup().Visible = true;
+
+        AssertThat(_ctrl.IsPopupOpen).IsTrue();
+
+        difficultyOption.GetPopup().Visible = false;
+    }
+
+    [TestCase]
+    public void IsPopupOpen_False_AfterPopupHidden()
+    {
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        var resolutionOption = GetField<OptionButton>(_ctrl, "_resolutionOption");
+        resolutionOption.GetPopup().Visible = true;
+        AssertThat(_ctrl.IsPopupOpen).IsTrue();
+
+        resolutionOption.GetPopup().Visible = false;
+        AssertThat(_ctrl.IsPopupOpen).IsFalse();
+    }
+
+    [TestCase]
     public void ResolveSelectedResolution_WhenIndexIsOutOfRange_KeepsEditedResolution()
     {
         var data = SettingsData.CreateDefaults();

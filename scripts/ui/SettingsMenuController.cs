@@ -13,6 +13,11 @@ public partial class SettingsMenuController : Control
     /// the settings panel when the pause_menu key itself is being rebound.
     public bool IsRebinding => _listeningAction != null;
 
+    /// True while an OptionButton dropdown popup is visible.  Used by
+    /// Game._Input to avoid force-closing the settings panel when ESC should
+    /// dismiss the popup instead.
+    public bool IsPopupOpen => IsAnyOptionPopupOpen();
+
     private SettingsData _editedSettings = SettingsData.CreateDefaults();
     private string? _listeningAction;
 

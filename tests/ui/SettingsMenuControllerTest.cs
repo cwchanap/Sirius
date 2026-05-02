@@ -582,6 +582,65 @@ public partial class SettingsMenuControllerTest : Node
     }
 
     [TestCase]
+    public void InputDuringCapture_EditedPauseKey_CancelsCapture()
+    {
+        // Add P to the live pause_menu InputMap to simulate a non-default setup.
+        var pKey = new InputEventKey { PhysicalKeycode = Key.P, Pressed = true };
+        InputMap.ActionAddEvent("pause_menu", pKey);
+        try
+        {
+            var data = SettingsData.CreateDefaults();
+            data.PrimaryKeybindings["pause_menu"] = (long)Key.P; // edited pause is P
+            data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
+            _ctrl.OpenSettings(data);
+            InvokePrivate(_ctrl, "StartKeyCapture", "toggle_inventory");
+
+            // Press P — this IS the edited pause key, so capture should cancel.
+            _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.P, Pressed = true });
+
+            // toggle_inventory should NOT have changed.
+            AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
+            // Capture cancelled, button text restored.
+            AssertThat(GetField<Button>(_ctrl, "_inventoryKeyBtn").Text)
+                .IsEqual(OS.GetKeycodeString(Key.I));
+        }
+        finally
+        {
+            InputMap.ActionEraseEvent("pause_menu", pKey);
+        }
+    }
+
+    [TestCase]
+    public void InputDuringCapture_LivePauseKeyDifferentFromEdited_CapturesKey()
+    {
+        // Add P to the live pause_menu InputMap (simulating the old binding
+        // before the player remapped pause to something else in this session).
+        var pKey = new InputEventKey { PhysicalKeycode = Key.P, Pressed = true };
+        InputMap.ActionAddEvent("pause_menu", pKey);
+        try
+        {
+            var data = SettingsData.CreateDefaults();
+            data.PrimaryKeybindings["pause_menu"] = (long)Key.Escape; // edited pause is Escape
+            data.PrimaryKeybindings["toggle_inventory"] = (long)Key.I;
+            _ctrl.OpenSettings(data);
+            InvokePrivate(_ctrl, "StartKeyCapture", "toggle_inventory");
+
+            // Press P — live pause_menu has P, but edited pause is Escape.
+            // P is NOT ui_cancel, so it should be captured as the new key,
+            // not cancelled.
+            _ctrl._Input(new InputEventKey { PhysicalKeycode = Key.P, Pressed = true });
+
+            // toggle_inventory should now be P (captured, not cancelled).
+            AssertThat(_ctrl.EditedSettings.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.P);
+            AssertThat(_ctrl.IsRebinding).IsFalse();
+        }
+        finally
+        {
+            InputMap.ActionEraseEvent("pause_menu", pKey);
+        }
+    }
+
+    [TestCase]
     public void InputDuringCapture_SameKeySameAction_AcceptsBinding()
     {
         var data = SettingsData.CreateDefaults();

@@ -283,8 +283,11 @@ public partial class SettingsMenuController : Control
         // filter so that preserved controller bindings on ui_cancel can dismiss
         // the panel, matching the intent of SettingsManager.RebindAction which
         // mirrors pause_menu onto ui_cancel and preserves non-key events.
-        if ((@event.IsActionPressed("ui_cancel") || @event.IsActionPressed("pause_menu"))
-            && !IsPauseMenuCapture(_listeningAction))
+        //
+        // During key capture, consult the *edited* pause key rather than the
+        // live InputMap so that swapping the pause binding with another action
+        // works within a single settings session.
+        if (ShouldCancelOrClose(@event))
         {
             GetViewport()?.SetInputAsHandled();
             if (_listeningAction != null)
@@ -399,6 +402,26 @@ public partial class SettingsMenuController : Control
     }
 
     private static bool IsPauseMenuCapture(string action) => action == "pause_menu";
+
+    /// Determines whether an input event should trigger cancel (during capture)
+    /// or close (outside capture) via the pause/cancel pathways.
+    /// When in key capture mode, checks the *edited* pause key rather than the
+    /// live InputMap so that swapping the pause binding with another action
+    /// works in a single settings session.
+    private bool ShouldCancelOrClose(InputEvent evt)
+    {
+        if (IsPauseMenuCapture(_listeningAction)) return false;
+        if (evt.IsActionPressed("ui_cancel")) return true;
+
+        if (_listeningAction != null && evt is InputEventKey keyEvt)
+        {
+            // In capture mode: only the edited pause key counts as "pause".
+            return _editedSettings.PrimaryKeybindings.TryGetValue("pause_menu", out var editedPauseKey)
+                   && (long)keyEvt.PhysicalKeycode == editedPauseKey;
+        }
+
+        return evt.IsActionPressed("pause_menu");
+    }
 
     private static bool IsReservedKey(string action, long code)
     {

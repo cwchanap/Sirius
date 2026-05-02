@@ -123,6 +123,15 @@ public partial class PauseMenuDialogTest : Node
         AssertThat(count).IsEqual(1);
     }
 
+    [TestCase]
+    public async Task PopupCentered_ResumeButtonHasFocus()
+    {
+        await OpenDialog();
+        var focusOwner = _dialog.GetViewport().GuiGetFocusOwner();
+        AssertThat(focusOwner).IsNotNull();
+        AssertThat(focusOwner).IsEqual(FindButton("Resume"));
+    }
+
     private async Task OpenDialog()
     {
         _dialog.PopupCentered();

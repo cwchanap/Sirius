@@ -8,6 +8,7 @@ public partial class PauseMenuDialog : AcceptDialog
     [Signal] public delegate void SettingsRequestedEventHandler();
     [Signal] public delegate void QuitToMenuRequestedEventHandler();
 
+    private Button _resumeButton = null!;
     private bool _closeEmitted;
 
     public override void _Ready()
@@ -21,7 +22,8 @@ public partial class PauseMenuDialog : AcceptDialog
         root.AddThemeConstantOverride("separation", 8);
         AddChild(root);
 
-        root.AddChild(MakeBtn("Resume", OnResumePressed));
+        _resumeButton = MakeBtn("Resume", OnResumePressed);
+        root.AddChild(_resumeButton);
         root.AddChild(MakeBtn("Save Game", OnSavePressed));
         root.AddChild(MakeBtn("Load Game", OnLoadPressed));
         root.AddChild(MakeBtn("Settings", OnSettingsPressed));
@@ -29,6 +31,13 @@ public partial class PauseMenuDialog : AcceptDialog
 
         CloseRequested += OnCloseRequested;
         Canceled += OnCloseRequested;
+    }
+
+    public override void _Notification(int what)
+    {
+        base._Notification(what);
+        if (what == NotificationVisibilityChanged && Visible && _resumeButton != null)
+            Callable.From(() => _resumeButton.GrabFocus()).CallDeferred();
     }
 
     private static Button MakeBtn(string text, System.Action handler)

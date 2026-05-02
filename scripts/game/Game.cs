@@ -302,6 +302,16 @@ public partial class Game : Node2D
             return;
         }
 
+        // When settings is open but a popup or rebinding is active, don't
+        // force-close settings — but also don't fall through to the pause-menu
+        // toggle.  The ESC event needs to reach the OptionButton popup or
+        // key-capture logic, and opening the pause menu behind the settings
+        // panel would be confusing.
+        if (_settingsMenu != null && GodotObject.IsInstanceValid(_settingsMenu))
+        {
+            return;
+        }
+
         // Dismiss save/load dialog before toggling the pause menu so ESC
         // cancels out of the modal first rather than stacking pause on top.
         if (_saveLoadDialog != null && GodotObject.IsInstanceValid(_saveLoadDialog))

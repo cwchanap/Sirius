@@ -121,6 +121,13 @@ public partial class PauseMenuDialogTest : Node
         _dialog.EmitSignal(AcceptDialog.SignalName.CloseRequested);
         await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
         AssertThat(count).IsEqual(1);
+
+        // Reopen cycle: _closeEmitted guard should be cleared on reopen.
+        await OpenDialog();
+        _dialog.EmitSignal(AcceptDialog.SignalName.CloseRequested);
+        _dialog.EmitSignal(AcceptDialog.SignalName.CloseRequested);
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+        AssertThat(count).IsEqual(2);
     }
 
     [TestCase]

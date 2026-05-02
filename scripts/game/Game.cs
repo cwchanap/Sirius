@@ -245,6 +245,7 @@ public partial class Game : Node2D
         {
             if (_inventoryMenu != null && !_gameManager.IsInBattle && !_gameManager.IsInNpcInteraction
                 && (_settingsMenu == null || !GodotObject.IsInstanceValid(_settingsMenu))
+                && (_saveLoadDialog == null || !GodotObject.IsInstanceValid(_saveLoadDialog))
                 && (_pauseMenuDialog == null || !GodotObject.IsInstanceValid(_pauseMenuDialog) || !_pauseMenuDialog.Visible))
             {
                 if (_inventoryMenu.Visible)

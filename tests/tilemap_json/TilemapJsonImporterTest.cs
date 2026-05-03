@@ -74,4 +74,99 @@ public partial class TilemapJsonImporterTest : Node
         AssertThat(npcNode.Owner).IsEqual(sceneRoot);
         sceneRoot.Free();
     }
+
+    [TestCase]
+    public void ImportToScene_RemovesStaleEnemySpawnsSynchronously()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        // Pre-populate with an existing enemy spawn node
+        var staleSpawn = new Node2D { Name = "EnemySpawn_Stale" };
+        staleSpawn.Set("GridPosition", new Vector2I(10, 10));
+        gridMap.AddChild(staleSpawn);
+        staleSpawn.Owner = sceneRoot;
+
+        // Import with empty enemy spawns — should remove the stale one
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                EnemySpawns = []
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        // Node must be gone immediately (synchronous Free), not queued
+        AssertThat(gridMap.HasNode("EnemySpawn_Stale")).IsFalse();
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_RemovesStaleNpcSpawnsSynchronously()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        // Pre-populate with an existing NPC spawn node
+        var staleNpc = new Node2D { Name = "NpcSpawn_Stale" };
+        staleNpc.Set("GridPosition", new Vector2I(5, 5));
+        gridMap.AddChild(staleNpc);
+        staleNpc.Owner = sceneRoot;
+
+        // Import with empty NPC spawns — should remove the stale one
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                NpcSpawns = []
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        AssertThat(gridMap.HasNode("NpcSpawn_Stale")).IsFalse();
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_RemovesStaleStairConnectionsSynchronously()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        // Pre-populate with an existing stair connection node
+        var staleStair = new Node2D { Name = "StairConnection_Stale" };
+        staleStair.Set("StairId", "stale_stair");
+        staleStair.Set("GridPosition", new Vector2I(3, 3));
+        gridMap.AddChild(staleStair);
+        staleStair.Owner = sceneRoot;
+
+        // Import with empty stair connections — should remove the stale one
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                StairConnections = []
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        AssertThat(gridMap.HasNode("StairConnection_Stale")).IsFalse();
+        sceneRoot.Free();
+    }
 }

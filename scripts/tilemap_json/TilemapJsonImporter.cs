@@ -180,7 +180,7 @@ public partial class TilemapJsonImporter : RefCounted
             if (!processedIds.Contains(id))
             {
                 GD.Print($"[TilemapJsonImporter] Removing enemy spawn: {id}");
-                node.QueueFree();
+                node.Free();
             }
         }
     }
@@ -286,7 +286,7 @@ public partial class TilemapJsonImporter : RefCounted
             if (!processedIds.Contains(id))
             {
                 GD.Print($"[TilemapJsonImporter] Removing NPC spawn: {id}");
-                node.QueueFree();
+                node.Free();
             }
         }
     }
@@ -362,7 +362,7 @@ public partial class TilemapJsonImporter : RefCounted
             if (!processedIds.Contains(id))
             {
                 GD.Print($"[TilemapJsonImporter] Removing stair connection: {id}");
-                node.QueueFree();
+                node.Free();
             }
         }
     }

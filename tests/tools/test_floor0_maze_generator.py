@@ -1,4 +1,5 @@
 import json
+import tempfile
 import unittest
 from collections import deque
 from pathlib import Path
@@ -8,7 +9,13 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from tools.floor0_maze_generator import FLOOR_HEIGHT, FLOOR_WIDTH, build_floor_model
+from tools.floor0_maze_generator import (
+    FLOOR_HEIGHT,
+    FLOOR_WIDTH,
+    build_floor_model,
+    update_floor_definition,
+    validate_model,
+)
 
 
 def walkable_set(model):
@@ -116,6 +123,43 @@ class Floor0MazeGeneratorTest(unittest.TestCase):
 
         self.assertEqual(decoded["schema_version"], "1.0")
         self.assertIn("npc_spawns", decoded["entities"])
+
+    def test_validate_model_rejects_disconnected_walkable_island(self):
+        isolated = {"x": 98, "y": 98, "tile": "generic"}
+        self.model["tile_layers"]["wall"].remove(isolated)
+
+        with self.assertRaisesRegex(ValueError, "Disconnected walkable cells"):
+            validate_model(self.model)
+
+    def test_update_floor_definition_rejects_missing_fields(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            floor_def = Path(tmpdir) / "FloorGF.tres"
+            floor_def.write_text("[resource]\nFloorName = \"Ground Floor\"\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "PlayerStartPosition"):
+                update_floor_definition(floor_def, self.model)
+
+    def test_update_floor_definition_updates_expected_fields(self):
+        source = "\n".join(
+            [
+                "[resource]",
+                "PlayerStartPosition = Vector2i(20, 15)",
+                "StairsUp = Array[Vector2i]([Vector2i(13, 3)])",
+                "StairsUpDestinations = Array[Vector2i]([Vector2i(17, 13)])",
+                "",
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            floor_def = Path(tmpdir) / "FloorGF.tres"
+            floor_def.write_text(source, encoding="utf-8")
+
+            update_floor_definition(floor_def, self.model)
+
+            updated = floor_def.read_text(encoding="utf-8")
+            self.assertIn("PlayerStartPosition = Vector2i(8, 50)", updated)
+            self.assertIn("StairsUp = Array[Vector2i]([Vector2i(82, 68)])", updated)
+            self.assertIn("StairsUpDestinations = Array[Vector2i]([Vector2i(17, 13)])", updated)
 
 
 if __name__ == "__main__":

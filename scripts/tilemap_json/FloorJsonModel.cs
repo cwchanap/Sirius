@@ -122,13 +122,13 @@ public class TileData
 public class SceneEntities
 {
     [JsonPropertyName("enemy_spawns")]
-    public List<EnemySpawnData> EnemySpawns { get; set; } = new();
+    public List<EnemySpawnData>? EnemySpawns { get; set; }
 
     [JsonPropertyName("npc_spawns")]
-    public List<NpcSpawnData> NpcSpawns { get; set; } = new();
+    public List<NpcSpawnData>? NpcSpawns { get; set; }
 
     [JsonPropertyName("stair_connections")]
-    public List<StairConnectionData> StairConnections { get; set; } = new();
+    public List<StairConnectionData>? StairConnections { get; set; }
 }
 
 public class EnemySpawnData

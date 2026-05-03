@@ -138,9 +138,12 @@ public partial class TilemapJsonImporter : RefCounted
 
     private void ImportEntities(SceneEntities entities, Node2D gridMapNode)
     {
-        ImportEnemySpawns(entities.EnemySpawns, gridMapNode);
-        ImportNpcSpawns(entities.NpcSpawns, gridMapNode);
-        ImportStairConnections(entities.StairConnections, gridMapNode);
+        if (entities.EnemySpawns != null)
+            ImportEnemySpawns(entities.EnemySpawns, gridMapNode);
+        if (entities.NpcSpawns != null)
+            ImportNpcSpawns(entities.NpcSpawns, gridMapNode);
+        if (entities.StairConnections != null)
+            ImportStairConnections(entities.StairConnections, gridMapNode);
     }
 
     private void ImportEnemySpawns(List<EnemySpawnData> spawns, Node2D gridMapNode)

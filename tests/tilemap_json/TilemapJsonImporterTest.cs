@@ -138,6 +138,36 @@ public partial class TilemapJsonImporterTest : Node
     }
 
     [TestCase]
+    public void ImportToScene_PreservesExistingNpcsWhenNpcSpawnsAbsent()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        // Pre-populate with an existing NPC spawn node
+        var existingNpc = new NpcSpawn { Name = "NpcSpawn_Existing", GridPosition = new Vector2I(10, 10), NpcId = "village_merchant" };
+        gridMap.AddChild(existingNpc);
+        existingNpc.Owner = sceneRoot;
+
+        // Import with NpcSpawns = null (field absent in JSON) — should NOT remove existing NPCs
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                // NpcSpawns deliberately left null (simulates absent JSON field)
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        AssertThat(gridMap.HasNode("NpcSpawn_Existing")).IsTrue();
+        sceneRoot.Free();
+    }
+
+    [TestCase]
     public void ImportToScene_RemovesStaleStairConnectionsSynchronously()
     {
         var sceneRoot = new Node2D { Name = "TestFloor" };

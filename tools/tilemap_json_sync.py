@@ -33,7 +33,11 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 
 # Godot executable path (adjust for your system)
 DEFAULT_GODOT_PATH = "/Applications/Godot_mono.app/Contents/MacOS/Godot"
-GODOT_PATH = os.environ.get("GODOT_PATH", DEFAULT_GODOT_PATH)
+GODOT_PATH = (
+    os.environ.get("GODOT_PATH")
+    or os.environ.get("GODOT_BIN")
+    or DEFAULT_GODOT_PATH
+)
 
 
 def run_godot_headless(script_args: list[str]) -> int:

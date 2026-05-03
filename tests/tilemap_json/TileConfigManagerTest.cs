@@ -22,5 +22,9 @@ public partial class TileConfigManagerTest : Node
         var wall = manager.GetMapping("wall", "generic");
         AssertThat(wall).IsNotNull();
         AssertThat(wall!.SourceId).IsEqual(7);
+
+        // Reverse-lookup: verify _idMappings is populated for the exporter dependency
+        var reverseName = manager.GetTileName("wall", wall!.SourceId);
+        AssertThat(reverseName).IsEqual("generic");
     }
 }

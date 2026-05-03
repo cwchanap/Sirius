@@ -306,18 +306,10 @@ public partial class TilemapJsonImporter : RefCounted
 
     private void CreateNpcSpawnNode(NpcSpawnData data, Node2D parent)
     {
-        var script = GD.Load<Script>("res://scripts/game/NpcSpawn.cs");
-        if (script == null)
-        {
-            GD.PrintErr("[TilemapJsonImporter] Failed to load NpcSpawn script");
-            return;
-        }
-
-        var instance = new Sprite2D();
-        instance.SetScript(script);
+        var instance = new NpcSpawn();
         instance.Name = data.Id;
-        instance.Set("GridPosition", data.Position.ToVector2I());
-        instance.Set("NpcId", data.NpcId);
+        instance.GridPosition = data.Position.ToVector2I();
+        instance.NpcId = data.NpcId;
         instance.Position = ToCenteredCellPosition(data.Position);
         instance.ZIndex = 2;
 

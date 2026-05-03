@@ -6,7 +6,7 @@ namespace Sirius.TilemapJson;
 
 /// <summary>
 /// Imports LLM-friendly JSON back into a floor scene.
-/// Updates TileMapLayers and manages scene entities (EnemySpawn, StairConnection).
+/// Updates TileMapLayers and manages scene entities (EnemySpawn, NpcSpawn, StairConnection).
 /// </summary>
 [Tool]
 public partial class TilemapJsonImporter : RefCounted
@@ -262,7 +262,7 @@ public partial class TilemapJsonImporter : RefCounted
         var existingSpawns = new Dictionary<string, Node>();
         foreach (var child in gridMapNode.GetChildren())
         {
-            if (child is NpcSpawn || child.Name.ToString().Contains("NpcSpawn"))
+            if (child is NpcSpawn)
             {
                 existingSpawns[child.Name.ToString()] = child;
             }

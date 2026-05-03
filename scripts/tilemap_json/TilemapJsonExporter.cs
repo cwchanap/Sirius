@@ -6,7 +6,7 @@ namespace Sirius.TilemapJson;
 
 /// <summary>
 /// Exports a floor scene to LLM-friendly JSON format.
-/// Reads TileMapLayers and scene entities (EnemySpawn, StairConnection).
+/// Reads TileMapLayers and scene entities (EnemySpawn, NpcSpawn, StairConnection).
 /// </summary>
 [Tool]
 public partial class TilemapJsonExporter : RefCounted

@@ -266,11 +266,21 @@ def write_json(model: dict, output_path: Path) -> None:
     output_path.write_text(json.dumps(model, indent=2) + "\n", encoding="utf-8")
 
 
-def update_floor_definition(path: Path, model: dict) -> None:
+def update_floor_definition(path: Path, model: dict, stair_dest: tuple[int, int] | None = None) -> None:
     text = path.read_text(encoding="utf-8")
     start = model["floor_metadata"]["player_start"]
     stair = model["entities"]["stair_connections"][0]["position"]
-    dest_x, dest_y = FLOOR_1_STAIR_DESTINATION
+
+    # Determine stair destination: explicit param > existing value in file > default constant
+    dest_x, dest_y = stair_dest if stair_dest is not None else FLOOR_1_STAIR_DESTINATION
+    # If no explicit override, try to preserve existing StairsUpDestinations from the file
+    if stair_dest is None:
+        existing_match = re.search(
+            r"StairsUpDestinations\s*=\s*Array\[Vector2i\]\(\[Vector2i\((\d+),\s*(\d+)\)\]\)",
+            text,
+        )
+        if existing_match:
+            dest_x, dest_y = int(existing_match.group(1)), int(existing_match.group(2))
 
     text, start_count = re.subn(
         r"PlayerStartPosition = Vector2i\([^)]+\)",
@@ -315,6 +325,12 @@ def parse_args() -> argparse.Namespace:
         help="FloorDefinition resource to update.",
     )
     parser.add_argument(
+        "--stair-dest",
+        type=str,
+        default=None,
+        help="Override StairsUpDestinations as 'x,y' (default: use existing value or 17,13).",
+    )
+    parser.add_argument(
         "--skip-floor-def",
         action="store_true",
         help="Only write JSON; do not update the FloorDefinition resource.",
@@ -327,7 +343,14 @@ def main() -> int:
     model = build_floor_model()
     write_json(model, Path(args.output))
     if not args.skip_floor_def:
-        update_floor_definition(Path(args.floor_def), model)
+        stair_dest = None
+        if args.stair_dest:
+            parts = args.stair_dest.split(",")
+            if len(parts) != 2:
+                print(f"Error: --stair-dest must be 'x,y', got '{args.stair_dest}'", file=sys.stderr)
+                return 1
+            stair_dest = (int(parts[0].strip()), int(parts[1].strip()))
+        update_floor_definition(Path(args.floor_def), model, stair_dest)
     print(
         f"Generated Floor 0 maze: {FLOOR_WIDTH}x{FLOOR_HEIGHT}, "
         f"{len(model['tile_layers']['wall'])} walls, "

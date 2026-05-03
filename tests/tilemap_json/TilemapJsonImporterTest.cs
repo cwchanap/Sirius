@@ -116,8 +116,7 @@ public partial class TilemapJsonImporterTest : Node
         gridMap.Owner = sceneRoot;
 
         // Pre-populate with an existing NPC spawn node
-        var staleNpc = new Node2D { Name = "NpcSpawn_Stale" };
-        staleNpc.Set("GridPosition", new Vector2I(5, 5));
+        var staleNpc = new NpcSpawn { Name = "NpcSpawn_Stale", GridPosition = new Vector2I(5, 5) };
         gridMap.AddChild(staleNpc);
         staleNpc.Owner = sceneRoot;
 
@@ -147,9 +146,7 @@ public partial class TilemapJsonImporterTest : Node
         gridMap.Owner = sceneRoot;
 
         // Pre-populate with an existing stair connection node
-        var staleStair = new Node2D { Name = "StairConnection_Stale" };
-        staleStair.Set("StairId", "stale_stair");
-        staleStair.Set("GridPosition", new Vector2I(3, 3));
+        var staleStair = new StairConnection { Name = "StairConnection_Stale", StairId = "stale_stair", GridPosition = new Vector2I(3, 3) };
         gridMap.AddChild(staleStair);
         staleStair.Owner = sceneRoot;
 

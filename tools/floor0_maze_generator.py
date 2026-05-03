@@ -18,6 +18,7 @@ SHOPKEEPER_POS = (12, 46)
 HEALER_POS = (12, 54)
 FIRST_GOBLIN_POS = (24, 45)
 STAIR_POS = (82, 68)
+FLOOR_1_STAIR_DESTINATION = (17, 13)
 
 MAIN_LOOP_POINTS = [
     (8, 50),
@@ -218,17 +219,19 @@ def walkable_cells(model: dict) -> set[tuple[int, int]]:
 
 
 def has_path(walkable: set[tuple[int, int]], start: tuple[int, int], goal: tuple[int, int]) -> bool:
+    return connected_walkable_cells(walkable, start).__contains__(goal)
+
+
+def connected_walkable_cells(walkable: set[tuple[int, int]], start: tuple[int, int]) -> set[tuple[int, int]]:
     queue = deque([start])
     seen = {start}
     while queue:
         x, y = queue.popleft()
-        if (x, y) == goal:
-            return True
         for nxt in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
             if nxt in walkable and nxt not in seen:
                 seen.add(nxt)
                 queue.append(nxt)
-    return False
+    return seen
 
 
 def validate_model(model: dict) -> None:
@@ -236,6 +239,12 @@ def validate_model(model: dict) -> None:
     start = (model["floor_metadata"]["player_start"]["x"], model["floor_metadata"]["player_start"]["y"])
     if start not in walkable:
         raise ValueError(f"Player start {start} is not walkable")
+
+    connected = connected_walkable_cells(walkable, start)
+    disconnected = walkable - connected
+    if disconnected:
+        sample = sorted(disconnected)[:5]
+        raise ValueError(f"Disconnected walkable cells: {sample}")
 
     goals = []
     for npc in model["entities"]["npc_spawns"]:
@@ -261,22 +270,35 @@ def update_floor_definition(path: Path, model: dict) -> None:
     text = path.read_text(encoding="utf-8")
     start = model["floor_metadata"]["player_start"]
     stair = model["entities"]["stair_connections"][0]["position"]
+    dest_x, dest_y = FLOOR_1_STAIR_DESTINATION
 
-    text = re.sub(
+    text, start_count = re.subn(
         r"PlayerStartPosition = Vector2i\([^)]+\)",
         f"PlayerStartPosition = Vector2i({start['x']}, {start['y']})",
         text,
     )
-    text = re.sub(
+    text, stairs_count = re.subn(
         r"StairsUp = Array\[Vector2i\]\(\[[^\]]*\]\)",
         f"StairsUp = Array[Vector2i]([Vector2i({stair['x']}, {stair['y']})])",
         text,
     )
-    text = re.sub(
+    text, destinations_count = re.subn(
         r"StairsUpDestinations = Array\[Vector2i\]\(\[[^\]]*\]\)",
-        "StairsUpDestinations = Array[Vector2i]([Vector2i(17, 13)])",
+        f"StairsUpDestinations = Array[Vector2i]([Vector2i({dest_x}, {dest_y})])",
         text,
     )
+    missing = [
+        name
+        for name, count in (
+            ("PlayerStartPosition", start_count),
+            ("StairsUp", stairs_count),
+            ("StairsUpDestinations", destinations_count),
+        )
+        if count != 1
+    ]
+    if missing:
+        raise ValueError(f"Could not update required FloorDefinition fields: {', '.join(missing)}")
+
     path.write_text(text, encoding="utf-8")
 
 

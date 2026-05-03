@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=4]
+[gd_scene load_steps=16 format=4 uid="uid://dyllored836ht"]
 
 [ext_resource type="Script" path="res://scripts/game/GridMap.cs" id="1"]
 [ext_resource type="TileSet" path="res://assets/tiles/ground_tileset.tres" id="2"]

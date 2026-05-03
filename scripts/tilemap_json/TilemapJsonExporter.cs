@@ -6,7 +6,7 @@ namespace Sirius.TilemapJson;
 
 /// <summary>
 /// Exports a floor scene to LLM-friendly JSON format.
-/// Reads TileMapLayers and scene entities (EnemySpawn, StairConnection).
+/// Reads TileMapLayers and scene entities (EnemySpawn, NpcSpawn, StairConnection).
 /// </summary>
 [Tool]
 public partial class TilemapJsonExporter : RefCounted
@@ -148,10 +148,8 @@ public partial class TilemapJsonExporter : RefCounted
     {
         var entities = new SceneEntities();
 
-        // Export EnemySpawn nodes
         entities.EnemySpawns = ExportEnemySpawns(gridMapNode);
-
-        // Export StairConnection nodes
+        entities.NpcSpawns = ExportNpcSpawns(gridMapNode);
         entities.StairConnections = ExportStairConnections(gridMapNode);
 
         return entities;
@@ -205,6 +203,26 @@ public partial class TilemapJsonExporter : RefCounted
                 }
 
                 spawns.Add(spawnData);
+            }
+        }
+
+        return spawns;
+    }
+
+    private List<NpcSpawnData> ExportNpcSpawns(Node2D gridMapNode)
+    {
+        var spawns = new List<NpcSpawnData>();
+
+        foreach (var child in gridMapNode.GetChildren())
+        {
+            if (child is NpcSpawn spawn)
+            {
+                spawns.Add(new NpcSpawnData
+                {
+                    Id = child.Name.ToString(),
+                    Position = new Vector2IData(spawn.GridPosition),
+                    NpcId = spawn.NpcId
+                });
             }
         }
 

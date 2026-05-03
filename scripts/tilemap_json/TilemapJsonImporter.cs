@@ -6,7 +6,7 @@ namespace Sirius.TilemapJson;
 
 /// <summary>
 /// Imports LLM-friendly JSON back into a floor scene.
-/// Updates TileMapLayers and manages scene entities (EnemySpawn, StairConnection).
+/// Updates TileMapLayers and manages scene entities (EnemySpawn, NpcSpawn, StairConnection).
 /// </summary>
 [Tool]
 public partial class TilemapJsonImporter : RefCounted
@@ -138,10 +138,8 @@ public partial class TilemapJsonImporter : RefCounted
 
     private void ImportEntities(SceneEntities entities, Node2D gridMapNode)
     {
-        // Import enemy spawns
         ImportEnemySpawns(entities.EnemySpawns, gridMapNode);
-
-        // Import stair connections
+        ImportNpcSpawns(entities.NpcSpawns, gridMapNode);
         ImportStairConnections(entities.StairConnections, gridMapNode);
     }
 
@@ -198,11 +196,10 @@ public partial class TilemapJsonImporter : RefCounted
             node.Set("EnemyType", data.EnemyType);
         }
 
-        // Update position in world (assuming 32px cell size with 0.333 scale factor)
+        // Update position in world
         if (node is Node2D node2d)
         {
-            // Position = GridPosition * CellSize (32) * scale adjustment
-            node2d.Position = new Vector2(data.Position.X * 32, data.Position.Y * 32);
+            node2d.Position = ToCenteredCellPosition(data.Position);
         }
 
         GD.Print($"[TilemapJsonImporter] Updated enemy spawn: {data.Id}");
@@ -239,7 +236,7 @@ public partial class TilemapJsonImporter : RefCounted
 
         if (instance is Node2D node2d)
         {
-            node2d.Position = new Vector2(data.Position.X * 32, data.Position.Y * 32);
+            node2d.Position = ToCenteredCellPosition(data.Position);
             node2d.Scale = new Vector2(0.333333f, 0.333333f);
             node2d.ZIndex = 2;
         }
@@ -247,17 +244,92 @@ public partial class TilemapJsonImporter : RefCounted
         // Add to parent
         parent.AddChild(instance);
 
-        // Set owner for editor persistence
-        if (Engine.IsEditorHint())
+        // Set owner so ResourceSaver persists newly-created nodes during headless imports.
+        var sceneRoot = parent.Owner ?? parent.GetTree()?.EditedSceneRoot;
+        if (sceneRoot != null)
         {
-            var sceneRoot = parent.Owner ?? parent.GetTree()?.EditedSceneRoot;
-            if (sceneRoot != null)
-            {
-                instance.Owner = sceneRoot;
-            }
+            instance.Owner = sceneRoot;
         }
 
         GD.Print($"[TilemapJsonImporter] Created enemy spawn: {data.Id}");
+    }
+
+    private void ImportNpcSpawns(List<NpcSpawnData> spawns, Node2D gridMapNode)
+    {
+        var existingSpawns = new Dictionary<string, Node>();
+        foreach (var child in gridMapNode.GetChildren())
+        {
+            if (child is NpcSpawn)
+            {
+                existingSpawns[child.Name.ToString()] = child;
+            }
+        }
+
+        var processedIds = new HashSet<string>();
+
+        foreach (var spawnData in spawns)
+        {
+            processedIds.Add(spawnData.Id);
+
+            if (existingSpawns.TryGetValue(spawnData.Id, out var existingNode))
+            {
+                UpdateNpcSpawnNode(existingNode, spawnData);
+            }
+            else
+            {
+                CreateNpcSpawnNode(spawnData, gridMapNode);
+            }
+        }
+
+        foreach (var (id, node) in existingSpawns)
+        {
+            if (!processedIds.Contains(id))
+            {
+                GD.Print($"[TilemapJsonImporter] Removing NPC spawn: {id}");
+                node.QueueFree();
+            }
+        }
+    }
+
+    private void UpdateNpcSpawnNode(Node node, NpcSpawnData data)
+    {
+        node.Set("GridPosition", data.Position.ToVector2I());
+        node.Set("NpcId", data.NpcId);
+
+        if (node is Node2D node2d)
+        {
+            node2d.Position = ToCenteredCellPosition(data.Position);
+        }
+
+        GD.Print($"[TilemapJsonImporter] Updated NPC spawn: {data.Id}");
+    }
+
+    private void CreateNpcSpawnNode(NpcSpawnData data, Node2D parent)
+    {
+        var script = GD.Load<Script>("res://scripts/game/NpcSpawn.cs");
+        if (script == null)
+        {
+            GD.PrintErr("[TilemapJsonImporter] Failed to load NpcSpawn script");
+            return;
+        }
+
+        var instance = new Sprite2D();
+        instance.SetScript(script);
+        instance.Name = data.Id;
+        instance.Set("GridPosition", data.Position.ToVector2I());
+        instance.Set("NpcId", data.NpcId);
+        instance.Position = ToCenteredCellPosition(data.Position);
+        instance.ZIndex = 2;
+
+        parent.AddChild(instance);
+
+        var sceneRoot = parent.Owner ?? parent.GetTree()?.EditedSceneRoot;
+        if (sceneRoot != null)
+        {
+            instance.Owner = sceneRoot;
+        }
+
+        GD.Print($"[TilemapJsonImporter] Created NPC spawn: {data.Id}");
     }
 
     private void ImportStairConnections(List<StairConnectionData> stairs, Node2D gridMapNode)
@@ -324,10 +396,19 @@ public partial class TilemapJsonImporter : RefCounted
         // Update position in world
         if (node is Node2D node2d)
         {
-            node2d.Position = new Vector2(data.Position.X * 32, data.Position.Y * 32);
+            node2d.Position = ToCenteredCellPosition(data.Position);
         }
 
         GD.Print($"[TilemapJsonImporter] Updated stair connection: {data.Id}");
+    }
+
+    private static Vector2 ToCenteredCellPosition(Vector2IData position)
+    {
+        const int cellSize = 32;
+        return new Vector2(
+            position.X * cellSize + cellSize / 2f,
+            position.Y * cellSize + cellSize / 2f
+        );
     }
 
     private static string CapitalizeFirst(string s)

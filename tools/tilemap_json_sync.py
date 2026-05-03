@@ -22,6 +22,7 @@ Examples:
 """
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -31,7 +32,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 
 # Godot executable path (adjust for your system)
-GODOT_PATH = "/Applications/Godot_mono.app/Contents/MacOS/Godot"
+DEFAULT_GODOT_PATH = "/Applications/Godot_mono.app/Contents/MacOS/Godot"
+GODOT_PATH = os.environ.get("GODOT_PATH", DEFAULT_GODOT_PATH)
 
 
 def run_godot_headless(script_args: list[str]) -> int:

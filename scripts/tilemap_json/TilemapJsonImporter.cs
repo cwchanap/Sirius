@@ -244,14 +244,11 @@ public partial class TilemapJsonImporter : RefCounted
         // Add to parent
         parent.AddChild(instance);
 
-        // Set owner for editor persistence
-        if (Engine.IsEditorHint())
+        // Set owner so ResourceSaver persists newly-created nodes during headless imports.
+        var sceneRoot = parent.Owner ?? parent.GetTree()?.EditedSceneRoot;
+        if (sceneRoot != null)
         {
-            var sceneRoot = parent.Owner ?? parent.GetTree()?.EditedSceneRoot;
-            if (sceneRoot != null)
-            {
-                instance.Owner = sceneRoot;
-            }
+            instance.Owner = sceneRoot;
         }
 
         GD.Print($"[TilemapJsonImporter] Created enemy spawn: {data.Id}");
@@ -326,13 +323,10 @@ public partial class TilemapJsonImporter : RefCounted
 
         parent.AddChild(instance);
 
-        if (Engine.IsEditorHint())
+        var sceneRoot = parent.Owner ?? parent.GetTree()?.EditedSceneRoot;
+        if (sceneRoot != null)
         {
-            var sceneRoot = parent.Owner ?? parent.GetTree()?.EditedSceneRoot;
-            if (sceneRoot != null)
-            {
-                instance.Owner = sceneRoot;
-            }
+            instance.Owner = sceneRoot;
         }
 
         GD.Print($"[TilemapJsonImporter] Created NPC spawn: {data.Id}");

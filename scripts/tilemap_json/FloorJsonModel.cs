@@ -124,6 +124,9 @@ public class SceneEntities
     [JsonPropertyName("enemy_spawns")]
     public List<EnemySpawnData> EnemySpawns { get; set; } = new();
 
+    [JsonPropertyName("npc_spawns")]
+    public List<NpcSpawnData> NpcSpawns { get; set; } = new();
+
     [JsonPropertyName("stair_connections")]
     public List<StairConnectionData> StairConnections { get; set; } = new();
 }
@@ -145,6 +148,18 @@ public class EnemySpawnData
     [JsonPropertyName("stats")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public EnemyStatsData Stats { get; set; }
+}
+
+public class NpcSpawnData
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("position")]
+    public Vector2IData Position { get; set; } = new();
+
+    [JsonPropertyName("npc_id")]
+    public string NpcId { get; set; } = "";
 }
 
 public class EnemyStatsData

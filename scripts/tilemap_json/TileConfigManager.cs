@@ -1,6 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Sirius.TilemapJson;
 
@@ -164,7 +165,10 @@ public partial class TileConfigManager : RefCounted
 /// </summary>
 public class TileMapping
 {
+    [JsonPropertyName("source_id")]
     public int SourceId { get; set; }
+
+    [JsonPropertyName("atlas_coord")]
     public int[] AtlasCoord { get; set; } = new[] { 0, 0 };
 
     public Vector2I GetAtlasCoord()
@@ -181,7 +185,12 @@ public class TileMapping
 // JSON deserialization model
 internal class TileConfigRoot
 {
+    [JsonPropertyName("schema_version")]
     public string SchemaVersion { get; set; }
+
+    [JsonPropertyName("tile_mappings")]
     public Dictionary<string, Dictionary<string, TileMapping>> TileMappings { get; set; }
+
+    [JsonPropertyName("tileset_paths")]
     public Dictionary<string, string> TilesetPaths { get; set; }
 }

@@ -14,6 +14,11 @@ from pathlib import Path
 FLOOR_WIDTH = 100
 FLOOR_HEIGHT = 100
 
+# The GridMap defaults to 160x160. We emit wall tiles for the full grid
+# so the player cannot walk into void cells beyond the maze content.
+GRID_WIDTH = 160
+GRID_HEIGHT = 160
+
 PLAYER_START = (8, 50)
 SHOPKEEPER_POS = (12, 46)
 HEALER_POS = (12, 54)
@@ -135,6 +140,20 @@ def vector(x: int, y: int) -> dict[str, int]:
     return {"x": x, "y": y}
 
 
+def perimeter_walls(grid_width: int, grid_height: int) -> set[tuple[int, int]]:
+    """Return wall cells that fill the region beyond the maze (100x100) to the full grid."""
+    walls: set[tuple[int, int]] = set()
+    # Fill rows beyond FLOOR_HEIGHT
+    for y in range(FLOOR_HEIGHT, grid_height):
+        for x in range(grid_width):
+            walls.add((x, y))
+    # Fill columns beyond FLOOR_WIDTH (within maze-height rows)
+    for y in range(FLOOR_HEIGHT):
+        for x in range(FLOOR_WIDTH, grid_width):
+            walls.add((x, y))
+    return walls
+
+
 def build_floor_model() -> dict:
     builder = MazeBuilder()
     walls = builder.build()
@@ -150,12 +169,15 @@ def build_floor_model() -> dict:
         "tile_layers": {
             "ground": [
                 {"x": x, "y": y, "tile": "starting_area"}
-                for y in range(FLOOR_HEIGHT)
-                for x in range(FLOOR_WIDTH)
+                for y in range(GRID_HEIGHT)
+                for x in range(GRID_WIDTH)
             ],
             "wall": [
                 {"x": x, "y": y, "tile": "generic"}
-                for x, y in sorted(walls, key=lambda p: (p[1], p[0]))
+                for x, y in sorted(
+                    walls | perimeter_walls(GRID_WIDTH, GRID_HEIGHT),
+                    key=lambda p: (p[1], p[0]),
+                )
             ],
             "stair": [{"x": STAIR_POS[0], "y": STAIR_POS[1], "tile": "up"}],
         },
@@ -214,8 +236,8 @@ def walkable_cells(model: dict) -> set[tuple[int, int]]:
     walls = {(tile["x"], tile["y"]) for tile in model["tile_layers"]["wall"]}
     return {
         (x, y)
-        for y in range(FLOOR_HEIGHT)
-        for x in range(FLOOR_WIDTH)
+        for y in range(GRID_HEIGHT)
+        for x in range(GRID_WIDTH)
         if (x, y) not in walls
     }
 

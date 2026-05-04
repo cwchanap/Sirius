@@ -47,7 +47,10 @@ public class FloorJsonModel
         }
         catch (JsonException ex)
         {
-            GD.PrintErr($"[FloorJsonModel] JSON parse error: {ex.Message}");
+            var location = ex.LineNumber.HasValue
+                ? $" at line {ex.LineNumber.GetValueOrDefault() + 1}"
+                : "";
+            GD.PrintErr($"[FloorJsonModel] JSON parse error{location}: {ex.Message}");
             return null;
         }
     }

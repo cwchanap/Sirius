@@ -196,4 +196,184 @@ public partial class TilemapJsonImporterTest : Node
         AssertThat(gridMap.HasNode("StairConnection_Stale")).IsFalse();
         sceneRoot.Free();
     }
+
+    [TestCase]
+    public void ImportToScene_ReturnsInvalidParameterOnNullModel()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(null, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.InvalidParameter);
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_CentersCreatedEnemySpawnPosition()
+    {
+        // ToCenteredCellPosition(x,y) = (x*32 + 16, y*32 + 16)
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                EnemySpawns =
+                [
+                    new EnemySpawnData
+                    {
+                        Id = "EnemySpawn_PosTest",
+                        Position = new Vector2IData(10, 20),
+                        EnemyType = "Goblin"
+                    }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        var node = gridMap.GetNode<Node2D>("EnemySpawn_PosTest");
+        // 10*32+16=336, 20*32+16=656
+        AssertThat(node.Position.X).IsEqual(336.0f);
+        AssertThat(node.Position.Y).IsEqual(656.0f);
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_CentersCreatedNpcSpawnPosition()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                NpcSpawns =
+                [
+                    new NpcSpawnData
+                    {
+                        Id = "NpcSpawn_PosTest",
+                        Position = new Vector2IData(5, 7),
+                        NpcId = "test_npc"
+                    }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        var node = gridMap.GetNode<Node2D>("NpcSpawn_PosTest");
+        // 5*32+16=176, 7*32+16=240
+        AssertThat(node.Position.X).IsEqual(176.0f);
+        AssertThat(node.Position.Y).IsEqual(240.0f);
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_UpdatesExistingNpcSpawnPosition()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        // Pre-populate with an existing NPC
+        var existingNpc = new NpcSpawn { Name = "NpcSpawn_UpdateTest", GridPosition = new Vector2I(1, 1), NpcId = "old_npc" };
+        gridMap.AddChild(existingNpc);
+        existingNpc.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                NpcSpawns =
+                [
+                    new NpcSpawnData
+                    {
+                        Id = "NpcSpawn_UpdateTest",
+                        Position = new Vector2IData(30, 40),
+                        NpcId = "updated_npc"
+                    }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        var node = gridMap.GetNode<NpcSpawn>("NpcSpawn_UpdateTest");
+        AssertThat(node.NpcId).IsEqual("updated_npc");
+        AssertThat(node.GridPosition).IsEqual(new Vector2I(30, 40));
+        // 30*32+16=976, 40*32+16=1296
+        AssertThat(node.Position.X).IsEqual(976.0f);
+        AssertThat(node.Position.Y).IsEqual(1296.0f);
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_UpdatesExistingStairConnectionNode()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        // Pre-populate with an existing stair
+        var existingStair = new StairConnection
+        {
+            Name = "StairUpdateTest",
+            StairId = "stair_update",
+            GridPosition = new Vector2I(5, 5),
+            TargetFloor = 1,
+            Direction = StairDirection.Up
+        };
+        gridMap.AddChild(existingStair);
+        existingStair.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                StairConnections =
+                [
+                    new StairConnectionData
+                    {
+                        Id = "stair_update",
+                        Position = new Vector2IData(50, 60),
+                        Direction = "down",
+                        TargetFloor = 0,
+                        DestinationStairId = "dest_stair"
+                    }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        AssertThat(gridMap.HasNode("StairUpdateTest")).IsTrue();
+        var node = gridMap.GetNode<StairConnection>("StairUpdateTest");
+        AssertThat(node.GridPosition).IsEqual(new Vector2I(50, 60));
+        AssertThat(node.TargetFloor).IsEqual(0);
+        AssertThat(node.DestinationStairId).IsEqual("dest_stair");
+        // 50*32+16=1616, 60*32+16=1936
+        AssertThat(node.Position.X).IsEqual(1616.0f);
+        AssertThat(node.Position.Y).IsEqual(1936.0f);
+        sceneRoot.Free();
+    }
 }

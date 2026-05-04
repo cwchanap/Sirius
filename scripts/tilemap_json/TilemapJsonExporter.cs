@@ -103,6 +103,10 @@ public partial class TilemapJsonExporter : RefCounted
         {
             layers["ground"] = ExportTileLayer(groundLayer, "ground");
         }
+        else
+        {
+            GD.PrintErr("[TilemapJsonExporter] GroundLayer node not found — ground tiles omitted from export");
+        }
 
         // Export WallLayer
         var wallLayer = gridMapNode.GetNodeOrNull<TileMapLayer>("WallLayer");
@@ -110,12 +114,20 @@ public partial class TilemapJsonExporter : RefCounted
         {
             layers["wall"] = ExportTileLayer(wallLayer, "wall");
         }
+        else
+        {
+            GD.PrintErr("[TilemapJsonExporter] WallLayer node not found — wall tiles omitted from export");
+        }
 
         // Export StairLayer
         var stairLayer = gridMapNode.GetNodeOrNull<TileMapLayer>("StairLayer");
         if (stairLayer != null)
         {
             layers["stair"] = ExportTileLayer(stairLayer, "stair");
+        }
+        else
+        {
+            GD.PrintErr("[TilemapJsonExporter] StairLayer node not found — stair tiles omitted from export");
         }
 
         return layers;
@@ -161,49 +173,48 @@ public partial class TilemapJsonExporter : RefCounted
 
         foreach (var child in gridMapNode.GetChildren())
         {
-            // Check if it's an EnemySpawn node (by checking for GridPosition property)
-            if (child is Sprite2D sprite && child.Name.ToString().Contains("EnemySpawn"))
+            if (!child.Name.ToString().Contains("EnemySpawn"))
+                continue;
+
+            var spawnData = new EnemySpawnData
             {
-                var spawnData = new EnemySpawnData
-                {
-                    Id = child.Name.ToString()
-                };
+                Id = child.Name.ToString()
+            };
 
-                // Get GridPosition via property
-                if (child.HasMethod("get") || child.Get("GridPosition").VariantType != Variant.Type.Nil)
-                {
-                    var gridPos = child.Get("GridPosition").AsVector2I();
-                    spawnData.Position = new Vector2IData(gridPos);
-                }
-
-                // Get EnemyType
-                var enemyType = child.Get("EnemyType");
-                if (enemyType.VariantType != Variant.Type.Nil)
-                {
-                    spawnData.EnemyType = enemyType.AsString();
-                }
-
-                // Get Blueprint if available
-                var blueprint = child.Get("Blueprint");
-                if (blueprint.VariantType != Variant.Type.Nil && blueprint.Obj is Resource blueprintRes)
-                {
-                    spawnData.Blueprint = blueprintRes.ResourcePath;
-
-                    // Extract stats from blueprint with safe property access
-                    spawnData.Stats = new EnemyStatsData
-                    {
-                        Level = GetIntProperty(blueprintRes, "Level", 1),
-                        MaxHealth = GetIntProperty(blueprintRes, "MaxHealth", 50),
-                        Attack = GetIntProperty(blueprintRes, "Attack", 10),
-                        Defense = GetIntProperty(blueprintRes, "Defense", 5),
-                        Speed = GetIntProperty(blueprintRes, "Speed", 10),
-                        ExpReward = GetIntProperty(blueprintRes, "ExperienceReward", 20),
-                        GoldReward = GetIntProperty(blueprintRes, "GoldReward", 10)
-                    };
-                }
-
-                spawns.Add(spawnData);
+            // Get GridPosition via property
+            var gridPos = child.Get("GridPosition");
+            if (gridPos.VariantType != Variant.Type.Nil)
+            {
+                spawnData.Position = new Vector2IData(gridPos.AsVector2I());
             }
+
+            // Get EnemyType
+            var enemyType = child.Get("EnemyType");
+            if (enemyType.VariantType != Variant.Type.Nil)
+            {
+                spawnData.EnemyType = enemyType.AsString();
+            }
+
+            // Get Blueprint if available
+            var blueprint = child.Get("Blueprint");
+            if (blueprint.VariantType != Variant.Type.Nil && blueprint.Obj is Resource blueprintRes)
+            {
+                spawnData.Blueprint = blueprintRes.ResourcePath;
+
+                // Extract stats from blueprint with safe property access
+                spawnData.Stats = new EnemyStatsData
+                {
+                    Level = GetIntProperty(blueprintRes, "Level", 1),
+                    MaxHealth = GetIntProperty(blueprintRes, "MaxHealth", 50),
+                    Attack = GetIntProperty(blueprintRes, "Attack", 10),
+                    Defense = GetIntProperty(blueprintRes, "Defense", 5),
+                    Speed = GetIntProperty(blueprintRes, "Speed", 10),
+                    ExpReward = GetIntProperty(blueprintRes, "ExperienceReward", 20),
+                    GoldReward = GetIntProperty(blueprintRes, "GoldReward", 10)
+                };
+            }
+
+            spawns.Add(spawnData);
         }
 
         return spawns;

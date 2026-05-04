@@ -23,6 +23,7 @@ Examples:
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -69,19 +70,69 @@ def cmd_export(args):
     scene_path = args.scene_path
     output_path = args.output or scene_path.replace(".tscn", ".json")
 
-    print(f"Exporting {scene_path} -> {output_path}")
-    print("Note: Export requires running Godot editor or using the EditorExportToJson button in GridMap inspector")
-    print("Headless export is not yet supported - please use the Godot editor UI")
-    return 0
+    print(f"Exporting {scene_path} -> {output_path}", file=sys.stderr)
+    print("Error: Headless export is not yet supported - please use the Godot editor UI", file=sys.stderr)
+    return 1
+
+
+def extract_uid_map(tscn_path: Path) -> dict[str, str]:
+    """Extract a mapping of resource path -> uid from a .tscn file's [ext_resource] lines."""
+    uid_map: dict[str, str] = {}
+    if not tscn_path.exists():
+        return uid_map
+    for line in tscn_path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("[ext_resource"):
+            continue
+        path_match = re.search(r'path="([^"]+)"', line)
+        uid_match = re.search(r'uid="([^"]+)"', line)
+        if path_match and uid_match:
+            uid_map[path_match.group(1)] = uid_match.group(1)
+    return uid_map
+
+
+def restore_uids(tscn_path: Path, uid_map: dict[str, str]) -> None:
+    """Patch a .tscn file to restore uid= attributes on [ext_resource] lines."""
+    if not uid_map or not tscn_path.exists():
+        return
+    lines = tscn_path.read_text(encoding="utf-8").splitlines()
+    patched = []
+    restored = 0
+    for line in lines:
+        if line.startswith("[ext_resource"):
+            path_match = re.search(r'path="([^"]+)"', line)
+            has_uid = "uid=" in line
+            if path_match and not has_uid and path_match.group(1) in uid_map:
+                uid = uid_map[path_match.group(1)]
+                # Insert uid= after the type attribute
+                line = re.sub(
+                    r'(type="[^"]*")',
+                    rf'\1 uid="{uid}"',
+                    line,
+                    count=1,
+                )
+                restored += 1
+        patched.append(line)
+    if restored > 0:
+        tscn_path.write_text("\n".join(patched) + "\n", encoding="utf-8")
+        print(f"Restored {restored} uid references in {tscn_path}")
 
 
 def cmd_import(args):
-    """Import JSON to scene."""
+    """Import JSON to scene, preserving uid:// references."""
     json_path = args.json_path
-    scene_path = args.scene_path
+    scene_path = Path(args.scene_path)
+
+    # Snapshot uid map before Godot overwrites the .tscn
+    uid_map = extract_uid_map(scene_path)
 
     print(f"Importing {json_path} -> {scene_path}")
-    return run_godot_headless([json_path, scene_path])
+    result = run_godot_headless([json_path, str(scene_path)])
+    if result != 0:
+        return result
+
+    # Restore uid references that Godot headless import may have dropped
+    restore_uids(scene_path, uid_map)
+    return 0
 
 
 def cmd_refresh(args):

@@ -12,6 +12,8 @@ sys.path.insert(0, str(ROOT))
 from tools.floor0_maze_generator import (
     FLOOR_HEIGHT,
     FLOOR_WIDTH,
+    GRID_HEIGHT,
+    GRID_WIDTH,
     build_floor_model,
     update_floor_definition,
     validate_model,
@@ -22,8 +24,8 @@ def walkable_set(model):
     walls = {(tile["x"], tile["y"]) for tile in model["tile_layers"]["wall"]}
     return {
         (x, y)
-        for y in range(FLOOR_HEIGHT)
-        for x in range(FLOOR_WIDTH)
+        for y in range(GRID_HEIGHT)
+        for x in range(GRID_WIDTH)
         if (x, y) not in walls
     }
 
@@ -51,18 +53,22 @@ class Floor0MazeGeneratorTest(unittest.TestCase):
         self.model = build_floor_model()
         self.walkable = walkable_set(self.model)
 
-    def test_generates_100_by_100_ground_fill(self):
+    def test_generates_100_by_100_maze_within_160_grid(self):
         ground = self.model["tile_layers"]["ground"]
 
         self.assertEqual(FLOOR_WIDTH, 100)
         self.assertEqual(FLOOR_HEIGHT, 100)
-        self.assertEqual(len(ground), 10000)
+        self.assertEqual(GRID_WIDTH, 160)
+        self.assertEqual(GRID_HEIGHT, 160)
+        # Ground covers the full 160x160 grid
+        self.assertEqual(len(ground), GRID_WIDTH * GRID_HEIGHT)
         self.assertEqual(ground[0], {"x": 0, "y": 0, "tile": "starting_area"})
-        self.assertEqual(ground[-1], {"x": 99, "y": 99, "tile": "starting_area"})
+        self.assertEqual(ground[-1], {"x": 159, "y": 159, "tile": "starting_area"})
 
     def test_generates_perimeter_walls_and_internal_maze(self):
         walls = {(tile["x"], tile["y"]) for tile in self.model["tile_layers"]["wall"]}
 
+        # Maze perimeter walls (within 100x100)
         for x in range(FLOOR_WIDTH):
             self.assertIn((x, 0), walls)
             self.assertIn((x, FLOOR_HEIGHT - 1), walls)
@@ -70,6 +76,14 @@ class Floor0MazeGeneratorTest(unittest.TestCase):
         for y in range(FLOOR_HEIGHT):
             self.assertIn((0, y), walls)
             self.assertIn((FLOOR_WIDTH - 1, y), walls)
+
+        # All cells beyond the maze (100..159) must be walls
+        for y in range(FLOOR_HEIGHT, GRID_HEIGHT):
+            for x in range(GRID_WIDTH):
+                self.assertIn((x, y), walls, f"Cell ({x},{y}) beyond maze should be wall")
+        for y in range(FLOOR_HEIGHT):
+            for x in range(FLOOR_WIDTH, GRID_WIDTH):
+                self.assertIn((x, y), walls, f"Cell ({x},{y}) beyond maze should be wall")
 
         self.assertGreater(len(walls), 6000)
         self.assertGreater(len(self.walkable), 2500)

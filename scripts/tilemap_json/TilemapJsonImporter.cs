@@ -27,6 +27,12 @@ public partial class TilemapJsonImporter : RefCounted
     /// </summary>
     public Error ImportToScene(FloorJsonModel model, Node2D gridMapNode)
     {
+        if (model == null)
+        {
+            GD.PrintErr("[TilemapJsonImporter] Cannot import null model");
+            return Error.InvalidParameter;
+        }
+
         if (!_config.IsLoaded)
         {
             var err = _config.LoadConfig();
@@ -87,6 +93,10 @@ public partial class TilemapJsonImporter : RefCounted
             {
                 ImportTileLayer(groundTiles, groundLayer, "ground");
             }
+            else
+            {
+                GD.PrintErr("[TilemapJsonImporter] GroundLayer node not found — ground tiles discarded");
+            }
         }
 
         if (layers.TryGetValue("wall", out var wallTiles))
@@ -96,6 +106,10 @@ public partial class TilemapJsonImporter : RefCounted
             {
                 ImportTileLayer(wallTiles, wallLayer, "wall");
             }
+            else
+            {
+                GD.PrintErr("[TilemapJsonImporter] WallLayer node not found — wall tiles discarded");
+            }
         }
 
         if (layers.TryGetValue("stair", out var stairTiles))
@@ -104,6 +118,10 @@ public partial class TilemapJsonImporter : RefCounted
             if (stairLayer != null)
             {
                 ImportTileLayer(stairTiles, stairLayer, "stair");
+            }
+            else
+            {
+                GD.PrintErr("[TilemapJsonImporter] StairLayer node not found — stair tiles discarded");
             }
         }
     }

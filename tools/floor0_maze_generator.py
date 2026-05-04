@@ -19,7 +19,8 @@ SHOPKEEPER_POS = (12, 46)
 HEALER_POS = (12, 54)
 FIRST_GOBLIN_POS = (24, 45)
 STAIR_POS = (82, 68)
-FLOOR_1_STAIR_DESTINATION = (17, 13)
+# Spawn position on this floor (GF) when player returns from floor 1
+RETURN_SPAWN_FROM_FLOOR_1 = (17, 13)
 
 MAIN_LOOP_POINTS = [
     (8, 50),
@@ -273,7 +274,7 @@ def update_floor_definition(path: Path, model: dict, stair_dest: tuple[int, int]
     stair = model["entities"]["stair_connections"][0]["position"]
 
     # Determine stair destination: explicit param > existing value in file > default constant
-    dest_x, dest_y = stair_dest if stair_dest is not None else FLOOR_1_STAIR_DESTINATION
+    dest_x, dest_y = stair_dest if stair_dest is not None else RETURN_SPAWN_FROM_FLOOR_1
     # If no explicit override, try to preserve existing StairsUpDestinations from the file
     if stair_dest is None:
         existing_match = re.search(

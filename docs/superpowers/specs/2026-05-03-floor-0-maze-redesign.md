@@ -52,8 +52,8 @@ Use a deterministic generator in `tools/` to produce/update floor 0 static tilem
 
 The generator should:
 
-- fill a 100x100 ground region;
-- create perimeter walls;
+- fill a 160x160 ground region (ground tiles cover the full grid);
+- create perimeter walls to bound the playable 100x100 area;
 - create interior maze walls;
 - carve the main district loop;
 - carve branch corridors and landmark rooms;

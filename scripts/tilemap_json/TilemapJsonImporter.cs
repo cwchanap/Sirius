@@ -43,6 +43,18 @@ public partial class TilemapJsonImporter : RefCounted
             }
         }
 
+        if (model.TileLayers == null)
+        {
+            GD.PrintErr("[TilemapJsonImporter] Cannot import: model.TileLayers is null");
+            return Error.InvalidParameter;
+        }
+
+        if (model.Entities == null)
+        {
+            GD.PrintErr("[TilemapJsonImporter] Cannot import: model.Entities is null");
+            return Error.InvalidParameter;
+        }
+
         // Import tile layers
         ImportTileLayers(model.TileLayers, gridMapNode);
 

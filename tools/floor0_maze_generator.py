@@ -373,7 +373,14 @@ def main() -> int:
             if len(parts) != 2:
                 print(f"Error: --stair-dest must be 'x,y', got '{args.stair_dest}'", file=sys.stderr)
                 return 1
-            stair_dest = (int(parts[0].strip()), int(parts[1].strip()))
+            try:
+                stair_dest = (int(parts[0].strip()), int(parts[1].strip()))
+            except ValueError:
+                print(
+                    f"Error: --stair-dest values must be integers, got '{parts[0].strip()}', '{parts[1].strip()}'",
+                    file=sys.stderr,
+                )
+                return 1
         update_floor_definition(Path(args.floor_def), model, stair_dest)
     print(
         f"Generated Floor 0 maze: {FLOOR_WIDTH}x{FLOOR_HEIGHT}, "

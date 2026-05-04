@@ -212,6 +212,46 @@ public partial class TilemapJsonImporterTest : Node
     }
 
     [TestCase]
+    public void ImportToScene_ReturnsInvalidParameterOnNullTileLayers()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+
+        var model = new FloorJsonModel
+        {
+            TileLayers = null,
+            Entities = new SceneEntities()
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.InvalidParameter);
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_ReturnsInvalidParameterOnNullEntities()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+
+        var model = new FloorJsonModel
+        {
+            TileLayers = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<Sirius.TilemapJson.TileData>>(),
+            Entities = null
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.InvalidParameter);
+        sceneRoot.Free();
+    }
+
+    [TestCase]
     public void ImportToScene_CentersCreatedEnemySpawnPosition()
     {
         // ToCenteredCellPosition(x,y) = (x*32 + 16, y*32 + 16)

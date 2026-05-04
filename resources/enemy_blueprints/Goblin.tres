@@ -6,9 +6,9 @@
 script = ExtResource("1_abcde")
 EnemyName = "Goblin"
 SpriteType = "goblin"
-Level = 2
-MaxHealth = 900
-Attack = 12
+Level = 1
+MaxHealth = 50
+Attack = 15
 Defense = 5
 Speed = 10
 ExperienceReward = 25

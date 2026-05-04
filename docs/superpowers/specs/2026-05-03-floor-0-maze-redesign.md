@@ -48,7 +48,7 @@ All entity grid positions must correspond to walkable cells. Scene node `positio
 
 ## Technical Approach
 
-Use a deterministic generator in `tools/` to produce/update floor 0 static tilemap data. The generator should create the authored layout from simple rules and write the result into `scenes/game/floors/FloorGF.tscn`.
+Use a deterministic generator in `tools/` to produce/update floor 0 static tilemap data. The generator creates the authored layout from simple rules, writes JSON to `scenes/game/floors/FloorGF.json`, and updates `resources/floors/FloorGF.tres` metadata. A separate import step (`tools/refresh_tilemap.gd`) syncs the JSON into `scenes/game/floors/FloorGF.tscn`.
 
 The generator should:
 

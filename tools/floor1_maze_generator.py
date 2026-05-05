@@ -366,6 +366,14 @@ def update_floor_definition(path: Path, model: dict) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def update_floor_definition_if_exists(path: Path, model: dict) -> None:
+    if not path.exists():
+        print(f"Warning: floor definition not found, skipping update: {path}")
+        return
+
+    update_floor_definition(path, model)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate Floor 1 maze and Floor 2 placeholder JSON.")
     parser.add_argument("--floor1-output", default="scenes/game/floors/Floor1F.json")
@@ -385,8 +393,8 @@ def main() -> int:
     write_json(floor2, Path(args.floor2_output))
 
     if not args.skip_floor_defs:
-        update_floor_definition(Path(args.floor1_def), floor1)
-        update_floor_definition(Path(args.floor2_def), floor2)
+        update_floor_definition_if_exists(Path(args.floor1_def), floor1)
+        update_floor_definition_if_exists(Path(args.floor2_def), floor2)
 
     print(
         "Generated Floor 1 maze and Floor 2 placeholder: "

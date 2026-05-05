@@ -148,6 +148,19 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
             with self.subTest(goal=goal):
                 self.assertTrue(has_path(self.walkable, FLOOR1_PLAYER_START, goal))
 
+    def test_enemy_gates_block_routes_until_clearable(self):
+        enemy_positions = {
+            (enemy["position"]["x"], enemy["position"]["y"])
+            for enemy in self.model["entities"]["enemy_spawns"]
+        }
+        uncleared_walkable = self.walkable - enemy_positions
+        gated_goals = [FLOOR1_UP_STAIR_A, FLOOR1_UP_STAIR_B]
+        gated_goals.extend(FLOOR1_HIDDEN_PLACEHOLDERS.values())
+
+        for goal in gated_goals:
+            with self.subTest(goal=goal):
+                self.assertFalse(has_path(uncleared_walkable, FLOOR1_PLAYER_START, goal))
+
     def test_model_is_json_serializable(self):
         encoded = json.dumps(self.model, sort_keys=True)
         decoded = json.loads(encoded)

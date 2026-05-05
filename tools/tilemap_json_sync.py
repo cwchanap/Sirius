@@ -31,6 +31,7 @@ from pathlib import Path
 # Find project root (where project.godot is)
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
+SCENE_UID_KEY = "__scene_uid__"
 
 # Godot executable path (adjust for your system)
 DEFAULT_GODOT_PATH = "/Applications/Godot_mono.app/Contents/MacOS/Godot"
@@ -76,11 +77,17 @@ def cmd_export(args):
 
 
 def extract_uid_map(tscn_path: Path) -> dict[str, str]:
-    """Extract a mapping of resource path -> uid from a .tscn file's [ext_resource] lines."""
+    """Extract scene and ext_resource uid metadata from a .tscn file."""
     uid_map: dict[str, str] = {}
     if not tscn_path.exists():
         return uid_map
     for line in tscn_path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("[gd_scene"):
+            scene_uid_match = re.search(r'uid="([^"]+)"', line)
+            if scene_uid_match:
+                uid_map[SCENE_UID_KEY] = scene_uid_match.group(1)
+            continue
+
         if not line.startswith("[ext_resource"):
             continue
         path_match = re.search(r'path="([^"]+)"', line)
@@ -91,14 +98,17 @@ def extract_uid_map(tscn_path: Path) -> dict[str, str]:
 
 
 def restore_uids(tscn_path: Path, uid_map: dict[str, str]) -> None:
-    """Patch a .tscn file to restore uid= attributes on [ext_resource] lines."""
+    """Patch a .tscn file to restore uid= attributes on scene and ext_resource lines."""
     if not uid_map or not tscn_path.exists():
         return
     lines = tscn_path.read_text(encoding="utf-8").splitlines()
     patched = []
     restored = 0
     for line in lines:
-        if line.startswith("[ext_resource"):
+        if line.startswith("[gd_scene") and "uid=" not in line and SCENE_UID_KEY in uid_map:
+            line = line[:-1] + f' uid="{uid_map[SCENE_UID_KEY]}"]'
+            restored += 1
+        elif line.startswith("[ext_resource"):
             path_match = re.search(r'path="([^"]+)"', line)
             has_uid = "uid=" in line
             if path_match and not has_uid and path_match.group(1) in uid_map:

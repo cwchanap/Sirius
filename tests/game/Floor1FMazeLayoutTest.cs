@@ -144,6 +144,33 @@ public partial class Floor1FMazeLayoutTest : Node
     }
 
     [TestCase]
+    public void Floor1F_GeneratedMaze_EnemyGatesBlockBranchesUntilCleared()
+    {
+        var floorRoot = LoadFloor();
+        try
+        {
+            var gridMap = floorRoot.GetNode<GridMap>("GridMap");
+            var blockedCells = GetWalls(gridMap);
+            foreach (var enemy in gridMap.GetChildren().OfType<EnemySpawn>())
+            {
+                blockedCells.Add(enemy.GridPosition);
+            }
+
+            var goals = new List<Vector2I> { UpStairA, UpStairB };
+            goals.AddRange(HiddenPlaceholders);
+
+            foreach (var goal in goals)
+            {
+                AssertThat(HasPath(PlayerStart, goal, blockedCells)).IsFalse();
+            }
+        }
+        finally
+        {
+            floorRoot.Free();
+        }
+    }
+
+    [TestCase]
     public void Floor1F_GeneratedMaze_HiddenPlaceholdersAreNotVisibleStairs()
     {
         var floorRoot = LoadFloor();

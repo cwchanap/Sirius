@@ -161,6 +161,19 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
             with self.subTest(goal=goal):
                 self.assertFalse(has_path(uncleared_walkable, FLOOR1_PLAYER_START, goal))
 
+    def test_south_stair_gate_does_not_open_north_stair(self):
+        enemy_positions = {
+            enemy["id"]: (enemy["position"]["x"], enemy["position"]["y"])
+            for enemy in self.model["entities"]["enemy_spawns"]
+        }
+        south_gate_only_walkable = self.walkable - {
+            position
+            for enemy_id, position in enemy_positions.items()
+            if enemy_id != "EnemySpawn_ForestSpirit_StairB"
+        }
+
+        self.assertFalse(has_path(south_gate_only_walkable, FLOOR1_PLAYER_START, FLOOR1_UP_STAIR_A))
+
     def test_model_is_json_serializable(self):
         encoded = json.dumps(self.model, sort_keys=True)
         decoded = json.loads(encoded)

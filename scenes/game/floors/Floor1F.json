@@ -30129,6 +30129,21 @@
         "tile": "generic"
       },
       {
+        "x": 52,
+        "y": 16,
+        "tile": "generic"
+      },
+      {
+        "x": 53,
+        "y": 16,
+        "tile": "generic"
+      },
+      {
+        "x": 54,
+        "y": 16,
+        "tile": "generic"
+      },
+      {
         "x": 55,
         "y": 16,
         "tile": "generic"

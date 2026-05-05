@@ -153,6 +153,8 @@ def build_floor1_walls() -> set[tuple[int, int]]:
     builder.carve_rect(53, 28, 58, 32)
     builder.carve_rect(16, 52, 22, 56)
 
+    builder.walls.update((x, 16) for x in range(48, 55))
+
     add_gate_barrier(
         builder.walls,
         FLOOR1_ENEMY_GATES["EnemySpawn_Goblin_Branch"]["position"],

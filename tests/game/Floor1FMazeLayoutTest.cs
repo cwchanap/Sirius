@@ -171,6 +171,32 @@ public partial class Floor1FMazeLayoutTest : Node
     }
 
     [TestCase]
+    public void Floor1F_GeneratedMaze_SouthStairGateDoesNotOpenNorthStair()
+    {
+        var floorRoot = LoadFloor();
+        try
+        {
+            var gridMap = floorRoot.GetNode<GridMap>("GridMap");
+            var blockedCells = GetWalls(gridMap);
+            foreach (var enemy in gridMap.GetChildren().OfType<EnemySpawn>())
+            {
+                if (enemy.Name == "EnemySpawn_ForestSpirit_StairB")
+                {
+                    continue;
+                }
+
+                blockedCells.Add(enemy.GridPosition);
+            }
+
+            AssertThat(HasPath(PlayerStart, UpStairA, blockedCells)).IsFalse();
+        }
+        finally
+        {
+            floorRoot.Free();
+        }
+    }
+
+    [TestCase]
     public void Floor1F_GeneratedMaze_HiddenPlaceholdersAreNotVisibleStairs()
     {
         var floorRoot = LoadFloor();

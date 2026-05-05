@@ -27,6 +27,12 @@ public partial class TilemapJsonImporter : RefCounted
     /// </summary>
     public Error ImportToScene(FloorJsonModel model, Node2D gridMapNode)
     {
+        if (gridMapNode == null)
+        {
+            GD.PrintErr("[TilemapJsonImporter] Cannot import to null gridMapNode");
+            return Error.InvalidParameter;
+        }
+
         if (model == null)
         {
             GD.PrintErr("[TilemapJsonImporter] Cannot import null model");

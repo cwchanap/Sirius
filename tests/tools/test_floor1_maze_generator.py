@@ -22,6 +22,9 @@ from tools.floor1_maze_generator import (
     FLOOR1_WIDTH,
     FLOOR2_DOWN_STAIR_A,
     FLOOR2_DOWN_STAIR_B,
+    FLOOR2_HEIGHT,
+    FLOOR2_PLAYER_START,
+    FLOOR2_WIDTH,
     GRID_HEIGHT,
     GRID_WIDTH,
     build_floor1_model,
@@ -58,6 +61,20 @@ def has_path(walkable, start, goal):
                 queue.append(nxt)
 
     return False
+
+
+def floor_definition_source():
+    return "\n".join(
+        [
+            "[resource]",
+            "PlayerStartPosition = Vector2i(17, 13)",
+            "StairsUp = Array[Vector2i]([])",
+            "StairsDown = Array[Vector2i]([Vector2i(17, 13)])",
+            "StairsUpDestinations = Array[Vector2i]([])",
+            "StairsDownDestinations = Array[Vector2i]([Vector2i(13, 3)])",
+            "",
+        ]
+    )
 
 
 class Floor1MazeGeneratorTest(unittest.TestCase):
@@ -146,21 +163,9 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
             validate_model(self.model, FLOOR1_WIDTH, FLOOR1_HEIGHT)
 
     def test_update_floor_definition_updates_floor1_arrays(self):
-        source = "\n".join(
-            [
-                "[resource]",
-                "PlayerStartPosition = Vector2i(17, 13)",
-                "StairsUp = Array[Vector2i]([])",
-                "StairsDown = Array[Vector2i]([Vector2i(17, 13)])",
-                "StairsUpDestinations = Array[Vector2i]([])",
-                "StairsDownDestinations = Array[Vector2i]([Vector2i(13, 3)])",
-                "",
-            ]
-        )
-
         with tempfile.TemporaryDirectory() as tmpdir:
             floor_def = Path(tmpdir) / "Floor1F.tres"
-            floor_def.write_text(source, encoding="utf-8")
+            floor_def.write_text(floor_definition_source(), encoding="utf-8")
 
             update_floor_definition(floor_def, self.model)
 
@@ -171,26 +176,14 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
             self.assertIn("StairsUpDestinations = Array[Vector2i]([Vector2i(49, 12), Vector2i(48, 48)])", updated)
             self.assertIn("StairsDownDestinations = Array[Vector2i]([Vector2i(8, 30)])", updated)
 
-    def test_main_skips_missing_floor_definition_paths(self):
-        source = "\n".join(
-            [
-                "[resource]",
-                "PlayerStartPosition = Vector2i(17, 13)",
-                "StairsUp = Array[Vector2i]([])",
-                "StairsDown = Array[Vector2i]([Vector2i(17, 13)])",
-                "StairsUpDestinations = Array[Vector2i]([])",
-                "StairsDownDestinations = Array[Vector2i]([Vector2i(13, 3)])",
-                "",
-            ]
-        )
-
+    def test_main_skips_missing_floor2_definition_and_updates_floor1(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
             floor1_output = tmp / "Floor1F.json"
             floor2_output = tmp / "Floor2F.json"
             floor1_def = tmp / "Floor1F.tres"
             missing_floor2_def = tmp / "Floor2F.tres"
-            floor1_def.write_text(source, encoding="utf-8")
+            floor1_def.write_text(floor_definition_source(), encoding="utf-8")
 
             argv = [
                 "floor1_maze_generator.py",
@@ -217,6 +210,34 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
             self.assertIn("PlayerStartPosition = Vector2i(8, 30)", updated)
             self.assertIn("StairsUp = Array[Vector2i]([Vector2i(49, 12), Vector2i(48, 48)])", updated)
 
+    def test_main_fails_when_floor1_definition_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            floor1_output = tmp / "Floor1F.json"
+            floor2_output = tmp / "Floor2F.json"
+            missing_floor1_def = tmp / "Floor1F.tres"
+            floor2_def = tmp / "Floor2F.tres"
+            floor2_def.write_text(floor_definition_source(), encoding="utf-8")
+
+            argv = [
+                "floor1_maze_generator.py",
+                "--floor1-output",
+                str(floor1_output),
+                "--floor1-def",
+                str(missing_floor1_def),
+                "--floor2-output",
+                str(floor2_output),
+                "--floor2-def",
+                str(floor2_def),
+            ]
+
+            stdout = io.StringIO()
+            with patch.object(sys, "argv", argv), redirect_stdout(stdout):
+                result = main()
+
+            self.assertNotEqual(result, 0)
+            self.assertIn("Error: required Floor 1 definition not found", stdout.getvalue())
+
 
 class Floor2PlaceholderGeneratorTest(unittest.TestCase):
     def setUp(self):
@@ -224,13 +245,51 @@ class Floor2PlaceholderGeneratorTest(unittest.TestCase):
         self.walkable = walkable_set(self.model)
 
     def test_generates_placeholder_with_two_return_stairs(self):
+        ground = self.model["tile_layers"]["ground"]
+        walls = {(tile["x"], tile["y"]) for tile in self.model["tile_layers"]["wall"]}
         stairs = self.model["tile_layers"]["stair"]
         stair_positions = {(tile["x"], tile["y"]) for tile in stairs}
+        metadata = self.model["floor_metadata"]
+
+        self.assertEqual(FLOOR2_WIDTH, 36)
+        self.assertEqual(FLOOR2_HEIGHT, 22)
+        self.assertEqual(metadata["player_start"], {"x": 10, "y": 10})
+        self.assertEqual(FLOOR2_PLAYER_START, (10, 10))
+        self.assertEqual(len(ground), 792)
+        self.assertEqual(ground[0], {"x": 0, "y": 0, "tile": "starting_area"})
+        self.assertEqual(ground[-1], {"x": 35, "y": 21, "tile": "starting_area"})
+
+        for y in range(FLOOR2_HEIGHT, GRID_HEIGHT):
+            for x in range(GRID_WIDTH):
+                self.assertIn((x, y), walls)
+
+        for y in range(FLOOR2_HEIGHT):
+            for x in range(FLOOR2_WIDTH, GRID_WIDTH):
+                self.assertIn((x, y), walls)
 
         self.assertEqual(stair_positions, {FLOOR2_DOWN_STAIR_A, FLOOR2_DOWN_STAIR_B})
         self.assertEqual(
             {stair["id"] for stair in self.model["entities"]["stair_connections"]},
             {"2F_1F_A", "2F_1F_B"},
+        )
+        self.assertEqual(
+            {stair["id"]: stair for stair in self.model["entities"]["stair_connections"]},
+            {
+                "2F_1F_A": {
+                    "id": "2F_1F_A",
+                    "position": {"x": 10, "y": 10},
+                    "direction": "down",
+                    "target_floor": 1,
+                    "destination_stair_id": "1F_2F_A",
+                },
+                "2F_1F_B": {
+                    "id": "2F_1F_B",
+                    "position": {"x": 26, "y": 10},
+                    "direction": "down",
+                    "target_floor": 1,
+                    "destination_stair_id": "1F_2F_B",
+                },
+            },
         )
         self.assertEqual(self.model["entities"]["enemy_spawns"], [])
         self.assertEqual(self.model["entities"]["npc_spawns"], [])

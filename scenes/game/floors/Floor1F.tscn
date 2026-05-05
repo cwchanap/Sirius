@@ -6,11 +6,11 @@
 [ext_resource type="Script" uid="uid://y82v4iq0fufy" path="res://scripts/game/EnemySpawn.cs" id="5"]
 [ext_resource type="Script" uid="uid://dog8eagtv7b3n" path="res://scripts/game/PlayerDisplay.cs" id="6"]
 [ext_resource type="TileSet" uid="uid://d1w3h484c5fh0" path="res://assets/tiles/stair_tileset.tres" id="7"]
-[ext_resource type="PackedScene" path="res://scenes/spawns/EnemySpawn_Goblin.tscn" id="7_rtb65"]
+[ext_resource type="PackedScene" uid="uid://bwq2hj8nt5ycq" path="res://scenes/spawns/EnemySpawn_Goblin.tscn" id="7_rtb65"]
 [ext_resource type="Script" uid="uid://bio6oeyj3p53u" path="res://scripts/game/StairConnection.cs" id="8"]
-[ext_resource type="Resource" path="res://resources/enemy_blueprints/Goblin.tres" id="9_abo7i"]
-[ext_resource type="PackedScene" path="res://scenes/spawns/EnemySpawn_Orc.tscn" id="10_op7kr"]
-[ext_resource type="Resource" path="res://resources/enemy_blueprints/Orc.tres" id="11_xstv1"]
+[ext_resource type="Resource" uid="uid://b4qh3ym8xgfwj" path="res://resources/enemy_blueprints/Goblin.tres" id="9_abo7i"]
+[ext_resource type="PackedScene" uid="uid://cx3ik09ou6zdr" path="res://scenes/spawns/EnemySpawn_Orc.tscn" id="10_op7kr"]
+[ext_resource type="Resource" uid="uid://c5rj40oayhgxk" path="res://resources/enemy_blueprints/Orc.tres" id="11_xstv1"]
 
 [node name="Floor1F" type="Node2D"]
 

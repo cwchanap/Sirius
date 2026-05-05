@@ -246,25 +246,25 @@ public partial class TilemapJsonImporter : RefCounted
 
     private void CreateEnemySpawnNode(EnemySpawnData data, Node2D parent)
     {
-        // Try to load the appropriate enemy spawn scene
-        string scenePath = $"res://scenes/spawns/EnemySpawn_{CapitalizeFirst(data.EnemyType)}.tscn";
+        string scenePath = $"res://scenes/spawns/EnemySpawn_{ToPascalCase(data.EnemyType)}.tscn";
+        Node instance;
 
-        if (!ResourceLoader.Exists(scenePath))
+        if (ResourceLoader.Exists(scenePath))
         {
-            GD.PrintErr($"[TilemapJsonImporter] Enemy spawn scene not found: {scenePath}");
-            return;
+            var scene = GD.Load<PackedScene>(scenePath);
+            instance = scene.Instantiate();
+            if (instance == null)
+            {
+                GD.PrintErr($"[TilemapJsonImporter] Failed to instantiate: {scenePath}");
+                return;
+            }
+        }
+        else
+        {
+            instance = new EnemySpawn();
+            GD.Print($"[TilemapJsonImporter] Spawn scene not found for '{data.EnemyType}', created generic EnemySpawn");
         }
 
-        var scene = GD.Load<PackedScene>(scenePath);
-        var instance = scene.Instantiate();
-
-        if (instance == null)
-        {
-            GD.PrintErr($"[TilemapJsonImporter] Failed to instantiate: {scenePath}");
-            return;
-        }
-
-        // Configure the spawn
         instance.Name = data.Id;
         instance.Set("GridPosition", data.Position.ToVector2I());
 
@@ -280,10 +280,8 @@ public partial class TilemapJsonImporter : RefCounted
             node2d.ZIndex = 2;
         }
 
-        // Add to parent
         parent.AddChild(instance);
 
-        // Set owner so ResourceSaver persists newly-created nodes during headless imports.
         var sceneRoot = parent.Owner ?? parent.GetTree()?.EditedSceneRoot;
         if (sceneRoot != null)
         {
@@ -390,8 +388,7 @@ public partial class TilemapJsonImporter : RefCounted
             }
             else
             {
-                // Create new node - for now just log, as stair creation is more complex
-                GD.Print($"[TilemapJsonImporter] New stair connection needed: {stairData.Id} (manual creation required)");
+                CreateStairConnectionNode(stairData, gridMapNode);
             }
         }
 
@@ -408,29 +405,43 @@ public partial class TilemapJsonImporter : RefCounted
 
     private void UpdateStairConnectionNode(Node node, StairConnectionData data)
     {
-        // Update GridPosition
-        node.Set("GridPosition", data.Position.ToVector2I());
+        ConfigureStairConnectionNode(node, data);
+        GD.Print($"[TilemapJsonImporter] Updated stair connection: {data.Id}");
+    }
 
-        // Update Direction (0 = up, 1 = down)
-        int direction = data.Direction?.ToLower() == "down" ? 1 : 0;
-        node.Set("Direction", direction);
-
-        // Update TargetFloor
-        node.Set("TargetFloor", data.TargetFloor);
-
-        // Update DestinationStairId
-        if (!string.IsNullOrEmpty(data.DestinationStairId))
+    private void CreateStairConnectionNode(StairConnectionData data, Node2D parent)
+    {
+        var instance = new StairConnection
         {
-            node.Set("DestinationStairId", data.DestinationStairId);
+            Name = data.Id
+        };
+
+        ConfigureStairConnectionNode(instance, data);
+        parent.AddChild(instance);
+
+        var sceneRoot = parent.Owner ?? parent.GetTree()?.EditedSceneRoot;
+        if (sceneRoot != null)
+        {
+            instance.Owner = sceneRoot;
         }
 
-        // Update position in world
+        GD.Print($"[TilemapJsonImporter] Created stair connection: {data.Id}");
+    }
+
+    private void ConfigureStairConnectionNode(Node node, StairConnectionData data)
+    {
+        node.Set("StairId", data.Id);
+        node.Set("GridPosition", data.Position.ToVector2I());
+
+        int direction = data.Direction?.ToLower() == "down" ? 1 : 0;
+        node.Set("Direction", direction);
+        node.Set("TargetFloor", data.TargetFloor);
+        node.Set("DestinationStairId", data.DestinationStairId ?? "");
+
         if (node is Node2D node2d)
         {
             node2d.Position = ToCenteredCellPosition(data.Position);
         }
-
-        GD.Print($"[TilemapJsonImporter] Updated stair connection: {data.Id}");
     }
 
     private static Vector2 ToCenteredCellPosition(Vector2IData position)
@@ -442,9 +453,14 @@ public partial class TilemapJsonImporter : RefCounted
         );
     }
 
-    private static string CapitalizeFirst(string s)
+    private static string ToPascalCase(string s)
     {
         if (string.IsNullOrEmpty(s)) return s;
-        return char.ToUpper(s[0]) + s.Substring(1).ToLower();
+
+        return string.Concat(
+            s.Split('_')
+                .Where(part => !string.IsNullOrEmpty(part))
+                .Select(part => char.ToUpper(part[0]) + part.Substring(1).ToLower())
+        );
     }
 }

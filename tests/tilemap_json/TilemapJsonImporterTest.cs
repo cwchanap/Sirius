@@ -431,4 +431,87 @@ public partial class TilemapJsonImporterTest : Node
         AssertThat(node.Position.Y).IsEqual(1936.0f);
         sceneRoot.Free();
     }
+
+    [TestCase]
+    public void ImportToScene_CreatesMissingStairConnectionNode()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                StairConnections =
+                [
+                    new StairConnectionData
+                    {
+                        Id = "1F_2F_A",
+                        Position = new Vector2IData(49, 12),
+                        Direction = "up",
+                        TargetFloor = 2,
+                        DestinationStairId = "2F_1F_A"
+                    }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        AssertThat(gridMap.HasNode("1F_2F_A")).IsTrue();
+
+        var stair = gridMap.GetNode<StairConnection>("1F_2F_A");
+        AssertThat(stair.Owner).IsEqual(sceneRoot);
+        AssertThat(stair.StairId).IsEqual("1F_2F_A");
+        AssertThat(stair.GridPosition).IsEqual(new Vector2I(49, 12));
+        AssertThat(stair.Direction).IsEqual(StairDirection.Up);
+        AssertThat(stair.TargetFloor).IsEqual(2);
+        AssertThat(stair.DestinationStairId).IsEqual("2F_1F_A");
+        AssertThat(stair.Position).IsEqual(new Vector2(1584, 400));
+
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_CreatesGenericEnemySpawn_WhenDedicatedSceneIsMissing()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                EnemySpawns =
+                [
+                    new EnemySpawnData
+                    {
+                        Id = "EnemySpawn_Skeleton_StairA",
+                        Position = new Vector2IData(43, 12),
+                        EnemyType = "skeleton_warrior"
+                    }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        AssertThat(gridMap.HasNode("EnemySpawn_Skeleton_StairA")).IsTrue();
+
+        var spawn = gridMap.GetNode<EnemySpawn>("EnemySpawn_Skeleton_StairA");
+        AssertThat(spawn.Owner).IsEqual(sceneRoot);
+        AssertThat(spawn.GridPosition).IsEqual(new Vector2I(43, 12));
+        AssertThat(spawn.EnemyType).IsEqual("skeleton_warrior");
+        AssertThat(spawn.Position).IsEqual(new Vector2(1392, 400));
+
+        sceneRoot.Free();
+    }
 }

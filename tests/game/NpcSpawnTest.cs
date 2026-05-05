@@ -77,7 +77,7 @@ public partial class NpcSpawnTest : Node
     }
 
     [TestCase]
-    public void Floor1F_ContainsReachableNpcSpawn_WithRegisteredNpcId()
+    public void Floor1F_ContainsNoNpcSpawns()
     {
         var floorScene = GD.Load<PackedScene>("res://scenes/game/floors/Floor1F.tscn");
         AssertThat(floorScene).IsNotNull();
@@ -86,8 +86,18 @@ public partial class NpcSpawnTest : Node
 
         try
         {
-            var npcCount = AssertFloorNpcIds(floorRoot, "old_farmer");
-            AssertThat(npcCount).IsEqual(1);
+            var gridMap = floorRoot.GetNode<GridMap>("GridMap");
+            var npcCount = 0;
+
+            foreach (Node child in gridMap.GetChildren())
+            {
+                if (child is NpcSpawn)
+                {
+                    npcCount++;
+                }
+            }
+
+            AssertThat(npcCount).IsEqual(0);
         }
         finally
         {

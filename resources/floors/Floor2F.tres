@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="FloorDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" uid="uid://kd6rbo3sqjd7" path="res://scripts/game/FloorDefinition.cs" id="1_1"]
+[ext_resource type="PackedScene" path="res://scenes/game/floors/Floor2F.tscn" id="1_2"]
+
+[resource]
+script = ExtResource("1_1")
+FloorName = "Second Floor"
+FloorNumber = 2
+FloorScene = ExtResource("1_2")
+PlayerStartPosition = Vector2i(10, 10)
+StairsUp = Array[Vector2i]([])
+StairsDown = Array[Vector2i]([Vector2i(10, 10), Vector2i(26, 10)])
+StairsUpDestinations = Array[Vector2i]([])
+StairsDownDestinations = Array[Vector2i]([Vector2i(10, 10), Vector2i(26, 10)])
+AmbientTint = Color(1, 1, 1, 1)
+FloorDescription = "A safe placeholder landing for the second floor"

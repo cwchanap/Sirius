@@ -1,9 +1,12 @@
 import json
+import io
 import tempfile
 import unittest
 from collections import deque
+from contextlib import redirect_stdout
 from pathlib import Path
 import sys
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,6 +26,7 @@ from tools.floor1_maze_generator import (
     GRID_WIDTH,
     build_floor1_model,
     build_floor2_model,
+    main,
     update_floor_definition,
     validate_model,
 )
@@ -166,6 +170,52 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
             self.assertIn("StairsDown = Array[Vector2i]([Vector2i(8, 30)])", updated)
             self.assertIn("StairsUpDestinations = Array[Vector2i]([Vector2i(49, 12), Vector2i(48, 48)])", updated)
             self.assertIn("StairsDownDestinations = Array[Vector2i]([Vector2i(8, 30)])", updated)
+
+    def test_main_skips_missing_floor_definition_paths(self):
+        source = "\n".join(
+            [
+                "[resource]",
+                "PlayerStartPosition = Vector2i(17, 13)",
+                "StairsUp = Array[Vector2i]([])",
+                "StairsDown = Array[Vector2i]([Vector2i(17, 13)])",
+                "StairsUpDestinations = Array[Vector2i]([])",
+                "StairsDownDestinations = Array[Vector2i]([Vector2i(13, 3)])",
+                "",
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            floor1_output = tmp / "Floor1F.json"
+            floor2_output = tmp / "Floor2F.json"
+            floor1_def = tmp / "Floor1F.tres"
+            missing_floor2_def = tmp / "Floor2F.tres"
+            floor1_def.write_text(source, encoding="utf-8")
+
+            argv = [
+                "floor1_maze_generator.py",
+                "--floor1-output",
+                str(floor1_output),
+                "--floor1-def",
+                str(floor1_def),
+                "--floor2-output",
+                str(floor2_output),
+                "--floor2-def",
+                str(missing_floor2_def),
+            ]
+
+            stdout = io.StringIO()
+            with patch.object(sys, "argv", argv), redirect_stdout(stdout):
+                result = main()
+
+            self.assertEqual(result, 0)
+            self.assertTrue(floor1_output.exists())
+            self.assertTrue(floor2_output.exists())
+            self.assertIn("Warning: floor definition not found", stdout.getvalue())
+
+            updated = floor1_def.read_text(encoding="utf-8")
+            self.assertIn("PlayerStartPosition = Vector2i(8, 30)", updated)
+            self.assertIn("StairsUp = Array[Vector2i]([Vector2i(49, 12), Vector2i(48, 48)])", updated)
 
 
 class Floor2PlaceholderGeneratorTest(unittest.TestCase):

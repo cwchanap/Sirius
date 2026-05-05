@@ -32,6 +32,14 @@ FLOOR1_HIDDEN_PLACEHOLDERS = {
     "hidden_room_south": (19, 54),
 }
 
+FLOOR1_ENEMY_GATES = {
+    "EnemySpawn_Goblin_Branch": {"position": (16, 23), "enemy_type": "goblin"},
+    "EnemySpawn_Orc_Central": {"position": (22, 30), "enemy_type": "orc"},
+    "EnemySpawn_Skeleton_StairA": {"position": (43, 12), "enemy_type": "skeleton_warrior"},
+    "EnemySpawn_ForestSpirit_StairB": {"position": (42, 48), "enemy_type": "forest_spirit"},
+    "EnemySpawn_Orc_HiddenBranch": {"position": (19, 51), "enemy_type": "orc"},
+}
+
 
 class MazeBuilder:
     def __init__(self, width: int, height: int) -> None:
@@ -79,6 +87,12 @@ class MazeBuilder:
         for y in range(self.height):
             self.walls.add((0, y))
             self.walls.add((self.width - 1, y))
+
+
+def add_gate_barrier(walls: set[tuple[int, int]], gate: tuple[int, int], blocked_cells: list[tuple[int, int]]) -> None:
+    for cell in blocked_cells:
+        if cell != gate:
+            walls.add(cell)
 
 
 def vector(x: int, y: int) -> dict[str, int]:
@@ -139,6 +153,20 @@ def build_floor1_walls() -> set[tuple[int, int]]:
     builder.carve_rect(53, 28, 58, 32)
     builder.carve_rect(16, 52, 22, 56)
 
+    add_gate_barrier(
+        builder.walls,
+        FLOOR1_ENEMY_GATES["EnemySpawn_Goblin_Branch"]["position"],
+        [(x, 23) for x in range(11, 19)],
+    )
+    add_gate_barrier(builder.walls, FLOOR1_ENEMY_GATES["EnemySpawn_Orc_Central"]["position"], [(22, 29), (22, 30), (22, 31)])
+    add_gate_barrier(builder.walls, FLOOR1_ENEMY_GATES["EnemySpawn_Skeleton_StairA"]["position"], [(43, 11), (43, 12), (43, 13)])
+    add_gate_barrier(builder.walls, FLOOR1_ENEMY_GATES["EnemySpawn_ForestSpirit_StairB"]["position"], [(42, 47), (42, 48), (42, 49)])
+    add_gate_barrier(
+        builder.walls,
+        FLOOR1_ENEMY_GATES["EnemySpawn_Orc_HiddenBranch"]["position"],
+        [(x, 51) for x in range(16, 23)],
+    )
+
     builder.reinforce_perimeter()
     return builder.walls
 
@@ -171,11 +199,12 @@ def build_floor1_model() -> dict:
         },
         "entities": {
             "enemy_spawns": [
-                {"id": "EnemySpawn_Goblin_Branch", "position": vector(14, 25), "enemy_type": "goblin"},
-                {"id": "EnemySpawn_Orc_Central", "position": vector(28, 30), "enemy_type": "orc"},
-                {"id": "EnemySpawn_Skeleton_StairA", "position": vector(43, 12), "enemy_type": "skeleton_warrior"},
-                {"id": "EnemySpawn_ForestSpirit_StairB", "position": vector(42, 48), "enemy_type": "forest_spirit"},
-                {"id": "EnemySpawn_Orc_HiddenBranch", "position": vector(19, 51), "enemy_type": "orc"},
+                {
+                    "id": enemy_id,
+                    "position": vector(*data["position"]),
+                    "enemy_type": data["enemy_type"],
+                }
+                for enemy_id, data in FLOOR1_ENEMY_GATES.items()
             ],
             "npc_spawns": [],
             "stair_connections": [

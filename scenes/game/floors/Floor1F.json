@@ -26709,6 +26709,11 @@
         "tile": "generic"
       },
       {
+        "x": 43,
+        "y": 11,
+        "tile": "generic"
+      },
+      {
         "x": 54,
         "y": 11,
         "tile": "generic"
@@ -28054,6 +28059,11 @@
         "tile": "generic"
       },
       {
+        "x": 43,
+        "y": 13,
+        "tile": "generic"
+      },
+      {
         "x": 55,
         "y": 13,
         "tile": "generic"
@@ -35205,6 +35215,41 @@
       },
       {
         "x": 10,
+        "y": 23,
+        "tile": "generic"
+      },
+      {
+        "x": 11,
+        "y": 23,
+        "tile": "generic"
+      },
+      {
+        "x": 12,
+        "y": 23,
+        "tile": "generic"
+      },
+      {
+        "x": 13,
+        "y": 23,
+        "tile": "generic"
+      },
+      {
+        "x": 14,
+        "y": 23,
+        "tile": "generic"
+      },
+      {
+        "x": 15,
+        "y": 23,
+        "tile": "generic"
+      },
+      {
+        "x": 17,
+        "y": 23,
+        "tile": "generic"
+      },
+      {
+        "x": 18,
         "y": 23,
         "tile": "generic"
       },
@@ -39420,6 +39465,11 @@
       },
       {
         "x": 4,
+        "y": 29,
+        "tile": "generic"
+      },
+      {
+        "x": 22,
         "y": 29,
         "tile": "generic"
       },
@@ -40605,6 +40655,11 @@
       },
       {
         "x": 4,
+        "y": 31,
+        "tile": "generic"
+      },
+      {
+        "x": 22,
         "y": 31,
         "tile": "generic"
       },
@@ -52500,6 +52555,11 @@
       },
       {
         "x": 27,
+        "y": 47,
+        "tile": "generic"
+      },
+      {
+        "x": 42,
         "y": 47,
         "tile": "generic"
       },
@@ -53745,6 +53805,11 @@
       },
       {
         "x": 10,
+        "y": 49,
+        "tile": "generic"
+      },
+      {
+        "x": 42,
         "y": 49,
         "tile": "generic"
       },
@@ -55000,6 +55065,36 @@
       },
       {
         "x": 11,
+        "y": 51,
+        "tile": "generic"
+      },
+      {
+        "x": 16,
+        "y": 51,
+        "tile": "generic"
+      },
+      {
+        "x": 17,
+        "y": 51,
+        "tile": "generic"
+      },
+      {
+        "x": 18,
+        "y": 51,
+        "tile": "generic"
+      },
+      {
+        "x": 20,
+        "y": 51,
+        "tile": "generic"
+      },
+      {
+        "x": 21,
+        "y": 51,
+        "tile": "generic"
+      },
+      {
+        "x": 22,
         "y": 51,
         "tile": "generic"
       },
@@ -141817,15 +141912,15 @@
       {
         "id": "EnemySpawn_Goblin_Branch",
         "position": {
-          "x": 14,
-          "y": 25
+          "x": 16,
+          "y": 23
         },
         "enemy_type": "goblin"
       },
       {
         "id": "EnemySpawn_Orc_Central",
         "position": {
-          "x": 28,
+          "x": 22,
           "y": 30
         },
         "enemy_type": "orc"

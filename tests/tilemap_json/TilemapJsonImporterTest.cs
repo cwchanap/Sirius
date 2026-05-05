@@ -212,6 +212,21 @@ public partial class TilemapJsonImporterTest : Node
     }
 
     [TestCase]
+    public void ImportToScene_ReturnsInvalidParameterOnNullGridMapNode()
+    {
+        var model = new FloorJsonModel
+        {
+            TileLayers = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<Sirius.TilemapJson.TileData>>(),
+            Entities = new SceneEntities()
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, null);
+
+        AssertThat(err).IsEqual(Godot.Error.InvalidParameter);
+    }
+
+    [TestCase]
     public void ImportToScene_ReturnsInvalidParameterOnNullTileLayers()
     {
         var sceneRoot = new Node2D { Name = "TestFloor" };

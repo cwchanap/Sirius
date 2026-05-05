@@ -1,11 +1,11 @@
-[gd_scene load_steps=7 format=4]
+[gd_scene load_steps=7 format=4 uid="uid://du5e8f2k31mnr"]
 
 [ext_resource type="Script" uid="uid://dxou423ri263w" path="res://scripts/game/GridMap.cs" id="1"]
 [ext_resource type="TileSet" uid="uid://1oxxalqkpebn" path="res://assets/tiles/ground_tileset.tres" id="2"]
 [ext_resource type="TileSet" uid="uid://dm0fdgl52g2u4" path="res://assets/tiles/wall_tileset.tres" id="3"]
 [ext_resource type="Script" uid="uid://dog8eagtv7b3n" path="res://scripts/game/PlayerDisplay.cs" id="4"]
 [ext_resource type="TileSet" uid="uid://d1w3h484c5fh0" path="res://assets/tiles/stair_tileset.tres" id="5"]
-[ext_resource type="Script" path="res://scripts/game/StairConnection.cs" id="6_bcm1f"]
+[ext_resource type="Script" uid="uid://bio6oeyj3p53u" path="res://scripts/game/StairConnection.cs" id="6_bcm1f"]
 
 [node name="Floor2F" type="Node2D"]
 

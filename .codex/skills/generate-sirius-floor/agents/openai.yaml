@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generate Sirius Floor"
+  short_description: "Design and import Sirius floors"
+  default_prompt: "Use $generate-sirius-floor to design a new Sirius floor by confirming size, exits, NPCs, enemies, and complexity before generating and importing it."

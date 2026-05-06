@@ -168,6 +168,24 @@ def build_floor1_walls() -> set[tuple[int, int]]:
     for start, end in dead_end_branches:
         builder.carve_path(start, end, half_width=0)
 
+    decision_connectors = [
+        ("h", 5, 14, 37),
+        ("v", 31, 41, 12),
+        ("h", 11, 15, 28),
+        ("h", 19, 38, 8),
+        ("h", 17, 33, 11),
+        ("v", 8, 15, 28),
+        ("h", 49, 56, 34),
+        ("v", 31, 45, 52),
+        ("h", 49, 53, 32),
+        ("v", 31, 35, 50),
+    ]
+    for direction, start, end, fixed in decision_connectors:
+        if direction == "h":
+            builder.carve_h_corridor(start, end, fixed, half_width=0)
+        else:
+            builder.carve_v_corridor(start, end, fixed, half_width=0)
+
     builder.walls.update((x, 16) for x in range(48, 55))
 
     add_gate_barrier(

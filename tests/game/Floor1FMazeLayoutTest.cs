@@ -18,6 +18,15 @@ public partial class Floor1FMazeLayoutTest : Node
         new Vector2I(56, 30),
         new Vector2I(19, 54)
     ];
+    private static readonly Vector2I[] DecisionIntersections =
+    [
+        new Vector2I(12, 37),
+        new Vector2I(13, 28),
+        new Vector2I(28, 8),
+        new Vector2I(28, 11),
+        new Vector2I(52, 34),
+        new Vector2I(50, 32)
+    ];
 
     private static readonly Dictionary<string, string> ExpectedEnemyTypes = new()
     {
@@ -153,6 +162,26 @@ public partial class Floor1FMazeLayoutTest : Node
             var walls = GetWalls(gridMap);
 
             AssertThat(CountDeadEndCells(walls)).IsGreaterEqual(8);
+        }
+        finally
+        {
+            floorRoot.Free();
+        }
+    }
+
+    [TestCase]
+    public void Floor1F_GeneratedMaze_HasExpectedDecisionIntersections()
+    {
+        var floorRoot = LoadFloor();
+        try
+        {
+            var gridMap = floorRoot.GetNode<GridMap>("GridMap");
+            var walls = GetWalls(gridMap);
+
+            foreach (var intersection in DecisionIntersections)
+            {
+                AssertThat(NeighborCount(intersection, walls)).IsGreaterEqual(3);
+            }
         }
         finally
         {
@@ -297,6 +326,26 @@ public partial class Floor1FMazeLayoutTest : Node
         }
 
         return deadEnds;
+    }
+
+    private static int NeighborCount(Vector2I position, HashSet<Vector2I> walls)
+    {
+        var count = 0;
+        foreach (var neighbor in new[]
+        {
+            new Vector2I(position.X + 1, position.Y),
+            new Vector2I(position.X - 1, position.Y),
+            new Vector2I(position.X, position.Y + 1),
+            new Vector2I(position.X, position.Y - 1)
+        })
+        {
+            if (IsWalkable(neighbor, walls))
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private static bool HasPath(Vector2I start, Vector2I goal, HashSet<Vector2I> walls)

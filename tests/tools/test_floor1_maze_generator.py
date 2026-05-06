@@ -79,6 +79,14 @@ def count_dead_end_cells(walkable):
     return dead_ends
 
 
+def neighbor_count(walkable, position):
+    x, y = position
+    return sum(
+        (nx, ny) in walkable
+        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1))
+    )
+
+
 def floor_definition_source():
     return "\n".join(
         [
@@ -166,6 +174,20 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
 
     def test_maze_has_multiple_dead_end_branches(self):
         self.assertGreaterEqual(count_dead_end_cells(self.walkable), 8)
+
+    def test_maze_has_named_decision_intersections(self):
+        decision_intersections = [
+            (12, 37),
+            (13, 28),
+            (28, 8),
+            (28, 11),
+            (52, 34),
+            (50, 32),
+        ]
+
+        for position in decision_intersections:
+            with self.subTest(position=position):
+                self.assertGreaterEqual(neighbor_count(self.walkable, position), 3)
 
     def test_enemy_gates_block_routes_until_clearable(self):
         enemy_positions = {

@@ -38,6 +38,9 @@ FLOOR1_ENEMY_GATES = {
     "EnemySpawn_Skeleton_StairA": {"position": (43, 12), "enemy_type": "skeleton_warrior"},
     "EnemySpawn_ForestSpirit_StairB": {"position": (42, 48), "enemy_type": "forest_spirit"},
     "EnemySpawn_Orc_HiddenBranch": {"position": (19, 51), "enemy_type": "orc"},
+    "EnemySpawn_Skeleton_NorthShortcut": {"position": (36, 6), "enemy_type": "skeleton_warrior"},
+    "EnemySpawn_ForestSpirit_EastShortcut": {"position": (54, 56), "enemy_type": "forest_spirit"},
+    "EnemySpawn_Orc_SouthShortcut": {"position": (32, 58), "enemy_type": "orc"},
 }
 
 
@@ -186,7 +189,51 @@ def build_floor1_walls() -> set[tuple[int, int]]:
         else:
             builder.carve_v_corridor(start, end, fixed, half_width=0)
 
+    shortcut_branches = [
+        [
+            FLOOR1_HIDDEN_PLACEHOLDERS["hidden_room_north"],
+            (8, 8),
+            (8, 4),
+            (36, 4),
+            (36, 8),
+            (38, 8),
+        ],
+        [
+            FLOOR1_HIDDEN_PLACEHOLDERS["hidden_shortcut_east"],
+            (58, 46),
+            (56, 46),
+            (56, 48),
+            (58, 48),
+            (58, 50),
+            (56, 50),
+            (56, 52),
+            (58, 52),
+            (58, 54),
+            (56, 54),
+            (56, 56),
+            (58, 56),
+            (58, 58),
+            (54, 58),
+            (54, 46),
+            (58, 46),
+        ],
+        [
+            FLOOR1_HIDDEN_PLACEHOLDERS["hidden_room_south"],
+            (23, 58),
+            (23, 56),
+            (58, 56),
+            (58, 58),
+            (42, 58),
+            (23, 58),
+        ],
+    ]
+    for branch in shortcut_branches:
+        for start, end in zip(branch, branch[1:]):
+            builder.carve_path(start, end, half_width=0)
+
     builder.walls.update((x, 16) for x in range(48, 55))
+    builder.walls.add((19, 8))
+    builder.walls.add((35, 55))
 
     add_gate_barrier(
         builder.walls,

@@ -63,6 +63,24 @@ def has_path(walkable, start, goal):
     return False
 
 
+def shortest_path_length(walkable, start, goal):
+    queue = deque([(start, 0)])
+    seen = {start}
+
+    while queue:
+        current, distance = queue.popleft()
+        if current == goal:
+            return distance
+
+        x, y = current
+        for nxt in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if nxt in walkable and nxt not in seen:
+                seen.add(nxt)
+                queue.append((nxt, distance + 1))
+
+    return None
+
+
 def count_dead_end_cells(walkable):
     dead_ends = 0
     for x, y in walkable:
@@ -85,6 +103,34 @@ def neighbor_count(walkable, position):
         (nx, ny) in walkable
         for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1))
     )
+
+
+SHORTCUT_ROUTES = [
+    {
+        "enemy_id": "EnemySpawn_Skeleton_NorthShortcut",
+        "entry": (16, 8),
+        "source": (36, 4),
+        "target": (38, 8),
+        "min_depth": 24,
+        "min_savings": 10,
+    },
+    {
+        "enemy_id": "EnemySpawn_ForestSpirit_EastShortcut",
+        "entry": (56, 30),
+        "source": (54, 58),
+        "target": (58, 46),
+        "min_depth": 18,
+        "min_savings": 10,
+    },
+    {
+        "enemy_id": "EnemySpawn_Orc_SouthShortcut",
+        "entry": (19, 54),
+        "source": (42, 58),
+        "target": (23, 58),
+        "min_depth": 18,
+        "min_savings": 10,
+    },
+]
 
 
 def floor_definition_source():
@@ -156,6 +202,9 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
                 "EnemySpawn_Skeleton_StairA": "skeleton_warrior",
                 "EnemySpawn_ForestSpirit_StairB": "forest_spirit",
                 "EnemySpawn_Orc_HiddenBranch": "orc",
+                "EnemySpawn_Skeleton_NorthShortcut": "skeleton_warrior",
+                "EnemySpawn_ForestSpirit_EastShortcut": "forest_spirit",
+                "EnemySpawn_Orc_SouthShortcut": "orc",
             },
         )
 
@@ -188,6 +237,37 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
         for position in decision_intersections:
             with self.subTest(position=position):
                 self.assertGreaterEqual(neighbor_count(self.walkable, position), 3)
+
+    def test_maze_has_deep_shortcut_branches(self):
+        enemy_positions = {
+            enemy["id"]: (enemy["position"]["x"], enemy["position"]["y"])
+            for enemy in self.model["entities"]["enemy_spawns"]
+        }
+
+        for route in SHORTCUT_ROUTES:
+            with self.subTest(route=route["enemy_id"]):
+                self.assertIn(route["source"], self.walkable)
+                locked_walkable = self.walkable - {enemy_positions[route["enemy_id"]]}
+                depth = shortest_path_length(locked_walkable, route["entry"], route["source"])
+                self.assertIsNotNone(depth)
+                self.assertGreaterEqual(depth, route["min_depth"])
+
+    def test_shortcut_enemies_unlock_shorter_routes(self):
+        enemy_positions = {
+            enemy["id"]: (enemy["position"]["x"], enemy["position"]["y"])
+            for enemy in self.model["entities"]["enemy_spawns"]
+        }
+
+        for route in SHORTCUT_ROUTES:
+            with self.subTest(route=route["enemy_id"]):
+                self.assertIn(route["enemy_id"], enemy_positions)
+                locked_walkable = self.walkable - {enemy_positions[route["enemy_id"]]}
+                locked_length = shortest_path_length(locked_walkable, route["source"], route["target"])
+                unlocked_length = shortest_path_length(self.walkable, route["source"], route["target"])
+
+                self.assertIsNotNone(unlocked_length)
+                if locked_length is not None:
+                    self.assertGreaterEqual(locked_length - unlocked_length, route["min_savings"])
 
     def test_enemy_gates_block_routes_until_clearable(self):
         enemy_positions = {
@@ -223,7 +303,7 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
         self.assertIn("enemy_spawns", decoded["entities"])
 
     def test_validate_model_rejects_disconnected_walkable_island(self):
-        isolated = {"x": 58, "y": 58, "tile": "generic"}
+        isolated = {"x": 2, "y": 2, "tile": "generic"}
         self.model["tile_layers"]["wall"].remove(isolated)
 
         with self.assertRaisesRegex(ValueError, "Disconnected walkable cells"):

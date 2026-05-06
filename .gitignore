@@ -24,3 +24,6 @@ test.runsettings.local
 # Local brainstorming visual companion artifacts
 .superpowers/
 tests/tools/__pycache__/
+
+# Generated floor source JSON; regenerate from tools/*floor*_maze_generator.py
+scenes/game/floors/*.json

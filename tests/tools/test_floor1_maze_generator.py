@@ -132,6 +132,33 @@ SHORTCUT_ROUTES = [
     },
 ]
 
+INTERIOR_WALL_RUN_MARGIN = 4
+MAX_INTERIOR_WALL_RUN = 28
+
+
+def max_consecutive_wall_run(walls, width, height, margin):
+    max_run = 0
+
+    for y in range(margin, height - margin):
+        run = 0
+        for x in range(margin, width - margin):
+            if (x, y) in walls:
+                run += 1
+                max_run = max(max_run, run)
+            else:
+                run = 0
+
+    for x in range(margin, width - margin):
+        run = 0
+        for y in range(margin, height - margin):
+            if (x, y) in walls:
+                run += 1
+                max_run = max(max_run, run)
+            else:
+                run = 0
+
+    return max_run
+
 
 def floor_definition_source():
     return "\n".join(
@@ -237,6 +264,14 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
         for position in decision_intersections:
             with self.subTest(position=position):
                 self.assertGreaterEqual(neighbor_count(self.walkable, position), 3)
+
+    def test_maze_breaks_up_long_interior_wall_runs(self):
+        walls = {(tile["x"], tile["y"]) for tile in self.model["tile_layers"]["wall"]}
+
+        self.assertLessEqual(
+            max_consecutive_wall_run(walls, FLOOR1_WIDTH, FLOOR1_HEIGHT, INTERIOR_WALL_RUN_MARGIN),
+            MAX_INTERIOR_WALL_RUN,
+        )
 
     def test_maze_has_deep_shortcut_branches(self):
         enemy_positions = {

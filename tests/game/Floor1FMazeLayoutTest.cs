@@ -27,6 +27,8 @@ public partial class Floor1FMazeLayoutTest : Node
         new Vector2I(52, 34),
         new Vector2I(50, 32)
     ];
+    private const int InteriorWallRunMargin = 4;
+    private const int MaxInteriorWallRun = 28;
 
     private readonly record struct ShortcutRoute(
         string EnemyId,
@@ -218,6 +220,23 @@ public partial class Floor1FMazeLayoutTest : Node
             {
                 AssertThat(NeighborCount(intersection, walls)).IsGreaterEqual(3);
             }
+        }
+        finally
+        {
+            floorRoot.Free();
+        }
+    }
+
+    [TestCase]
+    public void Floor1F_GeneratedMaze_BreaksUpLongInteriorWallRuns()
+    {
+        var floorRoot = LoadFloor();
+        try
+        {
+            var gridMap = floorRoot.GetNode<GridMap>("GridMap");
+            var walls = GetWalls(gridMap);
+
+            AssertThat(MaxConsecutiveWallRun(walls, InteriorWallRunMargin)).IsLessEqual(MaxInteriorWallRun);
         }
         finally
         {
@@ -441,6 +460,47 @@ public partial class Floor1FMazeLayoutTest : Node
         }
 
         return count;
+    }
+
+    private static int MaxConsecutiveWallRun(HashSet<Vector2I> walls, int margin)
+    {
+        var maxRun = 0;
+
+        for (var y = margin; y < 60 - margin; y++)
+        {
+            var run = 0;
+            for (var x = margin; x < 60 - margin; x++)
+            {
+                if (walls.Contains(new Vector2I(x, y)))
+                {
+                    run++;
+                    maxRun = Mathf.Max(maxRun, run);
+                }
+                else
+                {
+                    run = 0;
+                }
+            }
+        }
+
+        for (var x = margin; x < 60 - margin; x++)
+        {
+            var run = 0;
+            for (var y = margin; y < 60 - margin; y++)
+            {
+                if (walls.Contains(new Vector2I(x, y)))
+                {
+                    run++;
+                    maxRun = Mathf.Max(maxRun, run);
+                }
+                else
+                {
+                    run = 0;
+                }
+            }
+        }
+
+        return maxRun;
     }
 
     private static bool HasPath(Vector2I start, Vector2I goal, HashSet<Vector2I> walls)

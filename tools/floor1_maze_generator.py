@@ -231,6 +231,28 @@ def build_floor1_walls() -> set[tuple[int, int]]:
         for start, end in zip(branch, branch[1:]):
             builder.carve_path(start, end, half_width=0)
 
+    wall_relief_paths = [
+        ((5, 22), (4, 22)),
+        ((30, 17), (30, 19)),
+        ((34, 26), (34, 22)),
+        ((52, 24), (44, 24)),
+        ((39, 34), (43, 34)),
+        ((48, 35), (44, 35)),
+        ((12, 40), (28, 40)),
+        ((12, 41), (28, 41)),
+        ((13, 42), (28, 42)),
+        ((13, 43), (28, 43)),
+        ((13, 44), (28, 44)),
+        ((47, 42), (39, 42)),
+        ((47, 43), (39, 43)),
+        ((47, 44), (39, 44)),
+        ((47, 45), (39, 45)),
+        ((13, 46), (28, 46)),
+        ((38, 56), (38, 55)),
+    ]
+    for start, end in wall_relief_paths:
+        builder.carve_path(start, end, half_width=0)
+
     builder.walls.update((x, 16) for x in range(48, 55))
     builder.walls.add((19, 8))
     builder.walls.add((35, 55))

@@ -61,6 +61,8 @@ public partial class TilemapJsonImporter : RefCounted
             return Error.InvalidParameter;
         }
 
+        ConfigureGridMapBounds(model.TileLayers, gridMapNode);
+
         // Import tile layers
         ImportTileLayers(model.TileLayers, gridMapNode);
 
@@ -69,6 +71,23 @@ public partial class TilemapJsonImporter : RefCounted
 
         GD.Print("[TilemapJsonImporter] Import complete");
         return Error.Ok;
+    }
+
+    private static void ConfigureGridMapBounds(Dictionary<string, List<TileData>> layers, Node2D gridMapNode)
+    {
+        if (gridMapNode is not GridMap gridMap)
+            return;
+
+        if (!layers.TryGetValue("ground", out var groundTiles) || groundTiles == null || groundTiles.Count == 0)
+            return;
+
+        int width = groundTiles.Max(tile => tile.X) + 1;
+        int height = groundTiles.Max(tile => tile.Y) + 1;
+        if (width <= 0 || height <= 0)
+            return;
+
+        gridMap.GridWidth = width;
+        gridMap.GridHeight = height;
     }
 
     /// <summary>

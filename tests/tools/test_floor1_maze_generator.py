@@ -37,12 +37,23 @@ from tools.floor1_maze_generator import (
 
 def walkable_set(model):
     walls = {(tile["x"], tile["y"]) for tile in model["tile_layers"]["wall"]}
+    ground = model["tile_layers"]["ground"]
+    width = max(tile["x"] for tile in ground) + 1
+    height = max(tile["y"] for tile in ground) + 1
     return {
         (x, y)
-        for y in range(GRID_HEIGHT)
-        for x in range(GRID_WIDTH)
+        for y in range(height)
+        for x in range(width)
         if (x, y) not in walls
     }
+
+
+def assert_tiles_inside(test_case, tiles, width, height):
+    for tile in tiles:
+        test_case.assertGreaterEqual(tile["x"], 0)
+        test_case.assertLess(tile["x"], width)
+        test_case.assertGreaterEqual(tile["y"], 0)
+        test_case.assertLess(tile["y"], height)
 
 
 def has_path(walkable, start, goal):
@@ -179,9 +190,10 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
         self.model = build_floor1_model()
         self.walkable = walkable_set(self.model)
 
-    def test_generates_60_by_60_floor_inside_160_grid(self):
+    def test_generates_60_by_60_floor_without_outside_padding(self):
         ground = self.model["tile_layers"]["ground"]
-        walls = {(tile["x"], tile["y"]) for tile in self.model["tile_layers"]["wall"]}
+        walls = self.model["tile_layers"]["wall"]
+        stairs = self.model["tile_layers"]["stair"]
 
         self.assertEqual(FLOOR1_WIDTH, 60)
         self.assertEqual(FLOOR1_HEIGHT, 60)
@@ -190,14 +202,9 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
         self.assertEqual(len(ground), 3600)
         self.assertEqual(ground[0], {"x": 0, "y": 0, "tile": "starting_area"})
         self.assertEqual(ground[-1], {"x": 59, "y": 59, "tile": "starting_area"})
-
-        for y in range(FLOOR1_HEIGHT, GRID_HEIGHT):
-            for x in range(GRID_WIDTH):
-                self.assertIn((x, y), walls)
-
-        for y in range(FLOOR1_HEIGHT):
-            for x in range(FLOOR1_WIDTH, GRID_WIDTH):
-                self.assertIn((x, y), walls)
+        assert_tiles_inside(self, ground, FLOOR1_WIDTH, FLOOR1_HEIGHT)
+        assert_tiles_inside(self, walls, FLOOR1_WIDTH, FLOOR1_HEIGHT)
+        assert_tiles_inside(self, stairs, FLOOR1_WIDTH, FLOOR1_HEIGHT)
 
     def test_places_visible_stairs_and_no_hidden_stair_tiles(self):
         stairs = self.model["tile_layers"]["stair"]

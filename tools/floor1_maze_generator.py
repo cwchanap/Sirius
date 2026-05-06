@@ -117,8 +117,15 @@ def ground_tiles(width: int, height: int) -> list[dict[str, int | str]]:
     return [{"x": x, "y": y, "tile": "starting_area"} for y in range(height) for x in range(width)]
 
 
-def wall_tiles(walls: set[tuple[int, int]], width: int, height: int) -> list[dict[str, int | str]]:
-    all_walls = walls | outside_footprint_walls(width, height)
+def wall_tiles(
+    walls: set[tuple[int, int]],
+    width: int,
+    height: int,
+    include_outside_footprint: bool = True,
+) -> list[dict[str, int | str]]:
+    all_walls = set(walls)
+    if include_outside_footprint:
+        all_walls |= outside_footprint_walls(width, height)
     return [{"x": x, "y": y, "tile": "generic"} for x, y in sorted(all_walls, key=lambda p: (p[1], p[0]))]
 
 
@@ -294,7 +301,12 @@ def build_floor1_model() -> dict:
         },
         "tile_layers": {
             "ground": ground_tiles(FLOOR1_WIDTH, FLOOR1_HEIGHT),
-            "wall": wall_tiles(build_floor1_walls(), FLOOR1_WIDTH, FLOOR1_HEIGHT),
+            "wall": wall_tiles(
+                build_floor1_walls(),
+                FLOOR1_WIDTH,
+                FLOOR1_HEIGHT,
+                include_outside_footprint=False,
+            ),
             "stair": [
                 {"x": FLOOR1_DOWN_STAIR[0], "y": FLOOR1_DOWN_STAIR[1], "tile": "down"},
                 {"x": FLOOR1_UP_STAIR_A[0], "y": FLOOR1_UP_STAIR_A[1], "tile": "up"},
@@ -386,12 +398,12 @@ def build_floor2_model() -> dict:
     return model
 
 
-def walkable_cells(model: dict) -> set[tuple[int, int]]:
+def walkable_cells(model: dict, width: int, height: int) -> set[tuple[int, int]]:
     walls = {(tile["x"], tile["y"]) for tile in model["tile_layers"]["wall"]}
     return {
         (x, y)
-        for y in range(GRID_HEIGHT)
-        for x in range(GRID_WIDTH)
+        for y in range(height)
+        for x in range(width)
         if (x, y) not in walls
     }
 
@@ -409,7 +421,7 @@ def connected_walkable_cells(walkable: set[tuple[int, int]], start: tuple[int, i
 
 
 def validate_model(model: dict, width: int, height: int) -> None:
-    walkable = walkable_cells(model)
+    walkable = walkable_cells(model, width, height)
     start_data = model["floor_metadata"]["player_start"]
     start = (start_data["x"], start_data["y"])
     if start not in walkable:

@@ -1,7 +1,9 @@
 using GdUnit4;
 using Godot;
 using Sirius.TilemapJson;
+using System.Collections.Generic;
 using static GdUnit4.Assertions;
+using FloorTileData = Sirius.TilemapJson.TileData;
 
 [TestSuite]
 [RequireGodotRuntime]
@@ -37,6 +39,37 @@ public partial class TilemapJsonImporterTest : Node
 
         AssertThat(err).IsEqual(Godot.Error.Ok);
         AssertThat(gridMap.GetNode<Node>("EnemySpawn_Goblin_Test").Owner).IsEqual(sceneRoot);
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_SetsGridMapBoundsFromGroundFootprint()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new GridMap { Name = "GridMap", GridWidth = 160, GridHeight = 160 };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            TileLayers = new Dictionary<string, List<FloorTileData>>
+            {
+                ["ground"] =
+                [
+                    new FloorTileData(0, 0, "starting_area"),
+                    new FloorTileData(59, 59, "starting_area")
+                ]
+            },
+            Entities = new SceneEntities()
+        };
+
+        var importer = new TilemapJsonImporter();
+
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        AssertThat(gridMap.GridWidth).IsEqual(60);
+        AssertThat(gridMap.GridHeight).IsEqual(60);
         sceneRoot.Free();
     }
 

@@ -87,12 +87,18 @@ public partial class Floor1FMazeLayoutTest : Node
             var stairLayer = gridMap.GetNode<TileMapLayer>("StairLayer");
             var stairCells = stairLayer.GetUsedCells();
 
+            AssertThat(gridMap.GridWidth).IsEqual(60);
+            AssertThat(gridMap.GridHeight).IsEqual(60);
             AssertThat(groundLayer.GetUsedCells().Count).IsEqual(3600);
-            AssertThat(wallLayer.GetUsedCells().Count).IsGreater(22000);
+            AssertThat(wallLayer.GetUsedCells().Count).IsLess(3600);
+            AssertThat(wallLayer.GetUsedCells().Count).IsGreater(2000);
             AssertThat(stairCells.Count).IsEqual(3);
             AssertThat(stairCells.Contains(DownStair)).IsTrue();
             AssertThat(stairCells.Contains(UpStairA)).IsTrue();
             AssertThat(stairCells.Contains(UpStairB)).IsTrue();
+            AssertLayerCellsInsideFootprint(groundLayer, 60, 60);
+            AssertLayerCellsInsideFootprint(wallLayer, 60, 60);
+            AssertLayerCellsInsideFootprint(stairLayer, 60, 60);
         }
         finally
         {
@@ -402,6 +408,17 @@ public partial class Floor1FMazeLayoutTest : Node
     private static bool IsWalkable(Vector2I position, HashSet<Vector2I> walls)
     {
         return IsInsideFloor(position) && !walls.Contains(position);
+    }
+
+    private static void AssertLayerCellsInsideFootprint(TileMapLayer layer, int width, int height)
+    {
+        foreach (var cell in layer.GetUsedCells())
+        {
+            AssertThat(cell.X).IsGreaterEqual(0);
+            AssertThat(cell.X).IsLess(width);
+            AssertThat(cell.Y).IsGreaterEqual(0);
+            AssertThat(cell.Y).IsLess(height);
+        }
     }
 
     private static int CountDeadEndCells(HashSet<Vector2I> walls)

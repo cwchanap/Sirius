@@ -28,13 +28,49 @@ public partial class Floor1FMazeLayoutTest : Node
         new Vector2I(50, 32)
     ];
 
+    private readonly record struct ShortcutRoute(
+        string EnemyId,
+        Vector2I Entry,
+        Vector2I Source,
+        Vector2I Target,
+        int MinDepth,
+        int MinSavings);
+
+    private static readonly ShortcutRoute[] ShortcutRoutes =
+    [
+        new(
+            "EnemySpawn_Skeleton_NorthShortcut",
+            new Vector2I(16, 8),
+            new Vector2I(36, 4),
+            new Vector2I(38, 8),
+            24,
+            10),
+        new(
+            "EnemySpawn_ForestSpirit_EastShortcut",
+            new Vector2I(56, 30),
+            new Vector2I(54, 58),
+            new Vector2I(58, 46),
+            18,
+            10),
+        new(
+            "EnemySpawn_Orc_SouthShortcut",
+            new Vector2I(19, 54),
+            new Vector2I(42, 58),
+            new Vector2I(23, 58),
+            18,
+            10)
+    ];
+
     private static readonly Dictionary<string, string> ExpectedEnemyTypes = new()
     {
         ["EnemySpawn_Goblin_Branch"] = "goblin",
         ["EnemySpawn_Orc_Central"] = "orc",
         ["EnemySpawn_Skeleton_StairA"] = "skeleton_warrior",
         ["EnemySpawn_ForestSpirit_StairB"] = "forest_spirit",
-        ["EnemySpawn_Orc_HiddenBranch"] = "orc"
+        ["EnemySpawn_Orc_HiddenBranch"] = "orc",
+        ["EnemySpawn_Skeleton_NorthShortcut"] = "skeleton_warrior",
+        ["EnemySpawn_ForestSpirit_EastShortcut"] = "forest_spirit",
+        ["EnemySpawn_Orc_SouthShortcut"] = "orc"
     };
 
     [TestCase]
@@ -181,6 +217,65 @@ public partial class Floor1FMazeLayoutTest : Node
             foreach (var intersection in DecisionIntersections)
             {
                 AssertThat(NeighborCount(intersection, walls)).IsGreaterEqual(3);
+            }
+        }
+        finally
+        {
+            floorRoot.Free();
+        }
+    }
+
+    [TestCase]
+    public void Floor1F_GeneratedMaze_HasDeepShortcutBranches()
+    {
+        var floorRoot = LoadFloor();
+        try
+        {
+            var gridMap = floorRoot.GetNode<GridMap>("GridMap");
+            var walls = GetWalls(gridMap);
+            var enemyPositions = gridMap.GetChildren()
+                .OfType<EnemySpawn>()
+                .ToDictionary(enemy => enemy.Name.ToString(), enemy => enemy.GridPosition);
+
+            foreach (var route in ShortcutRoutes)
+            {
+                AssertThat(IsWalkable(route.Source, walls)).IsTrue();
+                var lockedCells = new HashSet<Vector2I>(walls) { enemyPositions[route.EnemyId] };
+                var depth = ShortestPathLength(route.Entry, route.Source, lockedCells);
+                AssertThat(depth.HasValue).IsTrue();
+                AssertThat(depth!.Value).IsGreaterEqual(route.MinDepth);
+            }
+        }
+        finally
+        {
+            floorRoot.Free();
+        }
+    }
+
+    [TestCase]
+    public void Floor1F_GeneratedMaze_ShortcutEnemiesUnlockShorterRoutes()
+    {
+        var floorRoot = LoadFloor();
+        try
+        {
+            var gridMap = floorRoot.GetNode<GridMap>("GridMap");
+            var walls = GetWalls(gridMap);
+            var enemyPositions = gridMap.GetChildren()
+                .OfType<EnemySpawn>()
+                .ToDictionary(enemy => enemy.Name.ToString(), enemy => enemy.GridPosition);
+
+            foreach (var route in ShortcutRoutes)
+            {
+                AssertThat(enemyPositions.ContainsKey(route.EnemyId)).IsTrue();
+                var lockedCells = new HashSet<Vector2I>(walls) { enemyPositions[route.EnemyId] };
+                var lockedLength = ShortestPathLength(route.Source, route.Target, lockedCells);
+                var unlockedLength = ShortestPathLength(route.Source, route.Target, walls);
+
+                AssertThat(unlockedLength.HasValue).IsTrue();
+                if (lockedLength.HasValue)
+                {
+                    AssertThat(lockedLength.Value - unlockedLength!.Value).IsGreaterEqual(route.MinSavings);
+                }
             }
         }
         finally
@@ -350,7 +445,13 @@ public partial class Floor1FMazeLayoutTest : Node
 
     private static bool HasPath(Vector2I start, Vector2I goal, HashSet<Vector2I> walls)
     {
+        return ShortestPathLength(start, goal, walls).HasValue;
+    }
+
+    private static int? ShortestPathLength(Vector2I start, Vector2I goal, HashSet<Vector2I> walls)
+    {
         var queue = new Queue<Vector2I>();
+        var distances = new Dictionary<Vector2I, int> { [start] = 0 };
         var seen = new HashSet<Vector2I> { start };
         queue.Enqueue(start);
 
@@ -359,7 +460,7 @@ public partial class Floor1FMazeLayoutTest : Node
             var current = queue.Dequeue();
             if (current == goal)
             {
-                return true;
+                return distances[current];
             }
 
             foreach (var next in Neighbors(current))
@@ -370,11 +471,12 @@ public partial class Floor1FMazeLayoutTest : Node
                 }
 
                 seen.Add(next);
+                distances[next] = distances[current] + 1;
                 queue.Enqueue(next);
             }
         }
 
-        return false;
+        return null;
     }
 
     private static IEnumerable<Vector2I> Neighbors(Vector2I position)

@@ -144,6 +144,23 @@ public partial class Floor1FMazeLayoutTest : Node
     }
 
     [TestCase]
+    public void Floor1F_GeneratedMaze_HasMultipleDeadEndBranches()
+    {
+        var floorRoot = LoadFloor();
+        try
+        {
+            var gridMap = floorRoot.GetNode<GridMap>("GridMap");
+            var walls = GetWalls(gridMap);
+
+            AssertThat(CountDeadEndCells(walls)).IsGreaterEqual(8);
+        }
+        finally
+        {
+            floorRoot.Free();
+        }
+    }
+
+    [TestCase]
     public void Floor1F_GeneratedMaze_EnemyGatesBlockBranchesUntilCleared()
     {
         var floorRoot = LoadFloor();
@@ -242,6 +259,44 @@ public partial class Floor1FMazeLayoutTest : Node
     private static bool IsWalkable(Vector2I position, HashSet<Vector2I> walls)
     {
         return IsInsideFloor(position) && !walls.Contains(position);
+    }
+
+    private static int CountDeadEndCells(HashSet<Vector2I> walls)
+    {
+        var deadEnds = 0;
+        for (var y = 0; y < 60; y++)
+        {
+            for (var x = 0; x < 60; x++)
+            {
+                var position = new Vector2I(x, y);
+                if (!IsWalkable(position, walls))
+                {
+                    continue;
+                }
+
+                var neighborCount = 0;
+                foreach (var neighbor in new[]
+                {
+                    new Vector2I(x + 1, y),
+                    new Vector2I(x - 1, y),
+                    new Vector2I(x, y + 1),
+                    new Vector2I(x, y - 1)
+                })
+                {
+                    if (IsWalkable(neighbor, walls))
+                    {
+                        neighborCount++;
+                    }
+                }
+
+                if (neighborCount == 1)
+                {
+                    deadEnds++;
+                }
+            }
+        }
+
+        return deadEnds;
     }
 
     private static bool HasPath(Vector2I start, Vector2I goal, HashSet<Vector2I> walls)

@@ -153,6 +153,21 @@ def build_floor1_walls() -> set[tuple[int, int]]:
     builder.carve_rect(53, 28, 58, 32)
     builder.carve_rect(16, 52, 22, 56)
 
+    dead_end_branches = [
+        ((11, 22), (5, 22)),
+        ((28, 26), (28, 20)),
+        ((32, 34), (38, 39)),
+        ((49, 9), (49, 5)),
+        ((53, 35), (47, 35)),
+        ((56, 30), (56, 36)),
+        ((28, 50), (35, 55)),
+        ((7, 42), (2, 42)),
+        ((12, 49), (5, 54)),
+        ((38, 12), (38, 7)),
+    ]
+    for start, end in dead_end_branches:
+        builder.carve_path(start, end, half_width=0)
+
     builder.walls.update((x, 16) for x in range(48, 55))
 
     add_gate_barrier(

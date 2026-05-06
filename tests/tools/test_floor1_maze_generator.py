@@ -63,6 +63,22 @@ def has_path(walkable, start, goal):
     return False
 
 
+def count_dead_end_cells(walkable):
+    dead_ends = 0
+    for x, y in walkable:
+        if x >= FLOOR1_WIDTH or y >= FLOOR1_HEIGHT:
+            continue
+
+        neighbor_count = sum(
+            (nx, ny) in walkable
+            for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1))
+        )
+        if neighbor_count == 1:
+            dead_ends += 1
+
+    return dead_ends
+
+
 def floor_definition_source():
     return "\n".join(
         [
@@ -147,6 +163,9 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
         for goal in goals:
             with self.subTest(goal=goal):
                 self.assertTrue(has_path(self.walkable, FLOOR1_PLAYER_START, goal))
+
+    def test_maze_has_multiple_dead_end_branches(self):
+        self.assertGreaterEqual(count_dead_end_cells(self.walkable), 8)
 
     def test_enemy_gates_block_routes_until_clearable(self):
         enemy_positions = {

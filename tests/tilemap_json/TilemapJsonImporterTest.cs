@@ -74,6 +74,38 @@ public partial class TilemapJsonImporterTest : Node
     }
 
     [TestCase]
+    public void ImportToScene_ComputesGridDimsFromMinToMaxRange()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new GridMap { Name = "GridMap", GridWidth = 160, GridHeight = 160 };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        // Tiles span x:5-14 (width=10), y:3-7 (height=5)
+        var model = new FloorJsonModel
+        {
+            TileLayers = new Dictionary<string, List<FloorTileData>>
+            {
+                ["ground"] =
+                [
+                    new FloorTileData(5, 3, "starting_area"),
+                    new FloorTileData(14, 7, "starting_area")
+                ]
+            },
+            Entities = new SceneEntities()
+        };
+
+        var importer = new TilemapJsonImporter();
+
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        AssertThat(gridMap.GridWidth).IsEqual(10);
+        AssertThat(gridMap.GridHeight).IsEqual(5);
+        sceneRoot.Free();
+    }
+
+    [TestCase]
     public void ImportToScene_AssignsOwnerToCreatedNpcSpawnNodes()
     {
         var sceneRoot = new Node2D { Name = "TestFloor" };

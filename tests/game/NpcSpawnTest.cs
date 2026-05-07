@@ -86,17 +86,7 @@ public partial class NpcSpawnTest : Node
 
         try
         {
-            var gridMap = floorRoot.GetNode<GridMap>("GridMap");
-            var npcCount = 0;
-
-            foreach (Node child in gridMap.GetChildren())
-            {
-                if (child is NpcSpawn)
-                {
-                    npcCount++;
-                }
-            }
-
+            var npcCount = AssertFloorNpcIds(floorRoot);
             AssertThat(npcCount).IsEqual(0);
         }
         finally

@@ -81,8 +81,12 @@ public partial class TilemapJsonImporter : RefCounted
         if (!layers.TryGetValue("ground", out var groundTiles) || groundTiles == null || groundTiles.Count == 0)
             return;
 
-        int width = groundTiles.Max(tile => tile.X) + 1;
-        int height = groundTiles.Max(tile => tile.Y) + 1;
+        int minX = groundTiles.Min(tile => tile.X);
+        int maxX = groundTiles.Max(tile => tile.X);
+        int minY = groundTiles.Min(tile => tile.Y);
+        int maxY = groundTiles.Max(tile => tile.Y);
+        int width = maxX - minX + 1;
+        int height = maxY - minY + 1;
         if (width <= 0 || height <= 0)
             return;
 

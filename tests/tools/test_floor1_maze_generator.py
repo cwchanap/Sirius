@@ -270,6 +270,7 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
 
         for position in decision_intersections:
             with self.subTest(position=position):
+                self.assertIn(position, self.walkable)
                 self.assertGreaterEqual(neighbor_count(self.walkable, position), 3)
 
     def test_maze_breaks_up_long_interior_wall_runs(self):
@@ -346,6 +347,7 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
 
     def test_validate_model_rejects_disconnected_walkable_island(self):
         isolated = {"x": 2, "y": 2, "tile": "generic"}
+        self.assertIn(isolated, self.model["tile_layers"]["wall"])
         self.model["tile_layers"]["wall"].remove(isolated)
 
         with self.assertRaisesRegex(ValueError, "Disconnected walkable cells"):

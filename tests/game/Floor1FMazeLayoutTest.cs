@@ -224,6 +224,7 @@ public partial class Floor1FMazeLayoutTest : Node
 
             foreach (var intersection in DecisionIntersections)
             {
+                AssertThat(IsWalkable(intersection, walls)).IsTrue();
                 AssertThat(NeighborCount(intersection, walls)).IsGreaterEqual(3);
             }
         }

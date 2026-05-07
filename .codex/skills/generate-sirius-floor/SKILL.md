@@ -28,7 +28,7 @@ Read [references/sirius-floor-workflow.md](references/sirius-floor-workflow.md) 
    - exit/stair count, directions, and whether each stair is visible or hidden
    - NPC count/types, or explicit "no NPCs"
    - enemy count/types and which paths they should gate
-   - maze complexity: simple, moderate, complex, or custom constraints
+   - maze complexity: simple, moderate, complex, or custom constraints; ask which optional complexity knobs to include
    - theme/terrain mix and special landmarks
    - placeholder future rooms, shortcuts, or floors
 3. Restate the confirmed brief as an implementation checklist. For broad or risky changes, save a plan under `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`.
@@ -41,6 +41,18 @@ Read [references/sirius-floor-workflow.md](references/sirius-floor-workflow.md) 
    - importer/sync tests if the import pipeline changed
    - focused GdUnit floor layout tests
    - `dotnet build Sirius.sln`
+
+## Optional Complexity Knobs
+
+Ask the user before enabling these unless they already requested them:
+
+- multiple dead ends and deeper branch chains, not only one-room side paths
+- more decision intersections and loops so the route has real navigation choices
+- enemy-blocked roads where branch access requires clearing specific enemies
+- shortcut branches that become useful only after a blocker is cleared
+- visible stairs separated from hidden future-room or shortcut placeholders
+- reduced long consecutive wall blocks so the map reads as authored maze space, not padded filler
+- true scene footprint bounds matching the intended size, not a larger map filled with walls
 
 ## Design Rules
 

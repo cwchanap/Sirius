@@ -64,10 +64,16 @@ public partial class TilemapJsonImporter : RefCounted
         ConfigureGridMapBounds(model.TileLayers, gridMapNode);
 
         // Import tile layers
-        ImportTileLayers(model.TileLayers, gridMapNode);
+        int totalTileFailures = ImportTileLayers(model.TileLayers, gridMapNode);
 
         // Import entities
         ImportEntities(model.Entities, gridMapNode);
+
+        if (totalTileFailures > 0)
+        {
+            GD.PrintErr($"[TilemapJsonImporter] Import completed with {totalTileFailures} tile mapping failures");
+            return Error.Failed;
+        }
 
         GD.Print("[TilemapJsonImporter] Import complete");
         return Error.Ok;
@@ -81,12 +87,10 @@ public partial class TilemapJsonImporter : RefCounted
         if (!layers.TryGetValue("ground", out var groundTiles) || groundTiles == null || groundTiles.Count == 0)
             return;
 
-        int minX = groundTiles.Min(tile => tile.X);
         int maxX = groundTiles.Max(tile => tile.X);
-        int minY = groundTiles.Min(tile => tile.Y);
         int maxY = groundTiles.Max(tile => tile.Y);
-        int width = maxX - minX + 1;
-        int height = maxY - minY + 1;
+        int width = maxX + 1;
+        int height = maxY + 1;
         if (width <= 0 || height <= 0)
             return;
 
@@ -124,15 +128,17 @@ public partial class TilemapJsonImporter : RefCounted
         return ImportToScene(model, gridMapNode);
     }
 
-    private void ImportTileLayers(Dictionary<string, List<TileData>> layers, Node2D gridMapNode)
+    private int ImportTileLayers(Dictionary<string, List<TileData>> layers, Node2D gridMapNode)
     {
+        int totalFailures = 0;
+
         // Import each layer type
         if (layers.TryGetValue("ground", out var groundTiles))
         {
             var groundLayer = gridMapNode.GetNodeOrNull<TileMapLayer>("GroundLayer");
             if (groundLayer != null)
             {
-                ImportTileLayer(groundTiles, groundLayer, "ground");
+                totalFailures += ImportTileLayer(groundTiles, groundLayer, "ground");
             }
             else
             {
@@ -145,7 +151,7 @@ public partial class TilemapJsonImporter : RefCounted
             var wallLayer = gridMapNode.GetNodeOrNull<TileMapLayer>("WallLayer");
             if (wallLayer != null)
             {
-                ImportTileLayer(wallTiles, wallLayer, "wall");
+                totalFailures += ImportTileLayer(wallTiles, wallLayer, "wall");
             }
             else
             {
@@ -158,16 +164,18 @@ public partial class TilemapJsonImporter : RefCounted
             var stairLayer = gridMapNode.GetNodeOrNull<TileMapLayer>("StairLayer");
             if (stairLayer != null)
             {
-                ImportTileLayer(stairTiles, stairLayer, "stair");
+                totalFailures += ImportTileLayer(stairTiles, stairLayer, "stair");
             }
             else
             {
                 GD.PrintErr("[TilemapJsonImporter] StairLayer node not found — stair tiles discarded");
             }
         }
+
+        return totalFailures;
     }
 
-    private void ImportTileLayer(List<TileData> tiles, TileMapLayer layer, string layerType)
+    private int ImportTileLayer(List<TileData> tiles, TileMapLayer layer, string layerType)
     {
         // Clear existing tiles
         layer.Clear();
@@ -192,17 +200,28 @@ public partial class TilemapJsonImporter : RefCounted
             successCount++;
         }
 
-        GD.Print($"[TilemapJsonImporter] Layer '{layerType}': {successCount} tiles imported, {failCount} failed");
+        if (failCount > 0)
+            GD.PrintErr($"[TilemapJsonImporter] Layer '{layerType}': {successCount} tiles imported, {failCount} failed");
+        else
+            GD.Print($"[TilemapJsonImporter] Layer '{layerType}': {successCount} tiles imported");
+
+        return failCount;
     }
 
     private void ImportEntities(SceneEntities entities, Node2D gridMapNode)
     {
         if (entities.EnemySpawns != null)
             ImportEnemySpawns(entities.EnemySpawns, gridMapNode);
+        else
+            GD.PrintErr("[TilemapJsonImporter] enemy_spawns key missing from JSON — enemy spawns not imported");
         if (entities.NpcSpawns != null)
             ImportNpcSpawns(entities.NpcSpawns, gridMapNode);
+        else
+            GD.PrintErr("[TilemapJsonImporter] npc_spawns key missing from JSON — NPC spawns not imported");
         if (entities.StairConnections != null)
             ImportStairConnections(entities.StairConnections, gridMapNode);
+        else
+            GD.PrintErr("[TilemapJsonImporter] stair_connections key missing from JSON — stair connections not imported");
     }
 
     private void ImportEnemySpawns(List<EnemySpawnData> spawns, Node2D gridMapNode)
@@ -275,6 +294,11 @@ public partial class TilemapJsonImporter : RefCounted
         if (ResourceLoader.Exists(scenePath))
         {
             var scene = GD.Load<PackedScene>(scenePath);
+            if (scene == null)
+            {
+                GD.PrintErr($"[TilemapJsonImporter] Failed to load scene: {scenePath}");
+                return;
+            }
             instance = scene.Instantiate();
             if (instance == null)
             {
@@ -285,7 +309,7 @@ public partial class TilemapJsonImporter : RefCounted
         else
         {
             instance = new EnemySpawn();
-            GD.Print($"[TilemapJsonImporter] Spawn scene not found for '{data.EnemyType}', created generic EnemySpawn");
+            GD.PrintErr($"[TilemapJsonImporter] Spawn scene not found for '{data.EnemyType}', created generic EnemySpawn");
         }
 
         instance.Name = data.Id;
@@ -456,7 +480,17 @@ public partial class TilemapJsonImporter : RefCounted
         node.Set("StairId", data.Id);
         node.Set("GridPosition", data.Position.ToVector2I());
 
-        int direction = data.Direction?.ToLower() == "down" ? 1 : 0;
+        int direction;
+        var dir = data.Direction?.ToLower();
+        if (dir == "down")
+            direction = 1;
+        else if (dir == "up")
+            direction = 0;
+        else
+        {
+            GD.PrintErr($"[TilemapJsonImporter] Invalid stair direction '{data.Direction}' for '{data.Id}', expected 'up' or 'down'");
+            direction = 0;
+        }
         node.Set("Direction", direction);
         node.Set("TargetFloor", data.TargetFloor);
         node.Set("DestinationStairId", data.DestinationStairId ?? "");

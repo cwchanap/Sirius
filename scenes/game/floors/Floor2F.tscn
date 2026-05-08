@@ -13,6 +13,8 @@
 process_mode = 3
 texture_filter = 1
 script = ExtResource("1")
+GridWidth = 36
+GridHeight = 22
 EnableDebugLogging = true
 
 [node name="GroundLayer" type="TileMapLayer" parent="GridMap"]

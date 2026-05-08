@@ -81,7 +81,7 @@ public partial class TilemapJsonImporterTest : Node
         sceneRoot.AddChild(gridMap);
         gridMap.Owner = sceneRoot;
 
-        // Tiles span x:5-14 (width=10), y:3-7 (height=5)
+        // Tiles span x:0-14 (width=15), y:0-7 (height=8) — GridMap indexes from origin
         var model = new FloorJsonModel
         {
             TileLayers = new Dictionary<string, List<FloorTileData>>
@@ -100,8 +100,8 @@ public partial class TilemapJsonImporterTest : Node
         var err = importer.ImportToScene(model, gridMap);
 
         AssertThat(err).IsEqual(Godot.Error.Ok);
-        AssertThat(gridMap.GridWidth).IsEqual(10);
-        AssertThat(gridMap.GridHeight).IsEqual(5);
+        AssertThat(gridMap.GridWidth).IsEqual(15);
+        AssertThat(gridMap.GridHeight).IsEqual(8);
         sceneRoot.Free();
     }
 
@@ -577,6 +577,86 @@ public partial class TilemapJsonImporterTest : Node
         AssertThat(spawn.EnemyType).IsEqual("skeleton_warrior");
         AssertThat(spawn.Position).IsEqual(new Vector2(1392, 400));
 
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_StairDirectionDefaultsToUpOnInvalidValue()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                StairConnections =
+                [
+                    new StairConnectionData
+                    {
+                        Id = "Stair_BadDir",
+                        Position = new Vector2IData(5, 5),
+                        Direction = "sideways",
+                        TargetFloor = 1,
+                        DestinationStairId = "dest"
+                    }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        var stair = gridMap.GetNode<StairConnection>("Stair_BadDir");
+        AssertThat(stair.Direction).IsEqual(StairDirection.Up);
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_StairDirectionParsesUpAndDown()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                StairConnections =
+                [
+                    new StairConnectionData
+                    {
+                        Id = "Stair_Up",
+                        Position = new Vector2IData(1, 1),
+                        Direction = "up",
+                        TargetFloor = 2,
+                        DestinationStairId = "dest_up"
+                    },
+                    new StairConnectionData
+                    {
+                        Id = "Stair_Down",
+                        Position = new Vector2IData(2, 2),
+                        Direction = "down",
+                        TargetFloor = 0,
+                        DestinationStairId = "dest_down"
+                    }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        var upStair = gridMap.GetNode<StairConnection>("Stair_Up");
+        AssertThat(upStair.Direction).IsEqual(StairDirection.Up);
+        var downStair = gridMap.GetNode<StairConnection>("Stair_Down");
+        AssertThat(downStair.Direction).IsEqual(StairDirection.Down);
         sceneRoot.Free();
     }
 }

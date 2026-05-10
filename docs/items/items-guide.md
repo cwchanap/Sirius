@@ -20,6 +20,15 @@
 | poison_vial | Poison Vial | Poisons enemy (8 dmg/turn, 4 turns) | 60g | Uncommon |
 | flash_powder | Flash Powder | Blinds enemy for 2 turns (55% accuracy) | 55g | Uncommon |
 
+## Dungeon Consumables
+
+| ID | Display Name | Effect | Value | Rarity |
+|----|-------------|--------|-------|--------|
+| major_health_potion | Major Health Potion | Restores 300 HP | 150g | Rare |
+| major_mana_potion | Major Mana Potion | Restores 75 MP | 130g | Rare |
+| warding_charm | Warding Charm | +18 DEF for 4 turns | 120g | Uncommon |
+| smoke_bomb | Smoke Bomb | Blinds enemy for 3 turns | 95g | Uncommon |
+
 ## Status Effects Reference
 
 Status effect tags are shown in battle as `[TAG Nt]` (e.g. `[PSN 3t]`).
@@ -61,6 +70,21 @@ Enemies with debuff abilities attempt to apply them each time they attack.
 
 See `EquipmentCatalog.cs` for full equipment stats. Equipment guide section TBD.
 
+## Dungeon Equipment
+
+| ID | Slot | Key Bonuses | Rarity |
+|----|------|-------------|--------|
+| steel_longsword | Weapon | +32 ATK | Uncommon |
+| chain_mail | Armor | +26 DEF, +50 HP | Uncommon |
+| steel_tower_shield | Shield | +18 DEF, +30 HP | Uncommon |
+| knight_helm | Helmet | +8 DEF, +160 HP | Uncommon |
+| swift_boots | Shoe | +4 DEF, +8 SPD | Uncommon |
+| obsidian_blade | Weapon | +44 ATK, +4 SPD | Rare |
+| obsidian_carapace | Armor | +36 DEF, +120 HP | Rare |
+| obsidian_guard | Shield | +8 ATK, +26 DEF | Rare |
+| obsidian_crown | Helmet | +240 HP, +8 SPD | Rare |
+| obsidian_treads | Shoe | +8 DEF, +12 SPD | Rare |
+
 ## Monster Parts
 
 | ID | Name | Value | Source |
@@ -70,3 +94,9 @@ See `EquipmentCatalog.cs` for full equipment stats. Equipment guide section TBD.
 | skeleton_bone | Skeleton Bone | 12g | Skeleton Warrior |
 | spider_silk | Spider Silk | 20g | Cave Spider |
 | dragon_scale | Dragon Scale | 200g | Dragon, Demon Lord, Boss |
+| sentinel_core | Sentinel Core | 35g | Crypt Sentinel, Dungeon Guardian |
+| hexed_cloth | Hexed Cloth | 32g | Grave Hexer, Dark Mage |
+| splintered_bone | Splintered Bone | 18g | Bone Archer |
+| revenant_plate | Revenant Plate | 55g | Iron Revenant, Dungeon Guardian |
+| gargoyle_shard | Gargoyle Shard | 60g | Cursed Gargoyle |
+| abyssal_sigil | Abyssal Sigil | 85g | Abyss Acolyte, Demon Lord, Boss |

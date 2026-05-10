@@ -58,41 +58,69 @@ File name = item `Id` in the catalog (e.g. `iron_sword` → `iron_sword.png`).
 | Status | ID | Asset Path |
 |--------|----|-----------|
 | ✅ exists | `iron_sword` | `assets/sprites/items/weapons/iron_sword.png` |
-| ❌ missing | `iron_armor` | `assets/sprites/items/armor/iron_armor.png` |
-| ❌ missing | `iron_shield` | `assets/sprites/items/shields/iron_shield.png` |
-| ❌ missing | `iron_helmet` | `assets/sprites/items/helmet/iron_helmet.png` |
-| ❌ missing | `iron_boots` | `assets/sprites/items/shoes/iron_boots.png` |
+| ✅ exists | `iron_armor` | `assets/sprites/items/armor/iron_armor.png` |
+| ✅ exists | `iron_shield` | `assets/sprites/items/shields/iron_shield.png` |
+| ✅ exists | `iron_helmet` | `assets/sprites/items/helmet/iron_helmet.png` |
+| ✅ exists | `iron_boots` | `assets/sprites/items/shoes/iron_boots.png` |
+
+### Equipment — Dungeon Steel Tier
+
+| Status | ID | Asset Path |
+|--------|----|-----------|
+| ✅ exists | `steel_longsword` | `assets/sprites/items/weapons/steel_longsword.png` |
+| ✅ exists | `chain_mail` | `assets/sprites/items/armor/chain_mail.png` |
+| ✅ exists | `steel_tower_shield` | `assets/sprites/items/shields/steel_tower_shield.png` |
+| ✅ exists | `knight_helm` | `assets/sprites/items/helmet/knight_helm.png` |
+| ✅ exists | `swift_boots` | `assets/sprites/items/shoes/swift_boots.png` |
+
+### Equipment — Dungeon Obsidian Tier
+
+| Status | ID | Asset Path |
+|--------|----|-----------|
+| ✅ exists | `obsidian_blade` | `assets/sprites/items/weapons/obsidian_blade.png` |
+| ✅ exists | `obsidian_carapace` | `assets/sprites/items/armor/obsidian_carapace.png` |
+| ✅ exists | `obsidian_guard` | `assets/sprites/items/shields/obsidian_guard.png` |
+| ✅ exists | `obsidian_crown` | `assets/sprites/items/helmet/obsidian_crown.png` |
+| ✅ exists | `obsidian_treads` | `assets/sprites/items/shoes/obsidian_treads.png` |
 
 ### Consumables
 
-Consumables do not currently define an `AssetPath` in `ConsumableCatalog.cs`.
-The paths below are the **intended** locations following the naming convention.
+Consumables define `AssetPath` in `ConsumableCatalog.cs`.
 
-| Status | ID | Intended Asset Path |
-|--------|----|-------------------|
-| ❌ missing | `health_potion` | `assets/sprites/items/consumables/health_potion.png` |
-| ❌ missing | `greater_health_potion` | `assets/sprites/items/consumables/greater_health_potion.png` |
-| ❌ missing | `mana_potion` | `assets/sprites/items/consumables/mana_potion.png` |
-| ❌ missing | `strength_tonic` | `assets/sprites/items/consumables/strength_tonic.png` |
-| ❌ missing | `iron_skin` | `assets/sprites/items/consumables/iron_skin.png` |
-| ❌ missing | `swiftness_draught` | `assets/sprites/items/consumables/swiftness_draught.png` |
-| ❌ missing | `antidote` | `assets/sprites/items/consumables/antidote.png` |
-| ❌ missing | `regen_potion` | `assets/sprites/items/consumables/regen_potion.png` |
-| ❌ missing | `poison_vial` | `assets/sprites/items/consumables/poison_vial.png` |
-| ❌ missing | `flash_powder` | `assets/sprites/items/consumables/flash_powder.png` |
+| Status | ID | Asset Path |
+|--------|----|-----------|
+| ✅ exists | `health_potion` | `assets/sprites/items/consumables/health_potion.png` |
+| ✅ exists | `greater_health_potion` | `assets/sprites/items/consumables/greater_health_potion.png` |
+| ✅ exists | `mana_potion` | `assets/sprites/items/consumables/mana_potion.png` |
+| ✅ exists | `strength_tonic` | `assets/sprites/items/consumables/strength_tonic.png` |
+| ✅ exists | `iron_skin` | `assets/sprites/items/consumables/iron_skin.png` |
+| ✅ exists | `swiftness_draught` | `assets/sprites/items/consumables/swiftness_draught.png` |
+| ✅ exists | `antidote` | `assets/sprites/items/consumables/antidote.png` |
+| ✅ exists | `regen_potion` | `assets/sprites/items/consumables/regen_potion.png` |
+| ✅ exists | `poison_vial` | `assets/sprites/items/consumables/poison_vial.png` |
+| ✅ exists | `flash_powder` | `assets/sprites/items/consumables/flash_powder.png` |
+| ✅ exists | `major_health_potion` | `assets/sprites/items/consumables/major_health_potion.png` |
+| ✅ exists | `major_mana_potion` | `assets/sprites/items/consumables/major_mana_potion.png` |
+| ✅ exists | `warding_charm` | `assets/sprites/items/consumables/warding_charm.png` |
+| ✅ exists | `smoke_bomb` | `assets/sprites/items/consumables/smoke_bomb.png` |
 
 ### Monster Parts
 
-Monster parts do not currently define an `AssetPath` in `MonsterPartsCatalog.cs`.
-The paths below are the **intended** locations.
+Monster parts define `AssetPath` in `MonsterPartsCatalog.cs`.
 
-| Status | ID | Intended Asset Path |
-|--------|----|-------------------|
-| ❌ missing | `goblin_ear` | `assets/sprites/items/monster_parts/goblin_ear.png` |
-| ❌ missing | `orc_tusk` | `assets/sprites/items/monster_parts/orc_tusk.png` |
-| ❌ missing | `skeleton_bone` | `assets/sprites/items/monster_parts/skeleton_bone.png` |
-| ❌ missing | `spider_silk` | `assets/sprites/items/monster_parts/spider_silk.png` |
-| ❌ missing | `dragon_scale` | `assets/sprites/items/monster_parts/dragon_scale.png` |
+| Status | ID | Asset Path |
+|--------|----|-----------|
+| ✅ exists | `goblin_ear` | `assets/sprites/items/monster_parts/goblin_ear.png` |
+| ✅ exists | `orc_tusk` | `assets/sprites/items/monster_parts/orc_tusk.png` |
+| ✅ exists | `skeleton_bone` | `assets/sprites/items/monster_parts/skeleton_bone.png` |
+| ✅ exists | `spider_silk` | `assets/sprites/items/monster_parts/spider_silk.png` |
+| ✅ exists | `dragon_scale` | `assets/sprites/items/monster_parts/dragon_scale.png` |
+| ✅ exists | `sentinel_core` | `assets/sprites/items/monster_parts/sentinel_core.png` |
+| ✅ exists | `hexed_cloth` | `assets/sprites/items/monster_parts/hexed_cloth.png` |
+| ✅ exists | `splintered_bone` | `assets/sprites/items/monster_parts/splintered_bone.png` |
+| ✅ exists | `revenant_plate` | `assets/sprites/items/monster_parts/revenant_plate.png` |
+| ✅ exists | `gargoyle_shard` | `assets/sprites/items/monster_parts/gargoyle_shard.png` |
+| ✅ exists | `abyssal_sigil` | `assets/sprites/items/monster_parts/abyssal_sigil.png` |
 
 ---
 
@@ -103,11 +131,6 @@ They may be kept as source material but should not be imported into Godot as act
 
 | File | Former Item | Notes |
 |------|-------------|-------|
-| `assets/sprites/items/weapons/steel_longsword.png` | steel_longsword | Replaced by iron_sword |
-| `assets/sprites/items/armor/chain_mail.png` | chain_mail | Replaced by iron_armor |
-| `assets/sprites/items/shields/steel_tower_shield.png` | steel_tower_shield | Replaced by iron_shield |
-| `assets/sprites/items/helmet/knight_helm.png` | knight_helm | Replaced by iron_helmet |
-| `assets/sprites/items/shoes/swift_boots.png` | swift_boots | Replaced by iron_boots |
 | `assets/sprites/items/consumables/minor_health_potion.png` | minor_health_potion | ID is now `health_potion` |
 | `assets/sprites/items/consumables/mana_berry.png` | mana_berry | No matching catalog entry |
 | `assets/sprites/items/consumables/elixir_of_fortitude.png` | elixir_of_fortitude | No matching catalog entry |
@@ -200,6 +223,70 @@ unintentionally processing the entire default source directory, prefer passing e
 > transparent background. Three-quarter top-down angle, bold outline, cel shading with dark grey
 > iron plates over brown leather. Soft top-left lighting, no background elements."
 
+### Dungeon Steel Tier
+
+**Steel Longsword** (`steel_longsword.png`) — *asset exists; reused from existing repo asset after filesystem and transparency verification*
+> "Create a 64x64 anime-style inventory icon of a polished steel longsword with leather grip,
+> transparent background. Three-quarter top-down angle, bold 2px outline, cel shading with bright
+> steel highlights and a dark leather wrap. Lighting from top-left with soft rim glow. Centered in
+> frame, no background elements."
+
+**Chain Mail** (`chain_mail.png`) — *asset exists; reused from existing repo asset after filesystem and transparency verification*
+> "Create a 64x64 anime-style inventory icon of a folded chain mail shirt with steel rings,
+> transparent background. Three-quarter top-down angle, bold outline, cel shading with interlinked
+> steel ring texture and cool grey highlights. Lighting from top-left with soft rim glow. Centered
+> in frame, no background elements."
+
+**Steel Tower Shield** (`steel_tower_shield.png`) — *asset exists; reused from existing repo asset after filesystem and transparency verification*
+> "Create a 64x64 anime-style inventory icon of a tall reinforced steel tower shield,
+> transparent background. Three-quarter top-down angle, bold outline, cel shading with polished
+> steel plates, rivets, and reinforced edges. Lighting from top-left with soft rim glow. Centered in
+> frame, no background elements."
+
+**Knight Helm** (`knight_helm.png`) — *asset exists; reused from existing repo asset after filesystem and transparency verification*
+> "Create a 64x64 anime-style inventory icon of an open-faced steel knight helmet with cheek guards,
+> transparent background. Three-quarter top-down angle, bold outline, cel shading with clean steel
+> highlights and dark interior shadow. Lighting from top-left with soft rim glow. Centered in frame,
+> no background elements."
+
+**Swift Boots** (`swift_boots.png`) — *asset exists; reused from existing repo asset after filesystem and transparency verification*
+> "Create a 64x64 anime-style inventory icon of light steel-capped adventurer boots,
+> transparent background. Three-quarter top-down angle, bold outline, cel shading with brown leather,
+> bright steel toe caps, and agile silhouette. Lighting from top-left with soft rim glow. Centered in
+> frame, no background elements."
+
+### Dungeon Obsidian Tier
+
+**Obsidian Blade** (`obsidian_blade.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of a black glass sword with purple edge glow,
+> transparent background. Three-quarter top-down angle, bold 2px outline, cel shading with glossy
+> obsidian facets and a violet magical edge. Lighting from top-left with soft rim glow. Centered in
+> frame, no background elements."
+
+**Obsidian Carapace** (`obsidian_carapace.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of black segmented armor plates with violet highlights,
+> transparent background. Three-quarter top-down angle, bold outline, cel shading with glossy black
+> plate segments and purple reflections. Lighting from top-left with soft rim glow. Centered in
+> frame, no background elements."
+
+**Obsidian Guard** (`obsidian_guard.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of a polished obsidian shield with etched warding lines,
+> transparent background. Three-quarter top-down angle, bold outline, cel shading with black glass
+> shine and violet etched runes. Lighting from top-left with soft rim glow. Centered in frame, no
+> background elements."
+
+**Obsidian Crown** (`obsidian_crown.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of a crown-like obsidian helmet with abyssal gem,
+> transparent background. Three-quarter top-down angle, bold outline, cel shading with black crystal
+> points, violet reflections, and a dark central gem. Lighting from top-left with soft rim glow.
+> Centered in frame, no background elements."
+
+**Obsidian Treads** (`obsidian_treads.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of black plated boots with violet sole glow,
+> transparent background. Three-quarter top-down angle, bold outline, cel shading with glossy black
+> plates and purple glow under the soles. Lighting from top-left with soft rim glow. Centered in
+> frame, no background elements."
+
 ---
 
 ## Consumable Prompts
@@ -262,6 +349,26 @@ unintentionally processing the entire default source directory, prefer passing e
 > bold outline, cel shading with bright white-gold hues and radiant burst lines. Soft top-left
 > lighting, starburst glow, no background."
 
+**Major Health Potion** (`major_health_potion.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of an ornate large crimson potion bottle with gold trim,
+> transparent background. Straight-on hero shot, bold outline, cel shading with rich red glass,
+> gold accents, and a swirling healing liquid. Soft top-left lighting, warm healing glow, no background."
+
+**Major Mana Potion** (`major_mana_potion.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of an ornate large blue potion bottle with silver trim,
+> transparent background. Straight-on hero shot, bold outline, cel shading with luminous blue glass,
+> silver accents, and a magical liquid swirl. Soft top-left lighting, cool mana glow, no background."
+
+**Warding Charm** (`warding_charm.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of a small protective charm with blue shield rune,
+> transparent background. Straight-on hero shot, bold outline, cel shading with polished charm
+> material and a bright blue defensive symbol. Soft top-left lighting, subtle barrier glow, no background."
+
+**Smoke Bomb** (`smoke_bomb.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of a round black smoke bomb with short fuse,
+> transparent background. Straight-on hero shot, bold outline, cel shading with matte black casing,
+> tied seam, and a small fuse. Soft top-left lighting, faint grey smoke wisps, no background."
+
 ---
 
 ## Monster Part Prompts
@@ -291,6 +398,36 @@ unintentionally processing the entire default source directory, prefer passing e
 > surface patterns, transparent background. Straight-on hero shot, bold outline, cel shading with deep
 > teal-gold hues and a metallic rainbow sheen. Soft top-left lighting, magical radiance glow,
 > no background. Convey extreme rarity."
+
+**Sentinel Core** (`sentinel_core.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of a stone-and-metal glowing blue construct core,
+> transparent background. Straight-on hero shot, bold outline, cel shading with cracked stone,
+> steel bands, and a bright blue inner glow. Soft top-left lighting, no background."
+
+**Hexed Cloth** (`hexed_cloth.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of a torn violet cloth scrap with green runes,
+> transparent background. Straight-on hero shot, bold outline, cel shading with frayed fabric,
+> glowing green curse marks, and deep violet folds. Soft top-left lighting, no background."
+
+**Splintered Bone** (`splintered_bone.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of a sharp pale bone fragment with cracks,
+> transparent background. Straight-on hero shot, bold outline, cel shading with pale ivory tones,
+> jagged edges, and dark crack lines. Soft top-left lighting, no background."
+
+**Revenant Plate** (`revenant_plate.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of a battered dark armor plate with red glow,
+> transparent background. Straight-on hero shot, bold outline, cel shading with scratched blackened
+> iron, dented edges, and a faint red undead glow. Soft top-left lighting, no background."
+
+**Gargoyle Shard** (`gargoyle_shard.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of a jagged black stone shard with ember cracks,
+> transparent background. Straight-on hero shot, bold outline, cel shading with rough black stone
+> texture and orange ember light in the fractures. Soft top-left lighting, no background."
+
+**Abyssal Sigil** (`abyssal_sigil.png`) — *asset exists*
+> "Create a 64x64 anime-style inventory icon of a small black-and-purple sigil token,
+> transparent background. Straight-on hero shot, bold outline, cel shading with glossy black token
+> material, purple carved symbol, and ominous magical glow. Soft top-left lighting, no background."
 
 ---
 

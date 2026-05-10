@@ -3,7 +3,8 @@
 /// Single source of truth referenced by Enemy.Create*(), EnemyBlueprint.SpriteType,
 /// and LootTableCatalog.GetByEnemyType().
 /// Adding a new enemy type: add a constant here, then add a blueprint factory in
-/// EnemyBlueprint, a factory method in Enemy, and a table method in LootTableCatalog.
+/// EnemyBlueprint, a factory method in Enemy, a dispatch entry in EncounterTables,
+/// and a table method in LootTableCatalog.
 /// </summary>
 public static class EnemyTypeId
 {

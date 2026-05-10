@@ -29,6 +29,24 @@ public partial class EncounterTablesTest : Node
     }
 
     [TestCase]
+    public void CreateEnemyByType_CreatesLegacyEnemy()
+    {
+        var enemy = EncounterTables.CreateEnemyByType("goblin");
+
+        AssertThat(enemy).IsNotNull();
+        AssertThat(enemy!.EnemyType).IsEqual(EnemyTypeId.Goblin);
+    }
+
+    [TestCase]
+    public void CreateEnemyByType_IsCaseInsensitive()
+    {
+        var enemy = EncounterTables.CreateEnemyByType("CRYPT_SENTINEL");
+
+        AssertThat(enemy).IsNotNull();
+        AssertThat(enemy!.EnemyType).IsEqual(EnemyTypeId.CryptSentinel);
+    }
+
+    [TestCase]
     public void CreateEnemyByType_ReturnsNullForUnknownType()
     {
         AssertThat(EncounterTables.CreateEnemyByType("unknown_dungeon_enemy")).IsNull();
@@ -57,5 +75,23 @@ public partial class EncounterTablesTest : Node
         AssertThat(selected.Contains(EnemyTypeId.IronRevenant)).IsTrue();
         AssertThat(selected.Contains(EnemyTypeId.CursedGargoyle)).IsTrue();
         AssertThat(selected.Contains(EnemyTypeId.AbyssAcolyte)).IsTrue();
+    }
+
+    [TestCase]
+    public void SelectDungeonEnemyType_ClampsOutOfRangeRolls()
+    {
+        AssertThat(EncounterTables.SelectDungeonEnemyType(-1.0f)).IsEqual(EnemyTypeId.DungeonGuardian);
+        AssertThat(EncounterTables.SelectDungeonEnemyType(2.0f)).IsEqual(EnemyTypeId.AbyssAcolyte);
+    }
+
+    [TestCase]
+    public void SelectDungeonEnemyType_UsesUpperBucketAtExactBoundaries()
+    {
+        AssertThat(EncounterTables.SelectDungeonEnemyType(0.12f)).IsEqual(EnemyTypeId.CryptSentinel);
+        AssertThat(EncounterTables.SelectDungeonEnemyType(0.24f)).IsEqual(EnemyTypeId.GraveHexer);
+        AssertThat(EncounterTables.SelectDungeonEnemyType(0.36f)).IsEqual(EnemyTypeId.BoneArcher);
+        AssertThat(EncounterTables.SelectDungeonEnemyType(0.50f)).IsEqual(EnemyTypeId.IronRevenant);
+        AssertThat(EncounterTables.SelectDungeonEnemyType(0.66f)).IsEqual(EnemyTypeId.CursedGargoyle);
+        AssertThat(EncounterTables.SelectDungeonEnemyType(0.82f)).IsEqual(EnemyTypeId.AbyssAcolyte);
     }
 }

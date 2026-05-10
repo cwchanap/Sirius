@@ -549,11 +549,8 @@ public partial class Game : Node2D
         // Dungeon complex
         if (IsInArea(x, y, 115, 85, 30, 35))
         {
-            float rand = GD.Randf();
-            if (rand < 0.3f) return Enemy.CreateDungeonGuardian();
-            else if (rand < 0.5f) return Enemy.CreateDarkMage();
-            else if (rand < 0.7f) return Enemy.CreateDragon();
-            else return Enemy.CreateDemonLord();
+            string enemyType = EncounterTables.SelectDungeonEnemyType(GD.Randf());
+            return EncounterTables.CreateEnemyByType(enemyType) ?? Enemy.CreateDungeonGuardian();
         }
         
         // Boss arena

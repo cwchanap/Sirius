@@ -23,6 +23,20 @@ public static class ItemCatalog
         ["iron_helmet"] = EquipmentCatalog.CreateIronHelmet,
         ["iron_boots"] = EquipmentCatalog.CreateIronBoots,
 
+        // Steel equipment
+        ["steel_longsword"] = EquipmentCatalog.CreateSteelLongsword,
+        ["chain_mail"] = EquipmentCatalog.CreateChainMail,
+        ["steel_tower_shield"] = EquipmentCatalog.CreateSteelTowerShield,
+        ["knight_helm"] = EquipmentCatalog.CreateKnightHelm,
+        ["swift_boots"] = EquipmentCatalog.CreateSwiftBoots,
+
+        // Obsidian equipment
+        ["obsidian_blade"] = EquipmentCatalog.CreateObsidianBlade,
+        ["obsidian_carapace"] = EquipmentCatalog.CreateObsidianCarapace,
+        ["obsidian_guard"] = EquipmentCatalog.CreateObsidianGuard,
+        ["obsidian_crown"] = EquipmentCatalog.CreateObsidianCrown,
+        ["obsidian_treads"] = EquipmentCatalog.CreateObsidianTreads,
+
         // Consumables
         ["health_potion"]         = ConsumableCatalog.CreateHealthPotion,
         ["greater_health_potion"] = ConsumableCatalog.CreateGreaterHealthPotion,
@@ -34,6 +48,10 @@ public static class ItemCatalog
         ["regen_potion"]          = ConsumableCatalog.CreateRegenPotion,
         ["poison_vial"]           = ConsumableCatalog.CreatePoisonVial,
         ["flash_powder"]          = ConsumableCatalog.CreateFlashPowder,
+        ["major_health_potion"]   = ConsumableCatalog.CreateMajorHealthPotion,
+        ["major_mana_potion"]     = ConsumableCatalog.CreateMajorManaPotion,
+        ["warding_charm"]         = ConsumableCatalog.CreateWardingCharm,
+        ["smoke_bomb"]            = ConsumableCatalog.CreateSmokeBomb,
 
         // Monster parts
         ["goblin_ear"] = MonsterPartsCatalog.CreateGoblinEar,
@@ -41,6 +59,12 @@ public static class ItemCatalog
         ["skeleton_bone"] = MonsterPartsCatalog.CreateSkeletonBone,
         ["spider_silk"] = MonsterPartsCatalog.CreateSpiderSilk,
         ["dragon_scale"] = MonsterPartsCatalog.CreateDragonScale,
+        ["sentinel_core"] = MonsterPartsCatalog.CreateSentinelCore,
+        ["hexed_cloth"] = MonsterPartsCatalog.CreateHexedCloth,
+        ["splintered_bone"] = MonsterPartsCatalog.CreateSplinteredBone,
+        ["revenant_plate"] = MonsterPartsCatalog.CreateRevenantPlate,
+        ["gargoyle_shard"] = MonsterPartsCatalog.CreateGargoyleShard,
+        ["abyssal_sigil"] = MonsterPartsCatalog.CreateAbyssalSigil,
     };
 
     /// <summary>

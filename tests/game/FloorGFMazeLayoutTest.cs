@@ -1,7 +1,9 @@
 using GdUnit4;
 using Godot;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using static GdUnit4.Assertions;
 
 [TestSuite]
@@ -91,11 +93,129 @@ public partial class FloorGFMazeLayoutTest : Node
         }
     }
 
+    [TestCase]
+    public async Task Game_InteractImmediatelyAfterMovingOntoFloorGFStairLoadsFloor1()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var packed = GD.Load<PackedScene>("res://scenes/game/Game.tscn");
+        AssertThat(packed).IsNotNull();
+
+        SaveData? previousPendingLoad = SaveManager.Instance?.PendingLoadData;
+        if (SaveManager.Instance != null)
+        {
+            SaveManager.Instance.PendingLoadData = null;
+        }
+
+        var game = packed!.Instantiate<Game>();
+
+        try
+        {
+            sceneTree.Root.AddChild(game);
+            await AwaitFrames(sceneTree, 4);
+
+            var floorManager = game.GetNode<FloorManager>("FloorManager");
+            var playerController = game.GetNode<PlayerController>("PlayerController");
+            var gridMap = floorManager.CurrentGridMap;
+            var start = FindWalkableNeighbor(gridMap, StairPosition, out Vector2I moveDirection);
+
+            SetPrivateField(gridMap, "_playerPosition", start);
+            PressMovement(playerController, moveDirection);
+            PressInteract(playerController);
+
+            await AwaitFrames(sceneTree, 12);
+
+            AssertThat(floorManager.CurrentFloorIndex).IsEqual(1);
+            AssertThat(floorManager.CurrentGridMap.GetPlayerPosition()).IsEqual(new Vector2I(8, 30));
+        }
+        finally
+        {
+            if (SaveManager.Instance != null)
+            {
+                SaveManager.Instance.PendingLoadData = previousPendingLoad;
+            }
+
+            if (IsInstanceValid(game))
+            {
+                game.QueueFree();
+                await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+            }
+        }
+    }
+
     private static Node2D LoadFloor()
     {
         var packed = GD.Load<PackedScene>("res://scenes/game/floors/FloorGF.tscn");
         AssertThat(packed).IsNotNull();
         return packed!.Instantiate<Node2D>();
+    }
+
+    private static async Task AwaitFrames(SceneTree sceneTree, int frames)
+    {
+        for (int i = 0; i < frames; i++)
+        {
+            await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    private static void PressMovement(PlayerController playerController, Vector2I direction)
+    {
+        playerController._UnhandledInput(new InputEventKey
+        {
+            Keycode = DirectionToKey(direction),
+            Pressed = true
+        });
+    }
+
+    private static void PressInteract(PlayerController playerController)
+    {
+        playerController._UnhandledInput(new InputEventAction
+        {
+            Action = "interact",
+            Pressed = true
+        });
+    }
+
+    private static Key DirectionToKey(Vector2I direction)
+    {
+        if (direction == Vector2I.Right) return Key.Right;
+        if (direction == Vector2I.Left) return Key.Left;
+        if (direction == Vector2I.Up) return Key.Up;
+        if (direction == Vector2I.Down) return Key.Down;
+        throw new ArgumentException($"Unsupported movement direction {direction}");
+    }
+
+    private static Vector2I FindWalkableNeighbor(GridMap gridMap, Vector2I target, out Vector2I moveDirection)
+    {
+        var walls = GetWalls(gridMap);
+        var candidates = new[]
+        {
+            (Position: target + Vector2I.Left, Direction: Vector2I.Right),
+            (Position: target + Vector2I.Right, Direction: Vector2I.Left),
+            (Position: target + Vector2I.Up, Direction: Vector2I.Down),
+            (Position: target + Vector2I.Down, Direction: Vector2I.Up)
+        };
+
+        foreach (var candidate in candidates)
+        {
+            if (IsWalkable(candidate.Position, walls))
+            {
+                moveDirection = candidate.Direction;
+                return candidate.Position;
+            }
+        }
+
+        throw new InvalidOperationException($"No walkable neighbor found for {target}");
+    }
+
+    private static void SetPrivateField(object instance, string fieldName, object? value)
+    {
+        var field = instance.GetType().GetField(fieldName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (field == null)
+        {
+            throw new MissingFieldException(instance.GetType().FullName, fieldName);
+        }
+
+        field.SetValue(instance, value);
     }
 
     private static HashSet<Vector2I> GetWalls(GridMap gridMap)

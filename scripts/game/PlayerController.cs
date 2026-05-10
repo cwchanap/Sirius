@@ -51,8 +51,8 @@ public partial class PlayerController : Node
             GD.Print($"Input received: {keyEvent.Keycode}, InBattle: {_gameManager.IsInBattle}, ProcessingMove: {_isProcessingMove}");
         }
         
-        // Don't handle input during battle, NPC interaction, or while processing a move
-        if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction || _isProcessingMove)
+        // Don't handle input during battle or NPC interaction.
+        if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction)
         {
             if (@event is InputEventKey key && key.Pressed)
             {
@@ -91,6 +91,17 @@ public partial class PlayerController : Node
                 GD.Print($"Taking stairs {(_isGoingUp ? "up" : "down")} to floor {_targetFloor}");
                 _floorManager?.TransitionToFloor(_targetFloor, _isGoingUp, _targetStairIndex);
                 ClearPendingStairTransition();
+            }
+            return;
+        }
+
+        // Movement debouncing should not swallow stair interact presses that
+        // were queued by the successful move onto the stair tile.
+        if (_isProcessingMove)
+        {
+            if (@event is InputEventKey key && key.Pressed)
+            {
+                GD.Print($"Input blocked - InBattle: {_gameManager.IsInBattle}, InNpcInteraction: {_gameManager.IsInNpcInteraction}, ProcessingMove: {_isProcessingMove}");
             }
             return;
         }

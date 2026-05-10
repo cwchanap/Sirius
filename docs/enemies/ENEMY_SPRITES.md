@@ -1,6 +1,6 @@
 # Enemy & Character Sprite Guide
 
-Sprite prompts and checklist for the player character and all 14 enemy types.
+Sprite prompts and checklist for the player character and tracked enemy types.
 For overall asset status across all categories see `docs/items/ASSET_STATUS.md`.
 
 ---

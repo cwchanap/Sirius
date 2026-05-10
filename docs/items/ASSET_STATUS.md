@@ -14,7 +14,7 @@ generation prompts.
 | **Character/Enemy sprites** | `sprite_sheet.png` per entity in `EnemySpawn.cs:262` / `PlayerDisplay.cs:26` | `assets/sprites/enemies/{type}/sprite_sheet.png` (new) or `assets/sprites/characters/{name}/sprite_sheet.png` (legacy) |
 | **NPC sprites** | `NpcSpawn.cs:66–67` tries new path then legacy fallback | `assets/sprites/npcs/{type}/sprite_sheet.png` (new) or `assets/sprites/characters/npc_{type}/sprite_sheet.png` (legacy) |
 | **Sprite sheets** | Auto-built by `tools/sprite_sheet_merger.py` from `frames/frame1-4.png` | Same dir as `frames/` |
-| **Item icons** | `AssetPath` field in `EquipmentCatalog.cs` | `assets/sprites/items/{slot}/{id}.png` |
+| **Item icons** | `AssetPath` field in item catalog factories | `assets/sprites/items/{slot}/{id}.png` |
 | **UI backgrounds** | Hard-coded paths in `MainMenu.cs:27` and `BattleManager.cs:180` | `assets/sprites/ui/*.png` |
 | **Effects/Icons** | Currently no code loads these; reserved for future use | `assets/sprites/effects/*.png`, `assets/sprites/ui/icon_*.png` |
 
@@ -93,6 +93,12 @@ Enemy type IDs come from `EnemyTypeId.cs`. The game resolves sprite sheets via
 | ❌ missing | `mountain_wyvern` | `assets/sprites/enemies/mountain_wyvern/sprite_sheet.png` | — |
 | ❌ missing | `dark_mage` | `assets/sprites/enemies/dark_mage/sprite_sheet.png` | — |
 | ❌ missing | `dungeon_guardian` | `assets/sprites/enemies/dungeon_guardian/sprite_sheet.png` | — |
+| ✅ exists | `crypt_sentinel` | `assets/sprites/enemies/crypt_sentinel/sprite_sheet.png` | — |
+| ✅ exists | `grave_hexer` | `assets/sprites/enemies/grave_hexer/sprite_sheet.png` | — |
+| ✅ exists | `bone_archer` | `assets/sprites/enemies/bone_archer/sprite_sheet.png` | — |
+| ✅ exists | `iron_revenant` | `assets/sprites/enemies/iron_revenant/sprite_sheet.png` | — |
+| ✅ exists | `cursed_gargoyle` | `assets/sprites/enemies/cursed_gargoyle/sprite_sheet.png` | — |
+| ✅ exists | `abyss_acolyte` | `assets/sprites/enemies/abyss_acolyte/sprite_sheet.png` | — |
 | ❌ missing | `demon_lord` | `assets/sprites/enemies/demon_lord/sprite_sheet.png` | — |
 | ❌ missing | `dragon` | `assets/sprites/enemies/dragon/sprite_sheet.png` | — |
 | ❌ missing | `boss` | `assets/sprites/enemies/boss/sprite_sheet.png` | — |
@@ -133,8 +139,10 @@ directory does not yet exist.
 
 ## 4. Item Icons (current repo convention: 96×96 px)
 
-See `ITEM_PROMPT_GUIDE.md` for full AI prompts. Paths come from `EquipmentCatalog.cs`.
+See `ITEM_PROMPT_GUIDE.md` for full AI prompts. Paths come from the item catalog `AssetPath` fields.
 Generate the source icon art, then resize the saved repo asset to match the existing item icon convention with `tools/resize_item_icons.py`.
+
+Dungeon consumables and monster parts now define `AssetPath` directly in their catalog factories, matching equipment.
 
 ### Equipment — Wooden Tier
 
@@ -158,12 +166,32 @@ Generate the source icon art, then resize the saved repo asset to match the exis
 
 > `assets/sprites/items/weapons/iron_sword.png` now exists. Godot import metadata (`.import` files) is generated locally by the editor and is not tracked in this repository.
 
+### Equipment — Dungeon Steel Tier
+
+| Status | ID | Asset Path |
+|--------|----|-----------|
+| ✅ exists | `steel_longsword` | `assets/sprites/items/weapons/steel_longsword.png` |
+| ✅ exists | `chain_mail` | `assets/sprites/items/armor/chain_mail.png` |
+| ✅ exists | `steel_tower_shield` | `assets/sprites/items/shields/steel_tower_shield.png` |
+| ✅ exists | `knight_helm` | `assets/sprites/items/helmet/knight_helm.png` |
+| ✅ exists | `swift_boots` | `assets/sprites/items/shoes/swift_boots.png` |
+
+### Equipment — Dungeon Obsidian Tier
+
+| Status | ID | Asset Path |
+|--------|----|-----------|
+| ✅ exists | `obsidian_blade` | `assets/sprites/items/weapons/obsidian_blade.png` |
+| ✅ exists | `obsidian_carapace` | `assets/sprites/items/armor/obsidian_carapace.png` |
+| ✅ exists | `obsidian_guard` | `assets/sprites/items/shields/obsidian_guard.png` |
+| ✅ exists | `obsidian_crown` | `assets/sprites/items/helmet/obsidian_crown.png` |
+| ✅ exists | `obsidian_treads` | `assets/sprites/items/shoes/obsidian_treads.png` |
+
 ### Consumables
 
-`ConsumableCatalog.cs` does not yet set `AssetPath`. Paths below are the intended locations.
+`ConsumableCatalog.cs` defines `AssetPath` for these catalog-backed rows.
 
-| Status | ID | Intended Asset Path |
-|--------|----|-------------------|
+| Status | ID | Asset Path |
+|--------|----|-----------|
 | ✅ exists | `health_potion` | `assets/sprites/items/consumables/health_potion.png` |
 | ✅ exists | `greater_health_potion` | `assets/sprites/items/consumables/greater_health_potion.png` |
 | ✅ exists | `mana_potion` | `assets/sprites/items/consumables/mana_potion.png` |
@@ -174,18 +202,28 @@ Generate the source icon art, then resize the saved repo asset to match the exis
 | ✅ exists | `regen_potion` | `assets/sprites/items/consumables/regen_potion.png` |
 | ✅ exists | `poison_vial` | `assets/sprites/items/consumables/poison_vial.png` |
 | ✅ exists | `flash_powder` | `assets/sprites/items/consumables/flash_powder.png` |
+| ✅ exists | `major_health_potion` | `assets/sprites/items/consumables/major_health_potion.png` |
+| ✅ exists | `major_mana_potion` | `assets/sprites/items/consumables/major_mana_potion.png` |
+| ✅ exists | `warding_charm` | `assets/sprites/items/consumables/warding_charm.png` |
+| ✅ exists | `smoke_bomb` | `assets/sprites/items/consumables/smoke_bomb.png` |
 
 ### Monster Parts
 
-`MonsterPartsCatalog.cs` does not set `AssetPath`. The generated icons live at the intended locations for future inventory display.
+`MonsterPartsCatalog.cs` defines `AssetPath` for these catalog-backed rows.
 
-| Status | ID | Intended Asset Path |
-|--------|----|-------------------|
+| Status | ID | Asset Path |
+|--------|----|-----------|
 | ✅ exists | `goblin_ear` | `assets/sprites/items/monster_parts/goblin_ear.png` |
 | ✅ exists | `orc_tusk` | `assets/sprites/items/monster_parts/orc_tusk.png` |
 | ✅ exists | `skeleton_bone` | `assets/sprites/items/monster_parts/skeleton_bone.png` |
 | ✅ exists | `spider_silk` | `assets/sprites/items/monster_parts/spider_silk.png` |
 | ✅ exists | `dragon_scale` | `assets/sprites/items/monster_parts/dragon_scale.png` |
+| ✅ exists | `sentinel_core` | `assets/sprites/items/monster_parts/sentinel_core.png` |
+| ✅ exists | `hexed_cloth` | `assets/sprites/items/monster_parts/hexed_cloth.png` |
+| ✅ exists | `splintered_bone` | `assets/sprites/items/monster_parts/splintered_bone.png` |
+| ✅ exists | `revenant_plate` | `assets/sprites/items/monster_parts/revenant_plate.png` |
+| ✅ exists | `gargoyle_shard` | `assets/sprites/items/monster_parts/gargoyle_shard.png` |
+| ✅ exists | `abyssal_sigil` | `assets/sprites/items/monster_parts/abyssal_sigil.png` |
 
 ### Orphaned Item Assets
 
@@ -193,11 +231,6 @@ On-disk files not referenced by any current catalog entry.
 
 | File | Former Use | Notes |
 |------|-----------|-------|
-| `assets/sprites/items/weapons/steel_longsword.png` | steel_longsword | Replaced by iron_sword |
-| `assets/sprites/items/armor/chain_mail.png` | chain_mail | Replaced by iron_armor |
-| `assets/sprites/items/shields/steel_tower_shield.png` | steel_tower_shield | Replaced by iron_shield |
-| `assets/sprites/items/helmet/knight_helm.png` | knight_helm | Replaced by iron_helmet |
-| `assets/sprites/items/shoes/swift_boots.png` | swift_boots | Replaced by iron_boots |
 | `assets/sprites/items/consumables/minor_health_potion.png` | minor_health_potion | ID is now `health_potion` |
 | `assets/sprites/items/consumables/mana_berry.png` | mana_berry | No matching catalog entry |
 | `assets/sprites/items/consumables/elixir_of_fortitude.png` | elixir_of_fortitude | No matching catalog entry |
@@ -254,15 +287,15 @@ No code currently loads these; reserved for future battle animations.
 | Category | ✅ Exists | ❌ Missing |
 |----------|----------|-----------|
 | Terrain tiles | 10 | 7 (1 floor + 6 stair/gate) |
-| Characters/Enemies | 2 (+ 1 legacy) | 13 |
+| Characters/Enemies | 8 (+ 1 legacy) | 13 |
 | NPC sprites | 0 | 4 |
-| Item icons — equipment | 10 | 0 |
-| Item icons — consumables | 10 | 0 |
-| Item icons — monster parts | 5 | 0 |
+| Item icons — equipment | 20 | 0 |
+| Item icons — consumables | 14 | 0 |
+| Item icons — monster parts | 11 | 0 |
 | UI backgrounds | 2 | 0 |
 | UI buttons & icons | 0 | 6 |
 | Effects | 0 | 3 |
-| **Total** | **39** | **33** |
+| **Total** | **65** | **33** |
 
 ---
 

@@ -82,6 +82,12 @@ Per-entity `Files` entries below describe where to create frame sources when gen
 | ❌ missing | Dragon | `assets/sprites/enemies/dragon/sprite_sheet.png` |
 | ❌ missing | Dark Mage | `assets/sprites/enemies/dark_mage/sprite_sheet.png` |
 | ❌ missing | Dungeon Guardian | `assets/sprites/enemies/dungeon_guardian/sprite_sheet.png` |
+| ✅ exists | Crypt Sentinel | `assets/sprites/enemies/crypt_sentinel/sprite_sheet.png` |
+| ✅ exists | Grave Hexer | `assets/sprites/enemies/grave_hexer/sprite_sheet.png` |
+| ✅ exists | Bone Archer | `assets/sprites/enemies/bone_archer/sprite_sheet.png` |
+| ✅ exists | Iron Revenant | `assets/sprites/enemies/iron_revenant/sprite_sheet.png` |
+| ✅ exists | Cursed Gargoyle | `assets/sprites/enemies/cursed_gargoyle/sprite_sheet.png` |
+| ✅ exists | Abyss Acolyte | `assets/sprites/enemies/abyss_acolyte/sprite_sheet.png` |
 | ❌ missing | Demon Lord | `assets/sprites/enemies/demon_lord/sprite_sheet.png` |
 | ❌ missing | Boss | `assets/sprites/enemies/boss/sprite_sheet.png` |
 
@@ -292,6 +298,36 @@ to make it loadable.
 **Frame 3 (Ready Variant)** — "Same but sword in slightly different ready position, runes pulsing."
 
 **Frame 4 (Right Step Impact)** — "Same but right foot forward with ground effects, armor shifting, mirroring frame 2."
+
+---
+
+## Dungeon Expansion Enemies
+
+Runtime sheets exist for all six dungeon expansion enemies at `assets/sprites/enemies/{type}/sprite_sheet.png`.
+
+### Crypt Sentinel (`crypt_sentinel`)
+
+**Prompt description**: armored stone-and-steel dungeon guard, heavy rectangular shield, glowing blue eye slit, slow marching stance.
+
+### Grave Hexer (`grave_hexer`)
+
+**Prompt description**: hooded undead caster, torn violet cloth, green curse glow, floating hands, ritual charm fragments.
+
+### Bone Archer (`bone_archer`)
+
+**Prompt description**: skeletal archer with cracked bow, fast narrow silhouette, pale bone and rusted leather, arrow drawn.
+
+### Iron Revenant (`iron_revenant`)
+
+**Prompt description**: undead knight in battered iron armor, long sword, dark red eye glow, heavy determined stride.
+
+### Cursed Gargoyle (`cursed_gargoyle`)
+
+**Prompt description**: squat winged stone gargoyle, black stone cracks, ember glow in cracks, clawed crouch.
+
+### Abyss Acolyte (`abyss_acolyte`)
+
+**Prompt description**: cult caster in black and crimson robes, abyssal sigil hovering, ominous purple glow, floating stride.
 
 ---
 

@@ -27,6 +27,12 @@ public static class LootTableCatalog
             EnemyTypeId.DungeonGuardian => CreateDungeonGuardianTable(),
             EnemyTypeId.DemonLord       => CreateDemonLordTable(),
             EnemyTypeId.Boss            => CreateBossTable(),
+            EnemyTypeId.CryptSentinel   => CreateCryptSentinelTable(),
+            EnemyTypeId.GraveHexer      => CreateGraveHexerTable(),
+            EnemyTypeId.BoneArcher      => CreateBoneArcherTable(),
+            EnemyTypeId.IronRevenant    => CreateIronRevenantTable(),
+            EnemyTypeId.CursedGargoyle  => CreateCursedGargoyleTable(),
+            EnemyTypeId.AbyssAcolyte    => CreateAbyssAcolyteTable(),
             _ => null
         };
     }
@@ -151,8 +157,10 @@ public static class LootTableCatalog
         DropChance = 0.95f,
         Entries = new()
         {
-            new LootEntry { ItemId = "skeleton_bone", Weight = 100, MinQuantity = 2, MaxQuantity = 4 },
-            new LootEntry { ItemId = "iron_helmet", Weight = 30, MinQuantity = 1, MaxQuantity = 1 }
+            new LootEntry { ItemId = "hexed_cloth", Weight = 140, MinQuantity = 1, MaxQuantity = 2 },
+            new LootEntry { ItemId = "skeleton_bone", Weight = 80, MinQuantity = 2, MaxQuantity = 4 },
+            new LootEntry { ItemId = "major_mana_potion", Weight = 36, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "warding_charm", Weight = 24, MinQuantity = 1, MaxQuantity = 1 }
         }
     };
 
@@ -162,9 +170,11 @@ public static class LootTableCatalog
         DropChance = 1.0f,
         Entries = new()
         {
-            new LootEntry { ItemId = "iron_sword", Weight = 80, MinQuantity = 1, MaxQuantity = 1 },
-            new LootEntry { ItemId = "iron_armor", Weight = 80, MinQuantity = 1, MaxQuantity = 1 },
-            new LootEntry { ItemId = "iron_shield", Weight = 60, MinQuantity = 1, MaxQuantity = 1 }
+            new LootEntry { ItemId = "sentinel_core", GuaranteedDrop = true, MinQuantity = 1, MaxQuantity = 1, Weight = 0 },
+            new LootEntry { ItemId = "revenant_plate", Weight = 70, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "steel_longsword", Weight = 70, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "chain_mail", Weight = 70, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "obsidian_guard", Weight = 12, MinQuantity = 1, MaxQuantity = 1 }
         }
     };
 
@@ -174,10 +184,11 @@ public static class LootTableCatalog
         DropChance = 1.0f,
         Entries = new()
         {
-            // GuaranteedDrop = true; Weight = 0 by convention (excluded from weighted draws).
-            new LootEntry { ItemId = "dragon_scale", GuaranteedDrop = true, MinQuantity = 2, MaxQuantity = 3, Weight = 0 },
-            new LootEntry { ItemId = "iron_sword", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
-            new LootEntry { ItemId = "iron_armor", Weight = 100, MinQuantity = 1, MaxQuantity = 1 }
+            new LootEntry { ItemId = "abyssal_sigil", GuaranteedDrop = true, MinQuantity = 2, MaxQuantity = 3, Weight = 0 },
+            new LootEntry { ItemId = "obsidian_blade", Weight = 60, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "obsidian_carapace", Weight = 60, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "major_health_potion", Weight = 50, MinQuantity = 1, MaxQuantity = 2 },
+            new LootEntry { ItemId = "dragon_scale", Weight = 25, MinQuantity = 1, MaxQuantity = 1 }
         }
     };
 
@@ -187,13 +198,88 @@ public static class LootTableCatalog
         DropChance = 1.0f,
         Entries = new()
         {
-            // GuaranteedDrop = true; Weight = 0 by convention (excluded from weighted draws).
-            new LootEntry { ItemId = "dragon_scale", GuaranteedDrop = true, MinQuantity = 3, MaxQuantity = 5, Weight = 0 },
-            new LootEntry { ItemId = "iron_sword", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
-            new LootEntry { ItemId = "iron_armor", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
-            new LootEntry { ItemId = "iron_shield", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
-            new LootEntry { ItemId = "iron_helmet", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
-            new LootEntry { ItemId = "iron_boots", Weight = 100, MinQuantity = 1, MaxQuantity = 1 }
+            new LootEntry { ItemId = "abyssal_sigil", GuaranteedDrop = true, MinQuantity = 3, MaxQuantity = 5, Weight = 0 },
+            new LootEntry { ItemId = "dragon_scale", GuaranteedDrop = true, MinQuantity = 2, MaxQuantity = 4, Weight = 0 },
+            new LootEntry { ItemId = "obsidian_blade", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "obsidian_carapace", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "obsidian_guard", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "obsidian_crown", Weight = 100, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "obsidian_treads", Weight = 100, MinQuantity = 1, MaxQuantity = 1 }
+        }
+    };
+
+    public static LootTable CreateCryptSentinelTable() => new LootTable
+    {
+        MaxDrops = 2,
+        DropChance = 0.95f,
+        Entries = new()
+        {
+            new LootEntry { ItemId = "sentinel_core", Weight = 190, MinQuantity = 1, MaxQuantity = 2 },
+            new LootEntry { ItemId = "steel_tower_shield", Weight = 24, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "warding_charm", Weight = 36, MinQuantity = 1, MaxQuantity = 1 }
+        }
+    };
+
+    public static LootTable CreateGraveHexerTable() => new LootTable
+    {
+        MaxDrops = 2,
+        DropChance = 0.95f,
+        Entries = new()
+        {
+            new LootEntry { ItemId = "hexed_cloth", Weight = 190, MinQuantity = 1, MaxQuantity = 2 },
+            new LootEntry { ItemId = "major_mana_potion", Weight = 30, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "smoke_bomb", Weight = 34, MinQuantity = 1, MaxQuantity = 1 }
+        }
+    };
+
+    public static LootTable CreateBoneArcherTable() => new LootTable
+    {
+        MaxDrops = 2,
+        DropChance = 0.92f,
+        Entries = new()
+        {
+            new LootEntry { ItemId = "splintered_bone", Weight = 200, MinQuantity = 1, MaxQuantity = 3 },
+            new LootEntry { ItemId = "swift_boots", Weight = 24, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "smoke_bomb", Weight = 30, MinQuantity = 1, MaxQuantity = 1 }
+        }
+    };
+
+    public static LootTable CreateIronRevenantTable() => new LootTable
+    {
+        MaxDrops = 3,
+        DropChance = 1.0f,
+        Entries = new()
+        {
+            new LootEntry { ItemId = "revenant_plate", GuaranteedDrop = true, MinQuantity = 1, MaxQuantity = 1, Weight = 0 },
+            new LootEntry { ItemId = "steel_longsword", Weight = 55, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "chain_mail", Weight = 55, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "obsidian_blade", Weight = 10, MinQuantity = 1, MaxQuantity = 1 }
+        }
+    };
+
+    public static LootTable CreateCursedGargoyleTable() => new LootTable
+    {
+        MaxDrops = 3,
+        DropChance = 1.0f,
+        Entries = new()
+        {
+            new LootEntry { ItemId = "gargoyle_shard", GuaranteedDrop = true, MinQuantity = 1, MaxQuantity = 2, Weight = 0 },
+            new LootEntry { ItemId = "knight_helm", Weight = 50, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "steel_tower_shield", Weight = 45, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "obsidian_carapace", Weight = 10, MinQuantity = 1, MaxQuantity = 1 }
+        }
+    };
+
+    public static LootTable CreateAbyssAcolyteTable() => new LootTable
+    {
+        MaxDrops = 3,
+        DropChance = 1.0f,
+        Entries = new()
+        {
+            new LootEntry { ItemId = "abyssal_sigil", GuaranteedDrop = true, MinQuantity = 1, MaxQuantity = 2, Weight = 0 },
+            new LootEntry { ItemId = "major_mana_potion", Weight = 60, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "obsidian_crown", Weight = 16, MinQuantity = 1, MaxQuantity = 1 },
+            new LootEntry { ItemId = "obsidian_treads", Weight = 16, MinQuantity = 1, MaxQuantity = 1 }
         }
     };
 }

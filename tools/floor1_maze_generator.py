@@ -43,6 +43,34 @@ FLOOR1_ENEMY_GATES = {
     "EnemySpawn_Orc_SouthShortcut": {"position": (32, 58), "enemy_type": "orc"},
 }
 
+FLOOR1_EXTRA_ENEMY_PATROLS = {
+    "EnemySpawn_Goblin_WestDeadEnd": {"position": (5, 22), "enemy_type": "goblin"},
+    "EnemySpawn_Goblin_SouthwestSpur": {"position": (5, 54), "enemy_type": "goblin"},
+    "EnemySpawn_Goblin_WestLoop": {"position": (7, 42), "enemy_type": "goblin"},
+    "EnemySpawn_Goblin_NorthRoom": {"position": (8, 4), "enemy_type": "goblin"},
+    "EnemySpawn_Goblin_NorthBranch": {"position": (27, 8), "enemy_type": "goblin"},
+    "EnemySpawn_Goblin_CentralSouth": {"position": (28, 40), "enemy_type": "goblin"},
+    "EnemySpawn_Goblin_SouthLoop": {"position": (23, 58), "enemy_type": "goblin"},
+    "EnemySpawn_Goblin_EastSwitchback": {"position": (58, 50), "enemy_type": "goblin"},
+    "EnemySpawn_Goblin_EastCorridor": {"position": (56, 34), "enemy_type": "goblin"},
+    "EnemySpawn_Goblin_CentralHall": {"position": (12, 28), "enemy_type": "goblin"},
+    "EnemySpawn_Orc_WestCrossing": {"position": (13, 37), "enemy_type": "orc"},
+    "EnemySpawn_Orc_NorthConnector": {"position": (30, 17), "enemy_type": "orc"},
+    "EnemySpawn_Orc_NortheastBend": {"position": (34, 22), "enemy_type": "orc"},
+    "EnemySpawn_Orc_EastHall": {"position": (44, 24), "enemy_type": "orc"},
+    "EnemySpawn_Orc_EastLoop": {"position": (52, 34), "enemy_type": "orc"},
+    "EnemySpawn_Orc_SoutheastSwitchback": {"position": (56, 46), "enemy_type": "orc"},
+    "EnemySpawn_Orc_SouthLoopEast": {"position": (42, 58), "enemy_type": "orc"},
+    "EnemySpawn_Orc_CentralLower": {"position": (32, 34), "enemy_type": "orc"},
+    "EnemySpawn_Skeleton_NorthDeadEnd": {"position": (49, 5), "enemy_type": "skeleton_warrior"},
+    "EnemySpawn_Skeleton_NorthShortcutBend": {"position": (38, 7), "enemy_type": "skeleton_warrior"},
+    "EnemySpawn_Skeleton_UpperConnector": {"position": (27, 11), "enemy_type": "skeleton_warrior"},
+    "EnemySpawn_Skeleton_EastSpur": {"position": (47, 35), "enemy_type": "skeleton_warrior"},
+    "EnemySpawn_Skeleton_SouthSpur": {"position": (12, 49), "enemy_type": "skeleton_warrior"},
+    "EnemySpawn_ForestSpirit_EastSwitchback": {"position": (54, 58), "enemy_type": "forest_spirit"},
+    "EnemySpawn_ForestSpirit_SouthGallery": {"position": (39, 44), "enemy_type": "forest_spirit"},
+}
+
 
 class MazeBuilder:
     def __init__(self, width: int, height: int) -> None:
@@ -320,7 +348,7 @@ def build_floor1_model() -> dict:
                     "position": vector(*data["position"]),
                     "enemy_type": data["enemy_type"],
                 }
-                for enemy_id, data in FLOOR1_ENEMY_GATES.items()
+                for enemy_id, data in (FLOOR1_ENEMY_GATES | FLOOR1_EXTRA_ENEMY_PATROLS).items()
             ],
             "npc_spawns": [],
             "stair_connections": [

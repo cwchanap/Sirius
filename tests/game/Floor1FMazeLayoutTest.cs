@@ -72,7 +72,32 @@ public partial class Floor1FMazeLayoutTest : Node
         ["EnemySpawn_Orc_HiddenBranch"] = "orc",
         ["EnemySpawn_Skeleton_NorthShortcut"] = "skeleton_warrior",
         ["EnemySpawn_ForestSpirit_EastShortcut"] = "forest_spirit",
-        ["EnemySpawn_Orc_SouthShortcut"] = "orc"
+        ["EnemySpawn_Orc_SouthShortcut"] = "orc",
+        ["EnemySpawn_Goblin_WestDeadEnd"] = "goblin",
+        ["EnemySpawn_Goblin_SouthwestSpur"] = "goblin",
+        ["EnemySpawn_Goblin_WestLoop"] = "goblin",
+        ["EnemySpawn_Goblin_NorthRoom"] = "goblin",
+        ["EnemySpawn_Goblin_NorthBranch"] = "goblin",
+        ["EnemySpawn_Goblin_CentralSouth"] = "goblin",
+        ["EnemySpawn_Goblin_SouthLoop"] = "goblin",
+        ["EnemySpawn_Goblin_EastSwitchback"] = "goblin",
+        ["EnemySpawn_Goblin_EastCorridor"] = "goblin",
+        ["EnemySpawn_Goblin_CentralHall"] = "goblin",
+        ["EnemySpawn_Orc_WestCrossing"] = "orc",
+        ["EnemySpawn_Orc_NorthConnector"] = "orc",
+        ["EnemySpawn_Orc_NortheastBend"] = "orc",
+        ["EnemySpawn_Orc_EastHall"] = "orc",
+        ["EnemySpawn_Orc_EastLoop"] = "orc",
+        ["EnemySpawn_Orc_SoutheastSwitchback"] = "orc",
+        ["EnemySpawn_Orc_SouthLoopEast"] = "orc",
+        ["EnemySpawn_Orc_CentralLower"] = "orc",
+        ["EnemySpawn_Skeleton_NorthDeadEnd"] = "skeleton_warrior",
+        ["EnemySpawn_Skeleton_NorthShortcutBend"] = "skeleton_warrior",
+        ["EnemySpawn_Skeleton_UpperConnector"] = "skeleton_warrior",
+        ["EnemySpawn_Skeleton_EastSpur"] = "skeleton_warrior",
+        ["EnemySpawn_Skeleton_SouthSpur"] = "skeleton_warrior",
+        ["EnemySpawn_ForestSpirit_EastSwitchback"] = "forest_spirit",
+        ["EnemySpawn_ForestSpirit_SouthGallery"] = "forest_spirit"
     };
 
     [TestCase]

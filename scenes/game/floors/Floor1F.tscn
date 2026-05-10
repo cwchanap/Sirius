@@ -137,3 +137,221 @@ script = ExtResource("5")
 GridPosition = Vector2i(32, 58)
 Blueprint = ExtResource("11_xstv1")
 EnemyType = "orc"
+
+[node name="EnemySpawn_Goblin_WestDeadEnd" type="Sprite2D" parent="GridMap" instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(176, 720)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(5, 22)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_Goblin_SouthwestSpur" type="Sprite2D" parent="GridMap" instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(176, 1744)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(5, 54)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_Goblin_WestLoop" type="Sprite2D" parent="GridMap" instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(240, 1360)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(7, 42)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_Goblin_NorthRoom" type="Sprite2D" parent="GridMap" instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(272, 144)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(8, 4)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_Goblin_NorthBranch" type="Sprite2D" parent="GridMap" instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(880, 272)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(27, 8)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_Goblin_CentralSouth" type="Sprite2D" parent="GridMap" instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(912, 1296)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(28, 40)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_Goblin_SouthLoop" type="Sprite2D" parent="GridMap" instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(752, 1872)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(23, 58)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_Goblin_EastSwitchback" type="Sprite2D" parent="GridMap" instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(1872, 1616)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(58, 50)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_Goblin_EastCorridor" type="Sprite2D" parent="GridMap" instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(1808, 1104)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(56, 34)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_Goblin_CentralHall" type="Sprite2D" parent="GridMap" instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(400, 912)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(12, 28)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_Orc_WestCrossing" type="Sprite2D" parent="GridMap" instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(432, 1200)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(13, 37)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_Orc_NorthConnector" type="Sprite2D" parent="GridMap" instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(976, 560)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(30, 17)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_Orc_NortheastBend" type="Sprite2D" parent="GridMap" instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(1104, 720)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(34, 22)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_Orc_EastHall" type="Sprite2D" parent="GridMap" instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(1424, 784)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(44, 24)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_Orc_EastLoop" type="Sprite2D" parent="GridMap" instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(1680, 1104)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(52, 34)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_Orc_SoutheastSwitchback" type="Sprite2D" parent="GridMap" instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(1808, 1488)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(56, 46)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_Orc_SouthLoopEast" type="Sprite2D" parent="GridMap" instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(1360, 1872)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(42, 58)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_Orc_CentralLower" type="Sprite2D" parent="GridMap" instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(1040, 1104)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(32, 34)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_Skeleton_NorthDeadEnd" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(1584, 176)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(49, 5)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_Skeleton_NorthShortcutBend" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(1232, 240)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(38, 7)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_Skeleton_UpperConnector" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(880, 368)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(27, 11)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_Skeleton_EastSpur" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(1520, 1136)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(47, 35)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_Skeleton_SouthSpur" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(400, 1584)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(12, 49)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_ForestSpirit_EastSwitchback" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(1744, 1872)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(54, 58)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_ForestSpirit_SouthGallery" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(1264, 1424)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(39, 44)
+EnemyType = "forest_spirit"

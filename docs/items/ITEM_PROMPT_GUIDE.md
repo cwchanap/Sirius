@@ -6,7 +6,7 @@ This document is the authoritative reference for item image assets. It is genera
 `EquipmentCatalog.cs`, `ConsumableCatalog.cs`, and `MonsterPartsCatalog.cs` and should be
 kept in sync with those files when items are added or removed.
 
-All asset paths listed here must match the `AssetPath` field in the catalog source exactly.
+Asset paths listed here are repo-relative paths corresponding to the catalog `AssetPath` with the `res://` prefix omitted.
 
 ---
 

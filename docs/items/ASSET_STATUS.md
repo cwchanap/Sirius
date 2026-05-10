@@ -14,7 +14,7 @@ generation prompts.
 | **Character/Enemy sprites** | `sprite_sheet.png` per entity in `EnemySpawn.cs:262` / `PlayerDisplay.cs:26` | `assets/sprites/enemies/{type}/sprite_sheet.png` (new) or `assets/sprites/characters/{name}/sprite_sheet.png` (legacy) |
 | **NPC sprites** | `NpcSpawn.cs:66–67` tries new path then legacy fallback | `assets/sprites/npcs/{type}/sprite_sheet.png` (new) or `assets/sprites/characters/npc_{type}/sprite_sheet.png` (legacy) |
 | **Sprite sheets** | Auto-built by `tools/sprite_sheet_merger.py` from `frames/frame1-4.png` | Same dir as `frames/` |
-| **Item icons** | `AssetPath` field in item catalog factories | `assets/sprites/items/{slot}/{id}.png` |
+| **Item icons** | `AssetPath` field in item catalog factories | `assets/sprites/items/{category-or-slot}/{id}.png` |
 | **UI backgrounds** | Hard-coded paths in `MainMenu.cs:27` and `BattleManager.cs:180` | `assets/sprites/ui/*.png` |
 | **Effects/Icons** | Currently no code loads these; reserved for future use | `assets/sprites/effects/*.png`, `assets/sprites/ui/icon_*.png` |
 

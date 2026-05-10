@@ -102,8 +102,9 @@ public partial class EnemySpawn : Sprite2D
     // Prefer using Blueprint property instead for full stat control.
     // goblin, orc, skeleton_warrior, troll, dragon, forest_spirit, cave_spider,
     // desert_scorpion, swamp_wretch, mountain_wyvern, dark_mage, dungeon_guardian,
-    // demon_lord, boss
-    [Export(PropertyHint.Enum, "goblin,orc,skeleton_warrior,troll,dragon,forest_spirit,cave_spider,desert_scorpion,swamp_wretch,mountain_wyvern,dark_mage,dungeon_guardian,demon_lord,boss")] 
+    // crypt_sentinel, grave_hexer, bone_archer, iron_revenant, cursed_gargoyle,
+    // abyss_acolyte, demon_lord, boss
+    [Export(PropertyHint.Enum, "goblin,orc,skeleton_warrior,troll,dragon,forest_spirit,cave_spider,desert_scorpion,swamp_wretch,mountain_wyvern,dark_mage,dungeon_guardian,crypt_sentinel,grave_hexer,bone_archer,iron_revenant,cursed_gargoyle,abyss_acolyte,demon_lord,boss")]
     public string EnemyType { get; set; } = string.Empty;
 
     private GridMap _gridMap;
@@ -360,28 +361,12 @@ public partial class EnemySpawn : Sprite2D
             };
         }
 
-        // Fallback: Use legacy EnemyType string with factory methods
+        // Fallback: Use legacy EnemyType string through the shared encounter factory
         if (!string.IsNullOrEmpty(EnemyType))
         {
-            string type = EnemyType.ToLower();
-            return type switch
-            {
-                "goblin" => Enemy.CreateGoblin(),
-                "orc" => Enemy.CreateOrc(),
-                "skeleton_warrior" => Enemy.CreateSkeletonWarrior(),
-                "troll" => Enemy.CreateTroll(),
-                "dragon" => Enemy.CreateDragon(),
-                "forest_spirit" => Enemy.CreateForestSpirit(),
-                "cave_spider" => Enemy.CreateCaveSpider(),
-                "desert_scorpion" => Enemy.CreateDesertScorpion(),
-                "swamp_wretch" => Enemy.CreateSwampWretch(),
-                "mountain_wyvern" => Enemy.CreateMountainWyvern(),
-                "dark_mage" => Enemy.CreateDarkMage(),
-                "dungeon_guardian" => Enemy.CreateDungeonGuardian(),
-                "demon_lord" => Enemy.CreateDemonLord(),
-                "boss" => Enemy.CreateBoss(),
-                _ => LogAndDefaultToGoblin(type, GridPosition)
-            };
+            string type = EnemyType.ToLowerInvariant();
+            var enemy = EncounterTables.CreateEnemyByType(type);
+            return enemy ?? LogAndDefaultToGoblin(type, GridPosition);
         }
 
         // Ultimate fallback: no Blueprint and no EnemyType set

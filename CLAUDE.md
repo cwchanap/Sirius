@@ -220,4 +220,4 @@ Deep-dive docs live in `docs/`:
 - `docs/architecture/MULTI_FLOOR_ARCHITECTURE.md` — multi-floor system design
 - `docs/items/items-guide.md` — item catalog conventions
 
-`README.md` has the canonical enemy stat table (HP/ATK/DEF/SPD/XP per type) and the area→enemy mapping — consult it before tweaking enemy balance rather than re-deriving from `EnemyBlueprint` files.
+`README.md` mirrors the enemy stat table (HP/ATK/DEF/SPD/XP per type) and area→enemy mapping from the runtime data catalogs (`EnemyBlueprint` factory methods, enemy catalogs). The **authoritative source** is always the code — consult `EnemyBlueprint.cs` and related catalogs when tweaking balance. Update README to match after code changes so the human-readable reference stays in sync.

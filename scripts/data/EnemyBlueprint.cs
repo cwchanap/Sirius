@@ -297,6 +297,7 @@ public partial class EnemyBlueprint : Resource
         };
     }
 
+    /// <summary>Factory method: Create a Crypt Sentinel blueprint with default stats.</summary>
     public static EnemyBlueprint CreateCryptSentinelBlueprint()
     {
         return new EnemyBlueprint
@@ -313,6 +314,7 @@ public partial class EnemyBlueprint : Resource
         };
     }
 
+    /// <summary>Factory method: Create a Grave Hexer blueprint with default stats.</summary>
     public static EnemyBlueprint CreateGraveHexerBlueprint()
     {
         return new EnemyBlueprint
@@ -329,6 +331,7 @@ public partial class EnemyBlueprint : Resource
         };
     }
 
+    /// <summary>Factory method: Create a Bone Archer blueprint with default stats.</summary>
     public static EnemyBlueprint CreateBoneArcherBlueprint()
     {
         return new EnemyBlueprint
@@ -345,6 +348,7 @@ public partial class EnemyBlueprint : Resource
         };
     }
 
+    /// <summary>Factory method: Create an Iron Revenant blueprint with default stats.</summary>
     public static EnemyBlueprint CreateIronRevenantBlueprint()
     {
         return new EnemyBlueprint
@@ -361,6 +365,7 @@ public partial class EnemyBlueprint : Resource
         };
     }
 
+    /// <summary>Factory method: Create a Cursed Gargoyle blueprint with default stats.</summary>
     public static EnemyBlueprint CreateCursedGargoyleBlueprint()
     {
         return new EnemyBlueprint
@@ -377,6 +382,7 @@ public partial class EnemyBlueprint : Resource
         };
     }
 
+    /// <summary>Factory method: Create an Abyss Acolyte blueprint with default stats.</summary>
     public static EnemyBlueprint CreateAbyssAcolyteBlueprint()
     {
         return new EnemyBlueprint

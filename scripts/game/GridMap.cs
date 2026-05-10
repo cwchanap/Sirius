@@ -1849,7 +1849,7 @@ public partial class GridMap : Node2D
         
         if (IsInAreaBounds(x, y, 115, 85, 30, 35))
         {
-            return pseudoRand < 0.5f ? "dungeon_guardian" : "dark_mage";
+            return EncounterTables.SelectDungeonEnemyType(pseudoRand);
         }
         
         if (IsInAreaBounds(x, y, 135, 135, 20, 20))

@@ -63,6 +63,25 @@ public static class EnemyDebuffProfile
             new EnemyDebuffAbility(StatusEffectType.Weaken, 12, 3, 0.30f),
             new EnemyDebuffAbility(StatusEffectType.Stun,    0, 1, 0.15f),
         },
+        [EnemyTypeId.GraveHexer] = new[]
+        {
+            new EnemyDebuffAbility(StatusEffectType.Weaken, 14, 3, 0.32f),
+            new EnemyDebuffAbility(StatusEffectType.Blind,   0, 2, 0.20f),
+        },
+        [EnemyTypeId.BoneArcher] = new[]
+        {
+            new EnemyDebuffAbility(StatusEffectType.Slow, 10, 2, 0.28f),
+            new EnemyDebuffAbility(StatusEffectType.Blind, 0, 1, 0.16f),
+        },
+        [EnemyTypeId.CursedGargoyle] = new[]
+        {
+            new EnemyDebuffAbility(StatusEffectType.Burn, 10, 3, 0.25f),
+        },
+        [EnemyTypeId.AbyssAcolyte] = new[]
+        {
+            new EnemyDebuffAbility(StatusEffectType.Weaken, 16, 3, 0.34f),
+            new EnemyDebuffAbility(StatusEffectType.Stun,    0, 1, 0.16f),
+        },
     };
 
     /// <summary>

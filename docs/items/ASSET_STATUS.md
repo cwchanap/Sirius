@@ -284,18 +284,18 @@ No code currently loads these; reserved for future battle animations.
 
 ## Summary
 
-| Category | ✅ Exists | ❌ Missing |
-|----------|----------|-----------|
-| Terrain tiles | 10 | 7 (1 floor + 6 stair/gate) |
-| Characters/Enemies | 8 (+ 1 legacy) | 13 |
-| NPC sprites | 0 | 4 |
-| Item icons — equipment | 20 | 0 |
-| Item icons — consumables | 14 | 0 |
-| Item icons — monster parts | 11 | 0 |
-| UI backgrounds | 2 | 0 |
-| UI buttons & icons | 0 | 6 |
-| Effects | 0 | 3 |
-| **Total** | **65** | **33** |
+| Category | ✅ Exists | ❌ Missing | ⚠️ Unreachable |
+|----------|----------|-----------|----------------|
+| Terrain tiles | 10 | 7 (1 floor + 6 stair/gate) | 0 |
+| Characters/Enemies | 8 | 12 | 1 legacy |
+| NPC sprites | 0 | 4 | 0 |
+| Item icons — equipment | 20 | 0 | 0 |
+| Item icons — consumables | 14 | 0 | 0 |
+| Item icons — monster parts | 11 | 0 | 0 |
+| UI backgrounds | 2 | 0 | 0 |
+| UI buttons & icons | 0 | 6 | 0 |
+| Effects | 0 | 3 | 0 |
+| **Total** | **65** | **32** | **1** |
 
 ---
 

@@ -65,6 +65,13 @@ Enemies with debuff abilities attempt to apply them each time they attack.
 | Swamp Wretch | Blind | — | 2 turns | 20% |
 | Dark Mage | Weaken | −12% ATK | 3 turns | 30% |
 | Dark Mage | Stun | — | 1 turn | 15% |
+| Grave Hexer | Weaken | −14% ATK | 3 turns | 32% |
+| Grave Hexer | Blind | — | 2 turns | 20% |
+| Bone Archer | Slow | −10% SPD | 2 turns | 28% |
+| Bone Archer | Blind | — | 1 turn | 16% |
+| Cursed Gargoyle | Burn | 10 dmg/turn | 3 turns | 25% |
+| Abyss Acolyte | Weaken | −16% ATK | 3 turns | 34% |
+| Abyss Acolyte | Stun | — | 1 turn | 16% |
 
 ## Equipment
 
@@ -94,9 +101,9 @@ See `EquipmentCatalog.cs` for full equipment stats. Equipment guide section TBD.
 | skeleton_bone | Skeleton Bone | 12g | Skeleton Warrior |
 | spider_silk | Spider Silk | 20g | Cave Spider |
 | dragon_scale | Dragon Scale | 200g | Dragon, Demon Lord, Boss |
-| sentinel_core | Sentinel Core | 35g | Crypt Sentinel, Dungeon Guardian |
-| hexed_cloth | Hexed Cloth | 32g | Grave Hexer, Dark Mage |
-| splintered_bone | Splintered Bone | 18g | Bone Archer |
-| revenant_plate | Revenant Plate | 55g | Iron Revenant, Dungeon Guardian |
-| gargoyle_shard | Gargoyle Shard | 60g | Cursed Gargoyle |
-| abyssal_sigil | Abyssal Sigil | 85g | Abyss Acolyte, Demon Lord, Boss |
+| sentinel_core | Sentinel Core | 45g | Crypt Sentinel, Dungeon Guardian |
+| hexed_cloth | Hexed Cloth | 50g | Grave Hexer, Dark Mage |
+| splintered_bone | Splintered Bone | 38g | Bone Archer |
+| revenant_plate | Revenant Plate | 90g | Iron Revenant, Dungeon Guardian |
+| gargoyle_shard | Gargoyle Shard | 100g | Cursed Gargoyle |
+| abyssal_sigil | Abyssal Sigil | 140g | Abyss Acolyte, Demon Lord, Boss |

@@ -56,4 +56,10 @@ public partial class Enemy : Resource
     public static Enemy CreateSwampWretch()     => EnemyBlueprint.CreateSwampWretchBlueprint().CreateEnemy();
     public static Enemy CreateMountainWyvern()  => EnemyBlueprint.CreateMountainWyvernBlueprint().CreateEnemy();
     public static Enemy CreateDungeonGuardian() => EnemyBlueprint.CreateDungeonGuardianBlueprint().CreateEnemy();
+    public static Enemy CreateCryptSentinel()   => EnemyBlueprint.CreateCryptSentinelBlueprint().CreateEnemy();
+    public static Enemy CreateGraveHexer()      => EnemyBlueprint.CreateGraveHexerBlueprint().CreateEnemy();
+    public static Enemy CreateBoneArcher()      => EnemyBlueprint.CreateBoneArcherBlueprint().CreateEnemy();
+    public static Enemy CreateIronRevenant()    => EnemyBlueprint.CreateIronRevenantBlueprint().CreateEnemy();
+    public static Enemy CreateCursedGargoyle() => EnemyBlueprint.CreateCursedGargoyleBlueprint().CreateEnemy();
+    public static Enemy CreateAbyssAcolyte()    => EnemyBlueprint.CreateAbyssAcolyteBlueprint().CreateEnemy();
 }

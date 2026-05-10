@@ -18,9 +18,10 @@ public partial class EnemyBlueprint : Resource
     /// Visual sprite type (must match folder name in assets/sprites/enemies/).
     /// Common types: goblin, orc, skeleton_warrior, troll, dragon, forest_spirit,
     /// cave_spider, desert_scorpion, swamp_wretch, mountain_wyvern, dark_mage,
-    /// dungeon_guardian, demon_lord, boss
+    /// dungeon_guardian, crypt_sentinel, grave_hexer, bone_archer, iron_revenant,
+    /// cursed_gargoyle, abyss_acolyte, demon_lord, boss
     /// </summary>
-    [Export(PropertyHint.Enum, "goblin,orc,skeleton_warrior,troll,dragon,forest_spirit,cave_spider,desert_scorpion,swamp_wretch,mountain_wyvern,dark_mage,dungeon_guardian,demon_lord,boss")]
+    [Export(PropertyHint.Enum, "goblin,orc,skeleton_warrior,troll,dragon,forest_spirit,cave_spider,desert_scorpion,swamp_wretch,mountain_wyvern,dark_mage,dungeon_guardian,crypt_sentinel,grave_hexer,bone_archer,iron_revenant,cursed_gargoyle,abyss_acolyte,demon_lord,boss")]
     public string SpriteType { get; set; } = "goblin";
 
     // Combat stats
@@ -293,6 +294,102 @@ public partial class EnemyBlueprint : Resource
             Speed = 10,
             ExperienceReward = 300,
             GoldReward = 150
+        };
+    }
+
+    public static EnemyBlueprint CreateCryptSentinelBlueprint()
+    {
+        return new EnemyBlueprint
+        {
+            EnemyName = "Crypt Sentinel",
+            SpriteType = EnemyTypeId.CryptSentinel,
+            Level = 7,
+            MaxHealth = 240,
+            Attack = 48,
+            Defense = 32,
+            Speed = 7,
+            ExperienceReward = 260,
+            GoldReward = 140
+        };
+    }
+
+    public static EnemyBlueprint CreateGraveHexerBlueprint()
+    {
+        return new EnemyBlueprint
+        {
+            EnemyName = "Grave Hexer",
+            SpriteType = EnemyTypeId.GraveHexer,
+            Level = 7,
+            MaxHealth = 180,
+            Attack = 52,
+            Defense = 18,
+            Speed = 14,
+            ExperienceReward = 270,
+            GoldReward = 160
+        };
+    }
+
+    public static EnemyBlueprint CreateBoneArcherBlueprint()
+    {
+        return new EnemyBlueprint
+        {
+            EnemyName = "Bone Archer",
+            SpriteType = EnemyTypeId.BoneArcher,
+            Level = 6,
+            MaxHealth = 150,
+            Attack = 46,
+            Defense = 14,
+            Speed = 20,
+            ExperienceReward = 230,
+            GoldReward = 120
+        };
+    }
+
+    public static EnemyBlueprint CreateIronRevenantBlueprint()
+    {
+        return new EnemyBlueprint
+        {
+            EnemyName = "Iron Revenant",
+            SpriteType = EnemyTypeId.IronRevenant,
+            Level = 8,
+            MaxHealth = 320,
+            Attack = 64,
+            Defense = 30,
+            Speed = 11,
+            ExperienceReward = 360,
+            GoldReward = 190
+        };
+    }
+
+    public static EnemyBlueprint CreateCursedGargoyleBlueprint()
+    {
+        return new EnemyBlueprint
+        {
+            EnemyName = "Cursed Gargoyle",
+            SpriteType = EnemyTypeId.CursedGargoyle,
+            Level = 8,
+            MaxHealth = 360,
+            Attack = 58,
+            Defense = 34,
+            Speed = 8,
+            ExperienceReward = 380,
+            GoldReward = 210
+        };
+    }
+
+    public static EnemyBlueprint CreateAbyssAcolyteBlueprint()
+    {
+        return new EnemyBlueprint
+        {
+            EnemyName = "Abyss Acolyte",
+            SpriteType = EnemyTypeId.AbyssAcolyte,
+            Level = 9,
+            MaxHealth = 260,
+            Attack = 70,
+            Defense = 22,
+            Speed = 16,
+            ExperienceReward = 450,
+            GoldReward = 260
         };
     }
 }

@@ -32,12 +32,15 @@ python3 tools/sprite_sheet_merger.py
 
 **Test setup**: See [TESTING.md](TESTING.md) for detailed test configuration including local Godot path setup.
 
+**`AGENTS.md` is a symlink to `CLAUDE.md`** — edit one, both update.
+
 ## Architecture Overview
 
 ### Core Systems
 - **GameManager (Singleton)**: Global state management, player data persistence across battles, battle state tracking (`IsInBattle` flag)
 - **GridMap**: 160x160 grid with viewport culling for performance, themed area system, position-based enemy spawning
-- **FloorManager**: Multi-floor system with stair connections between floors (FloorGF.tscn, Floor1F.tscn, etc.)
+- **FloorManager**: Multi-floor system with stair connections between floors (FloorGF.tscn, Floor1F.tscn, etc.). Lives as a node under `Game.tscn` and is the **only** entry point for floor swaps — call `_floorManager.LoadFloor(index, spawnPos?)` rather than `GetTree().ChangeSceneToFile` for in-game floor transitions.
+- **SettingsManager (Autoload)**: Persists user settings (`scripts/settings/SettingsManager.cs` + `SettingsData.cs`); registered in `project.godot` `[autoload]`.
 - **Battle System**: Modal battle dialogs as popup overlays with automated AI combat decisions
 - **Scene Flow**: MainMenu.tscn → Game.tscn → Battle dialogs → back to game
 
@@ -59,6 +62,7 @@ scripts/
 │   └── ...            # Core data: Character.cs, Enemy.cs, EnemyBlueprint.cs, LootManager.cs, LootTable.cs, RecoveryChest.cs
 ├── game/          # Core game logic (GameManager.cs, GridMap.cs, FloorManager.cs, PlayerController.cs, EnemySpawn.cs, NpcSpawn.cs)
 ├── save/          # Persistence: SaveManager.cs, SaveData.cs, CharacterSaveData.cs, EquipmentSaveData.cs
+├── settings/      # SettingsManager.cs (autoload), SettingsData.cs
 ├── tilemap_json/  # Tilemap import/export (TilemapJsonImporter.cs, TilemapJsonExporter.cs)
 └── ui/            # UI controllers (BattleManager.cs, MainMenu.cs, InventoryMenuController.cs, SaveLoadDialog.cs, ShopDialog.cs, HealDialog.cs, DialogueDialog.cs, NpcInteractionController.cs)
 
@@ -72,11 +76,22 @@ tests/             # GdUnit4 tests mirroring scripts/ structure
 ├── data/          # CharacterTest.cs, EnemyTest.cs, InventoryTest.cs, skills/, consumables/, npc/
 ├── game/          # GameManagerTest.cs, FloorManagerTest.cs, EnemySpawnTest.cs, NpcSpawnTest.cs
 ├── save/          # SaveDataTest.cs, SaveManagerTest.cs
+├── settings/      # SettingsDataTest.cs, SettingsManagerTest.cs
+├── tilemap_json/  # FloorJsonModelTest.cs, TileConfigManagerTest.cs, TilemapJsonImporterTest.cs
+├── tools/         # Python tests for tools/ scripts (run with pytest, NOT dotnet test)
 └── ui/            # BattleManagerTest.cs, ShopDialogTest.cs, InventoryMenuControllerTest.cs
 
 assets/sprites/    # Sprite sheets and individual frames
-tools/             # sprite_sheet_merger.py for asset pipeline
+tools/             # Python utilities (see below)
+├── sprite_sheet_merger.py        # 32x32 frames → 128x32 sprite sheets
+├── floor0_maze_generator.py      # Emit Floor 0 maze JSON
+├── floor1_maze_generator.py      # Emit Floor 1 maze JSON
+├── generate_static_maze.py       # Static maze emitter
+├── tilemap_json_sync.py          # Round-trip .tscn ↔ .json (used by MCP/CLI: export|import|refresh)
+└── resize_item_icons.py
 ```
+
+Python tests under `tests/tools/` are not picked up by `dotnet test` — invoke them with `python3 -m pytest tests/tools` (or per-file).
 
 ## Critical Development Patterns
 
@@ -201,6 +216,8 @@ Test files must mirror source structure: `scripts/data/Character.cs` → `tests/
 ## Architecture Docs
 
 Deep-dive docs live in `docs/`:
-- `docs/PRD.md` — feature roadmap and implementation status (~60% complete as of March 2026)
+- `docs/PRD.md` — feature roadmap and implementation status
 - `docs/architecture/MULTI_FLOOR_ARCHITECTURE.md` — multi-floor system design
 - `docs/items/items-guide.md` — item catalog conventions
+
+`README.md` has the canonical enemy stat table (HP/ATK/DEF/SPD/XP per type) and the area→enemy mapping — consult it before tweaking enemy balance rather than re-deriving from `EnemyBlueprint` files.

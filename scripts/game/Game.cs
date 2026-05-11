@@ -339,6 +339,12 @@ public partial class Game : Node2D
             return;
         }
 
+        if (_gameManager.IsInWorldInteraction)
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         if (_gameManager.IsInNpcInteraction)
         {
             // Don't consume the event — AcceptDialog-based NPC modals
@@ -493,7 +499,7 @@ public partial class Game : Node2D
         try
         {
             await box.OpenAsync();
-            if (!IsInstanceValid(box) || !box.IsOpened)
+            if (!IsInsideTree() || !IsInstanceValid(_gameManager) || !IsInstanceValid(box) || !box.IsOpened)
             {
                 return;
             }
@@ -504,8 +510,15 @@ public partial class Game : Node2D
         }
         finally
         {
-            _gameManager.EndWorldInteraction();
-            UpdateInteractionPrompt();
+            if (IsInstanceValid(_gameManager) && _gameManager.IsInWorldInteraction)
+            {
+                _gameManager.EndWorldInteraction();
+            }
+
+            if (IsInsideTree())
+            {
+                UpdateInteractionPrompt();
+            }
         }
     }
 

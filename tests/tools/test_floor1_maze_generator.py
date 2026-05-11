@@ -34,6 +34,17 @@ from tools.floor1_maze_generator import (
     validate_model,
 )
 
+EXPECTED_FLOOR1_TREASURE = {
+    "TreasureBox_1F_WestDeadEndCache": ((4, 22), 85, {"health_potion": 2}),
+    "TreasureBox_1F_WestLoopCache": ((2, 42), 70, {"swiftness_draught": 1}),
+    "TreasureBox_1F_NorthConnectorCache": ((30, 19), 0, {"mana_potion": 2}),
+    "TreasureBox_1F_EastHallCache": ((52, 24), 120, {"greater_health_potion": 1}),
+    "TreasureBox_1F_NorthStairCache": ((49, 14), 0, {"iron_boots": 1}),
+    "TreasureBox_1F_EastShortcutCache": ((58, 46), 0, {"steel_longsword": 1}),
+    "TreasureBox_1F_SouthGalleryCache": ((38, 55), 130, {"flash_powder": 1}),
+    "TreasureBox_1F_SouthHiddenCache": ((20, 56), 0, {"chain_mail": 1}),
+}
+
 
 def walkable_set(model):
     walls = {(tile["x"], tile["y"]) for tile in model["tile_layers"]["wall"]}
@@ -279,6 +290,36 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
         for goal in goals:
             with self.subTest(goal=goal):
                 self.assertTrue(has_path(self.walkable, FLOOR1_PLAYER_START, goal))
+
+    def test_floor1_treasure_boxes_are_authored_and_walkable(self):
+        entities = self.model["entities"]
+        treasure_boxes = {
+            box["id"]: box
+            for box in entities["treasure_boxes"]
+        }
+        occupied = set()
+        for key in ("npc_spawns", "enemy_spawns", "stair_connections", "hidden_placeholders"):
+            occupied.update(
+                (entity["position"]["x"], entity["position"]["y"])
+                for entity in entities[key]
+            )
+
+        self.assertEqual(set(treasure_boxes), set(EXPECTED_FLOOR1_TREASURE))
+
+        for box_id, (position, gold, items) in EXPECTED_FLOOR1_TREASURE.items():
+            with self.subTest(box_id=box_id):
+                box = treasure_boxes[box_id]
+                box_pos = (box["position"]["x"], box["position"]["y"])
+                box_items = {
+                    item["item_id"]: item["quantity"]
+                    for item in box["items"]
+                }
+
+                self.assertEqual(box_pos, position)
+                self.assertIn(box_pos, self.walkable)
+                self.assertNotIn(box_pos, occupied)
+                self.assertEqual(box["gold"], gold)
+                self.assertEqual(box_items, items)
 
     def test_maze_has_multiple_dead_end_branches(self):
         self.assertGreaterEqual(count_dead_end_cells(self.walkable), 8)

@@ -99,6 +99,17 @@ public partial class Floor1FMazeLayoutTest : Node
         ["EnemySpawn_ForestSpirit_EastSwitchback"] = "forest_spirit",
         ["EnemySpawn_ForestSpirit_SouthGallery"] = "forest_spirit"
     };
+    private static readonly Dictionary<string, (Vector2I Position, int Gold, Dictionary<string, int> Items)> ExpectedTreasureBoxes = new()
+    {
+        ["TreasureBox_1F_WestDeadEndCache"] = (new Vector2I(4, 22), 85, new Dictionary<string, int> { ["health_potion"] = 2 }),
+        ["TreasureBox_1F_WestLoopCache"] = (new Vector2I(2, 42), 70, new Dictionary<string, int> { ["swiftness_draught"] = 1 }),
+        ["TreasureBox_1F_NorthConnectorCache"] = (new Vector2I(30, 19), 0, new Dictionary<string, int> { ["mana_potion"] = 2 }),
+        ["TreasureBox_1F_EastHallCache"] = (new Vector2I(52, 24), 120, new Dictionary<string, int> { ["greater_health_potion"] = 1 }),
+        ["TreasureBox_1F_NorthStairCache"] = (new Vector2I(49, 14), 0, new Dictionary<string, int> { ["iron_boots"] = 1 }),
+        ["TreasureBox_1F_EastShortcutCache"] = (new Vector2I(58, 46), 0, new Dictionary<string, int> { ["steel_longsword"] = 1 }),
+        ["TreasureBox_1F_SouthGalleryCache"] = (new Vector2I(38, 55), 130, new Dictionary<string, int> { ["flash_powder"] = 1 }),
+        ["TreasureBox_1F_SouthHiddenCache"] = (new Vector2I(20, 56), 0, new Dictionary<string, int> { ["chain_mail"] = 1 })
+    };
 
     [TestCase]
     public void Floor1F_GeneratedMaze_HasExpectedStaticLayers()
@@ -213,6 +224,60 @@ public partial class Floor1FMazeLayoutTest : Node
                 AssertThat(IsInsideFloor(goal)).IsTrue();
                 AssertThat(IsWalkable(goal, walls)).IsTrue();
                 AssertThat(HasPath(PlayerStart, goal, walls)).IsTrue();
+            }
+        }
+        finally
+        {
+            floorRoot.Free();
+        }
+    }
+
+    [TestCase]
+    public void Floor1F_GeneratedMaze_HasExpectedTreasureBoxes()
+    {
+        var floorRoot = LoadFloor();
+        try
+        {
+            var gridMap = floorRoot.GetNode<GridMap>("GridMap");
+            var walls = GetWalls(gridMap);
+            var boxes = gridMap.GetChildren()
+                .OfType<TreasureBoxSpawn>()
+                .ToDictionary(box => box.TreasureBoxId);
+            var occupied = gridMap.GetChildren()
+                .Where(child => child is EnemySpawn || child is NpcSpawn || child is StairConnection)
+                .Select(child => child switch
+                {
+                    EnemySpawn enemy => enemy.GridPosition,
+                    NpcSpawn npc => npc.GridPosition,
+                    StairConnection stair => stair.GridPosition,
+                    _ => Vector2I.Zero
+                })
+                .ToHashSet();
+            occupied.UnionWith(HiddenPlaceholders);
+
+            AssertThat(boxes.Count).IsEqual(8);
+            AssertThat(boxes.Values.Select(box => box.GridPosition).Distinct().Count()).IsEqual(8);
+
+            foreach (var expected in ExpectedTreasureBoxes)
+            {
+                AssertThat(boxes.ContainsKey(expected.Key)).IsTrue();
+                var box = boxes[expected.Key];
+                var actualItems = RewardItems(box);
+
+                AssertThat(box.Name.ToString()).IsEqual(expected.Key);
+                AssertThat(box.GridPosition).IsEqual(expected.Value.Position);
+                AssertThat(IsWalkable(box.GridPosition, walls)).IsTrue();
+                AssertThat(occupied.Contains(box.GridPosition)).IsFalse();
+                AssertThat(HasPath(PlayerStart, box.GridPosition, walls)).IsTrue();
+                AssertThat(box.RewardGold).IsEqual(expected.Value.Gold);
+                AssertThat(actualItems.Count).IsEqual(expected.Value.Items.Count);
+
+                foreach (var item in expected.Value.Items)
+                {
+                    AssertThat(ItemCatalog.ItemExists(item.Key)).IsTrue();
+                    AssertThat(actualItems.ContainsKey(item.Key)).IsTrue();
+                    AssertThat(actualItems[item.Key]).IsEqual(item.Value);
+                }
             }
         }
         finally
@@ -588,5 +653,25 @@ public partial class Floor1FMazeLayoutTest : Node
         yield return new Vector2I(position.X - 1, position.Y);
         yield return new Vector2I(position.X, position.Y + 1);
         yield return new Vector2I(position.X, position.Y - 1);
+    }
+
+    private static Dictionary<string, int> RewardItems(TreasureBoxSpawn box)
+    {
+        var result = new Dictionary<string, int>();
+        if (box.RewardItemIds == null)
+        {
+            return result;
+        }
+
+        for (var i = 0; i < box.RewardItemIds.Count; i++)
+        {
+            var itemId = box.RewardItemIds[i];
+            var quantity = box.RewardItemQuantities != null && i < box.RewardItemQuantities.Count
+                ? box.RewardItemQuantities[i]
+                : 1;
+            result[itemId] = quantity;
+        }
+
+        return result;
     }
 }

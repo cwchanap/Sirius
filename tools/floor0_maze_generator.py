@@ -39,6 +39,17 @@ MAIN_LOOP_POINTS = [
     (8, 50),
 ]
 
+TREASURE_BOXES = {
+    "TreasureBox_GF_EntranceCache": ((15, 50), 35, {"health_potion": 1}),
+    "TreasureBox_GF_NorthwestCache": ((30, 8), 60, {"mana_potion": 1}),
+    "TreasureBox_GF_NorthLoopCache": ((49, 8), 80, {"strength_tonic": 1}),
+    "TreasureBox_GF_EastBranchCache": ((91, 30), 110, {"greater_health_potion": 1}),
+    "TreasureBox_GF_StairDistrictCache": ((94, 68), 75, {"iron_skin": 1}),
+    "TreasureBox_GF_SouthDeepCache": ((52, 94), 0, {"iron_sword": 1}),
+    "TreasureBox_GF_SouthwestCache": ((7, 72), 50, {"antidote": 2}),
+    "TreasureBox_GF_SoutheastCache": ((80, 82), 0, {"iron_shield": 1}),
+}
+
 
 class MazeBuilder:
     def __init__(self, width: int = FLOOR_WIDTH, height: int = FLOOR_HEIGHT) -> None:
@@ -140,6 +151,21 @@ def vector(x: int, y: int) -> dict[str, int]:
     return {"x": x, "y": y}
 
 
+def treasure_box_entities() -> list[dict]:
+    return [
+        {
+            "id": box_id,
+            "position": vector(*position),
+            "gold": gold,
+            "items": [
+                {"item_id": item_id, "quantity": quantity}
+                for item_id, quantity in items.items()
+            ],
+        }
+        for box_id, (position, gold, items) in TREASURE_BOXES.items()
+    ]
+
+
 def perimeter_walls(grid_width: int, grid_height: int) -> set[tuple[int, int]]:
     """Return wall cells that fill the region beyond the maze (100x100) to the full grid."""
     walls: set[tuple[int, int]] = set()
@@ -225,6 +251,7 @@ def build_floor_model() -> dict:
                     "destination_stair_id": "1F_001",
                 }
             ],
+            "treasure_boxes": treasure_box_entities(),
         },
     }
 
@@ -277,6 +304,8 @@ def validate_model(model: dict) -> None:
         goals.append((enemy["position"]["x"], enemy["position"]["y"]))
     for stair in model["entities"]["stair_connections"]:
         goals.append((stair["position"]["x"], stair["position"]["y"]))
+    for box in model["entities"]["treasure_boxes"]:
+        goals.append((box["position"]["x"], box["position"]["y"]))
 
     for goal in goals:
         if goal not in walkable:
@@ -385,7 +414,8 @@ def main() -> int:
     print(
         f"Generated Floor 0 maze: {FLOOR_WIDTH}x{FLOOR_HEIGHT}, "
         f"{len(model['tile_layers']['wall'])} walls, "
-        f"{len(model['entities']['enemy_spawns'])} enemies"
+        f"{len(model['entities']['enemy_spawns'])} enemies, "
+        f"{len(model['entities']['treasure_boxes'])} treasure boxes"
     )
     return 0
 

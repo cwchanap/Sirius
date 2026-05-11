@@ -179,6 +179,65 @@ public partial class TilemapJsonImporterTest : Node
         AssertThat(box.RewardGold).IsEqual(125);
         AssertThat(box.RewardItemIds![0]).IsEqual("minor_potion");
         AssertThat(box.RewardItemQuantities![0]).IsEqual(2);
+        AssertThat(box.Position).IsEqual(new Vector2(496, 1520));
+        AssertThat(box.ZIndex).IsEqual(2);
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_UpdatesExistingTreasureBoxByTreasureBoxId()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var existingBox = new TreasureBoxSpawn
+        {
+            Name = "TreasureBox_NodeName",
+            TreasureBoxId = "TreasureBox_Start",
+            GridPosition = new Vector2I(1, 1),
+            RewardGold = 5,
+            RewardItemIds = ["old_item"],
+            RewardItemQuantities = [1]
+        };
+        gridMap.AddChild(existingBox);
+        existingBox.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                TreasureBoxes =
+                [
+                    new TreasureBoxData
+                    {
+                        Id = "TreasureBox_Start",
+                        Position = new Vector2IData(9, 10),
+                        Gold = 250,
+                        Items =
+                        [
+                            new TreasureBoxItemData { ItemId = "minor_potion", Quantity = 3 }
+                        ]
+                    }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        AssertThat(gridMap.HasNode("TreasureBox_NodeName")).IsTrue();
+        AssertThat(gridMap.HasNode("TreasureBox_Start")).IsFalse();
+        var box = gridMap.GetNode<TreasureBoxSpawn>("TreasureBox_NodeName");
+        AssertThat(box.TreasureBoxId).IsEqual("TreasureBox_Start");
+        AssertThat(box.GridPosition).IsEqual(new Vector2I(9, 10));
+        AssertThat(box.RewardGold).IsEqual(250);
+        AssertThat(box.RewardItemIds![0]).IsEqual("minor_potion");
+        AssertThat(box.RewardItemQuantities![0]).IsEqual(3);
+        AssertThat(box.Position).IsEqual(new Vector2(304, 336));
+        AssertThat(box.ZIndex).IsEqual(2);
         sceneRoot.Free();
     }
 
@@ -299,6 +358,37 @@ public partial class TilemapJsonImporterTest : Node
 
         AssertThat(err).IsEqual(Godot.Error.Ok);
         AssertThat(gridMap.HasNode("NpcSpawn_Existing")).IsTrue();
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_PreservesExistingTreasureBoxesWhenTreasureBoxesAbsent()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var existingBox = new TreasureBoxSpawn
+        {
+            Name = "TreasureBox_Existing",
+            TreasureBoxId = "TreasureBox_Existing",
+            GridPosition = new Vector2I(10, 10),
+            RewardGold = 25
+        };
+        gridMap.AddChild(existingBox);
+        existingBox.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities()
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        AssertThat(gridMap.HasNode("TreasureBox_Existing")).IsTrue();
         sceneRoot.Free();
     }
 

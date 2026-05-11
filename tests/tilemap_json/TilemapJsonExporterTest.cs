@@ -41,4 +41,36 @@ public partial class TilemapJsonExporterTest : Node
         AssertThat(model.Entities.TreasureBoxes[0].Items[0].Quantity).IsEqual(2);
         sceneRoot.Free();
     }
+
+    [TestCase]
+    public void ExportScene_DefaultsTreasureBoxItemQuantityWhenQuantitiesAreNull()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var box = new TreasureBoxSpawn
+        {
+            Name = "TreasureBox_NodeFallback",
+            TreasureBoxId = "",
+            GridPosition = new Vector2I(3, 4),
+            RewardItemIds = ["health_potion"],
+            RewardItemQuantities = null
+        };
+        gridMap.AddChild(box);
+        box.Owner = sceneRoot;
+
+        var exporter = new TilemapJsonExporter();
+
+        var model = exporter.ExportScene(gridMap);
+
+        AssertThat(model).IsNotNull();
+        AssertThat(model!.Entities.TreasureBoxes!.Count).IsEqual(1);
+        AssertThat(model.Entities.TreasureBoxes[0].Id).IsEqual("TreasureBox_NodeFallback");
+        AssertThat(model.Entities.TreasureBoxes[0].Items.Count).IsEqual(1);
+        AssertThat(model.Entities.TreasureBoxes[0].Items[0].ItemId).IsEqual("health_potion");
+        AssertThat(model.Entities.TreasureBoxes[0].Items[0].Quantity).IsEqual(1);
+        sceneRoot.Free();
+    }
 }

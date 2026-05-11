@@ -259,12 +259,20 @@ public partial class TilemapJsonExporter : RefCounted
                 Gold = box.RewardGold
             };
 
+            if (box.RewardItemIds == null)
+            {
+                boxes.Add(data);
+                continue;
+            }
+
             for (int i = 0; i < box.RewardItemIds.Count; i++)
             {
                 data.Items.Add(new TreasureBoxItemData
                 {
                     ItemId = box.RewardItemIds[i],
-                    Quantity = i < box.RewardItemQuantities.Count ? box.RewardItemQuantities[i] : 1
+                    Quantity = box.RewardItemQuantities != null && i < box.RewardItemQuantities.Count
+                        ? box.RewardItemQuantities[i]
+                        : 1
                 });
             }
 

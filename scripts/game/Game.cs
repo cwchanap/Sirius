@@ -489,6 +489,7 @@ public partial class Game : Node2D
         }
 
         _gameManager.StartWorldInteraction();
+        UpdateInteractionPrompt();
         try
         {
             await box.OpenAsync();
@@ -563,8 +564,22 @@ public partial class Game : Node2D
     private void UpdateInteractionPrompt()
     {
         EnsureInteractionPromptLabel();
-        if (_interactionPromptLabel == null || _gridMap == null || _playerController == null || _gameManager == null)
+        if (_interactionPromptLabel == null)
         {
+            return;
+        }
+
+        _interactionPromptLabel.Text = "Open";
+
+        if (_gridMap == null || _playerController == null || _gameManager == null)
+        {
+            _interactionPromptLabel.Visible = false;
+            return;
+        }
+
+        if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction || _gameManager.IsInWorldInteraction)
+        {
+            _interactionPromptLabel.Visible = false;
             return;
         }
 
@@ -575,7 +590,6 @@ public partial class Game : Node2D
                        !box.IsOpening &&
                        !_gameManager.IsTreasureBoxOpened(box.TreasureBoxId);
 
-        _interactionPromptLabel.Text = "Open";
         _interactionPromptLabel.Visible = canOpen;
     }
 

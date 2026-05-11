@@ -83,4 +83,23 @@ public partial class TreasureRewardTest : Godot.Node
         AssertThat(errors[2]).Contains("missing_item");
         AssertThat(errors[3]).Contains("health_potion");
     }
+
+    [TestCase]
+    public void NullItems_TreatedAsEmptyRewardItems()
+    {
+        var player = new Character { Name = "Tester", Gold = 5 };
+        var reward = new TreasureReward { Gold = 10, Items = null! };
+
+        AssertThat(reward.HasAnyReward).IsTrue();
+
+        var errors = reward.ValidateAuthoredContent();
+        var result = reward.GrantTo(player);
+
+        AssertThat(errors.Count).IsEqual(0);
+        AssertThat(result.GoldGranted).IsEqual(10);
+        AssertThat(player.Gold).IsEqual(15);
+        AssertThat(result.ItemQuantitiesGranted.Count).IsEqual(0);
+        AssertThat(result.SkippedItemIds.Count).IsEqual(0);
+    }
+
 }

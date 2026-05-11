@@ -23,7 +23,7 @@ public sealed class TreasureReward
     public int Gold { get; set; }
     public List<TreasureRewardItem> Items { get; set; } = new();
 
-    public bool HasAnyReward => Gold > 0 || Items.Any(item => item.Quantity > 0 && !string.IsNullOrWhiteSpace(item.ItemId));
+    public bool HasAnyReward => Gold > 0 || (Items?.Any(item => item.Quantity > 0 && !string.IsNullOrWhiteSpace(item.ItemId)) ?? false);
 
     public IReadOnlyList<string> ValidateAuthoredContent()
     {
@@ -34,7 +34,7 @@ public sealed class TreasureReward
             errors.Add($"Gold reward cannot be negative: {Gold}");
         }
 
-        foreach (var item in Items)
+        foreach (var item in Items ?? Enumerable.Empty<TreasureRewardItem>())
         {
             if (item == null)
             {
@@ -77,7 +77,7 @@ public sealed class TreasureReward
             result.GoldGranted = Gold;
         }
 
-        foreach (var rewardItem in Items)
+        foreach (var rewardItem in Items ?? Enumerable.Empty<TreasureRewardItem>())
         {
             if (rewardItem == null || string.IsNullOrWhiteSpace(rewardItem.ItemId) || rewardItem.Quantity <= 0)
             {

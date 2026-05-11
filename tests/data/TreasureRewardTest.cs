@@ -102,4 +102,12 @@ public partial class TreasureRewardTest : Godot.Node
         AssertThat(result.SkippedItemIds.Count).IsEqual(0);
     }
 
+    [TestCase]
+    public void HasAnyReward_IgnoresNullItemEntries()
+    {
+        var reward = new TreasureReward { Items = [null!] };
+
+        AssertThat(reward.HasAnyReward).IsFalse();
+    }
+
 }

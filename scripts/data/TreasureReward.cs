@@ -23,7 +23,7 @@ public sealed class TreasureReward
     public int Gold { get; set; }
     public List<TreasureRewardItem> Items { get; set; } = new();
 
-    public bool HasAnyReward => Gold > 0 || (Items?.Any(item => item.Quantity > 0 && !string.IsNullOrWhiteSpace(item.ItemId)) ?? false);
+    public bool HasAnyReward => Gold > 0 || (Items?.Any(item => item != null && item.Quantity > 0 && !string.IsNullOrWhiteSpace(item.ItemId)) ?? false);
 
     public IReadOnlyList<string> ValidateAuthoredContent()
     {

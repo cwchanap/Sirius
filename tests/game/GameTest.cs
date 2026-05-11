@@ -905,18 +905,24 @@ public partial class GameTest : Node
 
             int startingGold = gameManager.Player.Gold;
             PressInteract(playerController);
+            await AwaitFrames(1);
+
+            AssertThat(prompt.Visible).IsFalse();
+
             await AwaitFrames(120);
 
             AssertThat(gameManager.Player.Gold).IsEqual(startingGold + 25);
             AssertThat(gameManager.Player.GetItemQuantity("health_potion")).IsGreaterEqual(4);
             AssertThat(gameManager.IsTreasureBoxOpened("TreasureBox_RuntimeTest")).IsTrue();
             AssertThat(box.IsOpened).IsTrue();
+            AssertThat(prompt.Visible).IsFalse();
 
             PressInteractRelease(playerController);
             PressInteract(playerController);
             await AwaitFrames(30);
 
             AssertThat(gameManager.Player.Gold).IsEqual(startingGold + 25);
+            AssertThat(prompt.Visible).IsFalse();
         }
         finally
         {

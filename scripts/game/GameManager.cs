@@ -31,12 +31,15 @@ public partial class GameManager : Node
     }
 
     private bool _isAutoSaveSubscribed = false;
+    private readonly HashSet<string> _openedTreasureBoxIds = new(StringComparer.Ordinal);
 
     public static GameManager Instance { get; private set; }
 
     public Character Player { get; private set; }
     public bool IsInBattle { get; private set; } = false;
     public bool IsInNpcInteraction { get; private set; } = false;
+    public bool IsInWorldInteraction { get; private set; } = false;
+    public IReadOnlyCollection<string> OpenedTreasureBoxIds => _openedTreasureBoxIds;
 
     private FloorManager _floorManager;
 
@@ -213,9 +216,52 @@ public partial class GameManager : Node
         GD.Print("NPC interaction ended.");
     }
 
+    public void StartWorldInteraction()
+    {
+        IsInWorldInteraction = true;
+        GD.Print("World interaction started.");
+    }
+
+    public void EndWorldInteraction()
+    {
+        IsInWorldInteraction = false;
+        GD.Print("World interaction ended.");
+    }
+
+    public bool MarkTreasureBoxOpened(string treasureBoxId)
+    {
+        if (string.IsNullOrWhiteSpace(treasureBoxId))
+        {
+            GD.PushWarning("Cannot mark treasure box opened with null or empty ID.");
+            return false;
+        }
+
+        return _openedTreasureBoxIds.Add(treasureBoxId);
+    }
+
+    public bool IsTreasureBoxOpened(string treasureBoxId)
+    {
+        return !string.IsNullOrWhiteSpace(treasureBoxId) && _openedTreasureBoxIds.Contains(treasureBoxId);
+    }
+
+    private void RestoreOpenedTreasureBoxIds(IEnumerable<string>? treasureBoxIds)
+    {
+        _openedTreasureBoxIds.Clear();
+        if (treasureBoxIds == null)
+        {
+            return;
+        }
+
+        foreach (string id in treasureBoxIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal))
+        {
+            _openedTreasureBoxIds.Add(id);
+        }
+    }
+
     public void ResetBattleState()
     {
         IsInBattle = false;
+        IsInWorldInteraction = false;
         if (IsInNpcInteraction)
         {
             NpcInteractionResetRequested?.Invoke();
@@ -324,6 +370,9 @@ public partial class GameManager : Node
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(flag => flag, StringComparer.Ordinal)
                 .ToList() ?? new List<string>(),
+            OpenedTreasureBoxIds = _openedTreasureBoxIds
+                .OrderBy(id => id, StringComparer.Ordinal)
+                .ToList(),
             SaveTimestamp = System.DateTime.UtcNow
         };
     }
@@ -382,6 +431,8 @@ public partial class GameManager : Node
                 questFlags.Add(flag);
             }
         }
+
+        RestoreOpenedTreasureBoxIds(data.OpenedTreasureBoxIds);
 
         GD.Print($"Player loaded from save: {Player.Name}, Level {Player.Level}");
 

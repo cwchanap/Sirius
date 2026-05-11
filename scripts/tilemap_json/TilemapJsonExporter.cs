@@ -162,6 +162,7 @@ public partial class TilemapJsonExporter : RefCounted
 
         entities.EnemySpawns = ExportEnemySpawns(gridMapNode);
         entities.NpcSpawns = ExportNpcSpawns(gridMapNode);
+        entities.TreasureBoxes = ExportTreasureBoxes(gridMapNode);
         entities.StairConnections = ExportStairConnections(gridMapNode);
 
         return entities;
@@ -238,6 +239,39 @@ public partial class TilemapJsonExporter : RefCounted
         }
 
         return spawns;
+    }
+
+    private List<TreasureBoxData> ExportTreasureBoxes(Node2D gridMapNode)
+    {
+        var boxes = new List<TreasureBoxData>();
+
+        foreach (var child in gridMapNode.GetChildren())
+        {
+            if (child is not TreasureBoxSpawn box)
+            {
+                continue;
+            }
+
+            var data = new TreasureBoxData
+            {
+                Id = string.IsNullOrWhiteSpace(box.TreasureBoxId) ? child.Name.ToString() : box.TreasureBoxId,
+                Position = new Vector2IData(box.GridPosition),
+                Gold = box.RewardGold
+            };
+
+            for (int i = 0; i < box.RewardItemIds.Count; i++)
+            {
+                data.Items.Add(new TreasureBoxItemData
+                {
+                    ItemId = box.RewardItemIds[i],
+                    Quantity = i < box.RewardItemQuantities.Count ? box.RewardItemQuantities[i] : 1
+                });
+            }
+
+            boxes.Add(data);
+        }
+
+        return boxes;
     }
 
     private List<StairConnectionData> ExportStairConnections(Node2D gridMapNode)

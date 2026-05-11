@@ -13,6 +13,7 @@ public class SaveData
     public int CurrentFloorIndex { get; set; }
     public Vector2IDto? PlayerPosition { get; set; }
     public List<string> QuestFlags { get; set; } = new();
+    public List<string> OpenedTreasureBoxIds { get; set; } = new();
     public DateTime SaveTimestamp { get; set; }
 }
 

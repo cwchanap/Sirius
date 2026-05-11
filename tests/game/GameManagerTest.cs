@@ -261,6 +261,68 @@ public partial class GameManagerTest : Node
     }
 
     [TestCase]
+    public void MarkTreasureBoxOpened_DeduplicatesIds()
+    {
+        _gameManager.MarkTreasureBoxOpened("TreasureBox_GF_EntranceCache");
+        _gameManager.MarkTreasureBoxOpened("TreasureBox_GF_EntranceCache");
+
+        AssertThat(_gameManager.IsTreasureBoxOpened("TreasureBox_GF_EntranceCache")).IsTrue();
+        AssertThat(_gameManager.OpenedTreasureBoxIds.Count).IsEqual(1);
+    }
+
+    [TestCase]
+    public void LoadFromSaveData_RestoresOpenedTreasureBoxes()
+    {
+        var saveData = new SaveData
+        {
+            Version = SaveData.CurrentVersion,
+            Character = new CharacterSaveData
+            {
+                Name = "Hero",
+                Level = 1,
+                MaxHealth = 100,
+                CurrentHealth = 100,
+                Attack = 20,
+                Defense = 10,
+                Speed = 15,
+                ExperienceToNext = 110,
+                Inventory = new InventorySaveData(),
+                Equipment = new EquipmentSaveData()
+            },
+            OpenedTreasureBoxIds = new System.Collections.Generic.List<string>
+            {
+                "TreasureBox_GF_EntranceCache",
+                "",
+                "TreasureBox_GF_EntranceCache",
+                "TreasureBox_1F_WestDeadEndCache"
+            }
+        };
+
+        _gameManager.LoadFromSaveData(saveData);
+
+        AssertThat(_gameManager.OpenedTreasureBoxIds.Count).IsEqual(2);
+        AssertThat(_gameManager.IsTreasureBoxOpened("TreasureBox_GF_EntranceCache")).IsTrue();
+        AssertThat(_gameManager.IsTreasureBoxOpened("TreasureBox_1F_WestDeadEndCache")).IsTrue();
+    }
+
+    [TestCase]
+    public void WorldInteractionState_StartEndAndReset()
+    {
+        _gameManager.StartWorldInteraction();
+
+        AssertThat(_gameManager.IsInWorldInteraction).IsTrue();
+
+        _gameManager.EndWorldInteraction();
+
+        AssertThat(_gameManager.IsInWorldInteraction).IsFalse();
+
+        _gameManager.StartWorldInteraction();
+        _gameManager.ResetBattleState();
+
+        AssertThat(_gameManager.IsInWorldInteraction).IsFalse();
+    }
+
+    [TestCase]
     public void TestEnsureFreshPlayer_CreatesNewPlayerIfNull()
     {
         // Arrange - Set Player to null using backing field

@@ -74,6 +74,27 @@ public partial class SaveDataTest : Node
     }
 
     [TestCase]
+    public void TestSaveData_OpenedTreasureBoxIds_SerializeAndDeserialize()
+    {
+        var saveData = new SaveData
+        {
+            OpenedTreasureBoxIds = new System.Collections.Generic.List<string>
+            {
+                "TreasureBox_GF_EntranceCache",
+                "TreasureBox_1F_WestDeadEndCache"
+            }
+        };
+
+        string json = JsonSerializer.Serialize(saveData);
+        var deserialized = JsonSerializer.Deserialize<SaveData>(json);
+
+        AssertThat(deserialized).IsNotNull();
+        AssertThat(deserialized!.OpenedTreasureBoxIds.Count).IsEqual(2);
+        AssertThat(deserialized.OpenedTreasureBoxIds[0]).IsEqual("TreasureBox_GF_EntranceCache");
+        AssertThat(deserialized.OpenedTreasureBoxIds[1]).IsEqual("TreasureBox_1F_WestDeadEndCache");
+    }
+
+    [TestCase]
     public void TestCharacterSaveData_FromCharacter()
     {
         // Arrange

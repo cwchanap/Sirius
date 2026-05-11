@@ -71,6 +71,17 @@ FLOOR1_EXTRA_ENEMY_PATROLS = {
     "EnemySpawn_ForestSpirit_SouthGallery": {"position": (39, 44), "enemy_type": "forest_spirit"},
 }
 
+FLOOR1_TREASURE_BOXES = {
+    "TreasureBox_1F_WestDeadEndCache": ((4, 22), 85, {"health_potion": 2}),
+    "TreasureBox_1F_WestLoopCache": ((2, 42), 70, {"swiftness_draught": 1}),
+    "TreasureBox_1F_NorthConnectorCache": ((30, 19), 0, {"mana_potion": 2}),
+    "TreasureBox_1F_EastHallCache": ((52, 24), 120, {"greater_health_potion": 1}),
+    "TreasureBox_1F_NorthStairCache": ((49, 14), 0, {"iron_boots": 1}),
+    "TreasureBox_1F_EastShortcutCache": ((58, 46), 0, {"steel_longsword": 1}),
+    "TreasureBox_1F_SouthGalleryCache": ((38, 55), 130, {"flash_powder": 1}),
+    "TreasureBox_1F_SouthHiddenCache": ((20, 56), 0, {"chain_mail": 1}),
+}
+
 
 class MazeBuilder:
     def __init__(self, width: int, height: int) -> None:
@@ -155,6 +166,21 @@ def wall_tiles(
     if include_outside_footprint:
         all_walls |= outside_footprint_walls(width, height)
     return [{"x": x, "y": y, "tile": "generic"} for x, y in sorted(all_walls, key=lambda p: (p[1], p[0]))]
+
+
+def treasure_box_entities(boxes: dict[str, tuple[tuple[int, int], int, dict[str, int]]]) -> list[dict]:
+    return [
+        {
+            "id": box_id,
+            "position": vector(*position),
+            "gold": gold,
+            "items": [
+                {"item_id": item_id, "quantity": quantity}
+                for item_id, quantity in items.items()
+            ],
+        }
+        for box_id, (position, gold, items) in boxes.items()
+    ]
 
 
 def build_floor1_walls() -> set[tuple[int, int]]:
@@ -378,6 +404,7 @@ def build_floor1_model() -> dict:
                 {"id": key, "position": vector(*pos)}
                 for key, pos in FLOOR1_HIDDEN_PLACEHOLDERS.items()
             ],
+            "treasure_boxes": treasure_box_entities(FLOOR1_TREASURE_BOXES),
         },
     }
     validate_model(model, FLOOR1_WIDTH, FLOOR1_HEIGHT)
@@ -404,6 +431,7 @@ def build_floor2_model() -> dict:
         "entities": {
             "enemy_spawns": [],
             "npc_spawns": [],
+            "treasure_boxes": [],
             "stair_connections": [
                 {
                     "id": "2F_1F_A",
@@ -468,7 +496,7 @@ def validate_model(model: dict, width: int, height: int) -> None:
         raise ValueError(f"Disconnected walkable cells: {sample}")
 
     goals: list[tuple[int, int]] = []
-    for key in ("enemy_spawns", "npc_spawns", "stair_connections", "hidden_placeholders"):
+    for key in ("enemy_spawns", "npc_spawns", "stair_connections", "hidden_placeholders", "treasure_boxes"):
         for entity in model["entities"].get(key, []):
             pos = entity["position"]
             goals.append((pos["x"], pos["y"]))
@@ -582,7 +610,8 @@ def main() -> int:
     print(
         "Generated Floor 1 maze and Floor 2 placeholder: "
         f"{len(floor1['tile_layers']['wall'])} floor1 walls, "
-        f"{len(floor1['entities']['enemy_spawns'])} floor1 enemies"
+        f"{len(floor1['entities']['enemy_spawns'])} floor1 enemies, "
+        f"{len(floor1['entities']['treasure_boxes'])} floor1 treasure boxes"
     )
     return 0
 

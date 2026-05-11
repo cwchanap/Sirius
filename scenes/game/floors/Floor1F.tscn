@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=4 uid="uid://c5h8qw3m7xn2p"]
+[gd_scene load_steps=13 format=4 uid="uid://c5h8qw3m7xn2p"]
 
 [ext_resource type="Script" uid="uid://dxou423ri263w" path="res://scripts/game/GridMap.cs" id="1"]
 [ext_resource type="TileSet" uid="uid://1oxxalqkpebn" path="res://assets/tiles/ground_tileset.tres" id="2"]
@@ -11,6 +11,7 @@
 [ext_resource type="Resource" uid="uid://b4qh3ym8xgfwj" path="res://resources/enemy_blueprints/Goblin.tres" id="9_abo7i"]
 [ext_resource type="PackedScene" uid="uid://cx3ik09ou6zdr" path="res://scenes/spawns/EnemySpawn_Orc.tscn" id="10_op7kr"]
 [ext_resource type="Resource" uid="uid://c5rj40oayhgxk" path="res://resources/enemy_blueprints/Orc.tres" id="11_xstv1"]
+[ext_resource type="Script" path="res://scripts/game/TreasureBoxSpawn.cs" id="12_abo7i"]
 
 [node name="Floor1F" type="Node2D"]
 
@@ -355,3 +356,79 @@ scale = Vector2(0.333333, 0.333333)
 script = ExtResource("5")
 GridPosition = Vector2i(39, 44)
 EnemyType = "forest_spirit"
+
+[node name="TreasureBox_1F_WestDeadEndCache" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(144, 720)
+script = ExtResource("12_abo7i")
+GridPosition = Vector2i(4, 22)
+TreasureBoxId = "TreasureBox_1F_WestDeadEndCache"
+RewardGold = 85
+RewardItemIds = Array[String](["health_potion"])
+RewardItemQuantities = Array[int]([2])
+
+[node name="TreasureBox_1F_WestLoopCache" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(80, 1360)
+script = ExtResource("12_abo7i")
+GridPosition = Vector2i(2, 42)
+TreasureBoxId = "TreasureBox_1F_WestLoopCache"
+RewardGold = 70
+RewardItemIds = Array[String](["swiftness_draught"])
+RewardItemQuantities = Array[int]([1])
+
+[node name="TreasureBox_1F_NorthConnectorCache" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(976, 624)
+script = ExtResource("12_abo7i")
+GridPosition = Vector2i(30, 19)
+TreasureBoxId = "TreasureBox_1F_NorthConnectorCache"
+RewardItemIds = Array[String](["mana_potion"])
+RewardItemQuantities = Array[int]([2])
+
+[node name="TreasureBox_1F_EastHallCache" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(1680, 784)
+script = ExtResource("12_abo7i")
+GridPosition = Vector2i(52, 24)
+TreasureBoxId = "TreasureBox_1F_EastHallCache"
+RewardGold = 120
+RewardItemIds = Array[String](["greater_health_potion"])
+RewardItemQuantities = Array[int]([1])
+
+[node name="TreasureBox_1F_NorthStairCache" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(1584, 464)
+script = ExtResource("12_abo7i")
+GridPosition = Vector2i(49, 14)
+TreasureBoxId = "TreasureBox_1F_NorthStairCache"
+RewardItemIds = Array[String](["iron_boots"])
+RewardItemQuantities = Array[int]([1])
+
+[node name="TreasureBox_1F_EastShortcutCache" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(1872, 1488)
+script = ExtResource("12_abo7i")
+GridPosition = Vector2i(58, 46)
+TreasureBoxId = "TreasureBox_1F_EastShortcutCache"
+RewardItemIds = Array[String](["steel_longsword"])
+RewardItemQuantities = Array[int]([1])
+
+[node name="TreasureBox_1F_SouthGalleryCache" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(1232, 1776)
+script = ExtResource("12_abo7i")
+GridPosition = Vector2i(38, 55)
+TreasureBoxId = "TreasureBox_1F_SouthGalleryCache"
+RewardGold = 130
+RewardItemIds = Array[String](["flash_powder"])
+RewardItemQuantities = Array[int]([1])
+
+[node name="TreasureBox_1F_SouthHiddenCache" type="Sprite2D" parent="GridMap"]
+z_index = 2
+position = Vector2(656, 1808)
+script = ExtResource("12_abo7i")
+GridPosition = Vector2i(20, 56)
+TreasureBoxId = "TreasureBox_1F_SouthHiddenCache"
+RewardItemIds = Array[String](["chain_mail"])
+RewardItemQuantities = Array[int]([1])

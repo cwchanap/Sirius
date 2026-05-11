@@ -19,6 +19,17 @@ from tools.floor0_maze_generator import (
     validate_model,
 )
 
+EXPECTED_GF_TREASURE = {
+    "TreasureBox_GF_EntranceCache": ((15, 50), 35, {"health_potion": 1}),
+    "TreasureBox_GF_NorthwestCache": ((30, 8), 60, {"mana_potion": 1}),
+    "TreasureBox_GF_NorthLoopCache": ((49, 8), 80, {"strength_tonic": 1}),
+    "TreasureBox_GF_EastBranchCache": ((91, 30), 110, {"greater_health_potion": 1}),
+    "TreasureBox_GF_StairDistrictCache": ((94, 68), 75, {"iron_skin": 1}),
+    "TreasureBox_GF_SouthDeepCache": ((52, 94), 0, {"iron_sword": 1}),
+    "TreasureBox_GF_SouthwestCache": ((7, 72), 50, {"antidote": 2}),
+    "TreasureBox_GF_SoutheastCache": ((80, 82), 0, {"iron_shield": 1}),
+}
+
 
 def walkable_set(model):
     walls = {(tile["x"], tile["y"]) for tile in model["tile_layers"]["wall"]}
@@ -130,6 +141,36 @@ class Floor0MazeGeneratorTest(unittest.TestCase):
         for goal in goals:
             with self.subTest(goal=goal):
                 self.assertTrue(has_path(self.walkable, start, goal))
+
+    def test_ground_floor_treasure_boxes_are_authored_and_walkable(self):
+        entities = self.model["entities"]
+        treasure_boxes = {
+            box["id"]: box
+            for box in entities["treasure_boxes"]
+        }
+        occupied = set()
+        for key in ("npc_spawns", "enemy_spawns", "stair_connections"):
+            occupied.update(
+                (entity["position"]["x"], entity["position"]["y"])
+                for entity in entities[key]
+            )
+
+        self.assertEqual(set(treasure_boxes), set(EXPECTED_GF_TREASURE))
+
+        for box_id, (position, gold, items) in EXPECTED_GF_TREASURE.items():
+            with self.subTest(box_id=box_id):
+                box = treasure_boxes[box_id]
+                box_pos = (box["position"]["x"], box["position"]["y"])
+                box_items = {
+                    item["item_id"]: item["quantity"]
+                    for item in box["items"]
+                }
+
+                self.assertEqual(box_pos, position)
+                self.assertIn(box_pos, self.walkable)
+                self.assertNotIn(box_pos, occupied)
+                self.assertEqual(box["gold"], gold)
+                self.assertEqual(box_items, items)
 
     def test_model_is_json_serializable(self):
         encoded = json.dumps(self.model, sort_keys=True)

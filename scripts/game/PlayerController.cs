@@ -96,6 +96,7 @@ public partial class PlayerController : Node
                 GD.Print($"Taking stairs {(_isGoingUp ? "up" : "down")} to floor {_targetFloor}");
                 _floorManager?.TransitionToFloor(_targetFloor, _isGoingUp, _targetStairIndex);
                 ClearPendingStairTransition();
+                return;
             }
 
             if (_gridMap != null && _gridMap.TryRequestTreasureBoxOpen(_lastFacingDirection))

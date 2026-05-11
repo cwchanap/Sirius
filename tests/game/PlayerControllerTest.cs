@@ -100,6 +100,40 @@ public partial class PlayerControllerTest : Node
     }
 
     [TestCase]
+    public void Interact_ValidPendingStairTransitionDoesNotAlsoRequestTreasureOpen()
+    {
+        var controller = new PlayerController();
+        var gameManager = new GameManager();
+        var floorManager = new FloorManager();
+        var gridMap = new GridMap();
+        var grid = new int[gridMap.GridWidth, gridMap.GridHeight];
+        grid[0, 1] = (int)GridMap.CellType.TreasureBox;
+        var treasureOpenRequests = 0;
+        gridMap.TreasureBoxOpenRequested += _ => treasureOpenRequests++;
+
+        SetPrivateField(gridMap, "_grid", grid);
+        SetPrivateField(gridMap, "_playerPosition", Vector2I.Zero);
+        SetPrivateField(controller, "_gameManager", gameManager);
+        SetPrivateField(controller, "_floorManager", floorManager);
+        SetPrivateField(controller, "_gridMap", gridMap);
+        SetPrivateField(controller, "_pendingStairTransition", true);
+        SetPrivateField(controller, "_targetFloor", 1);
+        SetPrivateField(controller, "_isGoingUp", true);
+        SetPrivateField(controller, "_targetStairIndex", 0);
+
+        controller._UnhandledInput(CreateInteractEvent());
+
+        AssertThat(treasureOpenRequests).IsEqual(0);
+        AssertThat(GetPrivateField<bool>(controller, "_pendingStairTransition")).IsFalse();
+        AssertThat(GetPrivateField<bool>(controller, "_awaitingStairInteractRelease")).IsTrue();
+
+        gridMap.Free();
+        floorManager.Free();
+        gameManager.Free();
+        controller.Free();
+    }
+
+    [TestCase]
     public void QueueStairTransition_OnlyQueuesDoesNotAutoTransition()
     {
         var controller = new PlayerController();

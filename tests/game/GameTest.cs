@@ -43,6 +43,7 @@ public partial class GameTest : Node
         if (_gameManager != null && IsInstanceValid(_gameManager))
         {
             if (_gameManager.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+            if (_gameManager.IsInWorldInteraction) _gameManager.EndWorldInteraction();
             if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
         }
 
@@ -112,9 +113,29 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void PauseMenu_WhenInWorldInteraction_MarksInputHandledAndDoesNotOpenPauseMenu()
+    {
+        if (_game!.GetNodeOrNull("UI") == null)
+        {
+            _game.AddChild(new CanvasLayer { Name = "UI" });
+        }
+
+        _gameManager!.StartWorldInteraction();
+
+        PushPauseEvent();
+
+        AssertThat(_viewport!.IsInputHandled()).IsTrue();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNull();
+        AssertThat(_gameManager.IsInWorldInteraction).IsTrue();
+
+        _gameManager.EndWorldInteraction();
+    }
+
+    [TestCase]
     public void PauseMenu_WhenNoPauseMenu_OpensPauseMenuDialog()
     {
         if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInWorldInteraction) _gameManager.EndWorldInteraction();
         if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
 
         var ui = new CanvasLayer { Name = "UI" };
@@ -131,6 +152,7 @@ public partial class GameTest : Node
     public void PauseMenu_WhenPauseMenuIsVisible_ClosesPauseMenu()
     {
         if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInWorldInteraction) _gameManager.EndWorldInteraction();
         if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
 
         // Reset any pause menu state left by earlier tests (shared instance)

@@ -856,6 +856,79 @@ public partial class GameTest : Node
         AssertThat(popup!.Title).IsEqual("Load Failed");
     }
 
+    [TestCase]
+    public async Task Game_OpeningAdjacentTreasureAwardsOnceAndShowsOpenPrompt()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var scene = GD.Load<PackedScene>("res://scenes/game/Game.tscn")
+            ?? throw new InvalidOperationException("Failed to load Game.tscn.");
+        Node? gameScene = null;
+
+        try
+        {
+            gameScene = scene.Instantiate();
+            sceneTree.Root.AddChild(gameScene);
+            await AwaitFrames(6);
+
+            var floorManager = gameScene.GetNode<FloorManager>("FloorManager");
+            var gridMap = floorManager.CurrentGridMap;
+            var playerController = gameScene.GetNode<PlayerController>("PlayerController");
+            var gameManager = gameScene.GetNode<GameManager>("GameManager");
+
+            AssertThat(gridMap).IsNotNull();
+
+            var box = new TreasureBoxSpawn
+            {
+                Name = "TreasureBox_RuntimeTest",
+                TreasureBoxId = "TreasureBox_RuntimeTest",
+                GridPosition = new Vector2I(9, 50),
+                RewardGold = 25,
+                RewardItemIds = new Godot.Collections.Array<string> { "health_potion" },
+                RewardItemQuantities = new Godot.Collections.Array<int> { 1 }
+            };
+            gridMap.AddChild(box);
+            box.AddToGroup("TreasureBoxSpawn");
+
+            var freshGrid = new int[gridMap.GridWidth, gridMap.GridHeight];
+            SetPrivateField(gridMap, "_grid", freshGrid);
+            SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 50));
+            gridMap.CallDeferred(nameof(GridMap.RegisterStaticTreasureBoxes));
+            await AwaitFrames(3);
+
+            PressMovement(playerController, Vector2I.Right);
+            await AwaitFrames(1);
+
+            var prompt = gameScene.GetNodeOrNull<Label>("UI/GameUI/InteractionPrompt");
+            AssertThat(prompt).IsNotNull();
+            AssertThat(prompt!.Visible).IsTrue();
+            AssertThat(prompt.Text).IsEqual("Open");
+
+            int startingGold = gameManager.Player.Gold;
+            PressInteract(playerController);
+            await AwaitFrames(120);
+
+            AssertThat(gameManager.Player.Gold).IsEqual(startingGold + 25);
+            AssertThat(gameManager.Player.GetItemQuantity("health_potion")).IsGreaterEqual(4);
+            AssertThat(gameManager.IsTreasureBoxOpened("TreasureBox_RuntimeTest")).IsTrue();
+            AssertThat(box.IsOpened).IsTrue();
+
+            PressInteractRelease(playerController);
+            PressInteract(playerController);
+            await AwaitFrames(30);
+
+            AssertThat(gameManager.Player.Gold).IsEqual(startingGold + 25);
+        }
+        finally
+        {
+            if (gameScene != null && IsInstanceValid(gameScene))
+            {
+                gameScene.Free();
+            }
+
+            await AwaitFrames(1);
+        }
+    }
+
     private void PushPauseEvent()
     {
         var evt = CreatePauseEvent();
@@ -869,6 +942,52 @@ public partial class GameTest : Node
             Action = "pause_menu",
             Pressed = true
         };
+    }
+
+    private static async Task AwaitFrames(int frameCount)
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        for (int i = 0; i < frameCount; i++)
+        {
+            await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    private static void PressMovement(PlayerController controller, Vector2I direction)
+    {
+        controller._UnhandledInput(new InputEventKey
+        {
+            Keycode = DirectionToKey(direction),
+            Pressed = true
+        });
+    }
+
+    private static void PressInteract(PlayerController controller)
+    {
+        controller._UnhandledInput(new InputEventAction
+        {
+            Action = "interact",
+            Pressed = true
+        });
+    }
+
+    private static void PressInteractRelease(PlayerController controller)
+    {
+        controller._UnhandledInput(new InputEventAction
+        {
+            Action = "interact",
+            Pressed = false
+        });
+    }
+
+    private static Key DirectionToKey(Vector2I direction)
+    {
+        if (direction == Vector2I.Up) return Key.Up;
+        if (direction == Vector2I.Down) return Key.Down;
+        if (direction == Vector2I.Left) return Key.Left;
+        if (direction == Vector2I.Right) return Key.Right;
+
+        throw new ArgumentOutOfRangeException(nameof(direction), direction, "Unsupported movement direction.");
     }
 
     private static SettingsMenuController InstantiateSettingsMenu()

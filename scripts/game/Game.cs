@@ -34,6 +34,7 @@ public partial class Game : Node2D
     private PauseMenuDialog? _pauseMenuDialog;
     private SettingsMenuController? _settingsMenu;
     private AcceptDialog? _activeErrorPopup;
+    private Label? _interactionPromptLabel;
     private bool _pauseMenuRestorePending;
     private bool _saveLoadFromPause;
 
@@ -95,12 +96,14 @@ public partial class Game : Node2D
         _playerGoldLabel =
             GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerGold") ??
             GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerGold");
+        EnsureInteractionPromptLabel();
 
         // Connect signals AFTER HUD labels are initialized, so signals are always connected even if save is corrupted
         _gameManager.BattleStarted += OnBattleStarted;
         _gameManager.BattleEnded += OnBattleEnded;
         _gameManager.PlayerStatsChanged += OnPlayerStatsChanged;
         _gameManager.NpcInteractionResetRequested += OnNpcInteractionResetRequested;
+        _playerController.FacingChanged += OnPlayerFacingChanged;
 
         // Connect to FloorManager for floor loading
         _floorManager.FloorLoaded += OnFloorLoaded;
@@ -387,6 +390,7 @@ public partial class Game : Node2D
 
         // Update visual player sprite position
         _playerDisplay?.UpdatePosition(newPosition);
+        UpdateInteractionPrompt();
     }
 
 
@@ -456,6 +460,123 @@ public partial class Game : Node2D
             _npcInteractionController = null;
             _gameManager.EndNpcInteraction();
         }
+    }
+
+    private void OnPlayerFacingChanged(Vector2I facingDirection)
+    {
+        UpdateInteractionPrompt();
+    }
+
+    private async void OnTreasureBoxOpenRequested(Vector2I treasurePosition)
+    {
+        if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction || _gameManager.IsInWorldInteraction)
+        {
+            return;
+        }
+
+        var box = FindTreasureBoxAt(treasurePosition);
+        if (box == null)
+        {
+            GD.PushWarning($"[Game] Treasure box requested at {treasurePosition} but no TreasureBoxSpawn was found.");
+            return;
+        }
+
+        if (_gameManager.IsTreasureBoxOpened(box.TreasureBoxId) || box.IsOpened)
+        {
+            box.ApplyOpenedState(true);
+            UpdateInteractionPrompt();
+            return;
+        }
+
+        _gameManager.StartWorldInteraction();
+        try
+        {
+            await box.OpenAsync();
+            box.GrantRewardTo(_gameManager.Player);
+            _gameManager.MarkTreasureBoxOpened(box.TreasureBoxId);
+            _gameManager.NotifyPlayerStatsChanged();
+        }
+        finally
+        {
+            _gameManager.EndWorldInteraction();
+            UpdateInteractionPrompt();
+        }
+    }
+
+    private TreasureBoxSpawn? FindTreasureBoxAt(Vector2I internalGridPosition)
+    {
+        if (_gridMap == null)
+        {
+            return null;
+        }
+
+        Vector2I tilemapPos = _gridMap.InternalGridToTilemapCoords(internalGridPosition);
+        Node? currentFloorRoot = _gridMap.GetParent();
+
+        foreach (Node n in GetTree().GetNodesInGroup("TreasureBoxSpawn"))
+        {
+            if (n is TreasureBoxSpawn box &&
+                box.BelongsToFloor(currentFloorRoot) &&
+                box.GridPosition == tilemapPos)
+            {
+                return box;
+            }
+        }
+
+        return null;
+    }
+
+    private void EnsureInteractionPromptLabel()
+    {
+        if (_interactionPromptLabel != null && IsInstanceValid(_interactionPromptLabel))
+        {
+            return;
+        }
+
+        var gameUi = GetNodeOrNull<Control>("UI/GameUI");
+        if (gameUi == null)
+        {
+            return;
+        }
+
+        _interactionPromptLabel = gameUi.GetNodeOrNull<Label>("InteractionPrompt");
+        if (_interactionPromptLabel == null)
+        {
+            _interactionPromptLabel = new Label
+            {
+                Name = "InteractionPrompt",
+                Text = "Open",
+                Visible = false,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                ZIndex = 20
+            };
+            _interactionPromptLabel.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
+            _interactionPromptLabel.OffsetLeft = 0;
+            _interactionPromptLabel.OffsetRight = 0;
+            _interactionPromptLabel.OffsetTop = -96;
+            _interactionPromptLabel.OffsetBottom = -56;
+            gameUi.AddChild(_interactionPromptLabel);
+        }
+    }
+
+    private void UpdateInteractionPrompt()
+    {
+        EnsureInteractionPromptLabel();
+        if (_interactionPromptLabel == null || _gridMap == null || _playerController == null || _gameManager == null)
+        {
+            return;
+        }
+
+        Vector2I target = _gridMap.GetPlayerPosition() + _playerController.FacingDirection;
+        var box = FindTreasureBoxAt(target);
+        bool canOpen = box != null &&
+                       !box.IsOpened &&
+                       !box.IsOpening &&
+                       !_gameManager.IsTreasureBoxOpened(box.TreasureBoxId);
+
+        _interactionPromptLabel.Text = "Open";
+        _interactionPromptLabel.Visible = canOpen;
     }
 
     private void OnNpcInteractionComplete()
@@ -891,6 +1012,13 @@ public partial class Game : Node2D
             return;
         }
 
+        if (_gameManager.IsInWorldInteraction)
+        {
+            GD.PrintErr("Save/load blocked: world interaction in progress.");
+            ShowSaveError("Cannot save or load while opening treasure.");
+            return;
+        }
+
         if (_saveLoadDialog != null)
         {
             _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
@@ -914,6 +1042,14 @@ public partial class Game : Node2D
             GD.PrintErr("Save blocked: NPC interaction in progress.");
             CleanupSaveDialogAndRestorePause();
             ShowSaveError("Cannot save during NPC interaction.");
+            return;
+        }
+
+        if (_gameManager.IsInWorldInteraction)
+        {
+            GD.PrintErr("Save/load blocked: world interaction in progress.");
+            CleanupSaveDialogAndRestorePause();
+            ShowSaveError("Cannot save or load while opening treasure.");
             return;
         }
 
@@ -1105,6 +1241,13 @@ public partial class Game : Node2D
             return;
         }
 
+        if (_gameManager.IsInWorldInteraction)
+        {
+            GD.PrintErr("Save/load blocked: world interaction in progress.");
+            ShowSaveError("Cannot save or load while opening treasure.", "Load Failed");
+            return;
+        }
+
         CleanupSaveDialog();
 
         _saveLoadDialog = new SaveLoadDialog();
@@ -1214,6 +1357,7 @@ public partial class Game : Node2D
             _gridMap.EnemyEncountered -= OnEnemyEncountered;
             _gridMap.PlayerMoved -= OnPlayerMoved;
             _gridMap.NpcInteracted -= OnNpcInteracted;
+            _gridMap.TreasureBoxOpenRequested -= OnTreasureBoxOpenRequested;
         }
 
         // Update dynamic GridMap reference
@@ -1231,6 +1375,7 @@ public partial class Game : Node2D
             _gridMap.EnemyEncountered += OnEnemyEncountered;
             _gridMap.PlayerMoved += OnPlayerMoved;
             _gridMap.NpcInteracted += OnNpcInteracted;
+            _gridMap.TreasureBoxOpenRequested += OnTreasureBoxOpenRequested;
 
             if (_hasPendingSaveSpawnValidation)
             {
@@ -1252,6 +1397,7 @@ public partial class Game : Node2D
 
         // Update camera position
         CallDeferred(nameof(SetInitialCameraPosition));
+        CallDeferred(nameof(UpdateInteractionPrompt));
 
         GD.Print($"✅ Floor '{floorDef.FloorName}' ready for gameplay");
     }
@@ -1317,6 +1463,12 @@ public partial class Game : Node2D
             _gridMap.EnemyEncountered -= OnEnemyEncountered;
             _gridMap.PlayerMoved -= OnPlayerMoved;
             _gridMap.NpcInteracted -= OnNpcInteracted;
+            _gridMap.TreasureBoxOpenRequested -= OnTreasureBoxOpenRequested;
+        }
+
+        if (_playerController != null)
+        {
+            _playerController.FacingChanged -= OnPlayerFacingChanged;
         }
 
         if (_npcInteractionController != null)

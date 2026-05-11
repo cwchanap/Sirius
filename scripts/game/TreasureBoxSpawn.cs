@@ -14,8 +14,8 @@ public partial class TreasureBoxSpawn : Sprite2D
     [Export] public Vector2I GridPosition { get; set; } = Vector2I.Zero;
     [Export] public string TreasureBoxId { get; set; } = "";
     [Export] public int RewardGold { get; set; }
-    [Export] public Godot.Collections.Array<string> RewardItemIds { get; set; } = new();
-    [Export] public Godot.Collections.Array<int> RewardItemQuantities { get; set; } = new();
+    [Export] public Godot.Collections.Array<string>? RewardItemIds { get; set; } = new();
+    [Export] public Godot.Collections.Array<int>? RewardItemQuantities { get; set; } = new();
     [Export] public bool EditorSnapEnabled { get; set; } = false;
 
     public bool IsOpened { get; private set; }
@@ -58,10 +58,17 @@ public partial class TreasureBoxSpawn : Sprite2D
     public TreasureReward BuildReward()
     {
         var reward = new TreasureReward { Gold = RewardGold };
-        for (int i = 0; i < RewardItemIds.Count; i++)
+        var itemIds = RewardItemIds;
+        var itemQuantities = RewardItemQuantities;
+        if (itemIds == null)
         {
-            string itemId = RewardItemIds[i];
-            int quantity = i < RewardItemQuantities.Count ? RewardItemQuantities[i] : 1;
+            return reward;
+        }
+
+        for (int i = 0; i < itemIds.Count; i++)
+        {
+            string itemId = itemIds[i];
+            int quantity = itemQuantities != null && i < itemQuantities.Count ? itemQuantities[i] : 1;
             reward.Items.Add(new TreasureRewardItem(itemId, quantity));
         }
 
@@ -94,7 +101,16 @@ public partial class TreasureBoxSpawn : Sprite2D
             if (IsInsideTree())
             {
                 await ToSignal(GetTree().CreateTimer(0.12), Timer.SignalName.Timeout);
+                if (AbortOpeningIfUnavailable())
+                {
+                    return;
+                }
             }
+        }
+
+        if (!GodotObject.IsInstanceValid(this))
+        {
+            return;
         }
 
         IsOpened = true;
@@ -215,5 +231,21 @@ public partial class TreasureBoxSpawn : Sprite2D
         }
 
         QueueRedraw();
+    }
+
+    private bool AbortOpeningIfUnavailable()
+    {
+        if (!GodotObject.IsInstanceValid(this))
+        {
+            return true;
+        }
+
+        if (IsInsideTree())
+        {
+            return false;
+        }
+
+        IsOpening = false;
+        return true;
     }
 }

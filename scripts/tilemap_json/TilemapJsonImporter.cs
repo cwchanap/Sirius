@@ -218,6 +218,10 @@ public partial class TilemapJsonImporter : RefCounted
             ImportNpcSpawns(entities.NpcSpawns, gridMapNode);
         else
             GD.PrintErr("[TilemapJsonImporter] npc_spawns key missing from JSON — NPC spawns not imported");
+        if (entities.TreasureBoxes != null)
+            ImportTreasureBoxes(entities.TreasureBoxes, gridMapNode);
+        else
+            GD.PrintErr("[TilemapJsonImporter] treasure_boxes key missing from JSON — treasure boxes not imported");
         if (entities.StairConnections != null)
             ImportStairConnections(entities.StairConnections, gridMapNode);
         else
@@ -406,6 +410,92 @@ public partial class TilemapJsonImporter : RefCounted
         }
 
         GD.Print($"[TilemapJsonImporter] Created NPC spawn: {data.Id}");
+    }
+
+    private void ImportTreasureBoxes(List<TreasureBoxData> boxes, Node2D gridMapNode)
+    {
+        var existingBoxes = new Dictionary<string, Node>();
+        foreach (var child in gridMapNode.GetChildren())
+        {
+            if (child is TreasureBoxSpawn)
+            {
+                existingBoxes[child.Name.ToString()] = child;
+            }
+        }
+
+        var processedIds = new HashSet<string>();
+
+        foreach (var boxData in boxes)
+        {
+            processedIds.Add(boxData.Id);
+
+            if (existingBoxes.TryGetValue(boxData.Id, out var existingNode))
+            {
+                UpdateTreasureBoxNode(existingNode, boxData);
+            }
+            else
+            {
+                CreateTreasureBoxNode(boxData, gridMapNode);
+            }
+        }
+
+        foreach (var (id, node) in existingBoxes)
+        {
+            if (!processedIds.Contains(id))
+            {
+                GD.Print($"[TilemapJsonImporter] Removing treasure box: {id}");
+                node.Free();
+            }
+        }
+    }
+
+    private void UpdateTreasureBoxNode(Node node, TreasureBoxData data)
+    {
+        ConfigureTreasureBoxNode(node, data);
+        GD.Print($"[TilemapJsonImporter] Updated treasure box: {data.Id}");
+    }
+
+    private void CreateTreasureBoxNode(TreasureBoxData data, Node2D parent)
+    {
+        var instance = new TreasureBoxSpawn
+        {
+            Name = data.Id
+        };
+
+        ConfigureTreasureBoxNode(instance, data);
+        parent.AddChild(instance);
+
+        var sceneRoot = parent.Owner ?? parent.GetTree()?.EditedSceneRoot;
+        if (sceneRoot != null)
+        {
+            instance.Owner = sceneRoot;
+        }
+
+        GD.Print($"[TilemapJsonImporter] Created treasure box: {data.Id}");
+    }
+
+    private void ConfigureTreasureBoxNode(Node node, TreasureBoxData data)
+    {
+        node.Set("TreasureBoxId", data.Id);
+        node.Set("GridPosition", data.Position.ToVector2I());
+        node.Set("RewardGold", data.Gold);
+
+        var itemIds = new Godot.Collections.Array<string>();
+        var quantities = new Godot.Collections.Array<int>();
+        foreach (var item in data.Items ?? new List<TreasureBoxItemData>())
+        {
+            itemIds.Add(item.ItemId);
+            quantities.Add(item.Quantity);
+        }
+
+        node.Set("RewardItemIds", itemIds);
+        node.Set("RewardItemQuantities", quantities);
+
+        if (node is Node2D node2d)
+        {
+            node2d.Position = ToCenteredCellPosition(data.Position);
+            node2d.ZIndex = 2;
+        }
     }
 
     private void ImportStairConnections(List<StairConnectionData> stairs, Node2D gridMapNode)

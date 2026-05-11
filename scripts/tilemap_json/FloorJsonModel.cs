@@ -130,6 +130,9 @@ public class SceneEntities
     [JsonPropertyName("npc_spawns")]
     public List<NpcSpawnData>? NpcSpawns { get; set; }
 
+    [JsonPropertyName("treasure_boxes")]
+    public List<TreasureBoxData>? TreasureBoxes { get; set; }
+
     [JsonPropertyName("stair_connections")]
     public List<StairConnectionData>? StairConnections { get; set; }
 }
@@ -163,6 +166,30 @@ public class NpcSpawnData
 
     [JsonPropertyName("npc_id")]
     public string NpcId { get; set; } = "";
+}
+
+public class TreasureBoxData
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("position")]
+    public Vector2IData Position { get; set; } = new();
+
+    [JsonPropertyName("gold")]
+    public int Gold { get; set; }
+
+    [JsonPropertyName("items")]
+    public List<TreasureBoxItemData> Items { get; set; } = new();
+}
+
+public class TreasureBoxItemData
+{
+    [JsonPropertyName("item_id")]
+    public string ItemId { get; set; } = "";
+
+    [JsonPropertyName("quantity")]
+    public int Quantity { get; set; } = 1;
 }
 
 public class EnemyStatsData

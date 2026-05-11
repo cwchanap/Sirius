@@ -417,9 +417,9 @@ public partial class TilemapJsonImporter : RefCounted
         var existingBoxes = new Dictionary<string, Node>();
         foreach (var child in gridMapNode.GetChildren())
         {
-            if (child is TreasureBoxSpawn)
+            if (child is TreasureBoxSpawn box)
             {
-                existingBoxes[child.Name.ToString()] = child;
+                existingBoxes[GetTreasureBoxImportKey(box)] = child;
             }
         }
 
@@ -496,6 +496,13 @@ public partial class TilemapJsonImporter : RefCounted
             node2d.Position = ToCenteredCellPosition(data.Position);
             node2d.ZIndex = 2;
         }
+    }
+
+    private static string GetTreasureBoxImportKey(TreasureBoxSpawn box)
+    {
+        return string.IsNullOrWhiteSpace(box.TreasureBoxId)
+            ? box.Name.ToString()
+            : box.TreasureBoxId;
     }
 
     private void ImportStairConnections(List<StairConnectionData> stairs, Node2D gridMapNode)

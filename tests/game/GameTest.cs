@@ -857,6 +857,33 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void LoadSlot_WhenWorldInteractionBlocksLoad_UsesLoadFailedTitleAndMessage()
+    {
+        var ui = _game!.GetNodeOrNull<CanvasLayer>("UI");
+        if (ui == null)
+        {
+            ui = new CanvasLayer { Name = "UI" };
+            _game.AddChild(ui);
+        }
+
+        var saveDialog = new SaveLoadDialog();
+        ui.AddChild(saveDialog);
+        SetPrivateField(_game, "_saveLoadDialog", saveDialog);
+
+        _gameManager!.StartWorldInteraction();
+
+        var method = typeof(Game).GetMethod("OnInGameLoadSlotSelected",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(_game, [0]);
+
+        var popup = GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup");
+        AssertThat(GetPrivateField<SaveLoadDialog?>(_game, "_saveLoadDialog")).IsNull();
+        AssertThat(popup).IsNotNull();
+        AssertThat(popup!.Title).IsEqual("Load Failed");
+        AssertThat(popup.DialogText).IsEqual("Cannot save or load while opening treasure.");
+    }
+
+    [TestCase]
     public async Task Game_OpeningAdjacentTreasureAwardsOnceAndShowsOpenPrompt()
     {
         var sceneTree = (SceneTree)Engine.GetMainLoop();
@@ -904,6 +931,7 @@ public partial class GameTest : Node
             AssertThat(prompt.Text).IsEqual("Open");
 
             int startingGold = gameManager.Player.Gold;
+            int startingPotionCount = gameManager.Player.GetItemQuantity("health_potion");
             PressInteract(playerController);
             await AwaitFrames(1);
 
@@ -912,7 +940,7 @@ public partial class GameTest : Node
             await AwaitFrames(120);
 
             AssertThat(gameManager.Player.Gold).IsEqual(startingGold + 25);
-            AssertThat(gameManager.Player.GetItemQuantity("health_potion")).IsGreaterEqual(4);
+            AssertThat(gameManager.Player.GetItemQuantity("health_potion")).IsEqual(startingPotionCount + 1);
             AssertThat(gameManager.IsTreasureBoxOpened("TreasureBox_RuntimeTest")).IsTrue();
             AssertThat(box.IsOpened).IsTrue();
             AssertThat(prompt.Visible).IsFalse();
@@ -926,6 +954,74 @@ public partial class GameTest : Node
         }
         finally
         {
+            if (gameScene != null && IsInstanceValid(gameScene))
+            {
+                gameScene.Free();
+            }
+
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task Game_AbortedTreasureOpeningDoesNotGrantRewardOrPersistOpenedId()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var scene = GD.Load<PackedScene>("res://scenes/game/Game.tscn")
+            ?? throw new InvalidOperationException("Failed to load Game.tscn.");
+        Node? gameScene = null;
+        TreasureBoxSpawn? box = null;
+
+        try
+        {
+            gameScene = scene.Instantiate();
+            sceneTree.Root.AddChild(gameScene);
+            await AwaitFrames(6);
+
+            var floorManager = gameScene.GetNode<FloorManager>("FloorManager");
+            var gridMap = floorManager.CurrentGridMap;
+            var playerController = gameScene.GetNode<PlayerController>("PlayerController");
+            var gameManager = gameScene.GetNode<GameManager>("GameManager");
+
+            AssertThat(gridMap).IsNotNull();
+
+            box = new TreasureBoxSpawn
+            {
+                Name = "TreasureBox_RuntimeAbortTest",
+                TreasureBoxId = "TreasureBox_RuntimeAbortTest",
+                GridPosition = new Vector2I(9, 50),
+                RewardGold = 25
+            };
+            gridMap.AddChild(box);
+            box.AddToGroup("TreasureBoxSpawn");
+
+            var freshGrid = new int[gridMap.GridWidth, gridMap.GridHeight];
+            SetPrivateField(gridMap, "_grid", freshGrid);
+            SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 50));
+            gridMap.CallDeferred(nameof(GridMap.RegisterStaticTreasureBoxes));
+            await AwaitFrames(3);
+
+            PressMovement(playerController, Vector2I.Right);
+            await AwaitFrames(1);
+
+            int startingGold = gameManager.Player.Gold;
+            PressInteract(playerController);
+            await AwaitFrames(1);
+
+            gridMap.RemoveChild(box);
+            await AwaitFrames(120);
+
+            AssertThat(gameManager.Player.Gold).IsEqual(startingGold);
+            AssertThat(gameManager.IsTreasureBoxOpened("TreasureBox_RuntimeAbortTest")).IsFalse();
+            AssertThat(gameManager.IsInWorldInteraction).IsFalse();
+        }
+        finally
+        {
+            if (box != null && IsInstanceValid(box))
+            {
+                box.Free();
+            }
+
             if (gameScene != null && IsInstanceValid(gameScene))
             {
                 gameScene.Free();

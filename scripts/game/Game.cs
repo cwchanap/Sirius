@@ -493,6 +493,11 @@ public partial class Game : Node2D
         try
         {
             await box.OpenAsync();
+            if (!IsInstanceValid(box) || !box.IsOpened)
+            {
+                return;
+            }
+
             box.GrantRewardTo(_gameManager.Player);
             _gameManager.MarkTreasureBoxOpened(box.TreasureBoxId);
             _gameManager.NotifyPlayerStatsChanged();
@@ -1274,6 +1279,14 @@ public partial class Game : Node2D
 
     private void OnInGameLoadSlotSelected(int slot)
     {
+        if (_gameManager.IsInWorldInteraction)
+        {
+            GD.PrintErr("Save/load blocked: world interaction in progress.");
+            CleanupSaveDialogAndRestorePause();
+            ShowSaveError("Cannot save or load while opening treasure.", "Load Failed");
+            return;
+        }
+
         var saveData = slot == 3
             ? SaveManager.Instance?.LoadAutosave()
             : SaveManager.Instance?.LoadGame(slot);

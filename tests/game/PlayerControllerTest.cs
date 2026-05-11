@@ -9,6 +9,23 @@ using static GdUnit4.Assertions;
 public partial class PlayerControllerTest : Node
 {
     [TestCase]
+    public void FacingDirection_DefaultsDownAndUpdatesOnMovementInput()
+    {
+        var controller = new PlayerController();
+        var gameManager = new GameManager();
+        SetPrivateField(controller, "_gameManager", gameManager);
+
+        AssertThat(controller.FacingDirection).IsEqual(Vector2I.Down);
+
+        controller._UnhandledInput(new InputEventKey { Keycode = Key.Left, Pressed = true });
+
+        AssertThat(controller.FacingDirection).IsEqual(Vector2I.Left);
+
+        gameManager.Free();
+        controller.Free();
+    }
+
+    [TestCase]
     public void UnhandledInput_PendingStairTransitionWithInvalidState_ClearsPendingTransition()
     {
         var controller = new PlayerController();

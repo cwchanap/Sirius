@@ -2,10 +2,13 @@ using Godot;
 
 public partial class PlayerController : Node
 {
+    [Signal] public delegate void FacingChangedEventHandler(Vector2I facingDirection);
+
     private GridMap _gridMap;
     private GameManager _gameManager;
     private FloorManager _floorManager;
     private bool _isProcessingMove = false;
+    private Vector2I _lastFacingDirection = Vector2I.Down;
     
     // Stair transition state
     private bool _pendingStairTransition = false;
@@ -35,6 +38,8 @@ public partial class PlayerController : Node
         _gridMap = gridMap;
         GD.Print($"PlayerController.SetGridMap: GridMap updated to {gridMap?.Name ?? "null"}");
     }
+
+    public Vector2I FacingDirection => _lastFacingDirection;
     
     public override void _UnhandledInput(InputEvent @event)
     {
@@ -51,12 +56,12 @@ public partial class PlayerController : Node
             GD.Print($"Input received: {keyEvent.Keycode}, InBattle: {_gameManager.IsInBattle}, ProcessingMove: {_isProcessingMove}");
         }
         
-        // Don't handle input during battle or NPC interaction.
-        if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction)
+        // Don't handle input during battle, NPC interaction, or world interaction.
+        if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction || _gameManager.IsInWorldInteraction)
         {
             if (@event is InputEventKey key && key.Pressed)
             {
-                GD.Print($"Input blocked - InBattle: {_gameManager.IsInBattle}, InNpcInteraction: {_gameManager.IsInNpcInteraction}, ProcessingMove: {_isProcessingMove}");
+                GD.Print($"Input blocked - InBattle: {_gameManager.IsInBattle}, InNpcInteraction: {_gameManager.IsInNpcInteraction}, InWorldInteraction: {_gameManager.IsInWorldInteraction}, ProcessingMove: {_isProcessingMove}");
             }
             return;
         }
@@ -91,6 +96,11 @@ public partial class PlayerController : Node
                 GD.Print($"Taking stairs {(_isGoingUp ? "up" : "down")} to floor {_targetFloor}");
                 _floorManager?.TransitionToFloor(_targetFloor, _isGoingUp, _targetStairIndex);
                 ClearPendingStairTransition();
+            }
+
+            if (_gridMap != null && _gridMap.TryRequestTreasureBoxOpen(_lastFacingDirection))
+            {
+                _awaitingStairInteractRelease = true;
             }
             return;
         }
@@ -133,6 +143,12 @@ public partial class PlayerController : Node
             
             if (direction != Vector2I.Zero)
             {
+                if (_lastFacingDirection != direction)
+                {
+                    _lastFacingDirection = direction;
+                    EmitSignal(SignalName.FacingChanged, _lastFacingDirection);
+                }
+
                 if (_gridMap == null)
                 {
                     GD.Print("GridMap not yet loaded, ignoring movement input");

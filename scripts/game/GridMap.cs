@@ -2026,6 +2026,22 @@ public partial class GridMap : Node2D
             }
         }
     }
+
+    /// <summary>
+    /// Clear a treasure box cell so the player can walk through after opening.
+    /// </summary>
+    public void ClearTreasureBoxCell(Vector2I internalGridPosition)
+    {
+        if (internalGridPosition.X >= 0 && internalGridPosition.X < GridWidth &&
+            internalGridPosition.Y >= 0 && internalGridPosition.Y < GridHeight)
+        {
+            if (_grid[internalGridPosition.X, internalGridPosition.Y] == (int)CellType.TreasureBox)
+            {
+                _grid[internalGridPosition.X, internalGridPosition.Y] = (int)CellType.Empty;
+                QueueRedraw();
+            }
+        }
+    }
     
     /// <summary>
     /// Initialize grid from a loaded floor instance (used by FloorManager)
@@ -2445,10 +2461,11 @@ public partial class GridMap : Node2D
 
             if (gg.X >= 0 && gg.X < GridWidth && gg.Y >= 0 && gg.Y < GridHeight)
             {
-                _grid[gg.X, gg.Y] = (int)CellType.TreasureBox;
+                bool alreadyOpened = GameManager.Instance?.IsTreasureBoxOpened(box.TreasureBoxId) == true;
+                _grid[gg.X, gg.Y] = alreadyOpened ? (int)CellType.Empty : (int)CellType.TreasureBox;
                 box.UpdateVisual(this);
-                box.ApplyOpenedState(GameManager.Instance?.IsTreasureBoxOpened(box.TreasureBoxId) == true);
-                GD.Print($"  Treasure box '{box.TreasureBoxId}' registered at grid[{gg.X}, {gg.Y}]");
+                box.ApplyOpenedState(alreadyOpened);
+                GD.Print($"  Treasure box '{box.TreasureBoxId}' registered at grid[{gg.X}, {gg.Y}] (opened={alreadyOpened})");
             }
             else
             {

@@ -1,5 +1,7 @@
 using GdUnit4;
 using Godot;
+using System;
+using System.Reflection;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
 
@@ -185,5 +187,78 @@ public partial class TreasureBoxSpawnTest : Node
 
         box.Free();
         root.Free();
+    }
+
+    [TestCase]
+    public void ClearTreasureBoxCell_ChangesCellTypeToEmpty()
+    {
+        var gridMap = new GridMap();
+        var grid = new int[gridMap.GridWidth, gridMap.GridHeight];
+        grid[5, 5] = (int)GridMap.CellType.TreasureBox;
+        SetPrivateField(gridMap, "_grid", grid);
+
+        gridMap.ClearTreasureBoxCell(new Vector2I(5, 5));
+
+        AssertThat(grid[5, 5]).IsEqual((int)GridMap.CellType.Empty);
+
+        gridMap.Free();
+    }
+
+    [TestCase]
+    public void ClearTreasureBoxCell_OnlyAffectsTreasureBoxCells()
+    {
+        var gridMap = new GridMap();
+        var grid = new int[gridMap.GridWidth, gridMap.GridHeight];
+        grid[5, 5] = (int)GridMap.CellType.Wall;
+        SetPrivateField(gridMap, "_grid", grid);
+
+        gridMap.ClearTreasureBoxCell(new Vector2I(5, 5));
+
+        AssertThat(grid[5, 5]).IsEqual((int)GridMap.CellType.Wall);
+
+        gridMap.Free();
+    }
+
+    [TestCase]
+    public void ClearTreasureBoxCell_OutOfBoundsDoesNotCrash()
+    {
+        var gridMap = new GridMap();
+        var grid = new int[gridMap.GridWidth, gridMap.GridHeight];
+        SetPrivateField(gridMap, "_grid", grid);
+
+        gridMap.ClearTreasureBoxCell(new Vector2I(-1, -1));
+        gridMap.ClearTreasureBoxCell(new Vector2I(gridMap.GridWidth, gridMap.GridHeight));
+
+        gridMap.Free();
+    }
+
+    [TestCase]
+    public void TryMovePlayer_CanWalkOntoClearedTreasureBoxCell()
+    {
+        var gridMap = new GridMap();
+        var grid = new int[gridMap.GridWidth, gridMap.GridHeight];
+        SetPrivateField(gridMap, "_grid", grid);
+        SetPrivateField(gridMap, "_playerPosition", new Vector2I(5, 5));
+
+        // Initially treasure box blocks movement
+        grid[6, 5] = (int)GridMap.CellType.TreasureBox;
+        AssertThat(gridMap.TryMovePlayer(Vector2I.Right)).IsFalse();
+
+        // After clearing, movement is allowed
+        gridMap.ClearTreasureBoxCell(new Vector2I(6, 5));
+        AssertThat(gridMap.TryMovePlayer(Vector2I.Right)).IsTrue();
+
+        gridMap.Free();
+    }
+
+    private static void SetPrivateField(object instance, string fieldName, object? value)
+    {
+        var field = instance.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+        if (field == null)
+        {
+            throw new MissingFieldException(instance.GetType().FullName, fieldName);
+        }
+
+        field.SetValue(instance, value);
     }
 }

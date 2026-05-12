@@ -271,6 +271,22 @@ public partial class GameManagerTest : Node
     }
 
     [TestCase]
+    public void MarkTreasureBoxOpened_RejectsEmptyId()
+    {
+        int countBefore = _gameManager.OpenedTreasureBoxIds.Count;
+        AssertThat(_gameManager.MarkTreasureBoxOpened("")).IsFalse();
+        AssertThat(_gameManager.MarkTreasureBoxOpened("   ")).IsFalse();
+        AssertThat(_gameManager.OpenedTreasureBoxIds.Count).IsEqual(countBefore);
+    }
+
+    [TestCase]
+    public void IsTreasureBoxOpened_ReturnsFalseForEmptyId()
+    {
+        AssertThat(_gameManager.IsTreasureBoxOpened("")).IsFalse();
+        AssertThat(_gameManager.IsTreasureBoxOpened("   ")).IsFalse();
+    }
+
+    [TestCase]
     public void LoadFromSaveData_RestoresOpenedTreasureBoxes()
     {
         var saveData = new SaveData

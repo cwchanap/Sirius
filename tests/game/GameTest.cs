@@ -807,6 +807,35 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void InventoryToggle_WhenInWorldInteraction_IsBlocked()
+    {
+        if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
+        if (_gameManager.IsInBattle) _gameManager.EndBattle(false);
+
+        // Set up an inventory menu so the toggle code path can run
+        var invScene = GD.Load<PackedScene>("res://scenes/ui/InventoryMenu.tscn");
+        var invMenu = invScene!.Instantiate<InventoryMenuController>();
+        SetPrivateField(_game!, "_inventoryMenu", invMenu);
+        _viewport!.AddChild(invMenu);
+        invMenu.Hide();
+
+        // Simulate world interaction (e.g. treasure box opening)
+        _gameManager.StartWorldInteraction();
+
+        // Push toggle_inventory event
+        var evt = new InputEventAction { Action = "toggle_inventory", Pressed = true };
+        _viewport.PushInput(evt);
+
+        // Inventory must NOT become visible — world interaction guard blocked the toggle
+        AssertThat(invMenu.Visible).IsFalse();
+
+        // Clean up
+        _gameManager.EndWorldInteraction();
+        SetPrivateField(_game, "_inventoryMenu", null);
+        if (IsInstanceValid(invMenu)) invMenu.QueueFree();
+    }
+
+    [TestCase]
     public void InventoryToggle_WhenSaveLoadDialogOpen_IsBlocked()
     {
         if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
@@ -1044,6 +1073,66 @@ public partial class GameTest : Node
                 box.Free();
             }
 
+            if (gameScene != null && IsInstanceValid(gameScene))
+            {
+                gameScene.Free();
+            }
+
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task Game_TreasureBoxWithEmptyId_DoesNotGrantReward()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var scene = GD.Load<PackedScene>("res://scenes/game/Game.tscn")
+            ?? throw new InvalidOperationException("Failed to load Game.tscn.");
+        Node? gameScene = null;
+
+        try
+        {
+            gameScene = scene.Instantiate();
+            sceneTree.Root.AddChild(gameScene);
+            await AwaitFrames(6);
+
+            var floorManager = gameScene.GetNode<FloorManager>("FloorManager");
+            var gridMap = floorManager.CurrentGridMap;
+            var playerController = gameScene.GetNode<PlayerController>("PlayerController");
+            var gameManager = gameScene.GetNode<GameManager>("GameManager");
+
+            AssertThat(gridMap).IsNotNull();
+
+            var box = new TreasureBoxSpawn
+            {
+                Name = "TreasureBox_EmptyIdTest",
+                TreasureBoxId = "",  // Empty ID — should be rejected
+                GridPosition = new Vector2I(9, 50),
+                RewardGold = 100
+            };
+            gridMap.AddChild(box);
+            box.AddToGroup("TreasureBoxSpawn");
+
+            var freshGrid = new int[gridMap.GridWidth, gridMap.GridHeight];
+            SetPrivateField(gridMap, "_grid", freshGrid);
+            SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 50));
+            gridMap.CallDeferred(nameof(GridMap.RegisterStaticTreasureBoxes));
+            await AwaitFrames(3);
+
+            PressMovement(playerController, Vector2I.Right);
+            await AwaitFrames(1);
+
+            int startingGold = gameManager.Player.Gold;
+            PressInteract(playerController);
+            await AwaitFrames(1);
+
+            // Reward must NOT be granted for empty-ID boxes
+            AssertThat(gameManager.Player.Gold).IsEqual(startingGold);
+            AssertThat(box.IsOpened).IsFalse();
+            AssertThat(gameManager.IsInWorldInteraction).IsFalse();
+        }
+        finally
+        {
             if (gameScene != null && IsInstanceValid(gameScene))
             {
                 gameScene.Free();

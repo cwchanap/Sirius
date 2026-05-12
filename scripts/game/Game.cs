@@ -246,7 +246,7 @@ public partial class Game : Node2D
         // Handle inventory toggle (I key)
         if (@event.IsActionPressed("toggle_inventory"))
         {
-            if (_inventoryMenu != null && !_gameManager.IsInBattle && !_gameManager.IsInNpcInteraction
+            if (_inventoryMenu != null && !_gameManager.IsInBattle && !_gameManager.IsInNpcInteraction && !_gameManager.IsInWorldInteraction
                 && (_settingsMenu == null || !GodotObject.IsInstanceValid(_settingsMenu))
                 && (_saveLoadDialog == null || !GodotObject.IsInstanceValid(_saveLoadDialog))
                 && (_pauseMenuDialog == null || !GodotObject.IsInstanceValid(_pauseMenuDialog) || !_pauseMenuDialog.Visible))
@@ -491,6 +491,12 @@ public partial class Game : Node2D
         {
             box.ApplyOpenedState(true);
             UpdateInteractionPrompt();
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(box.TreasureBoxId))
+        {
+            GD.PushWarning($"[Game] Treasure box at {treasurePosition} has no TreasureBoxId; skipping to prevent infinite farming.");
             return;
         }
 

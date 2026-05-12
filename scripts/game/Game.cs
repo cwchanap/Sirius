@@ -506,6 +506,7 @@ public partial class Game : Node2D
 
             box.GrantRewardTo(_gameManager.Player);
             _gameManager.MarkTreasureBoxOpened(box.TreasureBoxId);
+            _gridMap.ClearTreasureBoxCell(treasurePosition);
             _gameManager.NotifyPlayerStatsChanged();
         }
         finally

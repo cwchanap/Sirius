@@ -2032,6 +2032,11 @@ public partial class GridMap : Node2D
     /// </summary>
     public void ClearTreasureBoxCell(Vector2I internalGridPosition)
     {
+        if (_grid == null || _grid.Length == 0)
+        {
+            return;
+        }
+
         if (internalGridPosition.X >= 0 && internalGridPosition.X < GridWidth &&
             internalGridPosition.Y >= 0 && internalGridPosition.Y < GridHeight)
         {

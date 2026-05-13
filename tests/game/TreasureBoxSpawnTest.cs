@@ -234,6 +234,18 @@ public partial class TreasureBoxSpawnTest : Node
     }
 
     [TestCase]
+    public void ClearTreasureBoxCell_DoesNotCrashWhenGridIsNull()
+    {
+        var gridMap = new GridMap();
+        // _grid is null by default on a freshly constructed GridMap without a scene
+        SetPrivateField(gridMap, "_playerPosition", new Vector2I(5, 5));
+
+        gridMap.ClearTreasureBoxCell(new Vector2I(5, 5));
+
+        gridMap.Free();
+    }
+
+    [TestCase]
     public void TryMovePlayer_CanWalkOntoClearedTreasureBoxCell()
     {
         var gridMap = new GridMap();

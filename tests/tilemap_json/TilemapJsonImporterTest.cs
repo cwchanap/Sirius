@@ -332,6 +332,47 @@ public partial class TilemapJsonImporterTest : Node
     }
 
     [TestCase]
+    public void ImportToScene_SkipsTreasureBoxWithEmptyId()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                TreasureBoxes =
+                [
+                    new TreasureBoxData
+                    {
+                        Id = "",
+                        Position = new Vector2IData(10, 20),
+                        Gold = 50,
+                        Items = []
+                    },
+                    new TreasureBoxData
+                    {
+                        Id = "   ",
+                        Position = new Vector2IData(15, 25),
+                        Gold = 75,
+                        Items = []
+                    }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        // No nodes should be created for empty/whitespace IDs
+        AssertThat(gridMap.GetChildCount()).IsEqual(0);
+        sceneRoot.Free();
+    }
+
+    [TestCase]
     public void ImportToScene_PreservesExistingNpcsWhenNpcSpawnsAbsent()
     {
         var sceneRoot = new Node2D { Name = "TestFloor" };

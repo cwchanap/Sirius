@@ -515,6 +515,10 @@ public partial class Game : Node2D
             _gridMap.ClearTreasureBoxCell(treasurePosition);
             _gameManager.NotifyPlayerStatsChanged();
         }
+        catch (Exception ex)
+        {
+            GD.PushError($"[Game] Exception during treasure box opening at {treasurePosition}: {ex}");
+        }
         finally
         {
             if (IsInstanceValid(_gameManager) && _gameManager.IsInWorldInteraction)

@@ -6,7 +6,7 @@
 
 **Architecture:** Keep the existing static catalog pattern. Add a small `EncounterTables` helper to centralize enemy type selection and factory dispatch so `Game`, `GridMap`, and `EnemySpawn` do not drift. Art generation follows `.codex/skills/manage-asset-generation/SKILL.md`: check canonical paths first, generate only missing assets, post-process, verify dimensions/transparency, then update docs.
 
-**Tech Stack:** Godot 4.5.1, C# .NET 8.0, GdUnit4, Python asset tools, PNG image assets.
+**Tech Stack:** Godot 4.6.2, C# .NET 8.0, GdUnit4, Python asset tools, PNG image assets.
 
 ---
 

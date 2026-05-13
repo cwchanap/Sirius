@@ -427,6 +427,12 @@ public partial class TilemapJsonImporter : RefCounted
 
         foreach (var boxData in boxes)
         {
+            if (string.IsNullOrWhiteSpace(boxData.Id))
+            {
+                GD.PrintErr($"[TilemapJsonImporter] Skipping treasure box with empty/whitespace id at position {boxData.Position}.");
+                continue;
+            }
+
             processedIds.Add(boxData.Id);
 
             if (existingBoxes.TryGetValue(boxData.Id, out var existingNode))

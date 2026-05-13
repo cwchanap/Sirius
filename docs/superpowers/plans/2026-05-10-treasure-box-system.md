@@ -6,7 +6,7 @@
 
 **Architecture:** Treasure boxes are static floor entities under `GridMap`, parallel to `EnemySpawn` and `NpcSpawn`. Floor JSON and generators author the boxes, the importer/exporter round-trips them, `GridMap` blocks/interacts with them, `Game` opens them through the existing input action with player-facing `Open` text, and `GameManager` persists opened IDs through `SaveData`.
 
-**Tech Stack:** Godot 4.5.1, C#/.NET 8.0, GdUnit4, Python floor generators, existing `tools/tilemap_json_sync.py` import pipeline.
+**Tech Stack:** Godot 4.6.2, C#/.NET 8.0, GdUnit4, Python floor generators, existing `tools/tilemap_json_sync.py` import pipeline.
 
 ---
 

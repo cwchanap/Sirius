@@ -6,7 +6,7 @@
 
 **Architecture:** Add a deterministic Python floor generator that emits the existing floor JSON format, extend the Godot JSON model/importer/exporter to include NPC spawn nodes, import the generated JSON into `FloorGF.tscn`, and update `FloorGF.tres` metadata. Add focused tests around the generator and final floor connectivity.
 
-**Tech Stack:** Godot 4.5.1, C#/.NET 8, GdUnit4, Python 3 standard library, existing `tools/refresh_tilemap.gd` JSON import pipeline.
+**Tech Stack:** Godot 4.6.2, C#/.NET 8, GdUnit4, Python 3 standard library, existing `tools/refresh_tilemap.gd` JSON import pipeline.
 
 ---
 

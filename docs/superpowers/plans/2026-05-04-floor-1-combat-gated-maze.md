@@ -6,7 +6,7 @@
 
 **Architecture:** Extend the existing static floor JSON pipeline instead of adding runtime generation. Add importer support for missing stair nodes and non-dedicated enemy spawn scenes, generate Floor 1 and placeholder Floor 2 JSON/resources deterministically, import both into `.tscn` scenes, then guard the layouts with Python and GdUnit tests.
 
-**Tech Stack:** Godot 4.5.1, C#/.NET 8, GdUnit4, Python 3 standard library, existing `tools/tilemap_json_sync.py` and `tools/refresh_tilemap.gd` import pipeline.
+**Tech Stack:** Godot 4.6.2, C#/.NET 8, GdUnit4, Python 3 standard library, existing `tools/tilemap_json_sync.py` and `tools/refresh_tilemap.gd` import pipeline.
 
 ---
 

@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-Sirius is a 2D turn-based tactical RPG built with Godot 4.5.1 and C# (.NET 8.0). The game features a 160x160 grid-based maze world with 8 themed areas, 14+ enemy types, automated turn-based combat, and a sprite animation system.
+Sirius is a 2D turn-based tactical RPG built with Godot 4.6.2 and C# (.NET 8.0). The game features a 160x160 grid-based maze world with 8 themed areas, 14+ enemy types, automated turn-based combat, and a sprite animation system.
 
 This PRD outlines 16 features across 4 priority tiers that will transform Sirius from a functional prototype into a complete, engaging RPG experience. The features are designed to create a compelling gameplay loop with exploration, combat progression, itemization, and replayability.
 
@@ -75,7 +75,7 @@ Transform Sirius into a polished tactical RPG that offers:
 ## Current Architecture Context
 
 ### Tech Stack
-- **Engine**: Godot 4.5.1
+- **Engine**: Godot 4.6.2
 - **Language**: C# (.NET 8.0)
 - **Testing**: GdUnit4 framework
 - **Grid System**: 160x160 cells, 32px per cell

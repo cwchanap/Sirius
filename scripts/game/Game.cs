@@ -500,10 +500,10 @@ public partial class Game : Node2D
             return;
         }
 
-        _gameManager.StartWorldInteraction();
-        UpdateInteractionPrompt();
         try
         {
+            _gameManager.StartWorldInteraction();
+            UpdateInteractionPrompt();
             await box.OpenAsync();
             if (!IsInsideTree() || !IsInstanceValid(_gameManager) || !IsInstanceValid(box) || !box.IsOpened)
             {

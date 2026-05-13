@@ -108,8 +108,9 @@ public partial class TreasureBoxSpawn : Sprite2D
             }
         }
 
-        if (!GodotObject.IsInstanceValid(this))
+        if (!GodotObject.IsInstanceValid(this) || !IsInsideTree())
         {
+            IsOpening = false;
             return;
         }
 

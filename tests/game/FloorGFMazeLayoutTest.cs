@@ -137,7 +137,7 @@ public partial class FloorGFMazeLayoutTest : Node
             {
                 AssertThat(boxes.ContainsKey(expected.Key)).IsTrue();
                 var box = boxes[expected.Key];
-                var actualItems = RewardItems(box);
+                var actualItems = TestHelpers.TreasureBoxRewardItems(box);
 
                 AssertThat(box.Name.ToString()).IsEqual(expected.Key);
                 AssertThat(box.GridPosition).IsEqual(expected.Value.Position);
@@ -336,25 +336,5 @@ public partial class FloorGFMazeLayoutTest : Node
         yield return new Vector2I(position.X - 1, position.Y);
         yield return new Vector2I(position.X, position.Y + 1);
         yield return new Vector2I(position.X, position.Y - 1);
-    }
-
-    private static Dictionary<string, int> RewardItems(TreasureBoxSpawn box)
-    {
-        var result = new Dictionary<string, int>();
-        if (box.RewardItemIds == null)
-        {
-            return result;
-        }
-
-        for (var i = 0; i < box.RewardItemIds.Count; i++)
-        {
-            var itemId = box.RewardItemIds[i];
-            var quantity = box.RewardItemQuantities != null && i < box.RewardItemQuantities.Count
-                ? box.RewardItemQuantities[i]
-                : 1;
-            result[itemId] = quantity;
-        }
-
-        return result;
     }
 }

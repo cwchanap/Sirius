@@ -2422,6 +2422,11 @@ public partial class GridMap : Node2D
             return false;
         }
 
+        if (_grid == null || _grid.Length == 0)
+        {
+            return false;
+        }
+
         Vector2I target = _playerPosition + facingDirection;
         if (!IsWithinGrid(target) || (CellType)_grid[target.X, target.Y] != CellType.TreasureBox)
         {
@@ -2449,10 +2454,23 @@ public partial class GridMap : Node2D
         var nodes = GetTree().GetNodesInGroup("TreasureBoxSpawn");
         GD.Print($"GridMap.RegisterStaticTreasureBoxes: Found {nodes.Count} total TreasureBoxSpawn nodes; filtering to floor '{currentFloorRoot.Name}'.");
 
+        var seenIds = new System.Collections.Generic.HashSet<string>();
         foreach (Node n in nodes)
         {
             if (n is not TreasureBoxSpawn box || !box.BelongsToFloor(currentFloorRoot))
             {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(box.TreasureBoxId))
+            {
+                GD.PrintErr($"  Treasure box at {box.GridPosition} has empty TreasureBoxId; skipping registration.");
+                continue;
+            }
+
+            if (!seenIds.Add(box.TreasureBoxId))
+            {
+                GD.PrintErr($"  Treasure box '{box.TreasureBoxId}' has a duplicate ID; skipping registration.");
                 continue;
             }
 

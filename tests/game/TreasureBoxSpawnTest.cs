@@ -178,7 +178,8 @@ public partial class TreasureBoxSpawnTest : Node
         await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
 
         var opening = box.OpenAsync();
-        await ToSignal(sceneTree.CreateTimer(0.02), Timer.SignalName.Timeout);
+        // Await one process frame so OpenAsync progresses past its first await
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
         root.RemoveChild(box);
         await opening;
 
@@ -260,5 +261,57 @@ public partial class TreasureBoxSpawnTest : Node
         }
 
         field.SetValue(instance, value);
+    }
+
+    [TestCase]
+    public void TryRequestTreasureBoxOpen_ReturnsFalseWhenGridNotInitialized()
+    {
+        var gridMap = new GridMap();
+        // _grid is null by default on a freshly constructed GridMap without a scene
+        SetPrivateField(gridMap, "_playerPosition", new Vector2I(5, 5));
+
+        AssertThat(gridMap.TryRequestTreasureBoxOpen(Vector2I.Right)).IsFalse();
+
+        gridMap.Free();
+    }
+
+    [TestCase]
+    public void TryRequestTreasureBoxOpen_ReturnsTrueWhenGridReady()
+    {
+        var gridMap = new GridMap();
+        var grid = new int[gridMap.GridWidth, gridMap.GridHeight];
+        grid[6, 5] = (int)GridMap.CellType.TreasureBox;
+        SetPrivateField(gridMap, "_grid", grid);
+        SetPrivateField(gridMap, "_playerPosition", new Vector2I(5, 5));
+
+        AssertThat(gridMap.TryRequestTreasureBoxOpen(Vector2I.Right)).IsTrue();
+
+        gridMap.Free();
+    }
+
+    [TestCase]
+    public async Task OpenAsync_DoesNotSetOpenedWhenNodeLeavesTreeBeforeCompletion()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var root = new Node2D { Name = "TreasureBoxTestRoot" };
+        var box = new TreasureBoxSpawn { TreasureBoxId = "TreasureBox_Test_LeaveTree" };
+
+        sceneTree.Root.AddChild(root);
+        root.AddChild(box);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        // Start opening, then immediately remove from tree (skipping all awaits)
+        var openingTask = box.OpenAsync();
+        // Remove from tree before any timer signals resolve
+        root.RemoveChild(box);
+        await openingTask;
+
+        // Node is valid but not in tree — should NOT be marked as opened
+        AssertThat(GodotObject.IsInstanceValid(box)).IsTrue();
+        AssertThat(box.IsOpened).IsFalse();
+        AssertThat(box.IsOpening).IsFalse();
+
+        box.Free();
+        root.Free();
     }
 }

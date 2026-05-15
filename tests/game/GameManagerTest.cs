@@ -280,6 +280,27 @@ public partial class GameManagerTest : Node
     }
 
     [TestCase]
+    public void MarkPuzzleSolved_DeduplicatesIds()
+    {
+        _gameManager.MarkPuzzleSolved("Puzzle_1F_SouthShortcutTrial");
+        _gameManager.MarkPuzzleSolved("Puzzle_1F_SouthShortcutTrial");
+
+        AssertThat(_gameManager.IsPuzzleSolved("Puzzle_1F_SouthShortcutTrial")).IsTrue();
+        AssertThat(_gameManager.SolvedPuzzleIds.Count).IsEqual(1);
+    }
+
+    [TestCase]
+    public void MarkPuzzleSolved_RejectsEmptyId()
+    {
+        int countBefore = _gameManager.SolvedPuzzleIds.Count;
+
+        AssertThat(_gameManager.MarkPuzzleSolved("")).IsFalse();
+        AssertThat(_gameManager.MarkPuzzleSolved("   ")).IsFalse();
+
+        AssertThat(_gameManager.SolvedPuzzleIds.Count).IsEqual(countBefore);
+    }
+
+    [TestCase]
     public void IsTreasureBoxOpened_ReturnsFalseForEmptyId()
     {
         AssertThat(_gameManager.IsTreasureBoxOpened("")).IsFalse();
@@ -319,6 +340,41 @@ public partial class GameManagerTest : Node
         AssertThat(_gameManager.OpenedTreasureBoxIds.Count).IsEqual(2);
         AssertThat(_gameManager.IsTreasureBoxOpened("TreasureBox_GF_EntranceCache")).IsTrue();
         AssertThat(_gameManager.IsTreasureBoxOpened("TreasureBox_1F_WestDeadEndCache")).IsTrue();
+    }
+
+    [TestCase]
+    public void LoadFromSaveData_RestoresSolvedPuzzleIds()
+    {
+        var saveData = new SaveData
+        {
+            Version = SaveData.CurrentVersion,
+            Character = new CharacterSaveData
+            {
+                Name = "Hero",
+                Level = 1,
+                MaxHealth = 100,
+                CurrentHealth = 100,
+                Attack = 20,
+                Defense = 10,
+                Speed = 15,
+                ExperienceToNext = 110,
+                Inventory = new InventorySaveData(),
+                Equipment = new EquipmentSaveData()
+            },
+            SolvedPuzzleIds = new System.Collections.Generic.List<string>
+            {
+                "Puzzle_1F_SouthShortcutTrial",
+                "",
+                "Puzzle_1F_SouthShortcutTrial",
+                "Puzzle_1F_Other"
+            }
+        };
+
+        _gameManager.LoadFromSaveData(saveData);
+
+        AssertThat(_gameManager.SolvedPuzzleIds.Count).IsEqual(2);
+        AssertThat(_gameManager.IsPuzzleSolved("Puzzle_1F_SouthShortcutTrial")).IsTrue();
+        AssertThat(_gameManager.IsPuzzleSolved("Puzzle_1F_Other")).IsTrue();
     }
 
     [TestCase]

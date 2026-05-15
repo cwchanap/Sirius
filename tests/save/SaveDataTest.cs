@@ -95,6 +95,27 @@ public partial class SaveDataTest : Node
     }
 
     [TestCase]
+    public void TestSaveData_SolvedPuzzleIds_SerializeAndDeserialize()
+    {
+        var saveData = new SaveData
+        {
+            SolvedPuzzleIds = new System.Collections.Generic.List<string>
+            {
+                "Puzzle_1F_SouthShortcutTrial",
+                "Puzzle_1F_Other"
+            }
+        };
+
+        string json = JsonSerializer.Serialize(saveData);
+        var deserialized = JsonSerializer.Deserialize<SaveData>(json);
+
+        AssertThat(deserialized).IsNotNull();
+        AssertThat(deserialized!.SolvedPuzzleIds.Count).IsEqual(2);
+        AssertThat(deserialized.SolvedPuzzleIds[0]).IsEqual("Puzzle_1F_SouthShortcutTrial");
+        AssertThat(deserialized.SolvedPuzzleIds[1]).IsEqual("Puzzle_1F_Other");
+    }
+
+    [TestCase]
     public void TestCharacterSaveData_FromCharacter()
     {
         // Arrange

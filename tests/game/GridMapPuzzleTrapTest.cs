@@ -181,6 +181,67 @@ public partial class GridMapPuzzleTrapTest : Node
     }
 
     [TestCase]
+    public async Task RegisterStaticPuzzleEntities_DoesNotWritePuzzleCellsOnStairTiles()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var floor = new Node2D { Name = "PuzzleFloor" };
+        var gridMap = CreateGridMapWithGrid();
+        var grid = GetPrivateField<int[,]>(gridMap, "_grid");
+        SetPrivateField(gridMap, "_tilemapOrigin", new Vector2I(10, 20));
+        SetPrivateField(
+            gridMap,
+            "_stairTileCoords",
+            new System.Collections.Generic.HashSet<Vector2I>
+            {
+                new(12, 23),
+                new(13, 23),
+                new(14, 23)
+            });
+
+        var trap = new TrapTileSpawn
+        {
+            Name = "TrapTile_OnStair",
+            PuzzleId = "Puzzle_Test",
+            GridPosition = new Vector2I(12, 23)
+        };
+        var gate = new PuzzleGateSpawn
+        {
+            Name = "PuzzleGate_OnStair",
+            GateId = "PuzzleGate_OnStair",
+            PuzzleId = "Puzzle_Test",
+            GridPosition = new Vector2I(13, 23),
+            StartsClosed = true
+        };
+        var puzzleSwitch = new PuzzleSwitchSpawn
+        {
+            Name = "PuzzleSwitch_OnStair",
+            SwitchId = "PuzzleSwitch_OnStair",
+            PuzzleId = "Puzzle_Test",
+            GridPosition = new Vector2I(14, 23)
+        };
+
+        floor.AddChild(gridMap);
+        gridMap.AddChild(trap);
+        gridMap.AddChild(gate);
+        gridMap.AddChild(puzzleSwitch);
+        sceneTree.Root.AddChild(floor);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            gridMap.RegisterStaticPuzzleEntities();
+
+            AssertThat(grid[2, 3]).IsEqual((int)GridMap.CellType.Empty);
+            AssertThat(grid[3, 3]).IsEqual((int)GridMap.CellType.Empty);
+            AssertThat(grid[4, 3]).IsEqual((int)GridMap.CellType.Empty);
+        }
+        finally
+        {
+            floor.Free();
+        }
+    }
+
+    [TestCase]
     public void TryMovePlayer_ActiveTrapMovesPlayerAndEmitsTrapTriggered()
     {
         var gridMap = CreateGridMapWithGrid();

@@ -2726,6 +2726,11 @@ public partial class GridMap : Node2D
             return false;
         }
 
+        if (_stairTileCoords.Contains(InternalGridToTilemapCoords(gridPosition)))
+        {
+            return false;
+        }
+
         CellType current = (CellType)_grid[gridPosition.X, gridPosition.Y];
         return current == CellType.Empty ||
                current == CellType.TrapTile ||

@@ -102,6 +102,12 @@ public partial class PlayerController : Node
             if (_gridMap != null && _gridMap.TryRequestTreasureBoxOpen(_lastFacingDirection))
             {
                 _awaitingStairInteractRelease = true;
+                return;
+            }
+
+            if (_gridMap != null && _gridMap.TryRequestPuzzleInteraction(_lastFacingDirection))
+            {
+                _awaitingStairInteractRelease = true;
             }
             return;
         }

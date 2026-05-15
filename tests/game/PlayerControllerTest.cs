@@ -134,6 +134,61 @@ public partial class PlayerControllerTest : Node
     }
 
     [TestCase]
+    public void Interact_PrioritizesStairsThenTreasureThenPuzzleInteraction()
+    {
+        var controller = new PlayerController();
+        var gameManager = new GameManager();
+        var floorManager = new FloorManager();
+        var gridMap = new GridMap();
+        var grid = new int[gridMap.GridWidth, gridMap.GridHeight];
+        var treasureOpenRequests = 0;
+        var puzzleInteractionRequests = 0;
+        gridMap.TreasureBoxOpenRequested += _ => treasureOpenRequests++;
+        gridMap.PuzzleInteractionRequested += _ => puzzleInteractionRequests++;
+
+        SetPrivateField(gridMap, "_grid", grid);
+        SetPrivateField(gridMap, "_playerPosition", Vector2I.Zero);
+        SetPrivateField(controller, "_gameManager", gameManager);
+        SetPrivateField(controller, "_floorManager", floorManager);
+        SetPrivateField(controller, "_gridMap", gridMap);
+
+        grid[0, 1] = (int)GridMap.CellType.PuzzleInteractable;
+        SetPrivateField(controller, "_pendingStairTransition", true);
+        SetPrivateField(controller, "_targetFloor", 1);
+        SetPrivateField(controller, "_isGoingUp", true);
+        SetPrivateField(controller, "_targetStairIndex", 0);
+
+        controller._UnhandledInput(CreateInteractEvent());
+
+        AssertThat(treasureOpenRequests).IsEqual(0);
+        AssertThat(puzzleInteractionRequests).IsEqual(0);
+        AssertThat(GetPrivateField<bool>(controller, "_awaitingStairInteractRelease")).IsTrue();
+
+        controller._UnhandledInput(CreateInteractReleaseEvent());
+        grid[0, 1] = (int)GridMap.CellType.TreasureBox;
+
+        controller._UnhandledInput(CreateInteractEvent());
+
+        AssertThat(treasureOpenRequests).IsEqual(1);
+        AssertThat(puzzleInteractionRequests).IsEqual(0);
+        AssertThat(GetPrivateField<bool>(controller, "_awaitingStairInteractRelease")).IsTrue();
+
+        controller._UnhandledInput(CreateInteractReleaseEvent());
+        grid[0, 1] = (int)GridMap.CellType.PuzzleInteractable;
+
+        controller._UnhandledInput(CreateInteractEvent());
+
+        AssertThat(treasureOpenRequests).IsEqual(1);
+        AssertThat(puzzleInteractionRequests).IsEqual(1);
+        AssertThat(GetPrivateField<bool>(controller, "_awaitingStairInteractRelease")).IsTrue();
+
+        gridMap.Free();
+        floorManager.Free();
+        gameManager.Free();
+        controller.Free();
+    }
+
+    [TestCase]
     public void QueueStairTransition_OnlyQueuesDoesNotAutoTransition()
     {
         var controller = new PlayerController();

@@ -2585,13 +2585,10 @@ public partial class GridMap : Node2D
             }
 
             trap.UpdateVisual(this);
-            if (!puzzleSolved)
+            if (!puzzleSolved && CanWritePuzzleCell(gridPosition))
             {
                 _registeredTrapCells.Add(gridPosition);
-                if ((CellType)_grid[gridPosition.X, gridPosition.Y] != CellType.Player)
-                {
-                    _grid[gridPosition.X, gridPosition.Y] = (int)CellType.TrapTile;
-                }
+                _grid[gridPosition.X, gridPosition.Y] = (int)CellType.TrapTile;
             }
         }
 
@@ -2618,13 +2615,10 @@ public partial class GridMap : Node2D
 
             gate.ApplySolvedState(puzzleSolved);
             gate.UpdateVisual(this);
-            if (gate.BlocksMovement)
+            if (gate.BlocksMovement && CanWritePuzzleCell(gridPosition))
             {
                 _registeredPuzzleGateCells.Add(gridPosition);
-                if ((CellType)_grid[gridPosition.X, gridPosition.Y] != CellType.Player)
-                {
-                    _grid[gridPosition.X, gridPosition.Y] = (int)CellType.PuzzleGate;
-                }
+                _grid[gridPosition.X, gridPosition.Y] = (int)CellType.PuzzleGate;
             }
             else if ((CellType)_grid[gridPosition.X, gridPosition.Y] == CellType.PuzzleGate)
             {
@@ -2718,11 +2712,25 @@ public partial class GridMap : Node2D
             return;
         }
 
-        _registeredPuzzleInteractableCells.Add(gridPosition);
-        if ((CellType)_grid[gridPosition.X, gridPosition.Y] != CellType.Player)
+        if (CanWritePuzzleCell(gridPosition))
         {
+            _registeredPuzzleInteractableCells.Add(gridPosition);
             _grid[gridPosition.X, gridPosition.Y] = (int)CellType.PuzzleInteractable;
         }
+    }
+
+    private bool CanWritePuzzleCell(Vector2I gridPosition)
+    {
+        if (!IsWithinGrid(gridPosition))
+        {
+            return false;
+        }
+
+        CellType current = (CellType)_grid[gridPosition.X, gridPosition.Y];
+        return current == CellType.Empty ||
+               current == CellType.TrapTile ||
+               current == CellType.PuzzleGate ||
+               current == CellType.PuzzleInteractable;
     }
 
     private Vector2I TilemapToInternalGrid(Vector2I tilemapPosition)

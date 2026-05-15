@@ -117,6 +117,70 @@ public partial class GridMapPuzzleTrapTest : Node
     }
 
     [TestCase]
+    public async Task RegisterStaticPuzzleEntities_DoesNotOverwriteHigherPriorityOccupancyCells()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var floor = new Node2D { Name = "PuzzleFloor" };
+        var gridMap = CreateGridMapWithGrid();
+        var grid = GetPrivateField<int[,]>(gridMap, "_grid");
+        grid[6, 5] = (int)GridMap.CellType.TreasureBox;
+        grid[7, 5] = (int)GridMap.CellType.Npc;
+        grid[8, 5] = (int)GridMap.CellType.Enemy;
+        grid[9, 5] = (int)GridMap.CellType.Wall;
+
+        var trap = new TrapTileSpawn
+        {
+            Name = "TrapTile_OnTreasure",
+            PuzzleId = "Puzzle_Test",
+            GridPosition = new Vector2I(6, 5)
+        };
+        var gate = new PuzzleGateSpawn
+        {
+            Name = "PuzzleGate_OnNpc",
+            GateId = "PuzzleGate_OnNpc",
+            PuzzleId = "Puzzle_Test",
+            GridPosition = new Vector2I(7, 5),
+            StartsClosed = true
+        };
+        var puzzleSwitch = new PuzzleSwitchSpawn
+        {
+            Name = "PuzzleSwitch_OnEnemy",
+            SwitchId = "PuzzleSwitch_OnEnemy",
+            PuzzleId = "Puzzle_Test",
+            GridPosition = new Vector2I(8, 5)
+        };
+        var riddle = new PuzzleRiddleSpawn
+        {
+            Name = "PuzzleRiddle_OnWall",
+            RiddleId = "PuzzleRiddle_OnWall",
+            PuzzleId = "Puzzle_Test",
+            GridPosition = new Vector2I(9, 5)
+        };
+
+        floor.AddChild(gridMap);
+        gridMap.AddChild(trap);
+        gridMap.AddChild(gate);
+        gridMap.AddChild(puzzleSwitch);
+        gridMap.AddChild(riddle);
+        sceneTree.Root.AddChild(floor);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            gridMap.RegisterStaticPuzzleEntities();
+
+            AssertThat(grid[6, 5]).IsEqual((int)GridMap.CellType.TreasureBox);
+            AssertThat(grid[7, 5]).IsEqual((int)GridMap.CellType.Npc);
+            AssertThat(grid[8, 5]).IsEqual((int)GridMap.CellType.Enemy);
+            AssertThat(grid[9, 5]).IsEqual((int)GridMap.CellType.Wall);
+        }
+        finally
+        {
+            floor.Free();
+        }
+    }
+
+    [TestCase]
     public void TryMovePlayer_ActiveTrapMovesPlayerAndEmitsTrapTriggered()
     {
         var gridMap = CreateGridMapWithGrid();
@@ -141,6 +205,44 @@ public partial class GridMapPuzzleTrapTest : Node
         finally
         {
             gridMap.Free();
+        }
+    }
+
+    [TestCase]
+    public async Task TryMovePlayer_RestoresRegisteredTrapCellAfterPlayerStepsOff()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var floor = new Node2D { Name = "PuzzleFloor" };
+        var gridMap = CreateGridMapWithGrid();
+        var grid = GetPrivateField<int[,]>(gridMap, "_grid");
+        grid[5, 5] = (int)GridMap.CellType.Player;
+        var trap = new TrapTileSpawn
+        {
+            Name = "TrapTile_Test",
+            PuzzleId = "Puzzle_Test",
+            GridPosition = new Vector2I(6, 5)
+        };
+
+        floor.AddChild(gridMap);
+        gridMap.AddChild(trap);
+        sceneTree.Root.AddChild(floor);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            gridMap.RegisterStaticPuzzleEntities();
+
+            AssertThat(gridMap.TryMovePlayer(Vector2I.Right)).IsTrue();
+            AssertThat(grid[6, 5]).IsEqual((int)GridMap.CellType.Player);
+
+            AssertThat(gridMap.TryMovePlayer(Vector2I.Right)).IsTrue();
+
+            AssertThat(gridMap.GetPlayerPosition()).IsEqual(new Vector2I(7, 5));
+            AssertThat(grid[6, 5]).IsEqual((int)GridMap.CellType.TrapTile);
+        }
+        finally
+        {
+            floor.Free();
         }
     }
 

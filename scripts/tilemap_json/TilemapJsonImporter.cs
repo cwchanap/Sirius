@@ -542,12 +542,12 @@ public partial class TilemapJsonImporter : RefCounted
 
         foreach (var trapData in trapTiles)
         {
+            MarkProcessedIfIdPresent(processedIds, trapData.Id);
+
             if (!HasValidPuzzleIdentity(trapData.Id, trapData.PuzzleId, "trap tile"))
             {
                 continue;
             }
-
-            processedIds.Add(trapData.Id);
 
             if (existingTrapTiles.TryGetValue(trapData.Id, out var existingNode))
             {
@@ -615,12 +615,12 @@ public partial class TilemapJsonImporter : RefCounted
 
         foreach (var switchData in switches)
         {
+            MarkProcessedIfIdPresent(processedIds, switchData.Id);
+
             if (!HasValidPuzzleIdentity(switchData.Id, switchData.PuzzleId, "puzzle switch"))
             {
                 continue;
             }
-
-            processedIds.Add(switchData.Id);
 
             if (existingSwitches.TryGetValue(switchData.Id, out var existingNode))
             {
@@ -689,12 +689,12 @@ public partial class TilemapJsonImporter : RefCounted
 
         foreach (var gateData in gates)
         {
+            MarkProcessedIfIdPresent(processedIds, gateData.Id);
+
             if (!HasValidPuzzleIdentity(gateData.Id, gateData.PuzzleId, "puzzle gate"))
             {
                 continue;
             }
-
-            processedIds.Add(gateData.Id);
 
             if (existingGates.TryGetValue(gateData.Id, out var existingNode))
             {
@@ -768,12 +768,12 @@ public partial class TilemapJsonImporter : RefCounted
 
         foreach (var riddleData in riddles)
         {
+            MarkProcessedIfIdPresent(processedIds, riddleData.Id);
+
             if (!HasValidPuzzleIdentity(riddleData.Id, riddleData.PuzzleId, "puzzle riddle"))
             {
                 continue;
             }
-
-            processedIds.Add(riddleData.Id);
 
             if (existingRiddles.TryGetValue(riddleData.Id, out var existingNode))
             {
@@ -848,6 +848,14 @@ public partial class TilemapJsonImporter : RefCounted
         }
 
         return true;
+    }
+
+    private static void MarkProcessedIfIdPresent(HashSet<string> processedIds, string id)
+    {
+        if (!string.IsNullOrWhiteSpace(id))
+        {
+            processedIds.Add(id);
+        }
     }
 
     private static void ConfigurePuzzleNodeTransform(Node node, Vector2IData position)

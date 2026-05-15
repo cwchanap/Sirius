@@ -677,6 +677,129 @@ public partial class TilemapJsonImporterTest : Node
     }
 
     [TestCase]
+    public void ImportToScene_PreservesExistingPuzzleNodesWhenMatchingEntryHasEmptyPuzzleId()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var trap = new TrapTileSpawn
+        {
+            Name = "TrapTile_Existing",
+            PuzzleId = "Puzzle_Existing",
+            GridPosition = new Vector2I(1, 2),
+            Damage = 7,
+            StatusEffectId = "poison",
+            StatusMagnitude = 2,
+            StatusTurns = 3
+        };
+        var puzzleSwitch = new PuzzleSwitchSpawn
+        {
+            Name = "SwitchNode",
+            SwitchId = "PuzzleSwitch_Existing",
+            PuzzleId = "Puzzle_Existing",
+            GridPosition = new Vector2I(3, 4),
+            PromptText = "Old prompt",
+            ActivatedText = "Old active"
+        };
+        var gate = new PuzzleGateSpawn
+        {
+            Name = "GateNode",
+            GateId = "PuzzleGate_Existing",
+            PuzzleId = "Puzzle_Existing",
+            GridPosition = new Vector2I(5, 6),
+            StartsClosed = true
+        };
+        var riddle = new PuzzleRiddleSpawn
+        {
+            Name = "RiddleNode",
+            RiddleId = "PuzzleRiddle_Existing",
+            PuzzleId = "Puzzle_Existing",
+            GridPosition = new Vector2I(7, 8),
+            PromptText = "Old riddle",
+            ChoiceIds = ["old"],
+            ChoiceLabels = ["Old choice"],
+            CorrectChoiceId = "old",
+            WrongAnswerDamage = 5
+        };
+        gridMap.AddChild(trap);
+        gridMap.AddChild(puzzleSwitch);
+        gridMap.AddChild(gate);
+        gridMap.AddChild(riddle);
+        trap.Owner = sceneRoot;
+        puzzleSwitch.Owner = sceneRoot;
+        gate.Owner = sceneRoot;
+        riddle.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                TrapTiles =
+                [
+                    new TrapTileData { Id = "TrapTile_Existing", PuzzleId = "", Position = new Vector2IData(11, 12), Damage = 99, StatusEffect = "burn", StatusMagnitude = 9, StatusTurns = 9 }
+                ],
+                PuzzleSwitches =
+                [
+                    new PuzzleSwitchData { Id = "PuzzleSwitch_Existing", PuzzleId = "", Position = new Vector2IData(13, 14), PromptText = "New prompt", ActivatedText = "New active" }
+                ],
+                PuzzleGates =
+                [
+                    new PuzzleGateData { Id = "PuzzleGate_Existing", PuzzleId = "", Position = new Vector2IData(15, 16), StartsClosed = false }
+                ],
+                PuzzleRiddles =
+                [
+                    new PuzzleRiddleData
+                    {
+                        Id = "PuzzleRiddle_Existing",
+                        PuzzleId = "",
+                        Position = new Vector2IData(17, 18),
+                        PromptText = "New riddle",
+                        Choices = [new PuzzleRiddleChoiceData { Id = "new", Label = "New choice" }],
+                        CorrectChoiceId = "new",
+                        WrongAnswerDamage = 99
+                    }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        AssertThat(gridMap.HasNode("TrapTile_Existing")).IsTrue();
+        AssertThat(gridMap.HasNode("SwitchNode")).IsTrue();
+        AssertThat(gridMap.HasNode("GateNode")).IsTrue();
+        AssertThat(gridMap.HasNode("RiddleNode")).IsTrue();
+
+        AssertThat(trap.PuzzleId).IsEqual("Puzzle_Existing");
+        AssertThat(trap.GridPosition).IsEqual(new Vector2I(1, 2));
+        AssertThat(trap.Damage).IsEqual(7);
+        AssertThat(trap.StatusEffectId).IsEqual("poison");
+        AssertThat(trap.StatusMagnitude).IsEqual(2);
+        AssertThat(trap.StatusTurns).IsEqual(3);
+
+        AssertThat(puzzleSwitch.PuzzleId).IsEqual("Puzzle_Existing");
+        AssertThat(puzzleSwitch.GridPosition).IsEqual(new Vector2I(3, 4));
+        AssertThat(puzzleSwitch.PromptText).IsEqual("Old prompt");
+        AssertThat(puzzleSwitch.ActivatedText).IsEqual("Old active");
+
+        AssertThat(gate.PuzzleId).IsEqual("Puzzle_Existing");
+        AssertThat(gate.GridPosition).IsEqual(new Vector2I(5, 6));
+        AssertThat(gate.StartsClosed).IsTrue();
+
+        AssertThat(riddle.PuzzleId).IsEqual("Puzzle_Existing");
+        AssertThat(riddle.GridPosition).IsEqual(new Vector2I(7, 8));
+        AssertThat(riddle.PromptText).IsEqual("Old riddle");
+        AssertThat(riddle.ChoiceIds[0]).IsEqual("old");
+        AssertThat(riddle.ChoiceLabels[0]).IsEqual("Old choice");
+        AssertThat(riddle.CorrectChoiceId).IsEqual("old");
+        AssertThat(riddle.WrongAnswerDamage).IsEqual(5);
+        sceneRoot.Free();
+    }
+
+    [TestCase]
     public void ImportToScene_PreservesExistingNpcsWhenNpcSpawnsAbsent()
     {
         var sceneRoot = new Node2D { Name = "TestFloor" };

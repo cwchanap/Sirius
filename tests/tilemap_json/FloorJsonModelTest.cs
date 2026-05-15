@@ -131,4 +131,102 @@ public partial class FloorJsonModelTest : Node
         AssertThat(model.Entities.TreasureBoxes[0].Items[1].ItemId).IsEqual("rusty_key");
         AssertThat(model.Entities.TreasureBoxes[0].Items[1].Quantity).IsEqual(1);
     }
+
+    [TestCase]
+    public void FromJson_ParsesPuzzleTrapEntities()
+    {
+        const string json = """
+        {
+          "schema_version": "1.0",
+          "floor_metadata": {
+            "floor_name": "First Floor",
+            "floor_number": 1,
+            "player_start": { "x": 8, "y": 50 }
+          },
+          "tile_layers": {},
+          "entities": {
+            "trap_tiles": [
+              {
+                "id": "TrapTile_1F_Burn",
+                "puzzle_id": "Puzzle_1F_South",
+                "position": { "x": 20, "y": 51 },
+                "damage": 18,
+                "status_effect": "burn",
+                "status_magnitude": 4,
+                "status_turns": 3
+              }
+            ],
+            "puzzle_switches": [
+              {
+                "id": "PuzzleSwitch_1F_South",
+                "puzzle_id": "Puzzle_1F_South",
+                "position": { "x": 21, "y": 52 },
+                "prompt_text": "Pull lever",
+                "activated_text": "A gate opens."
+              }
+            ],
+            "puzzle_gates": [
+              {
+                "id": "PuzzleGate_1F_South",
+                "puzzle_id": "Puzzle_1F_South",
+                "position": { "x": 22, "y": 53 },
+                "starts_closed": true
+              }
+            ],
+            "puzzle_riddles": [
+              {
+                "id": "PuzzleRiddle_1F_South",
+                "puzzle_id": "Puzzle_1F_South",
+                "position": { "x": 23, "y": 54 },
+                "prompt_text": "Which path is safe?",
+                "choices": [
+                  { "id": "left", "label": "Left" },
+                  { "id": "right", "label": "Right" }
+                ],
+                "correct_choice_id": "right",
+                "wrong_answer_damage": 16
+              }
+            ]
+          }
+        }
+        """;
+
+        var model = FloorJsonModel.FromJson(json);
+
+        AssertThat(model).IsNotNull();
+        AssertThat(model!.Entities.TrapTiles!.Count).IsEqual(1);
+        AssertThat(model.Entities.TrapTiles[0].Id).IsEqual("TrapTile_1F_Burn");
+        AssertThat(model.Entities.TrapTiles[0].PuzzleId).IsEqual("Puzzle_1F_South");
+        AssertThat(model.Entities.TrapTiles[0].Position.ToVector2I()).IsEqual(new Vector2I(20, 51));
+        AssertThat(model.Entities.TrapTiles[0].Damage).IsEqual(18);
+        AssertThat(model.Entities.TrapTiles[0].StatusEffect).IsEqual("burn");
+        AssertThat(model.Entities.TrapTiles[0].StatusMagnitude).IsEqual(4);
+        AssertThat(model.Entities.TrapTiles[0].StatusTurns).IsEqual(3);
+
+        AssertThat(model.Entities.PuzzleSwitches!.Count).IsEqual(1);
+        AssertThat(model.Entities.PuzzleSwitches[0].Id).IsEqual("PuzzleSwitch_1F_South");
+        AssertThat(model.Entities.PuzzleSwitches[0].PuzzleId).IsEqual("Puzzle_1F_South");
+        AssertThat(model.Entities.PuzzleSwitches[0].Position.ToVector2I()).IsEqual(new Vector2I(21, 52));
+        AssertThat(model.Entities.PuzzleSwitches[0].PromptText).IsEqual("Pull lever");
+        AssertThat(model.Entities.PuzzleSwitches[0].ActivatedText).IsEqual("A gate opens.");
+
+        AssertThat(model.Entities.PuzzleGates!.Count).IsEqual(1);
+        AssertThat(model.Entities.PuzzleGates[0].Id).IsEqual("PuzzleGate_1F_South");
+        AssertThat(model.Entities.PuzzleGates[0].PuzzleId).IsEqual("Puzzle_1F_South");
+        AssertThat(model.Entities.PuzzleGates[0].Position.ToVector2I()).IsEqual(new Vector2I(22, 53));
+        AssertThat(model.Entities.PuzzleGates[0].StartsClosed).IsTrue();
+
+        AssertThat(model.Entities.PuzzleRiddles!.Count).IsEqual(1);
+        AssertThat(model.Entities.PuzzleRiddles[0].Id).IsEqual("PuzzleRiddle_1F_South");
+        AssertThat(model.Entities.PuzzleRiddles[0].PuzzleId).IsEqual("Puzzle_1F_South");
+        AssertThat(model.Entities.PuzzleRiddles[0].Position.ToVector2I()).IsEqual(new Vector2I(23, 54));
+        AssertThat(model.Entities.PuzzleRiddles[0].PromptText).IsEqual("Which path is safe?");
+        AssertThat(model.Entities.PuzzleRiddles[0].Choices.Count).IsEqual(2);
+        AssertThat(model.Entities.PuzzleRiddles[0].Choices[0].Id).IsEqual("left");
+        AssertThat(model.Entities.PuzzleRiddles[0].Choices[0].Label).IsEqual("Left");
+        AssertThat(model.Entities.PuzzleRiddles[0].Choices[1].Id).IsEqual("right");
+        AssertThat(model.Entities.PuzzleRiddles[0].Choices[1].Label).IsEqual("Right");
+        AssertThat(model.Entities.PuzzleRiddles[0].CorrectChoiceId).IsEqual("right");
+        AssertThat(model.Entities.PuzzleRiddles[0].WrongAnswerDamage).IsEqual(16);
+    }
 }

@@ -222,6 +222,22 @@ public partial class TilemapJsonImporter : RefCounted
             ImportTreasureBoxes(entities.TreasureBoxes, gridMapNode);
         else
             GD.PrintErr("[TilemapJsonImporter] treasure_boxes key missing from JSON — treasure boxes not imported");
+        if (entities.TrapTiles != null)
+            ImportTrapTiles(entities.TrapTiles, gridMapNode);
+        else
+            GD.PrintErr("[TilemapJsonImporter] trap_tiles key missing from JSON — trap tiles not imported");
+        if (entities.PuzzleSwitches != null)
+            ImportPuzzleSwitches(entities.PuzzleSwitches, gridMapNode);
+        else
+            GD.PrintErr("[TilemapJsonImporter] puzzle_switches key missing from JSON — puzzle switches not imported");
+        if (entities.PuzzleGates != null)
+            ImportPuzzleGates(entities.PuzzleGates, gridMapNode);
+        else
+            GD.PrintErr("[TilemapJsonImporter] puzzle_gates key missing from JSON — puzzle gates not imported");
+        if (entities.PuzzleRiddles != null)
+            ImportPuzzleRiddles(entities.PuzzleRiddles, gridMapNode);
+        else
+            GD.PrintErr("[TilemapJsonImporter] puzzle_riddles key missing from JSON — puzzle riddles not imported");
         if (entities.StairConnections != null)
             ImportStairConnections(entities.StairConnections, gridMapNode);
         else
@@ -509,6 +525,347 @@ public partial class TilemapJsonImporter : RefCounted
         return string.IsNullOrWhiteSpace(box.TreasureBoxId)
             ? box.Name.ToString()
             : box.TreasureBoxId;
+    }
+
+    private void ImportTrapTiles(List<TrapTileData> trapTiles, Node2D gridMapNode)
+    {
+        var existingTrapTiles = new Dictionary<string, Node>();
+        foreach (var child in gridMapNode.GetChildren())
+        {
+            if (child is TrapTileSpawn trapTile)
+            {
+                existingTrapTiles[GetTrapTileImportKey(trapTile)] = child;
+            }
+        }
+
+        var processedIds = new HashSet<string>();
+
+        foreach (var trapData in trapTiles)
+        {
+            if (!HasValidPuzzleIdentity(trapData.Id, trapData.PuzzleId, "trap tile"))
+            {
+                continue;
+            }
+
+            processedIds.Add(trapData.Id);
+
+            if (existingTrapTiles.TryGetValue(trapData.Id, out var existingNode))
+            {
+                ConfigureTrapTileNode(existingNode, trapData);
+                GD.Print($"[TilemapJsonImporter] Updated trap tile: {trapData.Id}");
+            }
+            else
+            {
+                CreateTrapTileNode(trapData, gridMapNode);
+            }
+        }
+
+        foreach (var (id, node) in existingTrapTiles)
+        {
+            if (!processedIds.Contains(id))
+            {
+                GD.Print($"[TilemapJsonImporter] Removing trap tile: {id}");
+                node.Free();
+            }
+        }
+    }
+
+    private void CreateTrapTileNode(TrapTileData data, Node2D parent)
+    {
+        var instance = new TrapTileSpawn
+        {
+            Name = data.Id
+        };
+
+        ConfigureTrapTileNode(instance, data);
+        parent.AddChild(instance);
+        AssignOwner(instance, parent);
+
+        GD.Print($"[TilemapJsonImporter] Created trap tile: {data.Id}");
+    }
+
+    private void ConfigureTrapTileNode(Node node, TrapTileData data)
+    {
+        node.Set("PuzzleId", data.PuzzleId);
+        node.Set("GridPosition", data.Position.ToVector2I());
+        node.Set("Damage", data.Damage);
+        node.Set("StatusEffectId", data.StatusEffect ?? "");
+        node.Set("StatusMagnitude", data.StatusMagnitude);
+        node.Set("StatusTurns", data.StatusTurns);
+        ConfigurePuzzleNodeTransform(node, data.Position);
+    }
+
+    private static string GetTrapTileImportKey(TrapTileSpawn trapTile)
+    {
+        return trapTile.Name.ToString();
+    }
+
+    private void ImportPuzzleSwitches(List<PuzzleSwitchData> switches, Node2D gridMapNode)
+    {
+        var existingSwitches = new Dictionary<string, Node>();
+        foreach (var child in gridMapNode.GetChildren())
+        {
+            if (child is PuzzleSwitchSpawn puzzleSwitch)
+            {
+                existingSwitches[GetPuzzleSwitchImportKey(puzzleSwitch)] = child;
+            }
+        }
+
+        var processedIds = new HashSet<string>();
+
+        foreach (var switchData in switches)
+        {
+            if (!HasValidPuzzleIdentity(switchData.Id, switchData.PuzzleId, "puzzle switch"))
+            {
+                continue;
+            }
+
+            processedIds.Add(switchData.Id);
+
+            if (existingSwitches.TryGetValue(switchData.Id, out var existingNode))
+            {
+                ConfigurePuzzleSwitchNode(existingNode, switchData);
+                GD.Print($"[TilemapJsonImporter] Updated puzzle switch: {switchData.Id}");
+            }
+            else
+            {
+                CreatePuzzleSwitchNode(switchData, gridMapNode);
+            }
+        }
+
+        foreach (var (id, node) in existingSwitches)
+        {
+            if (!processedIds.Contains(id))
+            {
+                GD.Print($"[TilemapJsonImporter] Removing puzzle switch: {id}");
+                node.Free();
+            }
+        }
+    }
+
+    private void CreatePuzzleSwitchNode(PuzzleSwitchData data, Node2D parent)
+    {
+        var instance = new PuzzleSwitchSpawn
+        {
+            Name = data.Id
+        };
+
+        ConfigurePuzzleSwitchNode(instance, data);
+        parent.AddChild(instance);
+        AssignOwner(instance, parent);
+
+        GD.Print($"[TilemapJsonImporter] Created puzzle switch: {data.Id}");
+    }
+
+    private void ConfigurePuzzleSwitchNode(Node node, PuzzleSwitchData data)
+    {
+        node.Set("SwitchId", data.Id);
+        node.Set("PuzzleId", data.PuzzleId);
+        node.Set("GridPosition", data.Position.ToVector2I());
+        node.Set("PromptText", data.PromptText ?? "");
+        node.Set("ActivatedText", data.ActivatedText ?? "");
+        ConfigurePuzzleNodeTransform(node, data.Position);
+    }
+
+    private static string GetPuzzleSwitchImportKey(PuzzleSwitchSpawn puzzleSwitch)
+    {
+        return string.IsNullOrWhiteSpace(puzzleSwitch.SwitchId)
+            ? puzzleSwitch.Name.ToString()
+            : puzzleSwitch.SwitchId;
+    }
+
+    private void ImportPuzzleGates(List<PuzzleGateData> gates, Node2D gridMapNode)
+    {
+        var existingGates = new Dictionary<string, Node>();
+        foreach (var child in gridMapNode.GetChildren())
+        {
+            if (child is PuzzleGateSpawn gate)
+            {
+                existingGates[GetPuzzleGateImportKey(gate)] = child;
+            }
+        }
+
+        var processedIds = new HashSet<string>();
+
+        foreach (var gateData in gates)
+        {
+            if (!HasValidPuzzleIdentity(gateData.Id, gateData.PuzzleId, "puzzle gate"))
+            {
+                continue;
+            }
+
+            processedIds.Add(gateData.Id);
+
+            if (existingGates.TryGetValue(gateData.Id, out var existingNode))
+            {
+                ConfigurePuzzleGateNode(existingNode, gateData);
+                GD.Print($"[TilemapJsonImporter] Updated puzzle gate: {gateData.Id}");
+            }
+            else
+            {
+                CreatePuzzleGateNode(gateData, gridMapNode);
+            }
+        }
+
+        foreach (var (id, node) in existingGates)
+        {
+            if (!processedIds.Contains(id))
+            {
+                GD.Print($"[TilemapJsonImporter] Removing puzzle gate: {id}");
+                node.Free();
+            }
+        }
+    }
+
+    private void CreatePuzzleGateNode(PuzzleGateData data, Node2D parent)
+    {
+        var instance = new PuzzleGateSpawn
+        {
+            Name = data.Id
+        };
+
+        ConfigurePuzzleGateNode(instance, data);
+        parent.AddChild(instance);
+        AssignOwner(instance, parent);
+
+        GD.Print($"[TilemapJsonImporter] Created puzzle gate: {data.Id}");
+    }
+
+    private void ConfigurePuzzleGateNode(Node node, PuzzleGateData data)
+    {
+        node.Set("GateId", data.Id);
+        node.Set("PuzzleId", data.PuzzleId);
+        node.Set("GridPosition", data.Position.ToVector2I());
+        node.Set("StartsClosed", data.StartsClosed);
+
+        if (node is PuzzleGateSpawn gate)
+        {
+            gate.ApplySolvedState(!data.StartsClosed);
+        }
+
+        ConfigurePuzzleNodeTransform(node, data.Position);
+    }
+
+    private static string GetPuzzleGateImportKey(PuzzleGateSpawn gate)
+    {
+        return string.IsNullOrWhiteSpace(gate.GateId)
+            ? gate.Name.ToString()
+            : gate.GateId;
+    }
+
+    private void ImportPuzzleRiddles(List<PuzzleRiddleData> riddles, Node2D gridMapNode)
+    {
+        var existingRiddles = new Dictionary<string, Node>();
+        foreach (var child in gridMapNode.GetChildren())
+        {
+            if (child is PuzzleRiddleSpawn riddle)
+            {
+                existingRiddles[GetPuzzleRiddleImportKey(riddle)] = child;
+            }
+        }
+
+        var processedIds = new HashSet<string>();
+
+        foreach (var riddleData in riddles)
+        {
+            if (!HasValidPuzzleIdentity(riddleData.Id, riddleData.PuzzleId, "puzzle riddle"))
+            {
+                continue;
+            }
+
+            processedIds.Add(riddleData.Id);
+
+            if (existingRiddles.TryGetValue(riddleData.Id, out var existingNode))
+            {
+                ConfigurePuzzleRiddleNode(existingNode, riddleData);
+                GD.Print($"[TilemapJsonImporter] Updated puzzle riddle: {riddleData.Id}");
+            }
+            else
+            {
+                CreatePuzzleRiddleNode(riddleData, gridMapNode);
+            }
+        }
+
+        foreach (var (id, node) in existingRiddles)
+        {
+            if (!processedIds.Contains(id))
+            {
+                GD.Print($"[TilemapJsonImporter] Removing puzzle riddle: {id}");
+                node.Free();
+            }
+        }
+    }
+
+    private void CreatePuzzleRiddleNode(PuzzleRiddleData data, Node2D parent)
+    {
+        var instance = new PuzzleRiddleSpawn
+        {
+            Name = data.Id
+        };
+
+        ConfigurePuzzleRiddleNode(instance, data);
+        parent.AddChild(instance);
+        AssignOwner(instance, parent);
+
+        GD.Print($"[TilemapJsonImporter] Created puzzle riddle: {data.Id}");
+    }
+
+    private void ConfigurePuzzleRiddleNode(Node node, PuzzleRiddleData data)
+    {
+        node.Set("RiddleId", data.Id);
+        node.Set("PuzzleId", data.PuzzleId);
+        node.Set("GridPosition", data.Position.ToVector2I());
+        node.Set("PromptText", data.PromptText ?? "");
+        node.Set("CorrectChoiceId", data.CorrectChoiceId ?? "");
+        node.Set("WrongAnswerDamage", data.WrongAnswerDamage);
+
+        var choiceIds = new Godot.Collections.Array<string>();
+        var choiceLabels = new Godot.Collections.Array<string>();
+        foreach (var choice in data.Choices ?? new List<PuzzleRiddleChoiceData>())
+        {
+            choiceIds.Add(choice.Id);
+            choiceLabels.Add(choice.Label);
+        }
+
+        node.Set("ChoiceIds", choiceIds);
+        node.Set("ChoiceLabels", choiceLabels);
+        ConfigurePuzzleNodeTransform(node, data.Position);
+    }
+
+    private static string GetPuzzleRiddleImportKey(PuzzleRiddleSpawn riddle)
+    {
+        return string.IsNullOrWhiteSpace(riddle.RiddleId)
+            ? riddle.Name.ToString()
+            : riddle.RiddleId;
+    }
+
+    private static bool HasValidPuzzleIdentity(string id, string puzzleId, string entityType)
+    {
+        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(puzzleId))
+        {
+            GD.PrintErr($"[TilemapJsonImporter] Skipping {entityType} with empty id or puzzle_id.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private static void ConfigurePuzzleNodeTransform(Node node, Vector2IData position)
+    {
+        if (node is Node2D node2d)
+        {
+            node2d.Position = ToCenteredCellPosition(position);
+            node2d.ZIndex = 2;
+        }
+    }
+
+    private static void AssignOwner(Node node, Node parent)
+    {
+        var sceneRoot = parent.Owner ?? parent.GetTree()?.EditedSceneRoot;
+        if (sceneRoot != null)
+        {
+            node.Owner = sceneRoot;
+        }
     }
 
     private void ImportStairConnections(List<StairConnectionData> stairs, Node2D gridMapNode)

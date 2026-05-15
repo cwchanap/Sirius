@@ -163,6 +163,10 @@ public partial class TilemapJsonExporter : RefCounted
         entities.EnemySpawns = ExportEnemySpawns(gridMapNode);
         entities.NpcSpawns = ExportNpcSpawns(gridMapNode);
         entities.TreasureBoxes = ExportTreasureBoxes(gridMapNode);
+        entities.TrapTiles = ExportTrapTiles(gridMapNode);
+        entities.PuzzleSwitches = ExportPuzzleSwitches(gridMapNode);
+        entities.PuzzleGates = ExportPuzzleGates(gridMapNode);
+        entities.PuzzleRiddles = ExportPuzzleRiddles(gridMapNode);
         entities.StairConnections = ExportStairConnections(gridMapNode);
 
         return entities;
@@ -280,6 +284,121 @@ public partial class TilemapJsonExporter : RefCounted
         }
 
         return boxes;
+    }
+
+    private List<TrapTileData> ExportTrapTiles(Node2D gridMapNode)
+    {
+        var trapTiles = new List<TrapTileData>();
+
+        foreach (var child in gridMapNode.GetChildren())
+        {
+            if (child is not TrapTileSpawn trapTile)
+            {
+                continue;
+            }
+
+            trapTiles.Add(new TrapTileData
+            {
+                Id = child.Name.ToString(),
+                PuzzleId = trapTile.PuzzleId,
+                Position = new Vector2IData(trapTile.GridPosition),
+                Damage = trapTile.Damage,
+                StatusEffect = trapTile.StatusEffectId,
+                StatusMagnitude = trapTile.StatusMagnitude,
+                StatusTurns = trapTile.StatusTurns
+            });
+        }
+
+        return trapTiles;
+    }
+
+    private List<PuzzleSwitchData> ExportPuzzleSwitches(Node2D gridMapNode)
+    {
+        var switches = new List<PuzzleSwitchData>();
+
+        foreach (var child in gridMapNode.GetChildren())
+        {
+            if (child is not PuzzleSwitchSpawn puzzleSwitch)
+            {
+                continue;
+            }
+
+            switches.Add(new PuzzleSwitchData
+            {
+                Id = string.IsNullOrWhiteSpace(puzzleSwitch.SwitchId) ? child.Name.ToString() : puzzleSwitch.SwitchId,
+                PuzzleId = puzzleSwitch.PuzzleId,
+                Position = new Vector2IData(puzzleSwitch.GridPosition),
+                PromptText = puzzleSwitch.PromptText,
+                ActivatedText = puzzleSwitch.ActivatedText
+            });
+        }
+
+        return switches;
+    }
+
+    private List<PuzzleGateData> ExportPuzzleGates(Node2D gridMapNode)
+    {
+        var gates = new List<PuzzleGateData>();
+
+        foreach (var child in gridMapNode.GetChildren())
+        {
+            if (child is not PuzzleGateSpawn gate)
+            {
+                continue;
+            }
+
+            gates.Add(new PuzzleGateData
+            {
+                Id = string.IsNullOrWhiteSpace(gate.GateId) ? child.Name.ToString() : gate.GateId,
+                PuzzleId = gate.PuzzleId,
+                Position = new Vector2IData(gate.GridPosition),
+                StartsClosed = gate.StartsClosed
+            });
+        }
+
+        return gates;
+    }
+
+    private List<PuzzleRiddleData> ExportPuzzleRiddles(Node2D gridMapNode)
+    {
+        var riddles = new List<PuzzleRiddleData>();
+
+        foreach (var child in gridMapNode.GetChildren())
+        {
+            if (child is not PuzzleRiddleSpawn riddle)
+            {
+                continue;
+            }
+
+            var data = new PuzzleRiddleData
+            {
+                Id = string.IsNullOrWhiteSpace(riddle.RiddleId) ? child.Name.ToString() : riddle.RiddleId,
+                PuzzleId = riddle.PuzzleId,
+                Position = new Vector2IData(riddle.GridPosition),
+                PromptText = riddle.PromptText,
+                CorrectChoiceId = riddle.CorrectChoiceId,
+                WrongAnswerDamage = riddle.WrongAnswerDamage
+            };
+
+            if (riddle.ChoiceIds != null)
+            {
+                for (int i = 0; i < riddle.ChoiceIds.Count; i++)
+                {
+                    string choiceId = riddle.ChoiceIds[i];
+                    data.Choices.Add(new PuzzleRiddleChoiceData
+                    {
+                        Id = choiceId,
+                        Label = riddle.ChoiceLabels != null && i < riddle.ChoiceLabels.Count
+                            ? riddle.ChoiceLabels[i]
+                            : choiceId
+                    });
+                }
+            }
+
+            riddles.Add(data);
+        }
+
+        return riddles;
     }
 
     private List<StairConnectionData> ExportStairConnections(Node2D gridMapNode)

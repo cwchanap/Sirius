@@ -133,6 +133,18 @@ public class SceneEntities
     [JsonPropertyName("treasure_boxes")]
     public List<TreasureBoxData>? TreasureBoxes { get; set; }
 
+    [JsonPropertyName("trap_tiles")]
+    public List<TrapTileData>? TrapTiles { get; set; }
+
+    [JsonPropertyName("puzzle_switches")]
+    public List<PuzzleSwitchData>? PuzzleSwitches { get; set; }
+
+    [JsonPropertyName("puzzle_gates")]
+    public List<PuzzleGateData>? PuzzleGates { get; set; }
+
+    [JsonPropertyName("puzzle_riddles")]
+    public List<PuzzleRiddleData>? PuzzleRiddles { get; set; }
+
     [JsonPropertyName("stair_connections")]
     public List<StairConnectionData>? StairConnections { get; set; }
 }
@@ -190,6 +202,96 @@ public class TreasureBoxItemData
 
     [JsonPropertyName("quantity")]
     public int Quantity { get; set; } = 1;
+}
+
+public class TrapTileData
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("puzzle_id")]
+    public string PuzzleId { get; set; } = "";
+
+    [JsonPropertyName("position")]
+    public Vector2IData Position { get; set; } = new();
+
+    [JsonPropertyName("damage")]
+    public int Damage { get; set; } = 12;
+
+    [JsonPropertyName("status_effect")]
+    public string StatusEffect { get; set; } = "";
+
+    [JsonPropertyName("status_magnitude")]
+    public int StatusMagnitude { get; set; }
+
+    [JsonPropertyName("status_turns")]
+    public int StatusTurns { get; set; }
+}
+
+public class PuzzleSwitchData
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("puzzle_id")]
+    public string PuzzleId { get; set; } = "";
+
+    [JsonPropertyName("position")]
+    public Vector2IData Position { get; set; } = new();
+
+    [JsonPropertyName("prompt_text")]
+    public string PromptText { get; set; } = "Use";
+
+    [JsonPropertyName("activated_text")]
+    public string ActivatedText { get; set; } = "";
+}
+
+public class PuzzleGateData
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("puzzle_id")]
+    public string PuzzleId { get; set; } = "";
+
+    [JsonPropertyName("position")]
+    public Vector2IData Position { get; set; } = new();
+
+    [JsonPropertyName("starts_closed")]
+    public bool StartsClosed { get; set; } = true;
+}
+
+public class PuzzleRiddleData
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("puzzle_id")]
+    public string PuzzleId { get; set; } = "";
+
+    [JsonPropertyName("position")]
+    public Vector2IData Position { get; set; } = new();
+
+    [JsonPropertyName("prompt_text")]
+    public string PromptText { get; set; } = "";
+
+    [JsonPropertyName("choices")]
+    public List<PuzzleRiddleChoiceData> Choices { get; set; } = new();
+
+    [JsonPropertyName("correct_choice_id")]
+    public string CorrectChoiceId { get; set; } = "";
+
+    [JsonPropertyName("wrong_answer_damage")]
+    public int WrongAnswerDamage { get; set; } = 12;
+}
+
+public class PuzzleRiddleChoiceData
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = "";
 }
 
 public class EnemyStatsData

@@ -185,6 +185,125 @@ public partial class TilemapJsonImporterTest : Node
     }
 
     [TestCase]
+    public void ImportToScene_AssignsOwnerToCreatedPuzzleNodes()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                TrapTiles =
+                [
+                    new TrapTileData
+                    {
+                        Id = "TrapTile_Test",
+                        PuzzleId = "Puzzle_Test",
+                        Position = new Vector2IData(3, 4),
+                        Damage = 18,
+                        StatusEffect = "poison",
+                        StatusMagnitude = 2,
+                        StatusTurns = 3
+                    }
+                ],
+                PuzzleSwitches =
+                [
+                    new PuzzleSwitchData
+                    {
+                        Id = "PuzzleSwitch_Test",
+                        PuzzleId = "Puzzle_Test",
+                        Position = new Vector2IData(4, 5),
+                        PromptText = "Pull",
+                        ActivatedText = "Opened"
+                    }
+                ],
+                PuzzleGates =
+                [
+                    new PuzzleGateData
+                    {
+                        Id = "PuzzleGate_Test",
+                        PuzzleId = "Puzzle_Test",
+                        Position = new Vector2IData(5, 6),
+                        StartsClosed = true
+                    }
+                ],
+                PuzzleRiddles =
+                [
+                    new PuzzleRiddleData
+                    {
+                        Id = "PuzzleRiddle_Test",
+                        PuzzleId = "Puzzle_Test",
+                        Position = new Vector2IData(6, 7),
+                        PromptText = "Choose",
+                        Choices =
+                        [
+                            new PuzzleRiddleChoiceData { Id = "a", Label = "Alpha" },
+                            new PuzzleRiddleChoiceData { Id = "b", Label = "Beta" }
+                        ],
+                        CorrectChoiceId = "b",
+                        WrongAnswerDamage = 9
+                    }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+
+        var trap = gridMap.GetNode<TrapTileSpawn>("TrapTile_Test");
+        AssertThat(trap.Owner).IsEqual(sceneRoot);
+        AssertThat(trap.PuzzleId).IsEqual("Puzzle_Test");
+        AssertThat(trap.GridPosition).IsEqual(new Vector2I(3, 4));
+        AssertThat(trap.Damage).IsEqual(18);
+        AssertThat(trap.StatusEffectId).IsEqual("poison");
+        AssertThat(trap.StatusMagnitude).IsEqual(2);
+        AssertThat(trap.StatusTurns).IsEqual(3);
+        AssertThat(trap.Position).IsEqual(new Vector2(112, 144));
+        AssertThat(trap.ZIndex).IsEqual(2);
+
+        var puzzleSwitch = gridMap.GetNode<PuzzleSwitchSpawn>("PuzzleSwitch_Test");
+        AssertThat(puzzleSwitch.Owner).IsEqual(sceneRoot);
+        AssertThat(puzzleSwitch.SwitchId).IsEqual("PuzzleSwitch_Test");
+        AssertThat(puzzleSwitch.PuzzleId).IsEqual("Puzzle_Test");
+        AssertThat(puzzleSwitch.GridPosition).IsEqual(new Vector2I(4, 5));
+        AssertThat(puzzleSwitch.PromptText).IsEqual("Pull");
+        AssertThat(puzzleSwitch.ActivatedText).IsEqual("Opened");
+        AssertThat(puzzleSwitch.Position).IsEqual(new Vector2(144, 176));
+        AssertThat(puzzleSwitch.ZIndex).IsEqual(2);
+
+        var gate = gridMap.GetNode<PuzzleGateSpawn>("PuzzleGate_Test");
+        AssertThat(gate.Owner).IsEqual(sceneRoot);
+        AssertThat(gate.GateId).IsEqual("PuzzleGate_Test");
+        AssertThat(gate.PuzzleId).IsEqual("Puzzle_Test");
+        AssertThat(gate.GridPosition).IsEqual(new Vector2I(5, 6));
+        AssertThat(gate.StartsClosed).IsTrue();
+        AssertThat(gate.Position).IsEqual(new Vector2(176, 208));
+        AssertThat(gate.ZIndex).IsEqual(2);
+
+        var riddle = gridMap.GetNode<PuzzleRiddleSpawn>("PuzzleRiddle_Test");
+        AssertThat(riddle.Owner).IsEqual(sceneRoot);
+        AssertThat(riddle.RiddleId).IsEqual("PuzzleRiddle_Test");
+        AssertThat(riddle.PuzzleId).IsEqual("Puzzle_Test");
+        AssertThat(riddle.GridPosition).IsEqual(new Vector2I(6, 7));
+        AssertThat(riddle.PromptText).IsEqual("Choose");
+        AssertThat(riddle.ChoiceIds[0]).IsEqual("a");
+        AssertThat(riddle.ChoiceLabels[0]).IsEqual("Alpha");
+        AssertThat(riddle.ChoiceIds[1]).IsEqual("b");
+        AssertThat(riddle.ChoiceLabels[1]).IsEqual("Beta");
+        AssertThat(riddle.CorrectChoiceId).IsEqual("b");
+        AssertThat(riddle.WrongAnswerDamage).IsEqual(9);
+        AssertThat(riddle.Position).IsEqual(new Vector2(208, 240));
+        AssertThat(riddle.ZIndex).IsEqual(2);
+
+        sceneRoot.Free();
+    }
+
+    [TestCase]
     public void ImportToScene_UpdatesExistingTreasureBoxByTreasureBoxId()
     {
         var sceneRoot = new Node2D { Name = "TestFloor" };
@@ -238,6 +357,105 @@ public partial class TilemapJsonImporterTest : Node
         AssertThat(box.RewardItemQuantities![0]).IsEqual(3);
         AssertThat(box.Position).IsEqual(new Vector2(304, 336));
         AssertThat(box.ZIndex).IsEqual(2);
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_UpdatesExistingPuzzleNodesById()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var trap = new TrapTileSpawn { Name = "TrapTile_Update", PuzzleId = "OldPuzzle", GridPosition = new Vector2I(1, 1) };
+        var puzzleSwitch = new PuzzleSwitchSpawn { Name = "SwitchNode", SwitchId = "PuzzleSwitch_Update", PuzzleId = "OldPuzzle", GridPosition = new Vector2I(1, 2) };
+        var gate = new PuzzleGateSpawn { Name = "GateNode", GateId = "PuzzleGate_Update", PuzzleId = "OldPuzzle", GridPosition = new Vector2I(1, 3) };
+        var riddle = new PuzzleRiddleSpawn { Name = "RiddleNode", RiddleId = "PuzzleRiddle_Update", PuzzleId = "OldPuzzle", GridPosition = new Vector2I(1, 4) };
+        gridMap.AddChild(trap);
+        gridMap.AddChild(puzzleSwitch);
+        gridMap.AddChild(gate);
+        gridMap.AddChild(riddle);
+        trap.Owner = sceneRoot;
+        puzzleSwitch.Owner = sceneRoot;
+        gate.Owner = sceneRoot;
+        riddle.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                TrapTiles =
+                [
+                    new TrapTileData { Id = "TrapTile_Update", PuzzleId = "Puzzle_New", Position = new Vector2IData(7, 8), Damage = 20, StatusEffect = "burn", StatusMagnitude = 5, StatusTurns = 2 }
+                ],
+                PuzzleSwitches =
+                [
+                    new PuzzleSwitchData { Id = "PuzzleSwitch_Update", PuzzleId = "Puzzle_New", Position = new Vector2IData(8, 9), PromptText = "New prompt", ActivatedText = "New active" }
+                ],
+                PuzzleGates =
+                [
+                    new PuzzleGateData { Id = "PuzzleGate_Update", PuzzleId = "Puzzle_New", Position = new Vector2IData(9, 10), StartsClosed = false }
+                ],
+                PuzzleRiddles =
+                [
+                    new PuzzleRiddleData
+                    {
+                        Id = "PuzzleRiddle_Update",
+                        PuzzleId = "Puzzle_New",
+                        Position = new Vector2IData(10, 11),
+                        PromptText = "New riddle",
+                        Choices = [new PuzzleRiddleChoiceData { Id = "new", Label = "New choice" }],
+                        CorrectChoiceId = "new",
+                        WrongAnswerDamage = 14
+                    }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        AssertThat(gridMap.HasNode("TrapTile_Update")).IsTrue();
+        AssertThat(gridMap.HasNode("SwitchNode")).IsTrue();
+        AssertThat(gridMap.HasNode("PuzzleSwitch_Update")).IsFalse();
+        AssertThat(gridMap.HasNode("GateNode")).IsTrue();
+        AssertThat(gridMap.HasNode("PuzzleGate_Update")).IsFalse();
+        AssertThat(gridMap.HasNode("RiddleNode")).IsTrue();
+        AssertThat(gridMap.HasNode("PuzzleRiddle_Update")).IsFalse();
+
+        AssertThat(trap.PuzzleId).IsEqual("Puzzle_New");
+        AssertThat(trap.GridPosition).IsEqual(new Vector2I(7, 8));
+        AssertThat(trap.Damage).IsEqual(20);
+        AssertThat(trap.StatusEffectId).IsEqual("burn");
+        AssertThat(trap.StatusMagnitude).IsEqual(5);
+        AssertThat(trap.StatusTurns).IsEqual(2);
+        AssertThat(trap.Position).IsEqual(new Vector2(240, 272));
+
+        AssertThat(puzzleSwitch.SwitchId).IsEqual("PuzzleSwitch_Update");
+        AssertThat(puzzleSwitch.PuzzleId).IsEqual("Puzzle_New");
+        AssertThat(puzzleSwitch.GridPosition).IsEqual(new Vector2I(8, 9));
+        AssertThat(puzzleSwitch.PromptText).IsEqual("New prompt");
+        AssertThat(puzzleSwitch.ActivatedText).IsEqual("New active");
+        AssertThat(puzzleSwitch.Position).IsEqual(new Vector2(272, 304));
+
+        AssertThat(gate.GateId).IsEqual("PuzzleGate_Update");
+        AssertThat(gate.PuzzleId).IsEqual("Puzzle_New");
+        AssertThat(gate.GridPosition).IsEqual(new Vector2I(9, 10));
+        AssertThat(gate.StartsClosed).IsFalse();
+        AssertThat(gate.Position).IsEqual(new Vector2(304, 336));
+
+        AssertThat(riddle.RiddleId).IsEqual("PuzzleRiddle_Update");
+        AssertThat(riddle.PuzzleId).IsEqual("Puzzle_New");
+        AssertThat(riddle.GridPosition).IsEqual(new Vector2I(10, 11));
+        AssertThat(riddle.PromptText).IsEqual("New riddle");
+        AssertThat(riddle.ChoiceIds[0]).IsEqual("new");
+        AssertThat(riddle.ChoiceLabels[0]).IsEqual("New choice");
+        AssertThat(riddle.CorrectChoiceId).IsEqual("new");
+        AssertThat(riddle.WrongAnswerDamage).IsEqual(14);
+        AssertThat(riddle.Position).IsEqual(new Vector2(336, 368));
+
         sceneRoot.Free();
     }
 
@@ -332,6 +550,49 @@ public partial class TilemapJsonImporterTest : Node
     }
 
     [TestCase]
+    public void ImportToScene_RemovesStalePuzzleNodesSynchronously()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var trap = new TrapTileSpawn { Name = "TrapTile_Stale", PuzzleId = "Puzzle_Stale" };
+        var puzzleSwitch = new PuzzleSwitchSpawn { Name = "PuzzleSwitch_Stale", SwitchId = "PuzzleSwitch_Stale", PuzzleId = "Puzzle_Stale" };
+        var gate = new PuzzleGateSpawn { Name = "PuzzleGate_Stale", GateId = "PuzzleGate_Stale", PuzzleId = "Puzzle_Stale" };
+        var riddle = new PuzzleRiddleSpawn { Name = "PuzzleRiddle_Stale", RiddleId = "PuzzleRiddle_Stale", PuzzleId = "Puzzle_Stale" };
+        gridMap.AddChild(trap);
+        gridMap.AddChild(puzzleSwitch);
+        gridMap.AddChild(gate);
+        gridMap.AddChild(riddle);
+        trap.Owner = sceneRoot;
+        puzzleSwitch.Owner = sceneRoot;
+        gate.Owner = sceneRoot;
+        riddle.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                TrapTiles = [],
+                PuzzleSwitches = [],
+                PuzzleGates = [],
+                PuzzleRiddles = []
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        AssertThat(gridMap.HasNode("TrapTile_Stale")).IsFalse();
+        AssertThat(gridMap.HasNode("PuzzleSwitch_Stale")).IsFalse();
+        AssertThat(gridMap.HasNode("PuzzleGate_Stale")).IsFalse();
+        AssertThat(gridMap.HasNode("PuzzleRiddle_Stale")).IsFalse();
+        sceneRoot.Free();
+    }
+
+    [TestCase]
     public void ImportToScene_SkipsTreasureBoxWithEmptyId()
     {
         var sceneRoot = new Node2D { Name = "TestFloor" };
@@ -368,6 +629,49 @@ public partial class TilemapJsonImporterTest : Node
 
         AssertThat(err).IsEqual(Godot.Error.Ok);
         // No nodes should be created for empty/whitespace IDs
+        AssertThat(gridMap.GetChildCount()).IsEqual(0);
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_SkipsPuzzleNodesWithEmptyIdOrPuzzleId()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                TrapTiles =
+                [
+                    new TrapTileData { Id = "", PuzzleId = "Puzzle_Test", Position = new Vector2IData(1, 1) },
+                    new TrapTileData { Id = "TrapTile_MissingPuzzle", PuzzleId = " ", Position = new Vector2IData(2, 2) }
+                ],
+                PuzzleSwitches =
+                [
+                    new PuzzleSwitchData { Id = "", PuzzleId = "Puzzle_Test", Position = new Vector2IData(3, 3) },
+                    new PuzzleSwitchData { Id = "PuzzleSwitch_MissingPuzzle", PuzzleId = "", Position = new Vector2IData(4, 4) }
+                ],
+                PuzzleGates =
+                [
+                    new PuzzleGateData { Id = " ", PuzzleId = "Puzzle_Test", Position = new Vector2IData(5, 5) },
+                    new PuzzleGateData { Id = "PuzzleGate_MissingPuzzle", PuzzleId = "", Position = new Vector2IData(6, 6) }
+                ],
+                PuzzleRiddles =
+                [
+                    new PuzzleRiddleData { Id = "", PuzzleId = "Puzzle_Test", Position = new Vector2IData(7, 7) },
+                    new PuzzleRiddleData { Id = "PuzzleRiddle_MissingPuzzle", PuzzleId = " ", Position = new Vector2IData(8, 8) }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
         AssertThat(gridMap.GetChildCount()).IsEqual(0);
         sceneRoot.Free();
     }
@@ -430,6 +734,43 @@ public partial class TilemapJsonImporterTest : Node
 
         AssertThat(err).IsEqual(Godot.Error.Ok);
         AssertThat(gridMap.HasNode("TreasureBox_Existing")).IsTrue();
+        sceneRoot.Free();
+    }
+
+    [TestCase]
+    public void ImportToScene_PreservesExistingPuzzleNodesWhenPuzzleListsAbsent()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var trap = new TrapTileSpawn { Name = "TrapTile_Existing", PuzzleId = "Puzzle_Existing" };
+        var puzzleSwitch = new PuzzleSwitchSpawn { Name = "PuzzleSwitch_Existing", SwitchId = "PuzzleSwitch_Existing", PuzzleId = "Puzzle_Existing" };
+        var gate = new PuzzleGateSpawn { Name = "PuzzleGate_Existing", GateId = "PuzzleGate_Existing", PuzzleId = "Puzzle_Existing" };
+        var riddle = new PuzzleRiddleSpawn { Name = "PuzzleRiddle_Existing", RiddleId = "PuzzleRiddle_Existing", PuzzleId = "Puzzle_Existing" };
+        gridMap.AddChild(trap);
+        gridMap.AddChild(puzzleSwitch);
+        gridMap.AddChild(gate);
+        gridMap.AddChild(riddle);
+        trap.Owner = sceneRoot;
+        puzzleSwitch.Owner = sceneRoot;
+        gate.Owner = sceneRoot;
+        riddle.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities()
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        AssertThat(gridMap.HasNode("TrapTile_Existing")).IsTrue();
+        AssertThat(gridMap.HasNode("PuzzleSwitch_Existing")).IsTrue();
+        AssertThat(gridMap.HasNode("PuzzleGate_Existing")).IsTrue();
+        AssertThat(gridMap.HasNode("PuzzleRiddle_Existing")).IsTrue();
         sceneRoot.Free();
     }
 

@@ -365,6 +365,7 @@ public partial class GameManagerTest : Node
             {
                 "Puzzle_1F_SouthShortcutTrial",
                 "",
+                "   ",
                 "Puzzle_1F_SouthShortcutTrial",
                 "Puzzle_1F_Other"
             }
@@ -732,6 +733,43 @@ public partial class GameManagerTest : Node
         AssertThat(saveData!.QuestFlags.Count).IsEqual(2);
         AssertThat(saveData.QuestFlags.Contains("knows_about_locket")).IsTrue();
         AssertThat(saveData.QuestFlags.Contains("met_merchant")).IsTrue();
+
+        floorManager.QueueFree();
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+    }
+
+    [TestCase]
+    public async Task TestCollectSaveData_IncludesSortedSolvedPuzzleIds()
+    {
+        var floorManager = new FloorManager();
+        var gridMap = new GridMap();
+
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        sceneTree.Root.AddChild(floorManager);
+        floorManager.AddChild(gridMap);
+
+        var gridMapField = typeof(FloorManager).GetField("_currentGridMap",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        AssertThat(gridMapField).IsNotNull();
+        gridMapField!.SetValue(floorManager, gridMap);
+
+        var playerPosField = typeof(GridMap).GetField("_playerPosition",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        AssertThat(playerPosField).IsNotNull();
+        playerPosField!.SetValue(gridMap, new Vector2I(7, 8));
+
+        _gameManager.SetFloorManager(floorManager);
+        _gameManager.MarkPuzzleSolved("Puzzle_1F_SouthShortcutTrial");
+        _gameManager.MarkPuzzleSolved("Puzzle_1F_AlphaTrial");
+        _gameManager.MarkPuzzleSolved("Puzzle_1F_WestLever");
+
+        var saveData = _gameManager.CollectSaveData();
+
+        AssertThat(saveData).IsNotNull();
+        AssertThat(saveData!.SolvedPuzzleIds.Count).IsEqual(3);
+        AssertThat(saveData.SolvedPuzzleIds[0]).IsEqual("Puzzle_1F_AlphaTrial");
+        AssertThat(saveData.SolvedPuzzleIds[1]).IsEqual("Puzzle_1F_SouthShortcutTrial");
+        AssertThat(saveData.SolvedPuzzleIds[2]).IsEqual("Puzzle_1F_WestLever");
 
         floorManager.QueueFree();
         await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);

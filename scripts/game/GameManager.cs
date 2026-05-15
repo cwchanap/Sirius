@@ -32,6 +32,7 @@ public partial class GameManager : Node
 
     private bool _isAutoSaveSubscribed = false;
     private readonly HashSet<string> _openedTreasureBoxIds = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _solvedPuzzleIds = new(StringComparer.Ordinal);
 
     public static GameManager Instance { get; private set; }
 
@@ -40,6 +41,7 @@ public partial class GameManager : Node
     public bool IsInNpcInteraction { get; private set; } = false;
     public bool IsInWorldInteraction { get; private set; } = false;
     public IReadOnlyCollection<string> OpenedTreasureBoxIds => _openedTreasureBoxIds;
+    public IReadOnlyCollection<string> SolvedPuzzleIds => _solvedPuzzleIds;
 
     private FloorManager _floorManager;
 
@@ -244,6 +246,22 @@ public partial class GameManager : Node
         return !string.IsNullOrWhiteSpace(treasureBoxId) && _openedTreasureBoxIds.Contains(treasureBoxId);
     }
 
+    public bool MarkPuzzleSolved(string puzzleId)
+    {
+        if (string.IsNullOrWhiteSpace(puzzleId))
+        {
+            GD.PushWarning("Cannot mark puzzle solved with null or empty ID.");
+            return false;
+        }
+
+        return _solvedPuzzleIds.Add(puzzleId);
+    }
+
+    public bool IsPuzzleSolved(string puzzleId)
+    {
+        return !string.IsNullOrWhiteSpace(puzzleId) && _solvedPuzzleIds.Contains(puzzleId);
+    }
+
     private void RestoreOpenedTreasureBoxIds(IEnumerable<string>? treasureBoxIds)
     {
         _openedTreasureBoxIds.Clear();
@@ -255,6 +273,20 @@ public partial class GameManager : Node
         foreach (string id in treasureBoxIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal))
         {
             _openedTreasureBoxIds.Add(id);
+        }
+    }
+
+    private void RestoreSolvedPuzzleIds(IEnumerable<string>? puzzleIds)
+    {
+        _solvedPuzzleIds.Clear();
+        if (puzzleIds == null)
+        {
+            return;
+        }
+
+        foreach (string id in puzzleIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal))
+        {
+            _solvedPuzzleIds.Add(id);
         }
     }
 
@@ -373,6 +405,9 @@ public partial class GameManager : Node
             OpenedTreasureBoxIds = _openedTreasureBoxIds
                 .OrderBy(id => id, StringComparer.Ordinal)
                 .ToList(),
+            SolvedPuzzleIds = _solvedPuzzleIds
+                .OrderBy(id => id, StringComparer.Ordinal)
+                .ToList(),
             SaveTimestamp = System.DateTime.UtcNow
         };
     }
@@ -433,6 +468,7 @@ public partial class GameManager : Node
         }
 
         RestoreOpenedTreasureBoxIds(data.OpenedTreasureBoxIds);
+        RestoreSolvedPuzzleIds(data.SolvedPuzzleIds);
 
         GD.Print($"Player loaded from save: {Player.Name}, Level {Player.Level}");
 

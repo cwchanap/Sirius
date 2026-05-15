@@ -71,6 +71,9 @@ public partial class GridMap : Node2D
     
     // Fast lookup of stair tiles in tilemap coordinates for floor transitions
     private HashSet<Vector2I> _stairTileCoords = new();
+    private HashSet<Vector2I> _registeredTrapCells = new();
+    private HashSet<Vector2I> _registeredPuzzleGateCells = new();
+    private HashSet<Vector2I> _registeredPuzzleInteractableCells = new();
     
     // Grid cell types
     public enum CellType
@@ -80,7 +83,10 @@ public partial class GridMap : Node2D
         Enemy = 2,
         Player = 3,
         Npc = 4,
-        TreasureBox = 5
+        TreasureBox = 5,
+        TrapTile = 6,
+        PuzzleGate = 7,
+        PuzzleInteractable = 8
     }
 
     // ===== Editor-only baking helpers =====
@@ -735,6 +741,8 @@ public partial class GridMap : Node2D
     [Signal] public delegate void EnemyEncounteredEventHandler(Vector2I enemyPosition);
     [Signal] public delegate void NpcInteractedEventHandler(Vector2I npcPosition);
     [Signal] public delegate void TreasureBoxOpenRequestedEventHandler(Vector2I treasurePosition);
+    [Signal] public delegate void TrapTileTriggeredEventHandler(Vector2I trapPosition);
+    [Signal] public delegate void PuzzleInteractionRequestedEventHandler(Vector2I puzzlePosition);
     
     public override void _EnterTree()
     {
@@ -1869,6 +1877,9 @@ public partial class GridMap : Node2D
         if (cellType == CellType.Enemy) return GetEnemyColor(x, y);
         if (cellType == CellType.Wall) return Colors.DarkGray;
         if (cellType == CellType.Npc) return Colors.Teal;
+        if (cellType == CellType.TrapTile) return Colors.OrangeRed;
+        if (cellType == CellType.PuzzleGate) return Colors.DarkSlateGray;
+        if (cellType == CellType.PuzzleInteractable) return Colors.DeepSkyBlue;
         
         // Empty cells get themed colors based on area
         return GetAreaColor(x, y);
@@ -1985,7 +1996,9 @@ public partial class GridMap : Node2D
             return false; // Don't move onto NPC cell
         }
 
-        if (targetCell == CellType.TreasureBox)
+        if (targetCell == CellType.TreasureBox ||
+            targetCell == CellType.PuzzleGate ||
+            targetCell == CellType.PuzzleInteractable)
         {
             return false;
         }
@@ -1993,7 +2006,9 @@ public partial class GridMap : Node2D
         // Move player (guard grid writes by bounds)
         if (IsWithinGrid(_playerPosition))
         {
-            _grid[_playerPosition.X, _playerPosition.Y] = (int)CellType.Empty;
+            _grid[_playerPosition.X, _playerPosition.Y] = _registeredTrapCells.Contains(_playerPosition)
+                ? (int)CellType.TrapTile
+                : (int)CellType.Empty;
         }
         _playerPosition = newPosition;
         if (IsWithinGrid(_playerPosition))
@@ -2009,6 +2024,10 @@ public partial class GridMap : Node2D
         
         QueueRedraw();
         EmitSignal(SignalName.PlayerMoved, newPosition);
+        if (targetCell == CellType.TrapTile)
+        {
+            EmitSignal(SignalName.TrapTileTriggered, newPosition);
+        }
         return true;
     }
     
@@ -2138,6 +2157,9 @@ public partial class GridMap : Node2D
 
         // Register all TreasureBoxSpawn nodes from this floor
         CallDeferred(nameof(RegisterStaticTreasureBoxes));
+
+        // Register all puzzle trap/gate/interactable nodes from this floor
+        CallDeferred(nameof(RegisterStaticPuzzleEntities));
 
         // Register all StairConnection nodes from this floor
         CallDeferred(nameof(RegisterStairConnections), floorDef);
@@ -2442,6 +2464,28 @@ public partial class GridMap : Node2D
         return true;
     }
 
+    public bool TryRequestPuzzleInteraction(Vector2I facingDirection)
+    {
+        if (facingDirection == Vector2I.Zero)
+        {
+            return false;
+        }
+
+        if (_grid == null || _grid.Length == 0)
+        {
+            return false;
+        }
+
+        Vector2I target = _playerPosition + facingDirection;
+        if (!IsWithinGrid(target) || (CellType)_grid[target.X, target.Y] != CellType.PuzzleInteractable)
+        {
+            return false;
+        }
+
+        EmitSignal(SignalName.PuzzleInteractionRequested, target);
+        return true;
+    }
+
     public bool IsTreasureBoxAtGridPosition(Vector2I gridPosition)
     {
         return IsWithinGrid(gridPosition) && (CellType)_grid[gridPosition.X, gridPosition.Y] == CellType.TreasureBox;
@@ -2495,6 +2539,195 @@ public partial class GridMap : Node2D
                 GD.PrintErr($"  Treasure box '{box.TreasureBoxId}' out of bounds! Grid size: {GridWidth}x{GridHeight}");
             }
         }
+    }
+
+    public void RegisterStaticPuzzleEntities()
+    {
+        if (_grid == null || _grid.Length == 0)
+        {
+            return;
+        }
+
+        var currentFloorRoot = GetParent();
+        if (currentFloorRoot == null)
+        {
+            GD.PrintErr("GridMap.RegisterStaticPuzzleEntities: GridMap has no floor root parent.");
+            return;
+        }
+
+        var tree = GetTree();
+        if (tree == null)
+        {
+            return;
+        }
+
+        ClearRegisteredPuzzleCells();
+
+        foreach (Node n in tree.GetNodesInGroup("TrapTileSpawn"))
+        {
+            if (n is not TrapTileSpawn trap || !trap.BelongsToFloor(currentFloorRoot))
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(trap.PuzzleId) || string.IsNullOrWhiteSpace(trap.Name.ToString()))
+            {
+                GD.PrintErr($"  Trap tile at {trap.GridPosition} has empty PuzzleId or node name; skipping registration.");
+                continue;
+            }
+
+            bool puzzleSolved = GameManager.Instance?.IsPuzzleSolved(trap.PuzzleId) == true;
+            Vector2I gridPosition = TilemapToInternalGrid(trap.GridPosition);
+            if (!IsWithinGrid(gridPosition))
+            {
+                GD.PrintErr($"  Trap tile '{trap.Name}' out of bounds! Grid size: {GridWidth}x{GridHeight}");
+                continue;
+            }
+
+            trap.UpdateVisual(this);
+            if (!puzzleSolved)
+            {
+                _registeredTrapCells.Add(gridPosition);
+                if ((CellType)_grid[gridPosition.X, gridPosition.Y] != CellType.Player)
+                {
+                    _grid[gridPosition.X, gridPosition.Y] = (int)CellType.TrapTile;
+                }
+            }
+        }
+
+        foreach (Node n in tree.GetNodesInGroup("PuzzleGateSpawn"))
+        {
+            if (n is not PuzzleGateSpawn gate || !gate.BelongsToFloor(currentFloorRoot))
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(gate.PuzzleId) || string.IsNullOrWhiteSpace(gate.GateId))
+            {
+                GD.PrintErr($"  Puzzle gate at {gate.GridPosition} has empty PuzzleId or GateId; skipping registration.");
+                continue;
+            }
+
+            bool puzzleSolved = GameManager.Instance?.IsPuzzleSolved(gate.PuzzleId) == true;
+            Vector2I gridPosition = TilemapToInternalGrid(gate.GridPosition);
+            if (!IsWithinGrid(gridPosition))
+            {
+                GD.PrintErr($"  Puzzle gate '{gate.GateId}' out of bounds! Grid size: {GridWidth}x{GridHeight}");
+                continue;
+            }
+
+            gate.ApplySolvedState(puzzleSolved);
+            gate.UpdateVisual(this);
+            if (gate.BlocksMovement)
+            {
+                _registeredPuzzleGateCells.Add(gridPosition);
+                if ((CellType)_grid[gridPosition.X, gridPosition.Y] != CellType.Player)
+                {
+                    _grid[gridPosition.X, gridPosition.Y] = (int)CellType.PuzzleGate;
+                }
+            }
+            else if ((CellType)_grid[gridPosition.X, gridPosition.Y] == CellType.PuzzleGate)
+            {
+                _grid[gridPosition.X, gridPosition.Y] = (int)CellType.Empty;
+            }
+        }
+
+        foreach (Node n in tree.GetNodesInGroup("PuzzleSwitchSpawn"))
+        {
+            if (n is not PuzzleSwitchSpawn puzzleSwitch || !puzzleSwitch.BelongsToFloor(currentFloorRoot))
+            {
+                continue;
+            }
+
+            RegisterPuzzleInteractable(
+                puzzleSwitch,
+                puzzleSwitch.SwitchId,
+                puzzleSwitch.GridPosition,
+                "switch");
+        }
+
+        foreach (Node n in tree.GetNodesInGroup("PuzzleRiddleSpawn"))
+        {
+            if (n is not PuzzleRiddleSpawn riddle || !riddle.BelongsToFloor(currentFloorRoot))
+            {
+                continue;
+            }
+
+            RegisterPuzzleInteractable(
+                riddle,
+                riddle.RiddleId,
+                riddle.GridPosition,
+                "riddle");
+        }
+
+        QueueRedraw();
+    }
+
+    private void ClearRegisteredPuzzleCells()
+    {
+        foreach (Vector2I position in _registeredTrapCells
+                     .Concat(_registeredPuzzleGateCells)
+                     .Concat(_registeredPuzzleInteractableCells))
+        {
+            if (!IsWithinGrid(position))
+            {
+                continue;
+            }
+
+            CellType cellType = (CellType)_grid[position.X, position.Y];
+            if (cellType == CellType.TrapTile ||
+                cellType == CellType.PuzzleGate ||
+                cellType == CellType.PuzzleInteractable)
+            {
+                _grid[position.X, position.Y] = (int)CellType.Empty;
+            }
+        }
+
+        _registeredTrapCells.Clear();
+        _registeredPuzzleGateCells.Clear();
+        _registeredPuzzleInteractableCells.Clear();
+    }
+
+    private void RegisterPuzzleInteractable(
+        PuzzleSpawnBase spawn,
+        string entityId,
+        Vector2I tilemapPosition,
+        string entityType)
+    {
+        if (string.IsNullOrWhiteSpace(spawn.PuzzleId) || string.IsNullOrWhiteSpace(entityId))
+        {
+            GD.PrintErr($"  Puzzle {entityType} at {tilemapPosition} has empty PuzzleId or entity ID; skipping registration.");
+            return;
+        }
+
+        bool puzzleSolved = GameManager.Instance?.IsPuzzleSolved(spawn.PuzzleId) == true;
+        Vector2I gridPosition = TilemapToInternalGrid(tilemapPosition);
+        if (!IsWithinGrid(gridPosition))
+        {
+            GD.PrintErr($"  Puzzle {entityType} '{entityId}' out of bounds! Grid size: {GridWidth}x{GridHeight}");
+            return;
+        }
+
+        spawn.UpdateVisual(this);
+        if (puzzleSolved)
+        {
+            if ((CellType)_grid[gridPosition.X, gridPosition.Y] == CellType.PuzzleInteractable)
+            {
+                _grid[gridPosition.X, gridPosition.Y] = (int)CellType.Empty;
+            }
+            return;
+        }
+
+        _registeredPuzzleInteractableCells.Add(gridPosition);
+        if ((CellType)_grid[gridPosition.X, gridPosition.Y] != CellType.Player)
+        {
+            _grid[gridPosition.X, gridPosition.Y] = (int)CellType.PuzzleInteractable;
+        }
+    }
+
+    private Vector2I TilemapToInternalGrid(Vector2I tilemapPosition)
+    {
+        return new Vector2I(tilemapPosition.X - _tilemapOrigin.X, tilemapPosition.Y - _tilemapOrigin.Y);
     }
 
     private void RemoveEnemySpawnNode(Vector2I position)

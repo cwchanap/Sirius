@@ -422,6 +422,130 @@ public partial class GridMapPuzzleTrapTest : Node
         }
     }
 
+    // ─── Critical #4: Solved-puzzle interactable cell cleanup ──────────────
+
+    [TestCase]
+    public async Task RegisterStaticPuzzleTraps_SolvedSwitchFlipsInteractableToEmpty()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var previousGameManager = GameManager.Instance;
+        var gameManager = new GameManager();
+        gameManager.MarkPuzzleSolved("Puzzle_SolvedSwitch");
+        SetGameManagerSingleton(gameManager);
+
+        var floor = new Node2D { Name = "PuzzleFloor" };
+        var gridMap = CreateGridMapWithGrid();
+        // Pre-set cell to PuzzleInteractable to simulate a previous registration
+        var grid = GetPrivateField<int[,]>(gridMap, "_grid");
+        grid[6, 5] = (int)GridMap.CellType.PuzzleInteractable;
+
+        var puzzleSwitch = new PuzzleSwitchSpawn
+        {
+            Name = "PuzzleSwitch_Solved",
+            SwitchId = "PuzzleSwitch_Solved",
+            PuzzleId = "Puzzle_SolvedSwitch",
+            GridPosition = new Vector2I(6, 5)
+        };
+
+        floor.AddChild(gridMap);
+        gridMap.AddChild(puzzleSwitch);
+        sceneTree.Root.AddChild(floor);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            gridMap.RegisterStaticPuzzleEntities();
+
+            // Solved puzzle → cell should flip from PuzzleInteractable to Empty
+            AssertThat(grid[6, 5]).IsEqual((int)GridMap.CellType.Empty);
+        }
+        finally
+        {
+            floor.Free();
+            SetGameManagerSingleton(previousGameManager);
+        }
+    }
+
+    [TestCase]
+    public async Task RegisterStaticPuzzleTraps_SolvedRiddleFlipsInteractableToEmpty()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var previousGameManager = GameManager.Instance;
+        var gameManager = new GameManager();
+        gameManager.MarkPuzzleSolved("Puzzle_SolvedRiddle");
+        SetGameManagerSingleton(gameManager);
+
+        var floor = new Node2D { Name = "PuzzleFloor" };
+        var gridMap = CreateGridMapWithGrid();
+        var grid = GetPrivateField<int[,]>(gridMap, "_grid");
+        grid[7, 8] = (int)GridMap.CellType.PuzzleInteractable;
+
+        var riddle = new PuzzleRiddleSpawn
+        {
+            Name = "PuzzleRiddle_Solved",
+            RiddleId = "PuzzleRiddle_Solved",
+            PuzzleId = "Puzzle_SolvedRiddle",
+            GridPosition = new Vector2I(7, 8),
+            ChoiceIds = new Godot.Collections.Array<string> { "a" },
+            ChoiceLabels = new Godot.Collections.Array<string> { "A" },
+            CorrectChoiceId = "a"
+        };
+
+        floor.AddChild(gridMap);
+        gridMap.AddChild(riddle);
+        sceneTree.Root.AddChild(floor);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            gridMap.RegisterStaticPuzzleEntities();
+
+            AssertThat(grid[7, 8]).IsEqual((int)GridMap.CellType.Empty);
+        }
+        finally
+        {
+            floor.Free();
+            SetGameManagerSingleton(previousGameManager);
+        }
+    }
+
+    [TestCase]
+    public async Task RegisterStaticPuzzleTraps_UnsolvedSwitchRegistersInteractableCell()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var previousGameManager = GameManager.Instance;
+        var gameManager = new GameManager();
+        SetGameManagerSingleton(gameManager);
+
+        var floor = new Node2D { Name = "PuzzleFloor" };
+        var gridMap = CreateGridMapWithGrid();
+        var puzzleSwitch = new PuzzleSwitchSpawn
+        {
+            Name = "PuzzleSwitch_Unsolved",
+            SwitchId = "PuzzleSwitch_Unsolved",
+            PuzzleId = "Puzzle_UnsolvedSwitch",
+            GridPosition = new Vector2I(6, 5)
+        };
+
+        floor.AddChild(gridMap);
+        gridMap.AddChild(puzzleSwitch);
+        sceneTree.Root.AddChild(floor);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            gridMap.RegisterStaticPuzzleEntities();
+
+            var grid = GetPrivateField<int[,]>(gridMap, "_grid");
+            AssertThat(grid[6, 5]).IsEqual((int)GridMap.CellType.PuzzleInteractable);
+        }
+        finally
+        {
+            floor.Free();
+            SetGameManagerSingleton(previousGameManager);
+        }
+    }
+
     private static GridMap CreateGridMapWithGrid()
     {
         var gridMap = new GridMap { Name = "GridMap" };

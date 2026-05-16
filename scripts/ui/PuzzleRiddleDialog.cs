@@ -1,8 +1,7 @@
 using Godot;
 
 /// <summary>
-/// Modal choice dialog for world puzzle riddles.
-/// Instantiated per puzzle interaction and cleaned up by Game when closed.
+/// Instantiated per puzzle interaction by Game and cleaned up on close/choice.
 /// </summary>
 public partial class PuzzleRiddleDialog : AcceptDialog
 {

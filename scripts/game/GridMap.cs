@@ -2006,6 +2006,8 @@ public partial class GridMap : Node2D
         // Move player (guard grid writes by bounds)
         if (IsWithinGrid(_playerPosition))
         {
+            // Restore TrapTile rather than Empty so the trap re-triggers if the player
+            // steps on it again (unsolved puzzles remain dangerous until solved).
             _grid[_playerPosition.X, _playerPosition.Y] = _registeredTrapCells.Contains(_playerPosition)
                 ? (int)CellType.TrapTile
                 : (int)CellType.Empty;

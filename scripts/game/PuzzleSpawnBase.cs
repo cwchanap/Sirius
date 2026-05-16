@@ -111,9 +111,19 @@ public abstract partial class PuzzleSpawnBase : Sprite2D
         }
     }
 
+    // Three-tier lookup: direct parent (most common in-floor layout), sibling
+    // GridMap node (alternative editor layout), or tree-wide search (catch-all for
+    // mis-nested spawns).  Each tier is progressively slower but more forgiving.
     private GridMap? FindGridMap()
     {
-        return GetParent() as GridMap ?? GetNodeOrNull<GridMap>("../GridMap")
+        var gridMap = GetParent() as GridMap ?? GetNodeOrNull<GridMap>("../GridMap")
             ?? GetTree()?.Root.FindChild("GridMap", recursive: true, owned: false) as GridMap;
+
+        if (gridMap == null && Engine.IsEditorHint())
+        {
+            GD.PrintErr($"{GetType().Name} '{PuzzleId}' could not find a GridMap parent, sibling, or scene descendant. Visual preview disabled.");
+        }
+
+        return gridMap;
     }
 }

@@ -40,8 +40,8 @@ public partial class GameManager : Node
     public bool IsInBattle { get; private set; } = false;
     public bool IsInNpcInteraction { get; private set; } = false;
     public bool IsInWorldInteraction { get; private set; } = false;
-    public IReadOnlyCollection<string> OpenedTreasureBoxIds => _openedTreasureBoxIds;
-    public IReadOnlyCollection<string> SolvedPuzzleIds => _solvedPuzzleIds;
+    public IReadOnlySet<string> OpenedTreasureBoxIds => _openedTreasureBoxIds;
+    public IReadOnlySet<string> SolvedPuzzleIds => _solvedPuzzleIds;
 
     private FloorManager _floorManager;
 

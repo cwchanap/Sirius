@@ -546,6 +546,180 @@ public partial class GridMapPuzzleTrapTest : Node
         }
     }
 
+    // ─── #18: Additional coverage tests ────────────────────────────────────
+
+    [TestCase]
+    public async Task RegisterStaticPuzzleTraps_OutOfBoundsTrap_SkipsWithoutCrash()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var floor = new Node2D { Name = "PuzzleFloor" };
+        var gridMap = CreateGridMapWithGrid();
+        // Position well outside the default grid bounds
+        var trap = new TrapTileSpawn
+        {
+            Name = "TrapTile_OOB",
+            PuzzleId = "Puzzle_OOB",
+            GridPosition = new Vector2I(9999, 9999)
+        };
+
+        floor.AddChild(gridMap);
+        gridMap.AddChild(trap);
+        sceneTree.Root.AddChild(floor);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            // Must not throw
+            gridMap.RegisterStaticPuzzleEntities();
+        }
+        finally
+        {
+            floor.Free();
+        }
+    }
+
+    [TestCase]
+    public async Task RegisterStaticPuzzleTraps_OutOfBoundsGate_SkipsWithoutCrash()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var floor = new Node2D { Name = "PuzzleFloor" };
+        var gridMap = CreateGridMapWithGrid();
+        var gate = new PuzzleGateSpawn
+        {
+            Name = "PuzzleGate_OOB",
+            GateId = "PuzzleGate_OOB",
+            PuzzleId = "Puzzle_OOB",
+            GridPosition = new Vector2I(-100, -100),
+            StartsClosed = true
+        };
+
+        floor.AddChild(gridMap);
+        gridMap.AddChild(gate);
+        sceneTree.Root.AddChild(floor);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            gridMap.RegisterStaticPuzzleEntities();
+        }
+        finally
+        {
+            floor.Free();
+        }
+    }
+
+    [TestCase]
+    public async Task RegisterStaticPuzzleTraps_ConflictingTrapAndGateAtSamePosition_GateWins()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var floor = new Node2D { Name = "PuzzleFloor" };
+        var gridMap = CreateGridMapWithGrid();
+        var trap = new TrapTileSpawn
+        {
+            Name = "TrapTile_Conflict",
+            PuzzleId = "Puzzle_Conflict",
+            GridPosition = new Vector2I(6, 5)
+        };
+        // Gate registered after trap at the same position — last writer wins
+        var gate = new PuzzleGateSpawn
+        {
+            Name = "PuzzleGate_Conflict",
+            GateId = "PuzzleGate_Conflict",
+            PuzzleId = "Puzzle_ConflictGate",
+            GridPosition = new Vector2I(6, 5),
+            StartsClosed = true
+        };
+
+        floor.AddChild(gridMap);
+        gridMap.AddChild(trap);
+        gridMap.AddChild(gate);
+        sceneTree.Root.AddChild(floor);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            gridMap.RegisterStaticPuzzleEntities();
+
+            var grid = GetPrivateField<int[,]>(gridMap, "_grid");
+            // Gate registration runs after trap, overwriting the cell
+            AssertThat(grid[6, 5]).IsEqual((int)GridMap.CellType.PuzzleGate);
+        }
+        finally
+        {
+            floor.Free();
+        }
+    }
+
+    [TestCase]
+    public async Task RegisterStaticPuzzleTraps_PlayerOnGateCell_CellStaysPlayerUntilMove()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var previousGameManager = GameManager.Instance;
+        var gameManager = new GameManager();
+        SetGameManagerSingleton(gameManager);
+
+        var floor = new Node2D { Name = "PuzzleFloor" };
+        var gridMap = CreateGridMapWithGrid();
+        var grid = GetPrivateField<int[,]>(gridMap, "_grid");
+        // Player at (6,5), gate also at (6,5) — simulates save/load overlap
+        SetPrivateField(gridMap, "_playerPosition", new Vector2I(6, 5));
+        grid[6, 5] = (int)GridMap.CellType.Player;
+
+        var gate = new PuzzleGateSpawn
+        {
+            Name = "PuzzleGate_PlayerOverlap",
+            GateId = "PuzzleGate_PlayerOverlap",
+            PuzzleId = "Puzzle_OverlapGate",
+            GridPosition = new Vector2I(6, 5),
+            StartsClosed = true
+        };
+
+        floor.AddChild(gridMap);
+        gridMap.AddChild(gate);
+        sceneTree.Root.AddChild(floor);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            gridMap.RegisterStaticPuzzleEntities();
+
+            // Player cell should remain Player (CanWritePuzzleCell rejects Player occupancy)
+            AssertThat(grid[6, 5]).IsEqual((int)GridMap.CellType.Player);
+
+            // Gate is blocked from registering because the cell is Player —
+            // moving away restores to Empty (gate is lost for this session).
+            // This is a known edge case; traps handle it via _registeredTrapCells
+            // but gates do not have equivalent "always-register-position" logic.
+            AssertThat(gridMap.TryMovePlayer(Vector2I.Right)).IsTrue();
+            AssertThat(grid[6, 5]).IsEqual((int)GridMap.CellType.Empty);
+        }
+        finally
+        {
+            floor.Free();
+            gameManager.Free();
+            SetGameManagerSingleton(previousGameManager);
+        }
+    }
+
+    [TestCase]
+    public void PuzzleTrapController_DuplicatePuzzleId_ActivateSwitchReturnsFalseOnSecondArm()
+    {
+        var manager = new GameManager();
+        var controller = new PuzzleTrapController(manager);
+
+        try
+        {
+            AssertThat(controller.ActivateSwitch("Puzzle_Dup")).IsTrue();
+            // Second arm of the same puzzle returns false (already armed)
+            AssertThat(controller.ActivateSwitch("Puzzle_Dup")).IsFalse();
+            AssertThat(controller.IsPuzzleArmed("Puzzle_Dup")).IsTrue();
+        }
+        finally
+        {
+            manager.Free();
+        }
+    }
+
     private static GridMap CreateGridMapWithGrid()
     {
         var gridMap = new GridMap { Name = "GridMap" };

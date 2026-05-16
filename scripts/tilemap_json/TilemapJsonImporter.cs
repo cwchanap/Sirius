@@ -587,6 +587,7 @@ public partial class TilemapJsonImporter : RefCounted
     private void ConfigureTrapTileNode(Node node, TrapTileData data)
     {
         node.Set("PuzzleId", data.PuzzleId);
+        node.Set("TrapId", data.Id);
         node.Set("GridPosition", data.Position.ToVector2I());
         node.Set("Damage", data.Damage);
         node.Set("StatusEffectId", data.StatusEffect ?? "");
@@ -597,7 +598,9 @@ public partial class TilemapJsonImporter : RefCounted
 
     private static string GetTrapTileImportKey(TrapTileSpawn trapTile)
     {
-        return trapTile.Name.ToString();
+        return string.IsNullOrWhiteSpace(trapTile.TrapId)
+            ? trapTile.Name.ToString()
+            : trapTile.TrapId;
     }
 
     private void ImportPuzzleSwitches(List<PuzzleSwitchData> switches, Node2D gridMapNode)

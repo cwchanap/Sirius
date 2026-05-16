@@ -643,6 +643,9 @@ public partial class Game : Node2D
             GetNode("UI").AddChild(_puzzleRiddleDialog);
             _puzzleRiddleDialog.OpenRiddle(riddle);
         }
+        // Intentionally broad: UI construction can fail in many ways (missing nodes,
+        // invalid scene state).  Catching all prevents a broken dialog from crashing
+        // the game — we log the error and clean up gracefully instead.
         catch (Exception ex)
         {
             GD.PushError($"[Game] Failed to open puzzle riddle '{riddle.RiddleId}': {ex}");
@@ -692,6 +695,7 @@ public partial class Game : Node2D
                 }
             }
         }
+        // Intentionally broad — see OpenPuzzleRiddle for rationale.
         catch (Exception ex)
         {
             GD.PushError($"[Game] Failed to resolve puzzle riddle choice '{choiceId}': {ex}");

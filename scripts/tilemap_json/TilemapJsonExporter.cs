@@ -299,7 +299,7 @@ public partial class TilemapJsonExporter : RefCounted
 
             trapTiles.Add(new TrapTileData
             {
-                Id = child.Name.ToString(),
+                Id = string.IsNullOrWhiteSpace(trapTile.TrapId) ? child.Name.ToString() : trapTile.TrapId,
                 PuzzleId = trapTile.PuzzleId,
                 Position = new Vector2IData(trapTile.GridPosition),
                 Damage = trapTile.Damage,

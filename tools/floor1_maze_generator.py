@@ -29,8 +29,9 @@ FLOOR2_DOWN_STAIR_B = (26, 10)
 FLOOR1_HIDDEN_PLACEHOLDERS = {
     "hidden_room_north": (16, 8),
     "hidden_shortcut_east": (56, 30),
-    "hidden_room_south": (19, 54),
 }
+
+FLOOR1_SOUTH_SHORTCUT_ENTRY = (19, 54)
 
 FLOOR1_ENEMY_GATES = {
     "EnemySpawn_Goblin_Branch": {"position": (16, 23), "enemy_type": "goblin"},
@@ -79,7 +80,42 @@ FLOOR1_TREASURE_BOXES = {
     "TreasureBox_1F_NorthStairCache": ((49, 14), 0, {"iron_boots": 1}),
     "TreasureBox_1F_EastShortcutCache": ((58, 46), 0, {"steel_longsword": 1}),
     "TreasureBox_1F_SouthGalleryCache": ((38, 55), 130, {"flash_powder": 1}),
-    "TreasureBox_1F_SouthHiddenCache": ((20, 56), 0, {"chain_mail": 1}),
+    "TreasureBox_1F_SouthHiddenCache": ((24, 56), 0, {"chain_mail": 1}),
+}
+
+FLOOR1_PUZZLE_ID = "Puzzle_1F_SouthShortcutTrial"
+
+FLOOR1_PUZZLE_TRAPS = {
+    "TrapTile_1F_SouthTrial_01": {"position": (18, 53), "damage": 12},
+    "TrapTile_1F_SouthTrial_02": {"position": (17, 54), "damage": 12},
+    "TrapTile_1F_SouthTrial_03": {"position": (20, 54), "damage": 12},
+    "TrapTile_1F_SouthTrial_04": {"position": (21, 55), "damage": 12},
+}
+
+FLOOR1_PUZZLE_SWITCHES = {
+    "PuzzleSwitch_1F_SouthTrial_Lever": {
+        "position": (16, 52),
+        "prompt_text": "Use",
+        "activated_text": "The lever wakes the old shortcut seal.",
+    }
+}
+
+FLOOR1_PUZZLE_GATES = {
+    "PuzzleGate_1F_SouthTrial_Shortcut": {"position": (23, 56), "starts_closed": True}
+}
+
+FLOOR1_PUZZLE_RIDDLES = {
+    "PuzzleRiddle_1F_SouthTrial_Seal": {
+        "position": (22, 54),
+        "prompt_text": "Four stones face the old shortcut. Which stone sleeps until the lever wakes it?",
+        "choices": [
+            {"id": "north_stone", "label": "North stone"},
+            {"id": "east_stone", "label": "East stone"},
+            {"id": "south_stone", "label": "South stone"},
+        ],
+        "correct_choice_id": "east_stone",
+        "wrong_answer_damage": 12,
+    }
 }
 
 
@@ -183,6 +219,61 @@ def treasure_box_entities(boxes: dict[str, tuple[tuple[int, int], int, dict[str,
     ]
 
 
+def trap_tile_entities(traps: dict[str, dict]) -> list[dict]:
+    return [
+        {
+            "id": trap_id,
+            "puzzle_id": FLOOR1_PUZZLE_ID,
+            "position": vector(*data["position"]),
+            "damage": data["damage"],
+            "status_effect": data.get("status_effect", ""),
+            "status_magnitude": data.get("status_magnitude", 0),
+            "status_turns": data.get("status_turns", 0),
+        }
+        for trap_id, data in traps.items()
+    ]
+
+
+def puzzle_switch_entities(switches: dict[str, dict]) -> list[dict]:
+    return [
+        {
+            "id": switch_id,
+            "puzzle_id": FLOOR1_PUZZLE_ID,
+            "position": vector(*data["position"]),
+            "prompt_text": data["prompt_text"],
+            "activated_text": data["activated_text"],
+        }
+        for switch_id, data in switches.items()
+    ]
+
+
+def puzzle_gate_entities(gates: dict[str, dict]) -> list[dict]:
+    return [
+        {
+            "id": gate_id,
+            "puzzle_id": FLOOR1_PUZZLE_ID,
+            "position": vector(*data["position"]),
+            "starts_closed": data["starts_closed"],
+        }
+        for gate_id, data in gates.items()
+    ]
+
+
+def puzzle_riddle_entities(riddles: dict[str, dict]) -> list[dict]:
+    return [
+        {
+            "id": riddle_id,
+            "puzzle_id": FLOOR1_PUZZLE_ID,
+            "position": vector(*data["position"]),
+            "prompt_text": data["prompt_text"],
+            "choices": data["choices"],
+            "correct_choice_id": data["correct_choice_id"],
+            "wrong_answer_damage": data["wrong_answer_damage"],
+        }
+        for riddle_id, data in riddles.items()
+    ]
+
+
 def build_floor1_walls() -> set[tuple[int, int]]:
     builder = MazeBuilder(FLOOR1_WIDTH, FLOOR1_HEIGHT)
 
@@ -211,7 +302,7 @@ def build_floor1_walls() -> set[tuple[int, int]]:
 
     builder.carve_path((16, 16), FLOOR1_HIDDEN_PLACEHOLDERS["hidden_room_north"], half_width=1)
     builder.carve_path((53, 30), FLOOR1_HIDDEN_PLACEHOLDERS["hidden_shortcut_east"], half_width=1)
-    builder.carve_path((28, 50), FLOOR1_HIDDEN_PLACEHOLDERS["hidden_room_south"], half_width=1)
+    builder.carve_path((28, 50), FLOOR1_SOUTH_SHORTCUT_ENTRY, half_width=1)
 
     builder.carve_rect(13, 6, 19, 10)
     builder.carve_rect(53, 28, 58, 32)
@@ -279,7 +370,7 @@ def build_floor1_walls() -> set[tuple[int, int]]:
             (58, 46),
         ],
         [
-            FLOOR1_HIDDEN_PLACEHOLDERS["hidden_room_south"],
+            FLOOR1_SOUTH_SHORTCUT_ENTRY,
             (23, 58),
             (23, 56),
             (58, 56),
@@ -317,6 +408,7 @@ def build_floor1_walls() -> set[tuple[int, int]]:
     builder.walls.update((x, 16) for x in range(48, 55))
     builder.walls.add((19, 8))
     builder.walls.add((35, 55))
+    builder.walls.add((25, 56))
 
     add_gate_barrier(
         builder.walls,
@@ -405,6 +497,10 @@ def build_floor1_model() -> dict:
                 for key, pos in FLOOR1_HIDDEN_PLACEHOLDERS.items()
             ],
             "treasure_boxes": treasure_box_entities(FLOOR1_TREASURE_BOXES),
+            "trap_tiles": trap_tile_entities(FLOOR1_PUZZLE_TRAPS),
+            "puzzle_switches": puzzle_switch_entities(FLOOR1_PUZZLE_SWITCHES),
+            "puzzle_gates": puzzle_gate_entities(FLOOR1_PUZZLE_GATES),
+            "puzzle_riddles": puzzle_riddle_entities(FLOOR1_PUZZLE_RIDDLES),
         },
     }
     validate_model(model, FLOOR1_WIDTH, FLOOR1_HEIGHT)
@@ -476,6 +572,24 @@ def connected_walkable_cells(walkable: set[tuple[int, int]], start: tuple[int, i
     return seen
 
 
+ENTITY_POSITION_KEYS = (
+    "enemy_spawns",
+    "npc_spawns",
+    "stair_connections",
+    "hidden_placeholders",
+    "treasure_boxes",
+    "trap_tiles",
+    "puzzle_switches",
+    "puzzle_gates",
+    "puzzle_riddles",
+)
+
+
+def entity_position(entity: dict) -> tuple[int, int]:
+    pos = entity["position"]
+    return pos["x"], pos["y"]
+
+
 def validate_model(model: dict, width: int, height: int) -> None:
     walkable = walkable_cells(model, width, height)
     start_data = model["floor_metadata"]["player_start"]
@@ -496,16 +610,55 @@ def validate_model(model: dict, width: int, height: int) -> None:
         raise ValueError(f"Disconnected walkable cells: {sample}")
 
     goals: list[tuple[int, int]] = []
-    for key in ("enemy_spawns", "npc_spawns", "stair_connections", "hidden_placeholders", "treasure_boxes"):
+    seen_ids: dict[str, str] = {}
+    occupied_positions: dict[tuple[int, int], str] = {}
+    for key in ENTITY_POSITION_KEYS:
         for entity in model["entities"].get(key, []):
-            pos = entity["position"]
-            goals.append((pos["x"], pos["y"]))
+            entity_id = entity.get("id", "")
+            if not entity_id:
+                raise ValueError(f"Entity in {key} has empty id")
+            if entity_id in seen_ids:
+                raise ValueError(f"Duplicate entity id {entity_id!r} in {key} and {seen_ids[entity_id]}")
+            seen_ids[entity_id] = key
+
+            goal = entity_position(entity)
+            if goal in occupied_positions:
+                raise ValueError(f"Entity position {goal} overlaps {key} and {occupied_positions[goal]}")
+            occupied_positions[goal] = key
+            goals.append(goal)
 
     for goal in goals:
         if goal not in walkable:
             raise ValueError(f"Entity position {goal} is not walkable")
         if goal not in connected:
             raise ValueError(f"No path from {start} to {goal}")
+
+    closed_gate_positions = {
+        entity_position(gate)
+        for gate in model["entities"].get("puzzle_gates", [])
+        if gate.get("starts_closed", True)
+    }
+    if closed_gate_positions:
+        closed_gate_walkable = walkable - closed_gate_positions
+        if start not in closed_gate_walkable:
+            raise ValueError(f"Player start {start} is blocked by a closed puzzle gate")
+
+        closed_gate_connected = connected_walkable_cells(closed_gate_walkable, start)
+        required_entities = [
+            ("stair", stair)
+            for stair in model["entities"].get("stair_connections", [])
+        ]
+        required_entities.extend(
+            ("hidden placeholder", placeholder)
+            for placeholder in model["entities"].get("hidden_placeholders", [])
+        )
+
+        for entity_type, entity in required_entities:
+            entity_pos = entity_position(entity)
+            if entity_pos not in closed_gate_connected:
+                raise ValueError(
+                    f"Required {entity_type} {entity['id']} is blocked by a closed puzzle gate"
+                )
 
 
 def write_json(model: dict, output_path: Path) -> None:

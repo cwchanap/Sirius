@@ -17,6 +17,11 @@ from tools.floor1_maze_generator import (
     FLOOR1_HEIGHT,
     FLOOR1_HIDDEN_PLACEHOLDERS,
     FLOOR1_PLAYER_START,
+    FLOOR1_PUZZLE_GATES,
+    FLOOR1_PUZZLE_ID,
+    FLOOR1_PUZZLE_RIDDLES,
+    FLOOR1_PUZZLE_SWITCHES,
+    FLOOR1_PUZZLE_TRAPS,
     FLOOR1_UP_STAIR_A,
     FLOOR1_UP_STAIR_B,
     FLOOR1_WIDTH,
@@ -42,7 +47,7 @@ EXPECTED_FLOOR1_TREASURE = {
     "TreasureBox_1F_NorthStairCache": ((49, 14), 0, {"iron_boots": 1}),
     "TreasureBox_1F_EastShortcutCache": ((58, 46), 0, {"steel_longsword": 1}),
     "TreasureBox_1F_SouthGalleryCache": ((38, 55), 130, {"flash_powder": 1}),
-    "TreasureBox_1F_SouthHiddenCache": ((20, 56), 0, {"chain_mail": 1}),
+    "TreasureBox_1F_SouthHiddenCache": ((24, 56), 0, {"chain_mail": 1}),
 }
 
 
@@ -101,6 +106,13 @@ def shortest_path_length(walkable, start, goal):
                 queue.append((nxt, distance + 1))
 
     return None
+
+
+def entity_positions(entities, key):
+    return {
+        entity["id"]: (entity["position"]["x"], entity["position"]["y"])
+        for entity in entities.get(key, [])
+    }
 
 
 def count_dead_end_cells(walkable):
@@ -227,6 +239,7 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
         )
 
         hidden_positions = set(FLOOR1_HIDDEN_PLACEHOLDERS.values())
+        self.assertNotIn("hidden_room_south", FLOOR1_HIDDEN_PLACEHOLDERS)
         self.assertTrue(hidden_positions.isdisjoint(stair_positions))
 
         connections = self.model["entities"]["stair_connections"]
@@ -298,10 +311,19 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
             for box in entities["treasure_boxes"]
         }
         occupied = set()
-        for key in ("npc_spawns", "enemy_spawns", "stair_connections", "hidden_placeholders"):
+        for key in (
+            "npc_spawns",
+            "enemy_spawns",
+            "stair_connections",
+            "hidden_placeholders",
+            "trap_tiles",
+            "puzzle_switches",
+            "puzzle_gates",
+            "puzzle_riddles",
+        ):
             occupied.update(
                 (entity["position"]["x"], entity["position"]["y"])
-                for entity in entities[key]
+                for entity in entities.get(key, [])
             )
 
         self.assertEqual(set(treasure_boxes), set(EXPECTED_FLOOR1_TREASURE))
@@ -320,6 +342,108 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
                 self.assertNotIn(box_pos, occupied)
                 self.assertEqual(box["gold"], gold)
                 self.assertEqual(box_items, items)
+
+    def test_floor1_puzzle_trap_entities_are_authored_and_walkable(self):
+        entities = self.model["entities"]
+        trap_tiles = entity_positions(entities, "trap_tiles")
+        puzzle_switches = entity_positions(entities, "puzzle_switches")
+        puzzle_gates = entity_positions(entities, "puzzle_gates")
+        puzzle_riddles = entity_positions(entities, "puzzle_riddles")
+
+        expected_traps = {
+            trap_id: data["position"]
+            for trap_id, data in FLOOR1_PUZZLE_TRAPS.items()
+        }
+        expected_switches = {
+            switch_id: data["position"]
+            for switch_id, data in FLOOR1_PUZZLE_SWITCHES.items()
+        }
+        expected_gates = {
+            gate_id: data["position"]
+            for gate_id, data in FLOOR1_PUZZLE_GATES.items()
+        }
+        expected_riddles = {
+            riddle_id: data["position"]
+            for riddle_id, data in FLOOR1_PUZZLE_RIDDLES.items()
+        }
+
+        self.assertEqual(trap_tiles, expected_traps)
+        self.assertEqual(puzzle_switches, expected_switches)
+        self.assertEqual(puzzle_gates, expected_gates)
+        self.assertEqual(puzzle_riddles, expected_riddles)
+
+        occupied = set()
+        for key in ("enemy_spawns", "npc_spawns", "stair_connections", "hidden_placeholders", "treasure_boxes"):
+            occupied.update(entity_positions(entities, key).values())
+
+        all_puzzle_positions = [
+            *trap_tiles.values(),
+            *puzzle_switches.values(),
+            *puzzle_gates.values(),
+            *puzzle_riddles.values(),
+        ]
+        self.assertEqual(len(all_puzzle_positions), len(set(all_puzzle_positions)))
+
+        for position in all_puzzle_positions:
+            with self.subTest(position=position):
+                self.assertIn(position, self.walkable)
+                self.assertNotIn(position, occupied)
+
+        for trap in entities["trap_tiles"]:
+            self.assertEqual(trap["puzzle_id"], FLOOR1_PUZZLE_ID)
+            self.assertEqual(trap["damage"], 12)
+            self.assertEqual(trap.get("status_effect", ""), "")
+
+        puzzle_switch = entities["puzzle_switches"][0]
+        self.assertEqual(puzzle_switch["puzzle_id"], FLOOR1_PUZZLE_ID)
+        self.assertEqual(puzzle_switch["prompt_text"], "Use")
+        self.assertEqual(puzzle_switch["activated_text"], "The lever wakes the old shortcut seal.")
+
+        puzzle_gate = entities["puzzle_gates"][0]
+        self.assertEqual(puzzle_gate["puzzle_id"], FLOOR1_PUZZLE_ID)
+        self.assertTrue(puzzle_gate["starts_closed"])
+
+        riddle = entities["puzzle_riddles"][0]
+        self.assertEqual(riddle["puzzle_id"], FLOOR1_PUZZLE_ID)
+        self.assertEqual(riddle["correct_choice_id"], "east_stone")
+        self.assertEqual(riddle["wrong_answer_damage"], 12)
+        self.assertEqual(
+            riddle["prompt_text"],
+            "Four stones face the old shortcut. Which stone sleeps until the lever wakes it?",
+        )
+        self.assertEqual(
+            riddle["choices"],
+            [
+                {"id": "north_stone", "label": "North stone"},
+                {"id": "east_stone", "label": "East stone"},
+                {"id": "south_stone", "label": "South stone"},
+            ],
+        )
+
+    def test_required_routes_remain_reachable_with_puzzle_gate_closed(self):
+        gate_positions = set(entity_positions(self.model["entities"], "puzzle_gates").values())
+        closed_gate_walkable = self.walkable - gate_positions
+
+        for goal in [FLOOR1_UP_STAIR_A, FLOOR1_UP_STAIR_B, *FLOOR1_HIDDEN_PLACEHOLDERS.values()]:
+            with self.subTest(goal=goal):
+                self.assertTrue(has_path(closed_gate_walkable, FLOOR1_PLAYER_START, goal))
+
+    def test_south_puzzle_gate_opens_reward_and_shortcut_route(self):
+        gate_positions = set(entity_positions(self.model["entities"], "puzzle_gates").values())
+        closed_gate_walkable = self.walkable - gate_positions
+        puzzle_room_side = (22, 56)
+        reward = EXPECTED_FLOOR1_TREASURE["TreasureBox_1F_SouthHiddenCache"][0]
+        shortcut_payoff = (42, 58)
+
+        self.assertFalse(has_path(closed_gate_walkable, puzzle_room_side, reward))
+        self.assertTrue(has_path(self.walkable, puzzle_room_side, reward))
+
+        closed_length = shortest_path_length(closed_gate_walkable, puzzle_room_side, shortcut_payoff)
+        open_length = shortest_path_length(self.walkable, puzzle_room_side, shortcut_payoff)
+
+        self.assertIsNotNone(closed_length)
+        self.assertIsNotNone(open_length)
+        self.assertGreaterEqual(closed_length - open_length, 50)
 
     def test_maze_has_multiple_dead_end_branches(self):
         self.assertGreaterEqual(count_dead_end_cells(self.walkable), 8)
@@ -418,6 +542,46 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "Disconnected walkable cells"):
             validate_model(self.model, FLOOR1_WIDTH, FLOOR1_HEIGHT)
+
+    def test_validate_model_rejects_closed_gate_blocking_hidden_placeholder(self):
+        model = {
+            "floor_metadata": {
+                "floor_index": 1,
+                "floor_id": "TestFloor",
+                "display_name": "Test Floor",
+                "grid_width": 3,
+                "grid_height": 1,
+                "player_start": {"x": 0, "y": 0},
+            },
+            "tile_layers": {
+                "ground": [
+                    {"x": 0, "y": 0, "tile": "ground_starting_area"},
+                    {"x": 1, "y": 0, "tile": "ground_starting_area"},
+                    {"x": 2, "y": 0, "tile": "ground_starting_area"},
+                ],
+                "wall": [],
+                "stair": [],
+            },
+            "entities": {
+                "hidden_placeholders": [
+                    {"id": "Hidden_Test", "position": {"x": 2, "y": 0}, "target": "Future"}
+                ],
+                "puzzle_gates": [
+                    {
+                        "id": "Gate_Test",
+                        "puzzle_id": "Puzzle_Test",
+                        "position": {"x": 1, "y": 0},
+                        "starts_closed": True,
+                    }
+                ],
+            },
+        }
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Required hidden placeholder Hidden_Test is blocked by a closed puzzle gate",
+        ):
+            validate_model(model, 3, 1)
 
     def test_update_floor_definition_updates_floor1_arrays(self):
         with tempfile.TemporaryDirectory() as tmpdir:

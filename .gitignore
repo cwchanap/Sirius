@@ -14,9 +14,10 @@ gdunit4_testadapter_v5/
 test.runsettings.local
 *.local.runsettings
 
-# Claude settings
+# Claude / Devin local settings
 .claude/settings.local.json
 .mcp.json
+.devin/
 
 # Local git worktrees
 .worktrees/

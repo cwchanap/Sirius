@@ -1406,6 +1406,87 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public async Task Game_DormantRiddleShowsMessageAndKeepsDialogOpen()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var scene = GD.Load<PackedScene>("res://scenes/game/Game.tscn")
+            ?? throw new InvalidOperationException("Failed to load Game.tscn.");
+        Node? gameScene = null;
+
+        try
+        {
+            gameScene = scene.Instantiate();
+            sceneTree.Root.AddChild(gameScene);
+            await AwaitFrames(6);
+
+            var floorManager = gameScene.GetNode<FloorManager>("FloorManager");
+            var gridMap = floorManager.CurrentGridMap;
+            var playerController = gameScene.GetNode<PlayerController>("PlayerController");
+            var gameManager = gameScene.GetNode<GameManager>("GameManager");
+
+            AssertThat(gridMap).IsNotNull();
+
+            const string puzzleId = "Puzzle_RuntimeDormantTest";
+            // Place a switch but do NOT arm it yet
+            var puzzleSwitch = new PuzzleSwitchSpawn
+            {
+                Name = "PuzzleSwitch_DormantTest",
+                SwitchId = "PuzzleSwitch_DormantTest",
+                PuzzleId = puzzleId,
+                GridPosition = new Vector2I(9, 50)
+            };
+            var riddle = CreateRuntimeRiddle("PuzzleRiddle_DormantTest", puzzleId, new Vector2I(8, 51));
+
+            AddPuzzleNode(gridMap, puzzleSwitch, "PuzzleSwitchSpawn");
+            AddPuzzleNode(gridMap, riddle, "PuzzleRiddleSpawn");
+
+            var freshGrid = new int[gridMap.GridWidth, gridMap.GridHeight];
+            SetPrivateField(gridMap, "_grid", freshGrid);
+            SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 50));
+            gridMap.CallDeferred(nameof(GridMap.RegisterStaticPuzzleEntities));
+            await AwaitFrames(3);
+
+            // Walk to the riddle (down from player)
+            PressMovement(playerController, Vector2I.Down);
+            await AwaitInputDebounce();
+            PressInteract(playerController);
+            await AwaitFrames(3);
+
+            var dialog = GetPrivateField<PuzzleRiddleDialog?>(gameScene, "_puzzleRiddleDialog");
+            AssertThat(dialog).IsNotNull();
+
+            // Choose an answer before arming the switch — should show dormant message
+            var eastStoneButton = FindButtonWithText(dialog!, "East Stone");
+            AssertThat(eastStoneButton).IsNotNull();
+            eastStoneButton!.EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(3);
+
+            // Dialog should remain open and still be valid
+            var dormantDialog = GetPrivateField<PuzzleRiddleDialog?>(gameScene, "_puzzleRiddleDialog");
+            AssertThat(dormantDialog).IsNotNull();
+            AssertThat(gameManager.IsInWorldInteraction).IsTrue();
+            AssertThat(gameManager.IsPuzzleSolved(puzzleId)).IsFalse();
+
+            // The message label should now display the dormant message
+            var messageLabel = FindLabelWithText(dormantDialog!, "dormant");
+            AssertThat(messageLabel).IsNotNull();
+
+            // Close the dialog to clean up
+            dormantDialog!.EmitSignal(PuzzleRiddleDialog.SignalName.PuzzleRiddleClosed);
+            await AwaitFrames(2);
+        }
+        finally
+        {
+            if (gameScene != null && IsInstanceValid(gameScene))
+            {
+                gameScene.Free();
+            }
+
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
     public async Task Game_PuzzlePromptUsesUseForSwitchAndSolveForRiddle()
     {
         var sceneTree = (SceneTree)Engine.GetMainLoop();
@@ -1570,6 +1651,25 @@ public partial class GameTest : Node
             }
 
             var nested = FindButtonWithText(child, text);
+            if (nested != null)
+            {
+                return nested;
+            }
+        }
+
+        return null;
+    }
+
+    private static Label? FindLabelWithText(Node root, string text)
+    {
+        foreach (Node child in root.GetChildren())
+        {
+            if (child is Label label && label.Text.Contains(text))
+            {
+                return label;
+            }
+
+            var nested = FindLabelWithText(child, text);
             if (nested != null)
             {
                 return nested;

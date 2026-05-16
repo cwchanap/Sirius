@@ -60,4 +60,32 @@ public partial class PuzzleTrapControllerTest : Node
             manager.Free();
         }
     }
+
+    [TestCase]
+    public void DormantRiddleReturnsMessageWithoutPenalty()
+    {
+        var manager = new GameManager();
+        var controller = new PuzzleTrapController(manager);
+        var riddle = new PuzzleRiddleSpawn
+        {
+            PuzzleId = "Puzzle_Test",
+            CorrectChoiceId = "east_stone"
+        };
+
+        try
+        {
+            // Do NOT arm the switch — riddle is dormant
+            var result = controller.TrySolveRiddle(riddle, "east_stone");
+
+            AssertThat(result.Solved).IsFalse();
+            AssertThat(result.ShouldApplyPenalty).IsFalse();
+            AssertThat(result.Message).IsEqual("The mechanism is dormant.");
+            AssertThat(manager.IsPuzzleSolved("Puzzle_Test")).IsFalse();
+        }
+        finally
+        {
+            riddle.Free();
+            manager.Free();
+        }
+    }
 }

@@ -676,9 +676,16 @@ public partial class Game : Node2D
 
             // Neither solved nor penalized (e.g. switch not armed) — keep the
             // dialog open so the player gets another chance after arming.
+            // Surface the message (e.g. "The mechanism is dormant.") so the
+            // player knows why their choice had no effect.
             if (!result.Solved && !result.ShouldApplyPenalty)
             {
                 shouldCleanup = false;
+                if (_puzzleRiddleDialog != null && IsInstanceValid(_puzzleRiddleDialog)
+                    && !string.IsNullOrWhiteSpace(result.Message))
+                {
+                    _puzzleRiddleDialog.OpenRiddle(riddle, result.Message);
+                }
             }
         }
         catch (Exception ex)

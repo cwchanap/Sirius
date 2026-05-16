@@ -652,6 +652,7 @@ public partial class Game : Node2D
 
     private void OnPuzzleRiddleChoiceSelected(string choiceId)
     {
+        bool shouldCleanup = true;
         try
         {
             var riddle = _activePuzzleRiddle;
@@ -672,12 +673,20 @@ public partial class Game : Node2D
                 ApplyPuzzleSolvedState(riddle.PuzzleId);
                 _gameManager.NotifyPlayerStatsChanged();
             }
+
+            // Neither solved nor penalized (e.g. switch not armed) — keep the
+            // dialog open so the player gets another chance after arming.
+            if (!result.Solved && !result.ShouldApplyPenalty)
+            {
+                shouldCleanup = false;
+            }
         }
         catch (Exception ex)
         {
             GD.PushError($"[Game] Failed to resolve puzzle riddle choice '{choiceId}': {ex}");
         }
-        finally
+
+        if (shouldCleanup)
         {
             CleanupPuzzleRiddleDialog();
             if (IsInsideTree())

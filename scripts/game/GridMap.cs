@@ -2585,10 +2585,16 @@ public partial class GridMap : Node2D
             }
 
             trap.UpdateVisual(this);
-            if (!puzzleSolved && CanWritePuzzleCell(gridPosition))
+            if (!puzzleSolved)
             {
+                // Always register the trap position so TryMovePlayer can restore it
+                // correctly when the player steps off, even if the cell is currently
+                // occupied by the player (e.g. after a save/load cycle).
                 _registeredTrapCells.Add(gridPosition);
-                _grid[gridPosition.X, gridPosition.Y] = (int)CellType.TrapTile;
+                if (CanWritePuzzleCell(gridPosition))
+                {
+                    _grid[gridPosition.X, gridPosition.Y] = (int)CellType.TrapTile;
+                }
             }
         }
 

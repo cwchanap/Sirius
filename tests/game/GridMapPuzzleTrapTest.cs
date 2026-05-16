@@ -373,6 +373,55 @@ public partial class GridMapPuzzleTrapTest : Node
         }
     }
 
+    [TestCase]
+    public async Task RegisterStaticPuzzleTraps_RegistersTrapInCellWhenPlayerStandsOnIt()
+    {
+        // Simulates a save/load scenario: player position overlaps an unsolved trap.
+        // The grid cell is Player (not Empty), so CanWritePuzzleCell returns false.
+        // The trap must still be registered so TryMovePlayer restores it when the
+        // player steps off.
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var floor = new Node2D { Name = "PuzzleFloor" };
+        var gridMap = CreateGridMapWithGrid();
+        var grid = GetPrivateField<int[,]>(gridMap, "_grid");
+        // Player is standing at (5,5) and there's also a trap at (5,5)
+        grid[5, 5] = (int)GridMap.CellType.Player;
+        SetPrivateField(gridMap, "_playerPosition", new Vector2I(5, 5));
+
+        var trap = new TrapTileSpawn
+        {
+            Name = "TrapTile_UnderPlayer",
+            PuzzleId = "Puzzle_Test",
+            GridPosition = new Vector2I(5, 5)
+        };
+
+        floor.AddChild(gridMap);
+        gridMap.AddChild(trap);
+        sceneTree.Root.AddChild(floor);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            gridMap.RegisterStaticPuzzleEntities();
+
+            // Grid cell should remain Player (not overwritten)
+            AssertThat(grid[5, 5]).IsEqual((int)GridMap.CellType.Player);
+
+            // But the trap must be registered so moving away restores TrapTile
+            var registeredTraps = GetPrivateField<System.Collections.Generic.HashSet<Vector2I>>(
+                gridMap, "_registeredTrapCells");
+            AssertThat(registeredTraps.Contains(new Vector2I(5, 5))).IsTrue();
+
+            // Move player away — old cell should restore to TrapTile
+            AssertThat(gridMap.TryMovePlayer(Vector2I.Right)).IsTrue();
+            AssertThat(grid[5, 5]).IsEqual((int)GridMap.CellType.TrapTile);
+        }
+        finally
+        {
+            floor.Free();
+        }
+    }
+
     private static GridMap CreateGridMapWithGrid()
     {
         var gridMap = new GridMap { Name = "GridMap" };

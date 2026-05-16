@@ -15,8 +15,7 @@ public partial class Floor1FMazeLayoutTest : Node
     private static readonly Vector2I[] HiddenPlaceholders =
     [
         new Vector2I(16, 8),
-        new Vector2I(56, 30),
-        new Vector2I(19, 54)
+        new Vector2I(56, 30)
     ];
     private static readonly Vector2I[] DecisionIntersections =
     [
@@ -108,7 +107,30 @@ public partial class Floor1FMazeLayoutTest : Node
         ["TreasureBox_1F_NorthStairCache"] = (new Vector2I(49, 14), 0, new Dictionary<string, int> { ["iron_boots"] = 1 }),
         ["TreasureBox_1F_EastShortcutCache"] = (new Vector2I(58, 46), 0, new Dictionary<string, int> { ["steel_longsword"] = 1 }),
         ["TreasureBox_1F_SouthGalleryCache"] = (new Vector2I(38, 55), 130, new Dictionary<string, int> { ["flash_powder"] = 1 }),
-        ["TreasureBox_1F_SouthHiddenCache"] = (new Vector2I(20, 56), 0, new Dictionary<string, int> { ["chain_mail"] = 1 })
+        ["TreasureBox_1F_SouthHiddenCache"] = (new Vector2I(24, 56), 0, new Dictionary<string, int> { ["chain_mail"] = 1 })
+    };
+    private const string ExpectedPuzzleId = "Puzzle_1F_SouthShortcutTrial";
+    private static readonly Dictionary<string, (Vector2I Position, int Damage)> ExpectedTrapTiles = new()
+    {
+        ["TrapTile_1F_SouthTrial_01"] = (new Vector2I(18, 53), 12),
+        ["TrapTile_1F_SouthTrial_02"] = (new Vector2I(17, 54), 12),
+        ["TrapTile_1F_SouthTrial_03"] = (new Vector2I(20, 54), 12),
+        ["TrapTile_1F_SouthTrial_04"] = (new Vector2I(21, 55), 12)
+    };
+    private static readonly Dictionary<string, (Vector2I Position, string Prompt, string Activated)> ExpectedPuzzleSwitches = new()
+    {
+        ["PuzzleSwitch_1F_SouthTrial_Lever"] = (
+            new Vector2I(16, 52),
+            "Use",
+            "The lever wakes the old shortcut seal.")
+    };
+    private static readonly Dictionary<string, (Vector2I Position, bool StartsClosed)> ExpectedPuzzleGates = new()
+    {
+        ["PuzzleGate_1F_SouthTrial_Shortcut"] = (new Vector2I(23, 56), true)
+    };
+    private static readonly Dictionary<string, (Vector2I Position, string CorrectChoiceId, int WrongDamage)> ExpectedPuzzleRiddles = new()
+    {
+        ["PuzzleRiddle_1F_SouthTrial_Seal"] = (new Vector2I(22, 54), "east_stone", 12)
     };
 
     [TestCase]
@@ -287,6 +309,103 @@ public partial class Floor1FMazeLayoutTest : Node
     }
 
     [TestCase]
+    public void Floor1F_GeneratedMaze_HasExpectedPuzzleTrapSet()
+    {
+        var floorRoot = LoadFloor();
+        try
+        {
+            var gridMap = floorRoot.GetNode<GridMap>("GridMap");
+            var walls = GetWalls(gridMap);
+            var traps = gridMap.GetChildren().OfType<TrapTileSpawn>().ToDictionary(trap => trap.Name.ToString());
+            var switches = gridMap.GetChildren().OfType<PuzzleSwitchSpawn>().ToDictionary(puzzleSwitch => puzzleSwitch.SwitchId);
+            var gates = gridMap.GetChildren().OfType<PuzzleGateSpawn>().ToDictionary(gate => gate.GateId);
+            var riddles = gridMap.GetChildren().OfType<PuzzleRiddleSpawn>().ToDictionary(riddle => riddle.RiddleId);
+
+            AssertThat(traps.Count).IsEqual(ExpectedTrapTiles.Count);
+            AssertThat(switches.Count).IsEqual(ExpectedPuzzleSwitches.Count);
+            AssertThat(gates.Count).IsEqual(ExpectedPuzzleGates.Count);
+            AssertThat(riddles.Count).IsEqual(ExpectedPuzzleRiddles.Count);
+
+            var occupied = gridMap.GetChildren()
+                .Where(child => child is EnemySpawn || child is NpcSpawn || child is StairConnection || child is TreasureBoxSpawn)
+                .Select(child => child switch
+                {
+                    EnemySpawn enemy => enemy.GridPosition,
+                    NpcSpawn npc => npc.GridPosition,
+                    StairConnection stair => stair.GridPosition,
+                    TreasureBoxSpawn box => box.GridPosition,
+                    _ => Vector2I.Zero
+                })
+                .ToHashSet();
+            occupied.UnionWith(HiddenPlaceholders);
+
+            var puzzlePositions = traps.Values.Select(trap => trap.GridPosition)
+                .Concat(switches.Values.Select(puzzleSwitch => puzzleSwitch.GridPosition))
+                .Concat(gates.Values.Select(gate => gate.GridPosition))
+                .Concat(riddles.Values.Select(riddle => riddle.GridPosition))
+                .ToList();
+            AssertThat(puzzlePositions.Distinct().Count()).IsEqual(puzzlePositions.Count);
+
+            foreach (var position in puzzlePositions)
+            {
+                AssertThat(IsWalkable(position, walls)).IsTrue();
+                AssertThat(occupied.Contains(position)).IsFalse();
+            }
+
+            foreach (var expected in ExpectedTrapTiles)
+            {
+                AssertThat(traps.ContainsKey(expected.Key)).IsTrue();
+                var trap = traps[expected.Key];
+                AssertThat(trap.PuzzleId).IsEqual(ExpectedPuzzleId);
+                AssertThat(trap.GridPosition).IsEqual(expected.Value.Position);
+                AssertThat(trap.Damage).IsEqual(expected.Value.Damage);
+                AssertThat(trap.StatusEffectId).IsEqual("");
+            }
+
+            foreach (var expected in ExpectedPuzzleSwitches)
+            {
+                AssertThat(switches.ContainsKey(expected.Key)).IsTrue();
+                var puzzleSwitch = switches[expected.Key];
+                AssertThat(puzzleSwitch.PuzzleId).IsEqual(ExpectedPuzzleId);
+                AssertThat(puzzleSwitch.GridPosition).IsEqual(expected.Value.Position);
+                AssertThat(puzzleSwitch.PromptText).IsEqual(expected.Value.Prompt);
+                AssertThat(puzzleSwitch.ActivatedText).IsEqual(expected.Value.Activated);
+            }
+
+            foreach (var expected in ExpectedPuzzleGates)
+            {
+                AssertThat(gates.ContainsKey(expected.Key)).IsTrue();
+                var gate = gates[expected.Key];
+                AssertThat(gate.PuzzleId).IsEqual(ExpectedPuzzleId);
+                AssertThat(gate.GridPosition).IsEqual(expected.Value.Position);
+                AssertThat(gate.StartsClosed).IsEqual(expected.Value.StartsClosed);
+                AssertThat(gate.BlocksMovement).IsTrue();
+            }
+
+            foreach (var expected in ExpectedPuzzleRiddles)
+            {
+                AssertThat(riddles.ContainsKey(expected.Key)).IsTrue();
+                var riddle = riddles[expected.Key];
+                var choices = riddle.GetChoices().ToDictionary(choice => choice.Id, choice => choice.Label);
+
+                AssertThat(riddle.PuzzleId).IsEqual(ExpectedPuzzleId);
+                AssertThat(riddle.GridPosition).IsEqual(expected.Value.Position);
+                AssertThat(riddle.PromptText).IsEqual("Four stones face the old shortcut. Which stone sleeps until the lever wakes it?");
+                AssertThat(riddle.CorrectChoiceId).IsEqual(expected.Value.CorrectChoiceId);
+                AssertThat(riddle.WrongAnswerDamage).IsEqual(expected.Value.WrongDamage);
+                AssertThat(choices.Count).IsEqual(3);
+                AssertThat(choices["north_stone"]).IsEqual("North stone");
+                AssertThat(choices["east_stone"]).IsEqual("East stone");
+                AssertThat(choices["south_stone"]).IsEqual("South stone");
+            }
+        }
+        finally
+        {
+            floorRoot.Free();
+        }
+    }
+
+    [TestCase]
     public void Floor1F_GeneratedMaze_HasMultipleDeadEndBranches()
     {
         var floorRoot = LoadFloor();
@@ -420,6 +539,64 @@ public partial class Floor1FMazeLayoutTest : Node
             {
                 AssertThat(HasPath(PlayerStart, goal, blockedCells)).IsFalse();
             }
+        }
+        finally
+        {
+            floorRoot.Free();
+        }
+    }
+
+    [TestCase]
+    public void Floor1F_GeneratedMaze_RequiredRoutesReachableWithPuzzleGatesClosed()
+    {
+        var floorRoot = LoadFloor();
+        try
+        {
+            var gridMap = floorRoot.GetNode<GridMap>("GridMap");
+            var blockedCells = GetWalls(gridMap);
+            foreach (var gate in gridMap.GetChildren().OfType<PuzzleGateSpawn>().Where(gate => gate.StartsClosed))
+            {
+                blockedCells.Add(gate.GridPosition);
+            }
+
+            foreach (var goal in new[] { UpStairA, UpStairB }.Concat(HiddenPlaceholders))
+            {
+                AssertThat(HasPath(PlayerStart, goal, blockedCells)).IsTrue();
+            }
+        }
+        finally
+        {
+            floorRoot.Free();
+        }
+    }
+
+    [TestCase]
+    public void Floor1F_GeneratedMaze_SouthPuzzleGateOpensRewardAndShortcutRoute()
+    {
+        var floorRoot = LoadFloor();
+        try
+        {
+            var gridMap = floorRoot.GetNode<GridMap>("GridMap");
+            var walls = GetWalls(gridMap);
+            var closedGateWalls = new HashSet<Vector2I>(walls);
+            foreach (var gate in gridMap.GetChildren().OfType<PuzzleGateSpawn>().Where(gate => gate.StartsClosed))
+            {
+                closedGateWalls.Add(gate.GridPosition);
+            }
+
+            var puzzleRoomSide = new Vector2I(22, 56);
+            var reward = ExpectedTreasureBoxes["TreasureBox_1F_SouthHiddenCache"].Position;
+            var shortcutPayoff = new Vector2I(42, 58);
+
+            AssertThat(HasPath(puzzleRoomSide, reward, closedGateWalls)).IsFalse();
+            AssertThat(HasPath(puzzleRoomSide, reward, walls)).IsTrue();
+
+            var closedLength = ShortestPathLength(puzzleRoomSide, shortcutPayoff, closedGateWalls);
+            var openLength = ShortestPathLength(puzzleRoomSide, shortcutPayoff, walls);
+
+            AssertThat(closedLength.HasValue).IsTrue();
+            AssertThat(openLength.HasValue).IsTrue();
+            AssertThat(closedLength!.Value - openLength!.Value).IsGreaterEqual(50);
         }
         finally
         {

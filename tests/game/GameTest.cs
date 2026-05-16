@@ -132,6 +132,29 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public void PauseMenu_WhenPuzzleRiddleOpen_DoesNotConsumeInput()
+    {
+        if (_game!.GetNodeOrNull("UI") == null)
+        {
+            _game.AddChild(new CanvasLayer { Name = "UI" });
+        }
+
+        var dialog = new PuzzleRiddleDialog();
+        _game.AddChild(dialog);
+        SetPrivateField(_game, "_puzzleRiddleDialog", dialog);
+        _gameManager!.StartWorldInteraction();
+
+        PushPauseEvent();
+
+        AssertThat(_viewport!.IsInputHandled()).IsFalse();
+        AssertThat(_gameManager.IsInWorldInteraction).IsTrue();
+
+        _gameManager.EndWorldInteraction();
+        SetPrivateField(_game, "_puzzleRiddleDialog", null);
+        dialog.QueueFree();
+    }
+
+    [TestCase]
     public void PauseMenu_WhenNoPauseMenu_OpensPauseMenuDialog()
     {
         if (_gameManager!.IsInNpcInteraction) _gameManager.EndNpcInteraction();
@@ -1142,6 +1165,311 @@ public partial class GameTest : Node
         }
     }
 
+    [TestCase]
+    public async Task Game_TrapTileTriggerAppliesDamageAndKeepsPlayerOnTrap()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var scene = GD.Load<PackedScene>("res://scenes/game/Game.tscn")
+            ?? throw new InvalidOperationException("Failed to load Game.tscn.");
+        Node? gameScene = null;
+
+        try
+        {
+            gameScene = scene.Instantiate();
+            sceneTree.Root.AddChild(gameScene);
+            await AwaitFrames(6);
+
+            var floorManager = gameScene.GetNode<FloorManager>("FloorManager");
+            var gridMap = floorManager.CurrentGridMap;
+            var playerController = gameScene.GetNode<PlayerController>("PlayerController");
+            var gameManager = gameScene.GetNode<GameManager>("GameManager");
+
+            AssertThat(gridMap).IsNotNull();
+
+            var trap = new TrapTileSpawn
+            {
+                Name = "TrapTile_RuntimeDamageTest",
+                PuzzleId = "Puzzle_RuntimeDamageTest",
+                GridPosition = new Vector2I(9, 50),
+                Damage = 12
+            };
+            gridMap.AddChild(trap);
+            trap.AddToGroup("TrapTileSpawn");
+
+            var freshGrid = new int[gridMap.GridWidth, gridMap.GridHeight];
+            SetPrivateField(gridMap, "_grid", freshGrid);
+            SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 50));
+            gameManager.Player.CurrentHealth = 30;
+            gridMap.CallDeferred(nameof(GridMap.RegisterStaticPuzzleEntities));
+            await AwaitFrames(3);
+
+            PressMovement(playerController, Vector2I.Right);
+            await AwaitInputDebounce();
+
+            AssertThat(gridMap.GetPlayerPosition()).IsEqual(new Vector2I(9, 50));
+            AssertThat(gameManager.Player.CurrentHealth).IsEqual(18);
+        }
+        finally
+        {
+            if (gameScene != null && IsInstanceValid(gameScene))
+            {
+                gameScene.Free();
+            }
+
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task Game_SwitchThenCorrectRiddleSolvesPuzzleOpensGateAndDisablesTrap()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var scene = GD.Load<PackedScene>("res://scenes/game/Game.tscn")
+            ?? throw new InvalidOperationException("Failed to load Game.tscn.");
+        Node? gameScene = null;
+
+        try
+        {
+            gameScene = scene.Instantiate();
+            sceneTree.Root.AddChild(gameScene);
+            await AwaitFrames(6);
+
+            var floorManager = gameScene.GetNode<FloorManager>("FloorManager");
+            var gridMap = floorManager.CurrentGridMap;
+            var playerController = gameScene.GetNode<PlayerController>("PlayerController");
+            var gameManager = gameScene.GetNode<GameManager>("GameManager");
+
+            AssertThat(gridMap).IsNotNull();
+
+            const string puzzleId = "Puzzle_RuntimeSolveTest";
+            var puzzleSwitch = new PuzzleSwitchSpawn
+            {
+                Name = "PuzzleSwitch_RuntimeSolveTest",
+                SwitchId = "PuzzleSwitch_RuntimeSolveTest",
+                PuzzleId = puzzleId,
+                GridPosition = new Vector2I(9, 50)
+            };
+            var riddle = CreateRuntimeRiddle("PuzzleRiddle_RuntimeSolveTest", puzzleId, new Vector2I(8, 51));
+            var gate = new PuzzleGateSpawn
+            {
+                Name = "PuzzleGate_RuntimeSolveTest",
+                GateId = "PuzzleGate_RuntimeSolveTest",
+                PuzzleId = puzzleId,
+                GridPosition = new Vector2I(10, 50),
+                StartsClosed = true
+            };
+            var trap = new TrapTileSpawn
+            {
+                Name = "TrapTile_RuntimeSolveTest",
+                PuzzleId = puzzleId,
+                GridPosition = new Vector2I(11, 50),
+                Damage = 12
+            };
+
+            AddPuzzleNode(gridMap, puzzleSwitch, "PuzzleSwitchSpawn");
+            AddPuzzleNode(gridMap, riddle, "PuzzleRiddleSpawn");
+            AddPuzzleNode(gridMap, gate, "PuzzleGateSpawn");
+            AddPuzzleNode(gridMap, trap, "TrapTileSpawn");
+
+            var freshGrid = new int[gridMap.GridWidth, gridMap.GridHeight];
+            SetPrivateField(gridMap, "_grid", freshGrid);
+            SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 50));
+            gridMap.CallDeferred(nameof(GridMap.RegisterStaticPuzzleEntities));
+            await AwaitFrames(3);
+
+            PressMovement(playerController, Vector2I.Right);
+            await AwaitInputDebounce();
+            PressInteract(playerController);
+            await AwaitFrames(2);
+            PressInteractRelease(playerController);
+            await AwaitFrames(1);
+
+            PressMovement(playerController, Vector2I.Down);
+            await AwaitInputDebounce();
+            PressInteract(playerController);
+            await AwaitFrames(3);
+
+            var dialog = GetPrivateField<PuzzleRiddleDialog?>(gameScene, "_puzzleRiddleDialog");
+            AssertThat(dialog).IsNotNull();
+
+            int statsChangedCount = 0;
+            gameManager.PlayerStatsChanged += () => statsChangedCount++;
+
+            var eastStoneButton = FindButtonWithText(dialog!, "East Stone");
+            AssertThat(eastStoneButton).IsNotNull();
+            eastStoneButton!.EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(3);
+
+            AssertThat(gameManager.IsPuzzleSolved(puzzleId)).IsTrue();
+            AssertThat(gate.BlocksMovement).IsFalse();
+            AssertThat(freshGrid[10, 50]).IsEqual((int)GridMap.CellType.Empty);
+            AssertThat(freshGrid[11, 50]).IsEqual((int)GridMap.CellType.Empty);
+            AssertThat(gameManager.IsInWorldInteraction).IsFalse();
+            AssertThat(statsChangedCount).IsEqual(1);
+            AssertThat(GetPrivateField<PuzzleRiddleDialog?>(gameScene, "_puzzleRiddleDialog")).IsNull();
+        }
+        finally
+        {
+            if (gameScene != null && IsInstanceValid(gameScene))
+            {
+                gameScene.Free();
+            }
+
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task Game_WrongRiddleAnswerAppliesPenaltyAndAllowsRetry()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var scene = GD.Load<PackedScene>("res://scenes/game/Game.tscn")
+            ?? throw new InvalidOperationException("Failed to load Game.tscn.");
+        Node? gameScene = null;
+
+        try
+        {
+            gameScene = scene.Instantiate();
+            sceneTree.Root.AddChild(gameScene);
+            await AwaitFrames(6);
+
+            var floorManager = gameScene.GetNode<FloorManager>("FloorManager");
+            var gridMap = floorManager.CurrentGridMap;
+            var playerController = gameScene.GetNode<PlayerController>("PlayerController");
+            var gameManager = gameScene.GetNode<GameManager>("GameManager");
+
+            AssertThat(gridMap).IsNotNull();
+
+            const string puzzleId = "Puzzle_RuntimeWrongAnswerTest";
+            var puzzleSwitch = new PuzzleSwitchSpawn
+            {
+                Name = "PuzzleSwitch_RuntimeWrongAnswerTest",
+                SwitchId = "PuzzleSwitch_RuntimeWrongAnswerTest",
+                PuzzleId = puzzleId,
+                GridPosition = new Vector2I(9, 50)
+            };
+            var riddle = CreateRuntimeRiddle("PuzzleRiddle_RuntimeWrongAnswerTest", puzzleId, new Vector2I(8, 51));
+            riddle.WrongAnswerDamage = 7;
+
+            AddPuzzleNode(gridMap, puzzleSwitch, "PuzzleSwitchSpawn");
+            AddPuzzleNode(gridMap, riddle, "PuzzleRiddleSpawn");
+
+            var freshGrid = new int[gridMap.GridWidth, gridMap.GridHeight];
+            SetPrivateField(gridMap, "_grid", freshGrid);
+            SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 50));
+            gameManager.Player.CurrentHealth = 30;
+            gridMap.CallDeferred(nameof(GridMap.RegisterStaticPuzzleEntities));
+            await AwaitFrames(3);
+
+            PressMovement(playerController, Vector2I.Right);
+            await AwaitInputDebounce();
+            PressInteract(playerController);
+            await AwaitFrames(2);
+            PressInteractRelease(playerController);
+            await AwaitFrames(1);
+
+            PressMovement(playerController, Vector2I.Down);
+            await AwaitInputDebounce();
+            PressInteract(playerController);
+            await AwaitFrames(3);
+
+            var dialog = GetPrivateField<PuzzleRiddleDialog?>(gameScene, "_puzzleRiddleDialog");
+            AssertThat(dialog).IsNotNull();
+
+            dialog!.EmitSignal(PuzzleRiddleDialog.SignalName.ChoiceSelected, "north_stone");
+            await AwaitFrames(3);
+
+            AssertThat(gameManager.Player.CurrentHealth).IsEqual(23);
+            AssertThat(gameManager.IsPuzzleSolved(puzzleId)).IsFalse();
+            AssertThat(gameManager.IsInWorldInteraction).IsFalse();
+            AssertThat(GetPrivateField<PuzzleRiddleDialog?>(gameScene, "_puzzleRiddleDialog")).IsNull();
+
+            PressInteractRelease(playerController);
+            await AwaitFrames(1);
+            PressInteract(playerController);
+            await AwaitFrames(3);
+
+            var retryDialog = GetPrivateField<PuzzleRiddleDialog?>(gameScene, "_puzzleRiddleDialog");
+            AssertThat(retryDialog).IsNotNull();
+            retryDialog!.EmitSignal(PuzzleRiddleDialog.SignalName.PuzzleRiddleClosed);
+            await AwaitFrames(2);
+        }
+        finally
+        {
+            if (gameScene != null && IsInstanceValid(gameScene))
+            {
+                gameScene.Free();
+            }
+
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task Game_PuzzlePromptUsesUseForSwitchAndSolveForRiddle()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var scene = GD.Load<PackedScene>("res://scenes/game/Game.tscn")
+            ?? throw new InvalidOperationException("Failed to load Game.tscn.");
+        Node? gameScene = null;
+
+        try
+        {
+            gameScene = scene.Instantiate();
+            sceneTree.Root.AddChild(gameScene);
+            await AwaitFrames(6);
+
+            var floorManager = gameScene.GetNode<FloorManager>("FloorManager");
+            var gridMap = floorManager.CurrentGridMap;
+            var playerController = gameScene.GetNode<PlayerController>("PlayerController");
+
+            AssertThat(gridMap).IsNotNull();
+
+            const string puzzleId = "Puzzle_RuntimePromptTest";
+            var puzzleSwitch = new PuzzleSwitchSpawn
+            {
+                Name = "PuzzleSwitch_RuntimePromptTest",
+                SwitchId = "PuzzleSwitch_RuntimePromptTest",
+                PuzzleId = puzzleId,
+                GridPosition = new Vector2I(9, 50)
+            };
+            var riddle = CreateRuntimeRiddle("PuzzleRiddle_RuntimePromptTest", puzzleId, new Vector2I(8, 51));
+
+            AddPuzzleNode(gridMap, puzzleSwitch, "PuzzleSwitchSpawn");
+            AddPuzzleNode(gridMap, riddle, "PuzzleRiddleSpawn");
+
+            var freshGrid = new int[gridMap.GridWidth, gridMap.GridHeight];
+            SetPrivateField(gridMap, "_grid", freshGrid);
+            SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 50));
+            gridMap.CallDeferred(nameof(GridMap.RegisterStaticPuzzleEntities));
+            await AwaitFrames(3);
+
+            var prompt = gameScene.GetNodeOrNull<Label>("UI/GameUI/InteractionPrompt");
+            AssertThat(prompt).IsNotNull();
+
+            PressMovement(playerController, Vector2I.Right);
+            await AwaitInputDebounce();
+
+            AssertThat(prompt!.Visible).IsTrue();
+            AssertThat(prompt.Text).IsEqual("Use");
+
+            PressMovement(playerController, Vector2I.Down);
+            await AwaitInputDebounce();
+
+            AssertThat(prompt.Visible).IsTrue();
+            AssertThat(prompt.Text).IsEqual("Solve");
+        }
+        finally
+        {
+            if (gameScene != null && IsInstanceValid(gameScene))
+            {
+                gameScene.Free();
+            }
+
+            await AwaitFrames(1);
+        }
+    }
+
     private void PushPauseEvent()
     {
         var evt = CreatePauseEvent();
@@ -1164,6 +1492,13 @@ public partial class GameTest : Node
         {
             await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
         }
+    }
+
+    private static async Task AwaitInputDebounce()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        await sceneTree.ToSignal(sceneTree.CreateTimer(0.15), Timer.SignalName.Timeout);
+        await AwaitFrames(1);
     }
 
     private static void PressMovement(PlayerController controller, Vector2I direction)
@@ -1201,6 +1536,47 @@ public partial class GameTest : Node
         if (direction == Vector2I.Right) return Key.Right;
 
         throw new ArgumentOutOfRangeException(nameof(direction), direction, "Unsupported movement direction.");
+    }
+
+    private static PuzzleRiddleSpawn CreateRuntimeRiddle(string name, string puzzleId, Vector2I gridPosition)
+    {
+        return new PuzzleRiddleSpawn
+        {
+            Name = name,
+            RiddleId = name,
+            PuzzleId = puzzleId,
+            GridPosition = gridPosition,
+            PromptText = "Four stones face the old shortcut. Which stone sleeps until the lever wakes it?",
+            ChoiceIds = new Godot.Collections.Array<string> { "north_stone", "east_stone", "west_stone" },
+            ChoiceLabels = new Godot.Collections.Array<string> { "North Stone", "East Stone", "West Stone" },
+            CorrectChoiceId = "east_stone",
+            WrongAnswerDamage = 12
+        };
+    }
+
+    private static void AddPuzzleNode(GridMap gridMap, Node node, string groupName)
+    {
+        gridMap.AddChild(node);
+        node.AddToGroup(groupName);
+    }
+
+    private static Button? FindButtonWithText(Node root, string text)
+    {
+        foreach (Node child in root.GetChildren())
+        {
+            if (child is Button button && button.Text == text)
+            {
+                return button;
+            }
+
+            var nested = FindButtonWithText(child, text);
+            if (nested != null)
+            {
+                return nested;
+            }
+        }
+
+        return null;
     }
 
     private static SettingsMenuController InstantiateSettingsMenu()

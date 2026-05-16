@@ -1635,6 +1635,146 @@ public partial class GameTest : Node
         };
     }
 
+    // ─── Critical #2: Trap status-effect path tests ────────────────────────
+
+    [TestCase]
+    public void TrapStatusEffect_ValidId_AppliesEffectToPlayer()
+    {
+        // GameManager._Ready() creates the player; _gameManager is set up in [Before].
+        _gameManager!.EnsureFreshPlayer();
+        var player = _gameManager.Player;
+        player.CurrentHealth = 50;
+
+        var trap = new TrapTileSpawn
+        {
+            Name = "TrapTile_StatusTest",
+            PuzzleId = "Puzzle_Status",
+            StatusEffectId = "Poison",
+            StatusMagnitude = 3,
+            StatusTurns = 4
+        };
+
+        var method = typeof(Game).GetMethod("ApplyTrapStatusEffect",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        AssertThat(method).IsNotNull();
+        method!.Invoke(_game, new object[] { trap });
+
+        var effects = player.ActiveBuffs.Effects;
+        AssertThat(effects.Count).IsEqual(1);
+        AssertThat(effects[0].Type).IsEqual(StatusEffectType.Poison);
+        AssertThat(effects[0].Magnitude).IsEqual(3);
+        AssertThat(effects[0].TurnsRemaining).IsEqual(4);
+    }
+
+    [TestCase]
+    public void TrapStatusEffect_InvalidId_DoesNotApplyEffect()
+    {
+        _gameManager!.EnsureFreshPlayer();
+        _gameManager.Player.ActiveBuffs.Clear();
+
+        var trap = new TrapTileSpawn
+        {
+            Name = "TrapTile_BadStatus",
+            PuzzleId = "Puzzle_BadStatus",
+            StatusEffectId = "NotARealEffect",
+            StatusMagnitude = 5,
+            StatusTurns = 3
+        };
+
+        var method = typeof(Game).GetMethod("ApplyTrapStatusEffect",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(_game, new object[] { trap });
+
+        AssertThat(_gameManager.Player.ActiveBuffs.Effects.Count).IsEqual(0);
+    }
+
+    [TestCase]
+    public void TrapStatusEffect_ZeroTurns_DoesNotApplyEffect()
+    {
+        _gameManager!.EnsureFreshPlayer();
+        _gameManager.Player.ActiveBuffs.Clear();
+
+        var trap = new TrapTileSpawn
+        {
+            Name = "TrapTile_ZeroTurns",
+            PuzzleId = "Puzzle_ZeroTurns",
+            StatusEffectId = "Poison",
+            StatusMagnitude = 3,
+            StatusTurns = 0
+        };
+
+        var method = typeof(Game).GetMethod("ApplyTrapStatusEffect",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(_game, new object[] { trap });
+
+        AssertThat(_gameManager.Player.ActiveBuffs.Effects.Count).IsEqual(0);
+    }
+
+    [TestCase]
+    public void TrapStatusEffect_EmptyId_DoesNotApplyEffect()
+    {
+        _gameManager!.EnsureFreshPlayer();
+        _gameManager.Player.ActiveBuffs.Clear();
+
+        var trap = new TrapTileSpawn
+        {
+            Name = "TrapTile_EmptyStatus",
+            PuzzleId = "Puzzle_EmptyStatus",
+            StatusEffectId = "",
+            StatusMagnitude = 2,
+            StatusTurns = 3
+        };
+
+        var method = typeof(Game).GetMethod("ApplyTrapStatusEffect",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(_game, new object[] { trap });
+
+        AssertThat(_gameManager.Player.ActiveBuffs.Effects.Count).IsEqual(0);
+    }
+
+    // ─── Critical #3: Trap damage blocked by interaction flags ─────────────
+
+    [TestCase]
+    public void TrapDamage_BlockedWhenInBattle()
+    {
+        _gameManager!.EnsureFreshPlayer();
+        _gameManager.Player.CurrentHealth = 50;
+        _gameManager.StartBattle(Enemy.CreateGoblin());
+
+        InvokeOnTrapTileTriggered(new Vector2I(5, 5));
+        AssertThat(_gameManager.Player.CurrentHealth).IsEqual(50);
+    }
+
+    [TestCase]
+    public void TrapDamage_BlockedWhenInNpcInteraction()
+    {
+        _gameManager!.EnsureFreshPlayer();
+        _gameManager.Player.CurrentHealth = 50;
+        _gameManager.StartNpcInteraction();
+
+        InvokeOnTrapTileTriggered(new Vector2I(5, 5));
+        AssertThat(_gameManager.Player.CurrentHealth).IsEqual(50);
+    }
+
+    [TestCase]
+    public void TrapDamage_BlockedWhenInWorldInteraction()
+    {
+        _gameManager!.EnsureFreshPlayer();
+        _gameManager.Player.CurrentHealth = 50;
+        _gameManager.StartWorldInteraction();
+
+        InvokeOnTrapTileTriggered(new Vector2I(5, 5));
+        AssertThat(_gameManager.Player.CurrentHealth).IsEqual(50);
+    }
+
+    private void InvokeOnTrapTileTriggered(Vector2I position)
+    {
+        var method = typeof(Game).GetMethod("OnTrapTileTriggered",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        AssertThat(method).IsNotNull();
+        method!.Invoke(_game, new object[] { position });
+    }
+
     private static void AddPuzzleNode(GridMap gridMap, Node node, string groupName)
     {
         gridMap.AddChild(node);

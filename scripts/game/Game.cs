@@ -597,7 +597,11 @@ public partial class Game : Node2D
         try
         {
             _gameManager.StartWorldInteraction();
-            _puzzleTrapController.ActivateSwitch(puzzleSwitch.PuzzleId);
+            bool activated = _puzzleTrapController.ActivateSwitch(puzzleSwitch.PuzzleId);
+            if (!activated)
+            {
+                GD.Print($"[Game] Switch '{puzzleSwitch.Name}' did not activate (already solved, armed, or blank ID).");
+            }
         }
         finally
         {
@@ -737,6 +741,9 @@ public partial class Game : Node2D
         _gridMap?.RegisterStaticPuzzleEntities();
     }
 
+    // Traps deal damage but never kill — the floor at 1 HP is intentional so the
+    // player always survives to reach a healer.  Combat death (BattleManager) uses a
+    // different path because combat is an expected death scenario.
     private void ApplyPuzzleDamage(int damage)
     {
         if (damage <= 0 || _gameManager?.Player == null)

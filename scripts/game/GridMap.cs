@@ -2734,6 +2734,7 @@ public partial class GridMap : Node2D
 
         if (_stairTileCoords.Contains(InternalGridToTilemapCoords(gridPosition)))
         {
+            GD.PushWarning($"[GridMap] Puzzle entity at grid {gridPosition} (tilemap {InternalGridToTilemapCoords(gridPosition)}) conflicts with a stair tile; skipping cell registration.");
             return false;
         }
 

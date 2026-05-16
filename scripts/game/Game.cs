@@ -21,6 +21,9 @@ public partial class Game : Node2D
     private BattleManager _battleManager;
     private Vector2I _lastEnemyPosition; // Store enemy position for after battle
     private NpcInteractionController _npcInteractionController;
+    private PuzzleTrapController? _puzzleTrapController;
+    private PuzzleRiddleDialog? _puzzleRiddleDialog;
+    private PuzzleRiddleSpawn? _activePuzzleRiddle;
     private readonly System.Collections.Generic.HashSet<string> _questFlags = new();
     private PlayerDisplay _playerDisplay; // Visual sprite for player when using baked TileMaps
     private InventoryMenuController _inventoryMenu;
@@ -79,6 +82,7 @@ public partial class Game : Node2D
         // Set FloorManager reference in GameManager for save system
         _gameManager.SetFloorManager(_floorManager);
         _gameManager.QuestFlagProvider = () => _questFlags;
+        _puzzleTrapController = new PuzzleTrapController(_gameManager);
 
         // Initialize HUD labels BEFORE connecting signals (LoadFromSaveData may emit PlayerStatsChanged)
         _playerNameLabel =
@@ -339,6 +343,11 @@ public partial class Game : Node2D
             return;
         }
 
+        if (_puzzleRiddleDialog != null && IsInstanceValid(_puzzleRiddleDialog))
+        {
+            return;
+        }
+
         if (_gameManager.IsInWorldInteraction)
         {
             GetViewport().SetInputAsHandled();
@@ -533,6 +542,213 @@ public partial class Game : Node2D
         }
     }
 
+    private void OnTrapTileTriggered(Vector2I trapPosition)
+    {
+        if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction || _gameManager.IsInWorldInteraction)
+        {
+            return;
+        }
+
+        var trap = FindTrapTileAt(trapPosition);
+        if (trap == null)
+        {
+            GD.PushWarning($"[Game] Trap triggered at {trapPosition} but no TrapTileSpawn was found.");
+            return;
+        }
+
+        if (_gameManager.IsPuzzleSolved(trap.PuzzleId))
+        {
+            return;
+        }
+
+        ApplyPuzzleDamage(trap.Damage);
+        ApplyTrapStatusEffect(trap);
+        _gameManager.NotifyPlayerStatsChanged();
+    }
+
+    private void OnPuzzleInteractionRequested(Vector2I puzzlePosition)
+    {
+        if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction || _gameManager.IsInWorldInteraction)
+        {
+            return;
+        }
+
+        var puzzleSwitch = FindPuzzleSwitchAt(puzzlePosition);
+        if (puzzleSwitch != null)
+        {
+            HandlePuzzleSwitch(puzzleSwitch);
+            return;
+        }
+
+        var riddle = FindPuzzleRiddleAt(puzzlePosition);
+        if (riddle != null)
+        {
+            OpenPuzzleRiddle(riddle);
+        }
+    }
+
+    private void HandlePuzzleSwitch(PuzzleSwitchSpawn puzzleSwitch)
+    {
+        if (_puzzleTrapController == null || string.IsNullOrWhiteSpace(puzzleSwitch.PuzzleId))
+        {
+            return;
+        }
+
+        try
+        {
+            _gameManager.StartWorldInteraction();
+            _puzzleTrapController.ActivateSwitch(puzzleSwitch.PuzzleId);
+        }
+        finally
+        {
+            if (IsInstanceValid(_gameManager) && _gameManager.IsInWorldInteraction)
+            {
+                _gameManager.EndWorldInteraction();
+            }
+
+            if (IsInsideTree())
+            {
+                UpdateInteractionPrompt();
+            }
+        }
+    }
+
+    private void OpenPuzzleRiddle(PuzzleRiddleSpawn riddle)
+    {
+        if (_puzzleTrapController == null || string.IsNullOrWhiteSpace(riddle.PuzzleId))
+        {
+            return;
+        }
+
+        if (_gameManager.IsPuzzleSolved(riddle.PuzzleId))
+        {
+            UpdateInteractionPrompt();
+            return;
+        }
+
+        CleanupPuzzleRiddleDialog(endWorldInteraction: false);
+        _activePuzzleRiddle = riddle;
+        _gameManager.StartWorldInteraction();
+        UpdateInteractionPrompt();
+
+        try
+        {
+            _puzzleRiddleDialog = new PuzzleRiddleDialog();
+            _puzzleRiddleDialog.ChoiceSelected += OnPuzzleRiddleChoiceSelected;
+            _puzzleRiddleDialog.PuzzleRiddleClosed += OnPuzzleRiddleClosed;
+            GetNode("UI").AddChild(_puzzleRiddleDialog);
+            _puzzleRiddleDialog.OpenRiddle(riddle);
+        }
+        catch (Exception ex)
+        {
+            GD.PushError($"[Game] Failed to open puzzle riddle '{riddle.RiddleId}': {ex}");
+            CleanupPuzzleRiddleDialog();
+            if (IsInsideTree())
+            {
+                UpdateInteractionPrompt();
+            }
+        }
+    }
+
+    private void OnPuzzleRiddleChoiceSelected(string choiceId)
+    {
+        try
+        {
+            var riddle = _activePuzzleRiddle;
+            if (riddle == null || _puzzleTrapController == null)
+            {
+                return;
+            }
+
+            var result = _puzzleTrapController.TrySolveRiddle(riddle, choiceId);
+            if (result.ShouldApplyPenalty)
+            {
+                ApplyPuzzleDamage(riddle.WrongAnswerDamage);
+                _gameManager.NotifyPlayerStatsChanged();
+            }
+
+            if (result.Solved)
+            {
+                ApplyPuzzleSolvedState(riddle.PuzzleId);
+                _gameManager.NotifyPlayerStatsChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            GD.PushError($"[Game] Failed to resolve puzzle riddle choice '{choiceId}': {ex}");
+        }
+        finally
+        {
+            CleanupPuzzleRiddleDialog();
+            if (IsInsideTree())
+            {
+                UpdateInteractionPrompt();
+            }
+        }
+    }
+
+    private void OnPuzzleRiddleClosed()
+    {
+        CleanupPuzzleRiddleDialog();
+        UpdateInteractionPrompt();
+    }
+
+    private void CleanupPuzzleRiddleDialog(bool endWorldInteraction = true)
+    {
+        if (_puzzleRiddleDialog != null)
+        {
+            if (IsInstanceValid(_puzzleRiddleDialog))
+            {
+                _puzzleRiddleDialog.ChoiceSelected -= OnPuzzleRiddleChoiceSelected;
+                _puzzleRiddleDialog.PuzzleRiddleClosed -= OnPuzzleRiddleClosed;
+                _puzzleRiddleDialog.QueueFree();
+            }
+
+            _puzzleRiddleDialog = null;
+        }
+
+        _activePuzzleRiddle = null;
+        if (endWorldInteraction && IsInstanceValid(_gameManager) && _gameManager.IsInWorldInteraction)
+        {
+            _gameManager.EndWorldInteraction();
+        }
+    }
+
+    private void ApplyPuzzleSolvedState(string puzzleId)
+    {
+        var gate = FindPuzzleGateByPuzzleId(puzzleId);
+        gate?.ApplySolvedState(true);
+        _gridMap?.RegisterStaticPuzzleEntities();
+    }
+
+    private void ApplyPuzzleDamage(int damage)
+    {
+        if (damage <= 0 || _gameManager?.Player == null)
+        {
+            return;
+        }
+
+        var player = _gameManager.Player;
+        player.CurrentHealth = Mathf.Max(1, player.CurrentHealth - damage);
+    }
+
+    private void ApplyTrapStatusEffect(TrapTileSpawn trap)
+    {
+        if (string.IsNullOrWhiteSpace(trap.StatusEffectId) || trap.StatusTurns <= 0 || _gameManager?.Player == null)
+        {
+            return;
+        }
+
+        if (Enum.TryParse(trap.StatusEffectId, ignoreCase: true, out StatusEffectType effectType))
+        {
+            _gameManager.Player.ActiveBuffs.Add(new ActiveStatusEffect(effectType, trap.StatusMagnitude, trap.StatusTurns));
+        }
+        else
+        {
+            GD.PushWarning($"[Game] Unknown trap status effect '{trap.StatusEffectId}' on '{trap.Name}'.");
+        }
+    }
+
     private TreasureBoxSpawn? FindTreasureBoxAt(Vector2I internalGridPosition)
     {
         if (_gridMap == null)
@@ -550,6 +766,66 @@ public partial class Game : Node2D
                 box.GridPosition == tilemapPos)
             {
                 return box;
+            }
+        }
+
+        return null;
+    }
+
+    private TrapTileSpawn? FindTrapTileAt(Vector2I internalGridPosition)
+    {
+        return FindPuzzleNodeAt<TrapTileSpawn>("TrapTileSpawn", internalGridPosition);
+    }
+
+    private PuzzleSwitchSpawn? FindPuzzleSwitchAt(Vector2I internalGridPosition)
+    {
+        return FindPuzzleNodeAt<PuzzleSwitchSpawn>("PuzzleSwitchSpawn", internalGridPosition);
+    }
+
+    private PuzzleRiddleSpawn? FindPuzzleRiddleAt(Vector2I internalGridPosition)
+    {
+        return FindPuzzleNodeAt<PuzzleRiddleSpawn>("PuzzleRiddleSpawn", internalGridPosition);
+    }
+
+    private T? FindPuzzleNodeAt<T>(string groupName, Vector2I internalGridPosition)
+        where T : PuzzleSpawnBase
+    {
+        if (_gridMap == null)
+        {
+            return null;
+        }
+
+        Vector2I tilemapPos = _gridMap.InternalGridToTilemapCoords(internalGridPosition);
+        Node? currentFloorRoot = _gridMap.GetParent();
+
+        foreach (Node n in GetTree().GetNodesInGroup(groupName))
+        {
+            if (n is T spawn &&
+                spawn.BelongsToFloor(currentFloorRoot) &&
+                spawn.GridPosition == tilemapPos)
+            {
+                return spawn;
+            }
+        }
+
+        return null;
+    }
+
+    private PuzzleGateSpawn? FindPuzzleGateByPuzzleId(string puzzleId)
+    {
+        if (_gridMap == null || string.IsNullOrWhiteSpace(puzzleId))
+        {
+            return null;
+        }
+
+        Node? currentFloorRoot = _gridMap.GetParent();
+        foreach (Node n in GetTree().GetNodesInGroup("PuzzleGateSpawn"))
+        {
+            if (n is PuzzleGateSpawn gate &&
+                gate.BelongsToFloor(currentFloorRoot) &&
+                gate.PuzzleId == puzzleId)
+            {
+                return gate;
             }
         }
 
@@ -614,12 +890,37 @@ public partial class Game : Node2D
 
         Vector2I target = _gridMap.GetPlayerPosition() + _playerController.FacingDirection;
         var box = FindTreasureBoxAt(target);
-        bool canOpen = box != null &&
-                       !box.IsOpened &&
-                       !box.IsOpening &&
-                       !_gameManager.IsTreasureBoxOpened(box.TreasureBoxId);
+        if (box != null &&
+            !box.IsOpened &&
+            !box.IsOpening &&
+            !_gameManager.IsTreasureBoxOpened(box.TreasureBoxId))
+        {
+            _interactionPromptLabel.Text = "Open";
+            _interactionPromptLabel.Visible = true;
+            return;
+        }
 
-        _interactionPromptLabel.Visible = canOpen;
+        var puzzleSwitch = FindPuzzleSwitchAt(target);
+        if (puzzleSwitch != null &&
+            !string.IsNullOrWhiteSpace(puzzleSwitch.PuzzleId) &&
+            !_gameManager.IsPuzzleSolved(puzzleSwitch.PuzzleId))
+        {
+            _interactionPromptLabel.Text = "Use";
+            _interactionPromptLabel.Visible = true;
+            return;
+        }
+
+        var riddle = FindPuzzleRiddleAt(target);
+        if (riddle != null &&
+            !string.IsNullOrWhiteSpace(riddle.PuzzleId) &&
+            !_gameManager.IsPuzzleSolved(riddle.PuzzleId))
+        {
+            _interactionPromptLabel.Text = "Solve";
+            _interactionPromptLabel.Visible = true;
+            return;
+        }
+
+        _interactionPromptLabel.Visible = false;
     }
 
     private void OnNpcInteractionComplete()
@@ -1409,6 +1710,8 @@ public partial class Game : Node2D
             _gridMap.PlayerMoved -= OnPlayerMoved;
             _gridMap.NpcInteracted -= OnNpcInteracted;
             _gridMap.TreasureBoxOpenRequested -= OnTreasureBoxOpenRequested;
+            _gridMap.TrapTileTriggered -= OnTrapTileTriggered;
+            _gridMap.PuzzleInteractionRequested -= OnPuzzleInteractionRequested;
         }
 
         // Update dynamic GridMap reference
@@ -1427,6 +1730,8 @@ public partial class Game : Node2D
             _gridMap.PlayerMoved += OnPlayerMoved;
             _gridMap.NpcInteracted += OnNpcInteracted;
             _gridMap.TreasureBoxOpenRequested += OnTreasureBoxOpenRequested;
+            _gridMap.TrapTileTriggered += OnTrapTileTriggered;
+            _gridMap.PuzzleInteractionRequested += OnPuzzleInteractionRequested;
 
             if (_hasPendingSaveSpawnValidation)
             {
@@ -1515,6 +1820,8 @@ public partial class Game : Node2D
             _gridMap.PlayerMoved -= OnPlayerMoved;
             _gridMap.NpcInteracted -= OnNpcInteracted;
             _gridMap.TreasureBoxOpenRequested -= OnTreasureBoxOpenRequested;
+            _gridMap.TrapTileTriggered -= OnTrapTileTriggered;
+            _gridMap.PuzzleInteractionRequested -= OnPuzzleInteractionRequested;
         }
 
         if (_playerController != null)
@@ -1528,6 +1835,8 @@ public partial class Game : Node2D
             _npcInteractionController.Finish();
             _npcInteractionController = null;
         }
+
+        CleanupPuzzleRiddleDialog(endWorldInteraction: false);
 
         // Clean up save dialog if it exists
         if (_saveLoadDialog != null)

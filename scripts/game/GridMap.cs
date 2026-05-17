@@ -2006,11 +2006,22 @@ public partial class GridMap : Node2D
         // Move player (guard grid writes by bounds)
         if (IsWithinGrid(_playerPosition))
         {
-            // Restore TrapTile rather than Empty so the trap re-triggers if the player
-            // steps on it again (unsolved puzzles remain dangerous until solved).
-            _grid[_playerPosition.X, _playerPosition.Y] = _registeredTrapCells.Contains(_playerPosition)
-                ? (int)CellType.TrapTile
-                : (int)CellType.Empty;
+            // Restore the underlying cell type when the player steps off.
+            // Traps take priority, then gates, then empty.
+            CellType restoreCell;
+            if (_registeredTrapCells.Contains(_playerPosition))
+            {
+                restoreCell = CellType.TrapTile;
+            }
+            else if (_registeredPuzzleGateCells.Contains(_playerPosition))
+            {
+                restoreCell = CellType.PuzzleGate;
+            }
+            else
+            {
+                restoreCell = CellType.Empty;
+            }
+            _grid[_playerPosition.X, _playerPosition.Y] = (int)restoreCell;
         }
         _playerPosition = newPosition;
         if (IsWithinGrid(_playerPosition))
@@ -2589,13 +2600,17 @@ public partial class GridMap : Node2D
             trap.UpdateVisual(this);
             if (!puzzleSolved)
             {
-                // Always register the trap position so TryMovePlayer can restore it
-                // correctly when the player steps off, even if the cell is currently
-                // occupied by the player (e.g. after a save/load cycle).
-                _registeredTrapCells.Add(gridPosition);
+                CellType currentCell = (CellType)_grid[gridPosition.X, gridPosition.Y];
                 if (CanWritePuzzleCell(gridPosition))
                 {
+                    _registeredTrapCells.Add(gridPosition);
                     _grid[gridPosition.X, gridPosition.Y] = (int)CellType.TrapTile;
+                }
+                else if (currentCell == CellType.Player)
+                {
+                    // Save/load overlap: register so TryMovePlayer restores the trap
+                    // when the player steps off, but don't overwrite the Player cell.
+                    _registeredTrapCells.Add(gridPosition);
                 }
             }
         }
@@ -2623,10 +2638,19 @@ public partial class GridMap : Node2D
 
             gate.ApplySolvedState(puzzleSolved);
             gate.UpdateVisual(this);
-            if (gate.BlocksMovement && CanWritePuzzleCell(gridPosition))
+            if (gate.BlocksMovement)
             {
-                _registeredPuzzleGateCells.Add(gridPosition);
-                _grid[gridPosition.X, gridPosition.Y] = (int)CellType.PuzzleGate;
+                if (CanWritePuzzleCell(gridPosition))
+                {
+                    _registeredPuzzleGateCells.Add(gridPosition);
+                    _grid[gridPosition.X, gridPosition.Y] = (int)CellType.PuzzleGate;
+                }
+                else if ((CellType)_grid[gridPosition.X, gridPosition.Y] == CellType.Player)
+                {
+                    // Save/load overlap: register so TryMovePlayer restores the gate
+                    // when the player steps off, but don't overwrite the Player cell.
+                    _registeredPuzzleGateCells.Add(gridPosition);
+                }
             }
             else if ((CellType)_grid[gridPosition.X, gridPosition.Y] == CellType.PuzzleGate)
             {

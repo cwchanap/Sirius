@@ -234,6 +234,60 @@ public partial class GridMapPuzzleTrapTest : Node
             AssertThat(grid[2, 3]).IsEqual((int)GridMap.CellType.Empty);
             AssertThat(grid[3, 3]).IsEqual((int)GridMap.CellType.Empty);
             AssertThat(grid[4, 3]).IsEqual((int)GridMap.CellType.Empty);
+
+            // Trap on stair must NOT be registered — otherwise TryMovePlayer would
+            // later overwrite the original cell with TrapTile.
+            var registeredTraps = GetPrivateField<System.Collections.Generic.HashSet<Vector2I>>(
+                gridMap, "_registeredTrapCells");
+            AssertThat(registeredTraps.Contains(new Vector2I(2, 3))).IsFalse();
+        }
+        finally
+        {
+            floor.Free();
+        }
+    }
+
+    [TestCase]
+    public async Task TryMovePlayer_PlayerOnGateCell_GateIsRestoredAfterMoveOff()
+    {
+        // Full end-to-end test: player loads on a closed gate, moves off,
+        // then tries to walk back — gate should block.
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var floor = new Node2D { Name = "PuzzleFloor" };
+        var gridMap = CreateGridMapWithGrid();
+        var grid = GetPrivateField<int[,]>(gridMap, "_grid");
+        SetPrivateField(gridMap, "_playerPosition", new Vector2I(5, 5));
+        grid[5, 5] = (int)GridMap.CellType.Player;
+
+        var gate = new PuzzleGateSpawn
+        {
+            Name = "PuzzleGate_UnderPlayer",
+            GateId = "PuzzleGate_UnderPlayer",
+            PuzzleId = "Puzzle_GateUnderPlayer",
+            GridPosition = new Vector2I(5, 5),
+            StartsClosed = true
+        };
+
+        floor.AddChild(gridMap);
+        gridMap.AddChild(gate);
+        sceneTree.Root.AddChild(floor);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            gridMap.RegisterStaticPuzzleEntities();
+
+            // Cell stays Player
+            AssertThat(grid[5, 5]).IsEqual((int)GridMap.CellType.Player);
+
+            // Move player right — old cell restores to PuzzleGate
+            AssertThat(gridMap.TryMovePlayer(Vector2I.Right)).IsTrue();
+            AssertThat(grid[5, 5]).IsEqual((int)GridMap.CellType.PuzzleGate);
+            AssertThat(gridMap.GetPlayerPosition()).IsEqual(new Vector2I(6, 5));
+
+            // Walking back onto the gate should be blocked
+            AssertThat(gridMap.TryMovePlayer(Vector2I.Left)).IsFalse();
+            AssertThat(gridMap.GetPlayerPosition()).IsEqual(new Vector2I(6, 5));
         }
         finally
         {
@@ -686,12 +740,13 @@ public partial class GridMapPuzzleTrapTest : Node
             // Player cell should remain Player (CanWritePuzzleCell rejects Player occupancy)
             AssertThat(grid[6, 5]).IsEqual((int)GridMap.CellType.Player);
 
-            // Gate is blocked from registering because the cell is Player —
-            // moving away restores to Empty (gate is lost for this session).
-            // This is a known edge case; traps handle it via _registeredTrapCells
-            // but gates do not have equivalent "always-register-position" logic.
+            // Gate is registered despite Player occupancy (save/load overlap).
+            // Moving away should restore to PuzzleGate, not Empty.
             AssertThat(gridMap.TryMovePlayer(Vector2I.Right)).IsTrue();
-            AssertThat(grid[6, 5]).IsEqual((int)GridMap.CellType.Empty);
+            AssertThat(grid[6, 5]).IsEqual((int)GridMap.CellType.PuzzleGate);
+
+            // Verify the gate also blocks movement when walking back onto it
+            AssertThat(gridMap.TryMovePlayer(Vector2I.Left)).IsFalse();
         }
         finally
         {

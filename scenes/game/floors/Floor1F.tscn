@@ -441,6 +441,7 @@ RewardItemQuantities = Array[int]([1])
 z_index = 2
 position = Vector2(592, 1712)
 script = ExtResource("13_x4rsm")
+TrapId = "TrapTile_1F_SouthTrial_01"
 PuzzleId = "Puzzle_1F_SouthShortcutTrial"
 GridPosition = Vector2i(18, 53)
 
@@ -448,6 +449,7 @@ GridPosition = Vector2i(18, 53)
 z_index = 2
 position = Vector2(560, 1744)
 script = ExtResource("13_x4rsm")
+TrapId = "TrapTile_1F_SouthTrial_02"
 PuzzleId = "Puzzle_1F_SouthShortcutTrial"
 GridPosition = Vector2i(17, 54)
 
@@ -455,6 +457,7 @@ GridPosition = Vector2i(17, 54)
 z_index = 2
 position = Vector2(656, 1744)
 script = ExtResource("13_x4rsm")
+TrapId = "TrapTile_1F_SouthTrial_03"
 PuzzleId = "Puzzle_1F_SouthShortcutTrial"
 GridPosition = Vector2i(20, 54)
 
@@ -462,6 +465,7 @@ GridPosition = Vector2i(20, 54)
 z_index = 2
 position = Vector2(688, 1776)
 script = ExtResource("13_x4rsm")
+TrapId = "TrapTile_1F_SouthTrial_04"
 PuzzleId = "Puzzle_1F_SouthShortcutTrial"
 GridPosition = Vector2i(21, 55)
 

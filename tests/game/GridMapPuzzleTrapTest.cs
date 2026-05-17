@@ -757,6 +757,110 @@ public partial class GridMapPuzzleTrapTest : Node
     }
 
     [TestCase]
+    public async Task RegisterStaticPuzzleTraps_PlayerOnSwitchCell_CellStaysPlayerUntilMove()
+    {
+        // Save/load overlap: player position overlaps an unsolved switch.
+        // RegisterPuzzleInteractable should register the cell without overwriting Player,
+        // and TryMovePlayer should restore PuzzleInteractable when the player steps off.
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var previousGameManager = GameManager.Instance;
+        var gameManager = new GameManager();
+        SetGameManagerSingleton(gameManager);
+
+        var floor = new Node2D { Name = "PuzzleFloor" };
+        var gridMap = CreateGridMapWithGrid();
+        var grid = GetPrivateField<int[,]>(gridMap, "_grid");
+        // Player at (7,5), switch also at (7,5) — simulates save/load overlap
+        SetPrivateField(gridMap, "_playerPosition", new Vector2I(7, 5));
+        grid[7, 5] = (int)GridMap.CellType.Player;
+
+        var puzzleSwitch = new PuzzleSwitchSpawn
+        {
+            Name = "PuzzleSwitch_PlayerOverlap",
+            SwitchId = "PuzzleSwitch_PlayerOverlap",
+            PuzzleId = "Puzzle_OverlapSwitch",
+            GridPosition = new Vector2I(7, 5)
+        };
+
+        floor.AddChild(gridMap);
+        gridMap.AddChild(puzzleSwitch);
+        sceneTree.Root.AddChild(floor);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            gridMap.RegisterStaticPuzzleEntities();
+
+            // Player cell should remain Player
+            AssertThat(grid[7, 5]).IsEqual((int)GridMap.CellType.Player);
+
+            // Switch is registered despite Player occupancy.
+            // Moving away should restore to PuzzleInteractable, not Empty.
+            AssertThat(gridMap.TryMovePlayer(Vector2I.Right)).IsTrue();
+            AssertThat(grid[7, 5]).IsEqual((int)GridMap.CellType.PuzzleInteractable);
+        }
+        finally
+        {
+            floor.Free();
+            gameManager.Free();
+            SetGameManagerSingleton(previousGameManager);
+        }
+    }
+
+    [TestCase]
+    public async Task RegisterStaticPuzzleTraps_PlayerOnRiddleCell_CellStaysPlayerUntilMove()
+    {
+        // Save/load overlap: player position overlaps an unsolved riddle.
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var previousGameManager = GameManager.Instance;
+        var gameManager = new GameManager();
+        SetGameManagerSingleton(gameManager);
+
+        var floor = new Node2D { Name = "PuzzleFloor" };
+        var gridMap = CreateGridMapWithGrid();
+        var grid = GetPrivateField<int[,]>(gridMap, "_grid");
+        // Player at (8,5), riddle also at (8,5) — simulates save/load overlap
+        SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 5));
+        grid[8, 5] = (int)GridMap.CellType.Player;
+
+        var riddle = new PuzzleRiddleSpawn
+        {
+            Name = "PuzzleRiddle_PlayerOverlap",
+            RiddleId = "PuzzleRiddle_PlayerOverlap",
+            PuzzleId = "Puzzle_OverlapRiddle",
+            GridPosition = new Vector2I(8, 5),
+            PromptText = "Test riddle?",
+            ChoiceIds = new Godot.Collections.Array<string> { "a", "b" },
+            ChoiceLabels = new Godot.Collections.Array<string> { "A", "B" },
+            CorrectChoiceId = "a"
+        };
+
+        floor.AddChild(gridMap);
+        gridMap.AddChild(riddle);
+        sceneTree.Root.AddChild(floor);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            gridMap.RegisterStaticPuzzleEntities();
+
+            // Player cell should remain Player
+            AssertThat(grid[8, 5]).IsEqual((int)GridMap.CellType.Player);
+
+            // Riddle is registered despite Player occupancy.
+            // Moving away should restore to PuzzleInteractable, not Empty.
+            AssertThat(gridMap.TryMovePlayer(Vector2I.Right)).IsTrue();
+            AssertThat(grid[8, 5]).IsEqual((int)GridMap.CellType.PuzzleInteractable);
+        }
+        finally
+        {
+            floor.Free();
+            gameManager.Free();
+            SetGameManagerSingleton(previousGameManager);
+        }
+    }
+
+    [TestCase]
     public void PuzzleTrapController_DuplicatePuzzleId_ActivateSwitchReturnsFalseOnSecondArm()
     {
         var manager = new GameManager();

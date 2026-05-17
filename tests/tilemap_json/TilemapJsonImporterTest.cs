@@ -1324,4 +1324,42 @@ public partial class TilemapJsonImporterTest : Node
         AssertThat(downStair.Direction).IsEqual(StairDirection.Down);
         sceneRoot.Free();
     }
+
+    [TestCase]
+    public void ImportToScene_DuplicateTrapTileIds_OnlyProcessesFirst()
+    {
+        var sceneRoot = new Node2D { Name = "TestFloor" };
+        var gridMap = new Node2D { Name = "GridMap" };
+        sceneRoot.AddChild(gridMap);
+        gridMap.Owner = sceneRoot;
+
+        var model = new FloorJsonModel
+        {
+            Entities = new SceneEntities
+            {
+                TrapTiles =
+                [
+                    new TrapTileData { Id = "TrapTile_Dup", PuzzleId = "Puzzle_Dup", Position = new Vector2IData(1, 1), Damage = 10 },
+                    new TrapTileData { Id = "TrapTile_Dup", PuzzleId = "Puzzle_Dup", Position = new Vector2IData(2, 2), Damage = 20 }
+                ]
+            }
+        };
+
+        var importer = new TilemapJsonImporter();
+        var err = importer.ImportToScene(model, gridMap);
+
+        AssertThat(err).IsEqual(Godot.Error.Ok);
+        // Only one node should exist — the duplicate was skipped
+        var trap = gridMap.GetNodeOrNull<TrapTileSpawn>("TrapTile_Dup");
+        AssertThat(trap).IsNotNull();
+        AssertThat(trap!.Damage).IsEqual(10);
+        // Count total TrapTileSpawn children — should be exactly 1
+        int count = 0;
+        foreach (var child in gridMap.GetChildren())
+        {
+            if (child is TrapTileSpawn) count++;
+        }
+        AssertThat(count).IsEqual(1);
+        sceneRoot.Free();
+    }
 }

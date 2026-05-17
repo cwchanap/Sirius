@@ -316,7 +316,7 @@ public partial class Floor1FMazeLayoutTest : Node
         {
             var gridMap = floorRoot.GetNode<GridMap>("GridMap");
             var walls = GetWalls(gridMap);
-            var traps = gridMap.GetChildren().OfType<TrapTileSpawn>().ToDictionary(trap => trap.Name.ToString());
+            var traps = gridMap.GetChildren().OfType<TrapTileSpawn>().ToDictionary(trap => trap.TrapId);
             var switches = gridMap.GetChildren().OfType<PuzzleSwitchSpawn>().ToDictionary(puzzleSwitch => puzzleSwitch.SwitchId);
             var gates = gridMap.GetChildren().OfType<PuzzleGateSpawn>().ToDictionary(gate => gate.GateId);
             var riddles = gridMap.GetChildren().OfType<PuzzleRiddleSpawn>().ToDictionary(riddle => riddle.RiddleId);

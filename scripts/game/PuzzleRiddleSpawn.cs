@@ -49,10 +49,16 @@ public partial class PuzzleRiddleSpawn : PuzzleSpawnBase
     public IReadOnlyList<PuzzleRiddleChoice> GetChoices()
     {
         var choices = new List<PuzzleRiddleChoice>();
+        if (ChoiceIds == null)
+        {
+            return choices;
+        }
+
+        var labels = ChoiceLabels ?? new Godot.Collections.Array<string>();
         for (int i = 0; i < ChoiceIds.Count; i++)
         {
             string id = ChoiceIds[i];
-            string label = i < ChoiceLabels.Count ? ChoiceLabels[i] : id;
+            string label = i < labels.Count ? labels[i] : id;
             choices.Add(new PuzzleRiddleChoice(id, label));
         }
 

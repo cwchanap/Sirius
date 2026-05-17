@@ -69,6 +69,50 @@ public partial class PuzzleTrapSpawnTest : Node
     }
 
     [TestCase]
+    public void RiddleSpawn_GetChoices_ReturnsEmptyWhenChoiceIdsNull()
+    {
+        var riddle = new PuzzleRiddleSpawn
+        {
+            CorrectChoiceId = "a",
+            ChoiceIds = null,
+            ChoiceLabels = null
+        };
+
+        try
+        {
+            var choices = riddle.GetChoices();
+            AssertThat(choices.Count).IsEqual(0);
+        }
+        finally
+        {
+            riddle.Free();
+        }
+    }
+
+    [TestCase]
+    public void RiddleSpawn_GetChoices_FallsBackToIdWhenLabelsNull()
+    {
+        var riddle = new PuzzleRiddleSpawn
+        {
+            CorrectChoiceId = "b",
+            ChoiceIds = ["a", "b"],
+            ChoiceLabels = null
+        };
+
+        try
+        {
+            var choices = riddle.GetChoices();
+            AssertThat(choices.Count).IsEqual(2);
+            AssertThat(choices[0].Label).IsEqual("a");
+            AssertThat(choices[1].Label).IsEqual("b");
+        }
+        finally
+        {
+            riddle.Free();
+        }
+    }
+
+    [TestCase]
     public void GateSpawn_ApplySolvedStateTracksBlockingState()
     {
         var gate = new PuzzleGateSpawn { StartsClosed = true };

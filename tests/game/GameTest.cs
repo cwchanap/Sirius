@@ -1643,6 +1643,7 @@ public partial class GameTest : Node
         // GameManager._Ready() creates the player; _gameManager is set up in [Before].
         _gameManager!.EnsureFreshPlayer();
         var player = _gameManager.Player;
+        player.ActiveBuffs.Clear();
         player.CurrentHealth = 50;
 
         var trap = new TrapTileSpawn

@@ -542,6 +542,11 @@ public partial class TilemapJsonImporter : RefCounted
 
         foreach (var trapData in trapTiles)
         {
+            if (!string.IsNullOrWhiteSpace(trapData.Id) && processedIds.Contains(trapData.Id))
+            {
+                continue;
+            }
+
             MarkProcessedIfIdPresent(processedIds, trapData.Id);
 
             if (!HasValidPuzzleIdentity(trapData.Id, trapData.PuzzleId, "trap tile"))
@@ -618,6 +623,11 @@ public partial class TilemapJsonImporter : RefCounted
 
         foreach (var switchData in switches)
         {
+            if (!string.IsNullOrWhiteSpace(switchData.Id) && processedIds.Contains(switchData.Id))
+            {
+                continue;
+            }
+
             MarkProcessedIfIdPresent(processedIds, switchData.Id);
 
             if (!HasValidPuzzleIdentity(switchData.Id, switchData.PuzzleId, "puzzle switch"))
@@ -692,6 +702,11 @@ public partial class TilemapJsonImporter : RefCounted
 
         foreach (var gateData in gates)
         {
+            if (!string.IsNullOrWhiteSpace(gateData.Id) && processedIds.Contains(gateData.Id))
+            {
+                continue;
+            }
+
             MarkProcessedIfIdPresent(processedIds, gateData.Id);
 
             if (!HasValidPuzzleIdentity(gateData.Id, gateData.PuzzleId, "puzzle gate"))
@@ -771,6 +786,11 @@ public partial class TilemapJsonImporter : RefCounted
 
         foreach (var riddleData in riddles)
         {
+            if (!string.IsNullOrWhiteSpace(riddleData.Id) && processedIds.Contains(riddleData.Id))
+            {
+                continue;
+            }
+
             MarkProcessedIfIdPresent(processedIds, riddleData.Id);
 
             if (!HasValidPuzzleIdentity(riddleData.Id, riddleData.PuzzleId, "puzzle riddle"))

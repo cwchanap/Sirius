@@ -2007,7 +2007,7 @@ public partial class GridMap : Node2D
         if (IsWithinGrid(_playerPosition))
         {
             // Restore the underlying cell type when the player steps off.
-            // Traps take priority, then gates, then empty.
+            // Traps take priority, then gates, then interactables, then empty.
             CellType restoreCell;
             if (_registeredTrapCells.Contains(_playerPosition))
             {
@@ -2016,6 +2016,10 @@ public partial class GridMap : Node2D
             else if (_registeredPuzzleGateCells.Contains(_playerPosition))
             {
                 restoreCell = CellType.PuzzleGate;
+            }
+            else if (_registeredPuzzleInteractableCells.Contains(_playerPosition))
+            {
+                restoreCell = CellType.PuzzleInteractable;
             }
             else
             {
@@ -2748,6 +2752,12 @@ public partial class GridMap : Node2D
         {
             _registeredPuzzleInteractableCells.Add(gridPosition);
             _grid[gridPosition.X, gridPosition.Y] = (int)CellType.PuzzleInteractable;
+        }
+        else if ((CellType)_grid[gridPosition.X, gridPosition.Y] == CellType.Player)
+        {
+            // Save/load overlap: register so TryMovePlayer restores PuzzleInteractable
+            // when the player steps off, but don't overwrite the Player cell.
+            _registeredPuzzleInteractableCells.Add(gridPosition);
         }
     }
 

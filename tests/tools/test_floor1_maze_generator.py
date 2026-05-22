@@ -27,13 +27,27 @@ from tools.floor1_maze_generator import (
     FLOOR1_WIDTH,
     FLOOR2_DOWN_STAIR_A,
     FLOOR2_DOWN_STAIR_B,
+    FLOOR2_ENEMY_GATES,
+    FLOOR2_EXTRA_ENEMY_PATROLS,
     FLOOR2_HEIGHT,
     FLOOR2_PLAYER_START,
+    FLOOR2_PUZZLE_GATES,
+    FLOOR2_PUZZLE_ID,
+    FLOOR2_PUZZLE_RIDDLES,
+    FLOOR2_PUZZLE_SWITCHES,
+    FLOOR2_PUZZLE_TRAPS,
+    FLOOR2_TREASURE_BOXES,
+    FLOOR2_UP_STAIR,
     FLOOR2_WIDTH,
+    FLOOR3_DOWN_STAIR,
+    FLOOR3_HEIGHT,
+    FLOOR3_PLAYER_START,
+    FLOOR3_WIDTH,
     GRID_HEIGHT,
     GRID_WIDTH,
     build_floor1_model,
     build_floor2_model,
+    build_floor3_model,
     main,
     update_floor_definition,
     validate_model,
@@ -48,6 +62,15 @@ EXPECTED_FLOOR1_TREASURE = {
     "TreasureBox_1F_EastShortcutCache": ((58, 46), 0, {"steel_longsword": 1}),
     "TreasureBox_1F_SouthGalleryCache": ((38, 55), 130, {"flash_powder": 1}),
     "TreasureBox_1F_SouthHiddenCache": ((24, 56), 0, {"chain_mail": 1}),
+}
+
+EXPECTED_FLOOR2_TREASURE = {
+    "TreasureBox_2F_WestSupplyCache": ((6, 16), 100, {"greater_health_potion": 1}),
+    "TreasureBox_2F_NorthStudyCache": ((44, 8), 0, {"major_mana_potion": 1}),
+    "TreasureBox_2F_EastGalleryCache": ((56, 36), 140, {"smoke_bomb": 1}),
+    "TreasureBox_2F_SouthArmoryCache": ((42, 55), 0, {"steel_tower_shield": 1}),
+    "TreasureBox_2F_StairWatchCache": ((53, 48), 160, {"swift_boots": 1}),
+    "TreasureBox_2F_PuzzleVaultCache": ((35, 38), 0, {"warding_charm": 1}),
 }
 
 
@@ -115,10 +138,10 @@ def entity_positions(entities, key):
     }
 
 
-def count_dead_end_cells(walkable):
+def count_dead_end_cells(walkable, width=FLOOR1_WIDTH, height=FLOOR1_HEIGHT):
     dead_ends = 0
     for x, y in walkable:
-        if x >= FLOOR1_WIDTH or y >= FLOOR1_HEIGHT:
+        if x >= width or y >= height:
             continue
 
         neighbor_count = sum(
@@ -602,8 +625,10 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
             tmp = Path(tmpdir)
             floor1_output = tmp / "Floor1F.json"
             floor2_output = tmp / "Floor2F.json"
+            floor3_output = tmp / "Floor3F.json"
             floor1_def = tmp / "Floor1F.tres"
             missing_floor2_def = tmp / "Floor2F.tres"
+            missing_floor3_def = tmp / "Floor3F.tres"
             floor1_def.write_text(floor_definition_source(), encoding="utf-8")
 
             argv = [
@@ -616,6 +641,10 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
                 str(floor2_output),
                 "--floor2-def",
                 str(missing_floor2_def),
+                "--floor3-output",
+                str(floor3_output),
+                "--floor3-def",
+                str(missing_floor3_def),
             ]
 
             stdout = io.StringIO()
@@ -625,6 +654,7 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
             self.assertEqual(result, 0)
             self.assertTrue(floor1_output.exists())
             self.assertTrue(floor2_output.exists())
+            self.assertTrue(floor3_output.exists())
             self.assertIn("Warning: floor definition not found", stdout.getvalue())
 
             updated = floor1_def.read_text(encoding="utf-8")
@@ -636,9 +666,12 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
             tmp = Path(tmpdir)
             floor1_output = tmp / "Floor1F.json"
             floor2_output = tmp / "Floor2F.json"
+            floor3_output = tmp / "Floor3F.json"
             missing_floor1_def = tmp / "Floor1F.tres"
             floor2_def = tmp / "Floor2F.tres"
+            floor3_def = tmp / "Floor3F.tres"
             floor2_def.write_text(floor_definition_source(), encoding="utf-8")
+            floor3_def.write_text(floor_definition_source(), encoding="utf-8")
 
             argv = [
                 "floor1_maze_generator.py",
@@ -650,6 +683,10 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
                 str(floor2_output),
                 "--floor2-def",
                 str(floor2_def),
+                "--floor3-output",
+                str(floor3_output),
+                "--floor3-def",
+                str(floor3_def),
             ]
 
             stdout = io.StringIO()
@@ -660,39 +697,36 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
             self.assertIn("Error: required Floor 1 definition not found", stdout.getvalue())
 
 
-class Floor2PlaceholderGeneratorTest(unittest.TestCase):
+class Floor2MazeGeneratorTest(unittest.TestCase):
     def setUp(self):
         self.model = build_floor2_model()
         self.walkable = walkable_set(self.model)
 
-    def test_generates_placeholder_with_two_return_stairs(self):
+    def test_generates_60_by_60_floor_without_outside_padding(self):
         ground = self.model["tile_layers"]["ground"]
-        walls = {(tile["x"], tile["y"]) for tile in self.model["tile_layers"]["wall"]}
+        walls = self.model["tile_layers"]["wall"]
         stairs = self.model["tile_layers"]["stair"]
         stair_positions = {(tile["x"], tile["y"]) for tile in stairs}
         metadata = self.model["floor_metadata"]
 
-        self.assertEqual(FLOOR2_WIDTH, 36)
-        self.assertEqual(FLOOR2_HEIGHT, 22)
+        self.assertEqual(FLOOR2_WIDTH, 60)
+        self.assertEqual(FLOOR2_HEIGHT, 60)
         self.assertEqual(metadata["player_start"], {"x": 10, "y": 10})
         self.assertEqual(FLOOR2_PLAYER_START, (10, 10))
-        self.assertEqual(len(ground), 792)
+        self.assertEqual(len(ground), 3600)
         self.assertEqual(ground[0], {"x": 0, "y": 0, "tile": "starting_area"})
-        self.assertEqual(ground[-1], {"x": 35, "y": 21, "tile": "starting_area"})
+        self.assertEqual(ground[-1], {"x": 59, "y": 59, "tile": "starting_area"})
+        assert_tiles_inside(self, ground, FLOOR2_WIDTH, FLOOR2_HEIGHT)
+        assert_tiles_inside(self, walls, FLOOR2_WIDTH, FLOOR2_HEIGHT)
+        assert_tiles_inside(self, stairs, FLOOR2_WIDTH, FLOOR2_HEIGHT)
 
-        for y in range(FLOOR2_HEIGHT, GRID_HEIGHT):
-            for x in range(GRID_WIDTH):
-                self.assertIn((x, y), walls)
-
-        for y in range(FLOOR2_HEIGHT):
-            for x in range(FLOOR2_WIDTH, GRID_WIDTH):
-                self.assertIn((x, y), walls)
-
-        self.assertEqual(stair_positions, {FLOOR2_DOWN_STAIR_A, FLOOR2_DOWN_STAIR_B})
+        self.assertEqual(stair_positions, {FLOOR2_DOWN_STAIR_A, FLOOR2_DOWN_STAIR_B, FLOOR2_UP_STAIR})
         self.assertEqual(
             {stair["id"] for stair in self.model["entities"]["stair_connections"]},
-            {"2F_1F_A", "2F_1F_B"},
+            {"2F_1F_A", "2F_1F_B", "2F_3F_A"},
         )
+
+    def test_places_three_visible_stairs_with_destinations(self):
         self.assertEqual(
             {stair["id"]: stair for stair in self.model["entities"]["stair_connections"]},
             {
@@ -710,13 +744,232 @@ class Floor2PlaceholderGeneratorTest(unittest.TestCase):
                     "target_floor": 1,
                     "destination_stair_id": "1F_2F_B",
                 },
+                "2F_3F_A": {
+                    "id": "2F_3F_A",
+                    "position": {"x": 52, "y": 50},
+                    "direction": "up",
+                    "target_floor": 3,
+                    "destination_stair_id": "3F_2F_A",
+                },
             },
         )
-        self.assertEqual(self.model["entities"]["enemy_spawns"], [])
-        self.assertEqual(self.model["entities"]["npc_spawns"], [])
 
-    def test_placeholder_stairs_are_connected(self):
-        self.assertTrue(has_path(self.walkable, FLOOR2_DOWN_STAIR_A, FLOOR2_DOWN_STAIR_B))
+    def test_places_moderate_enemy_set_and_no_npcs(self):
+        enemies = self.model["entities"]["enemy_spawns"]
+
+        self.assertEqual(self.model["entities"]["npc_spawns"], [])
+        self.assertEqual(len(enemies), 12)
+        self.assertEqual(
+            {enemy["id"]: enemy["enemy_type"] for enemy in enemies},
+            {
+                enemy_id: data["enemy_type"]
+                for enemy_id, data in (FLOOR2_ENEMY_GATES | FLOOR2_EXTRA_ENEMY_PATROLS).items()
+            },
+        )
+
+        stair_positions = {FLOOR2_DOWN_STAIR_A, FLOOR2_DOWN_STAIR_B, FLOOR2_UP_STAIR}
+        for enemy in enemies:
+            pos = (enemy["position"]["x"], enemy["position"]["y"])
+            self.assertIn(pos, self.walkable)
+            self.assertNotIn(pos, stair_positions)
+
+    def test_treasure_boxes_are_authored_and_walkable(self):
+        entities = self.model["entities"]
+        treasure_boxes = {
+            box["id"]: box
+            for box in entities["treasure_boxes"]
+        }
+        occupied = set()
+        for key in (
+            "npc_spawns",
+            "enemy_spawns",
+            "stair_connections",
+            "trap_tiles",
+            "puzzle_switches",
+            "puzzle_gates",
+            "puzzle_riddles",
+        ):
+            occupied.update(entity_positions(entities, key).values())
+
+        self.assertEqual(set(treasure_boxes), set(EXPECTED_FLOOR2_TREASURE))
+
+        for box_id, (position, gold, items) in EXPECTED_FLOOR2_TREASURE.items():
+            with self.subTest(box_id=box_id):
+                box = treasure_boxes[box_id]
+                box_pos = (box["position"]["x"], box["position"]["y"])
+                box_items = {
+                    item["item_id"]: item["quantity"]
+                    for item in box["items"]
+                }
+
+                self.assertEqual(box_pos, position)
+                self.assertIn(box_pos, self.walkable)
+                self.assertNotIn(box_pos, occupied)
+                self.assertEqual(box["gold"], gold)
+                self.assertEqual(box_items, items)
+
+    def test_puzzle_trap_chamber_entities_are_authored_and_walkable(self):
+        entities = self.model["entities"]
+        trap_tiles = entity_positions(entities, "trap_tiles")
+        puzzle_switches = entity_positions(entities, "puzzle_switches")
+        puzzle_gates = entity_positions(entities, "puzzle_gates")
+        puzzle_riddles = entity_positions(entities, "puzzle_riddles")
+
+        self.assertEqual(trap_tiles, {trap_id: data["position"] for trap_id, data in FLOOR2_PUZZLE_TRAPS.items()})
+        self.assertEqual(
+            puzzle_switches,
+            {switch_id: data["position"] for switch_id, data in FLOOR2_PUZZLE_SWITCHES.items()},
+        )
+        self.assertEqual(puzzle_gates, {gate_id: data["position"] for gate_id, data in FLOOR2_PUZZLE_GATES.items()})
+        self.assertEqual(
+            puzzle_riddles,
+            {riddle_id: data["position"] for riddle_id, data in FLOOR2_PUZZLE_RIDDLES.items()},
+        )
+
+        occupied = set()
+        for key in ("enemy_spawns", "npc_spawns", "stair_connections", "treasure_boxes"):
+            occupied.update(entity_positions(entities, key).values())
+
+        all_puzzle_positions = [
+            *trap_tiles.values(),
+            *puzzle_switches.values(),
+            *puzzle_gates.values(),
+            *puzzle_riddles.values(),
+        ]
+        self.assertEqual(len(all_puzzle_positions), len(set(all_puzzle_positions)))
+
+        for position in all_puzzle_positions:
+            with self.subTest(position=position):
+                self.assertIn(position, self.walkable)
+                self.assertNotIn(position, occupied)
+
+        for trap in entities["trap_tiles"]:
+            self.assertEqual(trap["puzzle_id"], FLOOR2_PUZZLE_ID)
+            self.assertEqual(trap["damage"], 14)
+            self.assertEqual(trap.get("status_effect", ""), "")
+
+        puzzle_switch = entities["puzzle_switches"][0]
+        self.assertEqual(puzzle_switch["puzzle_id"], FLOOR2_PUZZLE_ID)
+        self.assertEqual(puzzle_switch["prompt_text"], "Use")
+        self.assertEqual(puzzle_switch["activated_text"], "The archive lock starts listening.")
+
+        for gate in entities["puzzle_gates"]:
+            self.assertEqual(gate["puzzle_id"], FLOOR2_PUZZLE_ID)
+            self.assertTrue(gate["starts_closed"])
+
+        riddle = entities["puzzle_riddles"][0]
+        self.assertEqual(riddle["puzzle_id"], FLOOR2_PUZZLE_ID)
+        self.assertEqual(riddle["correct_choice_id"], "lever_memory")
+        self.assertEqual(riddle["wrong_answer_damage"], 14)
+        self.assertEqual(
+            riddle["prompt_text"],
+            "The archive seal asks: what opens the vault without moving the stones?",
+        )
+        self.assertEqual(
+            riddle["choices"],
+            [
+                {"id": "lever_memory", "label": "The remembered lever"},
+                {"id": "broken_key", "label": "The broken key"},
+                {"id": "silent_step", "label": "The silent step"},
+            ],
+        )
+
+    def test_required_routes_remain_reachable_with_puzzle_gates_closed(self):
+        gate_positions = set(entity_positions(self.model["entities"], "puzzle_gates").values())
+        closed_gate_walkable = self.walkable - gate_positions
+
+        for goal in [FLOOR2_DOWN_STAIR_A, FLOOR2_DOWN_STAIR_B, FLOOR2_UP_STAIR]:
+            with self.subTest(goal=goal):
+                self.assertTrue(has_path(closed_gate_walkable, FLOOR2_PLAYER_START, goal))
+
+    def test_puzzle_gates_open_reward_and_shortcut_route(self):
+        gate_positions = set(entity_positions(self.model["entities"], "puzzle_gates").values())
+        closed_gate_walkable = self.walkable - gate_positions
+        puzzle_room_side = (32, 38)
+        reward = EXPECTED_FLOOR2_TREASURE["TreasureBox_2F_PuzzleVaultCache"][0]
+        shortcut_payoff = (42, 52)
+
+        self.assertFalse(has_path(closed_gate_walkable, puzzle_room_side, reward))
+        self.assertTrue(has_path(self.walkable, puzzle_room_side, reward))
+
+        closed_length = shortest_path_length(closed_gate_walkable, puzzle_room_side, shortcut_payoff)
+        open_length = shortest_path_length(self.walkable, puzzle_room_side, shortcut_payoff)
+
+        self.assertIsNotNone(closed_length)
+        self.assertIsNotNone(open_length)
+        self.assertGreaterEqual(closed_length - open_length, 12)
+
+    def test_enemy_gates_block_main_up_stair_route_until_clearable(self):
+        enemy_positions = set(entity_positions(self.model["entities"], "enemy_spawns").values())
+        uncleared_walkable = self.walkable - enemy_positions
+
+        self.assertFalse(has_path(uncleared_walkable, FLOOR2_PLAYER_START, FLOOR2_UP_STAIR))
+        self.assertTrue(has_path(self.walkable, FLOOR2_PLAYER_START, FLOOR2_UP_STAIR))
+
+    def test_floor2_has_moderate_maze_structure(self):
+        self.assertGreaterEqual(count_dead_end_cells(self.walkable, FLOOR2_WIDTH, FLOOR2_HEIGHT), 6)
+        for position in [(18, 14), (36, 31), (24, 44), (51, 34), (42, 52)]:
+            with self.subTest(position=position):
+                self.assertIn(position, self.walkable)
+                self.assertGreaterEqual(neighbor_count(self.walkable, position), 3)
+
+    def test_floor2_definition_arrays_include_return_and_up_stairs(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            floor_def = Path(tmpdir) / "Floor2F.tres"
+            floor_def.write_text(floor_definition_source(), encoding="utf-8")
+
+            update_floor_definition(floor_def, self.model)
+
+            updated = floor_def.read_text(encoding="utf-8")
+            self.assertIn("PlayerStartPosition = Vector2i(10, 10)", updated)
+            self.assertIn("StairsUp = Array[Vector2i]([Vector2i(52, 50)])", updated)
+            self.assertIn("StairsDown = Array[Vector2i]([Vector2i(10, 10), Vector2i(26, 10)])", updated)
+
+
+class Floor3PlaceholderGeneratorTest(unittest.TestCase):
+    def setUp(self):
+        self.model = build_floor3_model()
+        self.walkable = walkable_set(self.model)
+
+    def test_generates_registered_future_landing_for_floor2_up_stair(self):
+        ground = self.model["tile_layers"]["ground"]
+        walls = self.model["tile_layers"]["wall"]
+        stairs = self.model["tile_layers"]["stair"]
+
+        self.assertEqual(FLOOR3_WIDTH, 24)
+        self.assertEqual(FLOOR3_HEIGHT, 18)
+        self.assertEqual(FLOOR3_PLAYER_START, FLOOR3_DOWN_STAIR)
+        self.assertEqual(self.model["floor_metadata"]["player_start"], {"x": 10, "y": 10})
+        self.assertEqual(len(ground), 432)
+        assert_tiles_inside(self, ground, FLOOR3_WIDTH, FLOOR3_HEIGHT)
+        assert_tiles_inside(self, walls, FLOOR3_WIDTH, FLOOR3_HEIGHT)
+        assert_tiles_inside(self, stairs, FLOOR3_WIDTH, FLOOR3_HEIGHT)
+        self.assertEqual({(tile["x"], tile["y"]) for tile in stairs}, {FLOOR3_DOWN_STAIR})
+        self.assertEqual(
+            self.model["entities"]["stair_connections"],
+            [
+                {
+                    "id": "3F_2F_A",
+                    "position": {"x": 10, "y": 10},
+                    "direction": "down",
+                    "target_floor": 2,
+                    "destination_stair_id": "2F_3F_A",
+                }
+            ],
+        )
+
+        for key in (
+            "enemy_spawns",
+            "npc_spawns",
+            "treasure_boxes",
+            "trap_tiles",
+            "puzzle_switches",
+            "puzzle_gates",
+            "puzzle_riddles",
+        ):
+            self.assertEqual(self.model["entities"][key], [])
+
+        self.assertTrue(has_path(self.walkable, FLOOR3_PLAYER_START, FLOOR3_DOWN_STAIR))
 
 
 if __name__ == "__main__":

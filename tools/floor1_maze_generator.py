@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the Floor 1 combat-gated maze and Floor 2 placeholder JSON for Sirius."""
+"""Generate Floor 1, the playable Floor 2 maze, and a Floor 3 landing JSON for Sirius."""
 
 from __future__ import annotations
 
@@ -12,8 +12,10 @@ from pathlib import Path
 
 FLOOR1_WIDTH = 60
 FLOOR1_HEIGHT = 60
-FLOOR2_WIDTH = 36
-FLOOR2_HEIGHT = 22
+FLOOR2_WIDTH = 60
+FLOOR2_HEIGHT = 60
+FLOOR3_WIDTH = 24
+FLOOR3_HEIGHT = 18
 GRID_WIDTH = 160
 GRID_HEIGHT = 160
 
@@ -25,6 +27,10 @@ FLOOR1_UP_STAIR_B = (48, 48)
 FLOOR2_PLAYER_START = (10, 10)
 FLOOR2_DOWN_STAIR_A = (10, 10)
 FLOOR2_DOWN_STAIR_B = (26, 10)
+FLOOR2_UP_STAIR = (52, 50)
+
+FLOOR3_PLAYER_START = (10, 10)
+FLOOR3_DOWN_STAIR = (10, 10)
 
 FLOOR1_HIDDEN_PLACEHOLDERS = {
     "hidden_room_north": (16, 8),
@@ -115,6 +121,68 @@ FLOOR1_PUZZLE_RIDDLES = {
         ],
         "correct_choice_id": "east_stone",
         "wrong_answer_damage": 12,
+    }
+}
+
+FLOOR2_ENEMY_GATES = {
+    "EnemySpawn_2F_ArchiveGate": {"position": (34, 14), "enemy_type": "skeleton_warrior"},
+    "EnemySpawn_2F_GalleryGate": {"position": (52, 34), "enemy_type": "grave_hexer"},
+    "EnemySpawn_2F_UpStairGuard": {"position": (49, 50), "enemy_type": "crypt_sentinel"},
+    "EnemySpawn_2F_PuzzleApproach": {"position": (29, 34), "enemy_type": "cave_spider"},
+}
+
+FLOOR2_EXTRA_ENEMY_PATROLS = {
+    "EnemySpawn_2F_WestSupply": {"position": (8, 16), "enemy_type": "cave_spider"},
+    "EnemySpawn_2F_WestLoop": {"position": (27, 18), "enemy_type": "skeleton_warrior"},
+    "EnemySpawn_2F_NorthStudy": {"position": (44, 12), "enemy_type": "grave_hexer"},
+    "EnemySpawn_2F_CentralArchive": {"position": (36, 31), "enemy_type": "bone_archer"},
+    "EnemySpawn_2F_EastGallery": {"position": (55, 34), "enemy_type": "iron_revenant"},
+    "EnemySpawn_2F_SouthApproach": {"position": (24, 46), "enemy_type": "cave_spider"},
+    "EnemySpawn_2F_SouthArmory": {"position": (42, 53), "enemy_type": "iron_revenant"},
+    "EnemySpawn_2F_StairWatch": {"position": (52, 48), "enemy_type": "cursed_gargoyle"},
+}
+
+FLOOR2_TREASURE_BOXES = {
+    "TreasureBox_2F_WestSupplyCache": ((6, 16), 100, {"greater_health_potion": 1}),
+    "TreasureBox_2F_NorthStudyCache": ((44, 8), 0, {"major_mana_potion": 1}),
+    "TreasureBox_2F_EastGalleryCache": ((56, 36), 140, {"smoke_bomb": 1}),
+    "TreasureBox_2F_SouthArmoryCache": ((42, 55), 0, {"steel_tower_shield": 1}),
+    "TreasureBox_2F_StairWatchCache": ((53, 48), 160, {"swift_boots": 1}),
+    "TreasureBox_2F_PuzzleVaultCache": ((35, 38), 0, {"warding_charm": 1}),
+}
+
+FLOOR2_PUZZLE_ID = "Puzzle_2F_EastArchiveTrial"
+
+FLOOR2_PUZZLE_TRAPS = {
+    "TrapTile_2F_ArchiveTrial_01": {"position": (29, 35), "damage": 14},
+    "TrapTile_2F_ArchiveTrial_02": {"position": (30, 36), "damage": 14},
+    "TrapTile_2F_ArchiveTrial_03": {"position": (31, 39), "damage": 14},
+}
+
+FLOOR2_PUZZLE_SWITCHES = {
+    "PuzzleSwitch_2F_ArchiveTrial_Lever": {
+        "position": (27, 34),
+        "prompt_text": "Use",
+        "activated_text": "The archive lock starts listening.",
+    }
+}
+
+FLOOR2_PUZZLE_GATES = {
+    "PuzzleGate_2F_ArchiveTrial_Vault": {"position": (33, 38), "starts_closed": True},
+    "PuzzleGate_2F_ArchiveTrial_Shortcut": {"position": (38, 44), "starts_closed": True},
+}
+
+FLOOR2_PUZZLE_RIDDLES = {
+    "PuzzleRiddle_2F_ArchiveTrial_Seal": {
+        "position": (32, 36),
+        "prompt_text": "The archive seal asks: what opens the vault without moving the stones?",
+        "choices": [
+            {"id": "lever_memory", "label": "The remembered lever"},
+            {"id": "broken_key", "label": "The broken key"},
+            {"id": "silent_step", "label": "The silent step"},
+        ],
+        "correct_choice_id": "lever_memory",
+        "wrong_answer_damage": 14,
     }
 }
 
@@ -219,11 +287,11 @@ def treasure_box_entities(boxes: dict[str, tuple[tuple[int, int], int, dict[str,
     ]
 
 
-def trap_tile_entities(traps: dict[str, dict]) -> list[dict]:
+def trap_tile_entities(traps: dict[str, dict], puzzle_id: str) -> list[dict]:
     return [
         {
             "id": trap_id,
-            "puzzle_id": FLOOR1_PUZZLE_ID,
+            "puzzle_id": puzzle_id,
             "position": vector(*data["position"]),
             "damage": data["damage"],
             "status_effect": data.get("status_effect", ""),
@@ -234,11 +302,11 @@ def trap_tile_entities(traps: dict[str, dict]) -> list[dict]:
     ]
 
 
-def puzzle_switch_entities(switches: dict[str, dict]) -> list[dict]:
+def puzzle_switch_entities(switches: dict[str, dict], puzzle_id: str) -> list[dict]:
     return [
         {
             "id": switch_id,
-            "puzzle_id": FLOOR1_PUZZLE_ID,
+            "puzzle_id": puzzle_id,
             "position": vector(*data["position"]),
             "prompt_text": data["prompt_text"],
             "activated_text": data["activated_text"],
@@ -247,11 +315,11 @@ def puzzle_switch_entities(switches: dict[str, dict]) -> list[dict]:
     ]
 
 
-def puzzle_gate_entities(gates: dict[str, dict]) -> list[dict]:
+def puzzle_gate_entities(gates: dict[str, dict], puzzle_id: str) -> list[dict]:
     return [
         {
             "id": gate_id,
-            "puzzle_id": FLOOR1_PUZZLE_ID,
+            "puzzle_id": puzzle_id,
             "position": vector(*data["position"]),
             "starts_closed": data["starts_closed"],
         }
@@ -259,11 +327,11 @@ def puzzle_gate_entities(gates: dict[str, dict]) -> list[dict]:
     ]
 
 
-def puzzle_riddle_entities(riddles: dict[str, dict]) -> list[dict]:
+def puzzle_riddle_entities(riddles: dict[str, dict], puzzle_id: str) -> list[dict]:
     return [
         {
             "id": riddle_id,
-            "puzzle_id": FLOOR1_PUZZLE_ID,
+            "puzzle_id": puzzle_id,
             "position": vector(*data["position"]),
             "prompt_text": data["prompt_text"],
             "choices": data["choices"],
@@ -430,8 +498,150 @@ def build_floor1_walls() -> set[tuple[int, int]]:
 
 def build_floor2_walls() -> set[tuple[int, int]]:
     builder = MazeBuilder(FLOOR2_WIDTH, FLOOR2_HEIGHT)
-    builder.carve_rect(6, 6, 30, 14)
-    builder.carve_h_corridor(FLOOR2_DOWN_STAIR_A[0], FLOOR2_DOWN_STAIR_B[0], 10, half_width=1)
+
+    main_loop = [
+        FLOOR2_DOWN_STAIR_A,
+        (18, 14),
+        (34, 14),
+        (48, 20),
+        (52, 34),
+        FLOOR2_UP_STAIR,
+        (38, 52),
+        (24, 44),
+        (16, 32),
+        FLOOR2_DOWN_STAIR_A,
+    ]
+    builder.carve_loop(main_loop, half_width=1)
+
+    builder.carve_h_corridor(FLOOR2_DOWN_STAIR_A[0], FLOOR2_DOWN_STAIR_B[0], FLOOR2_DOWN_STAIR_A[1], half_width=1)
+    builder.carve_path(FLOOR2_DOWN_STAIR_B, (34, 14), half_width=1)
+
+    builder.carve_rect(7, 7, 13, 13)
+    builder.carve_rect(23, 7, 29, 13)
+    builder.carve_rect(3, 14, 9, 18)
+    builder.carve_rect(26, 27, 37, 36)
+    builder.carve_rect(41, 7, 49, 15)
+    builder.carve_rect(50, 29, 57, 37)
+    builder.carve_rect(38, 49, 55, 56)
+
+    builder.carve_path((10, 13), (6, 16), half_width=0)
+    builder.carve_path((34, 14), (44, 8), half_width=0)
+    builder.carve_path((34, 14), (36, 31), half_width=1)
+    builder.carve_path((36, 31), (29, 34), half_width=1)
+    builder.carve_path((52, 34), (56, 36), half_width=0)
+    builder.carve_path((38, 52), (42, 55), half_width=0)
+    builder.carve_path((52, 50), (53, 48), half_width=0)
+
+    # Optional puzzle branch: left chamber, locked vault, and a second gate for the shortcut exit.
+    builder.carve_rect(27, 34, 32, 40)
+    builder.carve_rect(34, 37, 36, 39)
+    builder.carve_cell(*FLOOR2_PUZZLE_GATES["PuzzleGate_2F_ArchiveTrial_Vault"]["position"])
+    builder.carve_path((36, 38), (38, 44), half_width=0)
+    builder.carve_path((38, 44), (42, 52), half_width=0)
+
+    side_branches = [
+        ((18, 14), (18, 6)),
+        ((24, 44), (16, 52)),
+        ((52, 34), (56, 28)),
+        ((42, 52), (34, 56)),
+        ((16, 32), (7, 32)),
+        ((26, 10), (26, 5)),
+        ((44, 12), (50, 18)),
+    ]
+    for start, end in side_branches:
+        builder.carve_path(start, end, half_width=0)
+
+    decision_connectors = [
+        ("h", 12, 22, 18),
+        ("v", 14, 28, 18),
+        ("h", 18, 34, 18),
+        ("h", 30, 44, 24),
+        ("v", 24, 34, 44),
+        ("h", 40, 52, 40),
+        ("v", 36, 46, 50),
+        ("h", 30, 42, 52),
+        ("v", 38, 52, 24),
+        ("h", 24, 36, 44),
+    ]
+    for direction, start, end, fixed in decision_connectors:
+        if direction == "h":
+            builder.carve_h_corridor(start, end, fixed, half_width=0)
+        else:
+            builder.carve_v_corridor(start, end, fixed, half_width=0)
+
+    wall_relief_paths = [
+        ((6, 16), (3, 16)),
+        ((18, 6), (18, 4)),
+        ((44, 8), (47, 8)),
+        ((44, 24), (48, 24)),
+        ((56, 28), (56, 24)),
+        ((7, 32), (4, 32)),
+        ((16, 52), (13, 55)),
+        ((34, 56), (30, 56)),
+        ((50, 46), (55, 46)),
+        ((38, 44), (38, 48)),
+    ]
+    for start, end in wall_relief_paths:
+        builder.carve_path(start, end, half_width=0)
+
+    add_gate_barrier(
+        builder.walls,
+        FLOOR2_ENEMY_GATES["EnemySpawn_2F_ArchiveGate"]["position"],
+        [(x, y) for x in range(30, 38) for y in (13, 15)],
+    )
+    add_gate_barrier(
+        builder.walls,
+        FLOOR2_EXTRA_ENEMY_PATROLS["EnemySpawn_2F_WestLoop"]["position"],
+        [(x, y) for x in range(23, 32) for y in (17, 19)],
+    )
+    add_gate_barrier(
+        builder.walls,
+        FLOOR2_ENEMY_GATES["EnemySpawn_2F_GalleryGate"]["position"],
+        [(52, y) for y in range(30, 38)],
+    )
+    add_gate_barrier(
+        builder.walls,
+        FLOOR2_ENEMY_GATES["EnemySpawn_2F_UpStairGuard"]["position"],
+        [(x, 50) for x in range(47, 52)],
+    )
+    add_gate_barrier(
+        builder.walls,
+        FLOOR2_EXTRA_ENEMY_PATROLS["EnemySpawn_2F_SouthApproach"]["position"],
+        [
+            *[(x, 45) for x in range(24, 29)],
+            *[(x, 47) for x in range(23, 29)],
+        ],
+    )
+    add_gate_barrier(
+        builder.walls,
+        FLOOR2_ENEMY_GATES["EnemySpawn_2F_PuzzleApproach"]["position"],
+        [(x, 34) for x in range(28, 33)],
+    )
+
+    add_gate_barrier(
+        builder.walls,
+        FLOOR2_PUZZLE_GATES["PuzzleGate_2F_ArchiveTrial_Vault"]["position"],
+        [(33, y) for y in range(35, 41)],
+    )
+    builder.walls.update((x, 33) for x in range(33, 37))
+    builder.walls.update((35, y) for y in range(34, 38))
+    builder.walls.update((x, 37) for x in range(34, 37))
+    builder.walls.update({(33, 34), (34, 34), (34, 35), (34, 36)})
+    add_gate_barrier(
+        builder.walls,
+        FLOOR2_PUZZLE_GATES["PuzzleGate_2F_ArchiveTrial_Shortcut"]["position"],
+        [(x, 44) for x in range(36, 41)],
+    )
+
+    builder.reinforce_perimeter()
+    return builder.walls
+
+
+def build_floor3_walls() -> set[tuple[int, int]]:
+    builder = MazeBuilder(FLOOR3_WIDTH, FLOOR3_HEIGHT)
+    builder.carve_rect(6, 6, 16, 13)
+    builder.carve_h_corridor(8, 14, FLOOR3_DOWN_STAIR[1], half_width=1)
+    builder.carve_v_corridor(8, 12, FLOOR3_DOWN_STAIR[0], half_width=1)
     builder.reinforce_perimeter()
     return builder.walls
 
@@ -497,10 +707,10 @@ def build_floor1_model() -> dict:
                 for key, pos in FLOOR1_HIDDEN_PLACEHOLDERS.items()
             ],
             "treasure_boxes": treasure_box_entities(FLOOR1_TREASURE_BOXES),
-            "trap_tiles": trap_tile_entities(FLOOR1_PUZZLE_TRAPS),
-            "puzzle_switches": puzzle_switch_entities(FLOOR1_PUZZLE_SWITCHES),
-            "puzzle_gates": puzzle_gate_entities(FLOOR1_PUZZLE_GATES),
-            "puzzle_riddles": puzzle_riddle_entities(FLOOR1_PUZZLE_RIDDLES),
+            "trap_tiles": trap_tile_entities(FLOOR1_PUZZLE_TRAPS, FLOOR1_PUZZLE_ID),
+            "puzzle_switches": puzzle_switch_entities(FLOOR1_PUZZLE_SWITCHES, FLOOR1_PUZZLE_ID),
+            "puzzle_gates": puzzle_gate_entities(FLOOR1_PUZZLE_GATES, FLOOR1_PUZZLE_ID),
+            "puzzle_riddles": puzzle_riddle_entities(FLOOR1_PUZZLE_RIDDLES, FLOOR1_PUZZLE_ID),
         },
     }
     validate_model(model, FLOOR1_WIDTH, FLOOR1_HEIGHT)
@@ -513,21 +723,33 @@ def build_floor2_model() -> dict:
         "floor_metadata": {
             "floor_name": "Second Floor",
             "floor_number": 2,
-            "description": "A safe placeholder landing for the two first-floor stair routes.",
+            "description": "A moderate archive maze with two 1/F return stairs, one 3/F stair, treasure, and a puzzle-gated side chamber.",
             "player_start": vector(*FLOOR2_PLAYER_START),
         },
         "tile_layers": {
             "ground": ground_tiles(FLOOR2_WIDTH, FLOOR2_HEIGHT),
-            "wall": wall_tiles(build_floor2_walls(), FLOOR2_WIDTH, FLOOR2_HEIGHT),
+            "wall": wall_tiles(
+                build_floor2_walls(),
+                FLOOR2_WIDTH,
+                FLOOR2_HEIGHT,
+                include_outside_footprint=False,
+            ),
             "stair": [
                 {"x": FLOOR2_DOWN_STAIR_A[0], "y": FLOOR2_DOWN_STAIR_A[1], "tile": "down"},
                 {"x": FLOOR2_DOWN_STAIR_B[0], "y": FLOOR2_DOWN_STAIR_B[1], "tile": "down"},
+                {"x": FLOOR2_UP_STAIR[0], "y": FLOOR2_UP_STAIR[1], "tile": "up"},
             ],
         },
         "entities": {
-            "enemy_spawns": [],
+            "enemy_spawns": [
+                {
+                    "id": enemy_id,
+                    "position": vector(*data["position"]),
+                    "enemy_type": data["enemy_type"],
+                }
+                for enemy_id, data in (FLOOR2_ENEMY_GATES | FLOOR2_EXTRA_ENEMY_PATROLS).items()
+            ],
             "npc_spawns": [],
-            "treasure_boxes": [],
             "stair_connections": [
                 {
                     "id": "2F_1F_A",
@@ -543,10 +765,68 @@ def build_floor2_model() -> dict:
                     "target_floor": 1,
                     "destination_stair_id": "1F_2F_B",
                 },
+                {
+                    "id": "2F_3F_A",
+                    "position": vector(*FLOOR2_UP_STAIR),
+                    "direction": "up",
+                    "target_floor": 3,
+                    "destination_stair_id": "3F_2F_A",
+                },
             ],
+            "hidden_placeholders": [],
+            "treasure_boxes": treasure_box_entities(FLOOR2_TREASURE_BOXES),
+            "trap_tiles": trap_tile_entities(FLOOR2_PUZZLE_TRAPS, FLOOR2_PUZZLE_ID),
+            "puzzle_switches": puzzle_switch_entities(FLOOR2_PUZZLE_SWITCHES, FLOOR2_PUZZLE_ID),
+            "puzzle_gates": puzzle_gate_entities(FLOOR2_PUZZLE_GATES, FLOOR2_PUZZLE_ID),
+            "puzzle_riddles": puzzle_riddle_entities(FLOOR2_PUZZLE_RIDDLES, FLOOR2_PUZZLE_ID),
         },
     }
     validate_model(model, FLOOR2_WIDTH, FLOOR2_HEIGHT)
+    return model
+
+
+def build_floor3_model() -> dict:
+    model = {
+        "schema_version": "1.0",
+        "floor_metadata": {
+            "floor_name": "Third Floor",
+            "floor_number": 3,
+            "description": "A safe future landing for the second-floor up stair.",
+            "player_start": vector(*FLOOR3_PLAYER_START),
+        },
+        "tile_layers": {
+            "ground": ground_tiles(FLOOR3_WIDTH, FLOOR3_HEIGHT),
+            "wall": wall_tiles(
+                build_floor3_walls(),
+                FLOOR3_WIDTH,
+                FLOOR3_HEIGHT,
+                include_outside_footprint=False,
+            ),
+            "stair": [
+                {"x": FLOOR3_DOWN_STAIR[0], "y": FLOOR3_DOWN_STAIR[1], "tile": "down"},
+            ],
+        },
+        "entities": {
+            "enemy_spawns": [],
+            "npc_spawns": [],
+            "stair_connections": [
+                {
+                    "id": "3F_2F_A",
+                    "position": vector(*FLOOR3_DOWN_STAIR),
+                    "direction": "down",
+                    "target_floor": 2,
+                    "destination_stair_id": "2F_3F_A",
+                }
+            ],
+            "hidden_placeholders": [],
+            "treasure_boxes": [],
+            "trap_tiles": [],
+            "puzzle_switches": [],
+            "puzzle_gates": [],
+            "puzzle_riddles": [],
+        },
+    }
+    validate_model(model, FLOOR3_WIDTH, FLOOR3_HEIGHT)
     return model
 
 
@@ -738,11 +1018,13 @@ def update_required_floor_definition(path: Path, model: dict, label: str) -> boo
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate Floor 1 maze and Floor 2 placeholder JSON.")
+    parser = argparse.ArgumentParser(description="Generate Floor 1, Floor 2, and Floor 3 JSON.")
     parser.add_argument("--floor1-output", default="scenes/game/floors/Floor1F.json")
     parser.add_argument("--floor1-def", default="resources/floors/Floor1F.tres")
     parser.add_argument("--floor2-output", default="scenes/game/floors/Floor2F.json")
     parser.add_argument("--floor2-def", default="resources/floors/Floor2F.tres")
+    parser.add_argument("--floor3-output", default="scenes/game/floors/Floor3F.json")
+    parser.add_argument("--floor3-def", default="resources/floors/Floor3F.tres")
     parser.add_argument("--skip-floor-defs", action="store_true")
     return parser.parse_args()
 
@@ -751,20 +1033,26 @@ def main() -> int:
     args = parse_args()
     floor1 = build_floor1_model()
     floor2 = build_floor2_model()
+    floor3 = build_floor3_model()
 
     write_json(floor1, Path(args.floor1_output))
     write_json(floor2, Path(args.floor2_output))
+    write_json(floor3, Path(args.floor3_output))
 
     if not args.skip_floor_defs:
         if not update_required_floor_definition(Path(args.floor1_def), floor1, "Floor 1"):
             return 1
         update_floor_definition_if_exists(Path(args.floor2_def), floor2)
+        update_floor_definition_if_exists(Path(args.floor3_def), floor3)
 
     print(
-        "Generated Floor 1 maze and Floor 2 placeholder: "
+        "Generated Floor 1 maze, Floor 2 maze, and Floor 3 landing: "
         f"{len(floor1['tile_layers']['wall'])} floor1 walls, "
         f"{len(floor1['entities']['enemy_spawns'])} floor1 enemies, "
-        f"{len(floor1['entities']['treasure_boxes'])} floor1 treasure boxes"
+        f"{len(floor1['entities']['treasure_boxes'])} floor1 treasure boxes, "
+        f"{len(floor2['tile_layers']['wall'])} floor2 walls, "
+        f"{len(floor2['entities']['enemy_spawns'])} floor2 enemies, "
+        f"{len(floor2['entities']['treasure_boxes'])} floor2 treasure boxes"
     )
     return 0
 

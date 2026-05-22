@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Test the New Floor2F Brief
+## Task 1: Test the New Floor2F Brief
 
 **Files:**
 - Modify: `tests/tools/test_floor1_maze_generator.py`
@@ -20,7 +20,7 @@
 - [ ] Add path tests for required stairs with enemy cells clear, enemy-gated branches blocked before clearing enemies, and the puzzle-gated treasure/shortcut blocked while starts-closed gates are treated as walls.
 - [ ] Run `python3 -m unittest tests.tools.test_floor1_maze_generator -v` and confirm the Floor2F tests fail against the current placeholder.
 
-### Task 2: Generate Real Floor2F and Floor3F Placeholder
+## Task 2: Generate Real Floor2F and Floor3F Placeholder
 
 **Files:**
 - Modify: `tools/floor1_maze_generator.py`
@@ -33,7 +33,7 @@
 - [ ] Add a small safe Floor3F placeholder model with down stair `3F_2F_A` back to `2F_3F_A`.
 - [ ] Update generator CLI args for Floor3F output/resource and update the Floor2F/Floor3F resources from generated stair arrays.
 
-### Task 3: Import Scenes and Register Floor3F
+## Task 3: Import Scenes and Register Floor3F
 
 **Files:**
 - Modify: `scenes/game/floors/Floor2F.json`
@@ -48,17 +48,17 @@
 - [ ] Preserve existing Floor2F scene UID and resource UID, and ensure new Floor3F resources have stable UIDs.
 - [ ] Add `Floor3F.tres` to `FloorManager.Floors` after Floor2F.
 
-### Task 4: Verify
+## Task 4: Verify
 
 **Files:**
 - Test only.
 
 - [ ] Run `python3 -m unittest tests.tools.test_floor1_maze_generator -v`.
 - [ ] Run `python3 -m unittest tests.tools.test_tilemap_json_sync -v`.
-- [ ] Run `dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~Floor2FPlaceholderLayoutTest|FullyQualifiedName~TilemapJsonImporterTest"`.
+- [ ] Run `dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~Floor2FMazeLayoutTest|FullyQualifiedName~TilemapJsonImporterTest"`.
 - [ ] Run `dotnet build Sirius.sln`.
 
-### Self-Review
+## Self-Review
 
 - Scope is focused on generated Floor2F content plus the minimal Floor3F landing required by the approved visible future stair.
 - No generated tile arrays will be hand-edited.

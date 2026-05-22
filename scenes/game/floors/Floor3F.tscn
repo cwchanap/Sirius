@@ -15,7 +15,7 @@ texture_filter = 1
 script = ExtResource("1")
 GridWidth = 24
 GridHeight = 18
-EnableDebugLogging = true
+EnableDebugLogging = false
 
 [node name="GroundLayer" type="TileMapLayer" parent="GridMap" unique_id=1143631964]
 scale = Vector2(0.333333, 0.333333)

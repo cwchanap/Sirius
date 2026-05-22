@@ -9,6 +9,31 @@
 - Runtime registration is in `scenes/game/Game.tscn` through `FloorManager`.
 - JSON import/export logic is in `scripts/tilemap_json/` and `tools/tilemap_json_sync.py`.
 - Static enemy and NPC scene nodes must have `Owner` set to the scene root so `ResourceSaver` persists them in `.tscn`.
+- Static treasure and puzzle-trap nodes are imported from `entities.treasure_boxes`, `entities.trap_tiles`, `entities.puzzle_switches`, `entities.puzzle_gates`, and `entities.puzzle_riddles`. When a floor intentionally has none, prefer explicit empty arrays so the generator and scene tests can prove that intent.
+
+## Current Treasure Box System
+
+- Floor JSON uses `entities.treasure_boxes`: `{ id, position, gold, items: [{ item_id, quantity }] }`.
+- Importer support lives in `scripts/tilemap_json/FloorJsonModel.cs` and `scripts/tilemap_json/TilemapJsonImporter.cs`. It creates/updates `TreasureBoxSpawn` children under `GridMap`, keys existing nodes by `TreasureBoxId` with node-name fallback, and removes stale boxes only when `treasure_boxes` is present.
+- Runtime support lives in `scripts/game/TreasureBoxSpawn.cs`, `scripts/data/TreasureReward.cs`, `scripts/data/RecoveryChest.cs`, `scripts/game/GridMap.cs`, and `scripts/game/Game.cs`.
+- `TreasureBoxSpawn` exports `GridPosition`, `TreasureBoxId`, `RewardGold`, `RewardItemIds`, and `RewardItemQuantities`. IDs must be stable and non-empty; empty IDs are rejected at open time to prevent repeat farming.
+- Treasure cells block movement until the player faces the box and presses interact. Opening plays the box animation, grants gold/items once, marks `GameManager.OpenedTreasureBoxIds`, clears the `GridMap` cell to empty, and persists the opened ID in `SaveData`.
+- Rewards should use valid `ItemCatalog` IDs. Inventory overflow is routed through `RecoveryChest` when available.
+
+## Current Puzzle Trap System
+
+- Floor JSON uses four coordinated entity lists:
+  - `trap_tiles`: `{ id, puzzle_id, position, damage, status_effect, status_magnitude, status_turns }`
+  - `puzzle_switches`: `{ id, puzzle_id, position, prompt_text, activated_text }`
+  - `puzzle_gates`: `{ id, puzzle_id, position, starts_closed }`
+  - `puzzle_riddles`: `{ id, puzzle_id, position, prompt_text, choices, correct_choice_id, wrong_answer_damage }`
+- Importer support creates/updates `TrapTileSpawn`, `PuzzleSwitchSpawn`, `PuzzleGateSpawn`, and `PuzzleRiddleSpawn` nodes. Puzzle entities with empty `id` or empty `puzzle_id` are skipped. Existing nodes are keyed by their exported entity IDs (`TrapId`, `SwitchId`, `GateId`, `RiddleId`) with node-name fallback.
+- Runtime support lives in `scripts/game/PuzzleSpawnBase.cs`, `scripts/game/TrapTileSpawn.cs`, `scripts/game/PuzzleSwitchSpawn.cs`, `scripts/game/PuzzleGateSpawn.cs`, `scripts/game/PuzzleRiddleSpawn.cs`, `scripts/game/PuzzleTrapController.cs`, `scripts/ui/PuzzleRiddleDialog.cs`, `scripts/game/GridMap.cs`, and `scripts/game/Game.cs`.
+- `GridMap.RegisterStaticPuzzleEntities()` filters nodes to the current floor root. Active trap tiles are walkable damage cells; starts-closed unsolved gates block movement; unsolved switches and riddles are adjacent interactables. Registration will not overwrite walls, stairs, enemies, NPCs, or treasure boxes, so authored generators should avoid those conflicts and test for them.
+- The player interacts with switches and riddles by facing them and pressing interact. Switches arm a `PuzzleId`; riddles before arming show the dormant message and stay open. Wrong riddle choices apply `WrongAnswerDamage` and allow retry. Correct choices after arming mark `GameManager.SolvedPuzzleIds`, open matching gates, clear trap/interactable cells, and persist the solved ID in `SaveData`.
+- Trap damage never kills the player; it floors HP at 1. Trap status effects apply only when `status_effect` matches a `StatusEffectType` name and `status_turns > 0`.
+- Only solved puzzle IDs are saved. Switch-armed state is session-local, so floor designs should not depend on half-solved switch state surviving save/load.
+- Current Floor1F example: `Puzzle_1F_SouthShortcutTrial` contains four visible traps, one switch, one riddle, one starts-closed gate, and `TreasureBox_1F_SouthHiddenCache` behind the gate. Use it as a pattern, not a hardcoded template.
 
 ## Design Brief Template
 
@@ -22,6 +47,8 @@ Visible exits: <count, target floor ids, rough locations>
 Hidden placeholders: <count, purpose, visible now yes/no; hidden placeholders should not become visible stairs unless requested>
 NPCs: <none or count/types/locations>
 Enemies: <types, count, what each blocks>
+Treasure: <none or box ids/rough locations/gold/item rewards; note which are optional, enemy-gated, or puzzle-gated>
+Puzzle traps: <none or puzzle ids, traps, switches, riddles, gates, penalties, status effects, solved-state rewards/unlocks>
 Complexity: <simple/moderate/complex/custom; confirm optional knobs like deeper branches, more intersections, enemy gates, shortcut unlocks, and reduced long wall runs>
 Theme: <terrain/area feel>
 Verification expectations: <route gating, boss path, optional branches, etc>
@@ -34,8 +61,9 @@ If the user has already answered one of these, do not ask again; summarize it an
 1. Inspect existing floor files and generators:
    - `rg -n "Floor1F|Floor2F|FloorGF" resources scenes/game/Game.tscn tools tests scripts`
    - `rg -n "StairConnection|EnemySpawn|NpcSpawn" scenes/game/floors scripts tests`
+   - `rg -n "TreasureBox|RecoveryChest|Puzzle|TrapTile|PuzzleGate|PuzzleSwitch|PuzzleRiddle" scripts scenes/game/floors tools tests`
 2. Add or update a deterministic generator under `tools/`.
-   - Keep dimensions, exits, hidden placeholders, enemies, and NPCs as named constants or structured data.
+   - Keep dimensions, exits, hidden placeholders, enemies, NPCs, treasure boxes, and puzzle traps as named constants or structured data.
    - Emit `FloorJsonModel`-compatible JSON.
    - Update the matching `.tres` resource with player start and stair arrays when needed.
 3. Add Python generator tests.
@@ -45,8 +73,11 @@ If the user has already answered one of these, do not ask again; summarize it an
    - Hidden placeholders not visible unless requested.
    - NPC count matches the brief.
    - Enemy positions are walkable.
+   - Treasure boxes have unique IDs/positions, valid reward shape, walkable cells, no entity overlap, and intended reachability.
+   - Puzzle entities have unique IDs/positions, non-empty shared `puzzle_id`s, valid riddle choices, walkable cells, no entity overlap, and no stair conflicts.
    - Reachability with enemies clear.
    - Gated branches unreachable while blocker enemy cells are treated as blocked.
+   - Puzzle-gated rewards/shortcuts are blocked with starts-closed gates and reachable after those gates are open.
    - Optional complexity knobs requested by the user: deep branches, intersections, shortcut unlocks, and maximum long wall runs.
 4. Generate/import:
    - `python3 tools/<floor_generator>.py`
@@ -69,9 +100,17 @@ Scene tests should assert:
 - hidden placeholders are not visible stair nodes while hidden
 - no NPC nodes exist when the brief says no NPCs
 - enemy spawn count, types, and coordinates match the brief
+- treasure box count, IDs, coordinates, gold, reward item IDs, and quantities match the brief
+- all treasure reward item IDs exist in `ItemCatalog`
+- puzzle trap, switch, gate, and riddle counts match the brief
+- puzzle entity IDs and `PuzzleId`s are non-empty, unique where required, and shared intentionally across each puzzle set
+- riddles have choices, a `CorrectChoiceId` present in those choices, and intended wrong-answer damage
+- starts-closed gates report `BlocksMovement` before solved
 - all visible stairs and entities are on walkable cells
+- puzzle entities do not overlap stairs, walls, enemies, NPCs, treasure boxes, or each other
 - player start can reach required exits after clearable enemies are removed
 - enemy blockers actually block the intended roads when treated as blocked
+- puzzle-gated treasure or shortcut branches are unreachable with starts-closed gate cells blocked and reachable with only walls blocked
 - separate exits remain separately gated if the brief requires it
 - requested shortcut routes are measurably useful after the blocker is cleared
 - requested branch/intersection depth and wall-run limits are enforced
@@ -92,6 +131,12 @@ python3 -m unittest tests.tools.test_tilemap_json_sync -v
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~<FloorLayoutTest>|FullyQualifiedName~TilemapJsonImporterTest|FullyQualifiedName~NpcSpawnTest"
 ```
 
+For treasure or puzzle trap changes, include the focused runtime suites when useful:
+
+```bash
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~TreasureBoxSpawnTest|FullyQualifiedName~TreasureRewardTest|FullyQualifiedName~PuzzleTrapSpawnTest|FullyQualifiedName~PuzzleTrapControllerTest|FullyQualifiedName~GridMapPuzzleTrapTest"
+```
+
 ```bash
 dotnet build Sirius.sln
 ```
@@ -106,5 +151,10 @@ If Godot is not found, set `GODOT_PATH` to the local Godot Mono binary and rerun
 - Do not add advanced maze complexity by habit. Confirm whether the floor needs deeper branches, extra intersections, shortcut unlocks, and wall-run limits.
 - Do not leave an intended small floor as a large scene padded by walls. Set `GridMap` bounds and tile layers to the confirmed footprint unless the user asked for padding.
 - Do not add NPC spawns by habit; ask and test the requested count.
+- Do not give treasure boxes blank or throwaway IDs. Opened state is save data, so renaming IDs changes player-visible persistence.
+- Do not author treasure rewards with unverified item IDs or invalid quantities. Validate against `ItemCatalog` in scene tests.
+- Do not place puzzle traps, gates, switches, or riddles on top of stairs, walls, enemies, NPCs, or treasure boxes. The runtime has skip/priority behavior, but generated floor content should be clean.
+- Do not rely on switch-armed state as persistent progress. Only solved puzzle IDs persist.
+- Do not let a starts-closed puzzle gate block mandatory exits or hidden placeholders unless the confirmed brief says that route should be puzzle-gated.
 - Do not skip UID checks after scene import.
 - Do not trust import logs alone. Inspect the saved `.tscn` and run scene-level tests.

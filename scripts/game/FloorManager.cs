@@ -215,6 +215,21 @@ public partial class FloorManager : Node
             if (EnableDebugLogging)
                 GD.Print($"🗑️ Unloading floor {_currentFloorIndex}");
             
+            // Remove stair entries belonging to the departing floor so stale
+            // nodes don't pollute position-based lookups on future floors.
+            var staleKeys = new System.Collections.Generic.List<string>();
+            foreach (var kvp in _stairRegistry)
+            {
+                if (kvp.Value != null && kvp.Value.GetParent() == _currentGridMap)
+                {
+                    staleKeys.Add(kvp.Key);
+                }
+            }
+            foreach (var key in staleKeys)
+            {
+                _stairRegistry.Remove(key);
+            }
+            
             _currentFloorInstance.QueueFree();
             _currentFloorInstance = null;
             _currentGridMap = null;
@@ -248,13 +263,15 @@ public partial class FloorManager : Node
             
             if (currentStairIndex >= 0)
             {
-                // Try to find the source stair node to check DestinationStairId
-                foreach (var kvp in _stairRegistry)
+                // Search only the current floor's StairConnection nodes to avoid
+                // matching a stale entry from another floor that happens to share
+                // the same GridPosition (e.g. 3F_2F_A and 2F_1F_A both at (10,10)).
+                foreach (var child in _currentGridMap.GetChildren())
                 {
-                    var stair = kvp.Value;
-                    if (stair.GridPosition == playerPos && !string.IsNullOrEmpty(stair.DestinationStairId))
+                    if (child is StairConnection stair
+                        && stair.GridPosition == playerPos
+                        && !string.IsNullOrEmpty(stair.DestinationStairId))
                     {
-                        // Found the source stair with a DestinationStairId
                         var destStair = GetStairById(stair.DestinationStairId);
                         if (destStair != null)
                         {

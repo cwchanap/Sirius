@@ -530,7 +530,7 @@ def build_floor2_walls() -> set[tuple[int, int]]:
     builder.carve_path((36, 31), (29, 34), half_width=1)
     builder.carve_path((52, 34), (56, 36), half_width=0)
     builder.carve_path((38, 52), (42, 55), half_width=0)
-    builder.carve_path((52, 50), (53, 48), half_width=0)
+    builder.carve_path(FLOOR2_UP_STAIR, (53, 48), half_width=0)
 
     # Optional puzzle branch: left chamber, locked vault, and a second gate for the shortcut exit.
     builder.carve_rect(27, 34, 32, 40)
@@ -1052,7 +1052,8 @@ def main() -> int:
         f"{len(floor1['entities']['treasure_boxes'])} floor1 treasure boxes, "
         f"{len(floor2['tile_layers']['wall'])} floor2 walls, "
         f"{len(floor2['entities']['enemy_spawns'])} floor2 enemies, "
-        f"{len(floor2['entities']['treasure_boxes'])} floor2 treasure boxes"
+        f"{len(floor2['entities']['treasure_boxes'])} floor2 treasure boxes, "
+        f"{len(floor3['tile_layers']['wall'])} floor3 walls"
     )
     return 0
 

@@ -70,6 +70,10 @@ public partial class FloorManagerTest : Node
         var sceneTree = (SceneTree)Engine.GetMainLoop();
         sceneTree.Root.AddChild(fm);
 
+        Node2D floorInstance = null;
+        GridMap gridMap2F = null;
+        GridMap gridMapDest = null;
+
         try
         {
             // --- Set up two floor definitions ---
@@ -80,7 +84,7 @@ public partial class FloorManagerTest : Node
 
             // --- Build fake "current floor" with GridMap + StairConnection ---
             // Simulate Floor 3F (index 1) as the current floor
-            var floorInstance = new Node2D();
+            floorInstance = new Node2D();
             var gridMap = new GridMap();
             floorInstance.AddChild(gridMap);
             sceneTree.Root.AddChild(floorInstance);
@@ -101,7 +105,7 @@ public partial class FloorManagerTest : Node
 
             // Also register a "stale" 2F stair at the SAME position (10,10)
             // This simulates a stair from a previously-loaded floor.
-            var gridMap2F = new GridMap();
+            gridMap2F = new GridMap();
             sceneTree.Root.AddChild(gridMap2F);
             var stair2F = new StairConnection
             {
@@ -115,7 +119,7 @@ public partial class FloorManagerTest : Node
             fm.RegisterStair("2F_1F_A", stair2F);
 
             // Register destination stairs
-            var gridMapDest = new GridMap();
+            gridMapDest = new GridMap();
             sceneTree.Root.AddChild(gridMapDest);
             var destStair = new StairConnection
             {
@@ -142,9 +146,17 @@ public partial class FloorManagerTest : Node
             var dest = fm.GetStairById("2F_3F_A");
             AssertThat(dest).IsNotNull();
             AssertThat(dest.GridPosition).IsEqual(new Vector2I(52, 50));
+
+            // Exercise the actual transition resolution path
+            bool found = fm.TryResolveDestinationStair(new Vector2I(10, 10), false, out Vector2I spawnPos);
+            AssertThat(found).IsTrue();
+            AssertThat(spawnPos).IsEqual(new Vector2I(52, 50));
         }
         finally
         {
+            floorInstance?.QueueFree();
+            gridMap2F?.QueueFree();
+            gridMapDest?.QueueFree();
             fm.QueueFree();
         }
     }
@@ -156,10 +168,13 @@ public partial class FloorManagerTest : Node
         var sceneTree = (SceneTree)Engine.GetMainLoop();
         sceneTree.Root.AddChild(fm);
 
+        Node2D floorInstance = null;
+        GridMap otherGridMap = null;
+
         try
         {
             // Build a fake "current floor" with a GridMap
-            var floorInstance = new Node2D();
+            floorInstance = new Node2D();
             var gridMap = new GridMap();
             floorInstance.AddChild(gridMap);
             sceneTree.Root.AddChild(floorInstance);
@@ -174,7 +189,7 @@ public partial class FloorManagerTest : Node
             fm.RegisterStair("current_floor_stair", currentFloorStair);
 
             // Register a stair that belongs to a DIFFERENT GridMap
-            var otherGridMap = new GridMap();
+            otherGridMap = new GridMap();
             sceneTree.Root.AddChild(otherGridMap);
             var otherFloorStair = new StairConnection
             {
@@ -216,6 +231,8 @@ public partial class FloorManagerTest : Node
         }
         finally
         {
+            floorInstance?.QueueFree();
+            otherGridMap?.QueueFree();
             fm.QueueFree();
         }
     }
@@ -227,16 +244,18 @@ public partial class FloorManagerTest : Node
         var sceneTree = (SceneTree)Engine.GetMainLoop();
         sceneTree.Root.AddChild(fm);
 
+        StairConnection stair = null;
+
         try
         {
-            var stair = new StairConnection { GridPosition = new Vector2I(5, 5) };
+            stair = new StairConnection { GridPosition = new Vector2I(5, 5) };
             sceneTree.Root.AddChild(stair);
 
             // Empty string ID should not register
             fm.RegisterStair("", stair);
             AssertThat(fm.GetStairById("")).IsNull();
 
-            // Null ID should not register (GetStairById throws on null key, 
+            // Null ID should not register (GetStairById throws on null key,
             // so we just verify RegisterStair didn't add it by checking count)
             fm.RegisterStair(null, stair);
 
@@ -246,6 +265,7 @@ public partial class FloorManagerTest : Node
         }
         finally
         {
+            stair?.QueueFree();
             fm.QueueFree();
         }
     }

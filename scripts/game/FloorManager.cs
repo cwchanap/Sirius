@@ -244,8 +244,50 @@ public partial class FloorManager : Node
     }
     
     /// <summary>
-    /// Transition to a different floor (for stairs)
+    /// Given a player position and direction, resolves the destination stair's grid position.
+    /// Returns true if a destination stair was found.
     /// </summary>
+    public bool TryResolveDestinationStair(Vector2I playerPos, bool isGoingUp, out Vector2I spawnPos)
+    {
+        spawnPos = Vector2I.Zero;
+
+        var currentFloor = CurrentFloorDefinition;
+        if (currentFloor == null || _currentGridMap == null)
+            return false;
+
+        var stairPositions = isGoingUp ? currentFloor.StairsUp : currentFloor.StairsDown;
+        int currentStairIndex = stairPositions.IndexOf(playerPos);
+
+        if (currentStairIndex < 0)
+            return false;
+
+        // Search only the current floor's StairConnection nodes to avoid
+        // matching a stale entry from another floor that happens to share
+        // the same GridPosition (e.g. 3F_2F_A and 2F_1F_A both at (10,10)).
+        foreach (var child in _currentGridMap.GetChildren())
+        {
+            if (child is StairConnection stair
+                && stair.GridPosition == playerPos
+                && !string.IsNullOrEmpty(stair.DestinationStairId))
+            {
+                var destStair = GetStairById(stair.DestinationStairId);
+                if (destStair != null)
+                {
+                    spawnPos = destStair.GridPosition;
+                    if (EnableDebugLogging)
+                        GD.Print($"🎯 Resolved destination stair '{stair.DestinationStairId}' → spawn at {spawnPos}");
+                    return true;
+                }
+                else if (EnableDebugLogging)
+                {
+                    GD.Print($"⚠️ Destination stair '{stair.DestinationStairId}' not found in registry!");
+                }
+            }
+        }
+
+        return false;
+    }
+
     public void TransitionToFloor(int targetFloorIndex, bool isGoingUp, int stairIndex = 0)
     {
         if (targetFloorIndex < 0 || targetFloorIndex >= Floors.Count)
@@ -253,50 +295,16 @@ public partial class FloorManager : Node
             GD.Print($"Cannot transition to floor {targetFloorIndex} - not available!");
             return;
         }
-        
-        // Try to find the source stair to check for DestinationStairId
+
         Vector2I spawnPos = Vector2I.Zero;
         bool foundDestination = false;
-        
-        // Get the stair position from current floor
-        var currentFloor = CurrentFloorDefinition;
-        if (currentFloor != null && _currentGridMap != null)
+
+        if (_currentGridMap != null)
         {
             var playerPos = _currentGridMap.GetPlayerPosition();
-            
-            // Find which stair the player is on
-            var stairPositions = isGoingUp ? currentFloor.StairsUp : currentFloor.StairsDown;
-            int currentStairIndex = stairPositions.IndexOf(playerPos);
-            
-            if (currentStairIndex >= 0)
-            {
-                // Search only the current floor's StairConnection nodes to avoid
-                // matching a stale entry from another floor that happens to share
-                // the same GridPosition (e.g. 3F_2F_A and 2F_1F_A both at (10,10)).
-                foreach (var child in _currentGridMap.GetChildren())
-                {
-                    if (child is StairConnection stair
-                        && stair.GridPosition == playerPos
-                        && !string.IsNullOrEmpty(stair.DestinationStairId))
-                    {
-                        var destStair = GetStairById(stair.DestinationStairId);
-                        if (destStair != null)
-                        {
-                            spawnPos = destStair.GridPosition;
-                            foundDestination = true;
-                            if (EnableDebugLogging)
-                                GD.Print($"🎯 Using DestinationStairId '{stair.DestinationStairId}' → spawn at {spawnPos}");
-                            break;
-                        }
-                        else if (EnableDebugLogging)
-                        {
-                            GD.Print($"⚠️ Destination stair '{stair.DestinationStairId}' not found in registry!");
-                        }
-                    }
-                }
-            }
+            foundDestination = TryResolveDestinationStair(playerPos, isGoingUp, out spawnPos);
         }
-        
+
         // Fallback to old method if no DestinationStairId was found
         if (!foundDestination)
         {
@@ -304,7 +312,7 @@ public partial class FloorManager : Node
             var targetFloor = Floors[targetFloorIndex];
             spawnPos = targetFloor.GetStairDestination(isGoingUp, stairIndex);
         }
-        
+
         LoadFloor(targetFloorIndex, spawnPos);
     }
     
@@ -348,17 +356,23 @@ public partial class FloorManager : Node
     /// </summary>
     public void RegisterStair(string stairId, StairConnection stair)
     {
+        if (stair == null || !GodotObject.IsInstanceValid(stair))
+        {
+            GD.PushWarning("RegisterStair called with null or invalid stair — ignored.");
+            return;
+        }
+
         if (string.IsNullOrEmpty(stairId))
         {
             GD.PushWarning("RegisterStair called with empty stairId — stair ignored.");
             return;
         }
-        
+
         if (_stairRegistry.ContainsKey(stairId))
         {
             GD.PushWarning($"RegisterStair: overwriting existing stair '{stairId}'");
         }
-        
+
         _stairRegistry[stairId] = stair;
         if (EnableDebugLogging)
             GD.Print($"📝 Registered stair '{stairId}' at {stair.GridPosition}");

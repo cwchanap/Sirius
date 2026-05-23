@@ -217,10 +217,15 @@ public partial class FloorManager : Node
             
             // Remove stair entries belonging to the departing floor so stale
             // nodes don't pollute position-based lookups on future floors.
-            var staleKeys = new System.Collections.Generic.List<string>();
+            // Also remove orphaned entries (freed/null nodes).
+            var staleKeys = new List<string>();
             foreach (var kvp in _stairRegistry)
             {
-                if (kvp.Value != null && kvp.Value.GetParent() == _currentGridMap)
+                if (kvp.Value == null || !GodotObject.IsInstanceValid(kvp.Value))
+                {
+                    staleKeys.Add(kvp.Key);
+                }
+                else if (kvp.Value.GetParent() == _currentGridMap)
                 {
                     staleKeys.Add(kvp.Key);
                 }
@@ -229,6 +234,8 @@ public partial class FloorManager : Node
             {
                 _stairRegistry.Remove(key);
             }
+            if (staleKeys.Count > 0 && EnableDebugLogging)
+                GD.Print($"🗑️ Removed {staleKeys.Count} stale stair entries");
             
             _currentFloorInstance.QueueFree();
             _currentFloorInstance = null;
@@ -293,10 +300,9 @@ public partial class FloorManager : Node
         // Fallback to old method if no DestinationStairId was found
         if (!foundDestination)
         {
+            GD.PushWarning($"TransitionToFloor: no DestinationStairId match for floor {targetFloorIndex}, using legacy GetStairDestination");
             var targetFloor = Floors[targetFloorIndex];
             spawnPos = targetFloor.GetStairDestination(isGoingUp, stairIndex);
-            if (EnableDebugLogging)
-                GD.Print($"📍 Using fallback destination at {spawnPos}");
         }
         
         LoadFloor(targetFloorIndex, spawnPos);
@@ -342,7 +348,16 @@ public partial class FloorManager : Node
     /// </summary>
     public void RegisterStair(string stairId, StairConnection stair)
     {
-        if (string.IsNullOrEmpty(stairId)) return;
+        if (string.IsNullOrEmpty(stairId))
+        {
+            GD.PushWarning("RegisterStair called with empty stairId — stair ignored.");
+            return;
+        }
+        
+        if (_stairRegistry.ContainsKey(stairId))
+        {
+            GD.PushWarning($"RegisterStair: overwriting existing stair '{stairId}'");
+        }
         
         _stairRegistry[stairId] = stair;
         if (EnableDebugLogging)
@@ -385,6 +400,7 @@ public partial class FloorManager : Node
         }
         
         // Fallback: return any stair with matching direction that targets a different floor
+        GD.PushWarning($"FindStairOnFloor: no exact match for floor {floorIndex} direction {direction}, falling back to any-floor match");
         foreach (var kvp in _stairRegistry)
         {
             var stair = kvp.Value;

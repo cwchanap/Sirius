@@ -513,6 +513,9 @@ def build_floor2_walls() -> set[tuple[int, int]]:
     ]
     builder.carve_loop(main_loop, half_width=1)
 
+    assert FLOOR2_DOWN_STAIR_A[1] == FLOOR2_DOWN_STAIR_B[1], (
+        f"carve_h_corridor requires shared y: A={FLOOR2_DOWN_STAIR_A}, B={FLOOR2_DOWN_STAIR_B}"
+    )
     builder.carve_h_corridor(FLOOR2_DOWN_STAIR_A[0], FLOOR2_DOWN_STAIR_B[0], FLOOR2_DOWN_STAIR_A[1], half_width=1)
     builder.carve_path(FLOOR2_DOWN_STAIR_B, (34, 14), half_width=1)
 

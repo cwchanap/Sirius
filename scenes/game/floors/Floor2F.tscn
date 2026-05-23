@@ -50,6 +50,7 @@ position = Vector2(336, 336)
 script = ExtResource("6_bcm1f")
 GridPosition = Vector2i(10, 10)
 Direction = 1
+TargetFloor = 1
 StairId = "2F_1F_A"
 DestinationStairId = "1F_2F_A"
 
@@ -58,6 +59,7 @@ position = Vector2(848, 336)
 script = ExtResource("6_bcm1f")
 GridPosition = Vector2i(26, 10)
 Direction = 1
+TargetFloor = 1
 StairId = "2F_1F_B"
 DestinationStairId = "1F_2F_B"
 

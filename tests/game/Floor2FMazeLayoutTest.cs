@@ -424,11 +424,161 @@ public partial class Floor2FMazeLayoutTest : Node
         }
     }
 
+    [TestCase]
+    public async System.Threading.Tasks.Task Game_MovingOntoFloor1NorthStairImmediatelyLoadsFloor2A()
+    {
+        await AssertStepOnStairTransition(1, new Vector2I(49, 12), 2, DownStairA);
+    }
+
+    [TestCase]
+    public async System.Threading.Tasks.Task Game_MovingOntoFloor1SouthStairImmediatelyLoadsFloor2B()
+    {
+        await AssertStepOnStairTransition(1, new Vector2I(48, 48), 2, DownStairB);
+    }
+
+    [TestCase]
+    public async System.Threading.Tasks.Task Game_MovingOntoFloor2DownStairAImmediatelyLoadsFloor1A()
+    {
+        await AssertStepOnStairTransition(2, DownStairA, 1, new Vector2I(49, 12));
+    }
+
+    [TestCase]
+    public async System.Threading.Tasks.Task Game_MovingOntoFloor2DownStairBImmediatelyLoadsFloor1B()
+    {
+        await AssertStepOnStairTransition(2, DownStairB, 1, new Vector2I(48, 48));
+    }
+
+    [TestCase]
+    public async System.Threading.Tasks.Task Game_MovingOntoFloor2UpStairImmediatelyLoadsFloor3()
+    {
+        await AssertStepOnStairTransition(2, UpStair, 3, new Vector2I(10, 10));
+    }
+
+    [TestCase]
+    public async System.Threading.Tasks.Task Game_MovingOntoFloor3DownStairImmediatelyLoadsFloor2()
+    {
+        await AssertStepOnStairTransition(3, new Vector2I(10, 10), 2, UpStair);
+    }
+
+    private static async System.Threading.Tasks.Task AssertStepOnStairTransition(
+        int sourceFloor,
+        Vector2I sourceStair,
+        int expectedFloor,
+        Vector2I expectedSpawn)
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var packed = GD.Load<PackedScene>("res://scenes/game/Game.tscn");
+        AssertThat(packed).IsNotNull();
+
+        SaveData? previousPendingLoad = SaveManager.Instance?.PendingLoadData;
+        if (SaveManager.Instance != null)
+        {
+            SaveManager.Instance.PendingLoadData = null;
+        }
+
+        var game = packed!.Instantiate<Game>();
+
+        try
+        {
+            sceneTree.Root.AddChild(game);
+            await AwaitFrames(sceneTree, 4);
+
+            var floorManager = game.GetNode<FloorManager>("FloorManager");
+            floorManager.LoadFloor(sourceFloor);
+            await AwaitFrames(sceneTree, 8);
+
+            var playerController = game.GetNode<PlayerController>("PlayerController");
+            var gridMap = floorManager.CurrentGridMap;
+            var start = FindWalkableNeighbor(gridMap, sourceStair, out Vector2I moveDirection);
+
+            SetPrivateField(gridMap, "_playerPosition", start);
+            PressMovement(playerController, moveDirection);
+
+            await AwaitFrames(sceneTree, 12);
+
+            AssertThat(floorManager.CurrentFloorIndex).IsEqual(expectedFloor);
+            AssertThat(floorManager.CurrentGridMap.GetPlayerPosition()).IsEqual(expectedSpawn);
+        }
+        finally
+        {
+            if (SaveManager.Instance != null)
+            {
+                SaveManager.Instance.PendingLoadData = previousPendingLoad;
+            }
+
+            if (GodotObject.IsInstanceValid(game))
+            {
+                game.QueueFree();
+                await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+            }
+        }
+    }
+
     private static Node2D LoadFloor()
     {
         var packed = GD.Load<PackedScene>("res://scenes/game/floors/Floor2F.tscn");
         AssertThat(packed).IsNotNull();
         return packed!.Instantiate<Node2D>();
+    }
+
+    private static async System.Threading.Tasks.Task AwaitFrames(SceneTree sceneTree, int frames)
+    {
+        for (int i = 0; i < frames; i++)
+        {
+            await sceneTree.ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    private static void PressMovement(PlayerController playerController, Vector2I direction)
+    {
+        playerController._UnhandledInput(new InputEventKey
+        {
+            Keycode = DirectionToKey(direction),
+            Pressed = true
+        });
+    }
+
+    private static Key DirectionToKey(Vector2I direction)
+    {
+        if (direction == Vector2I.Right) return Key.Right;
+        if (direction == Vector2I.Left) return Key.Left;
+        if (direction == Vector2I.Up) return Key.Up;
+        if (direction == Vector2I.Down) return Key.Down;
+        throw new System.ArgumentException($"Unsupported movement direction {direction}");
+    }
+
+    private static Vector2I FindWalkableNeighbor(GridMap gridMap, Vector2I target, out Vector2I moveDirection)
+    {
+        var walls = GetWalls(gridMap);
+        var candidates = new[]
+        {
+            (Position: target + Vector2I.Left, Direction: Vector2I.Right),
+            (Position: target + Vector2I.Right, Direction: Vector2I.Left),
+            (Position: target + Vector2I.Up, Direction: Vector2I.Down),
+            (Position: target + Vector2I.Down, Direction: Vector2I.Up)
+        };
+
+        foreach (var candidate in candidates)
+        {
+            if (IsWalkable(candidate.Position, walls))
+            {
+                moveDirection = candidate.Direction;
+                return candidate.Position;
+            }
+        }
+
+        throw new System.InvalidOperationException($"No walkable neighbor found for {target}");
+    }
+
+    private static void SetPrivateField(object instance, string fieldName, object? value)
+    {
+        var field = instance.GetType().GetField(fieldName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (field == null)
+        {
+            throw new System.MissingFieldException(instance.GetType().FullName, fieldName);
+        }
+
+        field.SetValue(instance, value);
     }
 
     private static HashSet<Vector2I> GetWalls(GridMap gridMap)

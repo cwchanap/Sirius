@@ -162,7 +162,7 @@ public partial class FloorGFMazeLayoutTest : Node
     }
 
     [TestCase]
-    public async Task Game_InteractImmediatelyAfterMovingOntoFloorGFStairLoadsFloor1()
+    public async Task Game_MovingOntoFloorGFStairImmediatelyLoadsFloor1()
     {
         var sceneTree = (SceneTree)Engine.GetMainLoop();
         var packed = GD.Load<PackedScene>("res://scenes/game/Game.tscn");
@@ -188,7 +188,6 @@ public partial class FloorGFMazeLayoutTest : Node
 
             SetPrivateField(gridMap, "_playerPosition", start);
             PressMovement(playerController, moveDirection);
-            PressInteract(playerController);
 
             await AwaitFrames(sceneTree, 12);
 
@@ -230,15 +229,6 @@ public partial class FloorGFMazeLayoutTest : Node
         playerController._UnhandledInput(new InputEventKey
         {
             Keycode = DirectionToKey(direction),
-            Pressed = true
-        });
-    }
-
-    private static void PressInteract(PlayerController playerController)
-    {
-        playerController._UnhandledInput(new InputEventAction
-        {
-            Action = "interact",
             Pressed = true
         });
     }

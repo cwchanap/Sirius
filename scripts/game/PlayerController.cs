@@ -10,13 +10,6 @@ public partial class PlayerController : Node
     private bool _isProcessingMove = false;
     private Vector2I _lastFacingDirection = Vector2I.Down;
     
-    // Stair transition state
-    private bool _pendingStairTransition = false;
-    private int _targetFloor = -1;
-    private bool _isGoingUp = false;
-    private int _targetStairIndex = -1;
-    private bool _awaitingStairInteractRelease = false;
-    
     public override void _Ready()
     {
         _gameManager = GameManager.Instance;
@@ -45,11 +38,6 @@ public partial class PlayerController : Node
     {
         if (_gameManager == null) return;
 
-        if (@event.IsActionReleased("interact"))
-        {
-            _awaitingStairInteractRelease = false;
-        }
-
         // Debug output to help track the issue
         if (@event is InputEventKey keyEvent && keyEvent.Pressed)
         {
@@ -66,54 +54,20 @@ public partial class PlayerController : Node
             return;
         }
         
-        // Handle stair interaction
         if (@event.IsActionPressed("interact"))
         {
-            if (_awaitingStairInteractRelease)
-            {
-                return;
-            }
-
-            // Re-check for stairs in case we arrived via floor transition.
-            // CheckForStairs is normally called only after movement, so a player
-            // landing directly on a stair via TransitionToFloor would have no
-            // pending transition queued.
-            if (!_pendingStairTransition)
-            {
-                CheckForStairs();
-            }
-
-            if (_pendingStairTransition)
-            {
-                if (_targetFloor < 0 || _targetStairIndex < 0)
-                {
-                    GD.PrintErr("Stair transition requested with invalid pending state. Clearing pending transition.");
-                    ClearPendingStairTransition();
-                    return;
-                }
-
-                _awaitingStairInteractRelease = true;
-                GD.Print($"Taking stairs {(_isGoingUp ? "up" : "down")} to floor {_targetFloor}");
-                _floorManager?.TransitionToFloor(_targetFloor, _isGoingUp, _targetStairIndex);
-                ClearPendingStairTransition();
-                return;
-            }
-
             if (_gridMap != null && _gridMap.TryRequestTreasureBoxOpen(_lastFacingDirection))
             {
-                _awaitingStairInteractRelease = true;
                 return;
             }
 
             if (_gridMap != null && _gridMap.TryRequestPuzzleInteraction(_lastFacingDirection))
             {
-                _awaitingStairInteractRelease = true;
+                return;
             }
             return;
         }
 
-        // Movement debouncing should not swallow stair interact presses that
-        // were queued by the successful move onto the stair tile.
         if (_isProcessingMove)
         {
             if (@event is InputEventKey key && key.Pressed)
@@ -167,10 +121,10 @@ public partial class PlayerController : Node
                 bool moveSuccessful = _gridMap.TryMovePlayer(direction);
                 GD.Print($"Movement result: {moveSuccessful}");
                 
-                // After successful move, check for stairs
+                // After successful move, transition immediately if standing on stairs.
                 if (moveSuccessful)
                 {
-                    CheckForStairs();
+                    TransitionIfOnStairs();
                 }
                 
                 // Reset processing flag after a short delay to prevent rapid inputs
@@ -182,59 +136,28 @@ public partial class PlayerController : Node
         }
     }
     
-    private void CheckForStairs()
+    private bool TransitionIfOnStairs()
     {
         if (_gridMap == null || _floorManager == null)
         {
-            GD.Print("⚠️ CheckForStairs: GridMap or FloorManager is null");
-            return;
+            GD.Print("TransitionIfOnStairs: GridMap or FloorManager is null");
+            return false;
         }
         
         Vector2I playerPos = _gridMap.GetPlayerPosition();
-        GD.Print($"🔍 CheckForStairs: Player at grid position {playerPos}");
-        
-        // Check if player is standing on a stair tile
-        bool onStairTile = _gridMap.IsOnStairs(playerPos);
-        GD.Print($"🔍 GridMap.IsOnStairs({playerPos}): {onStairTile}");
-        
-        if (onStairTile)
-        {
-            // Check which direction and if target floor exists
-            bool hasStair = _floorManager.IsOnStairs(playerPos, out bool isUp, out int targetFloor, out int stairIndex);
-            GD.Print($"🔍 FloorManager.IsOnStairs({playerPos}): {hasStair}, isUp: {isUp}, targetFloor: {targetFloor}, stairIndex: {stairIndex}");
-            
-            if (hasStair && !_pendingStairTransition)
-            {
-                // Queue the transition — the player must press the interact
-                // action to actually change floors.
-                QueueStairTransition(targetFloor, isUp, stairIndex);
-                GD.Print($"🪜 Standing on stairs. Press interact to go {(isUp ? "up" : "down")} to floor {targetFloor}.");
-            }
-        }
-        else
-        {
-            // Clear pending transition flag when we move away from stairs
-            if (_pendingStairTransition)
-            {
-                GD.Print("🚶 Moved away from stairs, clearing transition flag");
-                ClearPendingStairTransition();
-            }
-        }
-    }
 
-    private void QueueStairTransition(int targetFloor, bool isGoingUp, int stairIndex)
-    {
-        _pendingStairTransition = true;
-        _targetFloor = targetFloor;
-        _isGoingUp = isGoingUp;
-        _targetStairIndex = stairIndex;
-    }
+        if (!_gridMap.IsOnStairs(playerPos))
+        {
+            return false;
+        }
 
-    private void ClearPendingStairTransition()
-    {
-        _pendingStairTransition = false;
-        _targetFloor = -1;
-        _isGoingUp = false;
-        _targetStairIndex = -1;
+        if (!_floorManager.IsOnStairs(playerPos, out bool isUp, out int targetFloor, out int stairIndex))
+        {
+            return false;
+        }
+
+        GD.Print($"Taking stairs {(isUp ? "up" : "down")} to floor {targetFloor}");
+        _floorManager.TransitionToFloor(targetFloor, isUp, stairIndex);
+        return true;
     }
 }

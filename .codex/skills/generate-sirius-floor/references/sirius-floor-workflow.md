@@ -10,6 +10,8 @@
 - JSON import/export logic is in `scripts/tilemap_json/` and `tools/tilemap_json_sync.py`.
 - Static enemy and NPC scene nodes must have `Owner` set to the scene root so `ResourceSaver` persists them in `.tscn`.
 - Static treasure and puzzle-trap nodes are imported from `entities.treasure_boxes`, `entities.trap_tiles`, `entities.puzzle_switches`, `entities.puzzle_gates`, and `entities.puzzle_riddles`. When a floor intentionally has none, prefer explicit empty arrays so the generator and scene tests can prove that intent.
+- Side branches should have authored payoff. A generated floor should not contain dead-end branches that lack an enemy, treasure box, visible stair, puzzle/trap beat, hidden-placeholder purpose, or tested shortcut value.
+- Stairs may be immediate or interact-required depending on the confirmed design. When immediate transitions are requested, runtime tests must prove stepping onto each visible stair changes floors without pressing interact.
 
 ## Current Treasure Box System
 
@@ -45,6 +47,7 @@ Footprint: <width>x<height>, with top-left or centered placement; confirm whethe
 Entrances: <count and source floor/stair ids>
 Visible exits: <count, target floor ids, rough locations>
 Hidden placeholders: <count, purpose, visible now yes/no; hidden placeholders should not become visible stairs unless requested>
+Stair behavior: <immediate on step-on or interact-required>
 NPCs: <none or count/types/locations>
 Enemies: <types, count, what each blocks>
 Treasure: <none or box ids/rough locations/gold/item rewards; note which are optional, enemy-gated, or puzzle-gated>
@@ -78,6 +81,8 @@ If the user has already answered one of these, do not ask again; summarize it an
    - Reachability with enemies clear.
    - Gated branches unreachable while blocker enemy cells are treated as blocked.
    - Puzzle-gated rewards/shortcuts are blocked with starts-closed gates and reachable after those gates are open.
+   - Dead-end branches have a payoff or explicit hidden-placeholder purpose.
+   - Immediate stair designs have runtime coverage for stepping onto each visible stair without pressing interact.
    - Optional complexity knobs requested by the user: deep branches, intersections, shortcut unlocks, and maximum long wall runs.
 4. Generate/import:
    - `python3 tools/<floor_generator>.py`
@@ -113,6 +118,8 @@ Scene tests should assert:
 - puzzle-gated treasure or shortcut branches are unreachable with starts-closed gate cells blocked and reachable with only walls blocked
 - separate exits remain separately gated if the brief requires it
 - requested shortcut routes are measurably useful after the blocker is cleared
+- no dead-end branch is empty unless the confirmed brief explicitly reserves it as a hidden placeholder
+- immediate stair behavior transitions on step-on for every visible stair pair when requested
 - requested branch/intersection depth and wall-run limits are enforced
 
 ## Verification Commands
@@ -147,6 +154,7 @@ If Godot is not found, set `GODOT_PATH` to the local Godot Mono binary and rerun
 
 - Do not hand-edit huge generated JSON or tile arrays. Change the generator and regenerate.
 - Do not assume enemy placement gates a route. Test pathfinding with enemy cells blocked.
+- Do not leave unrewarded dead ends. Add payoff content, convert the branch into a shortcut, or mark it as an intentional hidden placeholder and test that intent.
 - Do not reveal hidden shortcut placeholders as visible stair nodes unless explicitly requested.
 - Do not add advanced maze complexity by habit. Confirm whether the floor needs deeper branches, extra intersections, shortcut unlocks, and wall-run limits.
 - Do not leave an intended small floor as a large scene padded by walls. Set `GridMap` bounds and tile layers to the confirmed footprint unless the user asked for padding.

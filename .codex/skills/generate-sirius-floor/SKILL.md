@@ -1,13 +1,13 @@
 ---
 name: generate-sirius-floor
-description: Use when designing, generating, importing, or validating new Sirius Godot floors, maze layouts, stair connections, enemy-gated branches, NPC placement, treasure boxes, puzzle trap chambers, hidden shortcut placeholders, or placeholder future floors. Trigger for requests to create or revise floor `.json`, `.tscn`, `.tres`, floor generator tools, floor registration, and scene-level reachability tests.
+description: Use when designing, generating, importing, or validating Sirius Godot floors, maze layouts, stair transitions, rewarded branches, enemy-gated routes, shortcut loops, NPC placement, treasure boxes, puzzle trap chambers, hidden placeholders, or placeholder future floors. Trigger for floor `.json`, `.tscn`, `.tres`, generator, registration, and reachability-test work.
 ---
 
 # Generate Sirius Floor
 
 ## Overview
 
-Use the static generated-floor pipeline already established in Sirius. First turn the user's floor idea into a confirmed design brief, then generate/import the floor, register any new floor resources, and prove reachability, treasure, and puzzle-trap behavior with tests.
+Use the static generated-floor pipeline already established in Sirius. First turn the user's floor idea into a confirmed design brief, then generate/import the floor, register any new floor resources, and prove reachability, rewarded exploration, stair transitions, treasure, and puzzle-trap behavior with tests.
 
 Read [references/sirius-floor-workflow.md](references/sirius-floor-workflow.md) before editing generator, scene, resource, or test files.
 
@@ -37,11 +37,12 @@ Read [references/sirius-floor-workflow.md](references/sirius-floor-workflow.md) 
    - maze complexity: simple, moderate, complex, or custom constraints; ask which optional complexity knobs to include
    - theme/terrain mix and special landmarks
    - placeholder future rooms, shortcuts, or floors
+   - stair activation behavior: immediate on step-on or interact-required
 3. Restate the confirmed brief as an implementation checklist. For broad or risky changes, save a plan under `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`.
 4. Prefer deterministic generated static content over manual `.json` or `.tscn` edits. Add or adapt a generator in `tools/`, then cover it with Python tests.
 5. Import generated JSON into Godot scenes with `tools/tilemap_json_sync.py`. Preserve scene and ext_resource UIDs after import.
 6. Register new floor resources in the floor manager scene/config so stair transitions can resolve.
-7. Add scene-level tests that prove counts, stair visibility, entity placement, treasure rewards, puzzle identities, gate blocking/opening, and route gating. Treat enemy-gated roads as blocked until the enemy is cleared and starts-closed puzzle gates as blocked until solved.
+7. Add scene-level tests that prove counts, stair visibility, entity placement, treasure rewards, puzzle identities, gate blocking/opening, branch payoff, stair transition behavior, and route gating. Treat enemy-gated roads as blocked until the enemy is cleared and starts-closed puzzle gates as blocked until solved.
 8. Run focused verification before claiming success:
    - generator unit tests
    - importer/sync tests if the import pipeline changed
@@ -62,6 +63,8 @@ Ask the user before enabling these unless they already requested them:
 - visible stairs separated from hidden future-room or shortcut placeholders
 - reduced long consecutive wall blocks so the map reads as authored maze space, not padded filler
 - true scene footprint bounds matching the intended size, not a larger map filled with walls
+- branch-payoff enforcement: each dead-end branch has treasure, enemy, stair, puzzle beat, hidden-placeholder purpose, or measurable shortcut function
+- immediate stair transitions when the player steps onto a stair tile
 
 ## Design Rules
 
@@ -73,5 +76,7 @@ Ask the user before enabling these unless they already requested them:
 - Author puzzle traps as coordinated entity sets sharing a stable `PuzzleId`. Switches arm, riddles solve, starts-closed gates block until solved, and traps are walkable damage cells that disappear when the puzzle is solved.
 - Do not place puzzle entities on stairs, walls, enemies, NPCs, treasure boxes, or each other. Registration will skip or overwrite some conflicts; tests should prevent the conflict instead.
 - Place enemies where they control branch access, not only as decoration. Validate that blocked enemy cells actually prevent access to gated branches.
+- Do not leave empty dead-end branches. Every dead end should reward exploration with an entity, guard, hidden-placeholder purpose, or a tested shortcut payoff.
+- If stairs are intended to be immediate, test the full runtime transition path. Do not rely only on stair node/resource metadata.
 - For multiple visible exits to the same future floor, test that clearing one gate does not open unrelated exits.
 - Keep generated artifacts reproducible. Regenerate instead of hand-editing large generated JSON or tile arrays.

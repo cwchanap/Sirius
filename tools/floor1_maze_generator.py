@@ -52,6 +52,7 @@ FLOOR1_ENEMY_GATES = {
 
 FLOOR1_EXTRA_ENEMY_PATROLS = {
     "EnemySpawn_Goblin_WestDeadEnd": {"position": (5, 22), "enemy_type": "goblin"},
+    "EnemySpawn_Goblin_SideRoom": {"position": (18, 22), "enemy_type": "goblin"},
     "EnemySpawn_Goblin_SouthwestSpur": {"position": (5, 54), "enemy_type": "goblin"},
     "EnemySpawn_Goblin_WestLoop": {"position": (7, 42), "enemy_type": "goblin"},
     "EnemySpawn_Goblin_NorthRoom": {"position": (8, 4), "enemy_type": "goblin"},
@@ -67,12 +68,14 @@ FLOOR1_EXTRA_ENEMY_PATROLS = {
     "EnemySpawn_Orc_EastHall": {"position": (44, 24), "enemy_type": "orc"},
     "EnemySpawn_Orc_EastLoop": {"position": (52, 34), "enemy_type": "orc"},
     "EnemySpawn_Orc_SoutheastSwitchback": {"position": (56, 46), "enemy_type": "orc"},
+    "EnemySpawn_Orc_SouthBend": {"position": (35, 54), "enemy_type": "orc"},
     "EnemySpawn_Orc_SouthLoopEast": {"position": (42, 58), "enemy_type": "orc"},
     "EnemySpawn_Orc_CentralLower": {"position": (32, 34), "enemy_type": "orc"},
     "EnemySpawn_Skeleton_NorthDeadEnd": {"position": (49, 5), "enemy_type": "skeleton_warrior"},
     "EnemySpawn_Skeleton_NorthShortcutBend": {"position": (38, 7), "enemy_type": "skeleton_warrior"},
     "EnemySpawn_Skeleton_UpperConnector": {"position": (27, 11), "enemy_type": "skeleton_warrior"},
     "EnemySpawn_Skeleton_EastSpur": {"position": (47, 35), "enemy_type": "skeleton_warrior"},
+    "EnemySpawn_Skeleton_CentralSpur": {"position": (38, 39), "enemy_type": "skeleton_warrior"},
     "EnemySpawn_Skeleton_SouthSpur": {"position": (12, 49), "enemy_type": "skeleton_warrior"},
     "EnemySpawn_ForestSpirit_EastSwitchback": {"position": (54, 58), "enemy_type": "forest_spirit"},
     "EnemySpawn_ForestSpirit_SouthGallery": {"position": (39, 44), "enemy_type": "forest_spirit"},
@@ -80,13 +83,17 @@ FLOOR1_EXTRA_ENEMY_PATROLS = {
 
 FLOOR1_TREASURE_BOXES = {
     "TreasureBox_1F_WestDeadEndCache": ((4, 22), 85, {"health_potion": 2}),
+    "TreasureBox_1F_WestCrossingCache": ((5, 37), 55, {"health_potion": 1}),
     "TreasureBox_1F_WestLoopCache": ((2, 42), 70, {"swiftness_draught": 1}),
+    "TreasureBox_1F_NorthSpurCache": ((28, 20), 0, {"mana_potion": 1}),
     "TreasureBox_1F_NorthConnectorCache": ((30, 19), 0, {"mana_potion": 2}),
+    "TreasureBox_1F_CentralSpurCache": ((43, 34), 95, {"iron_skin": 1}),
     "TreasureBox_1F_EastHallCache": ((52, 24), 120, {"greater_health_potion": 1}),
     "TreasureBox_1F_NorthStairCache": ((49, 14), 0, {"iron_boots": 1}),
     "TreasureBox_1F_EastShortcutCache": ((58, 46), 0, {"steel_longsword": 1}),
     "TreasureBox_1F_SouthGalleryCache": ((38, 55), 130, {"flash_powder": 1}),
     "TreasureBox_1F_SouthHiddenCache": ((24, 56), 0, {"chain_mail": 1}),
+    "TreasureBox_1F_SouthShortcutPocket": ((26, 56), 0, {"antidote": 1}),
 }
 
 FLOOR1_PUZZLE_ID = "Puzzle_1F_SouthShortcutTrial"
@@ -135,8 +142,16 @@ FLOOR2_EXTRA_ENEMY_PATROLS = {
     "EnemySpawn_2F_WestSupply": {"position": (8, 16), "enemy_type": "cave_spider"},
     "EnemySpawn_2F_WestLoop": {"position": (27, 18), "enemy_type": "skeleton_warrior"},
     "EnemySpawn_2F_NorthStudy": {"position": (44, 12), "enemy_type": "grave_hexer"},
+    "EnemySpawn_2F_NorthStacks": {"position": (18, 28), "enemy_type": "bone_archer"},
+    "EnemySpawn_2F_PuzzleSide": {"position": (24, 38), "enemy_type": "cave_spider"},
+    "EnemySpawn_2F_WestReadingRoom": {"position": (30, 24), "enemy_type": "skeleton_warrior"},
     "EnemySpawn_2F_CentralArchive": {"position": (36, 31), "enemy_type": "bone_archer"},
+    "EnemySpawn_2F_EastStacks": {"position": (40, 40), "enemy_type": "iron_revenant"},
+    "EnemySpawn_2F_SouthShortcut": {"position": (41, 44), "enemy_type": "grave_hexer"},
+    "EnemySpawn_2F_EastDeadEnd": {"position": (44, 34), "enemy_type": "cursed_gargoyle"},
+    "EnemySpawn_2F_UpperAlcove": {"position": (48, 24), "enemy_type": "bone_archer"},
     "EnemySpawn_2F_EastGallery": {"position": (55, 34), "enemy_type": "iron_revenant"},
+    "EnemySpawn_2F_LowerWatch": {"position": (55, 46), "enemy_type": "iron_revenant"},
     "EnemySpawn_2F_SouthApproach": {"position": (24, 46), "enemy_type": "cave_spider"},
     "EnemySpawn_2F_SouthArmory": {"position": (42, 53), "enemy_type": "iron_revenant"},
     "EnemySpawn_2F_StairWatch": {"position": (52, 48), "enemy_type": "cursed_gargoyle"},
@@ -144,9 +159,14 @@ FLOOR2_EXTRA_ENEMY_PATROLS = {
 
 FLOOR2_TREASURE_BOXES = {
     "TreasureBox_2F_WestSupplyCache": ((6, 16), 100, {"greater_health_potion": 1}),
+    "TreasureBox_2F_WestArchiveCache": ((4, 32), 120, {"major_health_potion": 1}),
+    "TreasureBox_2F_NorthLandingCache": ((18, 4), 0, {"major_mana_potion": 1}),
     "TreasureBox_2F_NorthStudyCache": ((44, 8), 0, {"major_mana_potion": 1}),
+    "TreasureBox_2F_SouthStacksCache": ((13, 55), 130, {"warding_charm": 1}),
     "TreasureBox_2F_EastGalleryCache": ((56, 36), 140, {"smoke_bomb": 1}),
+    "TreasureBox_2F_EastStudyCache": ((56, 24), 150, {"smoke_bomb": 1}),
     "TreasureBox_2F_SouthArmoryCache": ((42, 55), 0, {"steel_tower_shield": 1}),
+    "TreasureBox_2F_SouthShortcutCache": ((30, 56), 0, {"swift_boots": 1}),
     "TreasureBox_2F_StairWatchCache": ((53, 48), 160, {"swift_boots": 1}),
     "TreasureBox_2F_PuzzleVaultCache": ((35, 38), 0, {"warding_charm": 1}),
 }
@@ -582,9 +602,18 @@ def build_floor2_walls() -> set[tuple[int, int]]:
         ((16, 52), (13, 55)),
         ((34, 56), (30, 56)),
         ((50, 46), (55, 46)),
-        ((38, 44), (38, 48)),
     ]
     for start, end in wall_relief_paths:
+        builder.carve_path(start, end, half_width=0)
+
+    shortcut_loop_cuts = [
+        ((13, 55), (30, 56)),
+        ((18, 28), (24, 38)),
+        ((35, 44), (41, 44)),
+        ((44, 34), (48, 24)),
+        ((26, 5), (18, 4)),
+    ]
+    for start, end in shortcut_loop_cuts:
         builder.carve_path(start, end, half_width=0)
 
     add_gate_barrier(
@@ -617,6 +646,15 @@ def build_floor2_walls() -> set[tuple[int, int]]:
     )
     add_gate_barrier(
         builder.walls,
+        FLOOR2_EXTRA_ENEMY_PATROLS["EnemySpawn_2F_SouthArmory"]["position"],
+        [
+            *[(x, y) for x in range(37, 42) for y in (51, 52)],
+            (37, 50),
+            (41, 54),
+        ],
+    )
+    add_gate_barrier(
+        builder.walls,
         FLOOR2_ENEMY_GATES["EnemySpawn_2F_PuzzleApproach"]["position"],
         [(x, 34) for x in range(28, 33)],
     )
@@ -633,7 +671,7 @@ def build_floor2_walls() -> set[tuple[int, int]]:
     add_gate_barrier(
         builder.walls,
         FLOOR2_PUZZLE_GATES["PuzzleGate_2F_ArchiveTrial_Shortcut"]["position"],
-        [(x, 44) for x in range(36, 41)],
+        [FLOOR2_PUZZLE_GATES["PuzzleGate_2F_ArchiveTrial_Shortcut"]["position"]],
     )
 
     builder.reinforce_perimeter()
@@ -855,6 +893,58 @@ def connected_walkable_cells(walkable: set[tuple[int, int]], start: tuple[int, i
     return seen
 
 
+def walkable_neighbors(walkable: set[tuple[int, int]], position: tuple[int, int]) -> list[tuple[int, int]]:
+    x, y = position
+    return [
+        (nx, ny)
+        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1))
+        if (nx, ny) in walkable
+    ]
+
+
+def walkable_neighbor_count(walkable: set[tuple[int, int]], position: tuple[int, int]) -> int:
+    return len(walkable_neighbors(walkable, position))
+
+
+def dead_end_branches(
+    walkable: set[tuple[int, int]],
+    width: int,
+    height: int,
+) -> list[list[tuple[int, int]]]:
+    branches: list[list[tuple[int, int]]] = []
+    for leaf in sorted(walkable):
+        x, y = leaf
+        if x >= width or y >= height:
+            continue
+
+        if walkable_neighbor_count(walkable, leaf) != 1:
+            continue
+
+        branch = [leaf]
+        previous = None
+        current = leaf
+        while True:
+            next_cells = [
+                neighbor
+                for neighbor in walkable_neighbors(walkable, current)
+                if neighbor != previous
+            ]
+            if not next_cells:
+                break
+
+            next_cell = next_cells[0]
+            if walkable_neighbor_count(walkable, next_cell) != 2:
+                break
+
+            branch.append(next_cell)
+            previous = current
+            current = next_cell
+
+        branches.append(branch)
+
+    return branches
+
+
 ENTITY_POSITION_KEYS = (
     "enemy_spawns",
     "npc_spawns",
@@ -871,6 +961,45 @@ ENTITY_POSITION_KEYS = (
 def entity_position(entity: dict) -> tuple[int, int]:
     pos = entity["position"]
     return pos["x"], pos["y"]
+
+
+BRANCH_PAYOFF_POSITION_KEYS = (
+    "enemy_spawns",
+    "treasure_boxes",
+    "stair_connections",
+    "hidden_placeholders",
+    "trap_tiles",
+    "puzzle_switches",
+    "puzzle_gates",
+    "puzzle_riddles",
+)
+
+
+def branch_payoff_positions(model: dict) -> set[tuple[int, int]]:
+    positions: set[tuple[int, int]] = set()
+    for key in BRANCH_PAYOFF_POSITION_KEYS:
+        positions.update(entity_position(entity) for entity in model["entities"].get(key, []))
+
+    return positions
+
+
+def unrewarded_dead_end_branches(
+    model: dict,
+    walkable: set[tuple[int, int]],
+    width: int,
+    height: int,
+) -> list[list[tuple[int, int]]]:
+    payoff_positions = branch_payoff_positions(model)
+    unrewarded: list[list[tuple[int, int]]] = []
+    for branch in dead_end_branches(walkable, width, height):
+        adjacent: set[tuple[int, int]] = set()
+        for cell in branch:
+            adjacent.update(walkable_neighbors(walkable, cell))
+
+        if payoff_positions.isdisjoint(set(branch) | adjacent):
+            unrewarded.append(branch)
+
+    return unrewarded
 
 
 def validate_model(model: dict, width: int, height: int) -> None:
@@ -942,6 +1071,11 @@ def validate_model(model: dict, width: int, height: int) -> None:
                 raise ValueError(
                     f"Required {entity_type} {entity['id']} is blocked by a closed puzzle gate"
                 )
+
+    if model["floor_metadata"].get("floor_number") in (1, 2):
+        unrewarded = unrewarded_dead_end_branches(model, walkable, width, height)
+        if unrewarded:
+            raise ValueError(f"Unrewarded dead-end branches: {unrewarded}")
 
 
 def write_json(model: dict, output_path: Path) -> None:

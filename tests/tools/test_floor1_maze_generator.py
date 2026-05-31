@@ -55,20 +55,29 @@ from tools.floor1_maze_generator import (
 
 EXPECTED_FLOOR1_TREASURE = {
     "TreasureBox_1F_WestDeadEndCache": ((4, 22), 85, {"health_potion": 2}),
+    "TreasureBox_1F_WestCrossingCache": ((5, 37), 55, {"health_potion": 1}),
     "TreasureBox_1F_WestLoopCache": ((2, 42), 70, {"swiftness_draught": 1}),
+    "TreasureBox_1F_NorthSpurCache": ((28, 20), 0, {"mana_potion": 1}),
     "TreasureBox_1F_NorthConnectorCache": ((30, 19), 0, {"mana_potion": 2}),
+    "TreasureBox_1F_CentralSpurCache": ((43, 34), 95, {"iron_skin": 1}),
     "TreasureBox_1F_EastHallCache": ((52, 24), 120, {"greater_health_potion": 1}),
     "TreasureBox_1F_NorthStairCache": ((49, 14), 0, {"iron_boots": 1}),
     "TreasureBox_1F_EastShortcutCache": ((58, 46), 0, {"steel_longsword": 1}),
     "TreasureBox_1F_SouthGalleryCache": ((38, 55), 130, {"flash_powder": 1}),
     "TreasureBox_1F_SouthHiddenCache": ((24, 56), 0, {"chain_mail": 1}),
+    "TreasureBox_1F_SouthShortcutPocket": ((26, 56), 0, {"antidote": 1}),
 }
 
 EXPECTED_FLOOR2_TREASURE = {
     "TreasureBox_2F_WestSupplyCache": ((6, 16), 100, {"greater_health_potion": 1}),
+    "TreasureBox_2F_WestArchiveCache": ((4, 32), 120, {"major_health_potion": 1}),
+    "TreasureBox_2F_NorthLandingCache": ((18, 4), 0, {"major_mana_potion": 1}),
     "TreasureBox_2F_NorthStudyCache": ((44, 8), 0, {"major_mana_potion": 1}),
+    "TreasureBox_2F_SouthStacksCache": ((13, 55), 130, {"warding_charm": 1}),
     "TreasureBox_2F_EastGalleryCache": ((56, 36), 140, {"smoke_bomb": 1}),
+    "TreasureBox_2F_EastStudyCache": ((56, 24), 150, {"smoke_bomb": 1}),
     "TreasureBox_2F_SouthArmoryCache": ((42, 55), 0, {"steel_tower_shield": 1}),
+    "TreasureBox_2F_SouthShortcutCache": ((30, 56), 0, {"swift_boots": 1}),
     "TreasureBox_2F_StairWatchCache": ((53, 48), 160, {"swift_boots": 1}),
     "TreasureBox_2F_PuzzleVaultCache": ((35, 38), 0, {"warding_charm": 1}),
 }
@@ -152,6 +161,82 @@ def count_dead_end_cells(walkable, width=FLOOR1_WIDTH, height=FLOOR1_HEIGHT):
             dead_ends += 1
 
     return dead_ends
+
+
+def branch_payoff_positions(model):
+    positions = set()
+    entities = model["entities"]
+    for key in (
+        "enemy_spawns",
+        "treasure_boxes",
+        "stair_connections",
+        "hidden_placeholders",
+        "trap_tiles",
+        "puzzle_switches",
+        "puzzle_gates",
+        "puzzle_riddles",
+    ):
+        positions.update(entity_positions(entities, key).values())
+
+    return positions
+
+
+def walkable_neighbors(walkable, position):
+    x, y = position
+    return [
+        (nx, ny)
+        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1))
+        if (nx, ny) in walkable
+    ]
+
+
+def dead_end_branches(walkable, width, height):
+    branches = []
+    for leaf in sorted(walkable):
+        x, y = leaf
+        if x >= width or y >= height:
+            continue
+
+        if neighbor_count(walkable, leaf) != 1:
+            continue
+
+        branch = [leaf]
+        previous = None
+        current = leaf
+        while True:
+            next_cells = [
+                neighbor
+                for neighbor in walkable_neighbors(walkable, current)
+                if neighbor != previous
+            ]
+            if not next_cells:
+                break
+
+            next_cell = next_cells[0]
+            if neighbor_count(walkable, next_cell) != 2:
+                break
+
+            branch.append(next_cell)
+            previous = current
+            current = next_cell
+
+        branches.append(branch)
+
+    return branches
+
+
+def unrewarded_dead_end_branches(model, walkable, width, height):
+    payoff_positions = branch_payoff_positions(model)
+    unrewarded = []
+    for branch in dead_end_branches(walkable, width, height):
+        adjacent = set()
+        for cell in branch:
+            adjacent.update(walkable_neighbors(walkable, cell))
+
+        if payoff_positions.isdisjoint(set(branch) | adjacent):
+            unrewarded.append(branch)
+
+    return unrewarded
 
 
 def neighbor_count(walkable, position):
@@ -287,6 +372,7 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
                 "EnemySpawn_ForestSpirit_EastShortcut": "forest_spirit",
                 "EnemySpawn_Orc_SouthShortcut": "orc",
                 "EnemySpawn_Goblin_WestDeadEnd": "goblin",
+                "EnemySpawn_Goblin_SideRoom": "goblin",
                 "EnemySpawn_Goblin_SouthwestSpur": "goblin",
                 "EnemySpawn_Goblin_WestLoop": "goblin",
                 "EnemySpawn_Goblin_NorthRoom": "goblin",
@@ -302,12 +388,14 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
                 "EnemySpawn_Orc_EastHall": "orc",
                 "EnemySpawn_Orc_EastLoop": "orc",
                 "EnemySpawn_Orc_SoutheastSwitchback": "orc",
+                "EnemySpawn_Orc_SouthBend": "orc",
                 "EnemySpawn_Orc_SouthLoopEast": "orc",
                 "EnemySpawn_Orc_CentralLower": "orc",
                 "EnemySpawn_Skeleton_NorthDeadEnd": "skeleton_warrior",
                 "EnemySpawn_Skeleton_NorthShortcutBend": "skeleton_warrior",
                 "EnemySpawn_Skeleton_UpperConnector": "skeleton_warrior",
                 "EnemySpawn_Skeleton_EastSpur": "skeleton_warrior",
+                "EnemySpawn_Skeleton_CentralSpur": "skeleton_warrior",
                 "EnemySpawn_Skeleton_SouthSpur": "skeleton_warrior",
                 "EnemySpawn_ForestSpirit_EastSwitchback": "forest_spirit",
                 "EnemySpawn_ForestSpirit_SouthGallery": "forest_spirit",
@@ -470,6 +558,12 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
 
     def test_maze_has_multiple_dead_end_branches(self):
         self.assertGreaterEqual(count_dead_end_cells(self.walkable), 8)
+
+    def test_floor1_dead_end_branches_have_payoff(self):
+        self.assertEqual(
+            unrewarded_dead_end_branches(self.model, self.walkable, FLOOR1_WIDTH, FLOOR1_HEIGHT),
+            [],
+        )
 
     def test_maze_has_named_decision_intersections(self):
         decision_intersections = [
@@ -758,7 +852,7 @@ class Floor2MazeGeneratorTest(unittest.TestCase):
         enemies = self.model["entities"]["enemy_spawns"]
 
         self.assertEqual(self.model["entities"]["npc_spawns"], [])
-        self.assertEqual(len(enemies), 12)
+        self.assertEqual(len(enemies), 20)
         self.assertEqual(
             {enemy["id"]: enemy["enemy_type"] for enemy in enemies},
             {
@@ -901,7 +995,8 @@ class Floor2MazeGeneratorTest(unittest.TestCase):
 
     def test_enemy_gates_block_main_up_stair_route_until_clearable(self):
         enemy_positions = set(entity_positions(self.model["entities"], "enemy_spawns").values())
-        uncleared_walkable = self.walkable - enemy_positions
+        treasure_positions = set(entity_positions(self.model["entities"], "treasure_boxes").values())
+        uncleared_walkable = self.walkable - enemy_positions - treasure_positions
 
         self.assertFalse(has_path(uncleared_walkable, FLOOR2_PLAYER_START, FLOOR2_UP_STAIR))
         self.assertTrue(has_path(self.walkable, FLOOR2_PLAYER_START, FLOOR2_UP_STAIR))
@@ -912,6 +1007,12 @@ class Floor2MazeGeneratorTest(unittest.TestCase):
             with self.subTest(position=position):
                 self.assertIn(position, self.walkable)
                 self.assertGreaterEqual(neighbor_count(self.walkable, position), 3)
+
+    def test_floor2_dead_end_branches_have_payoff(self):
+        self.assertEqual(
+            unrewarded_dead_end_branches(self.model, self.walkable, FLOOR2_WIDTH, FLOOR2_HEIGHT),
+            [],
+        )
 
     def test_floor2_definition_arrays_include_return_and_up_stairs(self):
         with tempfile.TemporaryDirectory() as tmpdir:

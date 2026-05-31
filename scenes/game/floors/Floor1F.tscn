@@ -497,3 +497,67 @@ ChoiceLabels = Array[String](["North stone", "East stone", "South stone"])
 CorrectChoiceId = "east_stone"
 PuzzleId = "Puzzle_1F_SouthShortcutTrial"
 GridPosition = Vector2i(22, 54)
+
+[node name="EnemySpawn_Goblin_SideRoom" type="Sprite2D" parent="GridMap" unique_id=1571240205 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(592, 720)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(18, 22)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_Orc_SouthBend" type="Sprite2D" parent="GridMap" unique_id=555076590 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(1136, 1744)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(35, 54)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_Skeleton_CentralSpur" type="Sprite2D" parent="GridMap" unique_id=1802931544]
+z_index = 2
+position = Vector2(1232, 1264)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(38, 39)
+EnemyType = "skeleton_warrior"
+
+[node name="TreasureBox_1F_WestCrossingCache" type="Sprite2D" parent="GridMap" unique_id=1012654865]
+z_index = 2
+position = Vector2(176, 1200)
+script = ExtResource("12_abo7i")
+GridPosition = Vector2i(5, 37)
+TreasureBoxId = "TreasureBox_1F_WestCrossingCache"
+RewardGold = 55
+RewardItemIds = Array[String](["health_potion"])
+RewardItemQuantities = Array[int]([1])
+
+[node name="TreasureBox_1F_NorthSpurCache" type="Sprite2D" parent="GridMap" unique_id=187839174]
+z_index = 2
+position = Vector2(912, 656)
+script = ExtResource("12_abo7i")
+GridPosition = Vector2i(28, 20)
+TreasureBoxId = "TreasureBox_1F_NorthSpurCache"
+RewardItemIds = Array[String](["mana_potion"])
+RewardItemQuantities = Array[int]([1])
+
+[node name="TreasureBox_1F_CentralSpurCache" type="Sprite2D" parent="GridMap" unique_id=653392318]
+z_index = 2
+position = Vector2(1392, 1104)
+script = ExtResource("12_abo7i")
+GridPosition = Vector2i(43, 34)
+TreasureBoxId = "TreasureBox_1F_CentralSpurCache"
+RewardGold = 95
+RewardItemIds = Array[String](["iron_skin"])
+RewardItemQuantities = Array[int]([1])
+
+[node name="TreasureBox_1F_SouthShortcutPocket" type="Sprite2D" parent="GridMap" unique_id=2056117044]
+z_index = 2
+position = Vector2(848, 1808)
+script = ExtResource("12_abo7i")
+GridPosition = Vector2i(26, 56)
+TreasureBoxId = "TreasureBox_1F_SouthShortcutPocket"
+RewardItemIds = Array[String](["antidote"])
+RewardItemQuantities = Array[int]([1])

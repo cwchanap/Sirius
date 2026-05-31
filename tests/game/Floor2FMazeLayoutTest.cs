@@ -23,8 +23,16 @@ public partial class Floor2FMazeLayoutTest : Node
         ["EnemySpawn_2F_WestSupply"] = "cave_spider",
         ["EnemySpawn_2F_WestLoop"] = "skeleton_warrior",
         ["EnemySpawn_2F_NorthStudy"] = "grave_hexer",
+        ["EnemySpawn_2F_NorthStacks"] = "bone_archer",
+        ["EnemySpawn_2F_PuzzleSide"] = "cave_spider",
+        ["EnemySpawn_2F_WestReadingRoom"] = "skeleton_warrior",
         ["EnemySpawn_2F_CentralArchive"] = "bone_archer",
+        ["EnemySpawn_2F_EastStacks"] = "iron_revenant",
+        ["EnemySpawn_2F_SouthShortcut"] = "grave_hexer",
+        ["EnemySpawn_2F_EastDeadEnd"] = "cursed_gargoyle",
+        ["EnemySpawn_2F_UpperAlcove"] = "bone_archer",
         ["EnemySpawn_2F_EastGallery"] = "iron_revenant",
+        ["EnemySpawn_2F_LowerWatch"] = "iron_revenant",
         ["EnemySpawn_2F_SouthApproach"] = "cave_spider",
         ["EnemySpawn_2F_SouthArmory"] = "iron_revenant",
         ["EnemySpawn_2F_StairWatch"] = "cursed_gargoyle"
@@ -33,9 +41,14 @@ public partial class Floor2FMazeLayoutTest : Node
     private static readonly Dictionary<string, (Vector2I Position, int Gold, Dictionary<string, int> Items)> ExpectedTreasureBoxes = new()
     {
         ["TreasureBox_2F_WestSupplyCache"] = (new Vector2I(6, 16), 100, new Dictionary<string, int> { ["greater_health_potion"] = 1 }),
+        ["TreasureBox_2F_WestArchiveCache"] = (new Vector2I(4, 32), 120, new Dictionary<string, int> { ["major_health_potion"] = 1 }),
+        ["TreasureBox_2F_NorthLandingCache"] = (new Vector2I(18, 4), 0, new Dictionary<string, int> { ["major_mana_potion"] = 1 }),
         ["TreasureBox_2F_NorthStudyCache"] = (new Vector2I(44, 8), 0, new Dictionary<string, int> { ["major_mana_potion"] = 1 }),
+        ["TreasureBox_2F_SouthStacksCache"] = (new Vector2I(13, 55), 130, new Dictionary<string, int> { ["warding_charm"] = 1 }),
         ["TreasureBox_2F_EastGalleryCache"] = (new Vector2I(56, 36), 140, new Dictionary<string, int> { ["smoke_bomb"] = 1 }),
+        ["TreasureBox_2F_EastStudyCache"] = (new Vector2I(56, 24), 150, new Dictionary<string, int> { ["smoke_bomb"] = 1 }),
         ["TreasureBox_2F_SouthArmoryCache"] = (new Vector2I(42, 55), 0, new Dictionary<string, int> { ["steel_tower_shield"] = 1 }),
+        ["TreasureBox_2F_SouthShortcutCache"] = (new Vector2I(30, 56), 0, new Dictionary<string, int> { ["swift_boots"] = 1 }),
         ["TreasureBox_2F_StairWatchCache"] = (new Vector2I(53, 48), 160, new Dictionary<string, int> { ["swift_boots"] = 1 }),
         ["TreasureBox_2F_PuzzleVaultCache"] = (new Vector2I(35, 38), 0, new Dictionary<string, int> { ["warding_charm"] = 1 })
     };
@@ -184,8 +197,8 @@ public partial class Floor2FMazeLayoutTest : Node
                 })
                 .ToHashSet();
 
-            AssertThat(boxes.Count).IsEqual(6);
-            AssertThat(boxes.Values.Select(box => box.GridPosition).Distinct().Count()).IsEqual(6);
+            AssertThat(boxes.Count).IsEqual(11);
+            AssertThat(boxes.Values.Select(box => box.GridPosition).Distinct().Count()).IsEqual(11);
 
             foreach (var expected in ExpectedTreasureBoxes)
             {
@@ -381,8 +394,29 @@ public partial class Floor2FMazeLayoutTest : Node
             {
                 blockedCells.Add(enemy.GridPosition);
             }
+            foreach (var box in gridMap.GetChildren().OfType<TreasureBoxSpawn>())
+            {
+                blockedCells.Add(box.GridPosition);
+            }
 
             AssertThat(HasPath(PlayerStart, UpStair, blockedCells)).IsFalse();
+        }
+        finally
+        {
+            floorRoot.Free();
+        }
+    }
+
+    [TestCase]
+    public void Floor2F_GeneratedMaze_DeadEndBranchesHavePayoff()
+    {
+        var floorRoot = LoadFloor();
+        try
+        {
+            var gridMap = floorRoot.GetNode<GridMap>("GridMap");
+            var walls = GetWalls(gridMap);
+
+            AssertThat(UnrewardedDeadEndBranches(gridMap, walls).Count).IsEqual(0);
         }
         finally
         {
@@ -429,6 +463,94 @@ public partial class Floor2FMazeLayoutTest : Node
     private static bool HasPath(Vector2I start, Vector2I goal, HashSet<Vector2I> walls)
     {
         return ShortestPathLength(start, goal, walls).HasValue;
+    }
+
+    private static List<List<Vector2I>> UnrewardedDeadEndBranches(GridMap gridMap, HashSet<Vector2I> walls)
+    {
+        var payoffs = BranchPayoffPositions(gridMap);
+        return DeadEndBranches(walls)
+            .Where(branch =>
+            {
+                var branchAndAdjacent = branch.ToHashSet();
+                foreach (var cell in branch)
+                {
+                    branchAndAdjacent.UnionWith(Neighbors(cell).Where(neighbor => IsWalkable(neighbor, walls)));
+                }
+
+                return !branchAndAdjacent.Overlaps(payoffs);
+            })
+            .ToList();
+    }
+
+    private static HashSet<Vector2I> BranchPayoffPositions(GridMap gridMap)
+    {
+        var positions = new HashSet<Vector2I>();
+        positions.UnionWith(gridMap.GetChildren().OfType<EnemySpawn>().Select(enemy => enemy.GridPosition));
+        positions.UnionWith(gridMap.GetChildren().OfType<TreasureBoxSpawn>().Select(box => box.GridPosition));
+        positions.UnionWith(gridMap.GetChildren().OfType<StairConnection>().Select(stair => stair.GridPosition));
+        positions.UnionWith(gridMap.GetChildren().OfType<TrapTileSpawn>().Select(trap => trap.GridPosition));
+        positions.UnionWith(gridMap.GetChildren().OfType<PuzzleSwitchSpawn>().Select(puzzleSwitch => puzzleSwitch.GridPosition));
+        positions.UnionWith(gridMap.GetChildren().OfType<PuzzleGateSpawn>().Select(gate => gate.GridPosition));
+        positions.UnionWith(gridMap.GetChildren().OfType<PuzzleRiddleSpawn>().Select(riddle => riddle.GridPosition));
+        return positions;
+    }
+
+    private static List<List<Vector2I>> DeadEndBranches(HashSet<Vector2I> walls)
+    {
+        var branches = new List<List<Vector2I>>();
+        for (var y = 0; y < 60; y++)
+        {
+            for (var x = 0; x < 60; x++)
+            {
+                var leaf = new Vector2I(x, y);
+                if (!IsWalkable(leaf, walls) || NeighborCount(leaf, walls) != 1)
+                {
+                    continue;
+                }
+
+                var branch = new List<Vector2I> { leaf };
+                Vector2I? previous = null;
+                var current = leaf;
+                while (true)
+                {
+                    var nextCells = Neighbors(current)
+                        .Where(neighbor => IsWalkable(neighbor, walls) && (!previous.HasValue || neighbor != previous.Value))
+                        .ToList();
+                    if (nextCells.Count == 0)
+                    {
+                        break;
+                    }
+
+                    var nextCell = nextCells[0];
+                    if (NeighborCount(nextCell, walls) != 2)
+                    {
+                        break;
+                    }
+
+                    branch.Add(nextCell);
+                    previous = current;
+                    current = nextCell;
+                }
+
+                branches.Add(branch);
+            }
+        }
+
+        return branches;
+    }
+
+    private static int NeighborCount(Vector2I position, HashSet<Vector2I> walls)
+    {
+        var count = 0;
+        foreach (var neighbor in Neighbors(position))
+        {
+            if (IsWalkable(neighbor, walls))
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private static int? ShortestPathLength(Vector2I start, Vector2I goal, HashSet<Vector2I> walls)

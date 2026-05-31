@@ -14,7 +14,7 @@ Usage:
 
 The script will:
 1. Auto-install Pillow if not available
-2. Look for frame files in assets/sprites/characters/*/, assets/sprites/enemies/*/, and assets/sprites/terrain/*/
+2. Look for frame files in assets/sprites/characters/*/, assets/sprites/enemies/*/, assets/sprites/npcs/*/, and assets/sprites/terrain/*/
 3. Group frames by folder (e.g., player_hero/frame1.png, player_hero/frame2.png, etc.)
 4. Create horizontal sprite sheets (384x96) in the same folders
 5. Maintain proper frame order (frame1, frame2, frame3, frame4)
@@ -85,6 +85,7 @@ class SpriteSheetMerger:
         self.sprite_dirs = {
             "characters": self.project_root / "assets" / "sprites" / "characters",
             "enemies": self.project_root / "assets" / "sprites" / "enemies",
+            "npcs": self.project_root / "assets" / "sprites" / "npcs",
             "terrain": self.project_root / "assets" / "sprites" / "terrain",
         }
 

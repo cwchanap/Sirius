@@ -46,7 +46,7 @@ Canonical enemy runtime path: `assets/sprites/enemies/{type}/sprite_sheet.png`
 Optional generation frames for enemy art: `assets/sprites/enemies/{type}/frames/frame1-4.png`
 Legacy character-sheet paths currently present in the repo:
 - `assets/sprites/characters/player_hero/sprite_sheet.png` — used by the player hero
-- `assets/sprites/characters/forest_spirit/sprite_sheet.png` — exists on disk but **not reachable** at runtime (see Forest Spirit note below)
+- `assets/sprites/characters/forest_spirit/sprite_sheet.png` — legacy reference copy; the canonical runtime enemy sheet is now `assets/sprites/enemies/forest_spirit/sprite_sheet.png`
 
 > **Note on legacy paths:** `EnemySpawn.cs` falls back to `assets/sprites/characters/enemy_{type}/sprite_sheet.png`,
 > but no assets currently exist at that `enemy_`-prefixed pattern. The `player_hero` and `forest_spirit` folders
@@ -58,7 +58,8 @@ Run `python3 tools/sprite_sheet_merger.py` after placing frames to generate the 
 
 - `assets/sprites/characters/player_hero/sprite_sheet.png` — existing legacy character sheet, `384×96`
 - `assets/sprites/enemies/goblin/sprite_sheet.png` — existing canonical enemy runtime sheet, `384×96`
-- `assets/sprites/characters/forest_spirit/sprite_sheet.png` — existing file on disk, `384×96`, but not reachable by `EnemySpawn.cs` at runtime (see note above)
+- `assets/sprites/enemies/forest_spirit/sprite_sheet.png` — canonical enemy runtime copy of the legacy Forest Spirit sheet, `384×96`
+- `assets/sprites/characters/forest_spirit/sprite_sheet.png` — legacy reference sheet retained on disk, `384×96`
 - Individual frame PNGs (e.g. `goblin/frames/frame1.png`) are stored at **1024×1024** — the merger resizes them to 96×96 per frame when building the sheet
 
 Per-entity `Files` entries below describe where to create frame sources when generating new art. Treat the runtime `sprite_sheet.png` path as the authoritative existence check.
@@ -71,10 +72,10 @@ Per-entity `Files` entries below describe where to create frame sources when gen
 |--------|--------|--------------|
 | ✅ exists | Player Hero | `assets/sprites/characters/player_hero/sprite_sheet.png` |
 | ✅ exists | Goblin | `assets/sprites/enemies/goblin/sprite_sheet.png` |
-| ⚠️ unreachable | Forest Spirit | `assets/sprites/characters/forest_spirit/sprite_sheet.png` — file exists on disk but `EnemySpawn.cs` cannot find it (checks `enemies/forest_spirit/` then `characters/enemy_forest_spirit/` — neither exists). Migrate to `assets/sprites/enemies/forest_spirit/sprite_sheet.png` to fix. |
-| ❌ missing | Orc | `assets/sprites/enemies/orc/sprite_sheet.png` |
-| ❌ missing | Skeleton Warrior | `assets/sprites/enemies/skeleton_warrior/sprite_sheet.png` |
-| ❌ missing | Cave Spider | `assets/sprites/enemies/cave_spider/sprite_sheet.png` |
+| ✅ exists | Forest Spirit | `assets/sprites/enemies/forest_spirit/sprite_sheet.png` — copied from the legacy `assets/sprites/characters/forest_spirit/sprite_sheet.png`, which remains on disk as a legacy reference. |
+| ✅ exists | Orc | `assets/sprites/enemies/orc/sprite_sheet.png` |
+| ✅ exists | Skeleton Warrior | `assets/sprites/enemies/skeleton_warrior/sprite_sheet.png` |
+| ✅ exists | Cave Spider | `assets/sprites/enemies/cave_spider/sprite_sheet.png` |
 | ❌ missing | Troll | `assets/sprites/enemies/troll/sprite_sheet.png` |
 | ❌ missing | Desert Scorpion | `assets/sprites/enemies/desert_scorpion/sprite_sheet.png` |
 | ❌ missing | Swamp Wretch | `assets/sprites/enemies/swamp_wretch/sprite_sheet.png` |
@@ -130,7 +131,7 @@ Runtime sheet exists at `assets/sprites/enemies/goblin/sprite_sheet.png`
 
 ### Orc (`orc`)
 
-**Files**: `assets/sprites/enemies/orc/frames/frame1-4.png` (96×96) — ❌ needs generation
+**Files**: `assets/sprites/enemies/orc/frames/frame1-4.png` (96×96) — ✅ exists
 
 **Frame 1 (Idle)**
 > "Create a 96x96 anime-style sprite of an orc warrior in top-down view, standing, facing downward toward camera. The orc should have large expressive eyes, gray-green skin, small tusks, wearing crude armor. Include a simple axe held at side. Character facing toward bottom of screen. Use bright anime colors with bold black outlines. Make it look tough but with anime-style charm. Use cel-shading with vibrant grays and greens. Important: Use transparent background (PNG with alpha channel)."
@@ -148,10 +149,8 @@ Runtime sheet exists at `assets/sprites/enemies/goblin/sprite_sheet.png`
 ### Forest Spirit (`forest_spirit`)
 
 **Generation frames**: `assets/sprites/characters/forest_spirit/frames/frame1-4.png` (96×96)
-Legacy file exists at `assets/sprites/characters/forest_spirit/sprite_sheet.png` but **is not reachable at runtime**.
-`EnemySpawn.cs` checks `enemies/forest_spirit/` (new path) then `characters/enemy_forest_spirit/` (legacy fallback) —
-neither matches the actual file location. Migrate the runtime asset to `assets/sprites/enemies/forest_spirit/sprite_sheet.png`
-to make it loadable.
+Runtime sheet exists at `assets/sprites/enemies/forest_spirit/sprite_sheet.png`.
+The legacy sheet at `assets/sprites/characters/forest_spirit/sprite_sheet.png` was copied to the canonical enemy path and remains on disk as a legacy reference.
 
 **Frame 1 (Idle Float)**
 > "Create a 96x96 anime-style sprite of a forest spirit in idle pose, top-down view, facing downward toward camera. Large gentle green eyes, translucent green-blue body, flower crown, leaf clothing. Arms at sides, gentle glow, character facing toward bottom of screen. Bright anime colors with soft black outlines. Mystical and beautiful with sparkles around. Cel-shading with ethereal greens, blues, magical light. Important: Use transparent background (PNG with alpha channel)."
@@ -168,7 +167,7 @@ to make it loadable.
 
 ### Skeleton Warrior (`skeleton_warrior`)
 
-**Files**: `assets/sprites/enemies/skeleton_warrior/frames/frame1-4.png` (96×96) — ❌ needs generation
+**Files**: `assets/sprites/enemies/skeleton_warrior/frames/frame1-4.png` (96×96) — ✅ exists
 
 **Frame 1 (Ready Stance)**
 > "Create a 96x96 anime-style sprite of a skeleton warrior in ready stance, top-down view, facing downward toward camera. Large glowing red eye sockets, bone white skeleton, rusty armor pieces, bone sword raised. Standing proud and menacing, character facing toward bottom of screen. Bright anime colors with bold black outlines. Intimidating yet stylized. Cel-shading with bone whites, rusty browns, glowing red. Important: Use transparent background (PNG with alpha channel)."
@@ -181,7 +180,7 @@ to make it loadable.
 
 ### Cave Spider (`cave_spider`)
 
-**Files**: `assets/sprites/enemies/cave_spider/frames/frame1-4.png` (96×96) — ❌ needs generation
+**Files**: `assets/sprites/enemies/cave_spider/frames/frame1-4.png` (96×96) — ✅ exists
 
 **Frame 1 (Crouched)**
 > "Create a 96x96 anime-style sprite of a cave spider crouched, top-down view, oriented with head facing downward toward camera. Large cute but menacing purple eyes, dark purple-black body, 8 legs visible, small web pattern on body. Crouched low with legs drawn in, spider oriented toward bottom of screen. Bright anime colors with bold black outlines. Creepy but stylized. Cel-shading with dark purples, blacks, subtle web shimmer. Important: Use transparent background (PNG with alpha channel)."

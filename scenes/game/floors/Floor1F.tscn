@@ -561,3 +561,615 @@ GridPosition = Vector2i(26, 56)
 TreasureBoxId = "TreasureBox_1F_SouthShortcutPocket"
 RewardItemIds = Array[String](["antidote"])
 RewardItemQuantities = Array[int]([1])
+
+[node name="EnemySpawn_1F_DensityPatrol_001" type="Sprite2D" parent="GridMap" unique_id=592351123 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(1520, 1360)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(47, 42)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_002" type="Sprite2D" parent="GridMap" unique_id=946528063 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(1456, 1488)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(45, 46)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_003" type="Sprite2D" parent="GridMap" unique_id=1747763797]
+z_index = 2
+position = Vector2(1200, 272)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(37, 8)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_004" type="Sprite2D" parent="GridMap" unique_id=727738041]
+z_index = 2
+position = Vector2(1296, 1808)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(40, 56)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_005" type="Sprite2D" parent="GridMap" unique_id=2108199574 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(1136, 400)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(35, 12)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_006" type="Sprite2D" parent="GridMap" unique_id=1363108108 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(1072, 528)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(33, 16)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_007" type="Sprite2D" parent="GridMap" unique_id=1717033820]
+z_index = 2
+position = Vector2(1008, 1520)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(31, 47)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_008" type="Sprite2D" parent="GridMap" unique_id=854002797]
+z_index = 2
+position = Vector2(912, 848)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(28, 26)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_009" type="Sprite2D" parent="GridMap" unique_id=1102696927 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(848, 976)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(26, 30)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_010" type="Sprite2D" parent="GridMap" unique_id=107461602 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(720, 368)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(22, 11)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_011" type="Sprite2D" parent="GridMap" unique_id=1044267777]
+z_index = 2
+position = Vector2(784, 1104)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(24, 34)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_012" type="Sprite2D" parent="GridMap" unique_id=1084775587]
+z_index = 2
+position = Vector2(656, 496)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(20, 15)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_013" type="Sprite2D" parent="GridMap" unique_id=1602482352 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(688, 1296)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(21, 40)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_014" type="Sprite2D" parent="GridMap" unique_id=1372883986 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(560, 688)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(17, 21)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_015" type="Sprite2D" parent="GridMap" unique_id=1510859422]
+z_index = 2
+position = Vector2(624, 1424)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(19, 44)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_016" type="Sprite2D" parent="GridMap" unique_id=690939479]
+z_index = 2
+position = Vector2(496, 816)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(15, 25)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_017" type="Sprite2D" parent="GridMap" unique_id=587694014 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(400, 144)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(12, 4)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_018" type="Sprite2D" parent="GridMap" unique_id=1378997615 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(528, 1616)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(16, 50)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_019" type="Sprite2D" parent="GridMap" unique_id=808144264]
+z_index = 2
+position = Vector2(432, 944)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(13, 29)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_020" type="Sprite2D" parent="GridMap" unique_id=1795128150]
+z_index = 2
+position = Vector2(1872, 1552)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(58, 48)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_021" type="Sprite2D" parent="GridMap" unique_id=972199189 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(336, 272)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(10, 8)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_022" type="Sprite2D" parent="GridMap" unique_id=801241121 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(1744, 944)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(54, 29)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_023" type="Sprite2D" parent="GridMap" unique_id=747186864]
+z_index = 2
+position = Vector2(368, 1072)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(11, 33)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_024" type="Sprite2D" parent="GridMap" unique_id=334199372]
+z_index = 2
+position = Vector2(1808, 1680)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(56, 52)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_025" type="Sprite2D" parent="GridMap" unique_id=1221010290 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(1616, 336)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(50, 10)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_026" type="Sprite2D" parent="GridMap" unique_id=1519286508 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(1680, 1072)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(52, 33)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_027" type="Sprite2D" parent="GridMap" unique_id=765972428]
+z_index = 2
+position = Vector2(304, 1200)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(9, 37)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_028" type="Sprite2D" parent="GridMap" unique_id=298981385]
+z_index = 2
+position = Vector2(1712, 1872)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(53, 58)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_029" type="Sprite2D" parent="GridMap" unique_id=1943472388 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(1552, 464)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(48, 14)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_030" type="Sprite2D" parent="GridMap" unique_id=1073746927 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(240, 1328)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(7, 41)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_031" type="Sprite2D" parent="GridMap" unique_id=1182728858]
+z_index = 2
+position = Vector2(1584, 1264)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(49, 39)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_032" type="Sprite2D" parent="GridMap" unique_id=2127633544]
+z_index = 2
+position = Vector2(1424, 1584)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(44, 49)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_033" type="Sprite2D" parent="GridMap" unique_id=564271893 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(1232, 1104)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(38, 34)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_034" type="Sprite2D" parent="GridMap" unique_id=748136153 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(848, 144)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(26, 4)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_035" type="Sprite2D" parent="GridMap" unique_id=1936345892]
+z_index = 2
+position = Vector2(976, 1616)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(30, 50)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_036" type="Sprite2D" parent="GridMap" unique_id=2368553]
+z_index = 2
+position = Vector2(784, 272)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(24, 8)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_037" type="Sprite2D" parent="GridMap" unique_id=1127137581 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(880, 1808)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(27, 56)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_038" type="Sprite2D" parent="GridMap" unique_id=1793678980 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(1776, 1808)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(55, 56)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_039" type="Sprite2D" parent="GridMap" unique_id=70999619]
+z_index = 2
+position = Vector2(528, 1744)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(16, 54)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_040" type="Sprite2D" parent="GridMap" unique_id=270061036]
+z_index = 2
+position = Vector2(1680, 1200)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(52, 37)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_041" type="Sprite2D" parent="GridMap" unique_id=1741337239 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(1552, 1456)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(48, 45)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_042" type="Sprite2D" parent="GridMap" unique_id=1075437474 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(176, 1584)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(5, 49)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_043" type="Sprite2D" parent="GridMap" unique_id=1269913535]
+z_index = 2
+position = Vector2(1456, 784)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(45, 24)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_044" type="Sprite2D" parent="GridMap" unique_id=326482276]
+z_index = 2
+position = Vector2(1232, 368)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(38, 11)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_045" type="Sprite2D" parent="GridMap" unique_id=976462444 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(1232, 1232)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(38, 38)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_046" type="Sprite2D" parent="GridMap" unique_id=1471537326 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(944, 944)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(29, 29)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_047" type="Sprite2D" parent="GridMap" unique_id=523244424]
+z_index = 2
+position = Vector2(880, 1072)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(27, 33)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_048" type="Sprite2D" parent="GridMap" unique_id=817152787]
+z_index = 2
+position = Vector2(720, 1392)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(22, 43)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_049" type="Sprite2D" parent="GridMap" unique_id=368429845 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(592, 784)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(18, 24)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_050" type="Sprite2D" parent="GridMap" unique_id=399254841 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(624, 1584)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(19, 49)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_051" type="Sprite2D" parent="GridMap" unique_id=652094795]
+z_index = 2
+position = Vector2(528, 912)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(16, 28)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_052" type="Sprite2D" parent="GridMap" unique_id=1934915459]
+z_index = 2
+position = Vector2(432, 240)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(13, 7)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_053" type="Sprite2D" parent="GridMap" unique_id=88729731 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(1840, 912)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(57, 28)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_054" type="Sprite2D" parent="GridMap" unique_id=1573197427 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(1712, 304)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(53, 9)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_055" type="Sprite2D" parent="GridMap" unique_id=44437311]
+z_index = 2
+position = Vector2(1776, 1040)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(55, 32)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_056" type="Sprite2D" parent="GridMap" unique_id=1490355305]
+z_index = 2
+position = Vector2(400, 1168)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(12, 36)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_057" type="Sprite2D" parent="GridMap" unique_id=484772754 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(1648, 432)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(51, 13)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_058" type="Sprite2D" parent="GridMap" unique_id=2029565927 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(1520, 1552)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(47, 48)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_059" type="Sprite2D" parent="GridMap" unique_id=323706964]
+z_index = 2
+position = Vector2(1456, 1680)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(45, 52)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_060" type="Sprite2D" parent="GridMap" unique_id=703474769]
+z_index = 2
+position = Vector2(1072, 1584)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(33, 49)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_061" type="Sprite2D" parent="GridMap" unique_id=374587961 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(720, 560)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(22, 17)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_062" type="Sprite2D" parent="GridMap" unique_id=101499659 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(688, 1488)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(21, 46)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_063" type="Sprite2D" parent="GridMap" unique_id=42330973]
+z_index = 2
+position = Vector2(592, 1680)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(18, 52)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_064" type="Sprite2D" parent="GridMap" unique_id=1388254480]
+z_index = 2
+position = Vector2(496, 1008)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(15, 31)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_065" type="Sprite2D" parent="GridMap" unique_id=1772166168 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(1872, 1744)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(58, 54)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_066" type="Sprite2D" parent="GridMap" unique_id=1841015750 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(304, 1392)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(9, 43)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_067" type="Sprite2D" parent="GridMap" unique_id=44879851]
+z_index = 2
+position = Vector2(208, 720)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(6, 22)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_068" type="Sprite2D" parent="GridMap" unique_id=1712841843]
+z_index = 2
+position = Vector2(1008, 880)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(31, 27)
+EnemyType = "forest_spirit"
+
+[node name="EnemySpawn_1F_DensityPatrol_069" type="Sprite2D" parent="GridMap" unique_id=496263239 instance=ExtResource("7_rtb65")]
+z_index = 2
+position = Vector2(944, 1872)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(29, 58)
+Blueprint = ExtResource("9_abo7i")
+EnemyType = "goblin"
+
+[node name="EnemySpawn_1F_DensityPatrol_070" type="Sprite2D" parent="GridMap" unique_id=677328764 instance=ExtResource("10_op7kr")]
+z_index = 2
+position = Vector2(784, 1328)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(24, 41)
+Blueprint = ExtResource("11_xstv1")
+EnemyType = "orc"
+
+[node name="EnemySpawn_1F_DensityPatrol_071" type="Sprite2D" parent="GridMap" unique_id=1705171007]
+z_index = 2
+position = Vector2(1424, 1808)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(44, 56)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_1F_DensityPatrol_072" type="Sprite2D" parent="GridMap" unique_id=636838541]
+z_index = 2
+position = Vector2(1136, 1520)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("5")
+GridPosition = Vector2i(35, 47)
+EnemyType = "forest_spirit"

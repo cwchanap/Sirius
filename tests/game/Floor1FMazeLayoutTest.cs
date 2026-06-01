@@ -8,6 +8,15 @@ using static GdUnit4.Assertions;
 [RequireGodotRuntime]
 public partial class Floor1FMazeLayoutTest : Node
 {
+    private const int EnemyDensityMultiplier = 3;
+    private const string SupplementalEnemyPrefix = "EnemySpawn_1F_DensityPatrol_";
+    private static readonly HashSet<string> SupplementalEnemyTypes = new()
+    {
+        "goblin",
+        "orc",
+        "skeleton_warrior",
+        "forest_spirit"
+    };
     private static readonly Vector2I PlayerStart = new(8, 30);
     private static readonly Vector2I DownStair = new(8, 30);
     private static readonly Vector2I UpStairA = new(49, 12);
@@ -185,13 +194,31 @@ public partial class Floor1FMazeLayoutTest : Node
                 .OfType<EnemySpawn>()
                 .ToDictionary(enemy => enemy.Name.ToString(), enemy => enemy);
 
-            AssertThat(enemies.Count).IsEqual(ExpectedEnemyTypes.Count);
+            AssertThat(enemies.Count).IsEqual(ExpectedEnemyTypes.Count * EnemyDensityMultiplier);
 
             foreach (var expectedEnemy in ExpectedEnemyTypes)
             {
                 AssertThat(enemies.ContainsKey(expectedEnemy.Key)).IsTrue();
                 AssertThat(enemies[expectedEnemy.Key].EnemyType).IsEqual(expectedEnemy.Value);
             }
+
+            var supplementalEnemies = enemies
+                .Where(enemy => enemy.Key.StartsWith(SupplementalEnemyPrefix, System.StringComparison.Ordinal))
+                .ToDictionary(enemy => enemy.Key, enemy => enemy.Value);
+            AssertThat(supplementalEnemies.Count).IsEqual(ExpectedEnemyTypes.Count * (EnemyDensityMultiplier - 1));
+            AssertThat(supplementalEnemies.Keys.ToHashSet()).IsEqual(
+                Enumerable.Range(1, supplementalEnemies.Count)
+                    .Select(index => $"{SupplementalEnemyPrefix}{index:000}")
+                    .ToHashSet());
+
+            foreach (var enemy in supplementalEnemies.Values)
+            {
+                AssertThat(SupplementalEnemyTypes.Contains(enemy.EnemyType)).IsTrue();
+            }
+
+            AssertThat(enemies.Keys.All(enemyId =>
+                ExpectedEnemyTypes.ContainsKey(enemyId)
+                || enemyId.StartsWith(SupplementalEnemyPrefix, System.StringComparison.Ordinal))).IsTrue();
         }
         finally
         {

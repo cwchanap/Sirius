@@ -18,6 +18,7 @@ FLOOR3_WIDTH = 24
 FLOOR3_HEIGHT = 18
 GRID_WIDTH = 160
 GRID_HEIGHT = 160
+ENEMY_DENSITY_MULTIPLIER = 3
 
 FLOOR1_PLAYER_START = (8, 30)
 FLOOR1_DOWN_STAIR = (8, 30)
@@ -80,6 +81,14 @@ FLOOR1_EXTRA_ENEMY_PATROLS = {
     "EnemySpawn_ForestSpirit_EastSwitchback": {"position": (54, 58), "enemy_type": "forest_spirit"},
     "EnemySpawn_ForestSpirit_SouthGallery": {"position": (39, 44), "enemy_type": "forest_spirit"},
 }
+
+FLOOR1_SUPPLEMENTAL_ENEMY_PREFIX = "EnemySpawn_1F_DensityPatrol"
+FLOOR1_SUPPLEMENTAL_ENEMY_TYPES = (
+    "goblin",
+    "orc",
+    "skeleton_warrior",
+    "forest_spirit",
+)
 
 FLOOR1_TREASURE_BOXES = {
     "TreasureBox_1F_WestDeadEndCache": ((4, 22), 85, {"health_potion": 2}),
@@ -156,6 +165,17 @@ FLOOR2_EXTRA_ENEMY_PATROLS = {
     "EnemySpawn_2F_SouthArmory": {"position": (42, 53), "enemy_type": "iron_revenant"},
     "EnemySpawn_2F_StairWatch": {"position": (52, 48), "enemy_type": "cursed_gargoyle"},
 }
+
+FLOOR2_SUPPLEMENTAL_ENEMY_PREFIX = "EnemySpawn_2F_DensityPatrol"
+FLOOR2_SUPPLEMENTAL_ENEMY_TYPES = (
+    "cave_spider",
+    "skeleton_warrior",
+    "grave_hexer",
+    "bone_archer",
+    "iron_revenant",
+    "cursed_gargoyle",
+    "crypt_sentinel",
+)
 
 FLOOR2_TREASURE_BOXES = {
     "TreasureBox_2F_WestSupplyCache": ((6, 16), 100, {"greater_health_potion": 1}),
@@ -360,6 +380,78 @@ def puzzle_riddle_entities(riddles: dict[str, dict], puzzle_id: str) -> list[dic
         }
         for riddle_id, data in riddles.items()
     ]
+
+
+def walkable_from_walls(walls: set[tuple[int, int]], width: int, height: int) -> set[tuple[int, int]]:
+    return {
+        (x, y)
+        for y in range(height)
+        for x in range(width)
+        if (x, y) not in walls
+    }
+
+
+def enemy_data_positions(enemies: dict[str, dict]) -> set[tuple[int, int]]:
+    return {data["position"] for data in enemies.values()}
+
+
+def authored_position_values(entities: dict[str, dict]) -> set[tuple[int, int]]:
+    return {data["position"] for data in entities.values()}
+
+
+def treasure_positions(boxes: dict[str, tuple[tuple[int, int], int, dict[str, int]]]) -> set[tuple[int, int]]:
+    return {position for position, _, _ in boxes.values()}
+
+
+def build_supplemental_enemy_patrols(
+    prefix: str,
+    base_enemies: dict[str, dict],
+    walkable: set[tuple[int, int]],
+    occupied: set[tuple[int, int]],
+    enemy_types: tuple[str, ...],
+) -> dict[str, dict]:
+    target_count = len(base_enemies) * (ENEMY_DENSITY_MULTIPLIER - 1)
+    occupied = set(occupied)
+    supplemental: dict[str, dict] = {}
+    selected_positions: list[tuple[int, int]] = []
+    candidates = [
+        position
+        for position in sorted(
+            walkable,
+            key=lambda pos: ((pos[0] * 73 + pos[1] * 37) % 997, pos[1], pos[0]),
+        )
+        if position not in occupied and walkable_neighbor_count(walkable, position) >= 2
+    ]
+
+    for min_distance in (4, 3, 2, 1):
+        for position in candidates:
+            if len(supplemental) == target_count:
+                break
+            if position in occupied:
+                continue
+            if any(
+                abs(position[0] - selected[0]) + abs(position[1] - selected[1]) < min_distance
+                for selected in selected_positions
+            ):
+                continue
+
+            index = len(supplemental) + 1
+            supplemental[f"{prefix}_{index:03d}"] = {
+                "position": position,
+                "enemy_type": enemy_types[(index - 1) % len(enemy_types)],
+            }
+            occupied.add(position)
+            selected_positions.append(position)
+
+        if len(supplemental) == target_count:
+            break
+
+    if len(supplemental) != target_count:
+        raise ValueError(
+            f"Could only place {len(supplemental)} supplemental enemies for {prefix}; needed {target_count}"
+        )
+
+    return supplemental
 
 
 def build_floor1_walls() -> set[tuple[int, int]]:
@@ -688,6 +780,27 @@ def build_floor3_walls() -> set[tuple[int, int]]:
 
 
 def build_floor1_model() -> dict:
+    floor1_walls = build_floor1_walls()
+    floor1_walkable = walkable_from_walls(floor1_walls, FLOOR1_WIDTH, FLOOR1_HEIGHT)
+    base_enemies = FLOOR1_ENEMY_GATES | FLOOR1_EXTRA_ENEMY_PATROLS
+    occupied = (
+        {FLOOR1_PLAYER_START, FLOOR1_DOWN_STAIR, FLOOR1_UP_STAIR_A, FLOOR1_UP_STAIR_B}
+        | set(FLOOR1_HIDDEN_PLACEHOLDERS.values())
+        | enemy_data_positions(base_enemies)
+        | treasure_positions(FLOOR1_TREASURE_BOXES)
+        | authored_position_values(FLOOR1_PUZZLE_TRAPS)
+        | authored_position_values(FLOOR1_PUZZLE_SWITCHES)
+        | authored_position_values(FLOOR1_PUZZLE_GATES)
+        | authored_position_values(FLOOR1_PUZZLE_RIDDLES)
+    )
+    enemy_spawns = base_enemies | build_supplemental_enemy_patrols(
+        FLOOR1_SUPPLEMENTAL_ENEMY_PREFIX,
+        base_enemies,
+        floor1_walkable,
+        occupied,
+        FLOOR1_SUPPLEMENTAL_ENEMY_TYPES,
+    )
+
     model = {
         "schema_version": "1.0",
         "floor_metadata": {
@@ -699,7 +812,7 @@ def build_floor1_model() -> dict:
         "tile_layers": {
             "ground": ground_tiles(FLOOR1_WIDTH, FLOOR1_HEIGHT),
             "wall": wall_tiles(
-                build_floor1_walls(),
+                floor1_walls,
                 FLOOR1_WIDTH,
                 FLOOR1_HEIGHT,
                 include_outside_footprint=False,
@@ -717,7 +830,7 @@ def build_floor1_model() -> dict:
                     "position": vector(*data["position"]),
                     "enemy_type": data["enemy_type"],
                 }
-                for enemy_id, data in (FLOOR1_ENEMY_GATES | FLOOR1_EXTRA_ENEMY_PATROLS).items()
+                for enemy_id, data in enemy_spawns.items()
             ],
             "npc_spawns": [],
             "stair_connections": [
@@ -759,6 +872,26 @@ def build_floor1_model() -> dict:
 
 
 def build_floor2_model() -> dict:
+    floor2_walls = build_floor2_walls()
+    floor2_walkable = walkable_from_walls(floor2_walls, FLOOR2_WIDTH, FLOOR2_HEIGHT)
+    base_enemies = FLOOR2_ENEMY_GATES | FLOOR2_EXTRA_ENEMY_PATROLS
+    occupied = (
+        {FLOOR2_PLAYER_START, FLOOR2_DOWN_STAIR_A, FLOOR2_DOWN_STAIR_B, FLOOR2_UP_STAIR}
+        | enemy_data_positions(base_enemies)
+        | treasure_positions(FLOOR2_TREASURE_BOXES)
+        | authored_position_values(FLOOR2_PUZZLE_TRAPS)
+        | authored_position_values(FLOOR2_PUZZLE_SWITCHES)
+        | authored_position_values(FLOOR2_PUZZLE_GATES)
+        | authored_position_values(FLOOR2_PUZZLE_RIDDLES)
+    )
+    enemy_spawns = base_enemies | build_supplemental_enemy_patrols(
+        FLOOR2_SUPPLEMENTAL_ENEMY_PREFIX,
+        base_enemies,
+        floor2_walkable,
+        occupied,
+        FLOOR2_SUPPLEMENTAL_ENEMY_TYPES,
+    )
+
     model = {
         "schema_version": "1.0",
         "floor_metadata": {
@@ -770,7 +903,7 @@ def build_floor2_model() -> dict:
         "tile_layers": {
             "ground": ground_tiles(FLOOR2_WIDTH, FLOOR2_HEIGHT),
             "wall": wall_tiles(
-                build_floor2_walls(),
+                floor2_walls,
                 FLOOR2_WIDTH,
                 FLOOR2_HEIGHT,
                 include_outside_footprint=False,
@@ -788,7 +921,7 @@ def build_floor2_model() -> dict:
                     "position": vector(*data["position"]),
                     "enemy_type": data["enemy_type"],
                 }
-                for enemy_id, data in (FLOOR2_ENEMY_GATES | FLOOR2_EXTRA_ENEMY_PATROLS).items()
+                for enemy_id, data in enemy_spawns.items()
             ],
             "npc_spawns": [],
             "stair_connections": [

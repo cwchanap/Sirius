@@ -67,6 +67,7 @@ If the user has already answered one of these, do not ask again; summarize it an
    - `rg -n "TreasureBox|RecoveryChest|Puzzle|TrapTile|PuzzleGate|PuzzleSwitch|PuzzleRiddle" scripts scenes/game/floors tools tests`
 2. Add or update a deterministic generator under `tools/`.
    - Keep dimensions, exits, hidden placeholders, enemies, NPCs, treasure boxes, and puzzle traps as named constants or structured data.
+   - For requested enemy-density changes, keep existing authored gate/patrol enemy IDs intact and add deterministic supplemental patrols with stable ID prefixes.
    - Emit `FloorJsonModel`-compatible JSON.
    - Update the matching `.tres` resource with player start and stair arrays when needed.
 3. Add Python generator tests.
@@ -76,6 +77,7 @@ If the user has already answered one of these, do not ask again; summarize it an
    - Hidden placeholders not visible unless requested.
    - NPC count matches the brief.
    - Enemy positions are walkable.
+   - Enemy-density multipliers preserve the authored baseline enemies and emit the expected stable supplemental patrol ID range.
    - Treasure boxes have unique IDs/positions, valid reward shape, walkable cells, no entity overlap, and intended reachability.
    - Puzzle entities have unique IDs/positions, non-empty shared `puzzle_id`s, valid riddle choices, walkable cells, no entity overlap, and no stair conflicts.
    - Reachability with enemies clear.
@@ -105,6 +107,7 @@ Scene tests should assert:
 - hidden placeholders are not visible stair nodes while hidden
 - no NPC nodes exist when the brief says no NPCs
 - enemy spawn count, types, and coordinates match the brief
+- enemy-density multipliers preserve the required baseline enemies and add only expected supplemental patrol IDs
 - treasure box count, IDs, coordinates, gold, reward item IDs, and quantities match the brief
 - all treasure reward item IDs exist in `ItemCatalog`
 - puzzle trap, switch, gate, and riddle counts match the brief
@@ -154,6 +157,7 @@ If Godot is not found, set `GODOT_PATH` to the local Godot Mono binary and rerun
 
 - Do not hand-edit huge generated JSON or tile arrays. Change the generator and regenerate.
 - Do not assume enemy placement gates a route. Test pathfinding with enemy cells blocked.
+- Do not satisfy density requests by moving or renaming existing authored enemy blockers. Add supplemental deterministic patrols and keep baseline route-gating tests intact.
 - Do not leave unrewarded dead ends. Add payoff content, convert the branch into a shortcut, or mark it as an intentional hidden placeholder and test that intent.
 - Do not reveal hidden shortcut placeholders as visible stair nodes unless explicitly requested.
 - Do not add advanced maze complexity by habit. Confirm whether the floor needs deeper branches, extra intersections, shortcut unlocks, and wall-run limits.

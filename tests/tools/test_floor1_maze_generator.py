@@ -14,6 +14,8 @@ sys.path.insert(0, str(ROOT))
 
 from tools.floor1_maze_generator import (
     FLOOR1_DOWN_STAIR,
+    FLOOR1_ENEMY_GATES,
+    FLOOR1_EXTRA_ENEMY_PATROLS,
     FLOOR1_HEIGHT,
     FLOOR1_HIDDEN_PLACEHOLDERS,
     FLOOR1_PLAYER_START,
@@ -52,6 +54,8 @@ from tools.floor1_maze_generator import (
     update_floor_definition,
     validate_model,
 )
+
+ENEMY_DENSITY_MULTIPLIER = 3
 
 EXPECTED_FLOOR1_TREASURE = {
     "TreasureBox_1F_WestDeadEndCache": ((4, 22), 85, {"health_potion": 2}),
@@ -358,48 +362,43 @@ class Floor1MazeGeneratorTest(unittest.TestCase):
 
     def test_places_enemy_gates_and_no_npcs(self):
         entities = self.model["entities"]
+        baseline_enemies = FLOOR1_ENEMY_GATES | FLOOR1_EXTRA_ENEMY_PATROLS
+        enemy_types_by_id = {
+            enemy["id"]: enemy["enemy_type"]
+            for enemy in entities["enemy_spawns"]
+        }
+        required_enemy_types = {
+            enemy_id: data["enemy_type"]
+            for enemy_id, data in baseline_enemies.items()
+        }
+        supplemental_enemy_types = {
+            enemy_id: enemy_type
+            for enemy_id, enemy_type in enemy_types_by_id.items()
+            if enemy_id.startswith("EnemySpawn_1F_DensityPatrol_")
+        }
 
         self.assertEqual(entities["npc_spawns"], [])
         self.assertEqual(
-            {enemy["id"]: enemy["enemy_type"] for enemy in entities["enemy_spawns"]},
+            {enemy_id: enemy_types_by_id[enemy_id] for enemy_id in required_enemy_types},
+            required_enemy_types,
+        )
+        self.assertEqual(len(entities["enemy_spawns"]), len(baseline_enemies) * ENEMY_DENSITY_MULTIPLIER)
+        self.assertEqual(len(supplemental_enemy_types), len(baseline_enemies) * (ENEMY_DENSITY_MULTIPLIER - 1))
+        self.assertEqual(
+            set(supplemental_enemy_types),
             {
-                "EnemySpawn_Goblin_Branch": "goblin",
-                "EnemySpawn_Orc_Central": "orc",
-                "EnemySpawn_Skeleton_StairA": "skeleton_warrior",
-                "EnemySpawn_ForestSpirit_StairB": "forest_spirit",
-                "EnemySpawn_Orc_HiddenBranch": "orc",
-                "EnemySpawn_Skeleton_NorthShortcut": "skeleton_warrior",
-                "EnemySpawn_ForestSpirit_EastShortcut": "forest_spirit",
-                "EnemySpawn_Orc_SouthShortcut": "orc",
-                "EnemySpawn_Goblin_WestDeadEnd": "goblin",
-                "EnemySpawn_Goblin_SideRoom": "goblin",
-                "EnemySpawn_Goblin_SouthwestSpur": "goblin",
-                "EnemySpawn_Goblin_WestLoop": "goblin",
-                "EnemySpawn_Goblin_NorthRoom": "goblin",
-                "EnemySpawn_Goblin_NorthBranch": "goblin",
-                "EnemySpawn_Goblin_CentralSouth": "goblin",
-                "EnemySpawn_Goblin_SouthLoop": "goblin",
-                "EnemySpawn_Goblin_EastSwitchback": "goblin",
-                "EnemySpawn_Goblin_EastCorridor": "goblin",
-                "EnemySpawn_Goblin_CentralHall": "goblin",
-                "EnemySpawn_Orc_WestCrossing": "orc",
-                "EnemySpawn_Orc_NorthConnector": "orc",
-                "EnemySpawn_Orc_NortheastBend": "orc",
-                "EnemySpawn_Orc_EastHall": "orc",
-                "EnemySpawn_Orc_EastLoop": "orc",
-                "EnemySpawn_Orc_SoutheastSwitchback": "orc",
-                "EnemySpawn_Orc_SouthBend": "orc",
-                "EnemySpawn_Orc_SouthLoopEast": "orc",
-                "EnemySpawn_Orc_CentralLower": "orc",
-                "EnemySpawn_Skeleton_NorthDeadEnd": "skeleton_warrior",
-                "EnemySpawn_Skeleton_NorthShortcutBend": "skeleton_warrior",
-                "EnemySpawn_Skeleton_UpperConnector": "skeleton_warrior",
-                "EnemySpawn_Skeleton_EastSpur": "skeleton_warrior",
-                "EnemySpawn_Skeleton_CentralSpur": "skeleton_warrior",
-                "EnemySpawn_Skeleton_SouthSpur": "skeleton_warrior",
-                "EnemySpawn_ForestSpirit_EastSwitchback": "forest_spirit",
-                "EnemySpawn_ForestSpirit_SouthGallery": "forest_spirit",
+                f"EnemySpawn_1F_DensityPatrol_{index:03d}"
+                for index in range(1, len(supplemental_enemy_types) + 1)
             },
+        )
+        self.assertTrue(
+            set(supplemental_enemy_types.values()).issubset(
+                {"goblin", "orc", "skeleton_warrior", "forest_spirit"}
+            )
+        )
+        self.assertEqual(
+            set(enemy_types_by_id) - set(required_enemy_types) - set(supplemental_enemy_types),
+            set(),
         )
 
         for enemy in entities["enemy_spawns"]:
@@ -850,15 +849,51 @@ class Floor2MazeGeneratorTest(unittest.TestCase):
 
     def test_places_moderate_enemy_set_and_no_npcs(self):
         enemies = self.model["entities"]["enemy_spawns"]
+        baseline_enemies = FLOOR2_ENEMY_GATES | FLOOR2_EXTRA_ENEMY_PATROLS
+        enemy_types_by_id = {
+            enemy["id"]: enemy["enemy_type"]
+            for enemy in enemies
+        }
+        required_enemy_types = {
+            enemy_id: data["enemy_type"]
+            for enemy_id, data in baseline_enemies.items()
+        }
+        supplemental_enemy_types = {
+            enemy_id: enemy_type
+            for enemy_id, enemy_type in enemy_types_by_id.items()
+            if enemy_id.startswith("EnemySpawn_2F_DensityPatrol_")
+        }
 
         self.assertEqual(self.model["entities"]["npc_spawns"], [])
-        self.assertEqual(len(enemies), 20)
+        self.assertEqual(len(enemies), len(baseline_enemies) * ENEMY_DENSITY_MULTIPLIER)
         self.assertEqual(
-            {enemy["id"]: enemy["enemy_type"] for enemy in enemies},
+            {enemy_id: enemy_types_by_id[enemy_id] for enemy_id in required_enemy_types},
+            required_enemy_types,
+        )
+        self.assertEqual(len(supplemental_enemy_types), len(baseline_enemies) * (ENEMY_DENSITY_MULTIPLIER - 1))
+        self.assertEqual(
+            set(supplemental_enemy_types),
             {
-                enemy_id: data["enemy_type"]
-                for enemy_id, data in (FLOOR2_ENEMY_GATES | FLOOR2_EXTRA_ENEMY_PATROLS).items()
+                f"EnemySpawn_2F_DensityPatrol_{index:03d}"
+                for index in range(1, len(supplemental_enemy_types) + 1)
             },
+        )
+        self.assertTrue(
+            set(supplemental_enemy_types.values()).issubset(
+                {
+                    "cave_spider",
+                    "skeleton_warrior",
+                    "grave_hexer",
+                    "bone_archer",
+                    "iron_revenant",
+                    "cursed_gargoyle",
+                    "crypt_sentinel",
+                }
+            )
+        )
+        self.assertEqual(
+            set(enemy_types_by_id) - set(required_enemy_types) - set(supplemental_enemy_types),
+            set(),
         )
 
         stair_positions = {FLOOR2_DOWN_STAIR_A, FLOOR2_DOWN_STAIR_B, FLOOR2_UP_STAIR}

@@ -8,6 +8,18 @@ using static GdUnit4.Assertions;
 [RequireGodotRuntime]
 public partial class Floor2FMazeLayoutTest : Node
 {
+    private const int EnemyDensityMultiplier = 3;
+    private const string SupplementalEnemyPrefix = "EnemySpawn_2F_DensityPatrol_";
+    private static readonly HashSet<string> SupplementalEnemyTypes = new()
+    {
+        "cave_spider",
+        "skeleton_warrior",
+        "grave_hexer",
+        "bone_archer",
+        "iron_revenant",
+        "cursed_gargoyle",
+        "crypt_sentinel"
+    };
     private static readonly Vector2I PlayerStart = new(10, 10);
     private static readonly Vector2I DownStairA = new(10, 10);
     private static readonly Vector2I DownStairB = new(26, 10);
@@ -125,7 +137,7 @@ public partial class Floor2FMazeLayoutTest : Node
                 .OfType<EnemySpawn>()
                 .ToDictionary(enemy => enemy.Name.ToString(), enemy => enemy);
 
-            AssertThat(enemies.Count).IsEqual(ExpectedEnemyTypes.Count);
+            AssertThat(enemies.Count).IsEqual(ExpectedEnemyTypes.Count * EnemyDensityMultiplier);
 
             foreach (var expectedEnemy in ExpectedEnemyTypes)
             {
@@ -133,6 +145,25 @@ public partial class Floor2FMazeLayoutTest : Node
                 AssertThat(enemies[expectedEnemy.Key].EnemyType).IsEqual(expectedEnemy.Value);
                 AssertThat(IsWalkable(enemies[expectedEnemy.Key].GridPosition, walls)).IsTrue();
             }
+
+            var supplementalEnemies = enemies
+                .Where(enemy => enemy.Key.StartsWith(SupplementalEnemyPrefix, System.StringComparison.Ordinal))
+                .ToDictionary(enemy => enemy.Key, enemy => enemy.Value);
+            AssertThat(supplementalEnemies.Count).IsEqual(ExpectedEnemyTypes.Count * (EnemyDensityMultiplier - 1));
+            AssertThat(supplementalEnemies.Keys.ToHashSet()).IsEqual(
+                Enumerable.Range(1, supplementalEnemies.Count)
+                    .Select(index => $"{SupplementalEnemyPrefix}{index:000}")
+                    .ToHashSet());
+
+            foreach (var enemy in supplementalEnemies.Values)
+            {
+                AssertThat(SupplementalEnemyTypes.Contains(enemy.EnemyType)).IsTrue();
+                AssertThat(IsWalkable(enemy.GridPosition, walls)).IsTrue();
+            }
+
+            AssertThat(enemies.Keys.All(enemyId =>
+                ExpectedEnemyTypes.ContainsKey(enemyId)
+                || enemyId.StartsWith(SupplementalEnemyPrefix, System.StringComparison.Ordinal))).IsTrue();
         }
         finally
         {

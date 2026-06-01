@@ -76,6 +76,7 @@ Ask the user before enabling these unless they already requested them:
 - Author puzzle traps as coordinated entity sets sharing a stable `PuzzleId`. Switches arm, riddles solve, starts-closed gates block until solved, and traps are walkable damage cells that disappear when the puzzle is solved.
 - Do not place puzzle entities on stairs, walls, enemies, NPCs, treasure boxes, or each other. Registration will skip or overwrite some conflicts; tests should prevent the conflict instead.
 - Place enemies where they control branch access, not only as decoration. Validate that blocked enemy cells actually prevent access to gated branches.
+- For enemy-density increases, preserve existing named gate/patrol enemies and add deterministic supplemental patrol IDs instead of renaming authored blockers. Test both the requested multiplier and the stable supplemental ID range in generator and scene tests.
 - Do not leave empty dead-end branches. Every dead end should reward exploration with an entity, guard, hidden-placeholder purpose, or a tested shortcut payoff.
 - If stairs are intended to be immediate, test the full runtime transition path. Do not rely only on stair node/resource metadata.
 - For multiple visible exits to the same future floor, test that clearing one gate does not open unrelated exits.

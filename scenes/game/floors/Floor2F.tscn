@@ -398,3 +398,323 @@ GridPosition = Vector2i(30, 56)
 TreasureBoxId = "TreasureBox_2F_SouthShortcutCache"
 RewardItemIds = Array[String](["swift_boots"])
 RewardItemQuantities = Array[int]([1])
+
+[node name="EnemySpawn_2F_DensityPatrol_001" type="Sprite2D" parent="GridMap" unique_id=1035336060]
+z_index = 2
+position = Vector2(1392, 1616)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(43, 50)
+EnemyType = "cave_spider"
+
+[node name="EnemySpawn_2F_DensityPatrol_002" type="Sprite2D" parent="GridMap" unique_id=1550467133]
+z_index = 2
+position = Vector2(1296, 1808)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(40, 56)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_2F_DensityPatrol_003" type="Sprite2D" parent="GridMap" unique_id=1726613598]
+z_index = 2
+position = Vector2(1136, 400)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(35, 12)
+EnemyType = "grave_hexer"
+
+[node name="EnemySpawn_2F_DensityPatrol_004" type="Sprite2D" parent="GridMap" unique_id=1377041309]
+z_index = 2
+position = Vector2(1200, 1136)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(37, 35)
+EnemyType = "bone_archer"
+
+[node name="EnemySpawn_2F_DensityPatrol_005" type="Sprite2D" parent="GridMap" unique_id=1752960579]
+z_index = 2
+position = Vector2(1136, 1264)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(35, 39)
+EnemyType = "iron_revenant"
+
+[node name="EnemySpawn_2F_DensityPatrol_006" type="Sprite2D" parent="GridMap" unique_id=336880614]
+z_index = 2
+position = Vector2(1040, 592)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(32, 18)
+EnemyType = "cursed_gargoyle"
+
+[node name="EnemySpawn_2F_DensityPatrol_007" type="Sprite2D" parent="GridMap" unique_id=346807229]
+z_index = 2
+position = Vector2(816, 176)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(25, 5)
+EnemyType = "crypt_sentinel"
+
+[node name="EnemySpawn_2F_DensityPatrol_008" type="Sprite2D" parent="GridMap" unique_id=23821941]
+z_index = 2
+position = Vector2(880, 912)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(27, 28)
+EnemyType = "cave_spider"
+
+[node name="EnemySpawn_2F_DensityPatrol_009" type="Sprite2D" parent="GridMap" unique_id=1366670122]
+z_index = 2
+position = Vector2(944, 1648)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(29, 51)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_2F_DensityPatrol_010" type="Sprite2D" parent="GridMap" unique_id=316065]
+z_index = 2
+position = Vector2(752, 304)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(23, 9)
+EnemyType = "grave_hexer"
+
+[node name="EnemySpawn_2F_DensityPatrol_011" type="Sprite2D" parent="GridMap" unique_id=1212983754]
+z_index = 2
+position = Vector2(880, 1776)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(27, 55)
+EnemyType = "bone_archer"
+
+[node name="EnemySpawn_2F_DensityPatrol_012" type="Sprite2D" parent="GridMap" unique_id=741105700]
+z_index = 2
+position = Vector2(784, 1104)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(24, 34)
+EnemyType = "iron_revenant"
+
+[node name="EnemySpawn_2F_DensityPatrol_013" type="Sprite2D" parent="GridMap" unique_id=1955653970]
+z_index = 2
+position = Vector2(688, 432)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(21, 13)
+EnemyType = "cursed_gargoyle"
+
+[node name="EnemySpawn_2F_DensityPatrol_014" type="Sprite2D" parent="GridMap" unique_id=27100282]
+z_index = 2
+position = Vector2(592, 624)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(18, 19)
+EnemyType = "crypt_sentinel"
+
+[node name="EnemySpawn_2F_DensityPatrol_015" type="Sprite2D" parent="GridMap" unique_id=1646971182]
+z_index = 2
+position = Vector2(624, 1424)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(19, 44)
+EnemyType = "cave_spider"
+
+[node name="EnemySpawn_2F_DensityPatrol_016" type="Sprite2D" parent="GridMap" unique_id=826120807]
+z_index = 2
+position = Vector2(528, 1616)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(16, 50)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_2F_DensityPatrol_017" type="Sprite2D" parent="GridMap" unique_id=1694482163]
+z_index = 2
+position = Vector2(1808, 816)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(56, 25)
+EnemyType = "grave_hexer"
+
+[node name="EnemySpawn_2F_DensityPatrol_018" type="Sprite2D" parent="GridMap" unique_id=792284168]
+z_index = 2
+position = Vector2(336, 272)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(10, 8)
+EnemyType = "bone_archer"
+
+[node name="EnemySpawn_2F_DensityPatrol_019" type="Sprite2D" parent="GridMap" unique_id=1935591627]
+z_index = 2
+position = Vector2(400, 1008)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(12, 31)
+EnemyType = "iron_revenant"
+
+[node name="EnemySpawn_2F_DensityPatrol_020" type="Sprite2D" parent="GridMap" unique_id=409798213]
+z_index = 2
+position = Vector2(1744, 944)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(54, 29)
+EnemyType = "cursed_gargoyle"
+
+[node name="EnemySpawn_2F_DensityPatrol_021" type="Sprite2D" parent="GridMap" unique_id=624579902]
+z_index = 2
+position = Vector2(272, 400)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(8, 12)
+EnemyType = "crypt_sentinel"
+
+[node name="EnemySpawn_2F_DensityPatrol_022" type="Sprite2D" parent="GridMap" unique_id=1899647006]
+z_index = 2
+position = Vector2(1776, 1744)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(55, 54)
+EnemyType = "cave_spider"
+
+[node name="EnemySpawn_2F_DensityPatrol_023" type="Sprite2D" parent="GridMap" unique_id=1068548320]
+z_index = 2
+position = Vector2(1584, 400)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(49, 12)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_2F_DensityPatrol_024" type="Sprite2D" parent="GridMap" unique_id=1053889373]
+z_index = 2
+position = Vector2(1648, 1136)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(51, 35)
+EnemyType = "grave_hexer"
+
+[node name="EnemySpawn_2F_DensityPatrol_025" type="Sprite2D" parent="GridMap" unique_id=788748375]
+z_index = 2
+position = Vector2(176, 592)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(5, 18)
+EnemyType = "bone_archer"
+
+[node name="EnemySpawn_2F_DensityPatrol_026" type="Sprite2D" parent="GridMap" unique_id=1428045899]
+z_index = 2
+position = Vector2(1520, 528)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(47, 16)
+EnemyType = "iron_revenant"
+
+[node name="EnemySpawn_2F_DensityPatrol_027" type="Sprite2D" parent="GridMap" unique_id=37925655]
+z_index = 2
+position = Vector2(1392, 784)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(43, 24)
+EnemyType = "cursed_gargoyle"
+
+[node name="EnemySpawn_2F_DensityPatrol_028" type="Sprite2D" parent="GridMap" unique_id=532237549]
+z_index = 2
+position = Vector2(1072, 1424)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(33, 44)
+EnemyType = "crypt_sentinel"
+
+[node name="EnemySpawn_2F_DensityPatrol_029" type="Sprite2D" parent="GridMap" unique_id=260440543]
+z_index = 2
+position = Vector2(848, 1008)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(26, 31)
+EnemyType = "cave_spider"
+
+[node name="EnemySpawn_2F_DensityPatrol_030" type="Sprite2D" parent="GridMap" unique_id=623611036]
+z_index = 2
+position = Vector2(464, 1776)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(14, 55)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_2F_DensityPatrol_031" type="Sprite2D" parent="GridMap" unique_id=817924446]
+z_index = 2
+position = Vector2(1712, 1040)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(53, 32)
+EnemyType = "grave_hexer"
+
+[node name="EnemySpawn_2F_DensityPatrol_032" type="Sprite2D" parent="GridMap" unique_id=1965705134]
+z_index = 2
+position = Vector2(240, 496)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(7, 15)
+EnemyType = "bone_archer"
+
+[node name="EnemySpawn_2F_DensityPatrol_033" type="Sprite2D" parent="GridMap" unique_id=2014282566]
+z_index = 2
+position = Vector2(1616, 1232)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(50, 38)
+EnemyType = "iron_revenant"
+
+[node name="EnemySpawn_2F_DensityPatrol_034" type="Sprite2D" parent="GridMap" unique_id=1759594249]
+z_index = 2
+position = Vector2(1360, 1744)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(42, 54)
+EnemyType = "cursed_gargoyle"
+
+[node name="EnemySpawn_2F_DensityPatrol_035" type="Sprite2D" parent="GridMap" unique_id=1078722629]
+z_index = 2
+position = Vector2(1136, 528)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(35, 16)
+EnemyType = "crypt_sentinel"
+
+[node name="EnemySpawn_2F_DensityPatrol_036" type="Sprite2D" parent="GridMap" unique_id=1201701064]
+z_index = 2
+position = Vector2(1008, 784)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(31, 24)
+EnemyType = "cave_spider"
+
+[node name="EnemySpawn_2F_DensityPatrol_037" type="Sprite2D" parent="GridMap" unique_id=1986447272]
+z_index = 2
+position = Vector2(592, 752)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(18, 23)
+EnemyType = "skeleton_warrior"
+
+[node name="EnemySpawn_2F_DensityPatrol_038" type="Sprite2D" parent="GridMap" unique_id=1286523707]
+z_index = 2
+position = Vector2(1520, 656)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(47, 20)
+EnemyType = "grave_hexer"
+
+[node name="EnemySpawn_2F_DensityPatrol_039" type="Sprite2D" parent="GridMap" unique_id=1401971653]
+z_index = 2
+position = Vector2(1488, 1584)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(46, 49)
+EnemyType = "bone_archer"
+
+[node name="EnemySpawn_2F_DensityPatrol_040" type="Sprite2D" parent="GridMap" unique_id=1568871989]
+z_index = 2
+position = Vector2(1232, 1232)
+scale = Vector2(0.333333, 0.333333)
+script = ExtResource("7_ywtw3")
+GridPosition = Vector2i(38, 38)
+EnemyType = "iron_revenant"

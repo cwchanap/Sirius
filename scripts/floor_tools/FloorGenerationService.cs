@@ -142,8 +142,284 @@ public static class FloorGenerationService
         builder.ReinforcePerimeter();
     }
 
-    // Placeholders — implemented in Tasks 9-11.
-    public static FloorJsonModel GenerateFloor1() => throw new System.NotImplementedException();
+    // Placeholders — implemented in Tasks 10-11.
     public static FloorJsonModel GenerateFloor2() => throw new System.NotImplementedException();
     public static FloorJsonModel GenerateFloor3() => throw new System.NotImplementedException();
+
+    public static FloorJsonModel GenerateFloor1()
+    {
+        var builder = new MazeBuilder(Floor1Layout.Width, Floor1Layout.Height);
+        BuildFloor1Walls(builder);
+        var walls = builder.Walls;
+        var walkable = FloorGraph.WalkableCellsFromWalls(walls, Floor1Layout.Width, Floor1Layout.Height);
+
+        var baseEnemies = MergeDicts(Floor1Layout.EnemyGates, Floor1Layout.ExtraEnemyPatrols);
+        var occupied = new HashSet<Vector2I>
+        {
+            Floor1Layout.PlayerStart, Floor1Layout.DownStair,
+            Floor1Layout.UpStairA, Floor1Layout.UpStairB,
+        };
+        occupied.UnionWith(Floor1Layout.HiddenPlaceholders.Values);
+        occupied.UnionWith(PositionSet(baseEnemies));
+        occupied.UnionWith(Floor1Layout.TreasureBoxes.Values.Select(t => t.Position));
+        occupied.UnionWith(AuthoredPositions(Floor1Layout.PuzzleTraps));
+        occupied.UnionWith(AuthoredPositions(Floor1Layout.PuzzleSwitches));
+        occupied.UnionWith(AuthoredPositions(Floor1Layout.PuzzleGates));
+        occupied.UnionWith(AuthoredPositions(Floor1Layout.PuzzleRiddles));
+
+        var enemySpawns = MergeDicts(baseEnemies, SupplementalEnemyPlanner.Plan(
+            Floor1Layout.SupplementalPrefix, baseEnemies, walkable, occupied,
+            Floor1Layout.SupplementalTypes));
+
+        var model = new FloorJsonModel { SchemaVersion = "1.0" };
+        model.Metadata = new FloorMetadata
+        {
+            FloorName = "First Floor",
+            FloorNumber = 1,
+            Description = "A compact combat-gated loop maze with two 2/F routes.",
+            PlayerStart = new Vector2IData(Floor1Layout.PlayerStart),
+        };
+
+        model.TileLayers["ground"] = GroundTiles(Floor1Layout.Width, Floor1Layout.Height);
+        model.TileLayers["wall"] = WallTiles(walls, Floor1Layout.Width, Floor1Layout.Height, includeOutsideFootprint: false);
+        model.TileLayers["stair"] = new List<TileData>
+        {
+            new(Floor1Layout.DownStair.X, Floor1Layout.DownStair.Y, "down"),
+            new(Floor1Layout.UpStairA.X, Floor1Layout.UpStairA.Y, "up"),
+            new(Floor1Layout.UpStairB.X, Floor1Layout.UpStairB.Y, "up"),
+        };
+
+        model.Entities = new SceneEntities
+        {
+            EnemySpawns = enemySpawns.Select(kv => new EnemySpawnData
+            {
+                Id = kv.Key, Position = new Vector2IData(kv.Value.Position), EnemyType = kv.Value.EnemyType,
+            }).ToList(),
+            NpcSpawns = new(),
+            StairConnections = new()
+            {
+                new() { Id = "1F_001", Position = new Vector2IData(Floor1Layout.DownStair), Direction = "down", TargetFloor = 0, DestinationStairId = "GF_000" },
+                new() { Id = "1F_2F_A", Position = new Vector2IData(Floor1Layout.UpStairA), Direction = "up", TargetFloor = 2, DestinationStairId = "2F_1F_A" },
+                new() { Id = "1F_2F_B", Position = new Vector2IData(Floor1Layout.UpStairB), Direction = "up", TargetFloor = 2, DestinationStairId = "2F_1F_B" },
+            },
+            HiddenPlaceholders = Floor1Layout.HiddenPlaceholders
+                .Select(kv => new HiddenPlaceholderData { Id = kv.Key, Position = new Vector2IData(kv.Value) }).ToList(),
+            TreasureBoxes = FloorEntityBuilders.TreasureBoxes(Floor1Layout.TreasureBoxes.Select(kv => (kv.Key, kv.Value.Position, kv.Value.Gold, kv.Value.Items))),
+            TrapTiles = FloorEntityBuilders.TrapTiles(Floor1Layout.PuzzleTraps.Select(kv => (kv.Key, kv.Value.Position, kv.Value.Damage, kv.Value.StatusEffect, kv.Value.Magnitude, kv.Value.Turns)), Floor1Layout.PuzzleId),
+            PuzzleSwitches = FloorEntityBuilders.Switches(Floor1Layout.PuzzleSwitches.Select(kv => (kv.Key, kv.Value.Position, kv.Value.Prompt, kv.Value.Activated)), Floor1Layout.PuzzleId),
+            PuzzleGates = FloorEntityBuilders.Gates(Floor1Layout.PuzzleGates.Select(kv => (kv.Key, kv.Value.Position, kv.Value.StartsClosed)), Floor1Layout.PuzzleId),
+            PuzzleRiddles = FloorEntityBuilders.Riddles(Floor1Layout.PuzzleRiddles.Select(kv => (kv.Key, kv.Value.Position, kv.Value.Prompt, kv.Value.Choices, kv.Value.CorrectChoiceId, kv.Value.WrongDamage)), Floor1Layout.PuzzleId),
+        };
+
+        return model;
+    }
+
+    // Shared helpers (also used by Floor 2/3):
+    private static List<TileData> GroundTiles(int width, int height)
+    {
+        var tiles = new List<TileData>(width * height);
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+                tiles.Add(new TileData(x, y, "starting_area"));
+        return tiles;
+    }
+
+    private static List<TileData> WallTiles(HashSet<Vector2I> walls, int width, int height, bool includeOutsideFootprint)
+    {
+        var all = new HashSet<Vector2I>(walls);
+        if (includeOutsideFootprint)
+            all.UnionWith(OutsideFootprintWalls(width, height));
+        return all.OrderBy(p => p.Y).ThenBy(p => p.X)
+            .Select(p => new TileData(p.X, p.Y, "generic")).ToList();
+    }
+
+    private static HashSet<Vector2I> OutsideFootprintWalls(int width, int height)
+    {
+        var walls = new HashSet<Vector2I>();
+        for (int y = height; y < 160; y++)
+            for (int x = 0; x < 160; x++)
+                walls.Add(new Vector2I(x, y));
+        for (int y = 0; y < height; y++)
+            for (int x = width; x < 160; x++)
+                walls.Add(new Vector2I(x, y));
+        return walls;
+    }
+
+    private static HashSet<Vector2I> PositionSet(Dictionary<string, EnemySpec> enemies)
+        => enemies.Values.Select(e => e.Position).ToHashSet();
+    private static HashSet<Vector2I> AuthoredPositions<T>(Dictionary<string, T> entities) where T : IHasPosition
+        => entities.Values.Select(e => e.Position).ToHashSet();
+    private static Dictionary<string, EnemySpec> MergeDicts(params Dictionary<string, EnemySpec>[] dicts)
+    {
+        var merged = new Dictionary<string, EnemySpec>();
+        foreach (var d in dicts) foreach (var kv in d) merged[kv.Key] = kv.Value;
+        return merged;
+    }
+
+    private static void AddGateBarrier(HashSet<Vector2I> walls, Vector2I gate, IEnumerable<Vector2I> blocked)
+    {
+        foreach (var cell in blocked)
+            if (cell != gate)
+                walls.Add(cell);
+    }
+
+    private static void BuildFloor1Walls(MazeBuilder builder)
+    {
+        var mainLoop = new Vector2I[]
+        {
+            new(8, 30),
+            new(16, 16),
+            new(33, 12),
+            new(49, 12),
+            new(53, 30),
+            new(48, 48),
+            new(28, 50),
+            new(12, 42),
+            new(8, 30),
+        };
+        builder.CarveLoop(mainLoop, halfWidth: 1);
+
+        builder.CarveRect(5, 27, 11, 33);
+        builder.CarveRect(24, 26, 34, 34);
+        builder.CarvePath(new(16, 30), new(28, 30), 1);
+
+        builder.CarveRect(46, 9, 53, 15);
+        builder.CarveRect(44, 45, 52, 52);
+
+        builder.CarveRect(11, 22, 18, 27);
+        builder.CarvePath(new(16, 22), new(14, 25), 1);
+
+        builder.CarvePath(new(16, 16), Floor1Layout.HiddenPlaceholders["hidden_room_north"], 1);
+        builder.CarvePath(new(53, 30), Floor1Layout.HiddenPlaceholders["hidden_shortcut_east"], 1);
+        builder.CarvePath(new(28, 50), Floor1Layout.SouthShortcutEntry, 1);
+
+        builder.CarveRect(13, 6, 19, 10);
+        builder.CarveRect(53, 28, 58, 32);
+        builder.CarveRect(16, 52, 22, 56);
+
+        var deadEndBranches = new (Vector2I, Vector2I)[]
+        {
+            (new(11, 22), new(5, 22)),
+            (new(28, 26), new(28, 20)),
+            (new(32, 34), new(38, 39)),
+            (new(49, 9), new(49, 5)),
+            (new(53, 35), new(47, 35)),
+            (new(56, 30), new(56, 36)),
+            (new(28, 50), new(35, 55)),
+            (new(7, 42), new(2, 42)),
+            (new(12, 49), new(5, 54)),
+            (new(38, 12), new(38, 7)),
+        };
+        foreach (var (start, end) in deadEndBranches)
+            builder.CarvePath(start, end, 0);
+
+        var decisionConnectors = new (char Direction, int Start, int End, int Fixed)[]
+        {
+            ('h', 5, 14, 37),
+            ('v', 31, 41, 12),
+            ('h', 11, 15, 28),
+            ('h', 19, 38, 8),
+            ('h', 17, 33, 11),
+            ('v', 8, 15, 28),
+            ('h', 49, 56, 34),
+            ('v', 31, 45, 52),
+            ('h', 49, 53, 32),
+            ('v', 31, 35, 50),
+        };
+        foreach (var (direction, start, end, fixedCoord) in decisionConnectors)
+        {
+            if (direction == 'h')
+                builder.CarveHCorridor(start, end, fixedCoord, 0);
+            else
+                builder.CarveVCorridor(start, end, fixedCoord, 0);
+        }
+
+        var shortcutBranches = new Vector2I[][]
+        {
+            new Vector2I[]
+            {
+                Floor1Layout.HiddenPlaceholders["hidden_room_north"],
+                new(8, 8),
+                new(8, 4),
+                new(36, 4),
+                new(36, 8),
+                new(38, 8),
+            },
+            new Vector2I[]
+            {
+                Floor1Layout.HiddenPlaceholders["hidden_shortcut_east"],
+                new(58, 46),
+                new(56, 46),
+                new(56, 48),
+                new(58, 48),
+                new(58, 50),
+                new(56, 50),
+                new(56, 52),
+                new(58, 52),
+                new(58, 54),
+                new(56, 54),
+                new(56, 56),
+                new(58, 56),
+                new(58, 58),
+                new(54, 58),
+                new(54, 46),
+                new(58, 46),
+            },
+            new Vector2I[]
+            {
+                Floor1Layout.SouthShortcutEntry,
+                new(23, 58),
+                new(23, 56),
+                new(58, 56),
+                new(58, 58),
+                new(42, 58),
+                new(23, 58),
+            },
+        };
+        foreach (var branch in shortcutBranches)
+            for (int i = 0; i < branch.Length - 1; i++)
+                builder.CarvePath(branch[i], branch[i + 1], 0);
+
+        var wallReliefPaths = new (Vector2I, Vector2I)[]
+        {
+            (new(5, 22), new(4, 22)),
+            (new(30, 17), new(30, 19)),
+            (new(34, 26), new(34, 22)),
+            (new(52, 24), new(44, 24)),
+            (new(39, 34), new(43, 34)),
+            (new(48, 35), new(44, 35)),
+            (new(12, 40), new(28, 40)),
+            (new(12, 41), new(28, 41)),
+            (new(13, 42), new(28, 42)),
+            (new(13, 43), new(28, 43)),
+            (new(13, 44), new(28, 44)),
+            (new(47, 42), new(39, 42)),
+            (new(47, 43), new(39, 43)),
+            (new(47, 44), new(39, 44)),
+            (new(47, 45), new(39, 45)),
+            (new(13, 46), new(28, 46)),
+            (new(38, 56), new(38, 55)),
+        };
+        foreach (var (start, end) in wallReliefPaths)
+            builder.CarvePath(start, end, 0);
+
+        for (int x = 48; x < 55; x++)
+            builder.Walls.Add(new Vector2I(x, 16));
+        builder.Walls.Add(new Vector2I(19, 8));
+        builder.Walls.Add(new Vector2I(35, 55));
+        builder.Walls.Add(new Vector2I(25, 56));
+
+        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates["EnemySpawn_Goblin_Branch"].Position,
+            Enumerable.Range(11, 8).Select(x => new Vector2I(x, 23)));
+        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates["EnemySpawn_Orc_Central"].Position,
+            new[] { new Vector2I(22, 29), new Vector2I(22, 30), new Vector2I(22, 31) });
+        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates["EnemySpawn_Skeleton_StairA"].Position,
+            new[] { new Vector2I(43, 11), new Vector2I(43, 12), new Vector2I(43, 13) });
+        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates["EnemySpawn_ForestSpirit_StairB"].Position,
+            new[] { new Vector2I(42, 47), new Vector2I(42, 48), new Vector2I(42, 49) });
+        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates["EnemySpawn_Orc_HiddenBranch"].Position,
+            Enumerable.Range(16, 7).Select(x => new Vector2I(x, 51)));
+
+        builder.ReinforcePerimeter();
+    }
 }

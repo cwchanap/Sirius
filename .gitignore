@@ -27,5 +27,5 @@ test.runsettings.local
 .superpowers/
 tests/tools/__pycache__/
 
-# Generated floor source JSON; regenerate from tools/*floor*_maze_generator.py
-scenes/game/floors/*.json
+# Floor layout JSON: tracked as the C# vs Python parity reference (regenerate via tools/*floor*maze_generator.py or the C# FloorGenerationService)
+

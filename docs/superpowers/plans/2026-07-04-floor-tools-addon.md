@@ -512,7 +512,7 @@ public class MazeBuilder
                 CarveCell(x + dx, y);
     }
 
-    public void CarvePath(System.Vector2I start, System.Vector2I end, int halfWidth = 1)
+    public void CarvePath(Vector2I start, Vector2I end, int halfWidth = 1)
     {
         CarveHCorridor(start.X, end.X, start.Y, halfWidth);
         CarveVCorridor(start.Y, end.Y, end.X, halfWidth);
@@ -540,7 +540,7 @@ public class MazeBuilder
 }
 ```
 
-Note: `System.Math.MIN` above is a typo — use `System.Math.Min`. After writing, fix to `System.Math.Min(y1, y2)`.
+Note: `Vector2I` is `Godot.Vector2I`; the file already has `using Godot;` so use the unqualified name.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -690,7 +690,7 @@ public static class FloorGraph
     public static List<List<Vector2I>> DeadEndBranches(HashSet<Vector2I> walkable, int width, int height)
     {
         var branches = new List<List<Vector2I>>();
-        var orderedLeaves = walkable.OrderBy(c => c.Y).ThenBy(c => c.X);
+        var orderedLeaves = walkable.OrderBy(c => c.X).ThenBy(c => c.Y);
         foreach (var leaf in orderedLeaves)
         {
             if (leaf.X >= width || leaf.Y >= height)

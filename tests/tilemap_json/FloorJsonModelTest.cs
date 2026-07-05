@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using Sirius.TilemapJson;
+using System.Collections.Generic;
 using static GdUnit4.Assertions;
 
 [TestSuite]
@@ -228,5 +229,31 @@ public partial class FloorJsonModelTest : Node
         AssertThat(model.Entities.PuzzleRiddles[0].Choices[1].Label).IsEqual("Right");
         AssertThat(model.Entities.PuzzleRiddles[0].CorrectChoiceId).IsEqual("right");
         AssertThat(model.Entities.PuzzleRiddles[0].WrongAnswerDamage).IsEqual(16);
+    }
+
+    [TestCase]
+    public void TestHiddenPlaceholdersRoundTrip()
+    {
+        var model = new FloorJsonModel
+        {
+            Metadata = new FloorMetadata { FloorName = "Test" },
+            Entities = new SceneEntities
+            {
+                HiddenPlaceholders = new List<HiddenPlaceholderData>
+                {
+                    new() { Id = "hidden_north", Position = new Vector2IData(16, 8) }
+                }
+            }
+        };
+
+        string json = model.ToJson();
+        var parsed = FloorJsonModel.FromJson(json);
+
+        AssertThat(parsed).IsNotNull();
+        AssertThat(parsed!.Entities.HiddenPlaceholders).IsNotNull();
+        AssertThat(parsed.Entities.HiddenPlaceholders!.Count).IsEqual(1);
+        AssertThat(parsed.Entities.HiddenPlaceholders[0].Id).IsEqual("hidden_north");
+        AssertThat(parsed.Entities.HiddenPlaceholders[0].Position.X).IsEqual(16);
+        AssertThat(parsed.Entities.HiddenPlaceholders[0].Position.Y).IsEqual(8);
     }
 }

@@ -1,0 +1,62 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/sirius_floor_tools/SiriusFloorToolsDock.cs" id="1_dock"]
+
+[node name="SiriusFloorToolsDock" type="Control"]
+custom_minimum_size = Vector2(320, 360)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_dock")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="FloorOption" type="OptionButton" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+item_count = 4
+popup/item_0/text = "GF"
+popup/item_1/text = "1F"
+popup/item_2/text = "2F"
+popup/item_3/text = "3F"
+
+[node name="GenerateButton" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Generate"
+
+[node name="ValidateButton" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Validate"
+
+[node name="ExportJsonButton" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Export JSON"
+
+[node name="ImportJsonButton" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Import JSON"
+
+[node name="BakeSaveButton" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Bake / Save Scene"
+
+[node name="ResultsLabel" type="RichTextLabel" parent="VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 200)
+layout_mode = 2
+bbcode_enabled = true
+scroll_following = true

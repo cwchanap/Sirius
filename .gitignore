@@ -6,7 +6,8 @@
 frames/
 
 assets/**/original
-addons/
+addons/*
+!addons/sirius_floor_tools/
 TestResults/
 gdunit4_testadapter_v5/
 

@@ -147,6 +147,9 @@ public class SceneEntities
 
     [JsonPropertyName("stair_connections")]
     public List<StairConnectionData>? StairConnections { get; set; }
+
+    [JsonPropertyName("hidden_placeholders")]
+    public List<HiddenPlaceholderData>? HiddenPlaceholders { get; set; }
 }
 
 public class EnemySpawnData
@@ -334,4 +337,13 @@ public class StairConnectionData
 
     [JsonPropertyName("destination_stair_id")]
     public string DestinationStairId { get; set; } = "";
+}
+
+public class HiddenPlaceholderData
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("position")]
+    public Vector2IData Position { get; set; } = new();
 }

@@ -46,3 +46,7 @@ pause_menu={
 [rendering]
 
 renderer/rendering_method="mobile"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/sirius_floor_tools/plugin.cfg")

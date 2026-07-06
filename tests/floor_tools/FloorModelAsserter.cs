@@ -61,8 +61,12 @@ public static class FloorModelAsserter
 
     private static void AssertEntityList<T>(List<T> actual, List<T> expected) where T : class
     {
-        var aMap = (actual ?? new List<T>()).ToDictionary(GetId, Canonical);
-        var eMap = (expected ?? new List<T>()).ToDictionary(GetId, Canonical);
+        // Group by id rather than ToDictionary so duplicate ids report a clear
+        // assertion failure instead of throwing ArgumentException before any
+        // assertion runs (FloorValidationService catches dupes at runtime, but
+        // the asserter should still fail gracefully on malformed test data).
+        var aMap = GroupById(actual ?? new List<T>());
+        var eMap = GroupById(expected ?? new List<T>());
 
         AssertThat(aMap.Count).IsEqual(eMap.Count);
         foreach (var id in eMap.Keys)
@@ -70,6 +74,20 @@ public static class FloorModelAsserter
             AssertThat(aMap.ContainsKey(id)).IsTrue();
             AssertThat(aMap[id]).IsEqual(eMap[id]);
         }
+    }
+
+    private static Dictionary<string, string> GroupById<T>(List<T> entities) where T : class
+    {
+        var map = new Dictionary<string, string>();
+        foreach (var e in entities)
+        {
+            string id = GetId(e);
+            string canonical = Canonical(e);
+            if (map.TryGetValue(id, out var existing) && existing != canonical)
+                AssertThat(false).IsEqual(true); // force a clear assertion failure on conflicting dupes
+            map[id] = canonical;
+        }
+        return map;
     }
 
     private static string GetId<T>(T entity) => entity switch

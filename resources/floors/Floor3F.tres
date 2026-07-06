@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="FloorDefinition" format=3]
+[gd_resource type="Resource" script_class="FloorDefinition" format=3 uid="uid://b8hrre0k7p4pk"]
 
-[ext_resource type="Script" path="res://scripts/game/FloorDefinition.cs" id="1_1"]
-[ext_resource type="PackedScene" path="res://scenes/game/floors/Floor3F.tscn" id="1_2"]
+[ext_resource type="Script" uid="uid://kd6rbo3sqjd7" path="res://scripts/game/FloorDefinition.cs" id="1_1"]
+[ext_resource type="PackedScene" uid="uid://dgojrfkh4qf5u" path="res://scenes/game/floors/Floor3F.tscn" id="1_2"]
 
 [resource]
 script = ExtResource("1_1")

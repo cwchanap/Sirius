@@ -143,7 +143,6 @@ public static class FloorGenerationService
     }
 
     // Placeholders — implemented in Tasks 10-11.
-    public static FloorJsonModel GenerateFloor2() => throw new System.NotImplementedException();
     public static FloorJsonModel GenerateFloor3() => throw new System.NotImplementedException();
 
     public static FloorJsonModel GenerateFloor1()
@@ -419,6 +418,210 @@ public static class FloorGenerationService
             new[] { new Vector2I(42, 47), new Vector2I(42, 48), new Vector2I(42, 49) });
         AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates["EnemySpawn_Orc_HiddenBranch"].Position,
             Enumerable.Range(16, 7).Select(x => new Vector2I(x, 51)));
+
+        builder.ReinforcePerimeter();
+    }
+
+    public static FloorJsonModel GenerateFloor2()
+    {
+        var builder = new MazeBuilder(Floor2Layout.Width, Floor2Layout.Height);
+        BuildFloor2Walls(builder);
+        var walls = builder.Walls;
+        var walkable = FloorGraph.WalkableCellsFromWalls(walls, Floor2Layout.Width, Floor2Layout.Height);
+
+        var baseEnemies = MergeDicts(Floor2Layout.EnemyGates, Floor2Layout.ExtraEnemyPatrols);
+        var occupied = new HashSet<Vector2I>
+        {
+            Floor2Layout.PlayerStart,
+            Floor2Layout.DownStairA, Floor2Layout.DownStairB, Floor2Layout.UpStair,
+        };
+        occupied.UnionWith(PositionSet(baseEnemies));
+        occupied.UnionWith(Floor2Layout.TreasureBoxes.Values.Select(t => t.Position));
+        occupied.UnionWith(AuthoredPositions(Floor2Layout.PuzzleTraps));
+        occupied.UnionWith(AuthoredPositions(Floor2Layout.PuzzleSwitches));
+        occupied.UnionWith(AuthoredPositions(Floor2Layout.PuzzleGates));
+        occupied.UnionWith(AuthoredPositions(Floor2Layout.PuzzleRiddles));
+
+        var enemySpawns = MergeDicts(baseEnemies, SupplementalEnemyPlanner.Plan(
+            Floor2Layout.SupplementalPrefix, baseEnemies, walkable, occupied,
+            Floor2Layout.SupplementalTypes));
+
+        var model = new FloorJsonModel { SchemaVersion = "1.0" };
+        model.Metadata = new FloorMetadata
+        {
+            FloorName = "Second Floor",
+            FloorNumber = 2,
+            Description = "A moderate archive maze with two 1/F return stairs, one 3/F stair, treasure, and a puzzle-gated side chamber.",
+            PlayerStart = new Vector2IData(Floor2Layout.PlayerStart),
+        };
+
+        model.TileLayers["ground"] = GroundTiles(Floor2Layout.Width, Floor2Layout.Height);
+        model.TileLayers["wall"] = WallTiles(walls, Floor2Layout.Width, Floor2Layout.Height, includeOutsideFootprint: false);
+        model.TileLayers["stair"] = new List<TileData>
+        {
+            new(Floor2Layout.DownStairA.X, Floor2Layout.DownStairA.Y, "down"),
+            new(Floor2Layout.DownStairB.X, Floor2Layout.DownStairB.Y, "down"),
+            new(Floor2Layout.UpStair.X, Floor2Layout.UpStair.Y, "up"),
+        };
+
+        model.Entities = new SceneEntities
+        {
+            EnemySpawns = enemySpawns.Select(kv => new EnemySpawnData
+            {
+                Id = kv.Key, Position = new Vector2IData(kv.Value.Position), EnemyType = kv.Value.EnemyType,
+            }).ToList(),
+            NpcSpawns = new(),
+            StairConnections = new()
+            {
+                new() { Id = "2F_1F_A", Position = new Vector2IData(Floor2Layout.DownStairA), Direction = "down", TargetFloor = 1, DestinationStairId = "1F_2F_A" },
+                new() { Id = "2F_1F_B", Position = new Vector2IData(Floor2Layout.DownStairB), Direction = "down", TargetFloor = 1, DestinationStairId = "1F_2F_B" },
+                new() { Id = "2F_3F_A", Position = new Vector2IData(Floor2Layout.UpStair), Direction = "up", TargetFloor = 3, DestinationStairId = "3F_2F_A" },
+            },
+            HiddenPlaceholders = new(),
+            TreasureBoxes = FloorEntityBuilders.TreasureBoxes(Floor2Layout.TreasureBoxes.Select(kv => (kv.Key, kv.Value.Position, kv.Value.Gold, kv.Value.Items))),
+            TrapTiles = FloorEntityBuilders.TrapTiles(Floor2Layout.PuzzleTraps.Select(kv => (kv.Key, kv.Value.Position, kv.Value.Damage, kv.Value.StatusEffect, kv.Value.Magnitude, kv.Value.Turns)), Floor2Layout.PuzzleId),
+            PuzzleSwitches = FloorEntityBuilders.Switches(Floor2Layout.PuzzleSwitches.Select(kv => (kv.Key, kv.Value.Position, kv.Value.Prompt, kv.Value.Activated)), Floor2Layout.PuzzleId),
+            PuzzleGates = FloorEntityBuilders.Gates(Floor2Layout.PuzzleGates.Select(kv => (kv.Key, kv.Value.Position, kv.Value.StartsClosed)), Floor2Layout.PuzzleId),
+            PuzzleRiddles = FloorEntityBuilders.Riddles(Floor2Layout.PuzzleRiddles.Select(kv => (kv.Key, kv.Value.Position, kv.Value.Prompt, kv.Value.Choices, kv.Value.CorrectChoiceId, kv.Value.WrongDamage)), Floor2Layout.PuzzleId),
+        };
+
+        return model;
+    }
+
+    private static void BuildFloor2Walls(MazeBuilder builder)
+    {
+        var mainLoop = new Vector2I[]
+        {
+            Floor2Layout.DownStairA,
+            new(18, 14),
+            new(34, 14),
+            new(48, 20),
+            new(52, 34),
+            Floor2Layout.UpStair,
+            new(38, 52),
+            new(24, 44),
+            new(16, 32),
+            Floor2Layout.DownStairA,
+        };
+        builder.CarveLoop(mainLoop, halfWidth: 1);
+
+        builder.CarveHCorridor(Floor2Layout.DownStairA.X, Floor2Layout.DownStairB.X, Floor2Layout.DownStairA.Y, 1);
+        builder.CarvePath(Floor2Layout.DownStairB, new(34, 14), 1);
+
+        builder.CarveRect(7, 7, 13, 13);
+        builder.CarveRect(23, 7, 29, 13);
+        builder.CarveRect(3, 14, 9, 18);
+        builder.CarveRect(26, 27, 37, 36);
+        builder.CarveRect(41, 7, 49, 15);
+        builder.CarveRect(50, 29, 57, 37);
+        builder.CarveRect(38, 49, 55, 56);
+
+        builder.CarvePath(new(10, 13), new(6, 16), 0);
+        builder.CarvePath(new(34, 14), new(44, 8), 0);
+        builder.CarvePath(new(34, 14), new(36, 31), 1);
+        builder.CarvePath(new(36, 31), new(29, 34), 1);
+        builder.CarvePath(new(52, 34), new(56, 36), 0);
+        builder.CarvePath(new(38, 52), new(42, 55), 0);
+        builder.CarvePath(Floor2Layout.UpStair, new(53, 48), 0);
+
+        builder.CarveRect(27, 34, 32, 40);
+        builder.CarveRect(34, 37, 36, 39);
+        builder.CarveCell(Floor2Layout.PuzzleGates["PuzzleGate_2F_ArchiveTrial_Vault"].Position.X, Floor2Layout.PuzzleGates["PuzzleGate_2F_ArchiveTrial_Vault"].Position.Y);
+        builder.CarvePath(new(36, 38), new(38, 44), 0);
+        builder.CarvePath(new(38, 44), new(42, 52), 0);
+
+        var sideBranches = new (Vector2I, Vector2I)[]
+        {
+            (new(18, 14), new(18, 6)),
+            (new(24, 44), new(16, 52)),
+            (new(52, 34), new(56, 28)),
+            (new(42, 52), new(34, 56)),
+            (new(16, 32), new(7, 32)),
+            (new(26, 10), new(26, 5)),
+            (new(44, 12), new(50, 18)),
+        };
+        foreach (var (start, end) in sideBranches)
+            builder.CarvePath(start, end, 0);
+
+        var decisionConnectors = new (char Direction, int Start, int End, int Fixed)[]
+        {
+            ('h', 12, 22, 18),
+            ('v', 14, 28, 18),
+            ('h', 18, 34, 18),
+            ('h', 30, 44, 24),
+            ('v', 24, 34, 44),
+            ('h', 40, 52, 40),
+            ('v', 36, 46, 50),
+            ('h', 30, 42, 52),
+            ('v', 38, 52, 24),
+            ('h', 24, 36, 44),
+        };
+        foreach (var (direction, start, end, fixedCoord) in decisionConnectors)
+        {
+            if (direction == 'h')
+                builder.CarveHCorridor(start, end, fixedCoord, 0);
+            else
+                builder.CarveVCorridor(start, end, fixedCoord, 0);
+        }
+
+        var wallReliefPaths = new (Vector2I, Vector2I)[]
+        {
+            (new(6, 16), new(3, 16)),
+            (new(18, 6), new(18, 4)),
+            (new(44, 8), new(47, 8)),
+            (new(44, 24), new(48, 24)),
+            (new(56, 28), new(56, 24)),
+            (new(7, 32), new(4, 32)),
+            (new(16, 52), new(13, 55)),
+            (new(34, 56), new(30, 56)),
+            (new(50, 46), new(55, 46)),
+        };
+        foreach (var (start, end) in wallReliefPaths)
+            builder.CarvePath(start, end, 0);
+
+        var shortcutLoopCuts = new (Vector2I, Vector2I)[]
+        {
+            (new(13, 55), new(30, 56)),
+            (new(18, 28), new(24, 38)),
+            (new(35, 44), new(41, 44)),
+            (new(44, 34), new(48, 24)),
+            (new(26, 5), new(18, 4)),
+        };
+        foreach (var (start, end) in shortcutLoopCuts)
+            builder.CarvePath(start, end, 0);
+
+        AddGateBarrier(builder.Walls, Floor2Layout.EnemyGates["EnemySpawn_2F_ArchiveGate"].Position,
+            from x in System.Linq.Enumerable.Range(30, 8) from y in new[] { 13, 15 } select new Vector2I(x, y));
+        AddGateBarrier(builder.Walls, Floor2Layout.ExtraEnemyPatrols["EnemySpawn_2F_WestLoop"].Position,
+            from x in System.Linq.Enumerable.Range(23, 9) from y in new[] { 17, 19 } select new Vector2I(x, y));
+        AddGateBarrier(builder.Walls, Floor2Layout.EnemyGates["EnemySpawn_2F_GalleryGate"].Position,
+            System.Linq.Enumerable.Range(30, 8).Select(y => new Vector2I(52, y)));
+        AddGateBarrier(builder.Walls, Floor2Layout.EnemyGates["EnemySpawn_2F_UpStairGuard"].Position,
+            System.Linq.Enumerable.Range(47, 5).Select(x => new Vector2I(x, 50)));
+        AddGateBarrier(builder.Walls, Floor2Layout.ExtraEnemyPatrols["EnemySpawn_2F_SouthApproach"].Position,
+            System.Linq.Enumerable.Range(24, 5).Select(x => new Vector2I(x, 45))
+                .Concat(System.Linq.Enumerable.Range(23, 6).Select(x => new Vector2I(x, 47))));
+        AddGateBarrier(builder.Walls, Floor2Layout.ExtraEnemyPatrols["EnemySpawn_2F_SouthArmory"].Position,
+            (from x in System.Linq.Enumerable.Range(37, 5) from y in new[] { 51, 52 } select new Vector2I(x, y))
+                .Concat(new[] { new Vector2I(37, 50), new Vector2I(41, 54) }));
+        AddGateBarrier(builder.Walls, Floor2Layout.EnemyGates["EnemySpawn_2F_PuzzleApproach"].Position,
+            System.Linq.Enumerable.Range(28, 5).Select(x => new Vector2I(x, 34)));
+        AddGateBarrier(builder.Walls, Floor2Layout.PuzzleGates["PuzzleGate_2F_ArchiveTrial_Vault"].Position,
+            System.Linq.Enumerable.Range(35, 6).Select(y => new Vector2I(33, y)));
+
+        for (int x = 33; x < 37; x++)
+            builder.Walls.Add(new Vector2I(x, 33));
+        for (int y = 34; y < 38; y++)
+            builder.Walls.Add(new Vector2I(35, y));
+        for (int x = 34; x < 37; x++)
+            builder.Walls.Add(new Vector2I(x, 37));
+        builder.Walls.Add(new Vector2I(33, 34));
+        builder.Walls.Add(new Vector2I(34, 34));
+        builder.Walls.Add(new Vector2I(34, 35));
+        builder.Walls.Add(new Vector2I(34, 36));
+
+        AddGateBarrier(builder.Walls, Floor2Layout.PuzzleGates["PuzzleGate_2F_ArchiveTrial_Shortcut"].Position,
+            new[] { Floor2Layout.PuzzleGates["PuzzleGate_2F_ArchiveTrial_Shortcut"].Position });
 
         builder.ReinforcePerimeter();
     }

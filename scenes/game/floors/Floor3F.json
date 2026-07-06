@@ -3905,6 +3905,11 @@
   "entities": {
     "enemy_spawns": [],
     "npc_spawns": [],
+    "treasure_boxes": [],
+    "trap_tiles": [],
+    "puzzle_switches": [],
+    "puzzle_gates": [],
+    "puzzle_riddles": [],
     "stair_connections": [
       {
         "id": "3F_2F_A",
@@ -3917,11 +3922,6 @@
         "destination_stair_id": "2F_3F_A"
       }
     ],
-    "hidden_placeholders": [],
-    "treasure_boxes": [],
-    "trap_tiles": [],
-    "puzzle_switches": [],
-    "puzzle_gates": [],
-    "puzzle_riddles": []
+    "hidden_placeholders": []
   }
 }

@@ -30766,39 +30766,6 @@
       }
     ],
     "npc_spawns": [],
-    "stair_connections": [
-      {
-        "id": "2F_1F_A",
-        "position": {
-          "x": 10,
-          "y": 10
-        },
-        "direction": "down",
-        "target_floor": 1,
-        "destination_stair_id": "1F_2F_A"
-      },
-      {
-        "id": "2F_1F_B",
-        "position": {
-          "x": 26,
-          "y": 10
-        },
-        "direction": "down",
-        "target_floor": 1,
-        "destination_stair_id": "1F_2F_B"
-      },
-      {
-        "id": "2F_3F_A",
-        "position": {
-          "x": 52,
-          "y": 50
-        },
-        "direction": "up",
-        "target_floor": 3,
-        "destination_stair_id": "3F_2F_A"
-      }
-    ],
-    "hidden_placeholders": [],
     "treasure_boxes": [
       {
         "id": "TreasureBox_2F_WestSupplyCache",
@@ -31051,6 +31018,39 @@
         "correct_choice_id": "lever_memory",
         "wrong_answer_damage": 14
       }
-    ]
+    ],
+    "stair_connections": [
+      {
+        "id": "2F_1F_A",
+        "position": {
+          "x": 10,
+          "y": 10
+        },
+        "direction": "down",
+        "target_floor": 1,
+        "destination_stair_id": "1F_2F_A"
+      },
+      {
+        "id": "2F_1F_B",
+        "position": {
+          "x": 26,
+          "y": 10
+        },
+        "direction": "down",
+        "target_floor": 1,
+        "destination_stair_id": "1F_2F_B"
+      },
+      {
+        "id": "2F_3F_A",
+        "position": {
+          "x": 52,
+          "y": 50
+        },
+        "direction": "up",
+        "target_floor": 3,
+        "destination_stair_id": "3F_2F_A"
+      }
+    ],
+    "hidden_placeholders": []
   }
 }

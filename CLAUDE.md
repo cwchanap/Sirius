@@ -26,6 +26,10 @@ godot
 
 # Merge individual 32x32 sprite frames into 128x32 sprite sheets
 python3 tools/sprite_sheet_merger.py
+
+# Regenerate a floor's JSON/scene/.tres from C# (replaces the Python generators)
+godot --headless --path . --script tools/generate_floor.gd -- --floor <0|1|2|3>
+# Options: --json-only (write JSON only), --skip-floor-def (skip .tres sync), --stair-dest x,y (GF override)
 ```
 
 **Shell issues**: If you encounter `zsh: command not found`, restart shell with `zsh -il`.
@@ -84,11 +88,14 @@ tests/             # GdUnit4 tests mirroring scripts/ structure
 assets/sprites/    # Sprite sheets and individual frames
 tools/             # Python utilities (see below)
 ├── sprite_sheet_merger.py        # 32x32 frames → 128x32 sprite sheets
-├── floor0_maze_generator.py      # Emit Floor 0 maze JSON
-├── floor1_maze_generator.py      # Emit Floor 1 maze JSON
-├── generate_static_maze.py       # Static maze emitter
+├── generate_floor.gd             # Headless CLI: regenerate floor JSON/scene/.tres from C# (preferred)
 ├── tilemap_json_sync.py          # Round-trip .tscn ↔ .json (used by MCP/CLI: export|import|refresh)
+├── floor0_maze_generator.py      # DEPRECATED parity reference (C# generation is the source of truth)
+├── floor1_maze_generator.py      # DEPRECATED parity reference (C# generation is the source of truth)
+├── generate_static_maze.py       # Static maze emitter
 └── resize_item_icons.py
+
+scripts/floor_tools/  # C# floor generation source (FloorGenerationService, layouts/, scene writer, validation)
 ```
 
 Python tests under `tests/tools/` are not picked up by `dotnet test` — invoke them with `python3 -m pytest tests/tools` (or per-file).

@@ -8,6 +8,10 @@ namespace Sirius.FloorTools;
 
 public static class FloorValidationService
 {
+    // width/height are forwarded to FloorGraph.DeadEndBranches as a bounds filter
+    // (cells with X>=width or Y>=height are skipped). They are not stale: the walkable
+    // set is derived from model ground tiles, but the bounds filter guards against
+    // any out-of-range cells slipping through and keeps DeadEndBranches deterministic.
     public static ValidationResult Validate(FloorJsonModel model, int width, int height)
     {
         var result = new ValidationResult();

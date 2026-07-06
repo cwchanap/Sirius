@@ -142,8 +142,50 @@ public static class FloorGenerationService
         builder.ReinforcePerimeter();
     }
 
-    // Placeholders — implemented in Tasks 10-11.
-    public static FloorJsonModel GenerateFloor3() => throw new System.NotImplementedException();
+    public static FloorJsonModel GenerateFloor3()
+    {
+        var builder = new MazeBuilder(Floor3Layout.Width, Floor3Layout.Height);
+        BuildFloor3Walls(builder);
+
+        var model = new FloorJsonModel { SchemaVersion = "1.0" };
+        model.Metadata = new FloorMetadata
+        {
+            FloorName = "Third Floor",
+            FloorNumber = 3,
+            Description = "A safe future landing for the second-floor up stair.",
+            PlayerStart = new Vector2IData(Floor3Layout.PlayerStart),
+        };
+        model.TileLayers["ground"] = GroundTiles(Floor3Layout.Width, Floor3Layout.Height);
+        model.TileLayers["wall"] = WallTiles(builder.Walls, Floor3Layout.Width, Floor3Layout.Height, includeOutsideFootprint: false);
+        model.TileLayers["stair"] = new List<TileData>
+        {
+            new(Floor3Layout.DownStair.X, Floor3Layout.DownStair.Y, "down"),
+        };
+        model.Entities = new SceneEntities
+        {
+            EnemySpawns = new(),
+            NpcSpawns = new(),
+            StairConnections = new()
+            {
+                new() { Id = "3F_2F_A", Position = new Vector2IData(Floor3Layout.DownStair), Direction = "down", TargetFloor = 2, DestinationStairId = "2F_3F_A" },
+            },
+            HiddenPlaceholders = new(),
+            TreasureBoxes = new(),
+            TrapTiles = new(),
+            PuzzleSwitches = new(),
+            PuzzleGates = new(),
+            PuzzleRiddles = new(),
+        };
+        return model;
+    }
+
+    private static void BuildFloor3Walls(MazeBuilder builder)
+    {
+        builder.CarveRect(6, 6, 16, 13);
+        builder.CarveHCorridor(8, 14, Floor3Layout.DownStair.Y, 1);
+        builder.CarveVCorridor(8, 12, Floor3Layout.DownStair.X, 1);
+        builder.ReinforcePerimeter();
+    }
 
     public static FloorJsonModel GenerateFloor1()
     {

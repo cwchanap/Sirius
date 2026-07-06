@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="FloorDefinition" load_steps=3 format=3 uid="uid://b8hrre0k7p4pk"]
+[gd_resource type="Resource" script_class="FloorDefinition" format=3]
 
-[ext_resource type="Script" uid="uid://kd6rbo3sqjd7" path="res://scripts/game/FloorDefinition.cs" id="1_1"]
-[ext_resource type="PackedScene" uid="uid://dgojrfkh4qf5u" path="res://scenes/game/floors/Floor3F.tscn" id="1_2"]
+[ext_resource type="Script" path="res://scripts/game/FloorDefinition.cs" id="1_1"]
+[ext_resource type="PackedScene" path="res://scenes/game/floors/Floor3F.tscn" id="1_2"]
 
 [resource]
 script = ExtResource("1_1")
@@ -9,9 +9,6 @@ FloorName = "Third Floor"
 FloorNumber = 3
 FloorScene = ExtResource("1_2")
 PlayerStartPosition = Vector2i(10, 10)
-StairsUp = Array[Vector2i]([])
 StairsDown = Array[Vector2i]([Vector2i(10, 10)])
-StairsUpDestinations = Array[Vector2i]([])
 StairsDownDestinations = Array[Vector2i]([Vector2i(10, 10)])
-AmbientTint = Color(1, 1, 1, 1)
 FloorDescription = "A safe future landing for the second-floor up stair"

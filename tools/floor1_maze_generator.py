@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """Generate Floor 1, the playable Floor 2 maze, and a Floor 3 landing JSON for Sirius."""
+# DEPRECATED: superseded by the Sirius Floor Tools addon + headless CLI.
+# Regenerate floors with: godot --headless --path . --script tools/generate_floor.gd -- --floor N
+# This file is retained only as a parity reference until C# generation is confirmed stable.
 
 from __future__ import annotations
 

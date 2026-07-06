@@ -7,7 +7,8 @@
 - Authored/generated floor JSON lives in `scenes/game/floors/Floor*.json`.
 - Imported Godot scenes live in `scenes/game/floors/Floor*.tscn`.
 - Runtime registration is in `scenes/game/Game.tscn` through `FloorManager`.
-- JSON import/export logic is in `scripts/tilemap_json/` and `tools/tilemap_json_sync.py`.
+- Floor generation source is `scripts/floor_tools/` (`FloorGenerationService` + `layouts/*Layout.cs`). Regenerate a floor end-to-end with `godot --headless --path . --script tools/generate_floor.gd -- --floor N`, which writes the `.json`, `.tscn`, and `.tres` in one pass. The deprecated `tools/floor*_maze_generator.py` files are retained only as parity references.
+- JSON import/export logic for manual `.json` ↔ `.tscn` round-trips is in `scripts/tilemap_json/` and `tools/tilemap_json_sync.py`.
 - Static enemy and NPC scene nodes must have `Owner` set to the scene root so `ResourceSaver` persists them in `.tscn`.
 - Static treasure and puzzle-trap nodes are imported from `entities.treasure_boxes`, `entities.trap_tiles`, `entities.puzzle_switches`, `entities.puzzle_gates`, and `entities.puzzle_riddles`. When a floor intentionally has none, prefer explicit empty arrays so the generator and scene tests can prove that intent.
 - Side branches should have authored payoff. A generated floor should not contain dead-end branches that lack an enemy, treasure box, visible stair, puzzle/trap beat, hidden-placeholder purpose, or tested shortcut value.
@@ -65,12 +66,12 @@ If the user has already answered one of these, do not ask again; summarize it an
    - `rg -n "Floor1F|Floor2F|FloorGF" resources scenes/game/Game.tscn tools tests scripts`
    - `rg -n "StairConnection|EnemySpawn|NpcSpawn" scenes/game/floors scripts tests`
    - `rg -n "TreasureBox|RecoveryChest|Puzzle|TrapTile|PuzzleGate|PuzzleSwitch|PuzzleRiddle" scripts scenes/game/floors tools tests`
-2. Add or update a deterministic generator under `tools/`.
+2. Add or update the C# generator under `scripts/floor_tools/layouts/` (`FloorGenerationService` + per-floor `*Layout.cs`).
    - Keep dimensions, exits, hidden placeholders, enemies, NPCs, treasure boxes, and puzzle traps as named constants or structured data.
    - For requested enemy-density changes, keep existing authored gate/patrol enemy IDs intact and add deterministic supplemental patrols with stable ID prefixes.
-   - Emit `FloorJsonModel`-compatible JSON.
-   - Update the matching `.tres` resource with player start and stair arrays when needed.
-3. Add Python generator tests.
+   - The model must round-trip through `FloorJsonModel` so JSON, scene, and `.tres` stay in sync.
+   - The `.tres` resource (player start and stair arrays) is updated by the same CLI run; no manual regex edit.
+3. Add C# parity tests under `tests/floor_tools/`.
    - Dimensions and bounds.
    - Scene footprint size matches the brief; do not pad unused space with walls unless the user asked for that.
    - Entrance/exit count and stair visibility.
@@ -86,9 +87,10 @@ If the user has already answered one of these, do not ask again; summarize it an
    - Dead-end branches have a payoff or explicit hidden-placeholder purpose.
    - Immediate stair designs have runtime coverage for stepping onto each visible stair without pressing interact.
    - Optional complexity knobs requested by the user: deep branches, intersections, shortcut unlocks, and maximum long wall runs.
-4. Generate/import:
-   - `python3 tools/<floor_generator>.py`
-   - `python3 tools/tilemap_json_sync.py import scenes/game/floors/<Floor>.json scenes/game/floors/<Floor>.tscn`
+4. Regenerate from C#:
+   - `godot --headless --path . --script tools/generate_floor.gd -- --floor <N>`
+   - Options: `--json-only` (write JSON only), `--skip-floor-def` (skip `.tres` sync), `--stair-dest x,y` (GF override).
+   - No separate JSON-import step is needed for generation; the CLI writes `.json`, `.tscn`, and `.tres` together. For manual `.json` tweaks only, use `python3 tools/tilemap_json_sync.py import scenes/game/floors/<Floor>.json scenes/game/floors/<Floor>.tscn`.
 5. Preserve UIDs.
    - Check the `[gd_scene ... uid="..."]` line.
    - Check each new `[ext_resource ... uid="..."]` line.
@@ -130,11 +132,11 @@ Scene tests should assert:
 Use the narrowest meaningful commands first:
 
 ```bash
-python3 -m unittest tests.tools.test_<floor_generator_module> -v
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~FloorGeneration"
 ```
 
 ```bash
-python3 -m unittest tests.tools.test_tilemap_json_sync -v
+godot --headless --path . --script tools/generate_floor.gd -- --floor <N>
 ```
 
 ```bash

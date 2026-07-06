@@ -238095,18 +238095,6 @@
         "npc_id": "village_healer"
       }
     ],
-    "stair_connections": [
-      {
-        "id": "GF_000",
-        "position": {
-          "x": 82,
-          "y": 68
-        },
-        "direction": "up",
-        "target_floor": 1,
-        "destination_stair_id": "1F_001"
-      }
-    ],
     "treasure_boxes": [
       {
         "id": "TreasureBox_GF_EntranceCache",
@@ -238219,6 +238207,18 @@
             "quantity": 1
           }
         ]
+      }
+    ],
+    "stair_connections": [
+      {
+        "id": "GF_000",
+        "position": {
+          "x": 82,
+          "y": 68
+        },
+        "direction": "up",
+        "target_floor": 1,
+        "destination_stair_id": "1F_001"
       }
     ]
   }

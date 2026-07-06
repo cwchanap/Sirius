@@ -30575,54 +30575,6 @@
       }
     ],
     "npc_spawns": [],
-    "stair_connections": [
-      {
-        "id": "1F_001",
-        "position": {
-          "x": 8,
-          "y": 30
-        },
-        "direction": "down",
-        "target_floor": 0,
-        "destination_stair_id": "GF_000"
-      },
-      {
-        "id": "1F_2F_A",
-        "position": {
-          "x": 49,
-          "y": 12
-        },
-        "direction": "up",
-        "target_floor": 2,
-        "destination_stair_id": "2F_1F_A"
-      },
-      {
-        "id": "1F_2F_B",
-        "position": {
-          "x": 48,
-          "y": 48
-        },
-        "direction": "up",
-        "target_floor": 2,
-        "destination_stair_id": "2F_1F_B"
-      }
-    ],
-    "hidden_placeholders": [
-      {
-        "id": "hidden_room_north",
-        "position": {
-          "x": 16,
-          "y": 8
-        }
-      },
-      {
-        "id": "hidden_shortcut_east",
-        "position": {
-          "x": 56,
-          "y": 30
-        }
-      }
-    ],
     "treasure_boxes": [
       {
         "id": "TreasureBox_1F_WestDeadEndCache",
@@ -30891,6 +30843,54 @@
         ],
         "correct_choice_id": "east_stone",
         "wrong_answer_damage": 12
+      }
+    ],
+    "stair_connections": [
+      {
+        "id": "1F_001",
+        "position": {
+          "x": 8,
+          "y": 30
+        },
+        "direction": "down",
+        "target_floor": 0,
+        "destination_stair_id": "GF_000"
+      },
+      {
+        "id": "1F_2F_A",
+        "position": {
+          "x": 49,
+          "y": 12
+        },
+        "direction": "up",
+        "target_floor": 2,
+        "destination_stair_id": "2F_1F_A"
+      },
+      {
+        "id": "1F_2F_B",
+        "position": {
+          "x": 48,
+          "y": 48
+        },
+        "direction": "up",
+        "target_floor": 2,
+        "destination_stair_id": "2F_1F_B"
+      }
+    ],
+    "hidden_placeholders": [
+      {
+        "id": "hidden_room_north",
+        "position": {
+          "x": 16,
+          "y": 8
+        }
+      },
+      {
+        "id": "hidden_shortcut_east",
+        "position": {
+          "x": 56,
+          "y": 30
+        }
       }
     ]
   }

@@ -31,4 +31,12 @@ public partial class FloorGenerationParityTest
         var committed = LoadCommitted(1);
         FloorModelAsserter.AssertModelsEqual(generated, committed);
     }
+
+    [TestCase]
+    public void TestFloor2Parity()
+    {
+        var generated = FloorGenerationService.GenerateFloor2();
+        var committed = LoadCommitted(2);
+        FloorModelAsserter.AssertModelsEqual(generated, committed);
+    }
 }

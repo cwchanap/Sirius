@@ -22,26 +22,32 @@ public static class FloorSceneWriter
         // Write into the scene via the existing importer.
         var packed = GD.Load<PackedScene>(paths.ScenePath);
         var scene = packed.Instantiate();
-        var gridMap = scene.GetNode<GridMap>("GridMap");
-        var importer = new TilemapJsonImporter();
-        importer.ImportToScene(model, gridMap);
-
-        // Sync .tres via typed API (skippable for --skip-floor-def parity).
-        if (syncDef)
+        try
         {
-            var def = ResourceLoader.Load<FloorDefinition>(paths.DefPath);
-            FloorResourceSyncService.Apply(def, model, options);
-            ResourceSaver.Save(def, paths.DefPath);
+            var gridMap = scene.GetNode<GridMap>("GridMap");
+            var importer = new TilemapJsonImporter();
+            importer.ImportToScene(model, gridMap);
+
+            // Sync .tres via typed API (skippable for --skip-floor-def parity).
+            if (syncDef)
+            {
+                var def = ResourceLoader.Load<FloorDefinition>(paths.DefPath);
+                FloorResourceSyncService.Apply(def, model, options);
+                ResourceSaver.Save(def, paths.DefPath);
+            }
+
+            // Pack + save scene.
+            var newPacked = new PackedScene();
+            newPacked.Pack(scene);
+            ResourceSaver.Save(newPacked, paths.ScenePath);
+
+            if (writeJson)
+                WriteJson(model, paths.JsonPath);
         }
-
-        // Pack + save scene.
-        var newPacked = new PackedScene();
-        newPacked.Pack(scene);
-        ResourceSaver.Save(newPacked, paths.ScenePath);
-        scene.QueueFree();
-
-        if (writeJson)
-            WriteJson(model, paths.JsonPath);
+        finally
+        {
+            scene.QueueFree();
+        }
 
         int walls = model.TileLayers.GetValueOrDefault("wall")?.Count ?? 0;
         int enemies = model.Entities.EnemySpawns?.Count ?? 0;

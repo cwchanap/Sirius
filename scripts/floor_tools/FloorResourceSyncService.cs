@@ -15,11 +15,19 @@ public static class FloorResourceSyncService
 {
     public static void Apply(FloorDefinition def, FloorJsonModel model, FloorSyncOptions options)
     {
+        // Sync metadata so the .tres reflects the generator's authoritative
+        // values (FloorResourceSyncService is the only path that updates .tres
+        // during floor generation). Without this, the .tres description drifts
+        // from the generator and the round-trip parity test fails.
+        def.FloorName = model.Metadata.FloorName;
+        def.FloorNumber = model.Metadata.FloorNumber;
+        def.FloorDescription = model.Metadata.Description;
+
         def.PlayerStartPosition = model.Metadata.PlayerStart.ToVector2I();
 
         var stairs = model.Entities.StairConnections ?? new();
-        var up = stairs.Where(s => s.Direction?.ToLower() == "up").Select(s => s.Position.ToVector2I()).ToList();
-        var down = stairs.Where(s => s.Direction?.ToLower() == "down").Select(s => s.Position.ToVector2I()).ToList();
+        var up = stairs.Where(s => s.Direction == "up").Select(s => s.Position.ToVector2I()).ToList();
+        var down = stairs.Where(s => s.Direction == "down").Select(s => s.Position.ToVector2I()).ToList();
 
         def.StairsUp = ToArray(up);
         def.StairsDown = ToArray(down);

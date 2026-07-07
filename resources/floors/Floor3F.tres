@@ -11,4 +11,4 @@ FloorScene = ExtResource("1_2")
 PlayerStartPosition = Vector2i(11, 10)
 StairsDown = Array[Vector2i]([Vector2i(10, 10)])
 StairsDownDestinations = Array[Vector2i]([Vector2i(10, 10)])
-FloorDescription = "A safe future landing for the second-floor up stair"
+FloorDescription = "A safe future landing for the second-floor up stair."

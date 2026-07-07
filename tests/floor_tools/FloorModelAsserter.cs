@@ -15,6 +15,13 @@ public static class FloorModelAsserter
 
     public static void AssertModelsEqual(FloorJsonModel actual, FloorJsonModel expected)
     {
+        AssertThat(actual).IsNotNull();
+        AssertThat(expected).IsNotNull();
+        AssertThat(actual.Metadata).IsNotNull();
+        AssertThat(expected.Metadata).IsNotNull();
+        AssertThat(actual.Entities).IsNotNull();
+        AssertThat(expected.Entities).IsNotNull();
+
         // Metadata
         AssertThat(actual.Metadata.FloorName).IsEqual(expected.Metadata.FloorName);
         AssertThat(actual.Metadata.FloorNumber).IsEqual(expected.Metadata.FloorNumber);

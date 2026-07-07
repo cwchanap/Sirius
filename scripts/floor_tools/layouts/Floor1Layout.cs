@@ -10,6 +10,10 @@ public static class Floor1Layout
     public const int Width = 60;
     public const int Height = 60;
 
+    // +1 x vs Python FLOOR1_PLAYER_START (8,30): the C# PlayerStartOnStair
+    // validator (FloorValidationService) rejects spawning on a stair tile, so
+    // the spawn is shifted one cell right of DownStair. Save-load is safe: the
+    // .tres PlayerStartPosition matches this and the cell is off-stair.
     public static readonly Vector2I PlayerStart = new(9, 30);
     public static readonly Vector2I DownStair = new(8, 30);
     public static readonly Vector2I UpStairA = new(49, 12);

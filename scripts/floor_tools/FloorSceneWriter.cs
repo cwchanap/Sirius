@@ -105,9 +105,6 @@ public static class FloorSceneWriter
         return ProjectSettings.LocalizePath(abs);
     }
 
-    public static FloorJsonModel GenerateToJson(int floorNumber)
-        => FloorGenerationService.Generate(floorNumber);
-
     private static void WriteJson(FloorJsonModel model, string path)
     {
         using var file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Write);
@@ -120,6 +117,7 @@ public static class FloorSceneWriter
         1 => (Layouts.Floor1Layout.Width, Layouts.Floor1Layout.Height),
         2 => (Layouts.Floor2Layout.Width, Layouts.Floor2Layout.Height),
         3 => (Layouts.Floor3Layout.Width, Layouts.Floor3Layout.Height),
-        _ => (160, 160),
+        _ => throw new System.ArgumentOutOfRangeException(nameof(floorNumber), floorNumber,
+            $"No layout dimensions registered for floor {floorNumber}"),
     };
 }

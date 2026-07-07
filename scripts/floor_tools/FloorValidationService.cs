@@ -24,6 +24,12 @@ public static class FloorValidationService
         if (!walkable.Contains(start))
             result.Error("PlayerStartNotWalkable", $"Player start {start} is not walkable");
 
+        // PlayerStart must not coincide with a stair tile — spawning on a stair
+        // would immediately trigger a floor transition.
+        var stairs = model.TileLayers.GetValueOrDefault("stair") ?? new List<TileData>();
+        if (stairs.Any(t => t.X == start.X && t.Y == start.Y))
+            result.Error("PlayerStartOnStair", $"Player start {start} coincides with a stair tile");
+
         var connected = FloorGraph.ConnectedCells(walkable, start);
         var disconnected = walkable.Except(connected).ToList();
         if (disconnected.Count > 0)

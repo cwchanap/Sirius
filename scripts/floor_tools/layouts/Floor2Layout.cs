@@ -10,23 +10,37 @@ public static class Floor2Layout
     public const int Width = 60;
     public const int Height = 60;
 
-    public static readonly Vector2I PlayerStart = new(10, 10);
+    public static readonly Vector2I PlayerStart = new(11, 10);
     public static readonly Vector2I DownStairA = new(10, 10);
     public static readonly Vector2I DownStairB = new(26, 10);
     public static readonly Vector2I UpStair = new(52, 50);
 
+    // Gate keys referenced by BuildFloor2Walls — constants so renames surface
+    // as compile errors instead of runtime KeyNotFoundException.
+    public static class GateKeys
+    {
+        public const string ArchiveGate = "EnemySpawn_2F_ArchiveGate";
+        public const string GalleryGate = "EnemySpawn_2F_GalleryGate";
+        public const string UpStairGuard = "EnemySpawn_2F_UpStairGuard";
+        public const string PuzzleApproach = "EnemySpawn_2F_PuzzleApproach";
+        public const string WestLoop = "EnemySpawn_2F_WestLoop";
+        public const string SouthApproach = "EnemySpawn_2F_SouthApproach";
+        public const string SouthArmory = "EnemySpawn_2F_SouthArmory";
+        public const string ArchiveTrialVault = "PuzzleGate_2F_ArchiveTrial_Vault";
+    }
+
     public static readonly Dictionary<string, EnemySpec> EnemyGates = new()
     {
-        ["EnemySpawn_2F_ArchiveGate"] = new(new Vector2I(34, 14), "skeleton_warrior"),
-        ["EnemySpawn_2F_GalleryGate"] = new(new Vector2I(52, 34), "grave_hexer"),
-        ["EnemySpawn_2F_UpStairGuard"] = new(new Vector2I(49, 50), "crypt_sentinel"),
-        ["EnemySpawn_2F_PuzzleApproach"] = new(new Vector2I(29, 34), "cave_spider"),
+        [GateKeys.ArchiveGate] = new(new Vector2I(34, 14), "skeleton_warrior"),
+        [GateKeys.GalleryGate] = new(new Vector2I(52, 34), "grave_hexer"),
+        [GateKeys.UpStairGuard] = new(new Vector2I(49, 50), "crypt_sentinel"),
+        [GateKeys.PuzzleApproach] = new(new Vector2I(29, 34), "cave_spider"),
     };
 
     public static readonly Dictionary<string, EnemySpec> ExtraEnemyPatrols = new()
     {
         ["EnemySpawn_2F_WestSupply"] = new(new Vector2I(8, 16), "cave_spider"),
-        ["EnemySpawn_2F_WestLoop"] = new(new Vector2I(27, 18), "skeleton_warrior"),
+        [GateKeys.WestLoop] = new(new Vector2I(27, 18), "skeleton_warrior"),
         ["EnemySpawn_2F_NorthStudy"] = new(new Vector2I(44, 12), "grave_hexer"),
         ["EnemySpawn_2F_NorthStacks"] = new(new Vector2I(18, 28), "bone_archer"),
         ["EnemySpawn_2F_PuzzleSide"] = new(new Vector2I(24, 38), "cave_spider"),
@@ -38,8 +52,8 @@ public static class Floor2Layout
         ["EnemySpawn_2F_UpperAlcove"] = new(new Vector2I(48, 24), "bone_archer"),
         ["EnemySpawn_2F_EastGallery"] = new(new Vector2I(55, 34), "iron_revenant"),
         ["EnemySpawn_2F_LowerWatch"] = new(new Vector2I(55, 46), "iron_revenant"),
-        ["EnemySpawn_2F_SouthApproach"] = new(new Vector2I(24, 46), "cave_spider"),
-        ["EnemySpawn_2F_SouthArmory"] = new(new Vector2I(42, 53), "iron_revenant"),
+        [GateKeys.SouthApproach] = new(new Vector2I(24, 46), "cave_spider"),
+        [GateKeys.SouthArmory] = new(new Vector2I(42, 53), "iron_revenant"),
         ["EnemySpawn_2F_StairWatch"] = new(new Vector2I(52, 48), "cursed_gargoyle"),
     };
 
@@ -90,7 +104,7 @@ public static class Floor2Layout
 
     public static readonly Dictionary<string, GateSpec> PuzzleGates = new()
     {
-        ["PuzzleGate_2F_ArchiveTrial_Vault"] = new GateSpec(new Vector2I(33, 38), true),
+        [GateKeys.ArchiveTrialVault] = new GateSpec(new Vector2I(33, 38), true),
         ["PuzzleGate_2F_ArchiveTrial_Shortcut"] = new GateSpec(new Vector2I(38, 44), true),
     };
 

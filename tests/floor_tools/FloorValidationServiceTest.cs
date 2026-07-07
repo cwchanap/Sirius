@@ -49,6 +49,16 @@ public partial class FloorValidationServiceTest
     }
 
     [TestCase]
+    public void TestPlayerStartOnStairReported()
+    {
+        var model = ValidMinimalModel();
+        model.TileLayers["stair"] = new() { new(0, 0, "down") };
+        var result = FloorValidationService.Validate(model, 3, 3);
+        AssertThat(result.HasErrors).IsTrue();
+        AssertThat(result.Issues.Any(i => i.Code == "PlayerStartOnStair")).IsTrue();
+    }
+
+    [TestCase]
     public void TestEntityOverlapReported()
     {
         var model = ValidMinimalModel();

@@ -10,12 +10,23 @@ public static class Floor1Layout
     public const int Width = 60;
     public const int Height = 60;
 
-    public static readonly Vector2I PlayerStart = new(8, 30);
+    public static readonly Vector2I PlayerStart = new(9, 30);
     public static readonly Vector2I DownStair = new(8, 30);
     public static readonly Vector2I UpStairA = new(49, 12);
     public static readonly Vector2I UpStairB = new(48, 48);
 
     public static readonly Vector2I SouthShortcutEntry = new(19, 54);
+
+    // Gate keys referenced by BuildFloor1Walls — constants so renames surface
+    // as compile errors instead of runtime KeyNotFoundException.
+    public static class GateKeys
+    {
+        public const string GoblinBranch = "EnemySpawn_Goblin_Branch";
+        public const string OrcCentral = "EnemySpawn_Orc_Central";
+        public const string SkeletonStairA = "EnemySpawn_Skeleton_StairA";
+        public const string ForestSpiritStairB = "EnemySpawn_ForestSpirit_StairB";
+        public const string OrcHiddenBranch = "EnemySpawn_Orc_HiddenBranch";
+    }
 
     public static readonly Dictionary<string, Vector2I> HiddenPlaceholders = new()
     {
@@ -25,11 +36,11 @@ public static class Floor1Layout
 
     public static readonly Dictionary<string, EnemySpec> EnemyGates = new()
     {
-        ["EnemySpawn_Goblin_Branch"] = new(new Vector2I(16, 23), "goblin"),
-        ["EnemySpawn_Orc_Central"] = new(new Vector2I(22, 30), "orc"),
-        ["EnemySpawn_Skeleton_StairA"] = new(new Vector2I(43, 12), "skeleton_warrior"),
-        ["EnemySpawn_ForestSpirit_StairB"] = new(new Vector2I(42, 48), "forest_spirit"),
-        ["EnemySpawn_Orc_HiddenBranch"] = new(new Vector2I(19, 51), "orc"),
+        [GateKeys.GoblinBranch] = new(new Vector2I(16, 23), "goblin"),
+        [GateKeys.OrcCentral] = new(new Vector2I(22, 30), "orc"),
+        [GateKeys.SkeletonStairA] = new(new Vector2I(43, 12), "skeleton_warrior"),
+        [GateKeys.ForestSpiritStairB] = new(new Vector2I(42, 48), "forest_spirit"),
+        [GateKeys.OrcHiddenBranch] = new(new Vector2I(19, 51), "orc"),
         ["EnemySpawn_Skeleton_NorthShortcut"] = new(new Vector2I(36, 6), "skeleton_warrior"),
         ["EnemySpawn_ForestSpirit_EastShortcut"] = new(new Vector2I(54, 56), "forest_spirit"),
         ["EnemySpawn_Orc_SouthShortcut"] = new(new Vector2I(32, 58), "orc"),

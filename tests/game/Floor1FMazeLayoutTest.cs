@@ -17,7 +17,7 @@ public partial class Floor1FMazeLayoutTest : Node
         "skeleton_warrior",
         "forest_spirit"
     };
-    private static readonly Vector2I PlayerStart = new(8, 30);
+    private static readonly Vector2I PlayerStart = new(9, 30);
     private static readonly Vector2I DownStair = new(8, 30);
     private static readonly Vector2I UpStairA = new(49, 12);
     private static readonly Vector2I UpStairB = new(48, 48);

@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace Sirius.FloorTools;
@@ -12,9 +13,19 @@ public partial class FloorCli : RefCounted
     private const string Usage =
         "Usage: --floor <0|1|2|3> [--json-only] [--skip-floor-def] [--stair-dest x,y]";
 
-    public int Run()
+    /// <summary>Parsed CLI arguments.</summary>
+    public record FloorCliArgs(int Floor, bool JsonOnly, bool SkipFloorDef, Vector2I? StairDest);
+
+    /// <summary>Result of arg parsing: either valid args, a help request, or an error.</summary>
+    public record FloorCliParseResult(FloorCliArgs? Args, string? Error, bool IsHelp);
+
+    /// <summary>
+    /// Pure arg parser — no Godot I/O, unit-testable. Parses the --floor/--json-only/
+    /// --skip-floor-def/--stair-dest flags. Returns Args on success, IsHelp on -h/--help,
+    /// or Error with a message on invalid input.
+    /// </summary>
+    public static FloorCliParseResult ParseArgs(string[] args)
     {
-        string[] args = OS.GetCmdlineUserArgs();
         int floor = -1;
         bool jsonOnly = false;
         bool skipFloorDef = false;
@@ -28,8 +39,7 @@ public partial class FloorCli : RefCounted
                 {
                     case "--help":
                     case "-h":
-                        GD.Print(Usage);
-                        return 0;
+                        return new FloorCliParseResult(null, null, IsHelp: true);
                     case "--floor":
                         floor = int.Parse(args[++i]);
                         break;
@@ -55,16 +65,32 @@ public partial class FloorCli : RefCounted
         }
         catch (Exception ex) when (ex is IndexOutOfRangeException or FormatException)
         {
-            GD.PrintErr($"Invalid arguments: {ex.Message}");
+            return new FloorCliParseResult(null, ex.Message, IsHelp: false);
+        }
+
+        if (!FloorRegistry.AllFloors.Contains(floor))
+            return new FloorCliParseResult(null, $"Floor must be one of: {string.Join(", ", FloorRegistry.AllFloors)}", IsHelp: false);
+
+        return new FloorCliParseResult(new FloorCliArgs(floor, jsonOnly, skipFloorDef, stairDest), null, IsHelp: false);
+    }
+
+    public int Run()
+    {
+        var parsed = ParseArgs(OS.GetCmdlineUserArgs());
+
+        if (parsed.IsHelp)
+        {
+            GD.Print(Usage);
+            return 0;
+        }
+        if (parsed.Args is null)
+        {
+            GD.PrintErr($"Invalid arguments: {parsed.Error}");
             GD.PrintErr(Usage);
             return 1;
         }
 
-        if (floor < 0 || floor > 3)
-        {
-            GD.PrintErr(Usage);
-            return 1;
-        }
+        var (floor, jsonOnly, skipFloorDef, stairDest) = parsed.Args;
 
         if (jsonOnly)
         {

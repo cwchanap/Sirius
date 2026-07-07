@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="FloorDefinition" format=3 uid="uid://cvfulgxwhhtox"]
+[gd_resource type="Resource" script_class="FloorDefinition" load_steps=3 format=3 uid="uid://cvfulgxwhhtox"]
 
 [ext_resource type="Script" uid="uid://kd6rbo3sqjd7" path="res://scripts/game/FloorDefinition.cs" id="1_1"]
 [ext_resource type="PackedScene" uid="uid://dyllored836ht" path="res://scenes/game/floors/FloorGF.tscn" id="1_2"]

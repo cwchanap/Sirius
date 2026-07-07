@@ -99,7 +99,8 @@ tools/             # Python utilities (see below)
 ├── generate_static_maze.py       # Static maze emitter
 └── resize_item_icons.py
 
-scripts/floor_tools/  # C# floor generation source (FloorGenerationService, layouts/, scene writer, validation)
+scripts/data/floors/   # C# floor layout data (Floor0-3Layout.cs, LayoutSpecs.cs, FloorRegistry.cs)
+scripts/game/floors/   # C# floor generation logic (FloorGenerationService, MazeBuilder, FloorGraph, validation, scene writer, CLI)
 ```
 
 Python tests under `tests/tools/` are not picked up by `dotnet test` — invoke them with `python3 -m pytest tests/tools` (or per-file).

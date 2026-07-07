@@ -407,51 +407,20 @@ public partial class TilemapJsonExporter : RefCounted
 
         foreach (var child in gridMapNode.GetChildren())
         {
-            // Detect stair nodes by the StairId property (matching the importer's
-            // detection in ImportStairConnections). Name-based detection
-            // (Contains("Stair")) misses nodes named by id (e.g. "1F_2F_A").
-            if (child is not Node2D)
+            // Detect stair nodes by the concrete StairConnection type (matching
+            // the importer's detection in ImportStairConnections). Name-based
+            // detection (Contains("Stair")) misses nodes named by id (e.g. "1F_2F_A").
+            if (child is not StairConnection stair)
                 continue;
 
-            var stairId = child.Get("StairId");
-            if (stairId.VariantType == Variant.Type.Nil)
-                continue; // Not a StairConnection node
-
-            var stairData = new StairConnectionData
+            stairs.Add(new StairConnectionData
             {
-                Id = stairId.AsString()
-            };
-
-            // Get GridPosition
-            var gridPos = child.Get("GridPosition");
-            if (gridPos.VariantType != Variant.Type.Nil)
-            {
-                stairData.Position = new Vector2IData(gridPos.AsVector2I());
-            }
-
-            // Get Direction
-            var direction = child.Get("Direction");
-            if (direction.VariantType != Variant.Type.Nil)
-            {
-                // Direction is likely an enum (0=up, 1=down)
-                stairData.Direction = direction.AsInt32() == 0 ? "up" : "down";
-            }
-
-            // Get TargetFloor
-            var targetFloor = child.Get("TargetFloor");
-            if (targetFloor.VariantType != Variant.Type.Nil)
-            {
-                stairData.TargetFloor = targetFloor.AsInt32();
-            }
-
-            // Get DestinationStairId
-            var destId = child.Get("DestinationStairId");
-            if (destId.VariantType != Variant.Type.Nil)
-            {
-                stairData.DestinationStairId = destId.AsString();
-            }
-
-            stairs.Add(stairData);
+                Id = stair.StairId,
+                Position = new Vector2IData(stair.GridPosition),
+                Direction = stair.Direction == StairDirection.Up ? "up" : "down",
+                TargetFloor = stair.TargetFloor,
+                DestinationStairId = stair.DestinationStairId,
+            });
         }
 
         return stairs;

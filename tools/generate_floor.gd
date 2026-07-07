@@ -12,7 +12,7 @@
 extends SceneTree
 
 func _init():
-	var cli = load("res://scripts/floor_tools/FloorCli.cs")
+	var cli = load("res://scripts/game/floors/FloorCli.cs")
 	if cli == null:
 		printerr("Failed to load FloorCli")
 		quit(1)

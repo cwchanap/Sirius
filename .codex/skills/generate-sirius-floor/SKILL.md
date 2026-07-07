@@ -17,7 +17,8 @@ Read [references/sirius-floor-workflow.md](references/sirius-floor-workflow.md) 
    - `resources/floors/*.tres`
    - `scenes/game/floors/*.json`
    - `scenes/game/floors/*.tscn`
-   - `scripts/floor_tools/` (C# generation source: `FloorGenerationService`, `layouts/*Layout.cs`, scene writer, validation)
+   - `scripts/data/floors/` (C# layout data: `Floor0-3Layout.cs`, `LayoutSpecs.cs`, `FloorRegistry.cs`)
+   - `scripts/game/floors/` (C# generation logic: `FloorGenerationService`, `MazeBuilder`, `FloorGraph`, validation, scene writer, CLI)
    - `tools/generate_floor.gd` (headless regenerate CLI)
    - `tools/tilemap_json_sync.py` (round-trip `.tscn` ↔ `.json` for manual edits)
    - `tools/floor0_maze_generator.py`, `tools/floor1_maze_generator.py` (DEPRECATED parity references)
@@ -27,7 +28,7 @@ Read [references/sirius-floor-workflow.md](references/sirius-floor-workflow.md) 
    - `scripts/game/Puzzle*Spawn.cs`
    - `scripts/game/PuzzleTrapController.cs`
    - `tests/game/*Floor*LayoutTest.cs`
-   - `tests/floor_tools/` (C# parity tests)
+   - `tests/game/floors/` (C# parity tests)
 2. Confirm the design brief before touching floor content. If any of these are missing, ask concise questions and wait:
    - floor id/name and source/destination floor connections
    - playable footprint size inside the 160x160 grid
@@ -42,7 +43,7 @@ Read [references/sirius-floor-workflow.md](references/sirius-floor-workflow.md) 
    - placeholder future rooms, shortcuts, or floors
    - stair activation behavior: immediate on step-on or interact-required
 3. Restate the confirmed brief as an implementation checklist. For broad or risky changes, save a plan under `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`.
-4. Edit `FloorGenerationService` / `scripts/floor_tools/layouts/*Layout.cs` (C#) and regenerate via the headless CLI; cover changes with C# parity tests under `tests/floor_tools/`. The Python generators under `tools/floor*_maze_generator.py` are deprecated references — do not edit them for new generation work.
+4. Edit `FloorGenerationService` (`scripts/game/floors/`) / `scripts/data/floors/*Layout.cs` (C#) and regenerate via the headless CLI; cover changes with C# parity tests under `tests/game/floors/`. The Python generators under `tools/floor*_maze_generator.py` are deprecated references — do not edit them for new generation work.
 5. Regenerate via `godot --headless --path . --script tools/generate_floor.gd -- --floor N`. No separate JSON-import step is needed for generation; the CLI writes the `.json`, `.tscn`, and `.tres` in one pass.
 6. Register new floor resources in the floor manager scene/config so stair transitions can resolve.
 7. Add scene-level tests that prove counts, stair visibility, entity placement, treasure rewards, puzzle identities, gate blocking/opening, branch payoff, stair transition behavior, and route gating. Treat enemy-gated roads as blocked until the enemy is cleared and starts-closed puzzle gates as blocked until solved.

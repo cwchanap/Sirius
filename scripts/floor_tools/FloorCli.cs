@@ -26,6 +26,10 @@ public partial class FloorCli : RefCounted
             {
                 switch (args[i])
                 {
+                    case "--help":
+                    case "-h":
+                        GD.Print(Usage);
+                        return 0;
                     case "--floor":
                         floor = int.Parse(args[++i]);
                         break;
@@ -44,6 +48,8 @@ public partial class FloorCli : RefCounted
                             stairDest = new Vector2I(int.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Value));
                             break;
                         }
+                    default:
+                        throw new FormatException($"Unknown flag: '{args[i]}'");
                 }
             }
         }

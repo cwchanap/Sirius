@@ -63,7 +63,7 @@ public static class UidPreserver
 
     /// <summary>
     /// Re-inject UIDs that ResourceSaver stripped into the file at <paramref name="resPath"/>.
-    /// Restores the header uid= (and load_steps if captured) and ext_resource uid= attributes.
+    /// Restores the header uid= and ext_resource uid= attributes.
     /// No-op if the snapshot is empty or the target file does not exist.
     /// </summary>
     public static void Restore(string resPath, Snapshot snap)

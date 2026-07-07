@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using Sirius.FloorTools;
+using Sirius.TilemapJson;
 using System.IO;
 using static GdUnit4.Assertions;
 
@@ -71,9 +72,24 @@ public partial class FloorSceneWriterTest
         AssertThat(result.Success).IsTrue();
         AssertThat(result.Validation.HasErrors).IsFalse();
         AssertThat(File.Exists(Path.Combine(_tempDir, "Floor1F.tscn"))).IsTrue();
-        // Floor 1 generation should produce a non-trivial scene.
-        var fi = new FileInfo(Path.Combine(_tempDir, "Floor1F.tscn"));
-        AssertThat(fi.Length > 100).IsTrue();
+
+        // Assert content, not just file existence: an empty/partial scene would
+        // pass a bare File.Exists + length check. Verify (a) the co-written JSON
+        // has real entity counts and ground tiles, and (b) the .tscn text actually
+        // contains EnemySpawn_/stair node declarations (entities made it into the
+        // scene file, not just the JSON source).
+        string jsonPath = Path.Combine(_tempDir, "Floor1F.json");
+        AssertThat(File.Exists(jsonPath)).IsTrue();
+        var model = FloorJsonModel.FromJson(File.ReadAllText(jsonPath));
+        // Floor 1 is a 60x60 floor; ground tile count should be in the thousands.
+        AssertThat(model.TileLayers["ground"].Count).IsGreater(100);
+        AssertThat(model.Entities.EnemySpawns?.Count ?? 0).IsGreater(0);
+        AssertThat(model.Entities.StairConnections?.Count ?? 0).IsGreater(0);
+
+        string sceneText = File.ReadAllText(Path.Combine(_tempDir, "Floor1F.tscn"));
+        // Entities must appear as node declarations in the scene file, not just in JSON.
+        AssertThat(sceneText.Contains("[node name=\"EnemySpawn_")).IsTrue();
+        AssertThat(sceneText.Contains("type=\"TileMapLayer\"")).IsTrue();
     }
 
     [TestCase]

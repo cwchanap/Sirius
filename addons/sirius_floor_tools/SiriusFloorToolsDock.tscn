@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://addons/sirius_floor_tools/SiriusFloorToolsDock.cs" id="1_dock"]
 
@@ -60,3 +60,7 @@ custom_minimum_size = Vector2(320, 200)
 layout_mode = 2
 bbcode_enabled = true
 scroll_following = true
+
+[node name="ConfirmDialog" type="ConfirmationDialog" parent="."]
+unique_name_in_owner = true
+dialog_text = "Are you sure?"

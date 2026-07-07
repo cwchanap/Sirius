@@ -52,7 +52,7 @@ public static class SupplementalEnemyPlanner
         }
 
         if (supplemental.Count != targetCount)
-            throw new System.Exception(
+            throw new System.InvalidOperationException(
                 $"Could only place {supplemental.Count} supplemental enemies for {prefix}; needed {targetCount}");
 
         return supplemental;

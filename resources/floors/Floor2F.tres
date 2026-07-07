@@ -13,4 +13,4 @@ StairsUp = Array[Vector2i]([Vector2i(52, 50)])
 StairsDown = Array[Vector2i]([Vector2i(10, 10), Vector2i(26, 10)])
 StairsUpDestinations = Array[Vector2i]([Vector2i(52, 50)])
 StairsDownDestinations = Array[Vector2i]([Vector2i(10, 10), Vector2i(26, 10)])
-FloorDescription = "A moderate archive maze with two 1/F return stairs, one 3/F stair, treasure, and a puzzle-gated side chamber."
+FloorDescription = "A moderate archive maze with two first-floor return stairs, treasure, and a puzzle-gated side chamber"

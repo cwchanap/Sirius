@@ -6,22 +6,29 @@ using System.Linq;
 
 namespace Sirius.FloorTools;
 
-public record FloorSyncOptions(Vector2I? StairDestOverride = null)
+/// <param name="SyncMetadata">When true, overwrites FloorName/FloorNumber/
+/// FloorDescription on the .tres with the generator's values. Default false —
+/// preserves hand-authored .tres metadata so regeneration does not clobber
+/// presentation text that may differ from the generator's internal labels.</param>
+public record FloorSyncOptions(Vector2I? StairDestOverride = null, bool SyncMetadata = false)
 {
-    public FloorSyncOptions() : this((Vector2I?)null) { }
+    public FloorSyncOptions() : this((Vector2I?)null, false) { }
+    public FloorSyncOptions(Vector2I? stairDestOverride) : this(stairDestOverride, false) { }
 }
 
 public static class FloorResourceSyncService
 {
     public static void Apply(FloorDefinition def, FloorJsonModel model, FloorSyncOptions options)
     {
-        // Sync metadata so the .tres reflects the generator's authoritative
-        // values (FloorResourceSyncService is the only path that updates .tres
-        // during floor generation). Without this, the .tres description drifts
-        // from the generator and the round-trip parity test fails.
-        def.FloorName = model.Metadata.FloorName;
+        // Metadata sync is opt-in: by default the .tres keeps its hand-authored
+        // FloorName/FloorDescription. FloorNumber is structural and always synced
+        // so a renumbered generator output cannot silently mismatch the .tres.
         def.FloorNumber = model.Metadata.FloorNumber;
-        def.FloorDescription = model.Metadata.Description;
+        if (options.SyncMetadata)
+        {
+            def.FloorName = model.Metadata.FloorName;
+            def.FloorDescription = model.Metadata.Description;
+        }
 
         def.PlayerStartPosition = model.Metadata.PlayerStart.ToVector2I();
 

@@ -79,4 +79,62 @@ public partial class FloorResourceSyncServiceTest
         AssertThat(def.StairsUpDestinations.Count).IsEqual(1);
         AssertThat(def.StairsUpDestinations[0]).IsEqual(new Vector2I(5, 80));
     }
+
+    [TestCase]
+    public void TestSyncMetadataDefaultFalsePreservesHandAuthoredValues()
+    {
+        // Default (SyncMetadata=false): FloorName/FloorDescription on the .tres
+        // are preserved — the generator must not clobber hand-authored labels.
+        var def = new FloorDefinition
+        {
+            FloorName = "Hand-Authored Name",
+            FloorDescription = "Hand-authored description",
+        };
+        var model = new FloorJsonModel
+        {
+            Metadata = new()
+            {
+                FloorName = "Generator Name",
+                FloorNumber = 2,
+                Description = "Generator description",
+                PlayerStart = new Vector2IData(11, 10),
+            },
+            Entities = new() { StairConnections = new() },
+        };
+
+        FloorResourceSyncService.Apply(def, model, new FloorSyncOptions());
+
+        AssertThat(def.FloorName).IsEqual("Hand-Authored Name");
+        AssertThat(def.FloorDescription).IsEqual("Hand-authored description");
+        // FloorNumber is structural and always synced.
+        AssertThat(def.FloorNumber).IsEqual(2);
+    }
+
+    [TestCase]
+    public void TestSyncMetadataTrueOverwritesFromGenerator()
+    {
+        // Opt-in (SyncMetadata=true): generator labels overwrite the .tres.
+        var def = new FloorDefinition
+        {
+            FloorName = "Hand-Authored Name",
+            FloorDescription = "Hand-authored description",
+        };
+        var model = new FloorJsonModel
+        {
+            Metadata = new()
+            {
+                FloorName = "Generator Name",
+                FloorNumber = 2,
+                Description = "Generator description",
+                PlayerStart = new Vector2IData(11, 10),
+            },
+            Entities = new() { StairConnections = new() },
+        };
+
+        FloorResourceSyncService.Apply(def, model, new FloorSyncOptions(SyncMetadata: true));
+
+        AssertThat(def.FloorName).IsEqual("Generator Name");
+        AssertThat(def.FloorDescription).IsEqual("Generator description");
+        AssertThat(def.FloorNumber).IsEqual(2);
+    }
 }

@@ -96,8 +96,9 @@ public partial class FloorCli : RefCounted
         {
             var model = FloorGenerationService.Generate(floor);
             var paths = FloorRegistry.Get(floor);
-            using var file = FileAccess.Open(paths.JsonPath, FileAccess.ModeFlags.Write);
-            file.StoreString(model.ToJson(indented: true));
+            // Atomic write (temp → File.Move overwrite) so a crash mid-write
+            // cannot truncate the committed .json.
+            AtomicFileWriter.WriteAllText(paths.JsonPath, model.ToJson(indented: true));
             GD.Print($"Wrote {paths.JsonPath}");
             return 0;
         }

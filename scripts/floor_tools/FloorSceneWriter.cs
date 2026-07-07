@@ -107,8 +107,9 @@ public static class FloorSceneWriter
 
     private static void WriteJson(FloorJsonModel model, string path)
     {
-        using var file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Write);
-        file.StoreString(model.ToJson(indented: true));
+        // Atomic write (temp → File.Move overwrite) so a crash mid-write cannot
+        // truncate the committed .json. Matches SaveManager/UidPreserver pattern.
+        AtomicFileWriter.WriteAllText(path, model.ToJson(indented: true));
     }
 
     private static (int Width, int Height) DimensionsFor(int floorNumber) => floorNumber switch

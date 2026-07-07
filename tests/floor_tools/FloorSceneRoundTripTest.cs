@@ -55,6 +55,14 @@ public partial class FloorSceneRoundTripTest
                 e.Blueprint = null;
                 e.Stats = null;
             }
+        // FloorName/Description are hand-authored presentation text on the .tres
+        // that intentionally diverges from the generator's internal labels (see
+        // FloorSyncOptions.SyncMetadata, default false). Clear them on both sides
+        // so the round-trip asserts structural parity, not presentation text.
+        exported.Metadata.FloorName = "";
+        exported.Metadata.Description = "";
+        generated.Metadata.FloorName = "";
+        generated.Metadata.Description = "";
         FloorModelAsserter.AssertModelsEqual(exported, generated);
     }
 

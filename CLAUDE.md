@@ -38,6 +38,10 @@ godot --headless --path . --script tools/generate_floor.gd -- --floor <0|1|2|3>
 
 **`AGENTS.md` is a symlink to `CLAUDE.md`** — edit one, both update.
 
+### Floor generation: PlayerStart deviation from Python (intentional)
+
+The C# layouts (`Floor1/2/3Layout.cs`) set `PlayerStart` one cell to the right (+1 x) of the deprecated Python `FLOOR{N}_PLAYER_START` constants. The Python generators spawned the player directly on top of the down-stair, which `FloorValidationService.PlayerStartOnStair` now rejects (spawning on a stair triggers an immediate floor transition). The +1 x shift moves the spawn off the stair tile while keeping the `.tres` `PlayerStartPosition` consistent with the generator. This is an **intentional, ratified deviation** — the deprecated Python generators in `tools/` are left frozen as historical reference and are NOT kept in parity with this fix. `FloorGenerationParityTest` is a C#↔C# determinism/regression gate (generated model vs committed JSON baseline), not a Python-parity gate; see its header comment.
+
 ## Architecture Overview
 
 ### Core Systems

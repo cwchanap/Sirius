@@ -7,7 +7,7 @@
 - Authored/generated floor JSON lives in `scenes/game/floors/Floor*.json`.
 - Imported Godot scenes live in `scenes/game/floors/Floor*.tscn`.
 - Runtime registration is in `scenes/game/Game.tscn` through `FloorManager`.
-- Floor generation source is `scripts/floor_tools/` (`FloorGenerationService` + `layouts/*Layout.cs`). Regenerate a floor end-to-end with `godot --headless --path . --script tools/generate_floor.gd -- --floor N`, which writes the `.json`, `.tscn`, and `.tres` in one pass. The deprecated `tools/floor*_maze_generator.py` files are retained only as parity references.
+- Floor generation source is split into `scripts/data/floors/` (layout data: `Floor0-3Layout.cs`, `LayoutSpecs.cs`, `FloorRegistry.cs`) and `scripts/game/floors/` (generation logic: `FloorGenerationService`, `MazeBuilder`, `FloorGraph`, validation, scene writer, CLI). Regenerate a floor end-to-end with `godot --headless --path . --script tools/generate_floor.gd -- --floor N`, which writes the `.json`, `.tscn`, and `.tres` in one pass. The deprecated `tools/floor*_maze_generator.py` files are retained only as parity references.
 - JSON import/export logic for manual `.json` ↔ `.tscn` round-trips is in `scripts/tilemap_json/` and `tools/tilemap_json_sync.py`.
 - Static enemy and NPC scene nodes must have `Owner` set to the scene root so `ResourceSaver` persists them in `.tscn`.
 - Static treasure and puzzle-trap nodes are imported from `entities.treasure_boxes`, `entities.trap_tiles`, `entities.puzzle_switches`, `entities.puzzle_gates`, and `entities.puzzle_riddles`. When a floor intentionally has none, prefer explicit empty arrays so the generator and scene tests can prove that intent.
@@ -66,12 +66,12 @@ If the user has already answered one of these, do not ask again; summarize it an
    - `rg -n "Floor1F|Floor2F|FloorGF" resources scenes/game/Game.tscn tools tests scripts`
    - `rg -n "StairConnection|EnemySpawn|NpcSpawn" scenes/game/floors scripts tests`
    - `rg -n "TreasureBox|RecoveryChest|Puzzle|TrapTile|PuzzleGate|PuzzleSwitch|PuzzleRiddle" scripts scenes/game/floors tools tests`
-2. Add or update the C# generator under `scripts/floor_tools/layouts/` (`FloorGenerationService` + per-floor `*Layout.cs`).
+2. Add or update the C# generator. The root service `FloorGenerationService` lives in `scripts/game/floors/`; per-floor layout definitions live in `scripts/data/floors/` (`Floor0Layout` … `Floor3Layout`, `LayoutSpecs`). The service is separate from the layout data — edit the layout files for dimensional/entity constants and the service for generation/wall-carving logic.
    - Keep dimensions, exits, hidden placeholders, enemies, NPCs, treasure boxes, and puzzle traps as named constants or structured data.
    - For requested enemy-density changes, keep existing authored gate/patrol enemy IDs intact and add deterministic supplemental patrols with stable ID prefixes.
    - The model must round-trip through `FloorJsonModel` so JSON, scene, and `.tres` stay in sync.
    - The `.tres` resource (player start and stair arrays) is updated by the same CLI run; no manual regex edit.
-3. Add C# parity tests under `tests/floor_tools/`.
+3. Add C# parity tests under `tests/game/floors/` (and `tests/data/floors/` for registry tests).
    - Dimensions and bounds.
    - Scene footprint size matches the brief; do not pad unused space with walls unless the user asked for that.
    - Entrance/exit count and stair visibility.

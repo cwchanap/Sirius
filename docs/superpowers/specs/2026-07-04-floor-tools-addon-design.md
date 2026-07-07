@@ -49,7 +49,7 @@ The new `FloorGenerationService` ports the maze builders verbatim into C# and pr
 
 Core logic is editor-API-free (so it runs headless and is unit-testable); the addon is thin editor glue.
 
-```
+```text
 addons/sirius_floor_tools/
   plugin.cfg                          name="Sirius Floor Tools", script=plugin .cs
   SiriusFloorToolsPlugin.cs           [Tool] EditorPlugin: add/remove dock
@@ -71,7 +71,7 @@ tools/generate_floor.gd               headless entry: --floor N -> generate+vali
 
 ### Data flow
 
-```
+```text
 FloorGenerationService.Generate(n)  -->  FloorJsonModel  (in memory)
                                               |
               +-------------------------------+-------------------------------+
@@ -161,7 +161,7 @@ The dock holds no generation logic; it only wires buttons to services and render
 
 `tools/generate_floor.gd` is a thin GDScript entry (mirrors `refresh_tilemap.gd`) that calls a C# `FloorCli.Run(...)` static so all logic stays testable in C#:
 
-```
+```bash
 godot --headless --path . --script tools/generate_floor.gd -- \
     --floor <0|1|2|3> \
     [--json-only]        write Floor*.json without touching scene/.tres
@@ -206,7 +206,7 @@ Unchanged, must stay green: `TilemapJsonImporterTest`, `TilemapJsonExporterTest`
 
 Verification commands:
 
-```
+```bash
 dotnet build Sirius.sln
 dotnet test Sirius.sln --settings test.runsettings.local --filter "~FloorTools|~TilemapJson|~FloorLayout"
 godot --headless --path . --script tools/generate_floor.gd -- --floor 0   # smoke each floor 0-3

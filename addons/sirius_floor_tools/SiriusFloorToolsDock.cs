@@ -1,5 +1,4 @@
 using Godot;
-using Sirius.FloorTools;
 using Sirius.TilemapJson;
 using System;
 
@@ -198,8 +197,18 @@ public partial class SiriusFloorToolsDock : Control
         // by UID, so stripping breaks reference stability.
         var uidSnap = UidPreserver.Capture(scene.SceneFilePath);
         var packed = new PackedScene();
-        packed.Pack(scene);
-        ResourceSaver.Save(packed, scene.SceneFilePath);
+        var packErr = packed.Pack(scene);
+        if (packErr != Error.Ok)
+        {
+            Log($"[x] Failed to pack scene: {packErr}");
+            return;
+        }
+        var saveErr = ResourceSaver.Save(packed, scene.SceneFilePath);
+        if (saveErr != Error.Ok)
+        {
+            Log($"[x] Failed to save scene: {saveErr}");
+            return;
+        }
         UidPreserver.Restore(scene.SceneFilePath, uidSnap);
         EditorInterface.Singleton?.GetResourceFilesystem()?.Scan();
         Log($"Saved scene {scene.SceneFilePath}");

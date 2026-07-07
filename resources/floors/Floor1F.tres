@@ -13,4 +13,4 @@ StairsUp = Array[Vector2i]([Vector2i(49, 12), Vector2i(48, 48)])
 StairsDown = Array[Vector2i]([Vector2i(8, 30)])
 StairsUpDestinations = Array[Vector2i]([Vector2i(49, 12), Vector2i(48, 48)])
 StairsDownDestinations = Array[Vector2i]([Vector2i(8, 30)])
-FloorDescription = "The first floor above ground"
+FloorDescription = "A compact combat-gated loop maze with two 2/F routes."

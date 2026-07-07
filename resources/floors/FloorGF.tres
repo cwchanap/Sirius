@@ -9,4 +9,4 @@ FloorScene = ExtResource("1_2")
 PlayerStartPosition = Vector2i(8, 50)
 StairsUp = Array[Vector2i]([Vector2i(82, 68)])
 StairsUpDestinations = Array[Vector2i]([Vector2i(17, 13)])
-FloorDescription = "The entrance level"
+FloorDescription = "A readable starter district loop with optional branches."

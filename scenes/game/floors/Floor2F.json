@@ -5,7 +5,7 @@
     "floor_number": 2,
     "description": "A moderate archive maze with two 1/F return stairs, one 3/F stair, treasure, and a puzzle-gated side chamber.",
     "player_start": {
-      "x": 10,
+      "x": 11,
       "y": 10
     }
   },

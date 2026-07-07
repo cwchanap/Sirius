@@ -90,6 +90,30 @@ public partial class UidPreserverTest
         var snap = UidPreserver.Capture(resPath);
 
         AssertThat(snap.HeaderUid).IsEqual("uid://res123");
+        AssertThat(snap.HeaderLoadSteps!.Value).IsEqual(3);
         AssertThat(snap.PathToUid["res://scripts/Bar.cs"]).IsEqual("uid://scr1");
+    }
+
+    [TestCase]
+    public void TestRestoreReinjectsLoadSteps()
+    {
+        string path = Path.Combine(_tempDir, "Test.tres");
+        File.WriteAllText(path,
+            "[gd_resource type=\"Resource\" load_steps=3 format=3 uid=\"uid://res123\"]\n" +
+            "[ext_resource type=\"Script\" uid=\"uid://scr1\" path=\"res://scripts/Bar.cs\" id=\"1\"]\n");
+        string resPath = ProjectSettings.LocalizePath(path);
+        var snap = UidPreserver.Capture(resPath);
+
+        // Simulate ResourceSaver stripping uid= AND load_steps=.
+        File.WriteAllText(path,
+            "[gd_resource type=\"Resource\" format=3]\n" +
+            "[ext_resource type=\"Script\" path=\"res://scripts/Bar.cs\" id=\"1\"]\n");
+
+        UidPreserver.Restore(resPath, snap);
+
+        string restored = File.ReadAllText(path);
+        AssertThat(restored.Contains("load_steps=3")).IsTrue();
+        AssertThat(restored.Contains("uid=\"uid://res123\"")).IsTrue();
+        AssertThat(restored.Contains("uid=\"uid://scr1\"")).IsTrue();
     }
 }

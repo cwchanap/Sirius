@@ -87,8 +87,10 @@ public static class FloorSceneWriter
         finally
         {
             // Ensures the instantiated scene is freed even on exception or early
-            // return from inside the try block (null-guard failure paths).
-            scene.QueueFree();
+            // return from inside the try block (null-guard failure paths). Free()
+            // (not QueueFree) because the scene is never added to the scene tree,
+            // so deferred deletion would never process in headless CLI runs.
+            scene.Free();
         }
 
         int walls = model.TileLayers.GetValueOrDefault("wall")?.Count ?? 0;

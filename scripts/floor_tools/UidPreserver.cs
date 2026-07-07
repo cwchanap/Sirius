@@ -18,6 +18,7 @@ namespace Sirius.FloorTools;
 public static class UidPreserver
 {
     private static readonly Regex HeaderUidRegex = new(@"uid=""([^""]+)""", RegexOptions.Compiled);
+    private static readonly Regex LoadStepsRegex = new(@"load_steps=(\d+)", RegexOptions.Compiled);
     private static readonly Regex ExtResourceRegex = new(@"^\[ext_resource\s+", RegexOptions.Compiled);
     private static readonly Regex PathRegex = new(@"path=""([^""]+)""", RegexOptions.Compiled);
     private static readonly Regex ExtResourceUidRegex = new(@"uid=""([^""]+)""", RegexOptions.Compiled);
@@ -27,6 +28,7 @@ public static class UidPreserver
     public record Snapshot
     {
         public string? HeaderUid { get; init; }
+        public int? HeaderLoadSteps { get; init; }
         public Dictionary<string, string> PathToUid { get; init; } = new();
     }
 
@@ -46,9 +48,10 @@ public static class UidPreserver
             {
                 var m = HeaderUidRegex.Match(line);
                 if (m.Success)
-                {
                     snap = snap with { HeaderUid = m.Groups[1].Value };
-                }
+                var ls = LoadStepsRegex.Match(line);
+                if (ls.Success && int.TryParse(ls.Groups[1].Value, out var steps))
+                    snap = snap with { HeaderLoadSteps = steps };
                 continue;
             }
 
@@ -63,12 +66,12 @@ public static class UidPreserver
 
     /// <summary>
     /// Re-inject UIDs that ResourceSaver stripped into the file at <paramref name="resPath"/>.
-    /// Restores the header uid= and ext_resource uid= attributes.
+    /// Restores the header uid=, header load_steps=, and ext_resource uid= attributes.
     /// No-op if the snapshot is empty or the target file does not exist.
     /// </summary>
     public static void Restore(string resPath, Snapshot snap)
     {
-        if (snap is null || (snap.HeaderUid is null && snap.PathToUid.Count == 0)) return;
+        if (snap is null || (snap.HeaderUid is null && snap.HeaderLoadSteps is null && snap.PathToUid.Count == 0)) return;
         string absPath = ProjectSettings.GlobalizePath(resPath);
         if (!File.Exists(absPath)) return;
 
@@ -78,13 +81,22 @@ public static class UidPreserver
         {
             var line = lines[i];
 
-            if ((line.StartsWith("[gd_scene") || line.StartsWith("[gd_resource"))
-                && snap.HeaderUid is not null
-                && !line.Contains("uid="))
+            if (line.StartsWith("[gd_scene") || line.StartsWith("[gd_resource"))
             {
-                // Inject uid= before the closing bracket.
-                lines[i] = line.TrimEnd(']') + $" uid=\"{snap.HeaderUid}\"]";
-                restored++;
+                // Re-inject load_steps= before format= if stripped.
+                if (snap.HeaderLoadSteps is not null && !line.Contains("load_steps="))
+                {
+                    lines[i] = line.Replace(" format=", $" load_steps={snap.HeaderLoadSteps} format=");
+                    restored++;
+                    line = lines[i];
+                }
+
+                // Inject uid= before the closing bracket if stripped.
+                if (snap.HeaderUid is not null && !line.Contains("uid="))
+                {
+                    lines[i] = line.TrimEnd(']') + $" uid=\"{snap.HeaderUid}\"]";
+                    restored++;
+                }
                 continue;
             }
 
@@ -100,6 +112,12 @@ public static class UidPreserver
         }
 
         if (restored > 0)
-            File.WriteAllLines(absPath, lines);
+        {
+            // Atomic write: temp file → rename, so a crash mid-write cannot
+            // leave a half-written .tscn/.tres that corrupts the project.
+            string tempPath = absPath + ".uidtmp";
+            File.WriteAllLines(tempPath, lines);
+            File.Move(tempPath, absPath, overwrite: true);
+        }
     }
 }

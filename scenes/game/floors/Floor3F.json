@@ -5,7 +5,7 @@
     "floor_number": 3,
     "description": "A safe future landing for the second-floor up stair.",
     "player_start": {
-      "x": 10,
+      "x": 11,
       "y": 10
     }
   },

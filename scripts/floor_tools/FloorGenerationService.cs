@@ -62,9 +62,9 @@ public static class FloorGenerationService
             EnemySpawns = new()
             {
                 new() { Id = "EnemySpawn_Goblin", Position = new Vector2IData(Floor0Layout.FirstGoblinPos), EnemyType = "Goblin" },
-                new() { Id = "EnemySpawn_Goblin_North", Position = new Vector2IData(44, 36), EnemyType = "Goblin" },
-                new() { Id = "EnemySpawn_Orc_East", Position = new Vector2IData(74, 49), EnemyType = "Orc" },
-                new() { Id = "EnemySpawn_Goblin_South", Position = new Vector2IData(45, 82), EnemyType = "Goblin" },
+                new() { Id = "EnemySpawn_Goblin_North", Position = new Vector2IData(Floor0Layout.GoblinNorthPos), EnemyType = "Goblin" },
+                new() { Id = "EnemySpawn_Orc_East", Position = new Vector2IData(Floor0Layout.OrcEastPos), EnemyType = "Orc" },
+                new() { Id = "EnemySpawn_Goblin_South", Position = new Vector2IData(Floor0Layout.GoblinSouthPos), EnemyType = "Goblin" },
             },
             NpcSpawns = new()
             {
@@ -435,15 +435,15 @@ public static class FloorGenerationService
         builder.Walls.Add(new Vector2I(35, 55));
         builder.Walls.Add(new Vector2I(25, 56));
 
-        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates["EnemySpawn_Goblin_Branch"].Position,
+        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates[Floor1Layout.GateKeys.GoblinBranch].Position,
             Enumerable.Range(11, 8).Select(x => new Vector2I(x, 23)));
-        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates["EnemySpawn_Orc_Central"].Position,
+        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates[Floor1Layout.GateKeys.OrcCentral].Position,
             new[] { new Vector2I(22, 29), new Vector2I(22, 30), new Vector2I(22, 31) });
-        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates["EnemySpawn_Skeleton_StairA"].Position,
+        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates[Floor1Layout.GateKeys.SkeletonStairA].Position,
             new[] { new Vector2I(43, 11), new Vector2I(43, 12), new Vector2I(43, 13) });
-        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates["EnemySpawn_ForestSpirit_StairB"].Position,
+        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates[Floor1Layout.GateKeys.ForestSpiritStairB].Position,
             new[] { new Vector2I(42, 47), new Vector2I(42, 48), new Vector2I(42, 49) });
-        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates["EnemySpawn_Orc_HiddenBranch"].Position,
+        AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates[Floor1Layout.GateKeys.OrcHiddenBranch].Position,
             Enumerable.Range(16, 7).Select(x => new Vector2I(x, 51)));
 
         builder.ReinforcePerimeter();
@@ -617,23 +617,23 @@ public static class FloorGenerationService
         foreach (var (start, end) in shortcutLoopCuts)
             builder.CarvePath(start, end, 0);
 
-        AddGateBarrier(builder.Walls, Floor2Layout.EnemyGates["EnemySpawn_2F_ArchiveGate"].Position,
+        AddGateBarrier(builder.Walls, Floor2Layout.EnemyGates[Floor2Layout.GateKeys.ArchiveGate].Position,
             from x in System.Linq.Enumerable.Range(30, 8) from y in new[] { 13, 15 } select new Vector2I(x, y));
-        AddGateBarrier(builder.Walls, Floor2Layout.ExtraEnemyPatrols["EnemySpawn_2F_WestLoop"].Position,
+        AddGateBarrier(builder.Walls, Floor2Layout.ExtraEnemyPatrols[Floor2Layout.GateKeys.WestLoop].Position,
             from x in System.Linq.Enumerable.Range(23, 9) from y in new[] { 17, 19 } select new Vector2I(x, y));
-        AddGateBarrier(builder.Walls, Floor2Layout.EnemyGates["EnemySpawn_2F_GalleryGate"].Position,
+        AddGateBarrier(builder.Walls, Floor2Layout.EnemyGates[Floor2Layout.GateKeys.GalleryGate].Position,
             System.Linq.Enumerable.Range(30, 8).Select(y => new Vector2I(52, y)));
-        AddGateBarrier(builder.Walls, Floor2Layout.EnemyGates["EnemySpawn_2F_UpStairGuard"].Position,
+        AddGateBarrier(builder.Walls, Floor2Layout.EnemyGates[Floor2Layout.GateKeys.UpStairGuard].Position,
             System.Linq.Enumerable.Range(47, 5).Select(x => new Vector2I(x, 50)));
-        AddGateBarrier(builder.Walls, Floor2Layout.ExtraEnemyPatrols["EnemySpawn_2F_SouthApproach"].Position,
+        AddGateBarrier(builder.Walls, Floor2Layout.ExtraEnemyPatrols[Floor2Layout.GateKeys.SouthApproach].Position,
             System.Linq.Enumerable.Range(24, 5).Select(x => new Vector2I(x, 45))
                 .Concat(System.Linq.Enumerable.Range(23, 6).Select(x => new Vector2I(x, 47))));
-        AddGateBarrier(builder.Walls, Floor2Layout.ExtraEnemyPatrols["EnemySpawn_2F_SouthArmory"].Position,
+        AddGateBarrier(builder.Walls, Floor2Layout.ExtraEnemyPatrols[Floor2Layout.GateKeys.SouthArmory].Position,
             (from x in System.Linq.Enumerable.Range(37, 5) from y in new[] { 51, 52 } select new Vector2I(x, y))
                 .Concat(new[] { new Vector2I(37, 50), new Vector2I(41, 54) }));
-        AddGateBarrier(builder.Walls, Floor2Layout.EnemyGates["EnemySpawn_2F_PuzzleApproach"].Position,
+        AddGateBarrier(builder.Walls, Floor2Layout.EnemyGates[Floor2Layout.GateKeys.PuzzleApproach].Position,
             System.Linq.Enumerable.Range(28, 5).Select(x => new Vector2I(x, 34)));
-        AddGateBarrier(builder.Walls, Floor2Layout.PuzzleGates["PuzzleGate_2F_ArchiveTrial_Vault"].Position,
+        AddGateBarrier(builder.Walls, Floor2Layout.PuzzleGates[Floor2Layout.GateKeys.ArchiveTrialVault].Position,
             System.Linq.Enumerable.Range(35, 6).Select(y => new Vector2I(33, y)));
 
         for (int x = 33; x < 37; x++)
@@ -646,9 +646,6 @@ public static class FloorGenerationService
         builder.Walls.Add(new Vector2I(34, 34));
         builder.Walls.Add(new Vector2I(34, 35));
         builder.Walls.Add(new Vector2I(34, 36));
-
-        AddGateBarrier(builder.Walls, Floor2Layout.PuzzleGates["PuzzleGate_2F_ArchiveTrial_Shortcut"].Position,
-            new[] { Floor2Layout.PuzzleGates["PuzzleGate_2F_ArchiveTrial_Shortcut"].Position });
 
         builder.ReinforcePerimeter();
     }

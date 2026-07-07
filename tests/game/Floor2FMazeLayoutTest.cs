@@ -20,7 +20,7 @@ public partial class Floor2FMazeLayoutTest : Node
         "cursed_gargoyle",
         "crypt_sentinel"
     };
-    private static readonly Vector2I PlayerStart = new(10, 10);
+    private static readonly Vector2I PlayerStart = new(11, 10);
     private static readonly Vector2I DownStairA = new(10, 10);
     private static readonly Vector2I DownStairB = new(26, 10);
     private static readonly Vector2I UpStair = new(52, 50);
@@ -786,7 +786,10 @@ public partial class Floor3FPlaceholderLayoutTest : Node
         var definition = GD.Load<FloorDefinition>("res://resources/floors/Floor3F.tres");
         AssertThat(definition).IsNotNull();
         AssertThat(definition!.FloorNumber).IsEqual(3);
-        AssertThat(definition.PlayerStartPosition).IsEqual(DownStair);
+        // PlayerStart must NOT equal DownStair — spawning on a stair would
+        // immediately trigger a floor transition (see PlayerStartOnStair validator).
+        AssertThat(definition.PlayerStartPosition).IsEqual(new Vector2I(11, 10));
+        AssertThat(definition.PlayerStartPosition).IsNotEqual(DownStair);
         AssertThat(definition.StairsUp.Count).IsEqual(0);
         AssertThat(definition.StairsDown.Count).IsEqual(1);
         AssertThat(definition.StairsDown[0]).IsEqual(DownStair);

@@ -4,6 +4,11 @@ using Sirius.FloorTools;
 using Sirius.TilemapJson;
 using static GdUnit4.Assertions;
 
+// Post-cutover (890eb10) these tests compare C# output against the committed
+// JSON baselines, which were themselves produced by the C# generators. They are
+// therefore determinism/regression gates (catch unintended changes to generation
+// logic), NOT Python-parity gates. The deprecated Python generators in tools/
+// remain as frozen reference implementations for manual drift checks.
 [TestSuite]
 [RequireGodotRuntime]
 public partial class FloorGenerationParityTest

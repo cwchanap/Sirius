@@ -74,16 +74,18 @@ public static class FloorGraph
             var branch = new List<Vector2I> { leaf };
             Vector2I? previous = null;
             var current = leaf;
+            var visited = new HashSet<Vector2I> { leaf };
             while (true)
             {
                 var nextCells = WalkableNeighbors(walkable, current)
-                    .Where(n => n != previous).ToList();
+                    .Where(n => n != previous && !visited.Contains(n)).ToList();
                 if (nextCells.Count == 0)
                     break;
                 var nextCell = nextCells[0];
                 if (WalkableNeighborCount(walkable, nextCell) != 2)
                     break;
                 branch.Add(nextCell);
+                visited.Add(nextCell);
                 previous = current;
                 current = nextCell;
             }

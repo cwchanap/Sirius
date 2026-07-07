@@ -114,7 +114,7 @@ public static class FloorSceneWriter
 
     private static (int Width, int Height) DimensionsFor(int floorNumber) => floorNumber switch
     {
-        0 => (160, 160),            // GF ground is the full grid
+        0 => (Layouts.Floor0Layout.GridWidth, Layouts.Floor0Layout.GridHeight),            // GF ground is the full grid
         1 => (Layouts.Floor1Layout.Width, Layouts.Floor1Layout.Height),
         2 => (Layouts.Floor2Layout.Width, Layouts.Floor2Layout.Height),
         3 => (Layouts.Floor3Layout.Width, Layouts.Floor3Layout.Height),

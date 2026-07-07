@@ -54,7 +54,7 @@ public partial class FloorCli : RefCounted
             return 1;
         }
 
-        if (floor < 0)
+        if (floor < 0 || floor > 3)
         {
             GD.PrintErr(Usage);
             return 1;

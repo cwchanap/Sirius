@@ -43,7 +43,6 @@ public partial class SiriusFloorToolsDock : Control
 
     private void OnValidate()
     {
-        var paths = FloorRegistry.Get(SelectedFloor);
         var scene = EditorInterface.Singleton?.GetEditedSceneRoot();
         if (scene == null) { Log("No scene open to validate."); return; }
         var gridMap = scene.GetNodeOrNull<GridMap>("GridMap");

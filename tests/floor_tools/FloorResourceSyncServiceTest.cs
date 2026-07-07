@@ -38,8 +38,11 @@ public partial class FloorResourceSyncServiceTest
     [TestCase]
     public void TestGfPreservesExistingDestinationsWhenNoOverride()
     {
+        // Seed a destination DISTINCT from the Floor0Layout.ReturnSpawnFromFloor1
+        // fallback (17,13) so this test actually exercises the preserve branch —
+        // if the branch were deleted (always-fallback), the assertion would fail.
         var def = new FloorDefinition();
-        def.StairsUpDestinations.Add(new Vector2I(17, 13));
+        def.StairsUpDestinations.Add(new Vector2I(20, 20));
         var model = new FloorJsonModel
         {
             Metadata = new() { PlayerStart = new Vector2IData(8, 50) },
@@ -52,7 +55,7 @@ public partial class FloorResourceSyncServiceTest
         FloorResourceSyncService.Apply(def, model, new FloorSyncOptions());
 
         // GF keeps the existing up-destination when no override is supplied (parity with Python default).
-        AssertThat(def.StairsUpDestinations[0]).IsEqual(new Vector2I(17, 13));
+        AssertThat(def.StairsUpDestinations[0]).IsEqual(new Vector2I(20, 20));
     }
 
     [TestCase]

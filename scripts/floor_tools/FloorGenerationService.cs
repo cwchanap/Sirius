@@ -156,7 +156,7 @@ public static class FloorGenerationService
             PlayerStart = new Vector2IData(Floor3Layout.PlayerStart),
         };
         model.TileLayers["ground"] = GroundTiles(Floor3Layout.Width, Floor3Layout.Height);
-        model.TileLayers["wall"] = WallTiles(builder.Walls, Floor3Layout.Width, Floor3Layout.Height, includeOutsideFootprint: false);
+        model.TileLayers["wall"] = WallTiles(builder.Walls);
         model.TileLayers["stair"] = new List<TileData>
         {
             new(Floor3Layout.DownStair.X, Floor3Layout.DownStair.Y, "down"),
@@ -222,7 +222,7 @@ public static class FloorGenerationService
         };
 
         model.TileLayers["ground"] = GroundTiles(Floor1Layout.Width, Floor1Layout.Height);
-        model.TileLayers["wall"] = WallTiles(walls, Floor1Layout.Width, Floor1Layout.Height, includeOutsideFootprint: false);
+        model.TileLayers["wall"] = WallTiles(walls);
         model.TileLayers["stair"] = new List<TileData>
         {
             new(Floor1Layout.DownStair.X, Floor1Layout.DownStair.Y, "down"),
@@ -265,25 +265,10 @@ public static class FloorGenerationService
         return tiles;
     }
 
-    private static List<TileData> WallTiles(HashSet<Vector2I> walls, int width, int height, bool includeOutsideFootprint)
+    private static List<TileData> WallTiles(HashSet<Vector2I> walls)
     {
-        var all = new HashSet<Vector2I>(walls);
-        if (includeOutsideFootprint)
-            all.UnionWith(OutsideFootprintWalls(width, height));
-        return all.OrderBy(p => p.Y).ThenBy(p => p.X)
+        return walls.OrderBy(p => p.Y).ThenBy(p => p.X)
             .Select(p => new TileData(p.X, p.Y, "generic")).ToList();
-    }
-
-    private static HashSet<Vector2I> OutsideFootprintWalls(int width, int height)
-    {
-        var walls = new HashSet<Vector2I>();
-        for (int y = height; y < 160; y++)
-            for (int x = 0; x < 160; x++)
-                walls.Add(new Vector2I(x, y));
-        for (int y = 0; y < height; y++)
-            for (int x = width; x < 160; x++)
-                walls.Add(new Vector2I(x, y));
-        return walls;
     }
 
     private static HashSet<Vector2I> PositionSet(Dictionary<string, EnemySpec> enemies)
@@ -498,7 +483,7 @@ public static class FloorGenerationService
         };
 
         model.TileLayers["ground"] = GroundTiles(Floor2Layout.Width, Floor2Layout.Height);
-        model.TileLayers["wall"] = WallTiles(walls, Floor2Layout.Width, Floor2Layout.Height, includeOutsideFootprint: false);
+        model.TileLayers["wall"] = WallTiles(walls);
         model.TileLayers["stair"] = new List<TileData>
         {
             new(Floor2Layout.DownStairA.X, Floor2Layout.DownStairA.Y, "down"),

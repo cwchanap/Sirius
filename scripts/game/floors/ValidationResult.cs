@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
 
+namespace Sirius.FloorTools;
+
 public class ValidationResult
 {
     public List<ValidationIssue> Issues { get; } = new();

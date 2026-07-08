@@ -2,6 +2,8 @@ using Godot;
 using Sirius.TilemapJson;
 using System.Collections.Generic;
 
+namespace Sirius.FloorTools;
+
 public static class FloorEntityBuilders
 {
     public static List<TreasureBoxData> TreasureBoxes(

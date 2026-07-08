@@ -1,5 +1,6 @@
 using GdUnit4;
 using Godot;
+using Sirius.FloorTools;
 using Sirius.TilemapJson;
 using static GdUnit4.Assertions;
 

@@ -5,7 +5,7 @@ using Godot.Collections;
 public partial class FloorDefinition : Resource
 {
     // Floor identification
-    [Export] public string FloorName { get; set; } = "Ground Floor";
+    [Export] public string FloorName { get; set; } = "";
     [Export] public int FloorNumber { get; set; } = 0;
     
     // Floor scene reference

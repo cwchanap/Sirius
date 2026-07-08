@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using TileData = Sirius.TilemapJson.TileData;
 
+namespace Sirius.FloorTools;
+
 public static class FloorValidationService
 {
     // width/height are forwarded to FloorGraph.DeadEndBranches as a bounds filter
@@ -200,6 +202,9 @@ public static class FloorValidationService
                 case PuzzleSwitchData x:  result.Add(new EntityView { Id = x.Id, PuzzleId = x.PuzzleId, Position = x.Position.ToVector2I() }); break;
                 case PuzzleGateData x:    result.Add(new EntityView { Id = x.Id, PuzzleId = x.PuzzleId, Position = x.Position.ToVector2I() }); break;
                 case PuzzleRiddleData x:  result.Add(new EntityView { Id = x.Id, PuzzleId = x.PuzzleId, Position = x.Position.ToVector2I() }); break;
+                default:
+                    throw new System.InvalidOperationException(
+                        $"Unrecognized entity type in entity list: {e?.GetType().Name ?? "null"}");
             }
         }
         return result;

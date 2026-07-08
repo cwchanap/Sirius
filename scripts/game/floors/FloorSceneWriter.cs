@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
+namespace Sirius.FloorTools;
+
 public record FloorSceneResult(bool Success, ValidationResult Validation, string Summary);
 
 public static class FloorSceneWriter
@@ -61,14 +63,22 @@ public static class FloorSceneWriter
             var importer = new TilemapJsonImporter();
             importer.ImportToScene(model, gridMap);
 
-            // Pack the scene BEFORE saving the .tres so a pack failure (the most
-            // likely failure point) returns early without having committed the
-            // .tres. This prevents a .tscn pack/save failure from leaving the
-            // .tres updated while the .tscn retains stale content.
+            // Pack the scene BEFORE any save so a pack failure (the most likely
+            // failure point) returns early without having committed any file.
             var newPacked = new PackedScene();
             var packErr = newPacked.Pack(scene);
             if (packErr != Error.Ok)
                 return new FloorSceneResult(false, validation, $"Failed to pack scene ({packErr}): {outScenePath}");
+
+            // Save the scene FIRST, then the .tres. If the .tscn save fails the
+            // .tres has not been committed yet, avoiding a partial-update window
+            // where the .tres reflects new metadata but the .tscn retains stale
+            // grid content. The pack already succeeded, so the .tscn save is the
+            // lowest-risk write, but ordering it first is strictly safer.
+            var sceneSaveErr = SaveResourceAtomic(newPacked, outScenePath);
+            if (sceneSaveErr != Error.Ok)
+                return new FloorSceneResult(false, validation, $"Failed to save scene ({sceneSaveErr}): {outScenePath}");
+            UidPreserver.Restore(outScenePath, sceneUidSnap);
 
             // Sync .tres via typed API (skippable for --skip-floor-def parity).
             if (syncDef)
@@ -83,12 +93,6 @@ public static class FloorSceneWriter
                 if (defUidSnap is not null)
                     UidPreserver.Restore(outDefPath, defUidSnap);
             }
-
-            // Save scene (pack already succeeded above).
-            var sceneSaveErr = SaveResourceAtomic(newPacked, outScenePath);
-            if (sceneSaveErr != Error.Ok)
-                return new FloorSceneResult(false, validation, $"Failed to save scene ({sceneSaveErr}): {outScenePath}");
-            UidPreserver.Restore(outScenePath, sceneUidSnap);
 
             if (writeJson)
                 WriteJson(model, outJsonPath);

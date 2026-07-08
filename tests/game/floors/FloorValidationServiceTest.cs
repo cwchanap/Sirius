@@ -224,4 +224,20 @@ public partial class FloorValidationServiceTest
         var result = FloorValidationService.Validate(model, 2, 2);
         AssertThat(result.Issues.Any(i => i.Code == "EmptyEntityId")).IsTrue();
     }
+
+    [TestCase]
+    public void TestNullEntitiesDoesNotThrow()
+    {
+        // A JSON-deserialized model may have Entities == null (no "entities" key).
+        // Validate must coerce it to an empty SceneEntities rather than NRE.
+        var model = new FloorJsonModel
+        {
+            Metadata = new() { PlayerStart = new Vector2IData(0, 0) },
+        };
+        model.TileLayers["ground"] = new() { new(0, 0, "starting_area") };
+        model.TileLayers["wall"] = new();
+        model.Entities = null;
+        var result = FloorValidationService.Validate(model, 1, 1);
+        AssertThat(result.HasErrors).IsFalse();
+    }
 }

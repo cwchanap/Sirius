@@ -122,9 +122,11 @@ public partial class FloorCli : RefCounted
         }
         catch (Exception ex)
         {
-            // Surface a clean message + non-zero exit instead of a raw stack trace
-            // from headless CLI runs (scene load failures, I/O errors, etc.).
+            // Surface a clean message + non-zero exit. Print the stack trace too
+            // so headless CLI failures (scene load errors, I/O exceptions, etc.)
+            // are debuggable without re-running with a debugger attached.
             GD.PrintErr($"Floor generation failed: {ex.Message}");
+            GD.PrintErr(ex.StackTrace);
             return 1;
         }
     }

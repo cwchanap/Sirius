@@ -42,8 +42,27 @@ public static class FloorModelAsserter
         AssertEntityList(actual.Entities.PuzzleSwitches, expected.Entities.PuzzleSwitches);
         AssertEntityList(actual.Entities.PuzzleGates, expected.Entities.PuzzleGates);
         AssertEntityList(actual.Entities.PuzzleRiddles, expected.Entities.PuzzleRiddles);
-        AssertEntityList(actual.Entities.StairConnections, expected.Entities.StairConnections);
         AssertEntityList(actual.Entities.HiddenPlaceholders, expected.Entities.HiddenPlaceholders);
+
+        // StairConnections are order-sensitive: FloorResourceSyncService.Apply
+        // builds StairsUp/StairsDown arrays positionally, and the .tres
+        // StairsUpDestinations/StairsDownDestinations map by index. A reorder
+        // would silently swap destinations, so assert order explicitly (not
+        // just identity like AssertEntityList does).
+        AssertStairConnectionsOrder(actual.Entities.StairConnections, expected.Entities.StairConnections);
+    }
+
+    private static void AssertStairConnectionsOrder(
+        List<StairConnectionData> actual, List<StairConnectionData> expected)
+    {
+        var a = actual ?? new List<StairConnectionData>();
+        var e = expected ?? new List<StairConnectionData>();
+        AssertThat(a.Count).IsEqual(e.Count);
+        for (int i = 0; i < e.Count; i++)
+        {
+            AssertThat(a[i].Id).IsEqual(e[i].Id);
+            AssertThat(Canonical(a[i])).IsEqual(Canonical(e[i]));
+        }
     }
 
     private static void AssertTileLayer(FloorJsonModel actual, FloorJsonModel expected, string layer)

@@ -39,4 +39,20 @@ public static class Floor0Layout
         ["TreasureBox_GF_SouthwestCache"] = new TreasureSpec(new Vector2I(7, 72), 50, new() { ["antidote"] = 2 }),
         ["TreasureBox_GF_SoutheastCache"] = new TreasureSpec(new Vector2I(80, 82), 0, new() { ["iron_shield"] = 1 }),
     };
+
+    // ── Wall carving data ──────────────────────────────────────────────
+    // Dead-end branches carved by BuildGroundFloorWalls in FloorGenerationService.
+    // Moved here from the logic layer (data/log split, commit 105c53a).
+
+    // Dead-end branches — port verbatim from floor0_maze_generator.py:129-137
+    public static readonly (Vector2I Start, Vector2I End)[] DeadEndBranches =
+    {
+        (new(30, 18), new(30, 8)),
+        (new(49, 18), new(49, 8)),
+        (new(76, 30), new(91, 30)),
+        (new(82, 68), new(94, 68)),
+        (new(52, 82), new(52, 94)),
+        (new(18, 72), new(7, 72)),
+        (new(18, 50), new(33, 50)),
+    };
 }

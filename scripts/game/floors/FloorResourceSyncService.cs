@@ -29,7 +29,10 @@ public static class FloorResourceSyncService
 
         def.PlayerStartPosition = model.Metadata.PlayerStart.ToVector2I();
 
-        var stairs = model.Entities.StairConnections ?? new();
+        // Guard model.Entities (not just StairConnections): hand-edited JSON or
+        // a partial model may have null Entities, which would NRE on the deref.
+        var entities = model.Entities ?? new SceneEntities();
+        var stairs = entities.StairConnections ?? new();
         var up = stairs.Where(s => s.Direction == "up").Select(s => s.Position.ToVector2I()).ToList();
         var down = stairs.Where(s => s.Direction == "down").Select(s => s.Position.ToVector2I()).ToList();
 

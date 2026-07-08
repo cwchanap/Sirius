@@ -18,5 +18,9 @@ func _init():
 		quit(1)
 		return
 	var instance = cli.new()
+	if instance == null:
+		printerr("Failed to instantiate FloorCli")
+		quit(1)
+		return
 	var code = instance.Run()
 	quit(code)

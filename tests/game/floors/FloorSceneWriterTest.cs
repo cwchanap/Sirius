@@ -113,4 +113,53 @@ public partial class FloorSceneWriterTest
         AssertThat(result.Success).IsFalse();
         AssertThat(result.Summary).Contains("GridMap");
     }
+
+    [TestCase]
+    public void TestGenerateIsIdempotentForUidPreservation()
+    {
+        // Running the generator twice must produce identical UID metadata
+        // (header uid= + ext_resource uid=) in both the .tscn and .tres.
+        // If UidPreserver.Restore is not idempotent (e.g., generates new UIDs
+        // instead of preserving captured ones, or drops them on re-save),
+        // the second run's output would differ from the first.
+        //
+        // Uses Floor 3 (simplest floor) and the temp-dir seam so committed
+        // artifacts are not touched. Both runs read from the same committed
+        // source (registry paths) and write to the temp dir — this verifies
+        // output UID stability across consecutive generate calls.
+        var opts = new FloorSyncOptions();
+
+        // First run.
+        var first = FloorSceneWriter.Generate(3, opts, outputDir: _tempDir);
+        AssertThat(first.Success).IsTrue();
+        string scenePath = Path.Combine(_tempDir, "Floor3F.tscn");
+        string defPath = Path.Combine(_tempDir, "Floor3F.tres");
+        var sceneUid1 = UidPreserver.Capture(ProjectSettings.LocalizePath(scenePath));
+        var defUid1 = UidPreserver.Capture(ProjectSettings.LocalizePath(defPath));
+
+        // Second run to the same temp dir (overwrites first run's output).
+        var second = FloorSceneWriter.Generate(3, opts, outputDir: _tempDir);
+        AssertThat(second.Success).IsTrue();
+        var sceneUid2 = UidPreserver.Capture(ProjectSettings.LocalizePath(scenePath));
+        var defUid2 = UidPreserver.Capture(ProjectSettings.LocalizePath(defPath));
+
+        // Header UIDs must be identical across runs.
+        AssertThat(sceneUid2.HeaderUid).IsEqual(sceneUid1.HeaderUid);
+        AssertThat(defUid2.HeaderUid).IsEqual(defUid1.HeaderUid);
+        AssertThat(defUid2.HeaderLoadSteps!.Value).IsEqual(defUid1.HeaderLoadSteps!.Value);
+
+        // ext_resource UID maps must be identical (same paths, same UIDs).
+        AssertThat(sceneUid2.PathToUid.Count).IsEqual(sceneUid1.PathToUid.Count);
+        foreach (var kv in sceneUid1.PathToUid)
+        {
+            AssertThat(sceneUid2.PathToUid.ContainsKey(kv.Key)).IsTrue();
+            AssertThat(sceneUid2.PathToUid[kv.Key]).IsEqual(kv.Value);
+        }
+        AssertThat(defUid2.PathToUid.Count).IsEqual(defUid1.PathToUid.Count);
+        foreach (var kv in defUid1.PathToUid)
+        {
+            AssertThat(defUid2.PathToUid.ContainsKey(kv.Key)).IsTrue();
+            AssertThat(defUid2.PathToUid[kv.Key]).IsEqual(kv.Value);
+        }
+    }
 }

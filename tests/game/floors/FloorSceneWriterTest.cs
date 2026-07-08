@@ -3,6 +3,7 @@ using Godot;
 using Sirius.FloorTools;
 using Sirius.TilemapJson;
 using System.IO;
+using System.Linq;
 using static GdUnit4.Assertions;
 
 [TestSuite]
@@ -162,5 +163,43 @@ public partial class FloorSceneWriterTest
             AssertThat(defUid2.PathToUid.ContainsKey(kv.Key)).IsTrue();
             AssertThat(defUid2.PathToUid[kv.Key]).IsEqual(kv.Value);
         }
+    }
+
+    [TestCase]
+    public void TestGenerateIsByteIdempotentAcrossRuns()
+    {
+        // Stronger than TestGenerateIsIdempotentForUidPreservation: that test only
+        // compares UidPreserver.Capture output (header uid + ext_resource uid map),
+        // NOT full-file bytes. If Godot's ResourceSaver emits non-deterministic
+        // per-node unique_id= attributes or renumbers ExtResource ids between runs,
+        // the UID-preservation test would still pass while every regen churns the
+        // committed scene. This test runs generation twice into the same temp dir
+        // (second run overwrites the first) and asserts byte-for-byte equality of
+        // the .tscn, .tres, and .json outputs — the real regression gate against
+        // scene churn on regeneration.
+        var opts = new FloorSyncOptions();
+
+        var first = FloorSceneWriter.Generate(3, opts, outputDir: _tempDir);
+        AssertThat(first.Success).IsTrue();
+        string scenePath = Path.Combine(_tempDir, "Floor3F.tscn");
+        string defPath = Path.Combine(_tempDir, "Floor3F.tres");
+        string jsonPath = Path.Combine(_tempDir, "Floor3F.json");
+        byte[] sceneBytes1 = File.ReadAllBytes(scenePath);
+        byte[] defBytes1 = File.ReadAllBytes(defPath);
+        byte[] jsonBytes1 = File.ReadAllBytes(jsonPath);
+
+        var second = FloorSceneWriter.Generate(3, opts, outputDir: _tempDir);
+        AssertThat(second.Success).IsTrue();
+        byte[] sceneBytes2 = File.ReadAllBytes(scenePath);
+        byte[] defBytes2 = File.ReadAllBytes(defPath);
+        byte[] jsonBytes2 = File.ReadAllBytes(jsonPath);
+
+        // Length first for a clearer failure message before the full-content check.
+        AssertThat(sceneBytes2.Length).IsEqual(sceneBytes1.Length);
+        AssertThat(sceneBytes2.SequenceEqual(sceneBytes1)).IsTrue();
+        AssertThat(defBytes2.Length).IsEqual(defBytes1.Length);
+        AssertThat(defBytes2.SequenceEqual(defBytes1)).IsTrue();
+        AssertThat(jsonBytes2.Length).IsEqual(jsonBytes1.Length);
+        AssertThat(jsonBytes2.SequenceEqual(jsonBytes1)).IsTrue();
     }
 }

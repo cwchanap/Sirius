@@ -35,8 +35,13 @@ public static class FloorResourceSyncService
         // a partial model may have null Entities, which would NRE on the deref.
         var entities = model.Entities ?? new SceneEntities();
         var stairs = entities.StairConnections ?? new();
-        var up = stairs.Where(s => s.Direction == "up").Select(s => s.Position.ToVector2I()).ToList();
-        var down = stairs.Where(s => s.Direction == "down").Select(s => s.Position.ToVector2I()).ToList();
+        // OrdinalIgnoreCase: all current producers emit lowercase "up"/"down",
+        // but hand-edited JSON could use "Up"/"UP". A case-sensitive match would
+        // silently drop such stairs from StairsUp/StairsDown on the .tres.
+        var up = stairs.Where(s => string.Equals(s.Direction, "up", System.StringComparison.OrdinalIgnoreCase))
+                       .Select(s => s.Position.ToVector2I()).ToList();
+        var down = stairs.Where(s => string.Equals(s.Direction, "down", System.StringComparison.OrdinalIgnoreCase))
+                         .Select(s => s.Position.ToVector2I()).ToList();
 
         def.StairsUp = ToArray(up);
         def.StairsDown = ToArray(down);

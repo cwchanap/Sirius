@@ -4,8 +4,6 @@ using System.Linq;
 
 namespace Sirius.FloorTools;
 
-public record EnemySpec(Vector2I Position, string EnemyType);
-
 public static class SupplementalEnemyPlanner
 {
     public const int DensityMultiplier = 3;

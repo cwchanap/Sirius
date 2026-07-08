@@ -28,7 +28,15 @@ public static class AtomicFileWriter
         if (!Directory.Exists(absDir))
             Directory.CreateDirectory(absDir);
 
-        string tempPath = absPath + ".tmp";
+        // Insert ".tmp" before the final extension so the temp file keeps the
+        // original extension (e.g. "FloorGF.json" -> "FloorGF.tmp.json"). This
+        // matches FloorSceneWriter.SaveResourceAtomic's convention and keeps the
+        // orphaned-temp gitignore pattern (*.tmp.*) effective across both writers;
+        // the previous "<name>.json.tmp" suffix escaped that pattern.
+        int dotIdx = absPath.LastIndexOf('.');
+        string tempPath = dotIdx >= 0
+            ? absPath.Substring(0, dotIdx) + ".tmp" + absPath.Substring(dotIdx)
+            : absPath + ".tmp";
         File.WriteAllText(tempPath, content);
         File.Move(tempPath, absPath, overwrite: true);
     }

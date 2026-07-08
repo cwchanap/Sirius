@@ -90,32 +90,42 @@ public partial class FloorCli : RefCounted
 
         var (floor, jsonOnly, skipFloorDef, stairDest) = parsed.Args;
 
-        if (jsonOnly)
+        try
         {
-            var model = FloorGenerationService.Generate(floor);
-            var paths = FloorRegistry.Get(floor);
-            // Validate before writing so invalid layouts fail consistently in
-            // both code paths (mirrors FloorSceneWriter.Generate's validation gate).
-            var (width, height) = FloorSceneWriter.DimensionsFor(floor);
-            var validation = FloorValidationService.Validate(model, width, height);
-            if (validation.HasErrors)
+            if (jsonOnly)
             {
-                GD.PrintErr($"Validation failed: {validation.Issues.Count} issue(s)");
-                foreach (var issue in validation.Issues)
-                    GD.PrintErr($"  [{issue.Severity}] {issue.Code}: {issue.Message}");
-                return 1;
+                var model = FloorGenerationService.Generate(floor);
+                var paths = FloorRegistry.Get(floor);
+                // Validate before writing so invalid layouts fail consistently in
+                // both code paths (mirrors FloorSceneWriter.Generate's validation gate).
+                var (width, height) = FloorSceneWriter.DimensionsFor(floor);
+                var validation = FloorValidationService.Validate(model, width, height);
+                if (validation.HasErrors)
+                {
+                    GD.PrintErr($"Validation failed: {validation.Issues.Count} issue(s)");
+                    foreach (var issue in validation.Issues)
+                        GD.PrintErr($"  [{issue.Severity}] {issue.Code}: {issue.Message}");
+                    return 1;
+                }
+                // Atomic write (temp → File.Move overwrite) so a crash mid-write
+                // cannot truncate the committed .json.
+                AtomicFileWriter.WriteAllText(paths.JsonPath, model.ToJson(indented: true));
+                GD.Print($"Wrote {paths.JsonPath}");
+                return 0;
             }
-            // Atomic write (temp → File.Move overwrite) so a crash mid-write
-            // cannot truncate the committed .json.
-            AtomicFileWriter.WriteAllText(paths.JsonPath, model.ToJson(indented: true));
-            GD.Print($"Wrote {paths.JsonPath}");
-            return 0;
-        }
 
-        var result = FloorSceneWriter.Generate(floor, new FloorSyncOptions(stairDest), writeJson: true, syncDef: !skipFloorDef);
-        GD.Print(result.Summary);
-        foreach (var issue in result.Validation.Issues)
-            GD.PrintErr($"  [{issue.Severity}] {issue.Code}: {issue.Message}");
-        return result.Success ? 0 : 1;
+            var result = FloorSceneWriter.Generate(floor, new FloorSyncOptions(stairDest), writeJson: true, syncDef: !skipFloorDef);
+            GD.Print(result.Summary);
+            foreach (var issue in result.Validation.Issues)
+                GD.PrintErr($"  [{issue.Severity}] {issue.Code}: {issue.Message}");
+            return result.Success ? 0 : 1;
+        }
+        catch (Exception ex)
+        {
+            // Surface a clean message + non-zero exit instead of a raw stack trace
+            // from headless CLI runs (scene load failures, I/O errors, etc.).
+            GD.PrintErr($"Floor generation failed: {ex.Message}");
+            return 1;
+        }
     }
 }

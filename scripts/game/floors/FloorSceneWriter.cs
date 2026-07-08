@@ -139,7 +139,18 @@ public static class FloorSceneWriter
         }
         string tempAbs2 = ProjectSettings.GlobalizePath(tempResPath);
         string realAbs = ProjectSettings.GlobalizePath(resPath);
-        File.Move(tempAbs2, realAbs, overwrite: true);
+        try
+        {
+            File.Move(tempAbs2, realAbs, overwrite: true);
+        }
+        catch
+        {
+            // File.Move can throw on Windows when the target is locked by another
+            // process. Delete the orphaned .tmp so it doesn't accumulate as working-
+            // tree noise, then rethrow so the caller surfaces the real failure.
+            if (File.Exists(tempAbs2)) File.Delete(tempAbs2);
+            throw;
+        }
         return Error.Ok;
     }
 

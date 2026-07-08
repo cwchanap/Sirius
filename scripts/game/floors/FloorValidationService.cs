@@ -13,6 +13,10 @@ public static class FloorValidationService
     public static ValidationResult Validate(FloorJsonModel model, int width, int height)
     {
         var result = new ValidationResult();
+        // Entities defaults to new() on the C# model but is null when deserialized
+        // from JSON lacking an "entities" key (TilemapJsonImporter also guards this).
+        // EntityGroups below dereferences model.Entities unconditionally.
+        model.Entities ??= new SceneEntities();
         var walls = (model.TileLayers.GetValueOrDefault("wall") ?? new List<TileData>())
             .Select(t => new Vector2I(t.X, t.Y)).ToHashSet();
         var ground = model.TileLayers.GetValueOrDefault("ground") ?? new List<TileData>();

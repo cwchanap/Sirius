@@ -145,4 +145,130 @@ public static class Floor1Layout
             "east_stone",
             12),
     };
+
+    // ── Wall carving data ──────────────────────────────────────────────
+    // Coordinate arrays consumed by BuildFloor1Walls in FloorGenerationService.
+    // Moved here from the logic layer so all floor-specific data lives in one
+    // place (data/log split, commit 105c53a). The logic layer iterates these
+    // arrays and calls MazeBuilder methods.
+
+    public static readonly Vector2I[] MainLoop =
+    {
+        new(8, 30),
+        new(16, 16),
+        new(33, 12),
+        new(49, 12),
+        new(53, 30),
+        new(48, 48),
+        new(28, 50),
+        new(12, 42),
+        new(8, 30),
+    };
+
+    public static readonly (Vector2I Start, Vector2I End)[] DeadEndBranches =
+    {
+        (new(11, 22), new(5, 22)),
+        (new(28, 26), new(28, 20)),
+        (new(32, 34), new(38, 39)),
+        (new(49, 9), new(49, 5)),
+        (new(53, 35), new(47, 35)),
+        (new(56, 30), new(56, 36)),
+        (new(28, 50), new(35, 55)),
+        (new(7, 42), new(2, 42)),
+        (new(12, 49), new(5, 54)),
+        (new(38, 12), new(38, 7)),
+    };
+
+    public static readonly (char Direction, int Start, int End, int Fixed)[] DecisionConnectors =
+    {
+        ('h', 5, 14, 37),
+        ('v', 31, 41, 12),
+        ('h', 11, 15, 28),
+        ('h', 19, 38, 8),
+        ('h', 17, 33, 11),
+        ('v', 8, 15, 28),
+        ('h', 49, 56, 34),
+        ('v', 31, 45, 52),
+        ('h', 49, 53, 32),
+        ('v', 31, 35, 50),
+    };
+
+    public static readonly Vector2I[][] ShortcutBranches =
+    {
+        new Vector2I[]
+        {
+            HiddenPlaceholders["hidden_room_north"],
+            new(8, 8),
+            new(8, 4),
+            new(36, 4),
+            new(36, 8),
+            new(38, 8),
+        },
+        new Vector2I[]
+        {
+            HiddenPlaceholders["hidden_shortcut_east"],
+            new(58, 46),
+            new(56, 46),
+            new(56, 48),
+            new(58, 48),
+            new(58, 50),
+            new(56, 50),
+            new(56, 52),
+            new(58, 52),
+            new(58, 54),
+            new(56, 54),
+            new(56, 56),
+            new(58, 56),
+            new(58, 58),
+            new(54, 58),
+            new(54, 46),
+            new(58, 46),
+        },
+        new Vector2I[]
+        {
+            SouthShortcutEntry,
+            new(23, 58),
+            new(23, 56),
+            new(58, 56),
+            new(58, 58),
+            new(42, 58),
+            new(23, 58),
+        },
+    };
+
+    public static readonly (Vector2I Start, Vector2I End)[] WallReliefPaths =
+    {
+        (new(5, 22), new(4, 22)),
+        (new(30, 17), new(30, 19)),
+        (new(34, 26), new(34, 22)),
+        (new(52, 24), new(44, 24)),
+        (new(39, 34), new(43, 34)),
+        (new(48, 35), new(44, 35)),
+        (new(12, 40), new(28, 40)),
+        (new(12, 41), new(28, 41)),
+        (new(13, 42), new(28, 42)),
+        (new(13, 43), new(28, 43)),
+        (new(13, 44), new(28, 44)),
+        (new(47, 42), new(39, 42)),
+        (new(47, 43), new(39, 43)),
+        (new(47, 44), new(39, 44)),
+        (new(47, 45), new(39, 45)),
+        (new(13, 46), new(28, 46)),
+        (new(38, 56), new(38, 55)),
+    };
+
+    // Individual wall cells added outside the named arrays above.
+    public static readonly Vector2I[] ExtraWalls =
+    {
+        new(48, 16),
+        new(49, 16),
+        new(50, 16),
+        new(51, 16),
+        new(52, 16),
+        new(53, 16),
+        new(54, 16),
+        new(19, 8),
+        new(35, 55),
+        new(25, 56),
+    };
 }

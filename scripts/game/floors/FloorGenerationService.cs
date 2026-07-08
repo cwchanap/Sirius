@@ -123,17 +123,7 @@ public static class FloorGenerationService
         builder.CarvePath(new(52, 52), new(70, 49), 1);
 
         // Dead-end branches — port verbatim from floor0_maze_generator.py:129-137
-        var branches = new (Vector2I, Vector2I)[]
-        {
-            (new(30, 18), new(30, 8)),
-            (new(49, 18), new(49, 8)),
-            (new(76, 30), new(91, 30)),
-            (new(82, 68), new(94, 68)),
-            (new(52, 82), new(52, 94)),
-            (new(18, 72), new(7, 72)),
-            (new(18, 50), new(33, 50)),
-        };
-        foreach (var (start, end) in branches)
+        foreach (var (start, end) in Floor0Layout.DeadEndBranches)
             builder.CarvePath(start, end, 1);
 
         builder.ReinforcePerimeter();
@@ -288,19 +278,7 @@ public static class FloorGenerationService
 
     private static void BuildFloor1Walls(MazeBuilder builder)
     {
-        var mainLoop = new Vector2I[]
-        {
-            new(8, 30),
-            new(16, 16),
-            new(33, 12),
-            new(49, 12),
-            new(53, 30),
-            new(48, 48),
-            new(28, 50),
-            new(12, 42),
-            new(8, 30),
-        };
-        builder.CarveLoop(mainLoop, halfWidth: 1);
+        builder.CarveLoop(Floor1Layout.MainLoop, halfWidth: 1);
 
         builder.CarveRect(5, 27, 11, 33);
         builder.CarveRect(24, 26, 34, 34);
@@ -320,36 +298,10 @@ public static class FloorGenerationService
         builder.CarveRect(53, 28, 58, 32);
         builder.CarveRect(16, 52, 22, 56);
 
-        var deadEndBranches = new (Vector2I, Vector2I)[]
-        {
-            (new(11, 22), new(5, 22)),
-            (new(28, 26), new(28, 20)),
-            (new(32, 34), new(38, 39)),
-            (new(49, 9), new(49, 5)),
-            (new(53, 35), new(47, 35)),
-            (new(56, 30), new(56, 36)),
-            (new(28, 50), new(35, 55)),
-            (new(7, 42), new(2, 42)),
-            (new(12, 49), new(5, 54)),
-            (new(38, 12), new(38, 7)),
-        };
-        foreach (var (start, end) in deadEndBranches)
+        foreach (var (start, end) in Floor1Layout.DeadEndBranches)
             builder.CarvePath(start, end, 0);
 
-        var decisionConnectors = new (char Direction, int Start, int End, int Fixed)[]
-        {
-            ('h', 5, 14, 37),
-            ('v', 31, 41, 12),
-            ('h', 11, 15, 28),
-            ('h', 19, 38, 8),
-            ('h', 17, 33, 11),
-            ('v', 8, 15, 28),
-            ('h', 49, 56, 34),
-            ('v', 31, 45, 52),
-            ('h', 49, 53, 32),
-            ('v', 31, 35, 50),
-        };
-        foreach (var (direction, start, end, fixedCoord) in decisionConnectors)
+        foreach (var (direction, start, end, fixedCoord) in Floor1Layout.DecisionConnectors)
         {
             if (direction == 'h')
                 builder.CarveHCorridor(start, end, fixedCoord, 0);
@@ -357,80 +309,15 @@ public static class FloorGenerationService
                 builder.CarveVCorridor(start, end, fixedCoord, 0);
         }
 
-        var shortcutBranches = new Vector2I[][]
-        {
-            new Vector2I[]
-            {
-                Floor1Layout.HiddenPlaceholders["hidden_room_north"],
-                new(8, 8),
-                new(8, 4),
-                new(36, 4),
-                new(36, 8),
-                new(38, 8),
-            },
-            new Vector2I[]
-            {
-                Floor1Layout.HiddenPlaceholders["hidden_shortcut_east"],
-                new(58, 46),
-                new(56, 46),
-                new(56, 48),
-                new(58, 48),
-                new(58, 50),
-                new(56, 50),
-                new(56, 52),
-                new(58, 52),
-                new(58, 54),
-                new(56, 54),
-                new(56, 56),
-                new(58, 56),
-                new(58, 58),
-                new(54, 58),
-                new(54, 46),
-                new(58, 46),
-            },
-            new Vector2I[]
-            {
-                Floor1Layout.SouthShortcutEntry,
-                new(23, 58),
-                new(23, 56),
-                new(58, 56),
-                new(58, 58),
-                new(42, 58),
-                new(23, 58),
-            },
-        };
-        foreach (var branch in shortcutBranches)
+        foreach (var branch in Floor1Layout.ShortcutBranches)
             for (int i = 0; i < branch.Length - 1; i++)
                 builder.CarvePath(branch[i], branch[i + 1], 0);
 
-        var wallReliefPaths = new (Vector2I, Vector2I)[]
-        {
-            (new(5, 22), new(4, 22)),
-            (new(30, 17), new(30, 19)),
-            (new(34, 26), new(34, 22)),
-            (new(52, 24), new(44, 24)),
-            (new(39, 34), new(43, 34)),
-            (new(48, 35), new(44, 35)),
-            (new(12, 40), new(28, 40)),
-            (new(12, 41), new(28, 41)),
-            (new(13, 42), new(28, 42)),
-            (new(13, 43), new(28, 43)),
-            (new(13, 44), new(28, 44)),
-            (new(47, 42), new(39, 42)),
-            (new(47, 43), new(39, 43)),
-            (new(47, 44), new(39, 44)),
-            (new(47, 45), new(39, 45)),
-            (new(13, 46), new(28, 46)),
-            (new(38, 56), new(38, 55)),
-        };
-        foreach (var (start, end) in wallReliefPaths)
+        foreach (var (start, end) in Floor1Layout.WallReliefPaths)
             builder.CarvePath(start, end, 0);
 
-        for (int x = 48; x < 55; x++)
-            builder.Walls.Add(new Vector2I(x, 16));
-        builder.Walls.Add(new Vector2I(19, 8));
-        builder.Walls.Add(new Vector2I(35, 55));
-        builder.Walls.Add(new Vector2I(25, 56));
+        foreach (var w in Floor1Layout.ExtraWalls)
+            builder.Walls.Add(w);
 
         AddGateBarrier(builder.Walls, Floor1Layout.EnemyGates[Floor1Layout.GateKeys.GoblinBranch].Position,
             Enumerable.Range(11, 8).Select(x => new Vector2I(x, 23)));
@@ -514,20 +401,7 @@ public static class FloorGenerationService
 
     private static void BuildFloor2Walls(MazeBuilder builder)
     {
-        var mainLoop = new Vector2I[]
-        {
-            Floor2Layout.DownStairA,
-            new(18, 14),
-            new(34, 14),
-            new(48, 20),
-            new(52, 34),
-            Floor2Layout.UpStair,
-            new(38, 52),
-            new(24, 44),
-            new(16, 32),
-            Floor2Layout.DownStairA,
-        };
-        builder.CarveLoop(mainLoop, halfWidth: 1);
+        builder.CarveLoop(Floor2Layout.MainLoop, halfWidth: 1);
 
         builder.CarveHCorridor(Floor2Layout.DownStairA.X, Floor2Layout.DownStairB.X, Floor2Layout.DownStairA.Y, 1);
         builder.CarvePath(Floor2Layout.DownStairB, new(34, 14), 1);
@@ -554,33 +428,10 @@ public static class FloorGenerationService
         builder.CarvePath(new(36, 38), new(38, 44), 0);
         builder.CarvePath(new(38, 44), new(42, 52), 0);
 
-        var sideBranches = new (Vector2I, Vector2I)[]
-        {
-            (new(18, 14), new(18, 6)),
-            (new(24, 44), new(16, 52)),
-            (new(52, 34), new(56, 28)),
-            (new(42, 52), new(34, 56)),
-            (new(16, 32), new(7, 32)),
-            (new(26, 10), new(26, 5)),
-            (new(44, 12), new(50, 18)),
-        };
-        foreach (var (start, end) in sideBranches)
+        foreach (var (start, end) in Floor2Layout.SideBranches)
             builder.CarvePath(start, end, 0);
 
-        var decisionConnectors = new (char Direction, int Start, int End, int Fixed)[]
-        {
-            ('h', 12, 22, 18),
-            ('v', 14, 28, 18),
-            ('h', 18, 34, 18),
-            ('h', 30, 44, 24),
-            ('v', 24, 34, 44),
-            ('h', 40, 52, 40),
-            ('v', 36, 46, 50),
-            ('h', 30, 42, 52),
-            ('v', 38, 52, 24),
-            ('h', 24, 36, 44),
-        };
-        foreach (var (direction, start, end, fixedCoord) in decisionConnectors)
+        foreach (var (direction, start, end, fixedCoord) in Floor2Layout.DecisionConnectors)
         {
             if (direction == 'h')
                 builder.CarveHCorridor(start, end, fixedCoord, 0);
@@ -588,30 +439,10 @@ public static class FloorGenerationService
                 builder.CarveVCorridor(start, end, fixedCoord, 0);
         }
 
-        var wallReliefPaths = new (Vector2I, Vector2I)[]
-        {
-            (new(6, 16), new(3, 16)),
-            (new(18, 6), new(18, 4)),
-            (new(44, 8), new(47, 8)),
-            (new(44, 24), new(48, 24)),
-            (new(56, 28), new(56, 24)),
-            (new(7, 32), new(4, 32)),
-            (new(16, 52), new(13, 55)),
-            (new(34, 56), new(30, 56)),
-            (new(50, 46), new(55, 46)),
-        };
-        foreach (var (start, end) in wallReliefPaths)
+        foreach (var (start, end) in Floor2Layout.WallReliefPaths)
             builder.CarvePath(start, end, 0);
 
-        var shortcutLoopCuts = new (Vector2I, Vector2I)[]
-        {
-            (new(13, 55), new(30, 56)),
-            (new(18, 28), new(24, 38)),
-            (new(35, 44), new(41, 44)),
-            (new(44, 34), new(48, 24)),
-            (new(26, 5), new(18, 4)),
-        };
-        foreach (var (start, end) in shortcutLoopCuts)
+        foreach (var (start, end) in Floor2Layout.ShortcutLoopCuts)
             builder.CarvePath(start, end, 0);
 
         AddGateBarrier(builder.Walls, Floor2Layout.EnemyGates[Floor2Layout.GateKeys.ArchiveGate].Position,
@@ -633,16 +464,8 @@ public static class FloorGenerationService
         AddGateBarrier(builder.Walls, Floor2Layout.PuzzleGates[Floor2Layout.GateKeys.ArchiveTrialVault].Position,
             System.Linq.Enumerable.Range(35, 6).Select(y => new Vector2I(33, y)));
 
-        for (int x = 33; x < 37; x++)
-            builder.Walls.Add(new Vector2I(x, 33));
-        for (int y = 34; y < 38; y++)
-            builder.Walls.Add(new Vector2I(35, y));
-        for (int x = 34; x < 37; x++)
-            builder.Walls.Add(new Vector2I(x, 37));
-        builder.Walls.Add(new Vector2I(33, 34));
-        builder.Walls.Add(new Vector2I(34, 34));
-        builder.Walls.Add(new Vector2I(34, 35));
-        builder.Walls.Add(new Vector2I(34, 36));
+        foreach (var w in Floor2Layout.VaultWalls)
+            builder.Walls.Add(w);
 
         builder.ReinforcePerimeter();
     }

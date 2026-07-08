@@ -116,8 +116,11 @@ public static class UidPreserver
             // No .bak backup: .tscn/.tres are git-tracked, so crash recovery
             // is `git checkout` (unlike SaveManager, whose user saves are not
             // in git and therefore need .bak). See AtomicFileWriter remarks.
+            // Use WriteAllText with explicit "\n" (not File.WriteAllLines,
+            // which uses Environment.NewLine — \r\n on Windows and would
+            // corrupt the LF line endings Godot expects in .tscn/.tres).
             string tempPath = absPath + ".uidtmp";
-            File.WriteAllLines(tempPath, lines);
+            File.WriteAllText(tempPath, string.Join("\n", lines) + "\n");
             File.Move(tempPath, absPath, overwrite: true);
         }
     }

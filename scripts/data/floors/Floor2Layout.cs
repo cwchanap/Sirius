@@ -123,4 +123,91 @@ public static class Floor2Layout
             "lever_memory",
             14),
     };
+
+    // ── Wall carving data ──────────────────────────────────────────────
+    // Coordinate arrays consumed by BuildFloor2Walls in FloorGenerationService.
+    // Moved here from the logic layer so all floor-specific data lives in one
+    // place (data/log split, commit 105c53a). The logic layer iterates these
+    // arrays and calls MazeBuilder methods.
+
+    public static readonly Vector2I[] MainLoop =
+    {
+        DownStairA,
+        new(18, 14),
+        new(34, 14),
+        new(48, 20),
+        new(52, 34),
+        UpStair,
+        new(38, 52),
+        new(24, 44),
+        new(16, 32),
+        DownStairA,
+    };
+
+    public static readonly (Vector2I Start, Vector2I End)[] SideBranches =
+    {
+        (new(18, 14), new(18, 6)),
+        (new(24, 44), new(16, 52)),
+        (new(52, 34), new(56, 28)),
+        (new(42, 52), new(34, 56)),
+        (new(16, 32), new(7, 32)),
+        (new(26, 10), new(26, 5)),
+        (new(44, 12), new(50, 18)),
+    };
+
+    public static readonly (char Direction, int Start, int End, int Fixed)[] DecisionConnectors =
+    {
+        ('h', 12, 22, 18),
+        ('v', 14, 28, 18),
+        ('h', 18, 34, 18),
+        ('h', 30, 44, 24),
+        ('v', 24, 34, 44),
+        ('h', 40, 52, 40),
+        ('v', 36, 46, 50),
+        ('h', 30, 42, 52),
+        ('v', 38, 52, 24),
+        ('h', 24, 36, 44),
+    };
+
+    public static readonly (Vector2I Start, Vector2I End)[] WallReliefPaths =
+    {
+        (new(6, 16), new(3, 16)),
+        (new(18, 6), new(18, 4)),
+        (new(44, 8), new(47, 8)),
+        (new(44, 24), new(48, 24)),
+        (new(56, 28), new(56, 24)),
+        (new(7, 32), new(4, 32)),
+        (new(16, 52), new(13, 55)),
+        (new(34, 56), new(30, 56)),
+        (new(50, 46), new(55, 46)),
+    };
+
+    public static readonly (Vector2I Start, Vector2I End)[] ShortcutLoopCuts =
+    {
+        (new(13, 55), new(30, 56)),
+        (new(18, 28), new(24, 38)),
+        (new(35, 44), new(41, 44)),
+        (new(44, 34), new(48, 24)),
+        (new(26, 5), new(18, 4)),
+    };
+
+    // Vault wall cells around the puzzle gate (lines 636-645 in the original
+    // BuildFloor2Walls). Sealed cells that form the archive trial vault.
+    public static readonly Vector2I[] VaultWalls =
+    {
+        new(33, 33),
+        new(34, 33),
+        new(35, 33),
+        new(36, 33),
+        new(33, 34),
+        new(34, 34),
+        new(34, 35),
+        new(34, 36),
+        new(35, 34),
+        new(35, 35),
+        new(35, 36),
+        new(35, 37),
+        new(34, 37),
+        new(36, 37),
+    };
 }

@@ -61,6 +61,15 @@ public static class FloorSceneWriter
             var importer = new TilemapJsonImporter();
             importer.ImportToScene(model, gridMap);
 
+            // Pack the scene BEFORE saving the .tres so a pack failure (the most
+            // likely failure point) returns early without having committed the
+            // .tres. This prevents a .tscn pack/save failure from leaving the
+            // .tres updated while the .tscn retains stale content.
+            var newPacked = new PackedScene();
+            var packErr = newPacked.Pack(scene);
+            if (packErr != Error.Ok)
+                return new FloorSceneResult(false, validation, $"Failed to pack scene ({packErr}): {outScenePath}");
+
             // Sync .tres via typed API (skippable for --skip-floor-def parity).
             if (syncDef)
             {
@@ -75,11 +84,7 @@ public static class FloorSceneWriter
                     UidPreserver.Restore(outDefPath, defUidSnap);
             }
 
-            // Pack + save scene.
-            var newPacked = new PackedScene();
-            var packErr = newPacked.Pack(scene);
-            if (packErr != Error.Ok)
-                return new FloorSceneResult(false, validation, $"Failed to pack scene ({packErr}): {outScenePath}");
+            // Save scene (pack already succeeded above).
             var sceneSaveErr = SaveResourceAtomic(newPacked, outScenePath);
             if (sceneSaveErr != Error.Ok)
                 return new FloorSceneResult(false, validation, $"Failed to save scene ({sceneSaveErr}): {outScenePath}");
@@ -114,9 +119,9 @@ public static class FloorSceneWriter
     /// Save <paramref name="res"/> to <paramref name="resPath"/> atomically:
     /// ResourceSaver writes to a sibling temp path (extension preserved so Godot
     /// picks the correct saver), then <see cref="File.Move"/> with overwrite swaps
-    /// it into place. A crash mid-save cannot leave a half-written committed file,
-    /// and a .tscn failure cannot corrupt an already-written .tres (each save is
-    /// independently atomic).
+    /// it into place. A crash mid-save cannot leave a half-written committed file.
+    /// Each save is independently atomic; the caller (Generate) orders saves so
+    /// the most likely failure (scene pack) happens before any file is committed.
     /// </summary>
     private static Error SaveResourceAtomic(Resource res, string resPath)
     {

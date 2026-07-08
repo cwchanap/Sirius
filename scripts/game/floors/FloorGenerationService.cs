@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using TileData = Sirius.TilemapJson.TileData;
 
+namespace Sirius.FloorTools;
+
 public static class FloorGenerationService
 {
     public static FloorJsonModel Generate(int floorNumber) => floorNumber switch

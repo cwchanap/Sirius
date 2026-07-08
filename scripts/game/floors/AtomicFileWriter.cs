@@ -1,6 +1,8 @@
 using Godot;
 using System.IO;
 
+namespace Sirius.FloorTools;
+
 /// <summary>
 /// Atomic text-file writer for res:// paths. Writes to a sibling .tmp file
 /// then <see cref="File.Move(string, string, bool)"/> with overwrite, so a

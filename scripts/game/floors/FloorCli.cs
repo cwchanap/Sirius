@@ -3,6 +3,8 @@ using System;
 using System.Linq;
 using System.Text.RegularExpressions;
 
+namespace Sirius.FloorTools;
+
 // partial is required by the Godot C# source generator for any class deriving
 // from GodotObject (RefCounted derives from it); the generator synthesizes the
 // registration glue in the generated partial.

@@ -3,6 +3,8 @@ using Sirius.TilemapJson;
 using System.Collections.Generic;
 using System.Linq;
 
+namespace Sirius.FloorTools;
+
 /// <param name="SyncMetadata">When true, overwrites FloorName/FloorNumber/
 /// FloorDescription on the .tres with the generator's values. Default false —
 /// preserves hand-authored .tres metadata so regeneration does not clobber

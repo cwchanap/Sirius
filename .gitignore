@@ -20,6 +20,12 @@ test.runsettings.local
 .mcp.json
 .devin/
 
+# Orphaned temp files from atomic-write helpers (FloorSceneWriter,
+# AtomicFileWriter, UidPreserver) and Godot's UID/import pipeline.
+# These appear if a process is killed mid-save; safe to ignore.
+*.tmp.*
+*.uidtmp
+
 # Local git worktrees
 .worktrees/
 

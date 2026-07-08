@@ -1,6 +1,8 @@
 using Godot;
 using System.Collections.Generic;
 
+namespace Sirius.FloorTools;
+
 public class MazeBuilder
 {
     public int Width { get; }

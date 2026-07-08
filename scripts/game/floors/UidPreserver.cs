@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 
+namespace Sirius.FloorTools;
+
 /// <summary>
 /// Preserves uid= attributes across ResourceSaver.Save / PackedScene.Pack writes.
 /// Godot's headless save path strips file-level UIDs (the scene/resource header uid

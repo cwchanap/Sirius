@@ -2,6 +2,8 @@ using Godot;
 using System.Collections.Generic;
 using System.Linq;
 
+namespace Sirius.FloorTools;
+
 public static class FloorGraph
 {
     private static readonly Vector2I[] Directions =

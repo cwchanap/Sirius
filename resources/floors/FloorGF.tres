@@ -5,6 +5,7 @@
 
 [resource]
 script = ExtResource("1_1")
+FloorName = "Ground Floor"
 FloorScene = ExtResource("1_2")
 PlayerStartPosition = Vector2i(8, 50)
 StairsUp = Array[Vector2i]([Vector2i(82, 68)])

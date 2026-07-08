@@ -64,11 +64,11 @@ public static class FloorSceneWriter
             // Sync .tres via typed API (skippable for --skip-floor-def parity).
             if (syncDef)
             {
-                var def = ResourceLoader.Load<FloorDefinition>(paths.DefPath);
+                var def = ResourceLoader.Load<FloorDefinition>(paths.DefPath, cacheMode: ResourceLoader.CacheMode.Ignore);
                 if (def == null)
                     return new FloorSceneResult(false, validation, $"Failed to load FloorDefinition: {paths.DefPath}");
                 FloorResourceSyncService.Apply(def, model, options);
-                var defSaveErr = ResourceSaver.Save(def, outDefPath);
+                var defSaveErr = SaveResourceAtomic(def, outDefPath);
                 if (defSaveErr != Error.Ok)
                     return new FloorSceneResult(false, validation, $"Failed to save FloorDefinition ({defSaveErr}): {outDefPath}");
                 if (defUidSnap is not null)
@@ -80,7 +80,7 @@ public static class FloorSceneWriter
             var packErr = newPacked.Pack(scene);
             if (packErr != Error.Ok)
                 return new FloorSceneResult(false, validation, $"Failed to pack scene ({packErr}): {outScenePath}");
-            var sceneSaveErr = ResourceSaver.Save(newPacked, outScenePath);
+            var sceneSaveErr = SaveResourceAtomic(newPacked, outScenePath);
             if (sceneSaveErr != Error.Ok)
                 return new FloorSceneResult(false, validation, $"Failed to save scene ({sceneSaveErr}): {outScenePath}");
             UidPreserver.Restore(outScenePath, sceneUidSnap);
@@ -108,6 +108,39 @@ public static class FloorSceneWriter
     {
         string abs = Path.Combine(outputDir, basename);
         return ProjectSettings.LocalizePath(abs);
+    }
+
+    /// <summary>
+    /// Save <paramref name="res"/> to <paramref name="resPath"/> atomically:
+    /// ResourceSaver writes to a sibling temp path (extension preserved so Godot
+    /// picks the correct saver), then <see cref="File.Move"/> with overwrite swaps
+    /// it into place. A crash mid-save cannot leave a half-written committed file,
+    /// and a .tscn failure cannot corrupt an already-written .tres (each save is
+    /// independently atomic).
+    /// </summary>
+    private static Error SaveResourceAtomic(Resource res, string resPath)
+    {
+        // Insert ".tmp" before the extension so Godot still sees .tscn/.tres
+        // and dispatches to the correct ResourceSaver. e.g. "Floor3F.tscn"
+        // -> "Floor3F.tmp.tscn". String-based (not Path.Get*) because resPath
+        // is a res:// path and Path.* helpers are platform-dependent on those.
+        int slashIdx = resPath.LastIndexOf('/');
+        int dotIdx = resPath.LastIndexOf('.');
+        string tempResPath = dotIdx > slashIdx
+            ? resPath.Substring(0, dotIdx) + ".tmp" + resPath.Substring(dotIdx)
+            : resPath + ".tmp";
+
+        var err = ResourceSaver.Save(res, tempResPath);
+        if (err != Error.Ok)
+        {
+            string tempAbs = ProjectSettings.GlobalizePath(tempResPath);
+            if (File.Exists(tempAbs)) File.Delete(tempAbs);
+            return err;
+        }
+        string tempAbs2 = ProjectSettings.GlobalizePath(tempResPath);
+        string realAbs = ProjectSettings.GlobalizePath(resPath);
+        File.Move(tempAbs2, realAbs, overwrite: true);
+        return Error.Ok;
     }
 
     private static void WriteJson(FloorJsonModel model, string path)

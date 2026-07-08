@@ -80,6 +80,28 @@ public partial class FloorResourceSyncServiceTest
     }
 
     [TestCase]
+    public void TestGfResetsStaleStairsDownDestinations()
+    {
+        // GF has no down stairs today. A .tres that previously held down-stair
+        // destinations (e.g. from an experiment) must have them cleared on sync
+        // so stale entries do not survive a regeneration.
+        var def = new FloorDefinition();
+        def.StairsDownDestinations.Add(new Vector2I(99, 99));
+        var model = new FloorJsonModel
+        {
+            Metadata = new() { FloorNumber = 0, PlayerStart = new Vector2IData(8, 50) },
+            Entities = new()
+            {
+                StairConnections = new() { new() { Position = new Vector2IData(82, 68), Direction = "up" } },
+            },
+        };
+
+        FloorResourceSyncService.Apply(def, model, new FloorSyncOptions());
+
+        AssertThat(def.StairsDownDestinations.Count).IsEqual(0);
+    }
+
+    [TestCase]
     public void TestSyncMetadataDefaultFalsePreservesHandAuthoredValues()
     {
         // Default (SyncMetadata=false): FloorName/FloorDescription on the .tres

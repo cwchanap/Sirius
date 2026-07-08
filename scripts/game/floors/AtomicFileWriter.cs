@@ -5,8 +5,15 @@ using System.IO;
 /// Atomic text-file writer for res:// paths. Writes to a sibling .tmp file
 /// then <see cref="File.Move(string, string, bool)"/> with overwrite, so a
 /// crash mid-write cannot leave a half-written/truncated committed file.
-/// Mirrors the pattern in <c>UidPreserver.Restore</c> and <c>SaveManager</c>.
+/// Mirrors the temp→rename pattern in <c>UidPreserver.Restore</c> and <c>SaveManager</c>.
 /// </summary>
+/// <remarks>
+/// Unlike <c>SaveManager</c>, this writer does NOT keep a <c>.bak</c> backup.
+/// <c>SaveManager</c> needs <c>.bak</c> because user save files are not in git
+/// and require crash recovery. Floor artifacts (.json) written here are
+/// git-tracked, so recovery from a rare mid-write crash is <c>git checkout</c>;
+/// emitting <c>.bak</c> files would create untracked working-tree noise.
+/// </remarks>
 public static class AtomicFileWriter
 {
     /// <summary>Write <paramref name="content"/> to the file at <paramref name="resPath"/>

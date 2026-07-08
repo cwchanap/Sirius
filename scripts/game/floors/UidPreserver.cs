@@ -113,6 +113,9 @@ public static class UidPreserver
         {
             // Atomic write: temp file → rename, so a crash mid-write cannot
             // leave a half-written .tscn/.tres that corrupts the project.
+            // No .bak backup: .tscn/.tres are git-tracked, so crash recovery
+            // is `git checkout` (unlike SaveManager, whose user saves are not
+            // in git and therefore need .bak). See AtomicFileWriter remarks.
             string tempPath = absPath + ".uidtmp";
             File.WriteAllLines(tempPath, lines);
             File.Move(tempPath, absPath, overwrite: true);

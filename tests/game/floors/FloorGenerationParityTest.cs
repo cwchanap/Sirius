@@ -18,7 +18,12 @@ public partial class FloorGenerationParityTest
         string path = FloorRegistry.Get(floor).JsonPath;
         using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
         AssertThat(file).IsNotNull();
-        return FloorJsonModel.FromJson(file.GetAsText());
+        // FromJson returns null on parse failure / empty input; without this
+        // guard the null propagates to AssertModelsEqual and surfaces as an
+        // opaque NullReferenceException instead of a clear parse-failure error.
+        var model = FloorJsonModel.FromJson(file.GetAsText());
+        AssertThat(model).IsNotNull();
+        return model!;
     }
 
     [TestCase]

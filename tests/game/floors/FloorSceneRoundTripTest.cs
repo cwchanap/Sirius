@@ -27,7 +27,8 @@ public partial class FloorSceneRoundTripTest
         {
             var gridMap = scene.GetNodeOrNull<Node2D>("GridMap");
             AssertThat(gridMap).IsNotNull();
-            var floorDef = ResourceLoader.Load<FloorDefinition>(paths.DefPath);
+            var floorDef = ResourceLoader.Load<FloorDefinition>(paths.DefPath,
+                cacheMode: ResourceLoader.CacheMode.Ignore);
             var exporter = new TilemapJsonExporter();
             var model = exporter.ExportScene(gridMap, floorDef);
             AssertThat(model).IsNotNull();

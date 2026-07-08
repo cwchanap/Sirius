@@ -27,5 +27,8 @@ test.runsettings.local
 .superpowers/
 tests/tools/__pycache__/
 
-# Floor layout JSON: tracked as the C# vs Python parity reference (regenerate via tools/*floor*maze_generator.py or the C# FloorGenerationService)
+# Floor layout JSON: tracked as the C# generation baseline (regenerate via
+# `godot --headless --script tools/generate_floor.gd -- --floor <0|1|2|3>`)
+# The deprecated Python generators in tools/floor*_maze_generator.py are frozen
+# historical references; the C# FloorGenerationService is the source of truth.
 

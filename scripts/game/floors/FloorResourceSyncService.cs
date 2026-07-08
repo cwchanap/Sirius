@@ -41,6 +41,10 @@ public static class FloorResourceSyncService
             def.StairsUpDestinations = options.StairDestOverride is { } o
                 ? ToArray(new List<Vector2I> { o })
                 : PreserveOrFallback(def.StairsUpDestinations, new List<Vector2I> { Floor0Layout.ReturnSpawnFromFloor1 });
+            // GF has no down stairs today; reset destinations so a .tres that
+            // previously held down-stair destinations (e.g. from an experiment)
+            // does not retain stale entries.
+            def.StairsDownDestinations = ToArray(new List<Vector2I>());
         }
         else
         {

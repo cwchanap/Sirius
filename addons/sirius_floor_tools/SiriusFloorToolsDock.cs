@@ -65,6 +65,37 @@ public partial class SiriusFloorToolsDock : Control
             cacheMode: ResourceLoader.CacheMode.Ignore);
     }
 
+    // Read the existing baseline JSON for a floor so FloorExportMerge can carry
+    // forward JSON-only fields (hidden_placeholders) and generator-authored
+    // metadata (floor_name/description). Returns null when the file does not
+    // exist yet (e.g. first export of a brand-new floor) — the merge treats null
+    // as "nothing to preserve" and keeps the exporter's seeded values.
+    private static FloorJsonModel LoadBaselineJson(string jsonPath)
+    {
+        if (!FileAccess.FileExists(jsonPath))
+            return null;
+        using var file = FileAccess.Open(jsonPath, FileAccess.ModeFlags.Read);
+        if (file == null)
+            return null;
+        return FloorJsonModel.FromJson(file.GetAsText());
+    }
+
+    // Write a FloorJsonModel to disk. Mirrors TilemapJsonExporter.ExportToFile's
+    // write path so the dock can merge the baseline into the model between
+    // ExportScene and the file write.
+    private static Error WriteJson(FloorJsonModel model, string outputPath)
+    {
+        string json = model.ToJson(indented: true);
+        using var file = FileAccess.Open(outputPath, FileAccess.ModeFlags.Write);
+        if (file == null)
+        {
+            GD.PrintErr($"[SiriusFloorToolsDock] Failed to open output file: {outputPath}");
+            return Error.CantOpen;
+        }
+        file.StoreString(json);
+        return Error.Ok;
+    }
+
     // Pops the confirmation dialog. The destructive action runs only after the
     // user accepts. Pre-flight aborts (no scene, mismatch) happen before this so
     // we never prompt for an action that would immediately bail out.
@@ -189,8 +220,20 @@ public partial class SiriusFloorToolsDock : Control
             // invalid metadata.
             var floorDef = LoadFloorDefinition(SelectedFloor);
             if (floorDef == null) { Log($"[x] Failed to load FloorDefinition for floor {SelectedFloor}."); return; }
+            // Export the scene to a model, then merge JSON-only fields
+            // (hidden_placeholders) and generator-authored metadata
+            // (floor_name/description) from the existing baseline before writing.
+            // Without this merge, exporting a generated baseline (Floor1F/2F/3F)
+            // would drop hidden_placeholders (the exporter has no scene node for
+            // them) and rewrite the baseline's generator description with the
+            // .tres's hand-authored text, causing the committed JSON / parity
+            // tests to drift even when the scene edit was unrelated.
             var exporter = new TilemapJsonExporter();
-            var err = exporter.ExportToFile(gridMap, paths.JsonPath, floorDef);
+            var model = exporter.ExportScene(gridMap, floorDef);
+            if (model == null) { Log("[x] Export returned null (tile config load failed)."); return; }
+            FloorJsonModel baseline = LoadBaselineJson(paths.JsonPath);
+            FloorExportMerge.MergeBaseline(model, baseline);
+            var err = WriteJson(model, paths.JsonPath);
             Log(err == Error.Ok ? $"Exported JSON to {paths.JsonPath}" : $"[x] Export failed: {err}");
             EditorInterface.Singleton?.GetResourceFilesystem()?.Scan();
         }

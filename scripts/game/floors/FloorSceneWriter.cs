@@ -10,6 +10,18 @@ public record FloorSceneResult(bool Success, ValidationResult Validation, string
 
 public static class FloorSceneWriter
 {
+    /// <summary>
+    /// Generate the floor model and run validation. Shared by Generate (full path)
+    /// and FloorCli --json-only so the validation gate stays in sync.
+    /// </summary>
+    public static (FloorJsonModel Model, ValidationResult Validation) GenerateAndValidate(int floorNumber)
+    {
+        var model = FloorGenerationService.Generate(floorNumber);
+        var (width, height) = DimensionsFor(floorNumber);
+        var validation = FloorValidationService.Validate(model, width, height);
+        return (model, validation);
+    }
+
     /// <param name="outputDir">If non-null, scene/.tres/.json are written under this
     /// absolute directory (basenames preserved) instead of the canonical registry paths.
     /// The source scene/.tres are still loaded from the registry paths. Used by tests
@@ -22,10 +34,7 @@ public static class FloorSceneWriter
         FloorPaths? sourcePaths = null)
     {
         var paths = sourcePaths ?? FloorRegistry.Get(floorNumber);
-        var model = FloorGenerationService.Generate(floorNumber);
-        var (width, height) = DimensionsFor(floorNumber);
-
-        var validation = FloorValidationService.Validate(model, width, height);
+        var (model, validation) = GenerateAndValidate(floorNumber);
         if (validation.HasErrors)
             return new FloorSceneResult(false, validation, $"Validation failed: {validation.Issues.Count} issue(s)");
 
@@ -75,10 +84,13 @@ public static class FloorSceneWriter
             // where the .tres reflects new metadata but the .tscn retains stale
             // grid content. The pack already succeeded, so the .tscn save is the
             // lowest-risk write, but ordering it first is strictly safer.
-            var sceneSaveErr = SaveResourceAtomic(newPacked, outScenePath);
+            // UID snapshots are passed into SaveResourceAtomic so UIDs are restored
+            // on the temp file BEFORE the atomic move — the committed file never
+            // appears with stripped UIDs, closing the non-atomic window that would
+            // exist if Restore ran as a separate post-move step.
+            var sceneSaveErr = SaveResourceAtomic(newPacked, outScenePath, sceneUidSnap);
             if (sceneSaveErr != Error.Ok)
                 return new FloorSceneResult(false, validation, $"Failed to save scene ({sceneSaveErr}): {outScenePath}");
-            UidPreserver.Restore(outScenePath, sceneUidSnap);
 
             // Sync .tres via typed API (skippable for --skip-floor-def parity).
             if (syncDef)
@@ -87,11 +99,9 @@ public static class FloorSceneWriter
                 if (def == null)
                     return new FloorSceneResult(false, validation, $"Failed to load FloorDefinition: {paths.DefPath}");
                 FloorResourceSyncService.Apply(def, model, options);
-                var defSaveErr = SaveResourceAtomic(def, outDefPath);
+                var defSaveErr = SaveResourceAtomic(def, outDefPath, defUidSnap);
                 if (defSaveErr != Error.Ok)
                     return new FloorSceneResult(false, validation, $"Failed to save FloorDefinition ({defSaveErr}): {outDefPath}");
-                if (defUidSnap is not null)
-                    UidPreserver.Restore(outDefPath, defUidSnap);
             }
 
             if (writeJson)
@@ -122,12 +132,13 @@ public static class FloorSceneWriter
     /// <summary>
     /// Save <paramref name="res"/> to <paramref name="resPath"/> atomically:
     /// ResourceSaver writes to a sibling temp path (extension preserved so Godot
-    /// picks the correct saver), then <see cref="File.Move"/> with overwrite swaps
-    /// it into place. A crash mid-save cannot leave a half-written committed file.
+    /// picks the correct saver), UIDs are restored on the temp file, then
+    /// <see cref="File.Move"/> with overwrite swaps it into place. A crash at any
+    /// point cannot leave a half-written or UID-stripped committed file.
     /// Each save is independently atomic; the caller (Generate) orders saves so
     /// the most likely failure (scene pack) happens before any file is committed.
     /// </summary>
-    private static Error SaveResourceAtomic(Resource res, string resPath)
+    private static Error SaveResourceAtomic(Resource res, string resPath, UidPreserver.Snapshot? uidSnap = null)
     {
         // Insert ".tmp" before the extension so Godot still sees .tscn/.tres
         // and dispatches to the correct ResourceSaver. e.g. "Floor3F.tscn"
@@ -150,14 +161,23 @@ public static class FloorSceneWriter
         string realAbs = ProjectSettings.GlobalizePath(resPath);
         try
         {
+            // Restore UIDs on the temp file BEFORE the atomic move so the
+            // committed file never appears with stripped UIDs. This closes
+            // the non-atomic window that would exist if Restore ran as a
+            // separate post-move step.
+            if (uidSnap is not null)
+                UidPreserver.Restore(tempResPath, uidSnap);
             File.Move(tempAbs2, realAbs, overwrite: true);
         }
         catch
         {
             // File.Move can throw on Windows when the target is locked by another
-            // process. Delete the orphaned .tmp so it doesn't accumulate as working-
-            // tree noise, then rethrow so the caller surfaces the real failure.
+            // process. Delete the orphaned .tmp (and any .uidtmp left by Restore)
+            // so they don't accumulate as working-tree noise, then rethrow so the
+            // caller surfaces the real failure.
             if (File.Exists(tempAbs2)) File.Delete(tempAbs2);
+            string uidTmp = tempAbs2 + ".uidtmp";
+            if (File.Exists(uidTmp)) File.Delete(uidTmp);
             throw;
         }
         return Error.Ok;

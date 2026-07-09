@@ -176,6 +176,13 @@ public partial class SiriusFloorToolsDock : Control
             var scene = EditorInterface.Singleton?.GetEditedSceneRoot();
             var gridMap = scene?.GetNodeOrNull<GridMap>("GridMap");
             if (gridMap == null) { Log("Open a floor scene to export."); return; }
+            // Revalidate the cross-floor guard: the confirmation dialog defers
+            // execution, so the floor selector or edited scene may have changed
+            // since OnExportJsonPressed ran the guard. Re-running it here ensures
+            // the validated state is the state we actually write.
+            int openFloor = FloorRegistry.FindByScenePath(scene.SceneFilePath);
+            var abort = FloorDockGuard.MismatchAbortMessage(openFloor, SelectedFloor, $"Export would write the wrong grid to {paths.JsonPath}.");
+            if (abort != null) { Log(abort); return; }
             // Pass the FloorDefinition so ExportMetadata fills floor_number and
             // player_start. Without it the exported JSON has floor_number=0 and
             // player_start=null, which would overwrite Floor1/2/3 baselines with
@@ -217,6 +224,13 @@ public partial class SiriusFloorToolsDock : Control
             var scene = EditorInterface.Singleton?.GetEditedSceneRoot();
             var gridMap = scene?.GetNodeOrNull<GridMap>("GridMap");
             if (gridMap == null) { Log("Open a floor scene to import into."); return; }
+            // Revalidate the cross-floor guard: the confirmation dialog defers
+            // execution, so the floor selector or edited scene may have changed
+            // since OnImportJsonPressed ran the guard. Re-running it here ensures
+            // the validated state is the state we actually import into.
+            int openFloor = FloorRegistry.FindByScenePath(scene.SceneFilePath);
+            var abort = FloorDockGuard.MismatchAbortMessage(openFloor, SelectedFloor, $"Import would pour {paths.JsonPath} into the wrong scene.");
+            if (abort != null) { Log(abort); return; }
             var importer = new TilemapJsonImporter();
             var err = importer.ImportFromFile(paths.JsonPath, gridMap);
             Log(err == Error.Ok ? $"Imported from {paths.JsonPath}" : $"Import failed: {err}");

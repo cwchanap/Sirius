@@ -107,6 +107,24 @@ public static class FloorGraph
         new(1, 0), new(-1, 0), new(0, 1), new(0, -1),
     };
 
+    // Build a position → destination lookup from the index-aligned stair and
+    // destination arrays on a FloorDefinition (.tres). Used by runtime
+    // stair registration (GridMap.RegisterStairConnections) to preserve
+    // authored/generated destinations — including the GF
+    // StairsUpDestinations return spawn and the --stair-dest CLI override —
+    // instead of unconditionally recomputing an off-stair cell and clobbering
+    // the .tres value on the shared FloorDefinition resource. Mirrors the
+    // preserve branch in FloorResourceSyncService for floor 0.
+    public static Dictionary<Vector2I, Vector2I> DestinationIndex(
+        Godot.Collections.Array<Vector2I> stairs,
+        Godot.Collections.Array<Vector2I> destinations)
+    {
+        var dict = new Dictionary<Vector2I, Vector2I>();
+        for (int i = 0; i < stairs.Count && i < destinations.Count; i++)
+            dict[stairs[i]] = destinations[i];
+        return dict;
+    }
+
     // isWalkable encapsulates the caller's bounds/grid check (GridMap uses its
     // live _grid array; FloorResourceSyncService uses a derived HashSet) so the
     // shared helper stays agnostic to the walkability representation.

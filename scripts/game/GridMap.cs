@@ -2195,7 +2195,20 @@ public partial class GridMap : Node2D
     private void RegisterStairConnections(FloorDefinition floorDef)
     {
         if (floorDef == null) return;
-        
+
+        // Snapshot the .tres-authored destinations BEFORE clearing. The
+        // FloorDefinition is a shared resource instance (Floors[i] in
+        // FloorManager), so any mutation persists across floor loads.
+        // Without preserving these, recomputing an off-stair cell here would
+        // clobber authored values — notably the GF StairsUpDestinations
+        // return spawn (Floor0Layout.ReturnSpawnFromFloor1) and the
+        // --stair-dest CLI override — and the legacy GetStairDestination
+        // fallback (used when the target floor's stair is unregistered)
+        // would then read the wrong spawn on the return trip. This mirrors
+        // the preserve branch in FloorResourceSyncService for floor 0.
+        var existingUpDests = FloorGraph.DestinationIndex(floorDef.StairsUp, floorDef.StairsUpDestinations);
+        var existingDownDests = FloorGraph.DestinationIndex(floorDef.StairsDown, floorDef.StairsDownDestinations);
+
         // Clear existing stair data
         floorDef.StairsUp.Clear();
         floorDef.StairsDown.Clear();
@@ -2270,10 +2283,20 @@ public partial class GridMap : Node2D
             
             // If no explicit destination was resolved (the common case for
             // DestinationStairId-only stairs, where the target floor isn't
-            // loaded yet), compute an off-stair spawn adjacent to this stair.
-            // Without this, GetStairDestination falls back to the stair cell
-            // itself, bouncing the player back on the next move onto that cell
+            // loaded yet), prefer the .tres-authored destination for this
+            // stair position when one exists (preserves the GF return spawn
+            // and the --stair-dest override). Only when none is present do we
+            // compute an off-stair spawn adjacent to this stair. Without this,
+            // GetStairDestination falls back to the stair cell itself,
+            // bouncing the player back on the next move onto that cell
             // (see PlayerStartOnStair validator and the +1x PlayerStart shift).
+            if (!destination.HasValue)
+            {
+                var existing = stair.Direction == StairDirection.Up
+                    ? existingUpDests : existingDownDests;
+                if (existing.TryGetValue(stair.GridPosition, out var preserved))
+                    destination = preserved;
+            }
             if (!destination.HasValue)
             {
                 destination = FindOffStairSpawn(stair.GridPosition, allStairs);

@@ -2,6 +2,7 @@ using Godot;
 using Sirius.TilemapJson;
 using System.Collections.Generic;
 using System.Linq;
+using TileData = Sirius.TilemapJson.TileData;
 
 namespace Sirius.FloorTools;
 
@@ -58,9 +59,21 @@ public static class FloorResourceSyncService
         }
         else
         {
-            // Floors 1/2/3: destinations mirror the stair positions themselves.
-            def.StairsUpDestinations = ToArray(up);
-            def.StairsDownDestinations = ToArray(down);
+            // Floors 1/2/3: destinations must be OFF the stair tile. Spawning on
+            // a stair would bounce the player back to the previous floor on the
+            // next move onto that cell (see PlayerStartOnStair validator and the
+            // +1x PlayerStart shift in Floor{1,2,3}Layout). The cross-floor
+            // transition path falls back to GetStairDestination when the target
+            // floor's stairs are not yet registered (the normal case), so these
+            // arrays are the operative spawn coordinates — they cannot be the
+            // stair cells themselves. Compute an adjacent walkable, non-stair
+            // cell for each stair; prefer +1x to match the PlayerStart convention
+            // (PlayerStart = DownStair +1x, so the primary down-stair naturally
+            // resolves to PlayerStart).
+            var walkable = BuildWalkableSet(model);
+            var stairCells = BuildStairSet(model, up, down);
+            def.StairsUpDestinations = ToArray(up.Select(s => OffStairSpawn(s, walkable, stairCells)).ToList());
+            def.StairsDownDestinations = ToArray(down.Select(s => OffStairSpawn(s, walkable, stairCells)).ToList());
         }
     }
 
@@ -69,6 +82,49 @@ public static class FloorResourceSyncService
         var arr = new Godot.Collections.Array<Vector2I>();
         foreach (var v in values) arr.Add(v);
         return arr;
+    }
+
+    // Search order: +1x first to match the PlayerStart = DownStair +1x
+    // convention, then the other cardinal directions.
+    private static readonly Vector2I[] OffStairOffsets =
+    {
+        new(1, 0), new(-1, 0), new(0, 1), new(0, -1),
+    };
+
+    private static HashSet<Vector2I> BuildWalkableSet(FloorJsonModel model)
+    {
+        var walls = (model.TileLayers.GetValueOrDefault("wall") ?? new List<TileData>())
+            .Select(t => new Vector2I(t.X, t.Y)).ToHashSet();
+        var ground = model.TileLayers.GetValueOrDefault("ground") ?? new List<TileData>();
+        return ground.Select(t => new Vector2I(t.X, t.Y)).Where(c => !walls.Contains(c)).ToHashSet();
+    }
+
+    private static HashSet<Vector2I> BuildStairSet(
+        FloorJsonModel model, List<Vector2I> up, List<Vector2I> down)
+    {
+        var stairs = (model.TileLayers.GetValueOrDefault("stair") ?? new List<TileData>())
+            .Select(t => new Vector2I(t.X, t.Y)).ToHashSet();
+        foreach (var s in up) stairs.Add(s);
+        foreach (var s in down) stairs.Add(s);
+        return stairs;
+    }
+
+    private static Vector2I OffStairSpawn(
+        Vector2I stair, HashSet<Vector2I> walkable, HashSet<Vector2I> stairCells)
+    {
+        foreach (var off in OffStairOffsets)
+        {
+            var candidate = stair + off;
+            if (walkable.Contains(candidate) && !stairCells.Contains(candidate))
+                return candidate;
+        }
+        // Last resort: no adjacent walkable non-stair cell. Keep the stair
+        // position so a destination entry exists, but this will bounce — push a
+        // warning so the generator output flags the layout issue.
+        GD.PushWarning(
+            $"FloorResourceSyncService: no off-stair walkable cell adjacent to stair {stair}; " +
+            "destination will spawn on the stair (bounce risk).");
+        return stair;
     }
 
     private static Godot.Collections.Array<Vector2I> PreserveOrFallback(

@@ -192,7 +192,9 @@ public partial class FloorGFMazeLayoutTest : Node
             await AwaitFrames(sceneTree, 12);
 
             AssertThat(floorManager.CurrentFloorIndex).IsEqual(1);
-            AssertThat(floorManager.CurrentGridMap.GetPlayerPosition()).IsEqual(new Vector2I(8, 30));
+            // Arrive at 1F DownStair (8,30); spawn is off-stair at +1x = (9,30)
+            // (matches PlayerStart, see PlayerStartOnStair validator).
+            AssertThat(floorManager.CurrentGridMap.GetPlayerPosition()).IsEqual(new Vector2I(9, 30));
         }
         finally
         {

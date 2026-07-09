@@ -458,37 +458,43 @@ public partial class Floor2FMazeLayoutTest : Node
     [TestCase]
     public async System.Threading.Tasks.Task Game_MovingOntoFloor1NorthStairImmediatelyLoadsFloor2A()
     {
-        await AssertStepOnStairTransition(1, new Vector2I(49, 12), 2, DownStairA);
+        // Arrive at 2F DownStairA (10,10); spawn is off-stair at +1x = (11,10).
+        await AssertStepOnStairTransition(1, new Vector2I(49, 12), 2, new Vector2I(11, 10));
     }
 
     [TestCase]
     public async System.Threading.Tasks.Task Game_MovingOntoFloor1SouthStairImmediatelyLoadsFloor2B()
     {
-        await AssertStepOnStairTransition(1, new Vector2I(48, 48), 2, DownStairB);
+        // Arrive at 2F DownStairB (26,10); spawn is off-stair at +1x = (27,10).
+        await AssertStepOnStairTransition(1, new Vector2I(48, 48), 2, new Vector2I(27, 10));
     }
 
     [TestCase]
     public async System.Threading.Tasks.Task Game_MovingOntoFloor2DownStairAImmediatelyLoadsFloor1A()
     {
-        await AssertStepOnStairTransition(2, DownStairA, 1, new Vector2I(49, 12));
+        // Arrive at 1F UpStairA (49,12); spawn is off-stair at +1x = (50,12).
+        await AssertStepOnStairTransition(2, DownStairA, 1, new Vector2I(50, 12));
     }
 
     [TestCase]
     public async System.Threading.Tasks.Task Game_MovingOntoFloor2DownStairBImmediatelyLoadsFloor1B()
     {
-        await AssertStepOnStairTransition(2, DownStairB, 1, new Vector2I(48, 48));
+        // Arrive at 1F UpStairB (48,48); spawn is off-stair at +1x = (49,48).
+        await AssertStepOnStairTransition(2, DownStairB, 1, new Vector2I(49, 48));
     }
 
     [TestCase]
     public async System.Threading.Tasks.Task Game_MovingOntoFloor2UpStairImmediatelyLoadsFloor3()
     {
-        await AssertStepOnStairTransition(2, UpStair, 3, new Vector2I(10, 10));
+        // Arrive at 3F DownStair (10,10); spawn is off-stair at +1x = (11,10).
+        await AssertStepOnStairTransition(2, UpStair, 3, new Vector2I(11, 10));
     }
 
     [TestCase]
     public async System.Threading.Tasks.Task Game_MovingOntoFloor3DownStairImmediatelyLoadsFloor2()
     {
-        await AssertStepOnStairTransition(3, new Vector2I(10, 10), 2, UpStair);
+        // Arrive at 2F UpStair (52,50); spawn is off-stair at +1x = (53,50).
+        await AssertStepOnStairTransition(3, new Vector2I(10, 10), 2, new Vector2I(53, 50));
     }
 
     private static async System.Threading.Tasks.Task AssertStepOnStairTransition(

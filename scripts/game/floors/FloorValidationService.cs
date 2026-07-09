@@ -43,7 +43,7 @@ public static class FloorValidationService
         var seenIds = new Dictionary<string, string>();
         var occupied = new Dictionary<Vector2I, string>();
         var goals = new List<Vector2I>();
-        foreach (var (key, entities) in EntityGroups(model))
+        foreach (var (key, entities) in EntityGroups(model, result))
         {
             foreach (var e in entities)
             {
@@ -91,17 +91,17 @@ public static class FloorValidationService
         return result;
     }
 
-    private static IEnumerable<(string Key, List<EntityView> Entities)> EntityGroups(FloorJsonModel model)
+    private static IEnumerable<(string Key, List<EntityView> Entities)> EntityGroups(FloorJsonModel model, ValidationResult result)
     {
-        yield return ("enemy_spawns", View(model.Entities.EnemySpawns));
-        yield return ("npc_spawns", View(model.Entities.NpcSpawns));
-        yield return ("stair_connections", View(model.Entities.StairConnections));
-        yield return ("hidden_placeholders", View(model.Entities.HiddenPlaceholders));
-        yield return ("treasure_boxes", View(model.Entities.TreasureBoxes));
-        yield return ("trap_tiles", View(model.Entities.TrapTiles));
-        yield return ("puzzle_switches", View(model.Entities.PuzzleSwitches));
-        yield return ("puzzle_gates", View(model.Entities.PuzzleGates));
-        yield return ("puzzle_riddles", View(model.Entities.PuzzleRiddles));
+        yield return ("enemy_spawns", View(model.Entities.EnemySpawns, result));
+        yield return ("npc_spawns", View(model.Entities.NpcSpawns, result));
+        yield return ("stair_connections", View(model.Entities.StairConnections, result));
+        yield return ("hidden_placeholders", View(model.Entities.HiddenPlaceholders, result));
+        yield return ("treasure_boxes", View(model.Entities.TreasureBoxes, result));
+        yield return ("trap_tiles", View(model.Entities.TrapTiles, result));
+        yield return ("puzzle_switches", View(model.Entities.PuzzleSwitches, result));
+        yield return ("puzzle_gates", View(model.Entities.PuzzleGates, result));
+        yield return ("puzzle_riddles", View(model.Entities.PuzzleRiddles, result));
     }
 
     private static bool IsPuzzleEntity(string key)
@@ -149,7 +149,7 @@ public static class FloorValidationService
     private static void ValidateDeadEnds(FloorJsonModel model, HashSet<Vector2I> walkable, int width, int height, ValidationResult result)
     {
         var payoff = new HashSet<Vector2I>();
-        foreach (var (key, entities) in EntityGroups(model))
+        foreach (var (key, entities) in EntityGroups(model, result))
         {
             if (key == "npc_spawns") continue;
             foreach (var e in entities)
@@ -183,30 +183,31 @@ public static class FloorValidationService
         public List<TreasureBoxItemData>? Items;
     }
 
-    private static List<EntityView> View(System.Collections.IList? list)
+    private static List<EntityView> View(System.Collections.IList? list, ValidationResult result)
     {
-        var result = new List<EntityView>();
-        if (list == null) return result;
+        var views = new List<EntityView>();
+        if (list == null) return views;
         foreach (var e in list)
         {
             switch (e)
             {
                 case TreasureBoxData t:
-                    result.Add(new TreasureDataBoxed { Id = t.Id, Position = t.Position.ToVector2I(), Items = t.Items });
+                    views.Add(new TreasureDataBoxed { Id = t.Id, Position = t.Position.ToVector2I(), Items = t.Items });
                     break;
-                case EnemySpawnData x:    result.Add(new EntityView { Id = x.Id, Position = x.Position.ToVector2I() }); break;
-                case NpcSpawnData x:      result.Add(new EntityView { Id = x.Id, Position = x.Position.ToVector2I() }); break;
-                case StairConnectionData x: result.Add(new EntityView { Id = x.Id, Position = x.Position.ToVector2I() }); break;
-                case HiddenPlaceholderData x: result.Add(new EntityView { Id = x.Id, Position = x.Position.ToVector2I() }); break;
-                case TrapTileData x:      result.Add(new EntityView { Id = x.Id, PuzzleId = x.PuzzleId, Position = x.Position.ToVector2I() }); break;
-                case PuzzleSwitchData x:  result.Add(new EntityView { Id = x.Id, PuzzleId = x.PuzzleId, Position = x.Position.ToVector2I() }); break;
-                case PuzzleGateData x:    result.Add(new EntityView { Id = x.Id, PuzzleId = x.PuzzleId, Position = x.Position.ToVector2I() }); break;
-                case PuzzleRiddleData x:  result.Add(new EntityView { Id = x.Id, PuzzleId = x.PuzzleId, Position = x.Position.ToVector2I() }); break;
+                case EnemySpawnData x:    views.Add(new EntityView { Id = x.Id, Position = x.Position.ToVector2I() }); break;
+                case NpcSpawnData x:      views.Add(new EntityView { Id = x.Id, Position = x.Position.ToVector2I() }); break;
+                case StairConnectionData x: views.Add(new EntityView { Id = x.Id, Position = x.Position.ToVector2I() }); break;
+                case HiddenPlaceholderData x: views.Add(new EntityView { Id = x.Id, Position = x.Position.ToVector2I() }); break;
+                case TrapTileData x:      views.Add(new EntityView { Id = x.Id, PuzzleId = x.PuzzleId, Position = x.Position.ToVector2I() }); break;
+                case PuzzleSwitchData x:  views.Add(new EntityView { Id = x.Id, PuzzleId = x.PuzzleId, Position = x.Position.ToVector2I() }); break;
+                case PuzzleGateData x:    views.Add(new EntityView { Id = x.Id, PuzzleId = x.PuzzleId, Position = x.Position.ToVector2I() }); break;
+                case PuzzleRiddleData x:  views.Add(new EntityView { Id = x.Id, PuzzleId = x.PuzzleId, Position = x.Position.ToVector2I() }); break;
                 default:
-                    throw new System.InvalidOperationException(
-                        $"Unrecognized entity type in entity list: {e?.GetType().Name ?? "null"}");
+                    result.Warning("UnrecognizedEntityType",
+                        $"Unrecognized entity type in entity list: {e?.GetType().Name ?? "null"} — skipped");
+                    break;
             }
         }
-        return result;
+        return views;
     }
 }

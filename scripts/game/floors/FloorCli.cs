@@ -96,19 +96,14 @@ public partial class FloorCli : RefCounted
         {
             if (jsonOnly)
             {
-                var model = FloorGenerationService.Generate(floor);
-                var paths = FloorRegistry.Get(floor);
-                // Validate before writing so invalid layouts fail consistently in
-                // both code paths (mirrors FloorSceneWriter.Generate's validation gate).
-                var (width, height) = FloorSceneWriter.DimensionsFor(floor);
-                var validation = FloorValidationService.Validate(model, width, height);
+                var (model, validation) = FloorSceneWriter.GenerateAndValidate(floor);
                 if (validation.HasErrors)
                 {
                     GD.PrintErr($"Validation failed: {validation.Issues.Count} issue(s)");
-                    foreach (var issue in validation.Issues)
-                        GD.PrintErr($"  [{issue.Severity}] {issue.Code}: {issue.Message}");
+                    PrintValidationIssues(validation);
                     return 1;
                 }
+                var paths = FloorRegistry.Get(floor);
                 // Atomic write (temp → File.Move overwrite) so a crash mid-write
                 // cannot truncate the committed .json.
                 AtomicFileWriter.WriteAllText(paths.JsonPath, model.ToJson(indented: true));
@@ -118,8 +113,7 @@ public partial class FloorCli : RefCounted
 
             var result = FloorSceneWriter.Generate(floor, new FloorSyncOptions(stairDest), writeJson: true, syncDef: !skipFloorDef);
             GD.Print(result.Summary);
-            foreach (var issue in result.Validation.Issues)
-                GD.PrintErr($"  [{issue.Severity}] {issue.Code}: {issue.Message}");
+            PrintValidationIssues(result.Validation);
             return result.Success ? 0 : 1;
         }
         catch (Exception ex)
@@ -131,5 +125,11 @@ public partial class FloorCli : RefCounted
             GD.PrintErr(ex.StackTrace);
             return 1;
         }
+    }
+
+    private static void PrintValidationIssues(ValidationResult validation)
+    {
+        foreach (var issue in validation.Issues)
+            GD.PrintErr($"  [{issue.Severity}] {issue.Code}: {issue.Message}");
     }
 }

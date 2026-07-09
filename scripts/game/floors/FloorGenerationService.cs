@@ -76,6 +76,11 @@ public static class FloorGenerationService
             },
             TreasureBoxes = FloorEntityBuilders.TreasureBoxes(
                 Floor0Layout.TreasureBoxes.Select(kv => (kv.Key, kv.Value.Position, kv.Value.Gold, kv.Value.Items))),
+            HiddenPlaceholders = new(),
+            TrapTiles = new(),
+            PuzzleSwitches = new(),
+            PuzzleGates = new(),
+            PuzzleRiddles = new(),
         };
 
         return model;

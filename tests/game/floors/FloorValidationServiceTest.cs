@@ -172,13 +172,16 @@ public partial class FloorValidationServiceTest
     }
 
     [TestCase]
-    public void TestUnrewardedDeadEndReported()
+    public void TestUnrewardedDeadEndReportedAsWarning()
     {
         // A two-cell corridor with no entities: both ends are dead-end branches
         // with no payoff adjacent. FloorNumber=1 enables the dead-end validator.
         var model = ModelWithGround(new[] { (0, 0), (1, 0) }, 0, 0, floorNumber: 1);
         var result = FloorValidationService.Validate(model, 2, 1);
-        AssertThat(result.Issues.Any(i => i.Code == "UnrewardedDeadEnd")).IsTrue();
+        var issue = result.Issues.FirstOrDefault(i => i.Code == "UnrewardedDeadEnd");
+        AssertThat(issue).IsNotNull();
+        AssertThat(issue!.Severity).IsEqual(Severity.Warning);
+        AssertThat(result.HasErrors).IsFalse();
     }
 
     [TestCase]

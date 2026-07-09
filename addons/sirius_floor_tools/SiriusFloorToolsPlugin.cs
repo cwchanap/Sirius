@@ -16,6 +16,11 @@ public partial class SiriusFloorToolsPlugin : EditorPlugin
             return;
         }
         _dock = dockScene.Instantiate<SiriusFloorToolsDock>();
+        if (_dock == null)
+        {
+            GD.PrintErr("[SiriusFloorTools] Failed to instantiate dock; plugin C# scripts may not be compiled");
+            return;
+        }
         AddControlToDock(DockSlot.LeftUl, _dock);
     }
 

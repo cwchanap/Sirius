@@ -8,4 +8,5 @@ public class ValidationResult
     public List<ValidationIssue> Issues { get; } = new();
     public bool HasErrors => Issues.Any(i => i.Severity == Severity.Error);
     public void Error(string code, string message) => Issues.Add(new ValidationIssue(Severity.Error, code, message));
+    public void Warning(string code, string message) => Issues.Add(new ValidationIssue(Severity.Warning, code, message));
 }

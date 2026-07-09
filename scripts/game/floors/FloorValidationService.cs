@@ -164,7 +164,7 @@ public static class FloorValidationService
             var branchSet = branch.ToHashSet();
             adjacent.UnionWith(branchSet);
             if (payoff.Intersect(adjacent).Any() == false)
-                result.Error("UnrewardedDeadEnd", $"Unrewarded dead-end branch at {branch[0]}");
+                result.Warning("UnrewardedDeadEnd", $"Unrewarded dead-end branch at {branch[0]}");
         }
     }
 

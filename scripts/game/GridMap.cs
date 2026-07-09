@@ -2214,6 +2214,13 @@ public partial class GridMap : Node2D
         if (EnableDebugLogging)
             GD.Print($"🪜 Found {stairConnections.Count} StairConnection nodes in {floorDef.FloorName}");
         
+        // Collect all stair positions up front so the off-stair spawn search
+        // can avoid picking a cell that is itself another stair (which would
+        // just move the bounce to a different stair tile).
+        var allStairs = new HashSet<Vector2I>();
+        foreach (var s in stairConnections)
+            allStairs.Add(s.GridPosition);
+        
         // Get FloorManager to register stairs globally
         var floorManager = GetNode<FloorManager>("/root/Game/FloorManager");
         
@@ -2260,14 +2267,22 @@ public partial class GridMap : Node2D
                 }
             }
             
+            // If no explicit destination was resolved (the common case for
+            // DestinationStairId-only stairs, where the target floor isn't
+            // loaded yet), compute an off-stair spawn adjacent to this stair.
+            // Without this, GetStairDestination falls back to the stair cell
+            // itself, bouncing the player back on the next move onto that cell
+            // (see PlayerStartOnStair validator and the +1x PlayerStart shift).
+            if (!destination.HasValue)
+            {
+                destination = FindOffStairSpawn(stair.GridPosition, allStairs);
+            }
+            
             // Add to floor definition
             if (stair.Direction == StairDirection.Up)
             {
                 floorDef.StairsUp.Add(stair.GridPosition);
-                if (destination.HasValue)
-                {
-                    floorDef.StairsUpDestinations.Add(destination.Value);
-                }
+                floorDef.StairsUpDestinations.Add(destination.Value);
                 
                 if (EnableDebugLogging)
                     GD.Print($"  ↑ Stair Up at {stair.GridPosition} → Floor {stair.TargetFloor}" + 
@@ -2276,16 +2291,38 @@ public partial class GridMap : Node2D
             else
             {
                 floorDef.StairsDown.Add(stair.GridPosition);
-                if (destination.HasValue)
-                {
-                    floorDef.StairsDownDestinations.Add(destination.Value);
-                }
+                floorDef.StairsDownDestinations.Add(destination.Value);
                 
                 if (EnableDebugLogging)
                     GD.Print($"  ↓ Stair Down at {stair.GridPosition} → Floor {stair.TargetFloor}" + 
                             (destination.HasValue ? $" @ {destination.Value}" : ""));
             }
         }
+    }
+
+    // Search order: +1x first to match the PlayerStart = DownStair +1x
+    // convention, then the other cardinal directions.
+    private static readonly Vector2I[] OffStairOffsets =
+    {
+        new(1, 0), new(-1, 0), new(0, 1), new(0, -1),
+    };
+
+    private Vector2I FindOffStairSpawn(Vector2I stair, HashSet<Vector2I> stairCells)
+    {
+        foreach (var off in OffStairOffsets)
+        {
+            var candidate = stair + off;
+            if (IsWithinGrid(candidate)
+                && _grid[candidate.X, candidate.Y] != (int)CellType.Wall
+                && !stairCells.Contains(candidate))
+                return candidate;
+        }
+        // Last resort: no adjacent walkable non-stair cell. Keep the stair
+        // position so a destination entry exists, but this will bounce.
+        GD.PushWarning(
+            $"GridMap: no off-stair walkable cell adjacent to stair {stair}; " +
+            "destination will spawn on the stair (bounce risk).");
+        return stair;
     }
     
     /// <summary>

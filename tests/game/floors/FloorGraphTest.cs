@@ -54,4 +54,40 @@ public partial class FloorGraphTest
         AssertThat(fromRight.Contains(new Vector2I(1, 0))).IsTrue();
         AssertThat(fromRight.Contains(new Vector2I(0, 0))).IsFalse();
     }
+
+    [TestCase]
+    public void TestDestinationIndexMapsStairsToDestinations()
+    {
+        // The .tres stores index-aligned StairsUp/StairsUpDestinations arrays.
+        // DestinationIndex must map each stair position to its authored
+        // destination so runtime registration can preserve it instead of
+        // recomputing an off-stair cell (which would clobber the GF return
+        // spawn and the --stair-dest override on the shared resource).
+        var stairs = new Godot.Collections.Array<Vector2I>();
+        stairs.Add(new Vector2I(82, 68));
+        var dests = new Godot.Collections.Array<Vector2I>();
+        dests.Add(new Vector2I(17, 13)); // Floor0Layout.ReturnSpawnFromFloor1
+
+        var index = FloorGraph.DestinationIndex(stairs, dests);
+
+        AssertThat(index.Count).IsEqual(1);
+        AssertThat(index[new Vector2I(82, 68)]).IsEqual(new Vector2I(17, 13));
+    }
+
+    [TestCase]
+    public void TestDestinationIndexHandlesMismatchedLengths()
+    {
+        // A .tres with more stairs than destinations (or vice versa) must not
+        // throw — only the index-aligned prefix is mapped.
+        var stairs = new Godot.Collections.Array<Vector2I>();
+        stairs.Add(new Vector2I(1, 1));
+        stairs.Add(new Vector2I(2, 2));
+        var dests = new Godot.Collections.Array<Vector2I>();
+        dests.Add(new Vector2I(9, 9));
+
+        var index = FloorGraph.DestinationIndex(stairs, dests);
+
+        AssertThat(index.Count).IsEqual(1);
+        AssertThat(index.ContainsKey(new Vector2I(2, 2))).IsFalse();
+    }
 }

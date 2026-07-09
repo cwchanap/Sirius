@@ -84,13 +84,6 @@ public static class FloorResourceSyncService
         return arr;
     }
 
-    // Search order: +1x first to match the PlayerStart = DownStair +1x
-    // convention, then the other cardinal directions.
-    private static readonly Vector2I[] OffStairOffsets =
-    {
-        new(1, 0), new(-1, 0), new(0, 1), new(0, -1),
-    };
-
     private static HashSet<Vector2I> BuildWalkableSet(FloorJsonModel model)
     {
         var walls = (model.TileLayers.GetValueOrDefault("wall") ?? new List<TileData>())
@@ -111,21 +104,7 @@ public static class FloorResourceSyncService
 
     private static Vector2I OffStairSpawn(
         Vector2I stair, HashSet<Vector2I> walkable, HashSet<Vector2I> stairCells)
-    {
-        foreach (var off in OffStairOffsets)
-        {
-            var candidate = stair + off;
-            if (walkable.Contains(candidate) && !stairCells.Contains(candidate))
-                return candidate;
-        }
-        // Last resort: no adjacent walkable non-stair cell. Keep the stair
-        // position so a destination entry exists, but this will bounce — push a
-        // warning so the generator output flags the layout issue.
-        GD.PushWarning(
-            $"FloorResourceSyncService: no off-stair walkable cell adjacent to stair {stair}; " +
-            "destination will spawn on the stair (bounce risk).");
-        return stair;
-    }
+        => FloorGraph.FindOffStairSpawn(stair, stairCells, walkable.Contains, "FloorResourceSyncService");
 
     private static Godot.Collections.Array<Vector2I> PreserveOrFallback(
         Godot.Collections.Array<Vector2I> existing, List<Vector2I> fallback)

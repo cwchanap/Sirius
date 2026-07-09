@@ -173,7 +173,11 @@ public static class Floor1Layout
         (new(49, 9), new(49, 5)),
         (new(53, 35), new(47, 35)),
         (new(56, 30), new(56, 36)),
-        (new(28, 50), new(35, 55)),
+        // Ends at (35,54) — the OrcSouthBend enemy spawn — not (35,55).
+        // CarvePath routes H-then-V, so (28,50)→(35,54) carves (28..35,50)
+        // and (35,50..54); (35,55) is never carved, keeping the branch a
+        // dead-end capped one cell short of the y=56 shortcut corridor.
+        (new(28, 50), new(35, 54)),
         (new(7, 42), new(2, 42)),
         (new(12, 49), new(5, 54)),
         (new(38, 12), new(38, 7)),
@@ -268,7 +272,6 @@ public static class Floor1Layout
         new(53, 16),
         new(54, 16),
         new(19, 8),
-        new(35, 55),
         new(25, 56),
     };
 }

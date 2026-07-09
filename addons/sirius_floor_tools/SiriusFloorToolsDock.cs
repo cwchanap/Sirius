@@ -96,11 +96,23 @@ public partial class SiriusFloorToolsDock : Control
 
     private void DoGenerate()
     {
-        var result = FloorSceneWriter.Generate(SelectedFloor, new FloorSyncOptions());
-        Log(result.Summary);
-        foreach (var issue in result.Validation.Issues)
-            Log($"  {(issue.Severity == Severity.Error ? "[x]" : "[!]")} {issue.Code}: {issue.Message}");
-        EditorInterface.Singleton?.GetResourceFilesystem()?.Scan();
+        try
+        {
+            var result = FloorSceneWriter.Generate(SelectedFloor, new FloorSyncOptions());
+            Log(result.Summary);
+            foreach (var issue in result.Validation.Issues)
+                Log($"  {(issue.Severity == Severity.Error ? "[x]" : "[!]")} {issue.Code}: {issue.Message}");
+            EditorInterface.Singleton?.GetResourceFilesystem()?.Scan();
+        }
+        catch (Exception ex)
+        {
+            // FloorSceneWriter.Generate can throw (e.g. SupplementalEnemyPlanner
+            // throws InvalidOperationException when a layout edit shrinks walkable
+            // space below the supplemental-enemy budget). Without this catch the
+            // exception escapes the editor signal callback and aborts silently
+            // with no user-visible message. Mirrors FloorCli.Run's catch.
+            Log($"[x] Generate failed: {ex.Message}");
+        }
     }
 
     private void OnValidate()
@@ -128,11 +140,8 @@ public partial class SiriusFloorToolsDock : Control
         // Guard against cross-floor corruption: the open scene's grid contents would
         // be written to the selected floor's JSON path. Abort on mismatch.
         int openFloor = FloorRegistry.FindByScenePath(scene.SceneFilePath);
-        if (openFloor != SelectedFloor)
-        {
-            Log($"[x] Aborted: open scene is {(openFloor == -1 ? "not a floor" : $"floor {openFloor}")} but selected floor is {SelectedFloor}. Export would write the wrong grid to {paths.JsonPath}.");
-            return;
-        }
+        var abort = FloorDockGuard.MismatchAbortMessage(openFloor, SelectedFloor, $"Export would write the wrong grid to {paths.JsonPath}.");
+        if (abort != null) { Log(abort); return; }
         Confirm("Export JSON",
             $"Overwrite {paths.JsonPath} with the open scene's grid contents?",
             DoExportJson);
@@ -140,14 +149,21 @@ public partial class SiriusFloorToolsDock : Control
 
     private void DoExportJson()
     {
-        var paths = FloorRegistry.Get(SelectedFloor);
-        var scene = EditorInterface.Singleton?.GetEditedSceneRoot();
-        var gridMap = scene?.GetNodeOrNull<GridMap>("GridMap");
-        if (gridMap == null) { Log("Open a floor scene to export."); return; }
-        var exporter = new TilemapJsonExporter();
-        exporter.ExportToFile(gridMap, paths.JsonPath);
-        Log($"Exported JSON to {paths.JsonPath}");
-        EditorInterface.Singleton?.GetResourceFilesystem()?.Scan();
+        try
+        {
+            var paths = FloorRegistry.Get(SelectedFloor);
+            var scene = EditorInterface.Singleton?.GetEditedSceneRoot();
+            var gridMap = scene?.GetNodeOrNull<GridMap>("GridMap");
+            if (gridMap == null) { Log("Open a floor scene to export."); return; }
+            var exporter = new TilemapJsonExporter();
+            exporter.ExportToFile(gridMap, paths.JsonPath);
+            Log($"Exported JSON to {paths.JsonPath}");
+            EditorInterface.Singleton?.GetResourceFilesystem()?.Scan();
+        }
+        catch (Exception ex)
+        {
+            Log($"[x] Export failed: {ex.Message}");
+        }
     }
 
     private void OnImportJsonPressed()
@@ -159,11 +175,8 @@ public partial class SiriusFloorToolsDock : Control
         // Guard against cross-floor corruption: the selected floor's JSON would be
         // imported into the open scene's grid. Abort on mismatch.
         int openFloor = FloorRegistry.FindByScenePath(scene.SceneFilePath);
-        if (openFloor != SelectedFloor)
-        {
-            Log($"[x] Aborted: open scene is {(openFloor == -1 ? "not a floor" : $"floor {openFloor}")} but selected floor is {SelectedFloor}. Import would pour {paths.JsonPath} into the wrong scene.");
-            return;
-        }
+        var abort = FloorDockGuard.MismatchAbortMessage(openFloor, SelectedFloor, $"Import would pour {paths.JsonPath} into the wrong scene.");
+        if (abort != null) { Log(abort); return; }
         Confirm("Import JSON",
             $"Import {paths.JsonPath} into the open scene's grid?\nThis replaces the current grid contents in the editor (save the scene afterwards to persist).",
             DoImportJson);
@@ -171,13 +184,20 @@ public partial class SiriusFloorToolsDock : Control
 
     private void DoImportJson()
     {
-        var paths = FloorRegistry.Get(SelectedFloor);
-        var scene = EditorInterface.Singleton?.GetEditedSceneRoot();
-        var gridMap = scene?.GetNodeOrNull<GridMap>("GridMap");
-        if (gridMap == null) { Log("Open a floor scene to import into."); return; }
-        var importer = new TilemapJsonImporter();
-        var err = importer.ImportFromFile(paths.JsonPath, gridMap);
-        Log(err == Error.Ok ? $"Imported from {paths.JsonPath}" : $"Import failed: {err}");
+        try
+        {
+            var paths = FloorRegistry.Get(SelectedFloor);
+            var scene = EditorInterface.Singleton?.GetEditedSceneRoot();
+            var gridMap = scene?.GetNodeOrNull<GridMap>("GridMap");
+            if (gridMap == null) { Log("Open a floor scene to import into."); return; }
+            var importer = new TilemapJsonImporter();
+            var err = importer.ImportFromFile(paths.JsonPath, gridMap);
+            Log(err == Error.Ok ? $"Imported from {paths.JsonPath}" : $"Import failed: {err}");
+        }
+        catch (Exception ex)
+        {
+            Log($"[x] Import failed: {ex.Message}");
+        }
     }
 
     private void OnBakeSavePressed()
@@ -191,28 +211,35 @@ public partial class SiriusFloorToolsDock : Control
 
     private void DoBakeSave()
     {
-        var scene = EditorInterface.Singleton?.GetEditedSceneRoot();
-        if (scene == null) { Log("No scene open to save."); return; }
-        // ResourceSaver strips file-level UIDs on re-save; capture before and restore
-        // after, mirroring FloorSceneWriter's guard. Game.tscn references Floor*.tres
-        // by UID, so stripping breaks reference stability.
-        var uidSnap = UidPreserver.Capture(scene.SceneFilePath);
-        var packed = new PackedScene();
-        var packErr = packed.Pack(scene);
-        if (packErr != Error.Ok)
+        try
         {
-            Log($"[x] Failed to pack scene: {packErr}");
-            return;
+            var scene = EditorInterface.Singleton?.GetEditedSceneRoot();
+            if (scene == null) { Log("No scene open to save."); return; }
+            // ResourceSaver strips file-level UIDs on re-save; capture before and restore
+            // after, mirroring FloorSceneWriter's guard. Game.tscn references Floor*.tres
+            // by UID, so stripping breaks reference stability.
+            var uidSnap = UidPreserver.Capture(scene.SceneFilePath);
+            var packed = new PackedScene();
+            var packErr = packed.Pack(scene);
+            if (packErr != Error.Ok)
+            {
+                Log($"[x] Failed to pack scene: {packErr}");
+                return;
+            }
+            var saveErr = ResourceSaver.Save(packed, scene.SceneFilePath);
+            if (saveErr != Error.Ok)
+            {
+                Log($"[x] Failed to save scene: {saveErr}");
+                return;
+            }
+            UidPreserver.Restore(scene.SceneFilePath, uidSnap);
+            EditorInterface.Singleton?.GetResourceFilesystem()?.Scan();
+            Log($"Saved scene {scene.SceneFilePath}");
         }
-        var saveErr = ResourceSaver.Save(packed, scene.SceneFilePath);
-        if (saveErr != Error.Ok)
+        catch (Exception ex)
         {
-            Log($"[x] Failed to save scene: {saveErr}");
-            return;
+            Log($"[x] Bake/Save failed: {ex.Message}");
         }
-        UidPreserver.Restore(scene.SceneFilePath, uidSnap);
-        EditorInterface.Singleton?.GetResourceFilesystem()?.Scan();
-        Log($"Saved scene {scene.SceneFilePath}");
     }
 
     private void Log(string message)

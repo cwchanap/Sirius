@@ -55,19 +55,35 @@ addons/sirius_floor_tools/
   SiriusFloorToolsPlugin.cs           [Tool] EditorPlugin: add/remove dock
   SiriusFloorToolsDock.tscn           dock UI scene (Control)
   SiriusFloorToolsDock.cs             [Tool] dock controller - thin; delegates to services
+  FloorDockGuard.cs                   pure cross-floor mismatch guard (extracted for unit tests)
 
-scripts/floor_tools/                  namespace Sirius.FloorTools - reusable, testable, headless-safe
+scripts/data/floors/                  layout data + shared registry (namespace: global)
+  Floor0Layout.cs / Floor1Layout.cs / Floor2Layout.cs / Floor3Layout.cs
+  LayoutSpecs.cs                      per-floor layout spec (size, player start, areas)
+  FloorRegistry.cs                    floor number -> .tscn/.tres/.json paths (shared by dock, CLI, tests)
+  EnemySpec.cs                        supplemental-enemy placement spec record
+
+scripts/game/floors/                  namespace Sirius.FloorTools - reusable, testable, headless-safe
   FloorGenerationService.cs           ports Python maze builders -> FloorJsonModel
   MazeBuilder.cs                      ports Python MazeBuilder (carve_cell/rect/corridor/loop)
   FloorValidationService.cs           ports validate_model -> ValidationResult (issues list)
   FloorResourceSyncService.cs         typed FloorDefinition .tres updates (replaces regex)
   FloorSceneWriter.cs                 orchestrator: model -> importer + resource sync + save scene
-  FloorRegistry.cs                    floor number -> .tscn/.tres/.json paths (shared by dock, CLI, tests)
   FloorCli.cs                         static entry invoked by the headless GDScript
+  FloorEntityBuilders.cs              entity-record construction helpers
+  FloorGraph.cs                       walkable-cell graph / reachability helpers
+  SupplementalEnemyPlanner.cs         deterministic supplemental-enemy placement
+  UidPreserver.cs                     capture/restore file-level UIDs across scene saves
+  AtomicFileWriter.cs                 temp -> rename atomic write
   ValidationResult.cs / ValidationIssue.cs
 
 tools/generate_floor.gd               headless entry: --floor N -> generate+validate+scene+.tres+json
 ```
+
+> **Note:** the original spec proposed a single `scripts/floor_tools/` directory.
+> The implementation split it into `scripts/data/floors/` (layout data + registry)
+> and `scripts/game/floors/` (generation logic + services) to match the existing
+> `scripts/data` vs `scripts/game` convention.
 
 ### Data flow
 
@@ -178,7 +194,7 @@ Two co-existing authoring flows for agents (both headless):
 
 Agent skill and docs update (`.codex/skills/generate-sirius-floor/SKILL.md` + `references/sirius-floor-workflow.md`):
 
-- Step 4 ("Add or adapt a generator in `tools/`, cover with Python tests") becomes "Edit `FloorGenerationService` (C#); regenerate via the headless CLI; cover with C# parity tests under `tests/floor_tools/`."
+- Step 4 ("Add or adapt a generator in `tools/`, cover with Python tests") becomes "Edit `FloorGenerationService` (C#); regenerate via the headless CLI; cover with C# parity tests under `tests/game/floors/`."
 - Step 5 ("Import with `tilemap_json_sync.py`") becomes "Regenerate via `generate_floor.gd`; no separate import for generation."
 - Verification commands swap `python3 -m unittest tests.tools.test_<gen>` for `dotnet test --filter "~FloorGeneration"`.
 
@@ -186,21 +202,35 @@ Python deprecation: `tools/floor0_maze_generator.py`, `tools/floor1_maze_generat
 
 ## Testing and Parity
 
+> **Status (implemented):** the cutover is complete. Committed `Floor*.json` is now
+> generated from C#, and `FloorGenerationParityTest` is a **C#↔C# determinism /
+> regression gate** (generated model vs committed JSON baseline), **not** a
+> Python-parity gate. The deprecated Python generators in `tools/` are frozen as
+> historical reference and are NOT kept in parity with subsequent C# changes (see
+> `CLAUDE.md` "Floor generation: PlayerStart deviation from Python"). The
+> PlayerStart +1 x shift is an intentional, ratified deviation from the Python
+> constants.
+
 Parity gate = deserialize-and-deep-equal, for each of GF/1F/2F/3F:
 
 - **Metadata**: `floor_name`, `floor_number`, `description`, `player_start{x,y}` - exact.
 - **Tile layers** (ground/wall/stair): compare as cell-multisets keyed by `(x, y, tile_name, alt)` - order-independent, catches any missing/extra/wrong tile.
 - **Entities** (all 8 types): compare as `id -> full-record` maps - catches any missing/extra/mis-fielded entity; duplicate-id detection falls out for free.
 
-The golden reference is the currently committed Python-authored `Floor*.json`. When the gate is green, the C# generator provably reproduces the Python output. Committed JSON is then regenerated from C# (cosmetic key-order shift, identical content).
+The golden reference is the committed `Floor*.json` (now C#-generated). The gate
+locks the generated model to the committed baseline so any non-deterministic or
+accidental drift in `FloorGenerationService` is caught.
 
-Test files under `tests/floor_tools/`:
+Test files under `tests/game/floors/` and `tests/data/floors/`:
 
-- `FloorGenerationParityTest.cs` - the cutover gate (single most important test).
-- `MazeBuilderTest.cs` - carve operations produce expected wall sets (ports key Python assertions).
-- `FloorValidationServiceTest.cs` - valid model -> no errors; inject defects (disconnected cell, entity overlap, closed gate on start, unrewarded dead-end, unknown item id, empty puzzle_id) -> expected error codes.
-- `FloorResourceSyncServiceTest.cs` - apply to a temp `FloorDefinition`, assert typed fields match the values the Python regex produced.
-- `FloorSceneWriterTest.cs` - end-to-end into a temp scene: model -> importer -> `.tres` -> pack; assert layer cell counts and entity node presence.
+- `tests/game/floors/FloorGenerationParityTest.cs` - the determinism/regression gate (single most important test).
+- `tests/game/floors/FloorGraphTest.cs` - walkable-cell graph / reachability helpers.
+- `tests/game/floors/FloorValidationServiceTest.cs` - valid model -> no errors; inject defects (disconnected cell, entity overlap, closed gate on start, unrewarded dead-end, unknown item id, empty puzzle_id) -> expected error codes.
+- `tests/game/floors/FloorResourceSyncServiceTest.cs` - apply to a temp `FloorDefinition`, assert typed fields match the values the Python regex produced.
+- `tests/game/floors/FloorSceneWriterTest.cs` / `FloorSceneRoundTripTest.cs` - end-to-end into a temp scene: model -> importer -> `.tres` -> pack; assert layer cell counts and entity node presence.
+- `tests/game/floors/FloorCliTest.cs` - CLI arg parsing (pure, no Godot I/O).
+- `tests/data/floors/FloorRegistryTest.cs` - floor number -> path resolution + `FindByScenePath`.
+- `tests/addon/FloorDockGuardTest.cs` - cross-floor mismatch guard (pure helper extracted from the editor dock).
 
 Unchanged, must stay green: `TilemapJsonImporterTest`, `TilemapJsonExporterTest`, `FloorJsonModelTest`, `TileConfigManagerTest`, and the scene-level `tests/game/Floor*LayoutTest.cs` (these run against regenerated scenes and are the runtime-correctness gate: counts, stair visibility, reachability, treasure/puzzle behavior).
 

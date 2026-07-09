@@ -39,11 +39,18 @@ public static class FloorValidationService
         if (disconnected.Count > 0)
             result.Error("DisconnectedCells", $"Disconnected walkable cells: {Format(disconnected.Take(5))}");
 
-        // Entity id/overlap/walkable/reachable checks
+        // Entity id/overlap/walkable/reachable checks.
+        // EntityGroups is materialized once here and reused for the dead-end
+        // payoff check below — re-enumerating it would re-run View() and
+        // duplicate UnrecognizedEntityType warnings for the same entities.
+        var entityGroups = EntityGroups(model, result).ToList();
         var seenIds = new Dictionary<string, string>();
         var occupied = new Dictionary<Vector2I, string>();
         var goals = new List<Vector2I>();
-        foreach (var (key, entities) in EntityGroups(model, result))
+        // Payoff positions for the dead-end check: every entity type except
+        // npc_spawns (NPCs are not a "reward" that justifies a dead-end branch).
+        var payoff = new HashSet<Vector2I>();
+        foreach (var (key, entities) in entityGroups)
         {
             foreach (var e in entities)
             {
@@ -62,6 +69,8 @@ public static class FloorValidationService
                     result.Error("EntityOverlap", $"Entity position {pos} overlaps {key} and {occupier}");
                 occupied[pos] = key;
                 goals.Add(pos);
+                if (key != "npc_spawns")
+                    payoff.Add(pos);
 
                 // Invalid puzzle identity (non-treasure, non-stair puzzle-bearing entities)
                 if (IsPuzzleEntity(key) && string.IsNullOrWhiteSpace(e.PuzzleId))
@@ -86,7 +95,7 @@ public static class FloorValidationService
 
         // Unrewarded dead-end branches (floor 1, 2)
         if (model.Metadata.FloorNumber is 1 or 2)
-            ValidateDeadEnds(model, walkable, width, height, result);
+            ValidateDeadEnds(walkable, width, height, payoff, result);
 
         return result;
     }
@@ -146,16 +155,8 @@ public static class FloorValidationService
         }
     }
 
-    private static void ValidateDeadEnds(FloorJsonModel model, HashSet<Vector2I> walkable, int width, int height, ValidationResult result)
+    private static void ValidateDeadEnds(HashSet<Vector2I> walkable, int width, int height, HashSet<Vector2I> payoff, ValidationResult result)
     {
-        var payoff = new HashSet<Vector2I>();
-        foreach (var (key, entities) in EntityGroups(model, result))
-        {
-            if (key == "npc_spawns") continue;
-            foreach (var e in entities)
-                payoff.Add(e.Position);
-        }
-
         foreach (var branch in FloorGraph.DeadEndBranches(walkable, width, height))
         {
             var adjacent = new HashSet<Vector2I>();

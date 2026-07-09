@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -92,5 +93,40 @@ public static class FloorGraph
             branches.Add(branch);
         }
         return branches;
+    }
+
+    // Search order: +1x first to match the PlayerStart = DownStair +1x
+    // convention, then the other cardinal directions. Shared by runtime
+    // (GridMap.FindOffStairSpawn) and offline .tres generation
+    // (FloorResourceSyncService.OffStairSpawn) so the +1x-first order,
+    // wall/stair exclusions, and stair-cell fallback stay identical across
+    // both paths — diverging one would desync baked destinations from
+    // runtime spawn resolution.
+    public static readonly Vector2I[] OffStairOffsets =
+    {
+        new(1, 0), new(-1, 0), new(0, 1), new(0, -1),
+    };
+
+    // isWalkable encapsulates the caller's bounds/grid check (GridMap uses its
+    // live _grid array; FloorResourceSyncService uses a derived HashSet) so the
+    // shared helper stays agnostic to the walkability representation.
+    public static Vector2I FindOffStairSpawn(
+        Vector2I stair,
+        HashSet<Vector2I> stairCells,
+        Func<Vector2I, bool> isWalkable,
+        string caller = "FloorGraph")
+    {
+        foreach (var off in OffStairOffsets)
+        {
+            var candidate = stair + off;
+            if (isWalkable(candidate) && !stairCells.Contains(candidate))
+                return candidate;
+        }
+        // Last resort: no adjacent walkable non-stair cell. Keep the stair
+        // position so a destination entry exists, but this will bounce.
+        GD.PushWarning(
+            $"{caller}: no off-stair walkable cell adjacent to stair {stair}; " +
+            "destination will spawn on the stair (bounce risk).");
+        return stair;
     }
 }

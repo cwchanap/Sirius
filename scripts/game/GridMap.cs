@@ -1,4 +1,5 @@
 using Godot;
+using Sirius.FloorTools;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -2300,30 +2301,15 @@ public partial class GridMap : Node2D
         }
     }
 
-    // Search order: +1x first to match the PlayerStart = DownStair +1x
-    // convention, then the other cardinal directions.
-    private static readonly Vector2I[] OffStairOffsets =
-    {
-        new(1, 0), new(-1, 0), new(0, 1), new(0, -1),
-    };
-
+    // Off-stair spawn search delegates to FloorGraph.FindOffStairSpawn so the
+    // +1x-first offset order, wall/stair exclusions, and stair-cell fallback
+    // stay identical to offline .tres generation (FloorResourceSyncService).
+    // The walkability predicate wraps GridMap's live _grid array + bounds check.
     private Vector2I FindOffStairSpawn(Vector2I stair, HashSet<Vector2I> stairCells)
-    {
-        foreach (var off in OffStairOffsets)
-        {
-            var candidate = stair + off;
-            if (IsWithinGrid(candidate)
-                && _grid[candidate.X, candidate.Y] != (int)CellType.Wall
-                && !stairCells.Contains(candidate))
-                return candidate;
-        }
-        // Last resort: no adjacent walkable non-stair cell. Keep the stair
-        // position so a destination entry exists, but this will bounce.
-        GD.PushWarning(
-            $"GridMap: no off-stair walkable cell adjacent to stair {stair}; " +
-            "destination will spawn on the stair (bounce risk).");
-        return stair;
-    }
+        => FloorGraph.FindOffStairSpawn(
+            stair, stairCells,
+            c => IsWithinGrid(c) && _grid[c.X, c.Y] != (int)CellType.Wall,
+            "GridMap");
     
     /// <summary>
     /// Resolve stair destination by finding matching stair on target floor

@@ -70,7 +70,17 @@ public static class FloorSceneWriter
             if (gridMap == null)
                 return new FloorSceneResult(false, validation, "Scene missing GridMap node");
             var importer = new TilemapJsonImporter();
-            importer.ImportToScene(model, gridMap);
+            var importErr = importer.ImportToScene(model, gridMap);
+            if (importErr != Error.Ok)
+            {
+                // ImportToScene returns non-OK when the tile config is missing or
+                // the generated model contains an unmapped tile. By that point it
+                // has already cleared/partially imported layers, so proceeding to
+                // pack/save would commit a stale or partially empty scene and sync
+                // the .tres/JSON as a success. Abort before any file is written.
+                return new FloorSceneResult(false, validation,
+                    $"Import failed ({importErr}): scene not committed");
+            }
 
             // Pack the scene BEFORE any save so a pack failure (the most likely
             // failure point) returns early without having committed any file.

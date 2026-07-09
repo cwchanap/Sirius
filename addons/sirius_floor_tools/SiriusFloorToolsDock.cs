@@ -54,6 +54,17 @@ public partial class SiriusFloorToolsDock : Control
         }
     }
 
+    // Load the FloorDefinition (.tres) for a floor index. Used by Validate and
+    // Export JSON so ExportMetadata fills floor_number and player_start from the
+    // def rather than leaving them at defaults (0 / null). Ignore-cached so a
+    // freshly-edited .tres in the editor is picked up without a filesystem scan.
+    private static FloorDefinition LoadFloorDefinition(int floorNumber)
+    {
+        var paths = FloorRegistry.Get(floorNumber);
+        return ResourceLoader.Load<FloorDefinition>(paths.DefPath,
+            cacheMode: ResourceLoader.CacheMode.Ignore);
+    }
+
     // Pops the confirmation dialog. The destructive action runs only after the
     // user accepts. Pre-flight aborts (no scene, mismatch) happen before this so
     // we never prompt for an action that would immediately bail out.
@@ -122,8 +133,18 @@ public partial class SiriusFloorToolsDock : Control
         var gridMap = scene.GetNodeOrNull<GridMap>("GridMap");
         if (gridMap == null) { Log("Open a floor scene (no GridMap found)."); return; }
 
+        // ExportScene fills FloorMetadata (floor_number, player_start) from the
+        // FloorDefinition; without it, player_start is null and
+        // FloorValidationService.Validate dereferences it (NRE) on Floor1/2/3.
+        // Require a registered floor so the def can be loaded.
+        int openFloor = FloorRegistry.FindByScenePath(scene.SceneFilePath);
+        if (openFloor == -1) { Log("Open a registered floor scene to validate."); return; }
+        var floorDef = LoadFloorDefinition(openFloor);
+        if (floorDef == null) { Log($"[x] Failed to load FloorDefinition for floor {openFloor}."); return; }
+
         var exporter = new TilemapJsonExporter();
-        var model = exporter.ExportScene(gridMap);
+        var model = exporter.ExportScene(gridMap, floorDef);
+        if (model == null) { Log("[x] Export returned null (tile config load failed)."); return; }
         var (w, h) = (gridMap.GridWidth, gridMap.GridHeight);
         var result = FloorValidationService.Validate(model, w, h);
         Log(result.HasErrors ? "Validation FAILED" : "Validation passed");
@@ -155,9 +176,15 @@ public partial class SiriusFloorToolsDock : Control
             var scene = EditorInterface.Singleton?.GetEditedSceneRoot();
             var gridMap = scene?.GetNodeOrNull<GridMap>("GridMap");
             if (gridMap == null) { Log("Open a floor scene to export."); return; }
+            // Pass the FloorDefinition so ExportMetadata fills floor_number and
+            // player_start. Without it the exported JSON has floor_number=0 and
+            // player_start=null, which would overwrite Floor1/2/3 baselines with
+            // invalid metadata.
+            var floorDef = LoadFloorDefinition(SelectedFloor);
+            if (floorDef == null) { Log($"[x] Failed to load FloorDefinition for floor {SelectedFloor}."); return; }
             var exporter = new TilemapJsonExporter();
-            exporter.ExportToFile(gridMap, paths.JsonPath);
-            Log($"Exported JSON to {paths.JsonPath}");
+            var err = exporter.ExportToFile(gridMap, paths.JsonPath, floorDef);
+            Log(err == Error.Ok ? $"Exported JSON to {paths.JsonPath}" : $"[x] Export failed: {err}");
             EditorInterface.Singleton?.GetResourceFilesystem()?.Scan();
         }
         catch (Exception ex)

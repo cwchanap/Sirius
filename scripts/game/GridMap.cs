@@ -2328,10 +2328,18 @@ public partial class GridMap : Node2D
     // +1x-first offset order, wall/stair exclusions, and stair-cell fallback
     // stay identical to offline .tres generation (FloorResourceSyncService).
     // The walkability predicate wraps GridMap's live _grid array + bounds check.
+    // stair and stairCells are in tilemap coordinates (matching StairConnection.
+    // GridPosition and the offline path); the candidate cell is converted to
+    // internal grid coordinates at the _grid indexing boundary via _tilemapOrigin
+    // so the bounds/wall check uses the correct coordinate space.
     private Vector2I FindOffStairSpawn(Vector2I stair, HashSet<Vector2I> stairCells)
         => FloorGraph.FindOffStairSpawn(
             stair, stairCells,
-            c => IsWithinGrid(c) && _grid[c.X, c.Y] != (int)CellType.Wall,
+            c =>
+            {
+                var g = TilemapToInternalGrid(c);
+                return IsWithinGrid(g) && _grid[g.X, g.Y] != (int)CellType.Wall;
+            },
             "GridMap");
     
     /// <summary>

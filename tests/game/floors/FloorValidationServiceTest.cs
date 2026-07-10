@@ -290,9 +290,38 @@ public partial class FloorValidationServiceTest
     public void TestInBoundsTilesNotFlagged()
     {
         // Tiles at the edges of the footprint (width-1, height-1) are valid.
+        // An entity placed on the footprint boundary (2,2) must also be accepted
+        // — it is within [0,3) x [0,3) and should not trigger EntityOutOfBounds.
         var model = ModelWithGround(new[] { (0, 0), (1, 0), (1, 1), (2, 2) }, 0, 0);
+        model.Entities.EnemySpawns = new()
+        {
+            new() { Id = "boundary", Position = new Vector2IData(2, 2), EnemyType = "goblin" },
+        };
         var result = FloorValidationService.Validate(model, 3, 3);
         AssertThat(result.Issues.Any(i => i.Code == "TileOutOfBounds")).IsFalse();
         AssertThat(result.Issues.Any(i => i.Code == "EntityOutOfBounds")).IsFalse();
+    }
+
+    [TestCase]
+    public void TestNullPlayerStartReported()
+    {
+        // A JSON-deserialized model may have Metadata.PlayerStart == null (no
+        // "player_start" key). Validate must report MissingPlayerStart instead
+        // of NRE-ing on the ToVector2I() dereference.
+        var model = new FloorJsonModel
+        {
+            Metadata = new() { PlayerStart = null },
+        };
+        model.TileLayers["ground"] = new() { new(0, 0, "starting_area") };
+        model.TileLayers["wall"] = new();
+        model.Entities = new SceneEntities
+        {
+            EnemySpawns = new(), NpcSpawns = new(), TreasureBoxes = new(),
+            TrapTiles = new(), PuzzleSwitches = new(), PuzzleGates = new(),
+            PuzzleRiddles = new(), StairConnections = new(), HiddenPlaceholders = new(),
+        };
+        var result = FloorValidationService.Validate(model, 1, 1);
+        AssertThat(result.HasErrors).IsTrue();
+        AssertThat(result.Issues.Any(i => i.Code == "MissingPlayerStart")).IsTrue();
     }
 }

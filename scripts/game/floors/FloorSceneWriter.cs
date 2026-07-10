@@ -113,6 +113,9 @@ public static class FloorSceneWriter
             string sceneTempPath = null;
             string defTempPath = null;
             string jsonTempPath = null;
+            string sceneBackupPath = null;
+            string defBackupPath = null;
+            string jsonBackupPath = null;
             try
             {
                 // 1. Stage scene to temp (UIDs restored on temp before move).
@@ -138,24 +141,68 @@ public static class FloorSceneWriter
                 }
 
                 // Commit phase: move all staged temps into their final paths.
-                // Ordered scene → def → JSON. If a move throws (locked target
-                // on Windows), earlier moves may have already committed — but
-                // the window is near-instant compared to the previous design
-                // where saves (slow) happened between commits.
-                if (sceneTempPath != null)
-                    CommitResourceTemp(sceneTempPath, outScenePath);
-                if (defTempPath != null)
-                    CommitResourceTemp(defTempPath, outDefPath);
-                if (jsonTempPath != null)
-                    CommitJsonTemp(jsonTempPath, outJsonPath);
+                // Ordered scene → def → JSON. Before committing, snapshot the
+                // existing targets to backup temps so a mid-commit throw (locked
+                // target on Windows) can roll back already-committed files to
+                // their pre-run state — otherwise the generated .tscn/.tres/.json
+                // would be left out of sync despite a reported failure.
+                sceneBackupPath = BackupTarget(outScenePath);
+                defBackupPath = defTempPath != null ? BackupTarget(outDefPath) : null;
+                jsonBackupPath = jsonTempPath != null ? BackupTarget(outJsonPath) : null;
+                bool sceneCommitted = false, defCommitted = false, jsonCommitted = false;
+                try
+                {
+                    if (sceneTempPath != null)
+                    {
+                        CommitResourceTemp(sceneTempPath, outScenePath);
+                        sceneCommitted = true;
+                    }
+                    if (defTempPath != null)
+                    {
+                        CommitResourceTemp(defTempPath, outDefPath);
+                        defCommitted = true;
+                    }
+                    if (jsonTempPath != null)
+                    {
+                        CommitJsonTemp(jsonTempPath, outJsonPath);
+                        jsonCommitted = true;
+                    }
+                    // All commits succeeded — backups are no longer needed.
+                    CleanupBackup(sceneBackupPath);
+                    CleanupBackup(defBackupPath);
+                    CleanupBackup(jsonBackupPath);
+                }
+                catch (System.Exception)
+                {
+                    // A move threw mid-commit. Roll back every file that was
+                    // already committed to its pre-run state so the on-disk
+                    // artifacts are not left partially updated. Then clean up
+                    // any uncommitted temps and remaining backups.
+                    if (sceneCommitted) RestoreBackup(sceneBackupPath, outScenePath);
+                    if (defCommitted) RestoreBackup(defBackupPath, outDefPath);
+                    if (jsonCommitted) RestoreBackup(jsonBackupPath, outJsonPath);
+                    CleanupTemp(sceneTempPath);
+                    CleanupTemp(defTempPath);
+                    CleanupTemp(jsonTempPath);
+                    CleanupBackup(sceneBackupPath);
+                    CleanupBackup(defBackupPath);
+                    CleanupBackup(jsonBackupPath);
+                    throw;
+                }
             }
             catch (System.Exception ex)
             {
-                // A move threw during the commit phase. Clean up any uncommitted
-                // temps so they don't linger as working-tree noise.
+                // Staging failure (temps exist, no backups yet) or commit failure
+                // (inner catch already rolled back committed files and cleaned up).
+                // Clean up any lingering temps/backups so they don't litter the
+                // working tree, then surface the failure. On-disk artifacts are
+                // either untouched (staging failure) or restored (commit failure).
                 CleanupTemp(sceneTempPath);
                 CleanupTemp(defTempPath);
                 CleanupTemp(jsonTempPath);
+                CleanupBackup(sceneBackupPath);
+                CleanupBackup(defBackupPath);
+                CleanupBackup(jsonBackupPath);
                 return new FloorSceneResult(false, validation, $"Failed to commit floor artifacts: {ex.Message}");
             }
         }
@@ -324,6 +371,49 @@ public static class FloorSceneWriter
         if (File.Exists(tempAbs)) File.Delete(tempAbs);
         string uidTmp = tempAbs + ".uidtmp";
         if (File.Exists(uidTmp)) File.Delete(uidTmp);
+    }
+
+    /// <summary>
+    /// Copy an existing target file to a sibling .bak path so the commit
+    /// phase can roll back if a later move fails. Returns the res:// path
+    /// of the backup, or null if the target does not exist (new file).
+    /// </summary>
+    private static string BackupTarget(string resPath)
+    {
+        string abs = ProjectSettings.GlobalizePath(resPath);
+        if (!File.Exists(abs)) return null;
+        string bakAbs = abs + ".bak";
+        File.Copy(abs, bakAbs, overwrite: true);
+        return ProjectSettings.LocalizePath(bakAbs);
+    }
+
+    /// <summary>
+    /// Restore a target from its backup (move, overwriting the committed
+    /// file). Called during rollback when a mid-commit failure left an
+    /// earlier file already committed. If the backup is null the target
+    /// did not exist before the run — delete the committed file instead.
+    /// </summary>
+    private static void RestoreBackup(string backupResPath, string finalResPath)
+    {
+        string finalAbs = ProjectSettings.GlobalizePath(finalResPath);
+        if (backupResPath == null)
+        {
+            if (File.Exists(finalAbs)) File.Delete(finalAbs);
+            return;
+        }
+        string bakAbs = ProjectSettings.GlobalizePath(backupResPath);
+        File.Move(bakAbs, finalAbs, overwrite: true);
+    }
+
+    /// <summary>
+    /// Delete a backup file if it exists (cleanup after successful commit
+    /// or after rollback has already moved it back to the target).
+    /// </summary>
+    private static void CleanupBackup(string backupResPath)
+    {
+        if (backupResPath == null) return;
+        string bakAbs = ProjectSettings.GlobalizePath(backupResPath);
+        if (File.Exists(bakAbs)) File.Delete(bakAbs);
     }
 
     public static (int Width, int Height) DimensionsFor(int floorNumber) => floorNumber switch

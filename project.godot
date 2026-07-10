@@ -49,4 +49,4 @@ renderer/rendering_method="mobile"
 
 [editor_plugins]
 
-enabled=PackedStringArray()
+enabled=PackedStringArray("res://addons/sirius_floor_tools/plugin.cfg")

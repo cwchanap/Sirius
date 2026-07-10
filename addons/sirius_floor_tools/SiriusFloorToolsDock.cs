@@ -149,6 +149,18 @@ public partial class SiriusFloorToolsDock : Control
             foreach (var issue in result.Validation.Issues)
                 Log($"  {(issue.Severity == Severity.Error ? "[x]" : "[!]")} {issue.Code}: {issue.Message}");
             EditorInterface.Singleton?.GetResourceFilesystem()?.Scan();
+            // If the generated floor's scene is currently open in the editor, the
+            // in-memory EditedSceneRoot still points at the pre-generation grid.
+            // A subsequent Bake/Save or Export JSON would then operate on that
+            // stale grid and overwrite the freshly-generated artifacts. Reload the
+            // open scene from disk so the editor reflects the new .tscn contents.
+            var openScene = EditorInterface.Singleton?.GetEditedSceneRoot();
+            if (openScene != null
+                && FloorRegistry.FindByScenePath(openScene.SceneFilePath) == SelectedFloor)
+            {
+                EditorInterface.Singleton?.ReloadSceneFromPath(openScene.SceneFilePath);
+                Log($"Reloaded open scene {openScene.SceneFilePath} from disk.");
+            }
         }
         catch (Exception ex)
         {

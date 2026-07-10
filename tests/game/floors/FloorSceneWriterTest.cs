@@ -117,6 +117,30 @@ public partial class FloorSceneWriterTest
     }
 
     [TestCase]
+    public void TestGenerateDoesNotCommitSceneWhenDefLoadFails()
+    {
+        // The FloorDefinition .tres is pre-loaded BEFORE the scene is committed.
+        // If the .tres is missing/corrupt/locked, the method must abort without
+        // writing the scene — otherwise the scene and .tres are left out of sync
+        // after a reported failed run. This test points sourcePaths at the real
+        // Floor3F scene (valid GridMap) but a non-existent .tres, then asserts
+        // no .tscn file was written to the temp output dir.
+        var sourcePaths = new FloorPaths(
+            ScenePath: "res://scenes/game/floors/Floor3F.tscn",
+            DefPath: "res://resources/floors/NonExistent.tres",
+            JsonPath: "res://scenes/game/floors/Floor3F.json");
+
+        var result = FloorSceneWriter.Generate(3, new FloorSyncOptions(),
+            writeJson: false, syncDef: true, outputDir: _tempDir,
+            sourcePaths: sourcePaths);
+
+        AssertThat(result.Success).IsFalse();
+        AssertThat(result.Summary).Contains("FloorDefinition");
+        // The scene must NOT have been committed to the temp dir.
+        AssertThat(File.Exists(Path.Combine(_tempDir, "Floor3F.tscn"))).IsFalse();
+    }
+
+    [TestCase]
     public void TestGenerateIsIdempotentForUidPreservation()
     {
         // Running the generator twice must produce identical UID metadata

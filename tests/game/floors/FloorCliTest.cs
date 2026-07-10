@@ -103,4 +103,24 @@ public partial class FloorCliTest
         AssertThat(result.Args).IsNull();
         AssertThat(result.Error).IsNotNull();
     }
+
+    [TestCase]
+    public void TestFloorValueOverflowIsError()
+    {
+        // int.Parse throws OverflowException for values outside Int32 range.
+        // Without catching it, the exception escapes ParseArgs (called outside
+        // Run's try), Godot returns the default int (0), and generate_floor.gd
+        // exits status 0 — automation treats an invalid invocation as success.
+        var result = FloorCli.ParseArgs(new[] { "--floor", "999999999999" });
+        AssertThat(result.Args).IsNull();
+        AssertThat(result.Error).IsNotNull();
+    }
+
+    [TestCase]
+    public void TestStairDestOverflowIsError()
+    {
+        var result = FloorCli.ParseArgs(new[] { "--floor", "0", "--stair-dest", "999999999999,5" });
+        AssertThat(result.Args).IsNull();
+        AssertThat(result.Error).IsNotNull();
+    }
 }

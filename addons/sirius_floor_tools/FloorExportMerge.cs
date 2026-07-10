@@ -34,6 +34,23 @@ public static class FloorExportMerge
     /// </summary>
     public static void MergeBaseline(FloorJsonModel exported, FloorJsonModel baseline)
     {
+        // Strip scene-only enemy enrichment (blueprint/stats) that the exporter
+        // populates from EnemySpawn node Blueprint resources but
+        // FloorGenerationService does not emit. Without this, exporting a
+        // generated floor (GF/1F) whose scene has blueprint-backed enemies
+        // injects blueprint/stats into the committed baseline, causing
+        // FloorGenerationParityTest to fail despite no gameplay-layout change.
+        // Runs unconditionally (even when baseline is null) so the first export
+        // of a brand-new floor also does not seed these fields.
+        if (exported.Entities?.EnemySpawns != null)
+        {
+            foreach (var spawn in exported.Entities.EnemySpawns)
+            {
+                spawn.Blueprint = null;
+                spawn.Stats = null;
+            }
+        }
+
         if (baseline == null) return;
 
         // Preserve generator-authored presentation text. Only overwrite when

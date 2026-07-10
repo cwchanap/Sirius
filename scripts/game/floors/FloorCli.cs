@@ -63,7 +63,7 @@ public partial class FloorCli : RefCounted
                 }
             }
         }
-        catch (Exception ex) when (ex is IndexOutOfRangeException or FormatException)
+        catch (Exception ex) when (ex is IndexOutOfRangeException or FormatException or OverflowException)
         {
             return new FloorCliParseResult(null, ex.Message, IsHelp: false);
         }

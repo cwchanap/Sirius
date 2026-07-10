@@ -160,4 +160,84 @@ public partial class FloorExportMergeTest
         AssertThat(exported.Entities).IsNotNull();
         AssertThat(exported.Entities!.HiddenPlaceholders!.Count).IsEqual(1);
     }
+
+    [TestCase]
+    public void MergeBaseline_StripsBlueprintAndStatsFromEnemySpawns()
+    {
+        // TilemapJsonExporter populates Blueprint/Stats from EnemySpawn node
+        // Blueprint resources, but FloorGenerationService emits neither. Without
+        // stripping, exporting a generated floor (GF/1F) with blueprint-backed
+        // enemies injects these fields into the committed baseline, causing
+        // FloorGenerationParityTest to fail despite no gameplay-layout change.
+        var exported = new FloorJsonModel
+        {
+            Metadata = new FloorMetadata(),
+            Entities = new SceneEntities
+            {
+                EnemySpawns = new()
+                {
+                    new EnemySpawnData
+                    {
+                        Id = "EnemySpawn_1",
+                        Position = new Vector2IData(10, 20),
+                        EnemyType = "Goblin",
+                        Blueprint = "res://resources/enemies/goblin.tres",
+                        Stats = new EnemyStatsData { Level = 3, MaxHealth = 50, Attack = 12 }
+                    },
+                    new EnemySpawnData
+                    {
+                        Id = "EnemySpawn_2",
+                        Position = new Vector2IData(30, 40),
+                        EnemyType = "Slime",
+                        Blueprint = "res://resources/enemies/slime.tres",
+                        Stats = new EnemyStatsData { Level = 1, MaxHealth = 30, Attack = 8 }
+                    }
+                }
+            }
+        };
+        var baseline = new FloorJsonModel
+        {
+            Metadata = new FloorMetadata(),
+            Entities = new SceneEntities()
+        };
+
+        FloorExportMerge.MergeBaseline(exported, baseline);
+
+        AssertThat(exported.Entities.EnemySpawns!.Count).IsEqual(2);
+        foreach (var spawn in exported.Entities.EnemySpawns!)
+        {
+            AssertThat(spawn.Blueprint).IsNull();
+            AssertThat(spawn.Stats).IsNull();
+        }
+    }
+
+    [TestCase]
+    public void MergeBaseline_StripsBlueprintAndStatsEvenWithNullBaseline()
+    {
+        // Stripping must happen regardless of whether a baseline exists — the
+        // first export of a brand-new floor also must not seed blueprint/stats
+        // into the baseline.
+        var exported = new FloorJsonModel
+        {
+            Metadata = new FloorMetadata(),
+            Entities = new SceneEntities
+            {
+                EnemySpawns = new()
+                {
+                    new EnemySpawnData
+                    {
+                        Id = "EnemySpawn_1",
+                        EnemyType = "Goblin",
+                        Blueprint = "res://resources/enemies/goblin.tres",
+                        Stats = new EnemyStatsData { Level = 3 }
+                    }
+                }
+            }
+        };
+
+        FloorExportMerge.MergeBaseline(exported, null);
+
+        AssertThat(exported.Entities.EnemySpawns![0].Blueprint).IsNull();
+        AssertThat(exported.Entities.EnemySpawns![0].Stats).IsNull();
+    }
 }

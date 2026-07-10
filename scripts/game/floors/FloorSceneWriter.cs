@@ -89,6 +89,19 @@ public static class FloorSceneWriter
             if (packErr != Error.Ok)
                 return new FloorSceneResult(false, validation, $"Failed to pack scene ({packErr}): {outScenePath}");
 
+            // Pre-load the FloorDefinition BEFORE committing the scene so a
+            // missing, corrupt, or locked .tres aborts before any file is
+            // written. Without this, the scene would already be committed when
+            // the .tres load fails, leaving the generated scene and its metadata
+            // artifacts out of sync after a reported failed run.
+            FloorDefinition def = null;
+            if (syncDef)
+            {
+                def = ResourceLoader.Load<FloorDefinition>(paths.DefPath, cacheMode: ResourceLoader.CacheMode.Ignore);
+                if (def == null)
+                    return new FloorSceneResult(false, validation, $"Failed to load FloorDefinition: {paths.DefPath}");
+            }
+
             // Save the scene FIRST, then the .tres. If the .tscn save fails the
             // .tres has not been committed yet, avoiding a partial-update window
             // where the .tres reflects new metadata but the .tscn retains stale
@@ -105,9 +118,6 @@ public static class FloorSceneWriter
             // Sync .tres via typed API (skippable for --skip-floor-def parity).
             if (syncDef)
             {
-                var def = ResourceLoader.Load<FloorDefinition>(paths.DefPath, cacheMode: ResourceLoader.CacheMode.Ignore);
-                if (def == null)
-                    return new FloorSceneResult(false, validation, $"Failed to load FloorDefinition: {paths.DefPath}");
                 FloorResourceSyncService.Apply(def, model, options);
                 var defSaveErr = SaveResourceAtomic(def, outDefPath, defUidSnap);
                 if (defSaveErr != Error.Ok)

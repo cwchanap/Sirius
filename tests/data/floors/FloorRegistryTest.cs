@@ -26,4 +26,37 @@ public partial class FloorRegistryTest
     {
         AssertThat(FloorRegistry.AllFloors).IsEqual(new int[] { 0, 1, 2, 3 });
     }
+
+    [TestCase]
+    public void TestFindByScenePathMatchesRegisteredFloor()
+    {
+        AssertThat(FloorRegistry.FindByScenePath("res://scenes/game/floors/FloorGF.tscn")).IsEqual(0);
+        AssertThat(FloorRegistry.FindByScenePath("res://scenes/game/floors/Floor2F.tscn")).IsEqual(2);
+    }
+
+    [TestCase]
+    public void TestFindByScenePathRejectsSameBasenameInDifferentDirectory()
+    {
+        // An unrelated copy of Floor2F.tscn opened from a scratch/backup dir must
+        // NOT resolve to floor 2 — otherwise the dock would export the copy's grid
+        // into the canonical scenes/game/floors/Floor2F.json.
+        AssertThat(FloorRegistry.FindByScenePath("res://scratch/Floor2F.tscn")).IsEqual(-1);
+        AssertThat(FloorRegistry.FindByScenePath("res://backup/Floor1F.tscn")).IsEqual(-1);
+    }
+
+    [TestCase]
+    public void TestFindByScenePathNormalizesSeparators()
+    {
+        // Windows-style backslashes from Godot on Windows still match the
+        // forward-slash registry paths.
+        AssertThat(FloorRegistry.FindByScenePath("res://scenes\\game\\floors\\Floor1F.tscn")).IsEqual(1);
+    }
+
+    [TestCase]
+    public void TestFindByScenePathReturnsMinusOneForNullOrEmpty()
+    {
+        AssertThat(FloorRegistry.FindByScenePath(null)).IsEqual(-1);
+        AssertThat(FloorRegistry.FindByScenePath("")).IsEqual(-1);
+        AssertThat(FloorRegistry.FindByScenePath("res://scenes/game/floors/Unknown.tscn")).IsEqual(-1);
+    }
 }

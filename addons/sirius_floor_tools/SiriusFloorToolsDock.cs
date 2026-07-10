@@ -315,9 +315,12 @@ public partial class SiriusFloorToolsDock : Control
         {
             var scene = EditorInterface.Singleton?.GetEditedSceneRoot();
             if (scene == null) { Log("No scene open to save."); return; }
-            // ResourceSaver strips file-level UIDs on re-save; capture before and restore
-            // after, mirroring FloorSceneWriter's guard. Game.tscn references Floor*.tres
-            // by UID, so stripping breaks reference stability.
+            // ResourceSaver strips file-level UIDs on re-save; capture before and
+            // restore via SaveResourceAtomic (temp-save → restore-on-temp → atomic
+            // move). This mirrors FloorSceneWriter's guard so the committed file
+            // never appears with stripped UIDs — Game.tscn references Floor*.tres
+            // by UID, so a stripped-UID window (editor kill or Restore failure
+            // after a direct save) breaks reference stability.
             var uidSnap = UidPreserver.Capture(scene.SceneFilePath);
             var packed = new PackedScene();
             var packErr = packed.Pack(scene);
@@ -326,13 +329,12 @@ public partial class SiriusFloorToolsDock : Control
                 Log($"[x] Failed to pack scene: {packErr}");
                 return;
             }
-            var saveErr = ResourceSaver.Save(packed, scene.SceneFilePath);
+            var saveErr = FloorSceneWriter.SaveResourceAtomic(packed, scene.SceneFilePath, uidSnap);
             if (saveErr != Error.Ok)
             {
                 Log($"[x] Failed to save scene: {saveErr}");
                 return;
             }
-            UidPreserver.Restore(scene.SceneFilePath, uidSnap);
             EditorInterface.Singleton?.GetResourceFilesystem()?.Scan();
             Log($"Saved scene {scene.SceneFilePath}");
         }

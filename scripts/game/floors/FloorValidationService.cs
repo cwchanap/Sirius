@@ -19,6 +19,15 @@ public static class FloorValidationService
         // from JSON lacking an "entities" key (TilemapJsonImporter also guards this).
         // EntityGroups below dereferences model.Entities unconditionally.
         model.Entities ??= new SceneEntities();
+
+        // Footprint check: TilemapJsonImporter.ConfigureGridMapBounds derives
+        // GridWidth/GridHeight from the max ground-tile coordinate (maxX+1,
+        // maxY+1). If any tile or entity falls outside [0,width) x [0,height)
+        // or has a negative coordinate, the importer silently shrinks/expands
+        // the grid or includes negative cells, producing a malformed GridMap.
+        // Reject before the rest of validation can pass on a wrong-footprint model.
+        ValidateFootprint(model, width, height, result);
+
         var walls = (model.TileLayers.GetValueOrDefault("wall") ?? new List<TileData>())
             .Select(t => new Vector2I(t.X, t.Y)).ToHashSet();
         var ground = model.TileLayers.GetValueOrDefault("ground") ?? new List<TileData>();
@@ -166,6 +175,73 @@ public static class FloorValidationService
             adjacent.UnionWith(branchSet);
             if (payoff.Intersect(adjacent).Any() == false)
                 result.Warning("UnrewardedDeadEnd", $"Unrewarded dead-end branch at {branch[0]}");
+        }
+    }
+
+    // Reject tiles and entities whose coordinates fall outside [0,width) x
+    // [0,height). The importer derives GridMap bounds from ground tiles, so an
+    // out-of-range or negative cell silently distorts the grid. Each layer is
+    // checked independently so the error message identifies the offending layer.
+    //
+    // Entity positions are read directly from model.Entities lists rather than
+    // via EntityGroups() to avoid double-enumerating View() (which would
+    // duplicate UnrecognizedEntityType warnings when EntityGroups is called
+    // again in the main validation loop below).
+    private static void ValidateFootprint(FloorJsonModel model, int width, int height, ValidationResult result)
+    {
+        foreach (var (layerName, tiles) in model.TileLayers)
+        {
+            if (tiles == null) continue;
+            foreach (var t in tiles)
+            {
+                if (t.X < 0 || t.Y < 0 || t.X >= width || t.Y >= height)
+                    result.Error("TileOutOfBounds",
+                        $"Tile in layer '{layerName}' at ({t.X},{t.Y}) is outside expected footprint [0,{width}) x [0,{height})");
+            }
+        }
+
+        CheckEntityBounds("enemy_spawns", model.Entities.EnemySpawns, width, height, result);
+        CheckEntityBounds("npc_spawns", model.Entities.NpcSpawns, width, height, result);
+        CheckEntityBounds("treasure_boxes", model.Entities.TreasureBoxes, width, height, result);
+        CheckEntityBounds("trap_tiles", model.Entities.TrapTiles, width, height, result);
+        CheckEntityBounds("puzzle_switches", model.Entities.PuzzleSwitches, width, height, result);
+        CheckEntityBounds("puzzle_gates", model.Entities.PuzzleGates, width, height, result);
+        CheckEntityBounds("puzzle_riddles", model.Entities.PuzzleRiddles, width, height, result);
+        CheckEntityBounds("stair_connections", model.Entities.StairConnections, width, height, result);
+        CheckEntityBounds("hidden_placeholders", model.Entities.HiddenPlaceholders, width, height, result);
+    }
+
+    private static void CheckEntityBounds<T>(string group, List<T>? entities, int width, int height, ValidationResult result) where T : class
+    {
+        if (entities == null) return;
+        foreach (var e in entities)
+        {
+            var pos = e switch
+            {
+                EnemySpawnData x => x.Position,
+                NpcSpawnData x => x.Position,
+                TreasureBoxData x => x.Position,
+                TrapTileData x => x.Position,
+                PuzzleSwitchData x => x.Position,
+                PuzzleGateData x => x.Position,
+                PuzzleRiddleData x => x.Position,
+                StairConnectionData x => x.Position,
+                HiddenPlaceholderData x => x.Position,
+                _ => null,
+            };
+            if (pos == null) continue;
+            if (pos.X < 0 || pos.Y < 0 || pos.X >= width || pos.Y >= height)
+            {
+                string id = e switch
+                {
+                    EnemySpawnData x => x.Id, NpcSpawnData x => x.Id, TreasureBoxData x => x.Id,
+                    TrapTileData x => x.Id, PuzzleSwitchData x => x.Id, PuzzleGateData x => x.Id,
+                    PuzzleRiddleData x => x.Id, StairConnectionData x => x.Id, HiddenPlaceholderData x => x.Id,
+                    _ => "?",
+                };
+                result.Error("EntityOutOfBounds",
+                    $"Entity '{id}' in {group} at ({pos.X},{pos.Y}) is outside expected footprint [0,{width}) x [0,{height})");
+            }
         }
     }
 

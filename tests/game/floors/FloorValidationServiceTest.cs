@@ -244,4 +244,55 @@ public partial class FloorValidationServiceTest
         var result = FloorValidationService.Validate(model, 1, 1);
         AssertThat(result.HasErrors).IsFalse();
     }
+
+    // --- Footprint / bounds validation tests ---
+
+    [TestCase]
+    public void TestTileOutOfBoundsReported()
+    {
+        // A ground tile at (3,0) exceeds the supplied width=3 footprint
+        // ([0,3) x [0,3)). The importer would derive GridWidth=4 from this,
+        // silently expanding the grid.
+        var model = ValidMinimalModel();
+        model.TileLayers["ground"].Add(new TileData(3, 0, "starting_area"));
+        var result = FloorValidationService.Validate(model, 3, 3);
+        AssertThat(result.HasErrors).IsTrue();
+        AssertThat(result.Issues.Any(i => i.Code == "TileOutOfBounds")).IsTrue();
+    }
+
+    [TestCase]
+    public void TestNegativeTileReported()
+    {
+        // A wall tile at (-1,0) has a negative coordinate — the importer's
+        // maxX+1 logic would produce a wrong width if ground also had negative
+        // cells, and negative cells are never valid grid coordinates.
+        var model = ValidMinimalModel();
+        model.TileLayers["wall"].Add(new TileData(-1, 0, "generic"));
+        var result = FloorValidationService.Validate(model, 3, 3);
+        AssertThat(result.HasErrors).IsTrue();
+        AssertThat(result.Issues.Any(i => i.Code == "TileOutOfBounds")).IsTrue();
+    }
+
+    [TestCase]
+    public void TestEntityOutOfBoundsReported()
+    {
+        // An enemy placed at (5,0) is outside the 3x3 footprint.
+        var model = ValidMinimalModel();
+        model.Entities.EnemySpawns = new()
+        {
+            new() { Id = "oob", Position = new Vector2IData(5, 0), EnemyType = "goblin" },
+        };
+        var result = FloorValidationService.Validate(model, 3, 3);
+        AssertThat(result.Issues.Any(i => i.Code == "EntityOutOfBounds")).IsTrue();
+    }
+
+    [TestCase]
+    public void TestInBoundsTilesNotFlagged()
+    {
+        // Tiles at the edges of the footprint (width-1, height-1) are valid.
+        var model = ModelWithGround(new[] { (0, 0), (1, 0), (1, 1), (2, 2) }, 0, 0);
+        var result = FloorValidationService.Validate(model, 3, 3);
+        AssertThat(result.Issues.Any(i => i.Code == "TileOutOfBounds")).IsFalse();
+        AssertThat(result.Issues.Any(i => i.Code == "EntityOutOfBounds")).IsFalse();
+    }
 }

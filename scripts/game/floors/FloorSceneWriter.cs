@@ -102,30 +102,62 @@ public static class FloorSceneWriter
                     return new FloorSceneResult(false, validation, $"Failed to load FloorDefinition: {paths.DefPath}");
             }
 
-            // Save the scene FIRST, then the .tres. If the .tscn save fails the
-            // .tres has not been committed yet, avoiding a partial-update window
-            // where the .tres reflects new metadata but the .tscn retains stale
-            // grid content. The pack already succeeded, so the .tscn save is the
-            // lowest-risk write, but ordering it first is strictly safer.
-            // UID snapshots are passed into SaveResourceAtomic so UIDs are restored
-            // on the temp file BEFORE the atomic move — the committed file never
-            // appears with stripped UIDs, closing the non-atomic window that would
-            // exist if Restore ran as a separate post-move step.
-            var sceneSaveErr = SaveResourceAtomic(newPacked, outScenePath, sceneUidSnap);
-            if (sceneSaveErr != Error.Ok)
-                return new FloorSceneResult(false, validation, $"Failed to save scene ({sceneSaveErr}): {outScenePath}");
-
-            // Sync .tres via typed API (skippable for --skip-floor-def parity).
-            if (syncDef)
+            // Stage all outputs to temp files BEFORE committing any. This
+            // ensures that if any single save fails (disk-full, permission,
+            // lock), no committed artifact is left stale — the caller sees a
+            // failure and the on-disk files remain unchanged. Only the final
+            // commit phase (File.Move) can partially commit, and moves are
+            // near-instant, shrinking the inconsistency window to milliseconds
+            // versus the previous approach where the scene committed long
+            // before the .tres/JSON saves were even attempted.
+            string sceneTempPath = null;
+            string defTempPath = null;
+            string jsonTempPath = null;
+            try
             {
-                FloorResourceSyncService.Apply(def, model, options);
-                var defSaveErr = SaveResourceAtomic(def, outDefPath, defUidSnap);
-                if (defSaveErr != Error.Ok)
-                    return new FloorSceneResult(false, validation, $"Failed to save FloorDefinition ({defSaveErr}): {outDefPath}");
-            }
+                // 1. Stage scene to temp (UIDs restored on temp before move).
+                var (sceneTemp, sceneSaveErr) = SaveResourceToTemp(newPacked, outScenePath, sceneUidSnap);
+                if (sceneSaveErr != Error.Ok)
+                    return new FloorSceneResult(false, validation, $"Failed to save scene ({sceneSaveErr}): {outScenePath}");
+                sceneTempPath = sceneTemp;
 
-            if (writeJson)
-                WriteJson(model, outJsonPath);
+                // 2. Stage .tres to temp (skippable for --skip-floor-def parity).
+                if (syncDef)
+                {
+                    FloorResourceSyncService.Apply(def, model, options);
+                    var (defTemp, defSaveErr) = SaveResourceToTemp(def, outDefPath, defUidSnap);
+                    if (defSaveErr != Error.Ok)
+                        return new FloorSceneResult(false, validation, $"Failed to save FloorDefinition ({defSaveErr}): {outDefPath}");
+                    defTempPath = defTemp;
+                }
+
+                // 3. Stage JSON to temp.
+                if (writeJson)
+                {
+                    jsonTempPath = WriteJsonToTemp(model, outJsonPath);
+                }
+
+                // Commit phase: move all staged temps into their final paths.
+                // Ordered scene → def → JSON. If a move throws (locked target
+                // on Windows), earlier moves may have already committed — but
+                // the window is near-instant compared to the previous design
+                // where saves (slow) happened between commits.
+                if (sceneTempPath != null)
+                    CommitResourceTemp(sceneTempPath, outScenePath);
+                if (defTempPath != null)
+                    CommitResourceTemp(defTempPath, outDefPath);
+                if (jsonTempPath != null)
+                    CommitJsonTemp(jsonTempPath, outJsonPath);
+            }
+            catch (System.Exception ex)
+            {
+                // A move threw during the commit phase. Clean up any uncommitted
+                // temps so they don't linger as working-tree noise.
+                CleanupTemp(sceneTempPath);
+                CleanupTemp(defTempPath);
+                CleanupTemp(jsonTempPath);
+                return new FloorSceneResult(false, validation, $"Failed to commit floor artifacts: {ex.Message}");
+            }
         }
         finally
         {
@@ -158,27 +190,39 @@ public static class FloorSceneWriter
     /// Each save is independently atomic; the caller (Generate) orders saves so
     /// the most likely failure (scene pack) happens before any file is committed.
     /// </summary>
-    private static Error SaveResourceAtomic(Resource res, string resPath, UidPreserver.Snapshot? uidSnap = null)
+    internal static Error SaveResourceAtomic(Resource res, string resPath, UidPreserver.Snapshot? uidSnap = null)
     {
-        // Insert ".tmp" before the extension so Godot still sees .tscn/.tres
-        // and dispatches to the correct ResourceSaver. e.g. "Floor3F.tscn"
-        // -> "Floor3F.tmp.tscn". String-based (not Path.Get*) because resPath
-        // is a res:// path and Path.* helpers are platform-dependent on those.
-        int slashIdx = resPath.LastIndexOf('/');
-        int dotIdx = resPath.LastIndexOf('.');
-        string tempResPath = dotIdx > slashIdx
-            ? resPath.Substring(0, dotIdx) + ".tmp" + resPath.Substring(dotIdx)
-            : resPath + ".tmp";
+        var (tempResPath, saveErr) = SaveResourceToTemp(res, resPath, uidSnap);
+        if (saveErr != Error.Ok)
+            return saveErr;
+        try
+        {
+            CommitResourceTemp(tempResPath, resPath);
+        }
+        catch
+        {
+            return Error.CantCreate;
+        }
+        return Error.Ok;
+    }
 
+    /// <summary>
+    /// Phase 1 of the two-phase atomic save: write the resource to a sibling
+    /// temp path and restore UIDs on the temp file. Returns the temp res://
+    /// path on success, or null + an error code on failure. The caller commits
+    /// via <see cref="CommitResourceTemp"/> once all outputs are staged.
+    /// </summary>
+    internal static (string TempResPath, Error Err) SaveResourceToTemp(
+        Resource res, string resPath, UidPreserver.Snapshot? uidSnap = null)
+    {
+        string tempResPath = TempPathFor(resPath);
         var err = ResourceSaver.Save(res, tempResPath);
         if (err != Error.Ok)
         {
             string tempAbs = ProjectSettings.GlobalizePath(tempResPath);
             if (File.Exists(tempAbs)) File.Delete(tempAbs);
-            return err;
+            return (tempResPath, err);
         }
-        string tempAbs2 = ProjectSettings.GlobalizePath(tempResPath);
-        string realAbs = ProjectSettings.GlobalizePath(resPath);
         try
         {
             // Restore UIDs on the temp file BEFORE the atomic move so the
@@ -187,27 +231,99 @@ public static class FloorSceneWriter
             // separate post-move step.
             if (uidSnap is not null)
                 UidPreserver.Restore(tempResPath, uidSnap);
-            File.Move(tempAbs2, realAbs, overwrite: true);
         }
         catch
         {
-            // File.Move can throw on Windows when the target is locked by another
-            // process. Delete the orphaned .tmp (and any .uidtmp left by Restore)
-            // so they don't accumulate as working-tree noise, then rethrow so the
-            // caller surfaces the real failure.
-            if (File.Exists(tempAbs2)) File.Delete(tempAbs2);
-            string uidTmp = tempAbs2 + ".uidtmp";
+            // Restore failure: clean up the temp so it doesn't linger.
+            string tempAbs = ProjectSettings.GlobalizePath(tempResPath);
+            if (File.Exists(tempAbs)) File.Delete(tempAbs);
+            string uidTmp = tempAbs + ".uidtmp";
+            if (File.Exists(uidTmp)) File.Delete(uidTmp);
+            return (tempResPath, Error.CantCreate);
+        }
+        return (tempResPath, Error.Ok);
+    }
+
+    /// <summary>
+    /// Phase 2 of the two-phase atomic save: move the staged temp file into
+    /// its final path with overwrite. <see cref="File.Move"/> is atomic on most
+    /// filesystems for same-volume renames. On Windows, a locked target can
+    /// throw; the orphaned temp is cleaned up before rethrowing.
+    /// </summary>
+    internal static void CommitResourceTemp(string tempResPath, string finalResPath)
+    {
+        string tempAbs = ProjectSettings.GlobalizePath(tempResPath);
+        string realAbs = ProjectSettings.GlobalizePath(finalResPath);
+        try
+        {
+            File.Move(tempAbs, realAbs, overwrite: true);
+        }
+        catch
+        {
+            if (File.Exists(tempAbs)) File.Delete(tempAbs);
+            string uidTmp = tempAbs + ".uidtmp";
             if (File.Exists(uidTmp)) File.Delete(uidTmp);
             throw;
         }
-        return Error.Ok;
     }
 
-    private static void WriteJson(FloorJsonModel model, string path)
+    /// <summary>
+    /// Compute the sibling temp res:// path for a given res:// path, inserting
+    /// ".tmp" before the extension so Godot dispatches to the correct saver.
+    /// e.g. "res://scenes/Floor3F.tscn" -> "res://scenes/Floor3F.tmp.tscn".
+    /// </summary>
+    private static string TempPathFor(string resPath)
     {
-        // Atomic write (temp → File.Move overwrite) so a crash mid-write cannot
-        // truncate the committed .json. Matches SaveManager/UidPreserver pattern.
-        AtomicFileWriter.WriteAllText(path, model.ToJson(indented: true));
+        int slashIdx = resPath.LastIndexOf('/');
+        int dotIdx = resPath.LastIndexOf('.');
+        return dotIdx > slashIdx
+            ? resPath.Substring(0, dotIdx) + ".tmp" + resPath.Substring(dotIdx)
+            : resPath + ".tmp";
+    }
+
+    /// <summary>
+    /// Write JSON to a sibling temp file (staging phase). Returns the temp
+    /// res:// path. The caller commits via <see cref="CommitJsonTemp"/>.
+    /// </summary>
+    private static string WriteJsonToTemp(FloorJsonModel model, string resPath)
+    {
+        string tempResPath = TempPathFor(resPath);
+        string tempAbs = ProjectSettings.GlobalizePath(tempResPath);
+        string absDir = Path.GetDirectoryName(tempAbs) ?? string.Empty;
+        if (!Directory.Exists(absDir))
+            Directory.CreateDirectory(absDir);
+        File.WriteAllText(tempAbs, model.ToJson(indented: true));
+        return tempResPath;
+    }
+
+    /// <summary>
+    /// Move a staged JSON temp file into its final path (commit phase).
+    /// </summary>
+    private static void CommitJsonTemp(string tempResPath, string finalResPath)
+    {
+        string tempAbs = ProjectSettings.GlobalizePath(tempResPath);
+        string realAbs = ProjectSettings.GlobalizePath(finalResPath);
+        try
+        {
+            File.Move(tempAbs, realAbs, overwrite: true);
+        }
+        catch
+        {
+            if (File.Exists(tempAbs)) File.Delete(tempAbs);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Delete a temp file if it exists (cleanup on staging/commit failure).
+    /// </summary>
+    private static void CleanupTemp(string tempResPath)
+    {
+        if (tempResPath == null) return;
+        string tempAbs = ProjectSettings.GlobalizePath(tempResPath);
+        if (File.Exists(tempAbs)) File.Delete(tempAbs);
+        string uidTmp = tempAbs + ".uidtmp";
+        if (File.Exists(uidTmp)) File.Delete(uidTmp);
     }
 
     public static (int Width, int Height) DimensionsFor(int floorNumber) => floorNumber switch

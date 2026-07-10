@@ -80,20 +80,24 @@ public partial class SiriusFloorToolsDock : Control
         return FloorJsonModel.FromJson(file.GetAsText());
     }
 
-    // Write a FloorJsonModel to disk. Mirrors TilemapJsonExporter.ExportToFile's
-    // write path so the dock can merge the baseline into the model between
-    // ExportScene and the file write.
+    // Write a FloorJsonModel to disk atomically. Routes through
+    // AtomicFileWriter (temp file + rename) so an editor crash/kill mid-write
+    // cannot leave a truncated baseline — opening with ModeFlags.Write
+    // truncates before StoreString completes, which would corrupt the
+    // canonical JSON and bypass the atomic write used by the generator.
     private static Error WriteJson(FloorJsonModel model, string outputPath)
     {
         string json = model.ToJson(indented: true);
-        using var file = FileAccess.Open(outputPath, FileAccess.ModeFlags.Write);
-        if (file == null)
+        try
         {
-            GD.PrintErr($"[SiriusFloorToolsDock] Failed to open output file: {outputPath}");
+            AtomicFileWriter.WriteAllText(outputPath, json);
+            return Error.Ok;
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"[SiriusFloorToolsDock] Failed to write output file: {outputPath}\n{ex.Message}");
             return Error.CantOpen;
         }
-        file.StoreString(json);
-        return Error.Ok;
     }
 
     // Pops the confirmation dialog. The destructive action runs only after the

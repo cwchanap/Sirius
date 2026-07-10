@@ -35,21 +35,33 @@ public static class FloorRegistry
     }
 
     /// <summary>
-    /// Resolves the floor index whose scene path matches the given scene file path.
-    /// Returns -1 if the path is null/empty or does not match any registered floor.
-    /// Used by the editor dock to guard against cross-floor data corruption: the
-    /// open scene must match the selected floor before Export/Import touch files.
+    /// Resolves the floor index whose registered scene path matches the given
+    /// scene file path. Returns -1 if the path is null/empty or does not match
+    /// any registered floor. Used by the editor dock to guard against cross-floor
+    /// data corruption: the open scene must match the selected floor before
+    /// Export/Import touch files.
     /// </summary>
+    /// <remarks>
+    /// Compares the full normalized <c>res://</c> path, NOT just the basename.
+    /// A basename-only match would treat an unrelated copy of <c>Floor2F.tscn</c>
+    /// opened from a scratch/backup directory as floor 2, causing the dock to
+    /// Export/Import against the canonical <c>scenes/game/floors/Floor2F.json</c>
+    /// with the copy's grid. Path separators are normalized (<c>\</c> → <c>/</c>)
+    /// so Windows-style scene paths still match the forward-slash registry paths.
+    /// </remarks>
     public static int FindByScenePath(string scenePath)
     {
         if (string.IsNullOrEmpty(scenePath))
             return -1;
-        string basename = Path.GetFileName(scenePath);
+        string normalized = NormalizeResPath(scenePath);
         foreach (var (floor, paths) in _floors)
         {
-            if (Path.GetFileName(paths.ScenePath) == basename)
+            if (NormalizeResPath(paths.ScenePath) == normalized)
                 return floor;
         }
         return -1;
     }
+
+    private static string NormalizeResPath(string path)
+        => path.Replace('\\', '/').TrimEnd('/');
 }

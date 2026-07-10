@@ -32,6 +32,16 @@ public static class FloorValidationService
             .Select(t => new Vector2I(t.X, t.Y)).ToHashSet();
         var ground = model.TileLayers.GetValueOrDefault("ground") ?? new List<TileData>();
         var walkable = ground.Select(t => new Vector2I(t.X, t.Y)).Where(c => !walls.Contains(c)).ToHashSet();
+
+        // PlayerStart is a nullable reference (Vector2IData has no default
+        // initializer); a JSON model lacking "player_start" leaves it null.
+        // Dereferencing it below would NRE. Report a clear validation error and
+        // stop — the remaining checks all depend on a valid start coordinate.
+        if (model.Metadata?.PlayerStart == null)
+        {
+            result.Error("MissingPlayerStart", "Floor metadata is missing player_start");
+            return result;
+        }
         var start = model.Metadata.PlayerStart.ToVector2I();
 
         if (!walkable.Contains(start))

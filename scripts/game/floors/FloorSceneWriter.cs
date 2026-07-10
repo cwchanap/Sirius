@@ -121,7 +121,13 @@ public static class FloorSceneWriter
                 // 1. Stage scene to temp (UIDs restored on temp before move).
                 var (sceneTemp, sceneSaveErr) = SaveResourceToTemp(newPacked, outScenePath, sceneUidSnap);
                 if (sceneSaveErr != Error.Ok)
+                {
+                    // SaveResourceToTemp already cleaned its own temp; no staged
+                    // paths exist yet, but clean up defensively in case a prior
+                    // staging phase left something (future-proofing).
+                    CleanupTemp(sceneTempPath);
                     return new FloorSceneResult(false, validation, $"Failed to save scene ({sceneSaveErr}): {outScenePath}");
+                }
                 sceneTempPath = sceneTemp;
 
                 // 2. Stage .tres to temp (skippable for --skip-floor-def parity).
@@ -130,7 +136,13 @@ public static class FloorSceneWriter
                     FloorResourceSyncService.Apply(def, model, options);
                     var (defTemp, defSaveErr) = SaveResourceToTemp(def, outDefPath, defUidSnap);
                     if (defSaveErr != Error.Ok)
+                    {
+                        // def staging failed after scene staging succeeded — clean
+                        // up the already-staged scene temp so it doesn't orphan.
+                        // (SaveResourceToTemp already cleaned its own def temp.)
+                        CleanupTemp(sceneTempPath);
                         return new FloorSceneResult(false, validation, $"Failed to save FloorDefinition ({defSaveErr}): {outDefPath}");
+                    }
                     defTempPath = defTemp;
                 }
 

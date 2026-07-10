@@ -226,4 +226,50 @@ public partial class FloorSceneWriterTest
         AssertThat(jsonBytes2.Length).IsEqual(jsonBytes1.Length);
         AssertThat(jsonBytes2.SequenceEqual(jsonBytes1)).IsTrue();
     }
+
+    [TestCase]
+    public void TestGenerateRollsBackCommittedFilesOnMidCommitFailure()
+    {
+        // Simulates a mid-commit failure: the scene and .tres commits succeed,
+        // but the JSON commit throws (its target path is a directory, so
+        // File.Move fails). Without rollback, the scene and .tres would be
+        // left updated while the JSON stays stale — an inconsistent state
+        // despite a reported failure. With rollback, the scene and .tres must
+        // be restored to their pre-run bytes.
+        var opts = new FloorSyncOptions();
+
+        // 1. Baseline run: create all three files in the temp dir.
+        var baseline = FloorSceneWriter.Generate(3, opts, outputDir: _tempDir);
+        AssertThat(baseline.Success).IsTrue();
+        string scenePath = Path.Combine(_tempDir, "Floor3F.tscn");
+        string defPath = Path.Combine(_tempDir, "Floor3F.tres");
+        string jsonPath = Path.Combine(_tempDir, "Floor3F.json");
+        byte[] sceneBaseline = File.ReadAllBytes(scenePath);
+        byte[] defBaseline = File.ReadAllBytes(defPath);
+
+        // 2. Sabotage the JSON target: replace the file with a directory so
+        //    File.Move(temp → directory) throws during the commit phase.
+        File.Delete(jsonPath);
+        Directory.CreateDirectory(jsonPath);
+
+        // 3. Second run: scene + def commit, then JSON commit fails.
+        var result = FloorSceneWriter.Generate(3, opts, outputDir: _tempDir);
+        AssertThat(result.Success).IsFalse();
+        AssertThat(result.Summary).Contains("Failed to commit floor artifacts");
+
+        // 4. Scene and .tres must be rolled back to their pre-run bytes.
+        byte[] sceneAfter = File.ReadAllBytes(scenePath);
+        byte[] defAfter = File.ReadAllBytes(defPath);
+        AssertThat(sceneAfter.SequenceEqual(sceneBaseline)).IsTrue();
+        AssertThat(defAfter.SequenceEqual(defBaseline)).IsTrue();
+
+        // 5. No .bak files should linger in the temp dir.
+        AssertThat(Directory.GetFiles(_tempDir, "*.bak").Length).IsEqual(0);
+
+        // 6. No .tmp files should linger either.
+        AssertThat(Directory.GetFiles(_tempDir, "*.tmp.*").Length).IsEqual(0);
+
+        // Cleanup: remove the sabotaged directory so Teardown can delete _tempDir.
+        if (Directory.Exists(jsonPath)) Directory.Delete(jsonPath, recursive: true);
+    }
 }

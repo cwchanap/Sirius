@@ -25,6 +25,7 @@ test.runsettings.local
 # These appear if a process is killed mid-save; safe to ignore.
 *.tmp.*
 *.uidtmp
+*.bak
 
 # Local git worktrees
 .worktrees/

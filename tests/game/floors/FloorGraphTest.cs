@@ -6,6 +6,7 @@ using System.Linq;
 using static GdUnit4.Assertions;
 
 [TestSuite]
+[RequireGodotRuntime]
 public partial class FloorGraphTest
 {
     [TestCase]

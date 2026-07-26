@@ -1,9 +1,10 @@
 # Sirius UI Lifecycle Baseline Design
 
-**Version:** 1.1
-**Status:** Review candidate — design approved section by section; written artifact review pending  
+**Version:** 1.2
+**Status:** Review candidate — design approved section by section; two written-artifact review passes incorporated
 **Linear:** HPA-376, child of HPA-354  
 **Design decisions approved:** 2026-07-26
+**Lineage:** Supersedes nothing; implements HPA-373 section 7 as a behavioral baseline and feeds HPA-378.
 
 ## 1. Purpose
 
@@ -63,7 +64,7 @@ The most important current observations are:
 - Save/load has a parent dialog and an overwrite-confirmation child, with special restoration when invoked from Pause.
 - Inventory sets `SceneTree.Paused` on open and unconditionally clears it on close.
 - Pause does not currently set `SceneTree.Paused`, despite the approved HPA-373 contract requiring a paused world.
-- Battle emits its result before the result dialog is acknowledged, so result-phase Cancel must still belong to the battle presentation rather than opening Pause behind it.
+- Battle emits its result before the result dialog is acknowledged. `Game.OnBattleFinished()` therefore clears `IsInBattle` while the Continue surface is still visible, after which `Game.HandlePauseMenuInput()` can open Pause behind it. Keeping the visible battle presentation topmost is a known `Fix in HPA-376`.
 - NPC and puzzle dialogs rely on their own Godot cancellation paths while `Game._Input()` deliberately avoids opening Pause.
 - Mouse visibility is not explicitly owned by the current flows.
 - Treasure rewards have no standalone reward modal; battle loot remains part of the battle presentation.
@@ -91,18 +92,74 @@ Every audited behavior is classified in three columns:
 | Required migration contract | The behavior later host integration must preserve or establish, aligned with HPA-373 |
 | Disposition | `Preserve`, `Replace in HPA-378/379`, or `Fix in HPA-376` |
 
-Regression tests protect the required migration contract only when HPA-376 owns that guarantee. They do not freeze a behavior marked for replacement.
+Regression tests protect the required migration contract only when HPA-376 owns that guarantee. They do not freeze a behavior marked for replacement. Each observed entry cites one concrete source location in `file:member` form; the audit may add supporting locations but cannot replace evidence with an inference about Godot defaults.
 
 Examples:
 
 - Settings dropdown and key-capture exceptions are `Preserve`.
 - Central pause, mouse, HUD, and focus-fallback ownership are `Replace in HPA-378/379`.
 - The current Pause dialog's failure to set `SceneTree.Paused` is explicitly `Replace in HPA-378/379`. Fixing it safely requires coordinated process-mode and child-flow ownership for Pause, Settings, save/load, and nested dialogs, which is host work rather than a narrow HPA-376 correction.
+- The current battle Continue surface is a legacy, recoverable result layer whose existing Cancel dismissal is `Preserve`; it is not classified as a future required acknowledgement. Routing Cancel to that still-visible result instead of opening Pause behind it is `Fix in HPA-376`.
+- A future reward or battle-result constellation that the producer marks as requiring acknowledgement does not dismiss through Cancel. That policy is `Replace in HPA-378/379`; its presentation is realized by the relevant downstream screen work after HPA-393 supplies any required reward handoff guarantees.
 - Restoring the tree's previous pause value, exactly-once close emission, or timer cleanup may be `Fix in HPA-376` when a regression test proves the current behavior is unsafe for migration.
 
 ## 7. Lifecycle inventory
 
 The lifecycle contract uses two linked matrices rather than one unreadably wide table.
+
+### 7.0 Authoritative flow-by-phase checklist
+
+The implementation contract must contain one row for every ID below. An ID may not be omitted because a phase has no standalone scene; that absence is itself observed behavior. A row may link to another row for shared mechanics, but it must still state its own parent context, input receiver, restoration target, evidence, disposition, and protecting test or downstream owner.
+
+| ID | Flow and phase | Required context or variant | Initial classification |
+|---|---|---|---|
+| `MAIN-ROOT` | Main menu root | Startup and return-to-title; root Cancel | Audit from source |
+| `MAIN-LOAD` | Main-menu Load entry and return | Empty, populated, and unavailable/corrupt slot | Audit from source |
+| `MAIN-SETTINGS` | Main-menu Settings entry and return | Apply and discard staged edits | Audit from source |
+| `MAIN-MESSAGE` | Main-menu information or error | Recoverable message above the root | Audit from source |
+| `EXP-GAMEPLAY` | Exploration HUD and gameplay fallback | Normal input; Pause request | Audit from source |
+| `EXP-PROMPT` | Interaction prompt visibility | Show, hide during each blocking flow, and restore | Audit from source |
+| `INV-GAMEPLAY` | Inventory from exploration | Open, active, Cancel/toggle close, and prior-pause restoration | Audit; fix prior-pause restoration if regression fails |
+| `INV-BLOCKED` | Rejected Inventory entry | Settings, save/load, battle, NPC, and world-interaction blockers | Audit from source |
+| `INV-PAUSE` | Inventory from Pause | Legal in HPA-373 but impossible in the current controller graph | `Replace in HPA-378/379` |
+| `PAUSE-ROOT` | Pause root | Open, toggle/Resume, and gameplay restoration | Pause ownership is `Replace in HPA-378/379`; characterize current routing |
+| `PAUSE-SETTINGS` | Pause to Settings and back | Parent inert; inherited pause state | Audit current return; root pause ownership is downstream |
+| `PAUSE-SAVELOAD` | Pause to Save/Load and back | Parent restoration on close, success, and failure | Audit current return; root pause ownership is downstream |
+| `SET-MAIN` | Settings under Main Menu | Open, staged edit, Apply, Cancel, and return | Audit from source |
+| `SET-PAUSE` | Settings under Pause | Open, staged edit, Apply, Cancel, and return | Audit from source |
+| `SET-DROPDOWN` | Settings `OptionButton` popup | Both parent contexts; popup Cancel before Settings | `Preserve` |
+| `SET-CAPTURE` | Ordinary key capture | Accept, cancel, duplicate, and reserved binding | `Preserve` |
+| `SET-CAPTURE-PAUSE` | Capture of the Pause action | Escape/Pause is a candidate binding rather than generic Cancel | `Preserve` |
+| `SAVE-MAIN` | Save/Load under Main Menu | Open, ordinary close, load handoff, and parent return | Audit from source |
+| `SAVE-PAUSE` | Save/Load under Pause | Open, ordinary close, operation completion, and Pause restoration | Audit from source |
+| `SAVE-OVERWRITE` | Overwrite confirmation child | Cancel/window close/button; parent remains open | Audit from source |
+| `SAVE-CORRUPT` | Corrupt or unavailable load error | Main Menu and Pause parents | Audit from source |
+| `SAVE-ERROR` | Ordinary save/load operation error | Main Menu and Pause parents | Audit from source |
+| `BATTLE-PREP` | Battle preparation | Before automatic combat starts | Audit from source |
+| `BATTLE-AUTO` | Automatic combat | Turn timer active and gameplay blocked | Audit from source |
+| `BATTLE-ESC-PREP` | Escape during preparation | Result emission and cleanup | Audit; fix only on failing contract |
+| `BATTLE-ESC-ACTIVE` | Escape during automatic combat | Timer/effect cleanup and exactly-once result | Audit; fix only on failing contract |
+| `BATTLE-RESULT-VICTORY` | Visible victory/loot Continue surface | `IsInBattle` may already be false | Topmost routing is `Fix in HPA-376`; legacy Cancel dismissal is `Preserve` |
+| `BATTLE-RESULT-DEFEAT` | Defeat result and delayed return-to-menu | Delay, acknowledgment availability, and transition cleanup | Topmost routing is `Fix in HPA-376`; audit delayed transition |
+| `BATTLE-RESULT-ESCAPE` | Escape result Continue surface | `IsInBattle` may already be false | Topmost routing is `Fix in HPA-376`; legacy Cancel dismissal is `Preserve` |
+| `BATTLE-CLEANUP` | Battle close/free cleanup | Continue, Cancel, window close, deferred callbacks, and repeat triggers | Audit; exactly-once defects may be fixed |
+| `NPC-DIALOGUE` | Dialogue active | Continue/choice and permitted Cancel | Audit from source |
+| `NPC-TO-SHOP` | Dialogue-to-Shop transition | Dialogue parent retained or replaced; focus/restoration | Audit from source |
+| `NPC-SHOP` | Shop active and return | Buy/Sell, feedback timer, Cancel/window close | Audit; cleanup defects may be fixed |
+| `NPC-TO-HEAL` | Dialogue-to-Healing transition | Dialogue parent retained or replaced; focus/restoration | Audit from source |
+| `NPC-HEAL` | Healing active and return | Heal/No Thanks/Cancel/window close | Audit from source |
+| `NPC-CLEANUP` | NPC interaction completion | Each exit and failure path clears `IsInNpcInteraction` once | Audit; stuck/duplicate cleanup may be fixed |
+| `WORLD-TREASURE` | Atomic treasure open | Silent grant and cell clear under `IsInWorldInteraction` | Preserve domain behavior; presentation replacement is downstream |
+| `WORLD-SWITCH` | Atomic puzzle-switch interaction | No modal; input block and cleanup | Audit from source |
+| `WORLD-RIDDLE` | Puzzle/riddle modal | Open, answer/success/failure, Cancel, and window close | Audit from source |
+| `WORLD-CLEANUP` | World-interaction completion | Treasure, switch, riddle, and failure paths clear `IsInWorldInteraction` once | Audit; stuck/duplicate cleanup may be fixed |
+| `REWARD-TOAST` | Future brief single-reward presentation | No current standalone surface | `Replace in HPA-378/379`; display payload ownership remains downstream |
+| `REWARD-BLOCKING` | Future important/multiple/result/required acknowledgement | No current shared constellation | `Replace in HPA-378/379`; coordinate with HPA-393 and downstream screen work |
+| `CONFIRM-ORDINARY` | Recoverable confirmation or warning | Every invoking parent represented above | Audit current flows |
+| `CONFIRM-DESTRUCTIVE` | Destructive or blocking confirmation | Explicit safe action; generic Cancel must not confirm | Audit current flows; host policy is downstream |
+| `ERROR-TOPMOST` | Topmost recoverable error | Parent already restored to Pause or Main Menu, or absent over gameplay | Audit current flows; topmost routing defects may be fixed |
+
+The row set is a minimum, not permission to collapse distinct observed phases. If implementation discovers another player-facing phase, it adds a new ID and documents why it was absent from this design before HPA-376 can close.
 
 ### 7.1 Per-flow lifecycle matrix
 
@@ -118,9 +175,10 @@ Each flow records:
 - HUD visibility
 - Mouse policy
 - Initial focus
-- Cancel/back receiver
+- Input surface and Cancel/back receiver
 - Nested popup behavior
 - Close or result signal
+- Close/result emission count under repeated or competing triggers
 - Cleanup owner
 - Focus, pause, and input restoration target
 - Disposition
@@ -128,9 +186,21 @@ Each flow records:
 
 Unknown or absent behavior is written explicitly. The audit does not infer focus, cursor, or restoration behavior merely because Godot may provide a transient default.
 
+For rows marked for replacement, required cursor behavior is copied from the corresponding HPA-373 section 7.3 screen row rather than left as “unknown.” Current mouse ownership may still be recorded as absent.
+
 ### 7.2 Modal-priority matrix
 
 The priority matrix records which state receives Cancel and what becomes active afterward.
+
+“Cancel” is shorthand for a family of input surfaces, not a single action. Every lifecycle row identifies which of these can reach it and which owner consumes each:
+
+1. The `pause_menu` input action routed by `Game`
+2. The Godot `ui_cancel` action received by controls and dialogs
+3. Flow-specific toggles that also close an active surface, currently `toggle_inventory`
+4. Dialog/window `CloseRequested`
+5. Explicit Close, Cancel, Resume, No Thanks, Continue, or confirmation buttons
+
+The current settings binding layer mirrors the configured Pause binding into `ui_cancel`; the audit records that translation rather than assuming the two actions are interchangeable. Remapped, unbound, keyboard, and controller paths must continue to resolve to one topmost owner.
 
 The required priority is:
 
@@ -149,8 +219,8 @@ Key exceptions remain explicit:
 - An overwrite confirmation closes without dismissing save/load.
 - NPC and puzzle dialogs receive Cancel without Pause opening behind them.
 - A cancelable world-interaction modal such as a puzzle/riddle receives Cancel itself. A non-cancelable atomic world interaction such as treasure opening blocks inventory and Pause until its `IsInWorldInteraction` cleanup completes.
-- Battle preparation, automatic combat, and results use the existing battle escape policy; a result dialog remains topmost even after the battle domain flag has cleared.
-- Required acknowledgements do not become accidentally dismissible through a generic Cancel path.
+- Battle preparation and automatic combat use the existing battle escape policy. The legacy battle Continue surface remains Cancel-dismissible, but it remains topmost even after the battle domain flag has cleared; HPA-376 fixes any routing that opens Pause behind it.
+- A producer-designated required acknowledgement is distinct from the legacy battle Continue surface. It does not dismiss through a generic Cancel path and is implemented by downstream host/reward presentation work.
 
 ## 8. Transition and restoration rules
 
@@ -164,6 +234,35 @@ Even while the legacy controllers remain in charge, lifecycle behavior follows t
 6. Deferred restoration remains where the current event could otherwise close a child and immediately toggle its parent.
 7. Each controller owns its timers, signal disconnection, and transient child cleanup.
 8. An invalid restoration target falls back to the documented safe target for the parent. Common host-owned focus fallback is deferred to HPA-378, but the required target is still recorded now.
+9. Idempotency is measured by observable effects, not only by the absence of exceptions. Each closable controller records signal/result count and cleanup count for double Cancel, Cancel plus button, Cancel plus `CloseRequested`, and any overlapping deferred free/cleanup path that can occur in that flow.
+
+The audit explicitly exercises both currently guarded controllers (`PauseMenuDialog`, `ShopDialog`, and `BattleManager`) and currently unguarded close paths (`DialogueDialog`, `HealDialog`, and `PuzzleRiddleDialog`). This is an audit target, not a pre-commitment to edit every controller: a production guard is added only when a failing contract test demonstrates duplicate emission or cleanup.
+
+### 8.1 Known battle-result routing correction
+
+HPA-376 owns one known cross-controller defect. While a battle result, defeat, or escape Continue surface is valid and visible, `Game` routes Cancel to that presentation before considering Pause even when `GameManager.IsInBattle` is already false.
+
+The correction:
+
+- Preserves the existing timing and payload of `BattleFinished`.
+- Preserves the legacy Continue surface's existing Cancel dismissal.
+- Does not turn that surface into the future reward constellation.
+- Prevents Pause from being created, shown, or toggled behind the result.
+- Does not emit another battle result when dismissal happens after `_resultEmitted`.
+
+`GameInputLifecycleTest.BattleResultCancelClosesResultWithoutOpeningPause` is the required protecting cross-controller test. Controller-local tests separately prove exactly-once battle result emission and cleanup.
+
+### 8.2 Reward and acknowledgement replacement contract
+
+The lifecycle contract separates current reward domain behavior from downstream presentation:
+
+| Row | Observed behavior | Required migration contract | Disposition |
+|---|---|---|---|
+| `WORLD-TREASURE` | Treasure is granted silently, its cell is cleared, and `IsInWorldInteraction` blocks competing input until cleanup. There is no reward modal. | Preserve grant, cell-clear, and cleanup semantics. The controller may later produce an already-resolved presentation request, but UI code never grants or reconstructs the reward. | Preserve domain behavior; presentation is downstream |
+| `REWARD-TOAST` | No shared surface exists. | A brief single reward uses a queued, non-blocking toast: no tree pause, gameplay HUD retained, cursor unchanged, no initial focus, no Cancel ownership, and queue/lifetime cleanup that restores nothing because gameplay never yielded input. | `Replace in HPA-378/379` |
+| `REWARD-BLOCKING` | Battle loot is embedded in the legacy battle presentation; no shared constellation exists. | Important or multiple rewards, battle results, and producer-designated required acknowledgements use a blocking constellation: parent inert/paused as required, competing HUD hidden, cursor visible, Continue focused when actionable, generic Cancel unable to dismiss a required acknowledgement, and restoration to the producer-provided continuation target. | `Replace in HPA-378/379`; coordinate presentation handoff guarantees with HPA-393 |
+
+HPA-376 records these targets but does not create reward event identity, payloads, queues, constellations, grants, saves, or navigation.
 
 ## 9. Permitted production changes
 
@@ -175,6 +274,7 @@ Permitted changes include:
 - Exactly-once close or result guards
 - Timer shutdown and signal disconnection needed to prevent stale callbacks
 - Cleanup that prevents `GameManager` interaction flags from remaining stuck
+- Topmost battle-result input routing while the legacy presentation remains visible
 - Small internal read-only properties or helpers that expose lifecycle state without changing ownership
 
 The preferred assertion surface remains public behavior:
@@ -194,7 +294,7 @@ Reflection is a last resort for legacy private state. Test-only abstractions and
 
 | Suite | Existing evidence to retain | HPA-376 gap |
 |---|---|---|
-| `tests/game/GameTest.cs` | Settings key-capture and dropdown guards; save child dismissal and Pause restoration; NPC, puzzle, and world-interaction blocking | Unified topmost-only Cancel evidence, active-error dismissal, result-phase battle priority, and end-to-end parent restoration where not already covered |
+| `tests/game/GameTest.cs` | Settings key-capture and dropdown guards; save child dismissal and Pause restoration; NPC, puzzle, and world-interaction blocking | Extend only fixture-adjacent cases; place broader topmost-Cancel, active-error, battle-result, prompt-visibility, and restoration scenarios in the focused Game lifecycle suite below |
 | `tests/ui/InventoryMenuControllerTest.cs` | Active-skill selection behavior | Open/close visibility, Cancel/toggle handling, pausing, and prior-pause restoration |
 | `tests/ui/PauseMenuDialogTest.cs` | Button signals, hide behavior, duplicate close guard, and Resume focus | Add only uncovered Cancel/idempotency cases found by the matrix |
 | `tests/ui/SettingsMenuControllerTest.cs` | Extensive Apply/Cancel, focus, input blocking, key-capture, duplicate/reserved key, Pause-binding, and dropdown behavior | Add only a missing staged-state assertion if the audit identifies one |
@@ -209,8 +309,9 @@ Reflection is a last resort for legacy private state. Test-only abstractions and
 - `tests/ui/HealDialogTest.cs`
 - `tests/ui/PuzzleRiddleDialogTest.cs`
 - `tests/ui/NpcInteractionControllerTest.cs`
+- `tests/game/GameInputLifecycleTest.cs`
 
-Each suite tests the controller's local lifecycle. Cross-controller priority and restoration belong in `GameTest`.
+Each UI suite tests its controller's local lifecycle. Cross-controller priority, interaction-prompt visibility, and restoration belong under `tests/game/`. The focused `GameInputLifecycleTest` is preferred for new lifecycle scenarios so the already-large `GameTest` does not become the sole sink; an assertion may remain in `GameTest` when it directly extends an existing fixture and is materially clearer there.
 
 ### 10.3 Evidence mapping
 
@@ -227,31 +328,43 @@ Failure behavior must be deterministic:
 - Dismissing a child does not dismiss its parent.
 - Battle escape stops the turn timer, resolves battle state once, and emits one result.
 - NPC and world-interaction failure paths clear their corresponding `GameManager` flags.
-- Corrupted-save and save/load errors remain topmost and cannot open Pause behind themselves.
+- Corrupted-save and save/load errors remain topmost. Their already-restored parent may be Pause, Main Menu, or gameplay; Cancel dismisses only the error and never opens, closes, or toggles Pause as a side effect.
 - Test cleanup frees transient dialogs and disconnects timers so new tests introduce no orphan-node warnings.
 
-Existing orphan-node warnings are recorded as baseline evidence. HPA-376 does not expand into unrelated test-suite cleanup.
+Existing orphan-node warnings are recorded as baseline evidence. HPA-376 does not expand into unrelated test-suite cleanup. The contract records, for each applicable controller, the observed result of double Cancel, Cancel plus explicit button, Cancel plus `CloseRequested`, and repeat cleanup; “did not throw” is insufficient if a signal or domain result was emitted twice.
 
 ## 12. Verification
 
 Implementation verification proceeds in layers:
 
 1. Run each changed or new controller suite.
-2. Run `GameTest` for cross-controller priority and restoration.
+2. Run the affected `Game*` suites for cross-controller priority, prompt visibility, and restoration.
 3. Run the complete suite with `dotnet test Sirius.sln --settings test.runsettings.local`.
-4. Compare orphan-node output with the baseline and reject newly introduced warnings.
-5. Check the lifecycle contract against HPA-373 section 7 and the HPA-376 acceptance criteria.
+4. Compare orphan-node output with the deterministic baseline capture below and reject newly introduced warnings.
+5. Check the lifecycle contract against HPA-373 section 7 and this document's section 13 completion criteria.
 
 The full-suite success condition is every test present at implementation start plus all newly added tests, with zero failures or skips. The historical reference is 869 passing tests at source baseline `bc82ead`; a changed upstream count is not itself a failure.
 
+Before implementation edits, capture the full suite at the implementation-start commit:
+
+```bash
+zsh -o pipefail -c 'dotnet test Sirius.sln --settings test.runsettings.local 2>&1 | tee /tmp/hpa-376-test-baseline.log'
+rg -i -c "orphan" /tmp/hpa-376-test-baseline.log
+rg -i "orphan" /tmp/hpa-376-test-baseline.log
+```
+
+After implementation, repeat with `/tmp/hpa-376-test-after.log`. The committed lifecycle contract records both commit IDs, test totals, orphan-line counts, and distinct orphan messages. The `/tmp` logs are evidence inputs and are not committed.
+
 ## 13. Completion criteria
 
-HPA-376 is complete when:
+This section embeds the live Linear HPA-376 acceptance criteria fetched on 2026-07-26 and adds the design-specific evidence gates. HPA-376 is complete when:
 
-- Every listed player-facing flow and phase has an observed lifecycle row.
+- Every ID in section 7.0, plus any newly discovered player-facing phase, has a source-evidenced lifecycle row with explicit ownership.
 - Pause, input, HUD, mouse, focus, Cancel, signal, cleanup, and restoration expectations are explicit.
-- The modal-priority matrix can be implemented directly by HPA-378.
-- Every preserved or HPA-376-fixed contract has automated evidence.
-- Existing settings, save/load, battle, inventory, NPC, puzzle, error, and topmost-Cancel exceptions are covered at the approved boundary.
-- No host architecture, broad redesign, or domain-rule change is included.
-- Focused and full verification pass.
+- Existing key-rebinding and nested-popup exceptions are covered by tests.
+- Battle preparation, active interruption, timer cleanup, result emission, and still-visible result priority are covered before the dialog is replaced.
+- Inventory open/close and prior-pause restoration, save/load restoration paths, NPC cancellation, world-interaction cleanup, error dismissal, interaction-prompt visibility, and topmost-only Cancel are covered at the approved boundary.
+- The modal-priority/state matrix can be implemented directly by HPA-378.
+- Every `Preserve` or `Fix in HPA-376` contract names automated evidence; every replacement names its downstream owner and complete target behavior.
+- All existing tests and all HPA-376 tests pass with zero failures or skips, and HPA-376 introduces no orphan-node warning.
+- No `UIScreenHost`, broad UI redesign, or domain-rule change is included.

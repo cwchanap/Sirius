@@ -1,6 +1,6 @@
 # Sirius UI Visual Language and Screen Design
 
-**Version:** 1.2
+**Version:** 1.3
 **Status:** Review candidate — design approved section by section; written artifact review pending  
 **Linear:** HPA-373  
 **Design decisions approved:** 2026-07-25
@@ -335,10 +335,11 @@ The focused destination is marked by a luminous navigator on the orbit. Labels a
 Continue policy:
 
 - Inspect manual slots 0–2 and autosave slot 3 through save metadata.
-- Ignore missing and metadata-corrupted saves.
-- Choose the newest valid timestamp.
+- Ignore missing and metadata-corrupted saves. A metadata-valid save with a missing or unparseable timestamp remains eligible and is classified as untimestamped; the missing timestamp alone does not make it corrupt.
+- If one or more metadata-valid saves have timestamps, choose the greatest timestamp after normalizing values to UTC. Every timestamped save ranks ahead of every untimestamped save.
 - Timestamp ties resolve in this order: autosave, manual slot 0, slot 1, slot 2.
-- Show the exact selected save’s player name, level, floor/location, and timestamp when available.
+- If every metadata-valid save is untimestamped, choose by the same deterministic order: autosave, manual slot 0, slot 1, slot 2.
+- Show the exact selected save’s player name, level, and floor/location. Show its localized timestamp when parseable; otherwise show `Time unavailable`.
 - When no valid metadata exists, Continue remains visible but disabled, explains why, and is skipped by focus.
 - Activation performs full load validation.
 - A load failure shows the themed error and opens Load; it never starts a fresh game.
@@ -509,7 +510,9 @@ A medium sigil-framed panel contains title, prompt, answer choices or input, val
 - Show only supported item icon/name, quantity, currency, experience, or level change.
 - Reward nodes illuminate sequentially before the gold continuation seal becomes available.
 - UI presents but never grants rewards.
-- Duplicate domain emissions must not produce duplicate presentation.
+- Every presentation request carries a non-empty, stable `PresentationId` assigned by the domain controller when it creates the reward transaction. The identity is based on the domain source and event kind—not reward contents or wall-clock time—for example `treasure:{TreasureBoxId}`, `battle:{BattleInstanceId}:result`, or `quest:{QuestId}:completion:{ordinal}` for repeatable events.
+- The game-level reward presentation coordinator owns in-session deduplication. It retains each `PresentationId` while the active `Game.tscn` session exists, including queued, visible, and already dismissed presentations; later emissions with the same identity are ignored.
+- Domain controllers own persistent and cross-session eligibility. They must not re-emit a reward transaction already recorded as granted after save/load. The presentation registry is transient, is not save data, and never decides whether a reward is granted.
 
 ### 9.13 Confirmations, warnings, and errors
 

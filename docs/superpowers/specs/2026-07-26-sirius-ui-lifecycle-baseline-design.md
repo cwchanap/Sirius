@@ -1,7 +1,7 @@
 # Sirius UI Lifecycle Baseline Design
 
-**Version:** 1.2
-**Status:** Review candidate — design approved section by section; two written-artifact review passes incorporated
+**Version:** 1.3
+**Status:** Review candidate — design approved section by section; three written-artifact review passes incorporated
 **Linear:** HPA-376, child of HPA-354  
 **Design decisions approved:** 2026-07-26
 **Lineage:** Supersedes nothing; implements HPA-373 section 7 as a behavioral baseline and feeds HPA-378.
@@ -23,7 +23,7 @@ The implementation will produce:
 
 - `docs/ui/hpa-376/ui-lifecycle-contract.md`, containing the lifecycle inventory and modal-priority matrix
 - Targeted regression coverage in the existing Godot/GdUnit4 suite
-- New controller test suites only where no suitable suite currently exists
+- New focused test suites where none exists, plus a lifecycle suite when an existing broad fixture is technically suitable but would become a less maintainable cross-controller sink
 - Narrow production fixes or testability hooks only when deterministic lifecycle testing requires them
 
 The inventory covers:
@@ -49,6 +49,7 @@ HPA-376 will not:
 - Implement project-wide mouse, HUD-layer, focus-fallback, or pause ownership
 - Redesign or restyle any screen
 - Change combat, inventory, save, settings, dialogue, shop, healing, puzzle, or reward domain rules
+- Treat silent gameplay-domain events without a presentation lifecycle, such as trap-tile damage, as standalone UI flows; their existing input guards and domain tests remain outside this audit
 - Add screenshot, visual-regression, or full-playthrough tests
 - Fix unrelated compiler warnings or pre-existing orphan-node warnings
 
@@ -101,7 +102,8 @@ Examples:
 - The current Pause dialog's failure to set `SceneTree.Paused` is explicitly `Replace in HPA-378/379`. Fixing it safely requires coordinated process-mode and child-flow ownership for Pause, Settings, save/load, and nested dialogs, which is host work rather than a narrow HPA-376 correction.
 - The current battle Continue surface is a legacy, recoverable result layer whose existing Cancel dismissal is `Preserve`; it is not classified as a future required acknowledgement. Routing Cancel to that still-visible result instead of opening Pause behind it is `Fix in HPA-376`.
 - A future reward or battle-result constellation that the producer marks as requiring acknowledgement does not dismiss through Cancel. That policy is `Replace in HPA-378/379`; its presentation is realized by the relevant downstream screen work after HPA-393 supplies any required reward handoff guarantees.
-- Restoring the tree's previous pause value, exactly-once close emission, or timer cleanup may be `Fix in HPA-376` when a regression test proves the current behavior is unsafe for migration.
+- Inventory restoring a previously paused tree is an explicitly licensed forward-compatibility correction. HPA-373 makes Inventory-from-Pause a legal parent context even though current Pause does not pause the tree and cannot open Inventory; HPA-376 proves the correction with a synthetic paused-parent state.
+- Exactly-once close emission, timer cleanup, or restoration cleanup beyond the explicitly licensed Inventory seam may be `Fix in HPA-376` when a regression test proves the current behavior is unsafe for migration.
 
 ## 7. Lifecycle inventory
 
@@ -117,14 +119,18 @@ The implementation contract must contain one row for every ID below. An ID may n
 | `MAIN-LOAD` | Main-menu Load entry and return | Empty, populated, and unavailable/corrupt slot | Audit from source |
 | `MAIN-SETTINGS` | Main-menu Settings entry and return | Apply and discard staged edits | Audit from source |
 | `MAIN-MESSAGE` | Main-menu information or error | Recoverable message above the root | Audit from source |
+| `MAIN-QUIT` | Main-menu application quit | Explicit root Quit button; no active gameplay progress | `Preserve` |
 | `EXP-GAMEPLAY` | Exploration HUD and gameplay fallback | Normal input; Pause request | Audit from source |
 | `EXP-PROMPT` | Interaction prompt visibility | Show, hide during each blocking flow, and restore | Audit from source |
-| `INV-GAMEPLAY` | Inventory from exploration | Open, active, Cancel/toggle close, and prior-pause restoration | Audit; fix prior-pause restoration if regression fails |
+| `EXP-FLOOR-TRANSITION` | Exploration stair/floor transition | Live HUD and prompt while `FloorManager` replaces the world; deferred prompt restoration | Audit from source |
+| `INV-GAMEPLAY` | Inventory from exploration | Open, active, Cancel/toggle close, and prior-pause restoration | Prior-pause restoration is `Fix in HPA-376` via synthetic paused-parent state; audit remaining behavior |
 | `INV-BLOCKED` | Rejected Inventory entry | Settings, save/load, battle, NPC, and world-interaction blockers | Audit from source |
 | `INV-PAUSE` | Inventory from Pause | Legal in HPA-373 but impossible in the current controller graph | `Replace in HPA-378/379` |
 | `PAUSE-ROOT` | Pause root | Open, toggle/Resume, and gameplay restoration | Pause ownership is `Replace in HPA-378/379`; characterize current routing |
 | `PAUSE-SETTINGS` | Pause to Settings and back | Parent inert; inherited pause state | Audit current return; root pause ownership is downstream |
 | `PAUSE-SAVELOAD` | Pause to Save/Load and back | Parent restoration on close, success, and failure | Audit current return; root pause ownership is downstream |
+| `PAUSE-QUIT-TO-MAIN` | Pause Quit to Main Menu | Direct cleanup and scene transition currently have no quit-with-risk confirmation; cleanup must survive replacement | `Replace in HPA-378/379` |
+| `PAUSE-RESTORE-PENDING` | Deferred Pause restoration after Settings closes | Re-entrant `pause_menu` is consumed without opening or closing a layer; the host may replace the boolean mechanism | `Preserve` |
 | `SET-MAIN` | Settings under Main Menu | Open, staged edit, Apply, Cancel, and return | Audit from source |
 | `SET-PAUSE` | Settings under Pause | Open, staged edit, Apply, Cancel, and return | Audit from source |
 | `SET-DROPDOWN` | Settings `OptionButton` popup | Both parent contexts; popup Cancel before Settings | `Preserve` |
@@ -135,12 +141,13 @@ The implementation contract must contain one row for every ID below. An ID may n
 | `SAVE-OVERWRITE` | Overwrite confirmation child | Cancel/window close/button; parent remains open | Audit from source |
 | `SAVE-CORRUPT` | Corrupt or unavailable load error | Main Menu and Pause parents | Audit from source |
 | `SAVE-ERROR` | Ordinary save/load operation error | Main Menu and Pause parents | Audit from source |
+| `SAVE-QUIT-TO-MAIN` | Save/Load Main Menu button | Current path cleans Save/Load and a hidden Pause parent, then transitions without quit-with-risk confirmation; cleanup must survive replacement | `Replace in HPA-378/379` |
 | `BATTLE-PREP` | Battle preparation | Before automatic combat starts | Audit from source |
 | `BATTLE-AUTO` | Automatic combat | Turn timer active and gameplay blocked | Audit from source |
 | `BATTLE-ESC-PREP` | Escape during preparation | Result emission and cleanup | Audit; fix only on failing contract |
 | `BATTLE-ESC-ACTIVE` | Escape during automatic combat | Timer/effect cleanup and exactly-once result | Audit; fix only on failing contract |
 | `BATTLE-RESULT-VICTORY` | Visible victory/loot Continue surface | `IsInBattle` may already be false | Topmost routing is `Fix in HPA-376`; legacy Cancel dismissal is `Preserve` |
-| `BATTLE-RESULT-DEFEAT` | Defeat result and delayed return-to-menu | Delay, acknowledgment availability, and transition cleanup | Topmost routing is `Fix in HPA-376`; audit delayed transition |
+| `BATTLE-RESULT-DEFEAT` | Defeat result and delayed return-to-menu | Unretained two-second `SceneTreeTimer` callback can outlive the tested flow and trigger stale navigation | Topmost routing and owned/guarded delayed transition are `Fix in HPA-376` |
 | `BATTLE-RESULT-ESCAPE` | Escape result Continue surface | `IsInBattle` may already be false | Topmost routing is `Fix in HPA-376`; legacy Cancel dismissal is `Preserve` |
 | `BATTLE-CLEANUP` | Battle close/free cleanup | Continue, Cancel, window close, deferred callbacks, and repeat triggers | Audit; exactly-once defects may be fixed |
 | `NPC-DIALOGUE` | Dialogue active | Continue/choice and permitted Cancel | Audit from source |
@@ -156,7 +163,7 @@ The implementation contract must contain one row for every ID below. An ID may n
 | `REWARD-TOAST` | Future brief single-reward presentation | No current standalone surface | `Replace in HPA-378/379`; display payload ownership remains downstream |
 | `REWARD-BLOCKING` | Future important/multiple/result/required acknowledgement | No current shared constellation | `Replace in HPA-378/379`; coordinate with HPA-393 and downstream screen work |
 | `CONFIRM-ORDINARY` | Recoverable confirmation or warning | Every invoking parent represented above | Audit current flows |
-| `CONFIRM-DESTRUCTIVE` | Destructive or blocking confirmation | Explicit safe action; generic Cancel must not confirm | Audit current flows; host policy is downstream |
+| `CONFIRM-DESTRUCTIVE` | Destructive or blocking confirmation | Pause and in-game Save/Load quit-to-title paths currently transition without the HPA-373 quit-with-risk confirmation | `Replace in HPA-378/379`; explicit safe action and generic Cancel must not confirm |
 | `ERROR-TOPMOST` | Topmost recoverable error | Parent already restored to Pause or Main Menu, or absent over gameplay | Audit current flows; topmost routing defects may be fixed |
 
 The row set is a minimum, not permission to collapse distinct observed phases. If implementation discovers another player-facing phase, it adds a new ID and documents why it was absent from this design before HPA-376 can close.
@@ -206,9 +213,10 @@ The required priority is:
 
 1. Active child or capture surface, including an `OptionButton`, key capture, or overwrite confirmation
 2. Topmost blocking error or confirmation
-3. Owning screen, modal, or world-interaction flow: settings, save/load, inventory, puzzle, treasure/world interaction, NPC, or battle
-4. Parent screen such as Pause
-5. Gameplay fallback, where Cancel opens Pause
+3. Active deferred restoration guard, which consumes re-entrant back input without changing the visible stack
+4. Owning screen, modal, or world-interaction flow: settings, save/load, inventory, puzzle, treasure/world interaction, NPC, or battle
+5. Parent screen such as Pause
+6. Gameplay fallback, where Cancel opens Pause
 
 Exactly one applicable layer handles each Cancel event.
 
@@ -217,9 +225,11 @@ Key exceptions remain explicit:
 - An open `OptionButton` receives Cancel before Settings.
 - Active key capture receives Cancel before Settings, except while capturing the Pause action when Escape is a valid candidate binding.
 - An overwrite confirmation closes without dismissing save/load.
+- While `_pauseMenuRestorePending` is true, `pause_menu` is consumed as a no-op so the closing child cannot immediately toggle the parent being restored. HPA-376 preserves that outcome; HPA-378 may replace the boolean mechanism with an atomic navigation transition.
 - NPC and puzzle dialogs receive Cancel without Pause opening behind them.
 - A cancelable world-interaction modal such as a puzzle/riddle receives Cancel itself. A non-cancelable atomic world interaction such as treasure opening blocks inventory and Pause until its `IsInWorldInteraction` cleanup completes.
-- Battle preparation and automatic combat use the existing battle escape policy. The legacy battle Continue surface remains Cancel-dismissible, but it remains topmost even after the battle domain flag has cleared; HPA-376 fixes any routing that opens Pause behind it.
+- Battle preparation and automatic combat use the existing battle escape policy. The legacy battle Continue surface remains Cancel-dismissible, but it remains topmost even after the battle domain flag has cleared; HPA-376 routes it through `BattleManager.ForceCloseAsEscape()`, consumes the input, and prevents Pause from opening behind it.
+- Pause and Save/Load quit-to-title actions retain their current cleanup semantics, but HPA-378/379 must insert HPA-373's explicit quit-with-risk confirmation before navigation.
 - A producer-designated required acknowledgement is distinct from the legacy battle Continue surface. It does not dismiss through a generic Cancel path and is implemented by downstream host/reward presentation work.
 
 ## 8. Transition and restoration rules
@@ -231,7 +241,7 @@ Even while the legacy controllers remain in charge, lifecycle behavior follows t
 3. Closing is idempotent. Cleanup and close/result signals occur once even if Cancel, window close, confirmation, and deferred cleanup overlap.
 4. Closing a child restores only its parent.
 5. Closing the outermost presentation restores gameplay.
-6. Deferred restoration remains where the current event could otherwise close a child and immediately toggle its parent.
+6. Deferred restoration remains where the current event could otherwise close a child and immediately toggle its parent. While that restoration is pending, the same back input is consumed as an intentional no-op and cannot reach the parent or gameplay fallback.
 7. Each controller owns its timers, signal disconnection, and transient child cleanup.
 8. An invalid restoration target falls back to the documented safe target for the parent. Common host-owned focus fallback is deferred to HPA-378, but the required target is still recorded now.
 9. Idempotency is measured by observable effects, not only by the absence of exceptions. Each closable controller records signal/result count and cleanup count for double Cancel, Cancel plus button, Cancel plus `CloseRequested`, and any overlapping deferred free/cleanup path that can occur in that flow.
@@ -249,10 +259,24 @@ The correction:
 - Does not turn that surface into the future reward constellation.
 - Prevents Pause from being created, shown, or toggled behind the result.
 - Does not emit another battle result when dismissal happens after `_resultEmitted`.
+- Calls `BattleManager.ForceCloseAsEscape()`, then calls `GetViewport().SetInputAsHandled()` and returns. The correction does not depend on the same physical input also propagating as `ui_cancel` to `AcceptDialog`.
 
-`GameInputLifecycleTest.BattleResultCancelClosesResultWithoutOpeningPause` is the required protecting cross-controller test. Controller-local tests separately prove exactly-once battle result emission and cleanup.
+`GameInputLifecycleTest.BattleResultCancelIsHandledAndClosesResultWithoutOpeningPause` is the required protecting cross-controller test. Controller-local tests separately prove exactly-once battle result emission and cleanup.
 
-### 8.2 Reward and acknowledgement replacement contract
+### 8.2 Defeat return-timer ownership
+
+The current defeat path subscribes `ReturnToMainMenu` to an unretained two-second `SceneTreeTimer`. The timer cannot be stopped, and the current code retains no timer reference through which to disconnect the known handler, so its callback can navigate after a test or flow has otherwise cleaned up.
+
+HPA-376 makes that delayed transition lifecycle-owned without changing the two-second player-facing delay. The implementation may retain and disconnect the timer handler or guard the callback with an equivalent invalidated lifecycle token. It must:
+
+- Schedule at most one defeat return.
+- Prevent stale navigation after `Game` cleanup or replacement.
+- Avoid retaining a freed `Game`.
+- Remain deterministic under tests without performing a real late scene change.
+
+`GameInputLifecycleTest.DefeatReturnTimerIsOwnedAndDoesNotNavigateAfterCleanup` is the required protecting test. This requirement does not imply that `SceneTreeTimer` signals are inherently undisconnectable; the defect is the current path's lack of retained ownership.
+
+### 8.3 Reward and acknowledgement replacement contract
 
 The lifecycle contract separates current reward domain behavior from downstream presentation:
 
@@ -268,11 +292,13 @@ HPA-376 records these targets but does not create reward event identity, payload
 
 Production edits must stay narrowly tied to a failing lifecycle regression.
 
+Inventory prior-pause restoration is the one explicit forward-compatibility exception: a synthetic test starts with `SceneTree.Paused == true` because HPA-373 approves Pause as a legal Inventory parent even though that state is not player-reachable in the current controller graph. The correction may only remember and restore the incoming value; it does not authorize root Pause ownership or process-mode work.
+
 Permitted changes include:
 
 - Remembering and restoring a prior tree-pause value for a locally owned flow such as Inventory; this does not authorize changing root Pause ownership
 - Exactly-once close or result guards
-- Timer shutdown and signal disconnection needed to prevent stale callbacks
+- Timer ownership, signal disconnection, or lifecycle guards needed to prevent stale callbacks, including the defeat return-to-menu delay
 - Cleanup that prevents `GameManager` interaction flags from remaining stuck
 - Topmost battle-result input routing while the legacy presentation remains visible
 - Small internal read-only properties or helpers that expose lifecycle state without changing ownership
@@ -294,7 +320,7 @@ Reflection is a last resort for legacy private state. Test-only abstractions and
 
 | Suite | Existing evidence to retain | HPA-376 gap |
 |---|---|---|
-| `tests/game/GameTest.cs` | Settings key-capture and dropdown guards; save child dismissal and Pause restoration; NPC, puzzle, and world-interaction blocking | Extend only fixture-adjacent cases; place broader topmost-Cancel, active-error, battle-result, prompt-visibility, and restoration scenarios in the focused Game lifecycle suite below |
+| `tests/game/GameTest.cs` | Settings key-capture and dropdown guards; save child dismissal and Pause restoration; NPC, puzzle, and world-interaction blocking | Extend only fixture-adjacent cases; place broader topmost-Cancel, active-error, battle-result, floor-transition prompt, deferred-restoration, quit-path, and restoration scenarios in the focused Game lifecycle suite below |
 | `tests/ui/InventoryMenuControllerTest.cs` | Active-skill selection behavior | Open/close visibility, Cancel/toggle handling, pausing, and prior-pause restoration |
 | `tests/ui/PauseMenuDialogTest.cs` | Button signals, hide behavior, duplicate close guard, and Resume focus | Add only uncovered Cancel/idempotency cases found by the matrix |
 | `tests/ui/SettingsMenuControllerTest.cs` | Extensive Apply/Cancel, focus, input blocking, key-capture, duplicate/reserved key, Pause-binding, and dropdown behavior | Add only a missing staged-state assertion if the audit identifies one |
@@ -311,7 +337,7 @@ Reflection is a last resort for legacy private state. Test-only abstractions and
 - `tests/ui/NpcInteractionControllerTest.cs`
 - `tests/game/GameInputLifecycleTest.cs`
 
-Each UI suite tests its controller's local lifecycle. Cross-controller priority, interaction-prompt visibility, and restoration belong under `tests/game/`. The focused `GameInputLifecycleTest` is preferred for new lifecycle scenarios so the already-large `GameTest` does not become the sole sink; an assertion may remain in `GameTest` when it directly extends an existing fixture and is materially clearer there.
+Each UI suite tests its controller's local lifecycle. Cross-controller priority, interaction-prompt visibility, floor transitions, deferred restoration, quit cleanup, defeat navigation, and parent restoration belong under `tests/game/`. The focused `GameInputLifecycleTest` is preferred for new lifecycle scenarios so the already-large `GameTest` does not become the sole sink; an assertion may remain in `GameTest` when it directly extends an existing fixture and is materially clearer there.
 
 ### 10.3 Evidence mapping
 
@@ -327,6 +353,7 @@ Failure behavior must be deterministic:
 - Repeated close or cleanup calls are harmless.
 - Dismissing a child does not dismiss its parent.
 - Battle escape stops the turn timer, resolves battle state once, and emits one result.
+- Defeat cleanup invalidates its delayed return-to-menu callback so a stale timer cannot navigate after the owning `Game` lifecycle ends.
 - NPC and world-interaction failure paths clear their corresponding `GameManager` flags.
 - Corrupted-save and save/load errors remain topmost. Their already-restored parent may be Pause, Main Menu, or gameplay; Cancel dismisses only the error and never opens, closes, or toggles Pause as a side effect.
 - Test cleanup frees transient dialogs and disconnects timers so new tests introduce no orphan-node warnings.
@@ -362,8 +389,8 @@ This section embeds the live Linear HPA-376 acceptance criteria fetched on 2026-
 - Every ID in section 7.0, plus any newly discovered player-facing phase, has a source-evidenced lifecycle row with explicit ownership.
 - Pause, input, HUD, mouse, focus, Cancel, signal, cleanup, and restoration expectations are explicit.
 - Existing key-rebinding and nested-popup exceptions are covered by tests.
-- Battle preparation, active interruption, timer cleanup, result emission, and still-visible result priority are covered before the dialog is replaced.
-- Inventory open/close and prior-pause restoration, save/load restoration paths, NPC cancellation, world-interaction cleanup, error dismissal, interaction-prompt visibility, and topmost-only Cancel are covered at the approved boundary.
+- Battle preparation, active interruption, timer cleanup, result emission, still-visible result priority, handled-input semantics, and defeat-return ownership are covered before the dialog is replaced.
+- Inventory open/close and synthetic prior-pause restoration, save/load restoration and quit paths, Pause quit and deferred restoration, Main Menu quit, NPC cancellation, floor-transition prompt restoration, world-interaction cleanup, error dismissal, interaction-prompt visibility, and topmost-only Cancel are covered at the approved boundary.
 - The modal-priority/state matrix can be implemented directly by HPA-378.
 - Every `Preserve` or `Fix in HPA-376` contract names automated evidence; every replacement names its downstream owner and complete target behavior.
 - All existing tests and all HPA-376 tests pass with zero failures or skips, and HPA-376 introduces no orphan-node warning.

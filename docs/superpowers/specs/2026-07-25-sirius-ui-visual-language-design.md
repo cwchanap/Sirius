@@ -1,6 +1,6 @@
 # Sirius UI Visual Language and Screen Design
 
-**Version:** 1.4
+**Version:** 1.5
 **Status:** Review candidate — design approved section by section; written artifact review pending  
 **Linear:** HPA-373  
 **Design decisions approved:** 2026-07-25
@@ -513,10 +513,9 @@ A medium sigil-framed panel contains title, prompt, answer choices or input, val
 - UI presents but never grants rewards.
 - Every presentation request carries a non-empty, stable `PresentationId` assigned by the domain controller when it creates the reward transaction. The identity is based on the domain source and event kind—not reward contents or wall-clock time—for example `treasure:{TreasureBoxId}`, `battle:{BattleInstanceId}:result`, or `quest:{QuestId}:completion:{ordinal}` for repeatable events.
 - The game-level reward presentation coordinator owns in-session deduplication. It retains each `PresentationId` while the active `Game.tscn` session exists, including queued, visible, and already dismissed presentations; later emissions with the same identity are ignored.
-- Domain controllers own persistent and cross-session eligibility. Granting a reward and creating its pending-presentation record—containing the same `PresentationId`, immutable display payload, and acknowledgement policy—form one domain transaction; no save may record the grant without that pending record.
-- On load, the domain controller re-emits a presentation-only request for every pending record using the original identity and payload. Replay never invokes grant logic. A toast is acknowledged after its minimum visible dwell; a constellation or other blocking reward is acknowledged only by its required continuation action.
-- The coordinator reports acknowledgement to the domain controller, which removes the pending record from subsequent saves. The coordinator’s in-session deduplication registry remains transient; persisted pending records are the cross-session source of truth, and acknowledged rewards are neither re-granted nor replayed.
-- Acknowledgement must be persisted before it is considered consumed: removing the pending record only from subsequent saves leaves the existing on-disk record intact when the player exits or loads before the next successful save, which would re-emit the already-acknowledged presentation on the next load and contradict the guarantee above. The domain controller must either (a) persist the acknowledgement atomically with the pending-record removal in a single save transaction triggered by the acknowledgement, or (b) mark the pending record as acknowledged on disk before the coordinator treats it as consumed. In either case, a process exit or load immediately after acknowledgement must not re-emit the presentation.
+- Domain controllers continue to own grant and persistent eligibility. They hand the presentation request to the coordinator in the same call stack as the grant; the coordinator establishes a presentation barrier before control returns to any flow that can save or transition.
+- While any reward is queued, visible, or awaiting acknowledgement, manual Save and Load are disabled with a reason, autosave is deferred, and floor, scene, quit, and return-to-menu transitions wait behind the barrier. A toast releases it after its minimum visible dwell; a constellation or other blocking reward releases it only after its required continuation action.
+- Pending presentations, acknowledgements, and the in-session deduplication registry are not written to any manual slot or autosave. Because no post-grant save or transition can complete before the barrier releases, an unexpected termination leaves the last durable save before the grant, allowing the domain source to grant and present normally after reload. This changes no reward eligibility, grant contents, save format, or slot-selection rule.
 
 ### 9.13 Confirmations, warnings, and errors
 

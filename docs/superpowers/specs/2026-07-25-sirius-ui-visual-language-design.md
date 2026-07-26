@@ -591,7 +591,7 @@ Every downstream screen migration must validate:
 - Focus enlargement without layout shift or overlap of required text
 - Reduced-motion behavior
 - Missing portrait/icon fallback
-- Empty, corrupted, incompatible, disabled, warning, and failure states
+- Empty, corrupted/unavailable, disabled, warning, and failure states
 - Topmost Cancel and focus restoration
 - Double-activation prevention
 - Existing domain behavior and rollback semantics

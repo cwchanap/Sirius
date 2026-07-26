@@ -1,6 +1,6 @@
 # Sirius UI Visual Language and Screen Design
 
-**Version:** 1.5
+**Version:** 1.6
 **Status:** Review candidate — design approved section by section; written artifact review pending  
 **Linear:** HPA-373  
 **Design decisions approved:** 2026-07-25
@@ -337,7 +337,7 @@ Continue policy:
 - Inspect manual slots 0–2 and autosave slot 3 through save metadata.
 - Ignore missing and metadata-corrupted saves. A metadata-valid save remains eligible but is classified as untimestamped when its timestamp is missing, unparseable, or equal to the `default(DateTime)` / `DateTime.MinValue` sentinel; timestamp state alone does not make it corrupt.
 - Normalize usable timestamps deterministically: values carrying `Z` or an explicit offset convert to UTC, while zone-less values are interpreted as UTC with the same wall-clock fields and must never pass through machine-local time. If one or more metadata-valid saves have usable timestamps, choose the greatest normalized UTC value. Every timestamped save ranks ahead of every untimestamped save.
-- The existing metadata path does not satisfy this rule as-is and must be updated when Continue is implemented: `SaveManager.ExtractMetadataFromFile` currently parses `SaveTimestamp` into a `DateTime` and stores it on `SaveSlotInfo.Timestamp` (also `DateTime`), so direct comparisons use raw wall-clock ticks and zone-less values are interpreted using the host timezone via `DateTime.Kind`. Either expose normalized UTC metadata (e.g. `DateTimeOffset` or a `DateTime` always constructed with `Kind=Utc` after explicit normalization) on `SaveSlotInfo`, or perform the normalization inline before any Continue comparison. The Continue selector must never compare raw `DateTime` values across saves.
+- The existing metadata path does not satisfy this rule as-is and must be updated when Continue is implemented. With `RoundtripKind`, a zone-less value remains `DateTimeKind.Unspecified`; it is not automatically interpreted through the host timezone. Explicit-offset inputs may be normalized during parsing, while `DateTime.Compare` compares ticks and ignores `Kind`. Preserve offset-bearing instants with `DateTimeOffset`, apply the explicit UTC policy above to zone-less values, and compare normalized UTC instants rather than raw `DateTime` values.
 - Full loading must tolerate a malformed `SaveTimestamp` the same way metadata extraction does. `ExtractMetadataFromFile` treats a present-but-unparseable `SaveTimestamp` as `DateTime.MinValue` and leaves the save uncorrupted, so this rule classifies such a save as an untimestamped Continue candidate. `SaveManager.LoadFromFile` currently deserializes `SaveTimestamp` as a non-nullable `DateTime` via `System.Text.Json`, which throws `JsonException` on the same unparseable value and fails the load — so Continue would select an eligible save that then cannot load. When Continue is implemented, `LoadFromFile` (or the `SaveData.SaveTimestamp` field) must accept a present-but-unparseable timestamp and fall back to `DateTime.MinValue`, matching `ExtractMetadataFromFile`. This keeps "timestamp state alone does not make it corrupt" true on both paths. A save whose non-timestamp fields fail to deserialize is still treated as corrupt and excluded.
 - Timestamp ties resolve in this order: autosave, manual slot 0, slot 1, slot 2.
 - If every metadata-valid save is untimestamped, choose by the same deterministic order: autosave, manual slot 0, slot 1, slot 2.
@@ -459,7 +459,7 @@ Each record shows only reliably available metadata:
 - Player name and level
 - Floor/location
 - Timestamp
-- Empty, valid, corrupted, incompatible, selected, loading, or failure state
+- Empty, valid, corrupted/unavailable, selected, loading, or failure state
 
 Standard places the four records along a shallow two-row trajectory. Compact straightens that trajectory into a single scrolling list. Save, Overwrite, Delete, Load, and disabled reasons appear only where supported. Autosave is read-only in Save mode. Overwrite and Delete use child confirmations. Cancel closes the child before returning to Main Menu or Pause.
 
@@ -512,11 +512,8 @@ A medium sigil-framed panel contains title, prompt, answer choices or input, val
 - Show only supported item icon/name, quantity, currency, experience, or level change.
 - Reward nodes illuminate sequentially before the gold continuation seal becomes available.
 - UI presents but never grants rewards.
-- Every presentation request carries a non-empty, stable `PresentationId` assigned by the domain controller when it creates the reward transaction. The identity is based on the domain source and event kind—not reward contents or wall-clock time—for example `treasure:{TreasureBoxId}`, `battle:{BattleInstanceId}:result`, or `quest:{QuestId}:completion:{ordinal}` for repeatable events.
-- The game-level reward presentation coordinator owns in-session deduplication. It retains each `PresentationId` while the active `Game.tscn` session exists, including queued, visible, and already dismissed presentations; later emissions with the same identity are ignored.
-- Domain controllers continue to own grant and persistent eligibility. They hand the presentation request to the coordinator in the same call stack as the grant; the coordinator establishes a presentation barrier before control returns to any flow that can save or transition.
-- While any reward is queued, visible, or awaiting acknowledgement, manual Save and Load are disabled with a reason, autosave is deferred, and floor, scene, quit, and return-to-menu transitions wait behind the barrier. A toast releases it after its minimum visible dwell; a constellation or other blocking reward releases it only after its required continuation action.
-- Pending presentations, acknowledgements, and the in-session deduplication registry are not written to any manual slot or autosave. Because no post-grant save or transition can complete before the barrier releases, an unexpected termination leaves the last durable save before the grant, allowing the domain source to grant and present normally after reload. This changes no reward eligibility, grant contents, save format, or slot-selection rule.
+- Presentation receives one immutable, already-resolved display payload per controller invocation. It may queue that request and guard against local double-enqueue or re-entrant display, but it does not infer event identity from reward contents or call grant, save, load, autosave, or navigation operations.
+- Stable cross-producer identity, duplicate-emission suppression, retry/replay, and any save or transition coordination are domain concerns owned by HPA-393. HPA-393 blocks HPA-386 and must land first if those guarantees are required; HPA-373 defines only the visual treatment of controller-provided rewards.
 
 ### 9.13 Confirmations, warnings, and errors
 

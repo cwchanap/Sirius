@@ -1,6 +1,6 @@
 # Sirius UI Lifecycle Baseline Design
 
-**Version:** 1.0  
+**Version:** 1.1
 **Status:** Review candidate — design approved section by section; written artifact review pending  
 **Linear:** HPA-376, child of HPA-354  
 **Design decisions approved:** 2026-07-26
@@ -58,6 +58,7 @@ The current checkout has no `UIScreenHost`. Presentation is owned locally by `Ma
 The most important current observations are:
 
 - `Game._Input()` coordinates inventory and Pause actions through ordered special cases.
+- Gameplay input is blocked by three independent `GameManager` flags: `IsInBattle`, `IsInNpcInteraction`, and `IsInWorldInteraction`. The world-interaction flag covers treasure opening, puzzle switches, and puzzle/riddle flows.
 - Settings already distinguishes ordinary Cancel, active key capture, capture of the Pause binding itself, and open `OptionButton` popups.
 - Save/load has a parent dialog and an overwrite-confirmation child, with special restoration when invoked from Pause.
 - Inventory sets `SceneTree.Paused` on open and unconditionally clears it on close.
@@ -67,7 +68,7 @@ The most important current observations are:
 - Mouse visibility is not explicitly owned by the current flows.
 - Treasure rewards have no standalone reward modal; battle loot remains part of the battle presentation.
 
-The baseline suite passes 869 tests with Godot 4.6.2 when run outside the filesystem sandbox. Settings and `Game._Input()` already have substantial regression coverage. Inventory lifecycle, save/load dialog behavior, battle interruption and cleanup, and NPC/puzzle cancellation have the largest gaps.
+At source baseline `bc82ead`, the suite passed 869 tests with Godot 4.6.2 when run outside the filesystem sandbox. This count is evidence for that commit, not a permanent expected total. Settings and `Game._Input()` already have substantial regression coverage. Inventory lifecycle, save/load dialog behavior, battle interruption and cleanup, and end-to-end NPC/puzzle cancellation have the largest gaps.
 
 ## 5. Chosen approach
 
@@ -96,6 +97,7 @@ Examples:
 
 - Settings dropdown and key-capture exceptions are `Preserve`.
 - Central pause, mouse, HUD, and focus-fallback ownership are `Replace in HPA-378/379`.
+- The current Pause dialog's failure to set `SceneTree.Paused` is explicitly `Replace in HPA-378/379`. Fixing it safely requires coordinated process-mode and child-flow ownership for Pause, Settings, save/load, and nested dialogs, which is host work rather than a narrow HPA-376 correction.
 - Restoring the tree's previous pause value, exactly-once close emission, or timer cleanup may be `Fix in HPA-376` when a regression test proves the current behavior is unsafe for migration.
 
 ## 7. Lifecycle inventory
@@ -112,7 +114,7 @@ Each flow records:
 - Current scene or controller owner
 - Observed tree-pause behavior
 - Required tree-pause behavior
-- Gameplay-input blocking
+- Gameplay-input blocking, including which of `IsInBattle`, `IsInNpcInteraction`, and `IsInWorldInteraction` owns the block
 - HUD visibility
 - Mouse policy
 - Initial focus
@@ -134,7 +136,7 @@ The required priority is:
 
 1. Active child or capture surface, including an `OptionButton`, key capture, or overwrite confirmation
 2. Topmost blocking error or confirmation
-3. Owning screen or modal: settings, save/load, inventory, puzzle, NPC, or battle
+3. Owning screen, modal, or world-interaction flow: settings, save/load, inventory, puzzle, treasure/world interaction, NPC, or battle
 4. Parent screen such as Pause
 5. Gameplay fallback, where Cancel opens Pause
 
@@ -146,6 +148,7 @@ Key exceptions remain explicit:
 - Active key capture receives Cancel before Settings, except while capturing the Pause action when Escape is a valid candidate binding.
 - An overwrite confirmation closes without dismissing save/load.
 - NPC and puzzle dialogs receive Cancel without Pause opening behind them.
+- A cancelable world-interaction modal such as a puzzle/riddle receives Cancel itself. A non-cancelable atomic world interaction such as treasure opening blocks inventory and Pause until its `IsInWorldInteraction` cleanup completes.
 - Battle preparation, automatic combat, and results use the existing battle escape policy; a result dialog remains topmost even after the battle domain flag has cleared.
 - Required acknowledgements do not become accidentally dismissible through a generic Cancel path.
 
@@ -168,7 +171,7 @@ Production edits must stay narrowly tied to a failing lifecycle regression.
 
 Permitted changes include:
 
-- Remembering and restoring a prior tree-pause value
+- Remembering and restoring a prior tree-pause value for a locally owned flow such as Inventory; this does not authorize changing root Pause ownership
 - Exactly-once close or result guards
 - Timer shutdown and signal disconnection needed to prevent stale callbacks
 - Cleanup that prevents `GameManager` interaction flags from remaining stuck
@@ -189,14 +192,14 @@ Reflection is a last resort for legacy private state. Test-only abstractions and
 
 ### 10.1 Existing suites to extend
 
-| Suite | Added responsibility |
-|---|---|
-| `tests/game/GameTest.cs` | Topmost-only Cancel, parent restoration, error dismissal, NPC cancellation, and gameplay-input blocking |
-| `tests/ui/InventoryMenuControllerTest.cs` | Open/close visibility, Cancel/toggle handling, pausing, and prior-pause restoration |
-| `tests/ui/PauseMenuDialogTest.cs` | Idempotent close signaling and existing initial-focus behavior |
-| `tests/ui/SettingsMenuControllerTest.cs` | Only missing staged Apply/Cancel behavior; retain existing key-capture and dropdown coverage |
-| `tests/ui/BattleManagerTest.cs` | Pre-start escape, active escape, timer shutdown, effect cleanup, and exactly-once result emission |
-| `tests/ui/ShopDialogTest.cs` | Cancel, close idempotency, and timer cleanup |
+| Suite | Existing evidence to retain | HPA-376 gap |
+|---|---|---|
+| `tests/game/GameTest.cs` | Settings key-capture and dropdown guards; save child dismissal and Pause restoration; NPC, puzzle, and world-interaction blocking | Unified topmost-only Cancel evidence, active-error dismissal, result-phase battle priority, and end-to-end parent restoration where not already covered |
+| `tests/ui/InventoryMenuControllerTest.cs` | Active-skill selection behavior | Open/close visibility, Cancel/toggle handling, pausing, and prior-pause restoration |
+| `tests/ui/PauseMenuDialogTest.cs` | Button signals, hide behavior, duplicate close guard, and Resume focus | Add only uncovered Cancel/idempotency cases found by the matrix |
+| `tests/ui/SettingsMenuControllerTest.cs` | Extensive Apply/Cancel, focus, input blocking, key-capture, duplicate/reserved key, Pause-binding, and dropdown behavior | Add only a missing staged-state assertion if the audit identifies one |
+| `tests/ui/BattleManagerTest.cs` | Combat scheduling, consumable, skill, and turn behavior | Pre-start escape, active escape, timer shutdown, effect cleanup, and exactly-once result emission |
+| `tests/ui/ShopDialogTest.cs` | Sell-list refresh and feedback-timer behavior | Cancel, close idempotency, and close-time timer cleanup |
 
 ### 10.2 New focused suites
 
@@ -212,6 +215,8 @@ Each suite tests the controller's local lifecycle. Cross-controller priority and
 ### 10.3 Evidence mapping
 
 Every lifecycle row classified as `Preserve` or `Fix in HPA-376` names at least one protecting test method. Rows classified as `Replace in HPA-378/379` name the downstream owner and must not claim coverage for behavior the current architecture does not provide.
+
+A replacement row must still specify the target pause, input, HUD, mouse, focus, Cancel, cleanup, and restoration behavior precisely enough for HPA-378 or HPA-379 to implement it without repeating the source audit.
 
 ## 11. Failure handling
 
@@ -237,7 +242,7 @@ Implementation verification proceeds in layers:
 4. Compare orphan-node output with the baseline and reject newly introduced warnings.
 5. Check the lifecycle contract against HPA-373 section 7 and the HPA-376 acceptance criteria.
 
-The full-suite success condition is the existing 869 passing tests plus all newly added tests, with zero failures or skips.
+The full-suite success condition is every test present at implementation start plus all newly added tests, with zero failures or skips. The historical reference is 869 passing tests at source baseline `bc82ead`; a changed upstream count is not itself a failure.
 
 ## 13. Completion criteria
 
@@ -250,4 +255,3 @@ HPA-376 is complete when:
 - Existing settings, save/load, battle, inventory, NPC, puzzle, error, and topmost-Cancel exceptions are covered at the approved boundary.
 - No host architecture, broad redesign, or domain-rule change is included.
 - Focused and full verification pass.
-

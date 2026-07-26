@@ -1,6 +1,6 @@
 # Sirius UI Visual Language and Screen Design
 
-**Version:** 1.6
+**Version:** 1.7
 **Status:** Review candidate — design approved section by section; written artifact review pending  
 **Linear:** HPA-373  
 **Design decisions approved:** 2026-07-25
@@ -283,6 +283,22 @@ Every screen declares:
 - Cancel behavior
 - Restoration target
 
+| Screen | Parent context | Pause behavior | HUD visibility | Cursor policy | Initial focus | Cancel behavior | Restoration target |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Main Menu | Startup or return-to-title | Not applicable | Hidden | Visible | Continue when enabled; otherwise New Game | No-op at the root | Invoking Load/Settings action when returning; otherwise the first enabled primary action |
+| Exploration HUD | Active `Game.tscn` gameplay | World continues | Visible | Gameplay policy; hidden unless pointer interaction is active | No UI focus; gameplay owns input | Open Pause | Player/gameplay input |
+| Battle flow | Exploration encounter | Exploration and behind-screen input stop; battle progression follows the existing controller | Battle HUD only | Visible in Preparation and Results; existing combat policy during Automatic Combat | Begin Battle in Preparation; Continue when Results becomes actionable | Invoke the existing Escape path only where the battle controller permits it | Exploration/gameplay after battle completion |
+| Inventory and equipment | Exploration or Pause | World paused | Gameplay HUD hidden; parent remains inert | Visible | Last valid tab/slot, otherwise the first equipment slot | Close Inventory | Invoking Inventory action or gameplay |
+| Pause | Exploration | World paused | Visible but inert beneath the scrim | Visible | Resume | Resume | Gameplay |
+| Settings | Main Menu or Pause | Inherit parent pause state | Parent remains visible but inert | Visible | Active tab, then its first setting | Close dropdown/key capture first; otherwise discard staged edits and return | Invoking Settings action |
+| Save and Load | Main Menu or Pause | Inherit parent pause state | Parent remains visible but inert | Visible | Last valid slot, otherwise the first enabled slot | Close overwrite/delete confirmation first; otherwise close the screen | Invoking Save or Load action |
+| Dialogue | Exploration or NPC interaction | World input paused | Hidden | Visible | First available choice or Continue | Invoke the existing close/cancel path only when the dialogue controller permits it | Invoking NPC interaction or gameplay |
+| Shop | Dialogue or NPC interaction | World input paused | Hidden | Visible | Last valid Buy/Sell tab and row; otherwise the first actionable row | Close a child confirmation first; otherwise close Shop | Invoking dialogue choice or NPC interaction |
+| Healing | Dialogue or NPC interaction | World input paused | Hidden | Visible | Heal when enabled; otherwise No Thanks | No Thanks | Invoking dialogue choice or NPC interaction |
+| Puzzle | Exploration or NPC interaction | World input paused | Hidden | Visible | First answer or input field | Invoke the existing puzzle cancellation action | Invoking interaction or gameplay |
+| Reward and Battle Results | Producing battle, interaction, or gameplay flow | Toasts do not pause; required acknowledgements pause the parent flow | Toasts preserve the HUD; blocking constellations keep the parent inert and hide competing HUD | Unchanged for toasts; visible for blocking constellations | None for toasts; Continue when a blocking constellation becomes actionable | Required acknowledgements do not dismiss through Cancel | Producer-provided continuation target |
+| Confirmation, warning, and error | Any invoking screen | Inherit parent pause state and block parent input | Parent remains visible but inert | Visible | Safe non-destructive action | Close the topmost ordinary/recoverable layer; destructive and blocking variants follow their explicit safe action | Invoking control, or the parent safe default if it no longer exists |
+
 The topmost screen alone receives UI input. On dismissal, focus returns to the invoking control when it still exists; otherwise it returns to the screen’s safe default.
 
 Domain controllers remain responsible for combat, saves, inventory, dialogue, rewards, and settings. Presentation binds state and invokes existing operations. UI code does not grant rewards, repair saves, or fabricate domain data.
@@ -334,19 +350,18 @@ The focused destination is marked by a luminous navigator on the orbit. Labels a
 
 Continue policy:
 
-- Inspect manual slots 0–2 and autosave slot 3 through save metadata.
-- Ignore missing and metadata-corrupted saves. A metadata-valid save remains eligible but is classified as untimestamped when its timestamp is missing, unparseable, or equal to the `default(DateTime)` / `DateTime.MinValue` sentinel; timestamp state alone does not make it corrupt.
-- Normalize usable timestamps deterministically: values carrying `Z` or an explicit offset convert to UTC, while zone-less values are interpreted as UTC with the same wall-clock fields and must never pass through machine-local time. If one or more metadata-valid saves have usable timestamps, choose the greatest normalized UTC value. Every timestamped save ranks ahead of every untimestamped save.
-- The existing metadata path does not satisfy this rule as-is and must be updated when Continue is implemented. With `RoundtripKind`, a zone-less value remains `DateTimeKind.Unspecified`; it is not automatically interpreted through the host timezone. Explicit-offset inputs may be normalized during parsing, while `DateTime.Compare` compares ticks and ignores `Kind`. Preserve offset-bearing instants with `DateTimeOffset`, apply the explicit UTC policy above to zone-less values, and compare normalized UTC instants rather than raw `DateTime` values.
-- Full loading must tolerate a malformed `SaveTimestamp` the same way metadata extraction does. `ExtractMetadataFromFile` treats a present-but-unparseable `SaveTimestamp` as `DateTime.MinValue` and leaves the save uncorrupted, so this rule classifies such a save as an untimestamped Continue candidate. `SaveManager.LoadFromFile` currently deserializes `SaveTimestamp` as a non-nullable `DateTime` via `System.Text.Json`, which throws `JsonException` on the same unparseable value and fails the load — so Continue would select an eligible save that then cannot load. When Continue is implemented, `LoadFromFile` (or the `SaveData.SaveTimestamp` field) must accept a present-but-unparseable timestamp and fall back to `DateTime.MinValue`, matching `ExtractMetadataFromFile`. This keeps "timestamp state alone does not make it corrupt" true on both paths. A save whose non-timestamp fields fail to deserialize is still treated as corrupt and excluded.
+- Inspect manual slots 0–2 and autosave slot 3 through the typed, normalized save metadata contract owned by HPA-394.
+- Ignore saves that contract marks missing, corrupted, or otherwise unavailable. The UI does not parse raw timestamps, infer compatibility from display strings, or repair metadata.
+- If one or more eligible saves expose a usable normalized timestamp, choose the greatest UTC instant. Every timestamped save ranks ahead of every eligible untimestamped save.
 - Timestamp ties resolve in this order: autosave, manual slot 0, slot 1, slot 2.
-- If every metadata-valid save is untimestamped, choose by the same deterministic order: autosave, manual slot 0, slot 1, slot 2.
+- If every eligible save is untimestamped, choose by the same deterministic order: autosave, manual slot 0, slot 1, slot 2.
 - Show the exact selected save’s player name, level, and floor/location. Show its localized timestamp when usable under the rules above; otherwise show `Time unavailable`.
 - When no valid metadata exists, Continue remains visible but disabled, explains why, and is skipped by focus.
 - Activation performs full load validation.
 - A load failure shows the themed error and opens Load; it never starts a fresh game.
 - Continue does not mutate, repair, or delete invalid saves.
 - Double activation is blocked during transition.
+- Timestamp parsing, normalization, compatibility, and metadata/full-load parity are save-domain concerns owned by HPA-394. HPA-394 blocks HPA-380 and must land before Continue consumes this contract; HPA-373 defines only selection and presentation behavior.
 
 At 640×360, the same order remains. The orbit becomes a single quarter-arc, and the save summary becomes two lines with compact spacing.
 
@@ -503,7 +518,7 @@ Unavailable healing includes a readable reason.
 
 ### 9.11 Puzzle
 
-A medium sigil-framed panel contains title, prompt, answer choices or input, validation feedback, and Cancel. Compact mode fills the safe area and scrolls long content.
+A medium sigil-framed panel contains title, prompt, answer choices or input, validation feedback, a visible Cancel control, and the active device’s cancel hint. Compact mode fills the safe area and scrolls long content.
 
 ### 9.12 Rewards
 

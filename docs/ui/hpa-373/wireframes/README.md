@@ -24,6 +24,7 @@ The sheet covers:
 13. Reward
 14. Confirmation
 15. Error
+16. Battle Results
 
 These are low-fidelity composition and hierarchy references. Exact tokens, state behavior, component geometry, lifecycle rules, and responsive policies are normative in the canonical HPA-373 specification.
 

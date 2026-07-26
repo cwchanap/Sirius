@@ -27,6 +27,8 @@ The sheet covers:
 
 These are low-fidelity composition and hierarchy references. Exact tokens, state behavior, component geometry, lifecycle rules, and responsive policies are normative in the canonical HPA-373 specification.
 
+The compact examples preserve 14 px for essential state, outcomes, instructions, and actions. The remaining 12 px text is supporting metadata or expendable telemetry.
+
 The revised sheet applies the Constellation Orrery spatial grammar where it improves identity:
 
 - Partial navigation and HUD arcs

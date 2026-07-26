@@ -133,10 +133,10 @@
       <rect class="gold-fill" x="72" y="65" width="68" height="3" rx="2"/>
       <rect class="raised" x="244" y="12" width="152" height="28" rx="6"/>
       <text class="txt" x="277" y="31" font-size="12">Moonlit Grove</text>
-      <rect class="raised" x="218" y="324" width="204" height="24" rx="8"/>
-      <path d="M320 308 V324" fill="none" stroke="#2585a2" stroke-width="2"/>
+      <rect class="raised" x="210" y="320" width="220" height="28" rx="8"/>
+      <path d="M320 308 V320" fill="none" stroke="#2585a2" stroke-width="2"/>
       <circle class="focus" cx="320" cy="304" r="5"/>
-      <text class="txt" x="252" y="341" font-size="12">E · Speak with Mira</text>
+      <text class="txt" x="244" y="339" font-size="14">E · Speak with Mira</text>
     </g>
   </g>
 
@@ -151,7 +151,7 @@
                stroke-dasharray="520 90 260 80 430 120" transform="rotate(-10 640 360)"/>
       <ellipse cx="640" cy="360" rx="525" ry="228" fill="none" stroke="#b38a22" stroke-width="2"
                stroke-dasharray="6 14" transform="rotate(-10 640 360)"/>
-      <text class="heading" x="40" y="58" font-size="28">ORBITAL PREPARATION</text>
+      <text class="heading" x="40" y="62" font-size="32">ORBITAL PREPARATION</text>
       <text class="muted" x="40" y="84" font-size="18">Encounter 07 · one catalyst maximum</text>
       <path d="M245 401 C470 270 730 232 1018 202" fill="none" stroke="#2585a2" stroke-width="4" stroke-dasharray="12 12"/>
       <circle class="focus" cx="160" cy="420" r="64"/>
@@ -186,24 +186,24 @@
       <rect class="scene" width="640" height="360"/>
       <path d="M34 246 C130 346 342 366 520 278" fill="none" stroke="#2585a2" stroke-width="3"/>
       <path d="M382 52 C492 22 592 86 614 176" fill="none" stroke="#2585a2" stroke-width="3"/>
-      <text class="heading" x="14" y="25" font-size="17">ORBITAL PREPARATION</text>
+      <text class="heading" x="14" y="30" font-size="24">ORBITAL PREPARATION</text>
       <circle class="focus" cx="76" cy="218" r="35"/>
-      <path class="panel" d="M106 172 H260 L270 182 V238 H106 Z"/>
-      <text class="heading" x="120" y="196" font-size="15">HERO · LV 8</text>
-      <text class="txt" x="120" y="218" font-size="12">HP 118/150 · MP 34/50</text>
+      <path class="panel" d="M106 172 H282 L292 182 V238 H106 Z"/>
+      <text class="heading" x="120" y="198" font-size="18">HERO · LV 8</text>
+      <text class="txt" x="120" y="222" font-size="14">HP 118/150 · MP 34/50</text>
       <circle class="danger" cx="552" cy="84" r="37"/>
-      <path class="panel" d="M384 32 H516 V108 H398 L384 94 Z"/>
-      <text class="heading" x="398" y="59" font-size="14">GOBLIN · LV 7</text>
-      <text class="txt" x="398" y="82" font-size="12">HP 52/80 · acts first</text>
+      <path class="panel" d="M344 28 H516 V112 H358 L344 98 Z"/>
+      <text class="heading" x="358" y="60" font-size="18">GOBLIN · LV 7</text>
+      <text class="txt" x="358" y="84" font-size="14">HP 52/80 · acts first</text>
       <circle class="selected" cx="194" cy="292" r="28"/>
       <circle class="focus" cx="286" cy="320" r="31"/>
       <circle class="slot" cx="378" cy="321" r="26"/>
-      <path class="raised" d="M232 244 H376 L386 254 V296 H232 Z"/>
-      <text class="txt" x="246" y="266" font-size="12">Strength Tonic</text>
-      <text class="muted" x="246" y="284" font-size="12">ATK +20% · Hero</text>
+      <path class="raised" d="M232 242 H376 L386 252 V300 H232 Z"/>
+      <text class="txt" x="246" y="266" font-size="17">Strength Tonic</text>
+      <text class="muted" x="246" y="288" font-size="14">ATK +20% · Hero</text>
       <circle class="primary" cx="542" cy="288" r="45"/>
-      <text class="txt" x="542" y="284" text-anchor="middle" font-size="12">BEGIN</text>
-      <text class="txt" x="542" y="301" text-anchor="middle" font-size="12">BATTLE</text>
+      <text class="txt" x="542" y="284" text-anchor="middle" font-size="14">BEGIN</text>
+      <text class="txt" x="542" y="303" text-anchor="middle" font-size="14">BATTLE</text>
       <text class="muted" x="14" y="348" font-size="12">A Select · X Clear · B Escape</text>
     </g>
   </g>
@@ -246,24 +246,25 @@
       <path d="M34 246 C132 348 352 366 522 274" fill="none" stroke="#2585a2" stroke-width="3"/>
       <path d="M86 220 C238 138 410 112 554 84" fill="none" stroke="#aa5b9c" stroke-width="5" stroke-dasharray="12 7"/>
       <circle class="focus" cx="76" cy="218" r="35"/>
-      <path class="panel" d="M106 174 H252 V232 H106 Z"/>
-      <text class="heading" x="120" y="198" font-size="14">HERO</text>
-      <text class="txt" x="120" y="220" font-size="12">HP 118/150 · weakened</text>
+      <path class="panel" d="M106 160 H252 V240 H106 Z"/>
+      <text class="heading" x="120" y="187" font-size="18">HERO</text>
+      <text class="txt" x="120" y="210" font-size="14">HP 118/150</text>
+      <text class="muted" x="120" y="231" font-size="14">WEAKENED</text>
       <circle class="danger" cx="552" cy="84" r="37"/>
       <path class="panel" d="M392 34 H516 V106 H392 Z"/>
-      <text class="heading" x="404" y="59" font-size="14">GOBLIN</text>
-      <text class="txt" x="404" y="82" font-size="12">HP 32/80 · next</text>
-      <path class="raised" d="M236 130 H402 L412 140 V192 H236 Z"/>
-      <text class="muted" x="324" y="151" text-anchor="middle" font-size="12">AUTO ACTION 04</text>
-      <text class="heading" x="324" y="176" text-anchor="middle" font-size="15">POWER STRIKE</text>
+      <text class="heading" x="404" y="60" font-size="18">GOBLIN</text>
+      <text class="txt" x="404" y="84" font-size="14">HP 32/80 · next</text>
+      <path class="raised" d="M254 122 H420 L430 132 V184 H254 Z"/>
+      <text class="muted" x="342" y="143" text-anchor="middle" font-size="12">AUTO ACTION 04</text>
+      <text class="heading" x="342" y="169" text-anchor="middle" font-size="17">POWER STRIKE</text>
       <circle class="selected" cx="218" cy="298" r="14"/>
       <circle class="focus" cx="286" cy="320" r="16"/>
       <circle class="slot" cx="356" cy="326" r="12"/>
-      <text class="txt" x="16" y="342" font-size="12">Hero attacks for 24</text>
+      <text class="txt" x="16" y="342" font-size="14">Hero attacks for 24</text>
       <rect class="panel" x="476" y="304" width="62" height="30" rx="6"/>
       <rect class="panel" x="546" y="304" width="78" height="30" rx="6"/>
-      <text class="txt" x="493" y="323" font-size="12">Cure</text>
-      <text class="txt" x="559" y="323" font-size="12">Escape</text>
+      <text class="txt" x="491" y="324" font-size="14">Cure</text>
+      <text class="txt" x="557" y="324" font-size="14">Escape</text>
     </g>
   </g>
 
@@ -319,13 +320,13 @@
       <rect class="raised" x="24" y="24" width="592" height="46" rx="8"/>
       <circle class="slot" cx="49" cy="47" r="16"/>
       <text class="txt" x="76" y="44" font-size="14">Hero · Lv 8</text>
-      <text class="muted" x="76" y="60" font-size="12">HP 150 · ATK 30 · DEF 23</text>
+      <text class="muted" x="76" y="62" font-size="14">HP 150 · ATK 30 · DEF 23</text>
       <rect class="selected" x="24" y="78" width="122" height="34" rx="6"/>
       <rect class="panel" x="152" y="78" width="122" height="34" rx="6"/>
       <rect class="panel" x="280" y="78" width="122" height="34" rx="6"/>
-      <text class="txt" x="50" y="100" font-size="12">Equipment</text>
-      <text class="txt" x="194" y="100" font-size="12">Items</text>
-      <text class="txt" x="320" y="100" font-size="12">Skills</text>
+      <text class="txt" x="46" y="101" font-size="14">Equipment</text>
+      <text class="txt" x="190" y="101" font-size="14">Items</text>
+      <text class="txt" x="316" y="101" font-size="14">Skills</text>
       <path d="M190 254 A112 112 0 0 1 414 254" fill="none" stroke="#2585a2" stroke-width="3" stroke-dasharray="74 16 42 14"/>
       <g>
         <rect class="slot" x="274" y="126" width="48" height="48" rx="5"/>
@@ -367,7 +368,7 @@
       <rect class="scene" width="640" height="360"/>
       <rect class="scrim" width="640" height="360"/>
       <rect class="raised" x="160" y="12" width="320" height="336" rx="10"/>
-      <text class="heading" x="270" y="42" font-size="20">PAUSED</text>
+      <text class="heading" x="262" y="46" font-size="24">PAUSED</text>
       <rect class="focus" x="184" y="58" width="272" height="44" rx="6"/>
       <rect class="panel" x="184" y="110" width="272" height="44" rx="6"/>
       <rect class="panel" x="184" y="162" width="272" height="44" rx="6"/>
@@ -417,15 +418,15 @@
     <g transform="translate(760 40)">
       <rect class="frame" width="640" height="360"/>
       <rect class="panel" x="12" y="12" width="616" height="336" rx="10"/>
-      <text class="heading" x="28" y="42" font-size="20">SETTINGS</text>
+      <text class="heading" x="28" y="46" font-size="24">SETTINGS</text>
       <rect class="selected" x="28" y="54" width="92" height="32" rx="6"/>
       <rect class="panel" x="126" y="54" width="92" height="32" rx="6"/>
       <rect class="panel" x="224" y="54" width="92" height="32" rx="6"/>
       <rect class="panel" x="322" y="54" width="92" height="32" rx="6"/>
-      <text class="txt" x="56" y="75" font-size="12">Audio</text>
-      <text class="txt" x="148" y="75" font-size="12">Display</text>
-      <text class="txt" x="240" y="75" font-size="12">Gameplay</text>
-      <text class="txt" x="338" y="75" font-size="12">Controls</text>
+      <text class="txt" x="54" y="76" font-size="14">Audio</text>
+      <text class="txt" x="144" y="76" font-size="14">Display</text>
+      <text class="txt" x="234" y="76" font-size="14">Gameplay</text>
+      <text class="txt" x="334" y="76" font-size="14">Controls</text>
       <rect class="raised" x="28" y="96" width="584" height="174" rx="8"/>
       <text class="txt" x="44" y="126" font-size="14">Master Volume</text>
       <rect class="bar" x="216" y="116" width="360" height="9" rx="4"/>
@@ -477,7 +478,7 @@
       <path d="M44 294 C142 210 250 122 584 74" fill="none" stroke="#2585a2" stroke-width="3" stroke-dasharray="54 14 30 12"/>
       <circle class="selected" cx="44" cy="294" r="8"/>
       <circle class="slot" cx="584" cy="74" r="7"/>
-      <text class="heading" x="28" y="42" font-size="20">LOAD GAME</text>
+      <text class="heading" x="28" y="46" font-size="24">LOAD GAME</text>
       <rect class="selected" x="28" y="54" width="584" height="60" rx="8"/>
       <rect class="raised" x="28" y="122" width="584" height="54" rx="8"/>
       <rect class="disabled" x="28" y="184" width="584" height="60" rx="8"/>
@@ -486,12 +487,12 @@
       <text class="muted" x="44" y="99" font-size="12">2026-07-25 18:42</text>
       <text class="txt" x="44" y="154" font-size="14">Slot 2 · Empty</text>
       <text class="txt" x="44" y="206" font-size="14">Slot 3 · Corrupted</text>
-      <text class="muted" x="44" y="226" font-size="12">Unavailable · File cannot be read</text>
+      <text class="muted" x="44" y="227" font-size="14">Unavailable · File cannot be read</text>
       <text class="txt" x="44" y="284" font-size="14">Autosave · Hero Lv 7 · Floor 1F</text>
       <rect class="primary" x="442" y="314" width="76" height="28" rx="5"/>
       <rect class="danger" x="526" y="314" width="86" height="28" rx="5"/>
-      <text class="txt" x="466" y="332" font-size="12">Load</text>
-      <text class="txt" x="546" y="332" font-size="12">Delete</text>
+      <text class="txt" x="462" y="333" font-size="14">Load</text>
+      <text class="txt" x="542" y="333" font-size="14">Delete</text>
     </g>
   </g>
 
@@ -518,13 +519,13 @@
       <rect class="scene" width="640" height="360"/>
       <rect class="panel" x="12" y="176" width="616" height="172" rx="10"/>
       <circle class="raised" cx="60" cy="226" r="32"/>
-      <text class="heading" x="108" y="210" font-size="16">MIRA</text>
+      <text class="heading" x="108" y="211" font-size="18">MIRA</text>
       <text class="txt" x="108" y="234" font-size="14">The old seal has begun to stir.</text>
       <text class="txt" x="108" y="254" font-size="14">Will you help us restore it?</text>
       <rect class="focus" x="108" y="270" width="236" height="34" rx="6"/>
       <rect class="panel" x="352" y="270" width="236" height="34" rx="6"/>
-      <text class="txt" x="124" y="291" font-size="12">Tell me about the seal</text>
-      <text class="txt" x="378" y="291" font-size="12">Open your shop</text>
+      <text class="txt" x="120" y="292" font-size="14">Tell me about the seal</text>
+      <text class="txt" x="374" y="292" font-size="14">Open your shop</text>
       <text class="muted" x="108" y="328" font-size="12">A Select · B Farewell</text>
     </g>
   </g>
@@ -568,28 +569,28 @@
       <rect class="panel" x="12" y="12" width="616" height="336" rx="10"/>
       <circle class="focus" cx="44" cy="40" r="15"/>
       <circle class="slot" cx="594" cy="40" r="15"/>
-      <path d="M62 40 H576" fill="none" stroke="#2585a2" stroke-width="3" stroke-dasharray="70 15 34 12"/>
-      <text class="heading" x="28" y="42" font-size="18">MOONLIT PROVISIONS</text>
-      <text class="txt" x="548" y="42" font-size="12">Gold 100</text>
+      <path d="M330 40 H500" fill="none" stroke="#2585a2" stroke-width="3" stroke-dasharray="70 15 34 12"/>
+      <text class="heading" x="66" y="46" font-size="24">MOONLIT PROVISIONS</text>
+      <text class="txt" x="510" y="44" font-size="14">Gold 100</text>
       <rect class="selected" x="28" y="54" width="82" height="32" rx="6"/>
       <rect class="panel" x="116" y="54" width="82" height="32" rx="6"/>
-      <text class="txt" x="58" y="75" font-size="12">Buy</text>
-      <text class="txt" x="146" y="75" font-size="12">Sell</text>
+      <text class="txt" x="56" y="76" font-size="14">Buy</text>
+      <text class="txt" x="144" y="76" font-size="14">Sell</text>
       <rect class="raised" x="28" y="96" width="584" height="176" rx="8"/>
       <rect class="slot" x="42" y="110" width="48" height="48" rx="6"/>
       <text class="txt" x="104" y="130" font-size="14">Health Potion</text>
-      <text class="txt" x="430" y="130" font-size="12">25g</text>
+      <text class="txt" x="426" y="131" font-size="14">25g</text>
       <rect class="focus" x="512" y="112" width="84" height="38" rx="6"/>
-      <text class="txt" x="540" y="136" font-size="12">Buy</text>
+      <text class="txt" x="538" y="137" font-size="14">Buy</text>
       <rect class="slot" x="42" y="170" width="48" height="48" rx="6"/>
       <text class="txt" x="104" y="190" font-size="14">Elixir of Fortitude</text>
-      <text class="txt" x="430" y="190" font-size="12">120g</text>
+      <text class="txt" x="426" y="191" font-size="14">120g</text>
       <rect class="disabled" x="512" y="172" width="84" height="38" rx="6"/>
-      <text class="txt" x="540" y="196" font-size="12">Buy</text>
+      <text class="txt" x="538" y="197" font-size="14">Buy</text>
       <rect class="panel" x="28" y="282" width="460" height="42" rx="6"/>
-      <text class="muted" x="42" y="308" font-size="12">Not enough gold · Need 20 more</text>
+      <text class="muted" x="42" y="309" font-size="14">Not enough gold · Need 20 more</text>
       <rect class="panel" x="500" y="282" width="112" height="42" rx="6"/>
-      <text class="txt" x="540" y="308" font-size="12">Close</text>
+      <text class="txt" x="536" y="309" font-size="14">Close</text>
     </g>
   </g>
 
@@ -617,7 +618,7 @@
       <rect class="scrim" width="640" height="360"/>
       <rect class="raised" x="110" y="44" width="420" height="272" rx="10"/>
       <circle class="slot" cx="154" cy="100" r="28"/>
-      <text class="heading" x="196" y="93" font-size="17">SISTER CELESTE</text>
+      <text class="heading" x="196" y="94" font-size="18">SISTER CELESTE</text>
       <text class="txt" x="196" y="116" font-size="14">Restore all HP?</text>
       <text class="txt" x="136" y="168" font-size="14">HP 92/150 · Cost 25g · Gold 100</text>
       <rect class="primary" x="136" y="222" width="170" height="44" rx="7"/>
@@ -652,7 +653,7 @@
       <rect class="scrim" width="640" height="360"/>
       <rect class="raised" x="12" y="12" width="616" height="336" rx="10"/>
       <circle fill="none" stroke="#7b88a1" stroke-width="2" cx="320" cy="62" r="30"/>
-      <text class="heading" x="266" y="112" font-size="18">ASTRAL SEAL</text>
+      <text class="heading" x="250" y="116" font-size="24">ASTRAL SEAL</text>
       <text class="txt" x="68" y="150" font-size="14">Which light remains when moon and sun are hidden?</text>
       <rect class="focus" x="68" y="172" width="504" height="40" rx="6"/>
       <rect class="panel" x="68" y="220" width="504" height="40" rx="6"/>
@@ -691,23 +692,23 @@
     <g transform="translate(760 40)">
       <rect class="frame" width="640" height="360"/>
       <rect class="scene" width="640" height="360"/>
-      <rect class="raised" x="418" y="12" width="210" height="52" rx="8"/>
-      <rect class="slot" x="430" y="20" width="36" height="36" rx="5"/>
-      <text class="txt" x="478" y="36" font-size="12">Health Potion ×1</text>
-      <text class="muted" x="478" y="52" font-size="12">Added to inventory</text>
+      <rect class="raised" x="418" y="294" width="210" height="52" rx="8"/>
+      <rect class="slot" x="430" y="302" width="36" height="36" rx="5"/>
+      <text class="txt" x="478" y="319" font-size="14">Health Potion ×1</text>
+      <text class="muted" x="478" y="334" font-size="12">Added to inventory</text>
       <rect class="scrim" width="640" height="360"/>
-      <text class="heading" x="320" y="54" text-anchor="middle" font-size="18">TREASURE CONSTELLATION</text>
+      <text class="heading" x="320" y="58" text-anchor="middle" font-size="24">TREASURE CONSTELLATION</text>
       <path d="M154 166 L264 104 L374 160 L470 112" fill="none" stroke="#2585a2" stroke-width="3"/>
       <path d="M264 104 L320 244 L374 160" fill="none" stroke="#b38a22" stroke-width="2" stroke-dasharray="7 6"/>
       <circle class="selected" cx="154" cy="166" r="30"/>
       <circle class="focus" cx="264" cy="104" r="32"/>
       <circle class="slot" cx="374" cy="160" r="28"/>
       <circle class="slot" cx="470" cy="112" r="20"/>
-      <text class="txt" x="154" y="171" text-anchor="middle" font-size="12">ITEM ×2</text>
-      <text class="txt" x="264" y="109" text-anchor="middle" font-size="12">GOLD +45</text>
-      <text class="txt" x="374" y="165" text-anchor="middle" font-size="12">XP +120</text>
+      <text class="txt" x="154" y="171" text-anchor="middle" font-size="14">ITEM ×2</text>
+      <text class="txt" x="264" y="109" text-anchor="middle" font-size="14">GOLD +45</text>
+      <text class="txt" x="374" y="165" text-anchor="middle" font-size="14">XP +120</text>
       <circle class="primary" cx="320" cy="274" r="43"/>
-      <text class="txt" x="320" y="279" text-anchor="middle" font-size="12">CONTINUE</text>
+      <text class="txt" x="320" y="280" text-anchor="middle" font-size="14">CONTINUE</text>
     </g>
   </g>
 
@@ -733,7 +734,7 @@
       <rect class="panel" x="12" y="12" width="616" height="336" rx="10"/>
       <rect class="scrim" width="640" height="360"/>
       <path class="raised" d="M142 64 H498 L540 106 V254 L498 296 H142 L100 254 V106 Z"/>
-      <text class="heading" x="224" y="112" font-size="18">OVERWRITE SAVE?</text>
+      <text class="heading" x="206" y="116" font-size="24">OVERWRITE SAVE?</text>
       <text class="txt" x="138" y="152" font-size="14">Slot 1 contains Hero · Level 8 · Floor 2F.</text>
       <text class="txt" x="234" y="176" font-size="14">This cannot be undone.</text>
       <rect class="focus" x="154" y="218" width="148" height="42" rx="7"/>
@@ -767,9 +768,9 @@
       <rect class="scrim" width="640" height="360"/>
       <rect class="raised" x="92" y="72" width="456" height="216" rx="10"/>
       <circle class="danger" cx="138" cy="118" r="22"/>
-      <text class="heading" x="176" y="120" font-size="18">LOAD FAILED</text>
+      <text class="heading" x="176" y="124" font-size="24">LOAD FAILED</text>
       <text class="txt" x="120" y="164" font-size="14">The selected save could not be loaded.</text>
-      <text class="muted" x="180" y="188" font-size="12">Choose another slot.</text>
+      <text class="muted" x="174" y="189" font-size="14">Choose another slot.</text>
       <rect class="primary" x="142" y="226" width="196" height="42" rx="7"/>
       <rect class="panel" x="348" y="226" width="124" height="42" rx="7"/>
       <text class="txt" x="202" y="252" font-size="14">Open Load</text>

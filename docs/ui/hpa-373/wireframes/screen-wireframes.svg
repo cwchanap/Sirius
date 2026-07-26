@@ -646,27 +646,27 @@
       <text class="txt" x="530" y="410" font-size="22">The northern star</text>
       <text class="txt" x="540" y="472" font-size="22">A lantern flame</text>
       <text class="txt" x="512" y="534" font-size="22">The memory of dawn</text>
-      <rect class="panel" x="378" y="566" width="180" height="40" rx="7"/>
-      <text class="txt" x="430" y="592" font-size="20">Cancel</text>
-      <text class="muted" x="750" y="592" font-size="18">B / Esc</text>
+      <rect class="panel" x="378" y="562" width="180" height="44" rx="7"/>
+      <text class="txt" x="430" y="590" font-size="20">Cancel</text>
+      <text class="muted" x="750" y="590" font-size="18">B / Esc</text>
     </g>
     <g transform="translate(760 40)">
       <rect class="frame" width="640" height="360"/>
       <rect class="scene" width="640" height="360"/>
       <rect class="scrim" width="640" height="360"/>
       <rect class="raised" x="12" y="12" width="616" height="336" rx="10"/>
-      <circle fill="none" stroke="#7b88a1" stroke-width="2" cx="320" cy="62" r="30"/>
-      <text class="heading" x="250" y="116" font-size="24">ASTRAL SEAL</text>
-      <text class="txt" x="68" y="150" font-size="14">Which light remains when moon and sun are hidden?</text>
-      <rect class="focus" x="68" y="164" width="504" height="36" rx="6"/>
-      <rect class="panel" x="68" y="206" width="504" height="36" rx="6"/>
-      <rect class="panel" x="68" y="248" width="504" height="36" rx="6"/>
-      <text class="txt" x="266" y="187" font-size="14">The northern star</text>
-      <text class="txt" x="272" y="229" font-size="14">A lantern flame</text>
-      <text class="txt" x="250" y="271" font-size="14">The memory of dawn</text>
-      <rect class="panel" x="68" y="298" width="144" height="34" rx="6"/>
-      <text class="txt" x="116" y="320" font-size="14">Cancel</text>
-      <text class="muted" x="492" y="320" font-size="12">B / Esc</text>
+      <circle fill="none" stroke="#7b88a1" stroke-width="2" cx="320" cy="48" r="24"/>
+      <text class="heading" x="250" y="100" font-size="24">ASTRAL SEAL</text>
+      <text class="txt" x="68" y="132" font-size="14">Which light remains when moon and sun are hidden?</text>
+      <rect class="focus" x="68" y="146" width="504" height="40" rx="6"/>
+      <rect class="panel" x="68" y="190" width="504" height="40" rx="6"/>
+      <rect class="panel" x="68" y="234" width="504" height="40" rx="6"/>
+      <text class="txt" x="266" y="171" font-size="14">The northern star</text>
+      <text class="txt" x="272" y="215" font-size="14">A lantern flame</text>
+      <text class="txt" x="250" y="259" font-size="14">The memory of dawn</text>
+      <rect class="panel" x="68" y="290" width="144" height="40" rx="6"/>
+      <text class="txt" x="116" y="315" font-size="14">Cancel</text>
+      <text class="muted" x="492" y="315" font-size="12">B / Esc</text>
     </g>
   </g>
 

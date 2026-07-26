@@ -1,0 +1,717 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="6400" viewBox="0 0 1440 6400">
+  <defs>
+    <style>
+      .page { fill: #eef1f7; }
+      .frame { fill: #f8f9fc; stroke: #263552; stroke-width: 2; }
+      .scene { fill: #cbd3e2; }
+      .scrim { fill: #27334b; opacity: .46; }
+      .panel { fill: #dce3ef; stroke: #435477; stroke-width: 2; }
+      .raised { fill: #f4f6fa; stroke: #435477; stroke-width: 2; }
+      .slot { fill: #edf0f6; stroke: #71809d; stroke-width: 2; }
+      .primary { fill: #f0d486; stroke: #8b6d25; stroke-width: 2; }
+      .focus { fill: #d8f4fa; stroke: #2585a2; stroke-width: 3; }
+      .selected { fill: #f8ecc4; stroke: #b38a22; stroke-width: 3; }
+      .danger { fill: #f5cbd2; stroke: #a43e53; stroke-width: 2; }
+      .disabled { fill: #d9dce3; stroke: #969eac; stroke-width: 2; opacity: .6; }
+      .bar { fill: #adb7c9; }
+      .bar-fill { fill: #657b9d; }
+      .gold-fill { fill: #c49b37; }
+      .cyan-fill { fill: #4ba9c5; }
+      .magenta-fill { fill: #aa5b9c; }
+      .txt { fill: #19233a; font-family: "Noto Sans", Arial, sans-serif; }
+      .muted { fill: #5e6a82; font-family: "Noto Sans", Arial, sans-serif; }
+      .heading { fill: #111b32; font-family: "Cinzel", Georgia, serif; font-weight: 700; }
+      .row-title { fill: #16223d; font-family: "Noto Sans", Arial, sans-serif; font-size: 24px; font-weight: 700; }
+      .row-note { fill: #536078; font-family: "Noto Sans", Arial, sans-serif; font-size: 14px; }
+    </style>
+  </defs>
+  <rect class="page" width="1440" height="6400"/>
+  <text class="heading" x="40" y="36" font-size="28">Sirius responsive screen wireframes</text>
+  <text class="muted" x="760" y="36" font-size="16">Left: 1280×720 scaled to 50% · Right: 640×360 at 100%</text>
+
+  <!-- 1. Main menu -->
+  <g transform="translate(0 55)">
+    <text class="row-title" x="40" y="25">1. Main menu</text>
+    <text class="row-note" x="40" y="410">Left-aligned safe column preserves the castle and moon; compact retains the same hierarchy.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="scene" x="0" y="0" width="1280" height="720"/>
+      <circle class="raised" cx="1015" cy="145" r="105"/>
+      <path class="panel" d="M820 560 L920 380 L1010 560 Z"/>
+      <rect class="scrim" x="0" y="0" width="470" height="720"/>
+      <text class="heading" x="48" y="92" font-size="52">SIRIUS</text>
+      <rect class="primary" x="48" y="130" width="360" height="64" rx="10"/>
+      <text class="txt" x="74" y="172" font-size="28">Continue</text>
+      <rect class="raised" x="48" y="204" width="360" height="76" rx="8"/>
+      <text class="txt" x="66" y="236" font-size="22">Hero · Lv 8 · Floor 2F</text>
+      <text class="muted" x="66" y="264" font-size="20">2026-07-25 · 18:42</text>
+      <rect class="panel" x="48" y="298" width="360" height="58" rx="8"/>
+      <rect class="panel" x="48" y="368" width="360" height="58" rx="8"/>
+      <rect class="panel" x="48" y="438" width="360" height="58" rx="8"/>
+      <rect class="panel" x="48" y="508" width="360" height="58" rx="8"/>
+      <text class="txt" x="74" y="336" font-size="26">New Game</text>
+      <text class="txt" x="74" y="406" font-size="26">Load</text>
+      <text class="txt" x="74" y="476" font-size="26">Settings</text>
+      <text class="txt" x="74" y="546" font-size="26">Quit</text>
+      <text class="muted" x="48" y="688" font-size="20">A Select · Esc Back</text>
+      <text class="muted" x="1160" y="688" font-size="18">v1.0</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="scene" width="640" height="360"/>
+      <circle class="raised" cx="520" cy="72" r="52"/>
+      <path class="panel" d="M415 280 L470 190 L525 280 Z"/>
+      <rect class="scrim" width="265" height="360"/>
+      <text class="heading" x="16" y="38" font-size="30">SIRIUS</text>
+      <rect class="primary" x="16" y="50" width="232" height="40" rx="6"/>
+      <text class="txt" x="30" y="76" font-size="14">Continue</text>
+      <rect class="raised" x="16" y="96" width="232" height="42" rx="6"/>
+      <text class="txt" x="26" y="113" font-size="12">Hero · Lv 8 · Floor 2F</text>
+      <text class="muted" x="26" y="130" font-size="12">2026-07-25 · 18:42</text>
+      <rect class="panel" x="16" y="144" width="232" height="38" rx="6"/>
+      <rect class="panel" x="16" y="188" width="232" height="38" rx="6"/>
+      <rect class="panel" x="16" y="232" width="232" height="38" rx="6"/>
+      <rect class="panel" x="16" y="276" width="232" height="38" rx="6"/>
+      <text class="txt" x="30" y="168" font-size="14">New Game</text>
+      <text class="txt" x="30" y="212" font-size="14">Load</text>
+      <text class="txt" x="30" y="256" font-size="14">Settings</text>
+      <text class="txt" x="30" y="300" font-size="14">Quit</text>
+      <text class="muted" x="16" y="346" font-size="12">A Select · Esc Back</text>
+      <text class="muted" x="602" y="346" font-size="12">v1.0</text>
+    </g>
+  </g>
+
+  <!-- 2. Exploration -->
+  <g transform="translate(0 475)">
+    <text class="row-title" x="40" y="25">2. Exploration HUD</text>
+    <text class="row-note" x="40" y="410">Only supported, actionable information remains visible; prompts and floor titles are transient.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="scene" width="1280" height="720"/>
+      <g opacity=".45" stroke="#8490a6" stroke-width="2">
+        <path d="M0 120 H1280 M0 240 H1280 M0 360 H1280 M0 480 H1280 M0 600 H1280"/>
+        <path d="M160 0 V720 M320 0 V720 M480 0 V720 M640 0 V720 M800 0 V720 M960 0 V720 M1120 0 V720"/>
+      </g>
+      <rect class="panel" x="32" y="32" width="380" height="148" rx="18"/>
+      <circle class="raised" cx="92" cy="106" r="42"/>
+      <text class="txt" x="150" y="72" font-size="28">Hero · Lv 8</text>
+      <rect class="bar" x="150" y="88" width="226" height="20" rx="10"/>
+      <rect class="bar-fill" x="150" y="88" width="180" height="20" rx="10"/>
+      <rect class="bar" x="150" y="118" width="226" height="16" rx="8"/>
+      <rect class="cyan-fill" x="150" y="118" width="140" height="16" rx="8"/>
+      <rect class="gold-fill" x="150" y="146" width="110" height="6" rx="3"/>
+      <rect class="raised" x="500" y="32" width="280" height="54" rx="10"/>
+      <text class="txt" x="562" y="67" font-size="24">Moonlit Grove</text>
+      <rect class="raised" x="472" y="638" width="336" height="48" rx="14"/>
+      <text class="txt" x="522" y="670" font-size="22">E · Speak with Mira</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="scene" width="640" height="360"/>
+      <g opacity=".45" stroke="#8490a6">
+        <path d="M0 60 H640 M0 120 H640 M0 180 H640 M0 240 H640 M0 300 H640"/>
+        <path d="M80 0 V360 M160 0 V360 M240 0 V360 M320 0 V360 M400 0 V360 M480 0 V360 M560 0 V360"/>
+      </g>
+      <rect class="panel" x="12" y="12" width="238" height="62" rx="10"/>
+      <circle class="raised" cx="42" cy="43" r="20"/>
+      <text class="txt" x="72" y="32" font-size="14">Hero · Lv 8</text>
+      <rect class="bar" x="72" y="40" width="158" height="8" rx="4"/>
+      <rect class="bar-fill" x="72" y="40" width="130" height="8" rx="4"/>
+      <rect class="bar" x="72" y="53" width="158" height="7" rx="3"/>
+      <rect class="cyan-fill" x="72" y="53" width="96" height="7" rx="3"/>
+      <rect class="gold-fill" x="72" y="65" width="68" height="3" rx="2"/>
+      <rect class="raised" x="244" y="12" width="152" height="28" rx="6"/>
+      <text class="txt" x="277" y="31" font-size="12">Moonlit Grove</text>
+      <rect class="raised" x="218" y="324" width="204" height="24" rx="8"/>
+      <text class="txt" x="252" y="341" font-size="12">E · Speak with Mira</text>
+    </g>
+  </g>
+
+  <!-- 3. Battle preparation -->
+  <g transform="translate(0 895)">
+    <text class="row-title" x="40" y="25">3. Battle preparation</text>
+    <text class="row-note" x="40" y="410">Desktop uses a lower-third tray; compact separates Overview and Items without shrinking the duel stage.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="scene" width="1280" height="720"/>
+      <rect class="panel" x="40" y="70" width="290" height="220" rx="18"/>
+      <circle class="raised" cx="185" cy="155" r="48"/>
+      <text class="txt" x="70" y="245" font-size="28">Hero · Lv 8</text>
+      <rect class="bar" x="70" y="260" width="230" height="16" rx="8"/>
+      <rect class="bar-fill" x="70" y="260" width="190" height="16" rx="8"/>
+      <rect class="panel" x="950" y="70" width="290" height="220" rx="18"/>
+      <circle class="raised" cx="1095" cy="155" r="48"/>
+      <text class="txt" x="980" y="245" font-size="28">Goblin · Lv 7</text>
+      <rect class="bar" x="980" y="260" width="230" height="16" rx="8"/>
+      <rect class="bar-fill" x="980" y="260" width="150" height="16" rx="8"/>
+      <rect class="panel" x="24" y="350" width="1232" height="346" rx="18"/>
+      <text class="heading" x="56" y="400" font-size="30">PREPARATION</text>
+      <rect class="selected" x="56" y="430" width="270" height="150" rx="12"/>
+      <rect class="focus" x="342" y="430" width="270" height="150" rx="12"/>
+      <rect class="disabled" x="628" y="430" width="270" height="150" rx="12"/>
+      <text class="txt" x="80" y="472" font-size="24">Health Potion ×3</text>
+      <text class="txt" x="366" y="472" font-size="24">Strength Tonic ×1</text>
+      <text class="txt" x="652" y="472" font-size="24">Warding Charm ×0</text>
+      <rect class="primary" x="958" y="498" width="250" height="74" rx="12"/>
+      <text class="txt" x="1015" y="545" font-size="26">Begin Battle</text>
+      <text class="muted" x="56" y="650" font-size="20">A Select · X Clear · B Escape</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="scene" width="640" height="360"/>
+      <rect class="panel" x="12" y="36" width="146" height="92" rx="9"/>
+      <circle class="raised" cx="85" cy="73" r="20"/>
+      <text class="txt" x="28" y="111" font-size="12">Hero · Lv 8</text>
+      <rect class="panel" x="482" y="36" width="146" height="92" rx="9"/>
+      <circle class="raised" cx="555" cy="73" r="20"/>
+      <text class="txt" x="502" y="111" font-size="12">Goblin · Lv 7</text>
+      <rect class="panel" x="12" y="166" width="616" height="182" rx="10"/>
+      <rect class="panel" x="26" y="178" width="112" height="30" rx="6"/>
+      <rect class="selected" x="144" y="178" width="112" height="30" rx="6"/>
+      <text class="txt" x="48" y="198" font-size="12">Overview</text>
+      <text class="txt" x="181" y="198" font-size="12">Items</text>
+      <rect class="selected" x="26" y="218" width="174" height="68" rx="7"/>
+      <rect class="focus" x="208" y="218" width="174" height="68" rx="7"/>
+      <rect class="primary" x="430" y="244" width="176" height="42" rx="7"/>
+      <text class="txt" x="466" y="270" font-size="14">Begin Battle</text>
+      <text class="muted" x="26" y="330" font-size="12">LB/RB Page · A Select · B Escape</text>
+    </g>
+  </g>
+
+  <!-- 4. Automatic battle -->
+  <g transform="translate(0 1315)">
+    <text class="row-title" x="40" y="25">4. Automatic battle</text>
+    <text class="row-note" x="40" y="410">Only supported automatic-combat information and cure/escape actions remain visible.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="scene" width="1280" height="720"/>
+      <rect class="panel" x="32" y="34" width="350" height="122" rx="16"/>
+      <text class="txt" x="60" y="76" font-size="28">Hero · HP 118/150</text>
+      <rect class="bar" x="60" y="96" width="288" height="18" rx="9"/>
+      <rect class="bar-fill" x="60" y="96" width="224" height="18" rx="9"/>
+      <rect class="panel" x="898" y="34" width="350" height="122" rx="16"/>
+      <text class="txt" x="926" y="76" font-size="28">Goblin · HP 32/80</text>
+      <rect class="bar" x="926" y="96" width="288" height="18" rx="9"/>
+      <rect class="bar-fill" x="926" y="96" width="116" height="18" rx="9"/>
+      <circle class="raised" cx="290" cy="330" r="82"/>
+      <circle class="raised" cx="990" cy="330" r="82"/>
+      <text class="heading" x="524" y="290" font-size="34">POWER STRIKE</text>
+      <rect class="panel" x="24" y="540" width="1232" height="156" rx="18"/>
+      <rect class="bar" x="54" y="572" width="600" height="20" rx="10"/>
+      <rect class="magenta-fill" x="54" y="572" width="410" height="20" rx="10"/>
+      <text class="txt" x="54" y="630" font-size="22">Hero attacks for 24 · Goblin is Weakened</text>
+      <rect class="panel" x="970" y="578" width="118" height="54" rx="8"/>
+      <rect class="panel" x="1100" y="578" width="118" height="54" rx="8"/>
+      <text class="txt" x="998" y="612" font-size="20">Cure</text>
+      <text class="txt" x="1128" y="612" font-size="20">Escape</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="scene" width="640" height="360"/>
+      <rect class="panel" x="12" y="12" width="194" height="50" rx="8"/>
+      <text class="txt" x="24" y="33" font-size="12">Hero · HP 118/150</text>
+      <rect class="bar" x="24" y="42" width="166" height="7" rx="4"/>
+      <rect class="bar-fill" x="24" y="42" width="130" height="7" rx="4"/>
+      <rect class="panel" x="434" y="12" width="194" height="50" rx="8"/>
+      <text class="txt" x="446" y="33" font-size="12">Goblin · HP 32/80</text>
+      <circle class="raised" cx="136" cy="168" r="42"/>
+      <circle class="raised" cx="504" cy="168" r="42"/>
+      <text class="heading" x="260" y="144" font-size="16">POWER STRIKE</text>
+      <rect class="panel" x="12" y="272" width="616" height="76" rx="9"/>
+      <rect class="bar" x="24" y="286" width="356" height="8" rx="4"/>
+      <rect class="magenta-fill" x="24" y="286" width="244" height="8" rx="4"/>
+      <text class="txt" x="24" y="318" font-size="12">Hero attacks for 24</text>
+      <rect class="panel" x="472" y="300" width="64" height="32" rx="6"/>
+      <rect class="panel" x="544" y="300" width="72" height="32" rx="6"/>
+      <text class="txt" x="489" y="320" font-size="12">Cure</text>
+      <text class="txt" x="557" y="320" font-size="12">Escape</text>
+    </g>
+  </g>
+
+  <!-- 5. Inventory -->
+  <g transform="translate(0 1735)">
+    <text class="row-title" x="40" y="25">5. Inventory and equipment</text>
+    <text class="row-note" x="40" y="410">Desktop uses character/equipment and inventory regions; compact switches to Equipment, Items, and Skills pages.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="panel" x="24" y="24" width="1232" height="672" rx="18"/>
+      <text class="heading" x="54" y="72" font-size="34">INVENTORY &amp; EQUIPMENT</text>
+      <rect class="raised" x="54" y="96" width="430" height="552" rx="14"/>
+      <circle class="slot" cx="128" cy="162" r="46"/>
+      <text class="txt" x="194" y="146" font-size="28">Hero · Lv 8</text>
+      <text class="muted" x="194" y="180" font-size="22">HP 150 · ATK 30 · DEF 23</text>
+      <g>
+        <rect class="slot" x="190" y="222" width="76" height="76" rx="8"/>
+        <rect class="slot" x="104" y="310" width="76" height="76" rx="8"/>
+        <rect class="selected" x="190" y="310" width="76" height="76" rx="8"/>
+        <rect class="slot" x="276" y="310" width="76" height="76" rx="8"/>
+        <rect class="slot" x="190" y="398" width="76" height="76" rx="8"/>
+      </g>
+      <text class="txt" x="88" y="512" font-size="24">Accessories</text>
+      <g>
+        <rect class="slot" x="88" y="530" width="66" height="66" rx="8"/>
+        <rect class="slot" x="164" y="530" width="66" height="66" rx="8"/>
+        <rect class="disabled" x="240" y="530" width="66" height="66" rx="8"/>
+        <rect class="disabled" x="316" y="530" width="66" height="66" rx="8"/>
+      </g>
+      <rect class="raised" x="506" y="96" width="720" height="552" rx="14"/>
+      <text class="txt" x="536" y="140" font-size="28">Items · Alphabetical</text>
+      <g>
+        <rect class="focus" x="536" y="166" width="84" height="84" rx="8"/>
+        <rect class="slot" x="634" y="166" width="84" height="84" rx="8"/>
+        <rect class="slot" x="732" y="166" width="84" height="84" rx="8"/>
+        <rect class="slot" x="830" y="166" width="84" height="84" rx="8"/>
+        <rect class="slot" x="928" y="166" width="84" height="84" rx="8"/>
+        <rect class="slot" x="1026" y="166" width="84" height="84" rx="8"/>
+        <rect class="slot" x="1124" y="166" width="72" height="84" rx="8"/>
+        <rect class="slot" x="536" y="264" width="84" height="84" rx="8"/>
+        <rect class="slot" x="634" y="264" width="84" height="84" rx="8"/>
+        <rect class="slot" x="732" y="264" width="84" height="84" rx="8"/>
+        <rect class="slot" x="830" y="264" width="84" height="84" rx="8"/>
+        <rect class="slot" x="928" y="264" width="84" height="84" rx="8"/>
+      </g>
+      <rect class="panel" x="536" y="566" width="660" height="54" rx="8"/>
+      <text class="muted" x="554" y="600" font-size="20">Health Potion ×3 · Restores 50 HP</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="panel" x="12" y="12" width="616" height="336" rx="10"/>
+      <rect class="raised" x="24" y="24" width="592" height="46" rx="8"/>
+      <circle class="slot" cx="49" cy="47" r="16"/>
+      <text class="txt" x="76" y="44" font-size="14">Hero · Lv 8</text>
+      <text class="muted" x="76" y="60" font-size="12">HP 150 · ATK 30 · DEF 23</text>
+      <rect class="selected" x="24" y="78" width="122" height="34" rx="6"/>
+      <rect class="panel" x="152" y="78" width="122" height="34" rx="6"/>
+      <rect class="panel" x="280" y="78" width="122" height="34" rx="6"/>
+      <text class="txt" x="50" y="100" font-size="12">Equipment</text>
+      <text class="txt" x="194" y="100" font-size="12">Items</text>
+      <text class="txt" x="320" y="100" font-size="12">Skills</text>
+      <g>
+        <rect class="slot" x="274" y="126" width="48" height="48" rx="5"/>
+        <rect class="slot" x="218" y="182" width="48" height="48" rx="5"/>
+        <rect class="selected" x="274" y="182" width="48" height="48" rx="5"/>
+        <rect class="slot" x="330" y="182" width="48" height="48" rx="5"/>
+        <rect class="slot" x="274" y="238" width="48" height="48" rx="5"/>
+      </g>
+      <rect class="slot" x="430" y="142" width="48" height="48" rx="5"/>
+      <rect class="slot" x="486" y="142" width="48" height="48" rx="5"/>
+      <rect class="disabled" x="542" y="142" width="48" height="48" rx="5"/>
+      <text class="muted" x="24" y="330" font-size="12">LB/RB Page · A Equip · B Close</text>
+    </g>
+  </g>
+
+  <!-- 6. Pause -->
+  <g transform="translate(0 2155)">
+    <text class="row-title" x="40" y="25">6. Pause</text>
+    <text class="row-note" x="40" y="410">The game remains visible but inert; Resume is the safe initial focus.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="scene" width="1280" height="720"/>
+      <rect class="scrim" width="1280" height="720"/>
+      <rect class="raised" x="430" y="80" width="420" height="560" rx="18"/>
+      <text class="heading" x="548" y="142" font-size="34">PAUSED</text>
+      <rect class="focus" x="468" y="174" width="344" height="68" rx="10"/>
+      <rect class="panel" x="468" y="256" width="344" height="68" rx="10"/>
+      <rect class="panel" x="468" y="338" width="344" height="68" rx="10"/>
+      <rect class="panel" x="468" y="420" width="344" height="68" rx="10"/>
+      <rect class="danger" x="468" y="502" width="344" height="68" rx="10"/>
+      <text class="txt" x="584" y="217" font-size="26">Resume</text>
+      <text class="txt" x="584" y="299" font-size="26">Save</text>
+      <text class="txt" x="584" y="381" font-size="26">Load</text>
+      <text class="txt" x="570" y="463" font-size="26">Settings</text>
+      <text class="txt" x="528" y="545" font-size="26">Quit to Main Menu</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="scene" width="640" height="360"/>
+      <rect class="scrim" width="640" height="360"/>
+      <rect class="raised" x="160" y="12" width="320" height="336" rx="10"/>
+      <text class="heading" x="270" y="42" font-size="20">PAUSED</text>
+      <rect class="focus" x="184" y="58" width="272" height="44" rx="6"/>
+      <rect class="panel" x="184" y="110" width="272" height="44" rx="6"/>
+      <rect class="panel" x="184" y="162" width="272" height="44" rx="6"/>
+      <rect class="panel" x="184" y="214" width="272" height="44" rx="6"/>
+      <rect class="danger" x="184" y="266" width="272" height="44" rx="6"/>
+      <text class="txt" x="292" y="85" font-size="14">Resume</text>
+      <text class="txt" x="302" y="137" font-size="14">Save</text>
+      <text class="txt" x="302" y="189" font-size="14">Load</text>
+      <text class="txt" x="292" y="241" font-size="14">Settings</text>
+      <text class="txt" x="260" y="293" font-size="14">Quit to Main Menu</text>
+      <text class="muted" x="184" y="330" font-size="12">Esc Resume</text>
+    </g>
+  </g>
+
+  <!-- 7. Settings -->
+  <g transform="translate(0 2575)">
+    <text class="row-title" x="40" y="25">7. Settings</text>
+    <text class="row-note" x="40" y="410">Standard uses a left rail; compact uses a top page selector with a fixed action row.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="panel" x="100" y="48" width="1080" height="624" rx="18"/>
+      <text class="heading" x="140" y="104" font-size="34">SETTINGS</text>
+      <rect class="selected" x="140" y="142" width="220" height="64" rx="8"/>
+      <rect class="panel" x="140" y="218" width="220" height="64" rx="8"/>
+      <rect class="panel" x="140" y="294" width="220" height="64" rx="8"/>
+      <rect class="panel" x="140" y="370" width="220" height="64" rx="8"/>
+      <text class="txt" x="178" y="183" font-size="24">Audio</text>
+      <text class="txt" x="178" y="259" font-size="24">Display</text>
+      <text class="txt" x="178" y="335" font-size="24">Gameplay</text>
+      <text class="txt" x="178" y="411" font-size="24">Controls</text>
+      <rect class="raised" x="388" y="142" width="742" height="392" rx="12"/>
+      <text class="txt" x="424" y="190" font-size="28">Audio</text>
+      <text class="txt" x="424" y="246" font-size="22">Master Volume</text>
+      <rect class="bar" x="650" y="226" width="420" height="18" rx="9"/>
+      <rect class="bar-fill" x="650" y="226" width="340" height="18" rx="9"/>
+      <text class="txt" x="424" y="316" font-size="22">Music Volume</text>
+      <rect class="bar" x="650" y="296" width="420" height="18" rx="9"/>
+      <rect class="bar-fill" x="650" y="296" width="300" height="18" rx="9"/>
+      <text class="txt" x="424" y="386" font-size="22">SFX Volume</text>
+      <rect class="bar" x="650" y="366" width="420" height="18" rx="9"/>
+      <rect class="bar-fill" x="650" y="366" width="375" height="18" rx="9"/>
+      <rect class="primary" x="760" y="566" width="170" height="64" rx="9"/>
+      <rect class="panel" x="946" y="566" width="170" height="64" rx="9"/>
+      <text class="txt" x="808" y="607" font-size="24">Apply</text>
+      <text class="txt" x="990" y="607" font-size="24">Cancel</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="panel" x="12" y="12" width="616" height="336" rx="10"/>
+      <text class="heading" x="28" y="42" font-size="20">SETTINGS</text>
+      <rect class="selected" x="28" y="54" width="92" height="32" rx="6"/>
+      <rect class="panel" x="126" y="54" width="92" height="32" rx="6"/>
+      <rect class="panel" x="224" y="54" width="92" height="32" rx="6"/>
+      <rect class="panel" x="322" y="54" width="92" height="32" rx="6"/>
+      <text class="txt" x="56" y="75" font-size="12">Audio</text>
+      <text class="txt" x="148" y="75" font-size="12">Display</text>
+      <text class="txt" x="240" y="75" font-size="12">Gameplay</text>
+      <text class="txt" x="338" y="75" font-size="12">Controls</text>
+      <rect class="raised" x="28" y="96" width="584" height="174" rx="8"/>
+      <text class="txt" x="44" y="126" font-size="14">Master Volume</text>
+      <rect class="bar" x="216" y="116" width="360" height="9" rx="4"/>
+      <rect class="bar-fill" x="216" y="116" width="290" height="9" rx="4"/>
+      <text class="txt" x="44" y="168" font-size="14">Music Volume</text>
+      <rect class="bar" x="216" y="158" width="360" height="9" rx="4"/>
+      <rect class="bar-fill" x="216" y="158" width="260" height="9" rx="4"/>
+      <text class="txt" x="44" y="210" font-size="14">SFX Volume</text>
+      <rect class="bar" x="216" y="200" width="360" height="9" rx="4"/>
+      <rect class="bar-fill" x="216" y="200" width="320" height="9" rx="4"/>
+      <rect class="primary" x="386" y="286" width="104" height="42" rx="7"/>
+      <rect class="panel" x="500" y="286" width="104" height="42" rx="7"/>
+      <text class="txt" x="420" y="312" font-size="14">Apply</text>
+      <text class="txt" x="532" y="312" font-size="14">Cancel</text>
+    </g>
+  </g>
+
+  <!-- 8. Save/load -->
+  <g transform="translate(0 2995)">
+    <text class="row-title" x="40" y="25">8. Save and load</text>
+    <text class="row-note" x="40" y="410">Four explicit cards preserve metadata and state; compact uses a predictable single-column list.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="panel" x="120" y="48" width="1040" height="624" rx="18"/>
+      <text class="heading" x="160" y="102" font-size="34">LOAD GAME</text>
+      <rect class="selected" x="160" y="134" width="450" height="190" rx="14"/>
+      <rect class="raised" x="630" y="134" width="450" height="190" rx="14"/>
+      <rect class="disabled" x="160" y="344" width="450" height="190" rx="14"/>
+      <rect class="panel" x="630" y="344" width="450" height="190" rx="14"/>
+      <text class="txt" x="190" y="180" font-size="26">Slot 1 · Hero Lv 8</text>
+      <text class="muted" x="190" y="222" font-size="22">Floor 2F · 2026-07-25 18:42</text>
+      <text class="txt" x="660" y="180" font-size="26">Slot 2 · Empty</text>
+      <text class="txt" x="190" y="390" font-size="26">Slot 3 · Corrupted</text>
+      <text class="muted" x="190" y="432" font-size="20">Unavailable · File cannot be read</text>
+      <text class="txt" x="660" y="390" font-size="26">Autosave · Hero Lv 7</text>
+      <text class="muted" x="660" y="432" font-size="22">Floor 1F · 2026-07-24 20:14</text>
+      <rect class="primary" x="760" y="566" width="150" height="62" rx="9"/>
+      <rect class="danger" x="926" y="566" width="150" height="62" rx="9"/>
+      <text class="txt" x="807" y="606" font-size="24">Load</text>
+      <text class="txt" x="964" y="606" font-size="24">Delete</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="panel" x="12" y="12" width="616" height="336" rx="10"/>
+      <text class="heading" x="28" y="42" font-size="20">LOAD GAME</text>
+      <rect class="selected" x="28" y="54" width="584" height="60" rx="8"/>
+      <rect class="raised" x="28" y="122" width="584" height="54" rx="8"/>
+      <rect class="disabled" x="28" y="184" width="584" height="60" rx="8"/>
+      <rect class="panel" x="28" y="252" width="584" height="54" rx="8"/>
+      <text class="txt" x="44" y="76" font-size="14">Slot 1 · Hero Lv 8 · Floor 2F</text>
+      <text class="muted" x="44" y="99" font-size="12">2026-07-25 18:42</text>
+      <text class="txt" x="44" y="154" font-size="14">Slot 2 · Empty</text>
+      <text class="txt" x="44" y="206" font-size="14">Slot 3 · Corrupted</text>
+      <text class="muted" x="44" y="226" font-size="12">Unavailable · File cannot be read</text>
+      <text class="txt" x="44" y="284" font-size="14">Autosave · Hero Lv 7 · Floor 1F</text>
+      <rect class="primary" x="442" y="314" width="76" height="28" rx="5"/>
+      <rect class="danger" x="526" y="314" width="86" height="28" rx="5"/>
+      <text class="txt" x="466" y="332" font-size="12">Load</text>
+      <text class="txt" x="546" y="332" font-size="12">Delete</text>
+    </g>
+  </g>
+
+  <!-- 9. Dialogue -->
+  <g transform="translate(0 3415)">
+    <text class="row-title" x="40" y="25">9. Dialogue</text>
+    <text class="row-note" x="40" y="410">NPC identity, long text, and choices share a bottom interaction surface without losing the scene context.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="scene" width="1280" height="720"/>
+      <rect class="panel" x="70" y="380" width="1140" height="300" rx="18"/>
+      <circle class="raised" cx="180" cy="500" r="74"/>
+      <text class="heading" x="280" y="430" font-size="30">MIRA</text>
+      <text class="txt" x="280" y="474" font-size="24">The old seal has begun to stir.</text>
+      <text class="txt" x="280" y="510" font-size="24">Will you help us restore it?</text>
+      <rect class="focus" x="280" y="548" width="420" height="54" rx="8"/>
+      <rect class="panel" x="714" y="548" width="420" height="54" rx="8"/>
+      <text class="txt" x="314" y="582" font-size="22">Tell me about the seal</text>
+      <text class="txt" x="748" y="582" font-size="22">Open your shop</text>
+      <text class="muted" x="280" y="648" font-size="20">A Select · B Farewell</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="scene" width="640" height="360"/>
+      <rect class="panel" x="12" y="176" width="616" height="172" rx="10"/>
+      <circle class="raised" cx="60" cy="226" r="32"/>
+      <text class="heading" x="108" y="210" font-size="16">MIRA</text>
+      <text class="txt" x="108" y="234" font-size="14">The old seal has begun to stir.</text>
+      <text class="txt" x="108" y="254" font-size="14">Will you help us restore it?</text>
+      <rect class="focus" x="108" y="270" width="236" height="34" rx="6"/>
+      <rect class="panel" x="352" y="270" width="236" height="34" rx="6"/>
+      <text class="txt" x="124" y="291" font-size="12">Tell me about the seal</text>
+      <text class="txt" x="378" y="291" font-size="12">Open your shop</text>
+      <text class="muted" x="108" y="328" font-size="12">A Select · B Farewell</text>
+    </g>
+  </g>
+
+  <!-- 10. Shop -->
+  <g transform="translate(0 3835)">
+    <text class="row-title" x="40" y="25">10. Shop</text>
+    <text class="row-note" x="40" y="410">Currency, inventory rows, affordability, and feedback remain visible in both compositions.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="panel" x="120" y="46" width="1040" height="628" rx="18"/>
+      <text class="heading" x="160" y="100" font-size="32">MOONLIT PROVISIONS</text>
+      <text class="txt" x="930" y="100" font-size="24">Gold 100</text>
+      <rect class="selected" x="160" y="128" width="170" height="58" rx="8"/>
+      <rect class="panel" x="342" y="128" width="170" height="58" rx="8"/>
+      <text class="txt" x="214" y="166" font-size="24">Buy</text>
+      <text class="txt" x="394" y="166" font-size="24">Sell</text>
+      <rect class="raised" x="160" y="206" width="920" height="300" rx="12"/>
+      <g>
+        <rect class="slot" x="186" y="230" width="64" height="64" rx="8"/>
+        <text class="txt" x="276" y="260" font-size="24">Health Potion</text>
+        <text class="txt" x="780" y="260" font-size="22">25g</text>
+        <rect class="focus" x="908" y="230" width="134" height="58" rx="8"/>
+        <text class="txt" x="952" y="266" font-size="22">Buy</text>
+        <rect class="slot" x="186" y="316" width="64" height="64" rx="8"/>
+        <text class="txt" x="276" y="346" font-size="24">Elixir of Fortitude</text>
+        <text class="txt" x="780" y="346" font-size="22">120g</text>
+        <rect class="disabled" x="908" y="316" width="134" height="58" rx="8"/>
+        <text class="txt" x="952" y="352" font-size="22">Buy</text>
+      </g>
+      <rect class="panel" x="160" y="526" width="920" height="64" rx="8"/>
+      <text class="muted" x="184" y="566" font-size="20">Not enough gold · Need 20 more</text>
+      <rect class="panel" x="930" y="606" width="150" height="48" rx="8"/>
+      <text class="txt" x="972" y="638" font-size="20">Close</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="panel" x="12" y="12" width="616" height="336" rx="10"/>
+      <text class="heading" x="28" y="42" font-size="18">MOONLIT PROVISIONS</text>
+      <text class="txt" x="548" y="42" font-size="12">Gold 100</text>
+      <rect class="selected" x="28" y="54" width="82" height="32" rx="6"/>
+      <rect class="panel" x="116" y="54" width="82" height="32" rx="6"/>
+      <text class="txt" x="58" y="75" font-size="12">Buy</text>
+      <text class="txt" x="146" y="75" font-size="12">Sell</text>
+      <rect class="raised" x="28" y="96" width="584" height="176" rx="8"/>
+      <rect class="slot" x="42" y="110" width="48" height="48" rx="6"/>
+      <text class="txt" x="104" y="130" font-size="14">Health Potion</text>
+      <text class="txt" x="430" y="130" font-size="12">25g</text>
+      <rect class="focus" x="512" y="112" width="84" height="38" rx="6"/>
+      <text class="txt" x="540" y="136" font-size="12">Buy</text>
+      <rect class="slot" x="42" y="170" width="48" height="48" rx="6"/>
+      <text class="txt" x="104" y="190" font-size="14">Elixir of Fortitude</text>
+      <text class="txt" x="430" y="190" font-size="12">120g</text>
+      <rect class="disabled" x="512" y="172" width="84" height="38" rx="6"/>
+      <text class="txt" x="540" y="196" font-size="12">Buy</text>
+      <rect class="panel" x="28" y="282" width="460" height="42" rx="6"/>
+      <text class="muted" x="42" y="308" font-size="12">Not enough gold · Need 20 more</text>
+      <rect class="panel" x="500" y="282" width="112" height="42" rx="6"/>
+      <text class="txt" x="540" y="308" font-size="12">Close</text>
+    </g>
+  </g>
+
+  <!-- 11. Healing -->
+  <g transform="translate(0 4255)">
+    <text class="row-title" x="40" y="25">11. Healing</text>
+    <text class="row-note" x="40" y="410">A small service modal communicates NPC identity, current status, cost, and disabled reasons.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="scene" width="1280" height="720"/>
+      <rect class="scrim" width="1280" height="720"/>
+      <rect class="raised" x="430" y="174" width="420" height="372" rx="18"/>
+      <circle class="slot" cx="510" cy="252" r="48"/>
+      <text class="heading" x="580" y="236" font-size="28">SISTER CELESTE</text>
+      <text class="txt" x="580" y="278" font-size="22">Restore all HP?</text>
+      <text class="txt" x="472" y="344" font-size="22">HP 92/150 · Cost 25g · Gold 100</text>
+      <rect class="primary" x="472" y="418" width="164" height="64" rx="9"/>
+      <rect class="panel" x="650" y="418" width="158" height="64" rx="9"/>
+      <text class="txt" x="522" y="459" font-size="24">Heal</text>
+      <text class="txt" x="684" y="459" font-size="24">No Thanks</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="scene" width="640" height="360"/>
+      <rect class="scrim" width="640" height="360"/>
+      <rect class="raised" x="110" y="44" width="420" height="272" rx="10"/>
+      <circle class="slot" cx="154" cy="100" r="28"/>
+      <text class="heading" x="196" y="93" font-size="17">SISTER CELESTE</text>
+      <text class="txt" x="196" y="116" font-size="14">Restore all HP?</text>
+      <text class="txt" x="136" y="168" font-size="14">HP 92/150 · Cost 25g · Gold 100</text>
+      <rect class="primary" x="136" y="222" width="170" height="44" rx="7"/>
+      <rect class="panel" x="318" y="222" width="184" height="44" rx="7"/>
+      <text class="txt" x="202" y="249" font-size="14">Heal</text>
+      <text class="txt" x="378" y="249" font-size="14">No Thanks</text>
+    </g>
+  </g>
+
+  <!-- 12. Puzzle -->
+  <g transform="translate(0 4675)">
+    <text class="row-title" x="40" y="25">12. Puzzle</text>
+    <text class="row-note" x="40" y="410">The sigil-framed surface keeps prompt, choices, validation, and cancellation together.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="scene" width="1280" height="720"/>
+      <rect class="scrim" width="1280" height="720"/>
+      <rect class="raised" x="320" y="100" width="640" height="520" rx="18"/>
+      <circle fill="none" stroke="#7b88a1" stroke-width="4" cx="640" cy="200" r="58"/>
+      <text class="heading" x="530" y="296" font-size="32">ASTRAL SEAL</text>
+      <text class="txt" x="378" y="350" font-size="24">Which light remains when moon and sun are hidden?</text>
+      <rect class="focus" x="378" y="386" width="524" height="58" rx="8"/>
+      <rect class="panel" x="378" y="456" width="524" height="58" rx="8"/>
+      <rect class="panel" x="378" y="526" width="524" height="58" rx="8"/>
+      <text class="txt" x="530" y="424" font-size="22">The northern star</text>
+      <text class="txt" x="540" y="494" font-size="22">A lantern flame</text>
+      <text class="txt" x="512" y="564" font-size="22">The memory of dawn</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="scene" width="640" height="360"/>
+      <rect class="scrim" width="640" height="360"/>
+      <rect class="raised" x="12" y="12" width="616" height="336" rx="10"/>
+      <circle fill="none" stroke="#7b88a1" stroke-width="2" cx="320" cy="62" r="30"/>
+      <text class="heading" x="266" y="112" font-size="18">ASTRAL SEAL</text>
+      <text class="txt" x="68" y="150" font-size="14">Which light remains when moon and sun are hidden?</text>
+      <rect class="focus" x="68" y="172" width="504" height="40" rx="6"/>
+      <rect class="panel" x="68" y="220" width="504" height="40" rx="6"/>
+      <rect class="panel" x="68" y="268" width="504" height="40" rx="6"/>
+      <text class="txt" x="266" y="197" font-size="14">The northern star</text>
+      <text class="txt" x="272" y="245" font-size="14">A lantern flame</text>
+      <text class="txt" x="250" y="293" font-size="14">The memory of dawn</text>
+    </g>
+  </g>
+
+  <!-- 13. Reward -->
+  <g transform="translate(0 5095)">
+    <text class="row-title" x="40" y="25">13. Reward</text>
+    <text class="row-note" x="40" y="410">Brief rewards queue as non-blocking toasts; important or grouped rewards use an acknowledgement card.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="scene" width="1280" height="720"/>
+      <rect class="raised" x="886" y="32" width="330" height="96" rx="14"/>
+      <rect class="slot" x="910" y="50" width="56" height="56" rx="7"/>
+      <text class="txt" x="986" y="76" font-size="22">Health Potion ×1</text>
+      <text class="muted" x="986" y="104" font-size="18">Added to inventory</text>
+      <rect class="scrim" width="1280" height="720"/>
+      <rect class="raised" x="410" y="120" width="460" height="480" rx="18"/>
+      <text class="heading" x="522" y="186" font-size="34">TREASURE FOUND</text>
+      <rect class="slot" x="470" y="226" width="80" height="80" rx="9"/>
+      <text class="txt" x="580" y="264" font-size="24">Health Potion ×2</text>
+      <text class="txt" x="580" y="300" font-size="24">Gold +45</text>
+      <text class="txt" x="580" y="336" font-size="24">Experience +120</text>
+      <rect class="primary" x="500" y="496" width="280" height="68" rx="10"/>
+      <text class="txt" x="594" y="539" font-size="24">Continue</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="scene" width="640" height="360"/>
+      <rect class="raised" x="418" y="12" width="210" height="52" rx="8"/>
+      <rect class="slot" x="430" y="20" width="36" height="36" rx="5"/>
+      <text class="txt" x="478" y="36" font-size="12">Health Potion ×1</text>
+      <text class="muted" x="478" y="52" font-size="12">Added to inventory</text>
+      <rect class="scrim" width="640" height="360"/>
+      <rect class="raised" x="150" y="30" width="340" height="300" rx="10"/>
+      <text class="heading" x="236" y="70" font-size="18">TREASURE FOUND</text>
+      <rect class="slot" x="188" y="100" width="48" height="48" rx="6"/>
+      <text class="txt" x="258" y="116" font-size="14">Health Potion ×2</text>
+      <text class="txt" x="258" y="140" font-size="14">Gold +45</text>
+      <text class="txt" x="258" y="164" font-size="14">Experience +120</text>
+      <rect class="primary" x="212" y="252" width="216" height="44" rx="7"/>
+      <text class="txt" x="294" y="279" font-size="14">Continue</text>
+    </g>
+  </g>
+
+  <!-- 14. Confirmation -->
+  <g transform="translate(0 5515)">
+    <text class="row-title" x="40" y="25">14. Confirmation</text>
+    <text class="row-note" x="40" y="410">The parent remains visible and inert; destructive intent requires explicit confirmation and safe default focus.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="panel" x="130" y="70" width="1020" height="580" rx="18"/>
+      <rect class="scrim" width="1280" height="720"/>
+      <rect class="raised" x="430" y="210" width="420" height="300" rx="18"/>
+      <text class="heading" x="506" y="268" font-size="30">OVERWRITE SAVE?</text>
+      <text class="txt" x="474" y="326" font-size="22">Slot 1 contains Hero · Level 8 · Floor 2F.</text>
+      <text class="txt" x="522" y="360" font-size="22">This cannot be undone.</text>
+      <rect class="focus" x="474" y="408" width="150" height="62" rx="9"/>
+      <rect class="danger" x="642" y="408" width="164" height="62" rx="9"/>
+      <text class="txt" x="514" y="448" font-size="22">Cancel</text>
+      <text class="txt" x="678" y="448" font-size="22">Overwrite</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="panel" x="12" y="12" width="616" height="336" rx="10"/>
+      <rect class="scrim" width="640" height="360"/>
+      <rect class="raised" x="110" y="74" width="420" height="212" rx="10"/>
+      <text class="heading" x="224" y="112" font-size="18">OVERWRITE SAVE?</text>
+      <text class="txt" x="138" y="152" font-size="14">Slot 1 contains Hero · Level 8 · Floor 2F.</text>
+      <text class="txt" x="234" y="176" font-size="14">This cannot be undone.</text>
+      <rect class="focus" x="154" y="218" width="148" height="42" rx="7"/>
+      <rect class="danger" x="314" y="218" width="172" height="42" rx="7"/>
+      <text class="txt" x="206" y="244" font-size="14">Cancel</text>
+      <text class="txt" x="366" y="244" font-size="14">Overwrite</text>
+    </g>
+  </g>
+
+  <!-- 15. Error -->
+  <g transform="translate(0 5935)">
+    <text class="row-title" x="40" y="25">15. Error</text>
+    <text class="row-note" x="40" y="410">Recoverable and blocking errors use the same semantic shell with different actions and lifecycle policy.</text>
+    <g transform="translate(40 40) scale(.5)">
+      <rect class="frame" width="1280" height="720"/>
+      <rect class="panel" x="120" y="70" width="1040" height="580" rx="18"/>
+      <rect class="scrim" width="1280" height="720"/>
+      <rect class="raised" x="400" y="210" width="480" height="300" rx="18"/>
+      <circle class="danger" cx="474" cy="284" r="34"/>
+      <text class="heading" x="530" y="280" font-size="30">LOAD FAILED</text>
+      <text class="txt" x="446" y="346" font-size="22">The selected save could not be loaded.</text>
+      <text class="muted" x="468" y="384" font-size="20">Choose another slot to continue.</text>
+      <rect class="primary" x="460" y="426" width="220" height="58" rx="9"/>
+      <rect class="panel" x="694" y="426" width="140" height="58" rx="9"/>
+      <text class="txt" x="510" y="463" font-size="22">Open Load</text>
+      <text class="txt" x="734" y="463" font-size="22">Cancel</text>
+    </g>
+    <g transform="translate(760 40)">
+      <rect class="frame" width="640" height="360"/>
+      <rect class="panel" x="12" y="12" width="616" height="336" rx="10"/>
+      <rect class="scrim" width="640" height="360"/>
+      <rect class="raised" x="92" y="72" width="456" height="216" rx="10"/>
+      <circle class="danger" cx="138" cy="118" r="22"/>
+      <text class="heading" x="176" y="120" font-size="18">LOAD FAILED</text>
+      <text class="txt" x="120" y="164" font-size="14">The selected save could not be loaded.</text>
+      <text class="muted" x="180" y="188" font-size="12">Choose another slot.</text>
+      <rect class="primary" x="142" y="226" width="196" height="42" rx="7"/>
+      <rect class="panel" x="348" y="226" width="124" height="42" rx="7"/>
+      <text class="txt" x="202" y="252" font-size="14">Open Load</text>
+      <text class="txt" x="388" y="252" font-size="14">Cancel</text>
+    </g>
+  </g>
+</svg>

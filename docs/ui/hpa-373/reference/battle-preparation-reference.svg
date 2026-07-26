@@ -47,8 +47,9 @@
       .ui { font-family: "Noto Sans", Arial, sans-serif; fill: #F7F5FF; }
       .secondary { font-family: "Noto Sans", Arial, sans-serif; fill: #C7CEE8; }
       .muted { font-family: "Noto Sans", Arial, sans-serif; fill: #8F9AB8; }
-      .telemetry { font-family: "SFMono-Regular", "Roboto Mono", monospace; fill: #A9EFFF; font-size: 12px; letter-spacing: 1.2px; }
-      .tiny { font-family: "SFMono-Regular", "Roboto Mono", monospace; font-size: 14px; font-weight: 700; letter-spacing: .7px; }
+      .telemetry { font-family: "Noto Sans Mono", monospace; fill: #A9EFFF; font-size: 12px; font-weight: 500; letter-spacing: 1.2px; }
+      .tiny { font-family: "Noto Sans Mono", monospace; font-size: 14px; font-weight: 700; letter-spacing: .7px; }
+      .glyph { font-family: "Noto Sans Mono", monospace; fill: #F7F5FF; font-size: 11px; font-weight: 700; }
     </style>
   </defs>
 
@@ -165,8 +166,8 @@
     <circle cx="844" cy="599" r="38" fill="#101A37" stroke="#8F9AB8" stroke-width="1.5"/>
     <image href="../../../../assets/sprites/items/consumables/warding_charm.png" x="820" y="575" width="48" height="48"/>
     <path d="M818 573 l52 52 M870 573 l-52 52" stroke="#C7CEE8" stroke-width="1.4"/>
-    <text class="tiny" x="844" y="651" text-anchor="middle" fill="#C7CEE8">NONE OWNED</text>
   </g>
+  <text class="tiny" x="844" y="651" text-anchor="middle" fill="#C7CEE8">NONE OWNED</text>
 
   <!-- focused item callout -->
   <g filter="url(#softShadow)">
@@ -194,10 +195,22 @@
   <text class="telemetry" x="1003" y="653" fill="#F5D784">IGNITION // READY</text>
 
   <!-- stable input and rollback information -->
-  <g transform="translate(34 678)">
-    <text class="secondary" x="0" y="0" font-size="14">A Select</text>
-    <text class="secondary" x="94" y="0" font-size="14">X Clear</text>
-    <text class="secondary" x="178" y="0" font-size="14">B Escape</text>
-    <text class="muted" x="330" y="26" font-size="14">Catalyst is consumed only after ignition validation succeeds.</text>
+  <g transform="translate(34 665)">
+    <g>
+      <circle cx="9" cy="9" r="9" fill="#101A37" stroke="#C7CEE8" stroke-width="1.2"/>
+      <text class="glyph" x="9" y="13" text-anchor="middle">A</text>
+      <text class="secondary" x="25" y="14" font-size="14">Select</text>
+    </g>
+    <g transform="translate(96 0)">
+      <circle cx="9" cy="9" r="9" fill="#101A37" stroke="#C7CEE8" stroke-width="1.2"/>
+      <text class="glyph" x="9" y="13" text-anchor="middle">X</text>
+      <text class="secondary" x="25" y="14" font-size="14">Clear</text>
+    </g>
+    <g transform="translate(180 0)">
+      <circle cx="9" cy="9" r="9" fill="#101A37" stroke="#C7CEE8" stroke-width="1.2"/>
+      <text class="glyph" x="9" y="13" text-anchor="middle">B</text>
+      <text class="secondary" x="25" y="14" font-size="14">Escape</text>
+    </g>
+    <text class="muted" x="330" y="39" font-size="14">Catalyst is consumed only after ignition validation succeeds.</text>
   </g>
 </svg>

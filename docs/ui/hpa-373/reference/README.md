@@ -14,6 +14,7 @@ It deliberately demonstrates:
 - Normal Smoke Bomb and disabled Warding Charm nodes
 - Gold **Begin Battle** ignition seal closing the combat circuit
 - HP, MP, active-skill, first-turn, target, quantity, and effect hierarchy
+- Readability-first type roles that keep essential battle state at 16 px and metadata at 14 px
 - Ancient astronomical geometry with restrained interstellar telemetry
 - Input hints and rollback-supporting preparation copy
 

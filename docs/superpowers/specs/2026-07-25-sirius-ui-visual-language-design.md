@@ -1,6 +1,6 @@
 # Sirius UI Visual Language and Screen Design
 
-**Version:** 1.1
+**Version:** 1.2
 **Status:** Review candidate — design approved section by section; written artifact review pending  
 **Linear:** HPA-373  
 **Design decisions approved:** 2026-07-25
@@ -121,13 +121,18 @@ Selection uses gold. Keyboard and gamepad focus use a separate 2 px cyan outer r
 
 | Role | Standard | Compact |
 |---|---:|---:|
-| Display | 44 px | 30 px |
-| Screen title | 28 px | 22 px |
+| Screen title or statement | 32 px | 24 px |
+| Character or enemy name | 24 px | 18 px |
 | Section title | 20 px | 17 px |
-| Body and control | 16 px | 14 px |
-| Metadata | 14 px | 12 px |
+| Essential combat, body, and control | 16 px | 14 px |
+| Supporting metadata and input hint | 14 px | 12 px |
+| Decorative telemetry | 12 px | 12 px |
 
-Nothing renders below 12 logical pixels.
+The Sirius wordmark is a branded exception and may render at 44 px standard and 30 px compact. Nothing renders below 12 logical pixels.
+
+Essential state, outcome, and action text never uses the 12 px telemetry size. This includes HP and MP values, item effects, projected outcomes, reward quantities, validation messages, and action labels. At compact sizes, expendable telemetry is removed before essential text is reduced; essential text never drops below 14 px.
+
+Short HUD and combat labels use approximately 1.25 line height. Dialogue, descriptions, and other multi-line body copy use approximately 1.4 line height. Numeric state uses tabular figures. Localized strings wrap or expand their containing callout instead of shrinking, and character or enemy names may wrap to two lines. Truncation is allowed only for nonessential metadata when the full value is available through a focused detail view or tooltip.
 
 ### 5.3 Geometry and surfaces
 
@@ -568,7 +573,11 @@ No new world, character, enemy, or floor artwork is required by this specificati
 Every downstream screen migration must validate:
 
 - All seven target viewport sizes
-- 12 px minimum logical text
+- 12 px minimum logical text, reserved for supporting metadata and decorative telemetry
+- 14 px minimum compact text for essential state, outcomes, instructions, and actions
+- Optional telemetry removed before any compact essential text is reduced
+- Body, dialogue, and HUD line-height roles match the typography rules
+- Localized strings wrap or expand their container instead of shrinking
 - 24 px standard and 12 px compact safe margins
 - Ultrawide 1600 px content frame
 - Representative long and localized strings

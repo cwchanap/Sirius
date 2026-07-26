@@ -1,191 +1,203 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
   <defs>
     <linearGradient id="screenScrim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#050714" stop-opacity=".34"/>
-      <stop offset=".55" stop-color="#050714" stop-opacity=".20"/>
-      <stop offset="1" stop-color="#050714" stop-opacity=".78"/>
+      <stop offset="0" stop-color="#03050F" stop-opacity=".32"/>
+      <stop offset=".52" stop-color="#050714" stop-opacity=".12"/>
+      <stop offset="1" stop-color="#03050F" stop-opacity=".72"/>
     </linearGradient>
-    <linearGradient id="panelFill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#18234A" stop-opacity=".94"/>
-      <stop offset="1" stop-color="#0D1530" stop-opacity=".96"/>
+    <linearGradient id="smokedGlass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#162449" stop-opacity=".94"/>
+      <stop offset="1" stop-color="#091126" stop-opacity=".88"/>
     </linearGradient>
-    <linearGradient id="goldButton" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#F5D784"/>
-      <stop offset="1" stop-color="#DFAE43"/>
+    <linearGradient id="goldSeal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFF0A8"/>
+      <stop offset=".52" stop-color="#EFC65D"/>
+      <stop offset="1" stop-color="#C98C2E"/>
+    </linearGradient>
+    <linearGradient id="cyanBeam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#62DCFF" stop-opacity=".18"/>
+      <stop offset=".5" stop-color="#62DCFF" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#62DCFF" stop-opacity=".12"/>
     </linearGradient>
     <linearGradient id="hpFill" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#F16D83"/>
+      <stop offset="0" stop-color="#FF8193"/>
       <stop offset="1" stop-color="#D94A67"/>
     </linearGradient>
-    <linearGradient id="mpFill" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#62DCFF"/>
-      <stop offset="1" stop-color="#28A9D2"/>
-    </linearGradient>
-    <filter id="panelShadow" x="-20%" y="-20%" width="140%" height="150%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#030611" flood-opacity=".7"/>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="#02040D" flood-opacity=".72"/>
     </filter>
-    <filter id="cyanGlow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#62DCFF" flood-opacity=".75"/>
+    <filter id="cyanGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#62DCFF" flood-opacity=".9"/>
     </filter>
-    <filter id="goldGlow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#F5D784" flood-opacity=".55"/>
+    <filter id="goldGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="7" flood-color="#F5D784" flood-opacity=".75"/>
     </filter>
-    <clipPath id="playerPortrait">
-      <circle cx="106" cy="154" r="46"/>
+    <filter id="magentaGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#D96CC2" flood-opacity=".7"/>
+    </filter>
+    <clipPath id="heroPortrait">
+      <circle cx="154" cy="414" r="47"/>
     </clipPath>
     <clipPath id="enemyPortrait">
-      <circle cx="1174" cy="154" r="46"/>
+      <circle cx="1094" cy="180" r="50"/>
     </clipPath>
     <style>
-      .display { font-family: "Cinzel", Georgia, serif; fill: #F7F5FF; font-weight: 700; letter-spacing: 2px; }
-      .title { font-family: "Cinzel", Georgia, serif; fill: #F5D784; font-weight: 700; letter-spacing: 1px; }
-      .text { font-family: "Noto Sans", Arial, sans-serif; fill: #F7F5FF; }
+      .display { font-family: "Cinzel", Georgia, serif; fill: #F7F5FF; font-weight: 700; letter-spacing: 1.5px; }
+      .name { font-family: "Cinzel", Georgia, serif; fill: #F5D784; font-weight: 700; letter-spacing: .8px; }
+      .ui { font-family: "Noto Sans", Arial, sans-serif; fill: #F7F5FF; }
       .secondary { font-family: "Noto Sans", Arial, sans-serif; fill: #C7CEE8; }
       .muted { font-family: "Noto Sans", Arial, sans-serif; fill: #8F9AB8; }
-      .tiny { font-family: "Noto Sans", Arial, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: .6px; }
+      .telemetry { font-family: "SFMono-Regular", "Roboto Mono", monospace; fill: #A9EFFF; font-size: 12px; letter-spacing: 1.2px; }
+      .tiny { font-family: "SFMono-Regular", "Roboto Mono", monospace; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
     </style>
   </defs>
 
   <image href="../../../../assets/sprites/ui/ui_battle_background.png" width="1280" height="720" preserveAspectRatio="xMidYMid slice"/>
   <rect width="1280" height="720" fill="url(#screenScrim)"/>
 
-  <!-- restrained constellation ornament -->
-  <g fill="none" stroke="#62DCFF" stroke-opacity=".24" stroke-width="1.2">
-    <path d="M406 80 L462 48 L520 82 L578 52 L642 86"/>
-    <path d="M880 64 L916 38 L954 72 L1004 44"/>
-  </g>
-  <g fill="#F7F5FF" opacity=".72">
-    <path d="M462 42 l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/>
-    <path d="M578 46 l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/>
-    <path d="M916 32 l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/>
+  <!-- Encounter designation -->
+  <g transform="translate(34 32)">
+    <path d="M0 0 H238 M0 7 H94" fill="none" stroke="#62DCFF" stroke-width="1.2" stroke-opacity=".66"/>
+    <text class="telemetry" x="0" y="26">ENCOUNTER // 07-RAIDER</text>
+    <text class="display" x="0" y="56" font-size="23">ORBITAL PREPARATION</text>
+    <text class="secondary" x="0" y="78" font-size="12">Choose one catalyst, then close the combat circuit.</text>
   </g>
 
-  <text class="display" x="640" y="42" text-anchor="middle" font-size="26">PREPARE FOR BATTLE</text>
-  <text class="secondary" x="640" y="66" text-anchor="middle" font-size="13">Choose one optional consumable, then confirm the encounter.</text>
-
-  <!-- Player plate -->
-  <g filter="url(#panelShadow)">
-    <rect x="28" y="82" width="314" height="238" rx="16" fill="url(#panelFill)" stroke="#62DCFF" stroke-opacity=".56" stroke-width="1.5"/>
-    <path d="M44 102 H180" stroke="#62DCFF" stroke-opacity=".38"/>
-    <circle cx="106" cy="154" r="52" fill="#0D1530" stroke="#62DCFF" stroke-width="2"/>
-    <image href="../../../../assets/sprites/characters/player_hero/frames/frame1.png" x="58" y="106" width="96" height="96" image-rendering="pixelated" clip-path="url(#playerPortrait)"/>
-    <text class="title" x="174" y="130" font-size="19">HERO</text>
-    <text class="secondary" x="174" y="153" font-size="13">Level 8 · Vanguard</text>
-    <rect x="174" y="171" width="140" height="10" rx="5" fill="#050714"/>
-    <rect x="174" y="171" width="118" height="10" rx="5" fill="url(#hpFill)"/>
-    <text class="text" x="174" y="202" font-size="12">HP 118 / 150</text>
-    <rect x="174" y="214" width="140" height="8" rx="4" fill="#050714"/>
-    <rect x="174" y="214" width="96" height="8" rx="4" fill="url(#mpFill)"/>
-    <text class="text" x="174" y="245" font-size="12">MP 34 / 50</text>
-    <rect x="52" y="270" width="266" height="32" rx="8" fill="#27366C" fill-opacity=".72" stroke="#62DCFF" stroke-opacity=".28"/>
-    <text class="secondary" x="66" y="291" font-size="12">Active Skill</text>
-    <text class="text" x="150" y="291" font-size="12" font-weight="700">Power Strike · every 3 turns</text>
+  <!-- Battlefield-first celestial instrument -->
+  <g fill="none" transform="rotate(-10 640 360)">
+    <ellipse cx="640" cy="360" rx="556" ry="259" stroke="#20325B" stroke-width="10" stroke-opacity=".26"/>
+    <ellipse cx="640" cy="360" rx="556" ry="259" stroke="#62DCFF" stroke-width="1.4" stroke-opacity=".62"
+             stroke-dasharray="610 106 292 82 512 118"/>
+    <ellipse cx="640" cy="360" rx="531" ry="235" stroke="#F5D784" stroke-width="1" stroke-opacity=".28"
+             stroke-dasharray="4 15"/>
+    <ellipse cx="640" cy="360" rx="491" ry="202" stroke="#62DCFF" stroke-width=".8" stroke-opacity=".16"
+             stroke-dasharray="110 28 42 60"/>
   </g>
 
-  <!-- Enemy plate -->
-  <g filter="url(#panelShadow)">
-    <rect x="938" y="82" width="314" height="238" rx="16" fill="url(#panelFill)" stroke="#D96CC2" stroke-opacity=".62" stroke-width="1.5"/>
-    <path d="M1100 102 H1236" stroke="#D96CC2" stroke-opacity=".42"/>
-    <circle cx="1174" cy="154" r="52" fill="#0D1530" stroke="#D96CC2" stroke-width="2"/>
-    <image href="../../../../assets/sprites/enemies/goblin/frames/frame1.png" x="1126" y="106" width="96" height="96" image-rendering="pixelated" clip-path="url(#enemyPortrait)"/>
-    <text class="title" x="966" y="130" font-size="19">GOBLIN RAIDER</text>
-    <text class="secondary" x="966" y="153" font-size="13">Level 7 · Beast</text>
-    <rect x="966" y="171" width="140" height="10" rx="5" fill="#050714"/>
-    <rect x="966" y="171" width="92" height="10" rx="5" fill="url(#hpFill)"/>
-    <text class="text" x="966" y="202" font-size="12">HP 52 / 80</text>
-    <text class="secondary" x="966" y="232" font-size="12">First-turn forecast</text>
-    <text class="text" x="1082" y="232" font-size="12" font-weight="700">Enemy</text>
-    <rect x="962" y="270" width="266" height="32" rx="8" fill="#27366C" fill-opacity=".72" stroke="#D96CC2" stroke-opacity=".32"/>
-    <text class="secondary" x="976" y="291" font-size="12">Known trait</text>
-    <text class="text" x="1060" y="291" font-size="12" font-weight="700">May inflict Weaken</text>
+  <!-- calibration ticks and star joints -->
+  <g stroke="#F5D784" stroke-opacity=".52" fill="none">
+    <path d="M85 343 l22 8 M94 322 l16 7 M1115 428 l25 10 M1130 404 l17 8"/>
+    <path d="M292 603 l-3 18 M323 615 l-2 16 M874 596 l5 18 M910 582 l6 16"/>
+  </g>
+  <g fill="#F7F5FF">
+    <path d="M260 180 l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" opacity=".76"/>
+    <path d="M752 91 l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" opacity=".58"/>
+    <path d="M1163 318 l4 9 9 4-9 4-4 9-4-9-9-4 9-4z" opacity=".82"/>
   </g>
 
-  <!-- Preparation tray -->
-  <g filter="url(#panelShadow)">
-    <rect x="24" y="350" width="1232" height="346" rx="18" fill="url(#panelFill)" stroke="#F5D784" stroke-opacity=".52" stroke-width="1.5"/>
-    <path d="M44 378 H184 M1096 378 H1236" stroke="#F5D784" stroke-opacity=".38"/>
-    <path d="M104 350 A70 70 0 0 0 44 410" fill="none" stroke="#62DCFF" stroke-opacity=".18"/>
-    <path d="M1176 350 A70 70 0 0 1 1236 410" fill="none" stroke="#F5D784" stroke-opacity=".2"/>
-    <text class="title" x="52" y="398" font-size="20">PREPARATION</text>
-    <text class="secondary" x="248" y="398" font-size="12">Optional · one item maximum</text>
-    <rect x="1034" y="374" width="190" height="30" rx="15" fill="#27366C" stroke="#62DCFF" stroke-opacity=".28"/>
-    <text class="secondary" x="1129" y="394" font-size="12" text-anchor="middle">Power Strike equipped</text>
+  <!-- projected first-turn trajectory -->
+  <g fill="none">
+    <path d="M244 398 C448 278 747 236 1028 204" stroke="#62DCFF" stroke-width="12" stroke-opacity=".06"/>
+    <path d="M244 398 C448 278 747 236 1028 204" stroke="url(#cyanBeam)" stroke-width="2" stroke-dasharray="7 11"/>
+    <path d="M1008 196 l20 8-17 13" stroke="#62DCFF" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="605" cy="290" r="7" fill="#071027" stroke="#62DCFF"/>
+    <circle cx="802" cy="247" r="4" fill="#62DCFF"/>
+  </g>
+  <text class="telemetry" x="573" y="269">FIRST VECTOR // ENEMY</text>
 
-    <!-- selected -->
-    <g filter="url(#goldGlow)">
-      <rect x="52" y="424" width="205" height="158" rx="12" fill="#27366C" fill-opacity=".94" stroke="#F5D784" stroke-width="2.5"/>
-    </g>
-    <rect x="66" y="438" width="62" height="62" rx="8" fill="#0D1530" stroke="#F5D784" stroke-opacity=".5"/>
-    <image href="../../../../assets/sprites/items/consumables/health_potion.png" x="70" y="442" width="54" height="54" preserveAspectRatio="xMidYMid meet"/>
-    <text class="text" x="140" y="456" font-size="13" font-weight="700">Health Potion</text>
-    <text class="secondary" x="140" y="476" font-size="12">Owned 3</text>
-    <text class="secondary" x="66" y="525" font-size="12">Restores 50 HP</text>
-    <text class="secondary" x="66" y="545" font-size="12">Target · Hero</text>
-    <rect x="66" y="554" width="86" height="18" rx="9" fill="#F5D784"/>
-    <text class="tiny" x="109" y="567" text-anchor="middle" fill="#0D1530">✓ SELECTED</text>
+  <!-- Hero anchor -->
+  <g filter="url(#softShadow)">
+    <path d="M202 326 H424 L446 348 V450 H214 L194 430 V346 Z" fill="url(#smokedGlass)"
+          stroke="#62DCFF" stroke-width="1.4" stroke-opacity=".72"/>
+    <path d="M211 337 H354 M435 360 V421" fill="none" stroke="#62DCFF" stroke-opacity=".34"/>
+    <circle cx="154" cy="414" r="62" fill="#071027" stroke="#20325B" stroke-width="9"/>
+    <circle cx="154" cy="414" r="57" fill="none" stroke="#62DCFF" stroke-width="2.2"/>
+    <circle cx="154" cy="414" r="67" fill="none" stroke="#F5D784" stroke-width="1" stroke-dasharray="12 9" stroke-opacity=".72"/>
+    <image href="../../../../assets/sprites/characters/player_hero/frames/frame1.png" x="106" y="366" width="96" height="96"
+           image-rendering="pixelated" clip-path="url(#heroPortrait)"/>
+    <path d="M210 398 H194" stroke="#62DCFF" stroke-width="2"/>
+    <text class="telemetry" x="220" y="357">ALLIED BODY // VANGUARD</text>
+    <text class="name" x="220" y="386" font-size="21">HERO</text>
+    <text class="secondary" x="220" y="407" font-size="12">LEVEL 08 · POWER STRIKE / 3T</text>
+    <text class="ui" x="220" y="433" font-size="12">HP 118 / 150</text>
+    <rect x="302" y="424" width="118" height="9" rx="4.5" fill="#03050F"/>
+    <rect x="302" y="424" width="94" height="9" rx="4.5" fill="url(#hpFill)"/>
+    <text class="ui" x="220" y="452" font-size="12">MP 34 / 50</text>
+    <rect x="302" y="443" width="118" height="8" rx="4" fill="#03050F"/>
+    <rect x="302" y="443" width="80" height="8" rx="4" fill="#62DCFF"/>
+  </g>
 
-    <!-- focused -->
-    <g filter="url(#cyanGlow)">
-      <rect x="273" y="424" width="205" height="158" rx="12" fill="#27366C" fill-opacity=".94" stroke="#62DCFF" stroke-width="3"/>
-    </g>
-    <rect x="287" y="438" width="62" height="62" rx="8" fill="#0D1530" stroke="#62DCFF" stroke-opacity=".5"/>
-    <image href="../../../../assets/sprites/items/consumables/strength_tonic.png" x="291" y="442" width="54" height="54" preserveAspectRatio="xMidYMid meet"/>
-    <text class="text" x="361" y="456" font-size="13" font-weight="700">Strength Tonic</text>
-    <text class="secondary" x="361" y="476" font-size="12">Owned 1</text>
-    <text class="secondary" x="287" y="525" font-size="12">ATK +20% · 3 turns</text>
-    <text class="secondary" x="287" y="545" font-size="12">Target · Hero</text>
-    <rect x="287" y="554" width="60" height="18" rx="9" fill="#62DCFF"/>
-    <text class="tiny" x="317" y="567" text-anchor="middle" fill="#0D1530">FOCUS</text>
+  <!-- Enemy anchor -->
+  <g filter="url(#softShadow)">
+    <path d="M778 84 H1030 L1050 104 V220 L1028 242 H790 L770 222 V104 Z" fill="url(#smokedGlass)"
+          stroke="#D96CC2" stroke-width="1.4" stroke-opacity=".76"/>
+    <path d="M790 96 H936 M780 210 H916" fill="none" stroke="#D96CC2" stroke-opacity=".36"/>
+    <circle cx="1094" cy="180" r="66" fill="#071027" stroke="#271537" stroke-width="9"/>
+    <circle cx="1094" cy="180" r="60" fill="none" stroke="#D96CC2" stroke-width="2.2"/>
+    <circle cx="1094" cy="180" r="71" fill="none" stroke="#F5D784" stroke-width="1" stroke-dasharray="5 12" stroke-opacity=".64"/>
+    <image href="../../../../assets/sprites/enemies/goblin/frames/frame1.png" x="1046" y="132" width="96" height="96"
+           image-rendering="pixelated" clip-path="url(#enemyPortrait)"/>
+    <path d="M1050 180 H1030" stroke="#D96CC2" stroke-width="2"/>
+    <text class="telemetry" x="794" y="116" fill="#F1A0DF">HOSTILE BODY // BEAST</text>
+    <text class="name" x="794" y="146" font-size="20">GOBLIN RAIDER</text>
+    <text class="secondary" x="794" y="168" font-size="12">LEVEL 07 · MAY INFLICT WEAKEN</text>
+    <text class="ui" x="794" y="195" font-size="12">HP 52 / 80</text>
+    <rect x="876" y="186" width="126" height="9" rx="4.5" fill="#03050F"/>
+    <rect x="876" y="186" width="82" height="9" rx="4.5" fill="url(#hpFill)"/>
+    <text class="secondary" x="794" y="220" font-size="12">FORECAST // ACTS FIRST</text>
+  </g>
 
-    <!-- normal -->
-    <rect x="494" y="424" width="205" height="158" rx="12" fill="#27366C" fill-opacity=".88" stroke="#8F9AB8" stroke-opacity=".58"/>
-    <rect x="508" y="438" width="62" height="62" rx="8" fill="#0D1530" stroke="#8F9AB8" stroke-opacity=".42"/>
-    <image href="../../../../assets/sprites/items/consumables/smoke_bomb.png" x="512" y="442" width="54" height="54" preserveAspectRatio="xMidYMid meet"/>
-    <text class="text" x="582" y="456" font-size="13" font-weight="700">Smoke Bomb</text>
-    <text class="secondary" x="582" y="476" font-size="12">Owned 2</text>
-    <text class="secondary" x="508" y="525" font-size="12">Applies Blind</text>
-    <text class="secondary" x="508" y="545" font-size="12">Target · Enemy</text>
-    <text class="muted" x="508" y="568" font-size="11">Normal state</text>
+  <!-- selected catalyst path -->
+  <path d="M325 565 C258 534 207 492 174 464" fill="none" stroke="#F5D784" stroke-width="3"
+        stroke-dasharray="8 8" filter="url(#goldGlow)"/>
+  <text class="telemetry" x="238" y="520" fill="#F5D784">TARGET // HERO</text>
 
-    <!-- disabled -->
-    <g opacity=".45">
-      <rect x="715" y="424" width="205" height="158" rx="12" fill="#27366C" stroke="#8F9AB8"/>
-      <rect x="729" y="438" width="62" height="62" rx="8" fill="#0D1530" stroke="#8F9AB8"/>
-      <image href="../../../../assets/sprites/items/consumables/warding_charm.png" x="733" y="442" width="54" height="54" preserveAspectRatio="xMidYMid meet"/>
-      <text class="text" x="803" y="456" font-size="13" font-weight="700">Warding Charm</text>
-      <text class="secondary" x="803" y="476" font-size="12">Owned 0</text>
-      <text class="secondary" x="729" y="525" font-size="12">Raises resistance</text>
-      <text class="secondary" x="729" y="545" font-size="12">Unavailable · none owned</text>
-    </g>
-    <circle cx="900" cy="444" r="9" fill="#0D1530" stroke="#8F9AB8"/>
-    <path d="M896 444 h8 M900 440 v8" stroke="#8F9AB8" stroke-width="1.5"/>
+  <!-- item nodes on lower orbit -->
+  <g filter="url(#goldGlow)">
+    <circle cx="327" cy="578" r="43" fill="#101A37" stroke="#F5D784" stroke-width="3"/>
+    <circle cx="327" cy="578" r="50" fill="none" stroke="#F5D784" stroke-width="1" stroke-dasharray="8 6"/>
+  </g>
+  <image href="../../../../assets/sprites/items/consumables/health_potion.png" x="299" y="550" width="56" height="56"/>
+  <rect x="268" y="631" width="118" height="21" rx="10.5" fill="#F5D784"/>
+  <text class="tiny" x="327" y="645" text-anchor="middle" fill="#071027">SELECTED · ×3</text>
 
-    <!-- action -->
-    <rect x="966" y="438" width="258" height="54" rx="9" fill="#27366C" stroke="#8F9AB8" stroke-opacity=".48"/>
-    <text class="secondary" x="1095" y="460" text-anchor="middle" font-size="11">FIRST TURN AFTER ITEM</text>
-    <text class="text" x="1095" y="481" text-anchor="middle" font-size="14" font-weight="700">Recalculated on confirm</text>
-    <g filter="url(#goldGlow)">
-      <rect x="966" y="510" width="258" height="72" rx="12" fill="url(#goldButton)" stroke="#FFF3C2" stroke-opacity=".78" stroke-width="1.5"/>
-    </g>
-    <path d="M1000 546 h18 M1009 537 l9 9-9 9" fill="none" stroke="#0D1530" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="1032" y="553" font-family="Noto Sans, Arial, sans-serif" font-size="17" font-weight="700" fill="#0D1530">Begin Battle</text>
+  <g filter="url(#cyanGlow)">
+    <circle cx="506" cy="621" r="47" fill="#102A47" stroke="#62DCFF" stroke-width="4"/>
+    <path d="M472 587 l-13-13 M540 587 l13-13 M472 655 l-13 13 M540 655 l13 13" stroke="#62DCFF" stroke-width="2"/>
+  </g>
+  <image href="../../../../assets/sprites/items/consumables/strength_tonic.png" x="476" y="591" width="60" height="60"/>
 
-    <rect x="52" y="606" width="868" height="54" rx="9" fill="#0D1530" fill-opacity=".72" stroke="#F5D784" stroke-opacity=".26"/>
-    <text class="title" x="70" y="629" font-size="12">SELECTED</text>
-    <text class="text" x="174" y="629" font-size="12" font-weight="700">Health Potion</text>
-    <text class="secondary" x="246" y="629" font-size="12">Restore 50 HP to Hero before turn order is calculated.</text>
-    <text class="muted" x="70" y="649" font-size="11">The item is consumed only after Begin Battle succeeds; failures preserve rollback behavior.</text>
+  <circle cx="688" cy="632" r="40" fill="#101A37" stroke="#8F9AB8" stroke-width="1.5"/>
+  <image href="../../../../assets/sprites/items/consumables/smoke_bomb.png" x="662" y="606" width="52" height="52"/>
+  <text class="tiny" x="688" y="684" text-anchor="middle" fill="#C7CEE8">SMOKE · ×2</text>
 
-    <g class="secondary" font-size="12">
-      <rect x="966" y="608" width="52" height="24" rx="6" fill="#27366C" stroke="#62DCFF" stroke-opacity=".36"/>
-      <text x="992" y="625" text-anchor="middle">A</text>
-      <text x="1028" y="625">Select</text>
-      <rect x="1084" y="608" width="52" height="24" rx="6" fill="#27366C" stroke="#62DCFF" stroke-opacity=".36"/>
-      <text x="1110" y="625" text-anchor="middle">X</text>
-      <text x="1146" y="625">Clear</text>
-      <rect x="966" y="640" width="52" height="24" rx="6" fill="#27366C" stroke="#62DCFF" stroke-opacity=".36"/>
-      <text x="992" y="657" text-anchor="middle">B</text>
-      <text x="1028" y="657">Escape</text>
-    </g>
+  <g opacity=".42">
+    <circle cx="844" cy="599" r="38" fill="#101A37" stroke="#8F9AB8" stroke-width="1.5"/>
+    <image href="../../../../assets/sprites/items/consumables/warding_charm.png" x="820" y="575" width="48" height="48"/>
+    <path d="M818 573 l52 52 M870 573 l-52 52" stroke="#C7CEE8" stroke-width="1.4"/>
+    <text class="tiny" x="844" y="649" text-anchor="middle" fill="#C7CEE8">NONE OWNED</text>
+  </g>
+
+  <!-- focused item callout -->
+  <g filter="url(#softShadow)">
+    <path d="M430 456 H670 L686 472 V551 L670 567 H430 L414 551 V472 Z" fill="url(#smokedGlass)"
+          stroke="#62DCFF" stroke-width="2"/>
+    <path d="M506 567 V574" stroke="#62DCFF" stroke-width="2"/>
+    <text class="telemetry" x="434" y="480">FOCUS // CATALYST 02</text>
+    <text class="name" x="434" y="508" font-size="18">STRENGTH TONIC</text>
+    <text class="ui" x="434" y="531" font-size="12">ATK +20% · 3 turns · Hero</text>
+    <text class="secondary" x="434" y="551" font-size="12">Projected ATK 24 → 29 · Owned 1</text>
+  </g>
+
+  <!-- ignition seal -->
+  <g filter="url(#goldGlow)">
+    <circle cx="1066" cy="552" r="76" fill="#0A122A" stroke="#F5D784" stroke-width="2.5"/>
+    <circle cx="1066" cy="552" r="65" fill="none" stroke="#F5D784" stroke-width="1" stroke-dasharray="5 7"/>
+    <circle cx="1066" cy="552" r="53" fill="url(#goldSeal)" stroke="#FFF4C9" stroke-width="1.5"/>
+  </g>
+  <path d="M1038 530 H1094 M1038 574 H1094 M1044 520 l-10 10 10 10 M1088 564 l10 10-10 10"
+        fill="none" stroke="#071027" stroke-width="2"/>
+  <text x="1066" y="548" text-anchor="middle" font-family="Noto Sans, Arial, sans-serif"
+        font-size="12" font-weight="800" letter-spacing=".8" fill="#071027">BEGIN</text>
+  <text x="1066" y="567" text-anchor="middle" font-family="Noto Sans, Arial, sans-serif"
+        font-size="12" font-weight="800" letter-spacing=".8" fill="#071027">BATTLE</text>
+  <text class="telemetry" x="1003" y="653" fill="#F5D784">IGNITION // READY</text>
+
+  <!-- stable input and rollback information -->
+  <g transform="translate(34 678)">
+    <text class="secondary" x="0" y="0" font-size="12">A Select</text>
+    <text class="secondary" x="82" y="0" font-size="12">X Clear</text>
+    <text class="secondary" x="154" y="0" font-size="12">B Escape</text>
+    <text class="muted" x="330" y="26" font-size="12">Catalyst is consumed only after ignition validation succeeds.</text>
   </g>
 </svg>

@@ -32,10 +32,14 @@
   <!-- 1. Main menu -->
   <g transform="translate(0 55)">
     <text class="row-title" x="40" y="25">1. Main menu</text>
-    <text class="row-note" x="40" y="410">Left-aligned safe column preserves the castle and moon; compact retains the same hierarchy.</text>
+    <text class="row-note" x="40" y="410">A partial navigation orbit rises from the lower-left while the castle and moon remain unobstructed.</text>
     <g transform="translate(40 40) scale(.5)">
       <rect class="frame" width="1280" height="720"/>
       <rect class="scene" x="0" y="0" width="1280" height="720"/>
+      <path d="M-90 700 C34 510 130 302 436 112" fill="none" stroke="#2585a2" stroke-width="5" stroke-dasharray="170 28 90 24"/>
+      <circle class="selected" cx="40" cy="566" r="18"/>
+      <circle class="slot" cx="96" cy="438" r="13"/>
+      <circle class="slot" cx="164" cy="326" r="13"/>
       <circle class="raised" cx="1015" cy="145" r="105"/>
       <path class="panel" d="M820 560 L920 380 L1010 560 Z"/>
       <rect class="scrim" x="0" y="0" width="470" height="720"/>
@@ -59,6 +63,9 @@
     <g transform="translate(760 40)">
       <rect class="frame" width="640" height="360"/>
       <rect class="scene" width="640" height="360"/>
+      <path d="M-42 350 C18 260 76 146 238 52" fill="none" stroke="#2585a2" stroke-width="3" stroke-dasharray="82 16 46 14"/>
+      <circle class="selected" cx="18" cy="282" r="10"/>
+      <circle class="slot" cx="50" cy="218" r="8"/>
       <circle class="raised" cx="520" cy="72" r="52"/>
       <path class="panel" d="M415 280 L470 190 L525 280 Z"/>
       <rect class="scrim" width="265" height="360"/>
@@ -84,7 +91,7 @@
   <!-- 2. Exploration -->
   <g transform="translate(0 475)">
     <text class="row-title" x="40" y="25">2. Exploration HUD</text>
-    <text class="row-note" x="40" y="410">Only supported, actionable information remains visible; prompts and floor titles are transient.</text>
+    <text class="row-note" x="40" y="410">The hero anchor collapses to a quarter-orbit; world prompts appear as temporary coordinate locks.</text>
     <g transform="translate(40 40) scale(.5)">
       <rect class="frame" width="1280" height="720"/>
       <rect class="scene" width="1280" height="720"/>
@@ -93,6 +100,7 @@
         <path d="M160 0 V720 M320 0 V720 M480 0 V720 M640 0 V720 M800 0 V720 M960 0 V720 M1120 0 V720"/>
       </g>
       <rect class="panel" x="32" y="32" width="380" height="148" rx="18"/>
+      <path d="M28 182 A162 162 0 0 1 190 20" fill="none" stroke="#2585a2" stroke-width="5"/>
       <circle class="raised" cx="92" cy="106" r="42"/>
       <text class="txt" x="150" y="72" font-size="28">Hero · Lv 8</text>
       <rect class="bar" x="150" y="88" width="226" height="20" rx="10"/>
@@ -103,6 +111,8 @@
       <rect class="raised" x="500" y="32" width="280" height="54" rx="10"/>
       <text class="txt" x="562" y="67" font-size="24">Moonlit Grove</text>
       <rect class="raised" x="472" y="638" width="336" height="48" rx="14"/>
+      <path d="M640 610 V638" fill="none" stroke="#2585a2" stroke-width="3"/>
+      <circle class="focus" cx="640" cy="604" r="8"/>
       <text class="txt" x="522" y="670" font-size="22">E · Speak with Mira</text>
     </g>
     <g transform="translate(760 40)">
@@ -113,6 +123,7 @@
         <path d="M80 0 V360 M160 0 V360 M240 0 V360 M320 0 V360 M400 0 V360 M480 0 V360 M560 0 V360"/>
       </g>
       <rect class="panel" x="12" y="12" width="238" height="62" rx="10"/>
+      <path d="M10 78 A70 70 0 0 1 80 8" fill="none" stroke="#2585a2" stroke-width="3"/>
       <circle class="raised" cx="42" cy="43" r="20"/>
       <text class="txt" x="72" y="32" font-size="14">Hero · Lv 8</text>
       <rect class="bar" x="72" y="40" width="158" height="8" rx="4"/>
@@ -123,6 +134,8 @@
       <rect class="raised" x="244" y="12" width="152" height="28" rx="6"/>
       <text class="txt" x="277" y="31" font-size="12">Moonlit Grove</text>
       <rect class="raised" x="218" y="324" width="204" height="24" rx="8"/>
+      <path d="M320 308 V324" fill="none" stroke="#2585a2" stroke-width="2"/>
+      <circle class="focus" cx="320" cy="304" r="5"/>
       <text class="txt" x="252" y="341" font-size="12">E · Speak with Mira</text>
     </g>
   </g>
@@ -130,114 +143,141 @@
   <!-- 3. Battle preparation -->
   <g transform="translate(0 895)">
     <text class="row-title" x="40" y="25">3. Battle preparation</text>
-    <text class="row-note" x="40" y="410">Desktop uses a lower-third tray; compact separates Overview and Items without shrinking the duel stage.</text>
+    <text class="row-note" x="40" y="410">The Orrery Ring keeps the battlefield open; compact reduces it to two arcs and one expanded callout.</text>
     <g transform="translate(40 40) scale(.5)">
       <rect class="frame" width="1280" height="720"/>
       <rect class="scene" width="1280" height="720"/>
-      <rect class="panel" x="40" y="70" width="290" height="220" rx="18"/>
-      <circle class="raised" cx="185" cy="155" r="48"/>
-      <text class="txt" x="70" y="245" font-size="28">Hero · Lv 8</text>
-      <rect class="bar" x="70" y="260" width="230" height="16" rx="8"/>
-      <rect class="bar-fill" x="70" y="260" width="190" height="16" rx="8"/>
-      <rect class="panel" x="950" y="70" width="290" height="220" rx="18"/>
-      <circle class="raised" cx="1095" cy="155" r="48"/>
-      <text class="txt" x="980" y="245" font-size="28">Goblin · Lv 7</text>
-      <rect class="bar" x="980" y="260" width="230" height="16" rx="8"/>
-      <rect class="bar-fill" x="980" y="260" width="150" height="16" rx="8"/>
-      <rect class="panel" x="24" y="350" width="1232" height="346" rx="18"/>
-      <text class="heading" x="56" y="400" font-size="30">PREPARATION</text>
-      <rect class="selected" x="56" y="430" width="270" height="150" rx="12"/>
-      <rect class="focus" x="342" y="430" width="270" height="150" rx="12"/>
-      <rect class="disabled" x="628" y="430" width="270" height="150" rx="12"/>
-      <text class="txt" x="80" y="472" font-size="24">Health Potion ×3</text>
-      <text class="txt" x="366" y="472" font-size="24">Strength Tonic ×1</text>
-      <text class="txt" x="652" y="472" font-size="24">Warding Charm ×0</text>
-      <rect class="primary" x="958" y="498" width="250" height="74" rx="12"/>
-      <text class="txt" x="1015" y="545" font-size="26">Begin Battle</text>
-      <text class="muted" x="56" y="650" font-size="20">A Select · X Clear · B Escape</text>
+      <ellipse cx="640" cy="360" rx="560" ry="258" fill="none" stroke="#2585a2" stroke-width="5"
+               stroke-dasharray="520 90 260 80 430 120" transform="rotate(-10 640 360)"/>
+      <ellipse cx="640" cy="360" rx="525" ry="228" fill="none" stroke="#b38a22" stroke-width="2"
+               stroke-dasharray="6 14" transform="rotate(-10 640 360)"/>
+      <text class="heading" x="40" y="58" font-size="28">ORBITAL PREPARATION</text>
+      <text class="muted" x="40" y="84" font-size="18">Encounter 07 · one catalyst maximum</text>
+      <path d="M245 401 C470 270 730 232 1018 202" fill="none" stroke="#2585a2" stroke-width="4" stroke-dasharray="12 12"/>
+      <circle class="focus" cx="160" cy="420" r="64"/>
+      <path class="panel" d="M216 330 H446 L466 350 V448 H216 Z"/>
+      <text class="heading" x="240" y="372" font-size="30">HERO</text>
+      <text class="txt" x="240" y="404" font-size="22">Lv 8 · HP 118/150 · MP 34/50</text>
+      <text class="muted" x="240" y="432" font-size="19">Power Strike · every 3 turns</text>
+      <circle class="danger" cx="1094" cy="178" r="68"/>
+      <path class="panel" d="M770 84 H1034 L1052 102 V236 H790 L770 216 Z"/>
+      <text class="heading" x="796" y="132" font-size="28">GOBLIN RAIDER</text>
+      <text class="txt" x="796" y="164" font-size="22">Lv 7 · HP 52/80</text>
+      <text class="muted" x="796" y="195" font-size="19">Acts first · may inflict Weaken</text>
+      <path d="M326 574 C262 540 205 495 178 468" fill="none" stroke="#b38a22" stroke-width="5" stroke-dasharray="12 10"/>
+      <circle class="selected" cx="326" cy="578" r="48"/>
+      <circle class="focus" cx="506" cy="624" r="52"/>
+      <circle class="slot" cx="690" cy="632" r="44"/>
+      <circle class="disabled" cx="846" cy="600" r="42"/>
+      <text class="txt" x="289" y="584" font-size="20">Potion</text>
+      <text class="txt" x="478" y="630" font-size="20">Tonic</text>
+      <text class="txt" x="660" y="638" font-size="20">Smoke</text>
+      <path class="raised" d="M414 456 H674 L690 472 V554 L674 570 H414 Z"/>
+      <text class="heading" x="438" y="500" font-size="24">STRENGTH TONIC</text>
+      <text class="txt" x="438" y="532" font-size="20">ATK +20% · Hero · 3 turns</text>
+      <circle class="primary" cx="1064" cy="554" r="78"/>
+      <circle cx="1064" cy="554" r="62" fill="none" stroke="#8b6d25" stroke-width="3" stroke-dasharray="8 7"/>
+      <text class="txt" x="1064" y="546" text-anchor="middle" font-size="22">BEGIN</text>
+      <text class="txt" x="1064" y="574" text-anchor="middle" font-size="22">BATTLE</text>
+      <text class="muted" x="40" y="684" font-size="18">A Select · X Clear · B Escape</text>
     </g>
     <g transform="translate(760 40)">
       <rect class="frame" width="640" height="360"/>
       <rect class="scene" width="640" height="360"/>
-      <rect class="panel" x="12" y="36" width="146" height="92" rx="9"/>
-      <circle class="raised" cx="85" cy="73" r="20"/>
-      <text class="txt" x="28" y="111" font-size="12">Hero · Lv 8</text>
-      <rect class="panel" x="482" y="36" width="146" height="92" rx="9"/>
-      <circle class="raised" cx="555" cy="73" r="20"/>
-      <text class="txt" x="502" y="111" font-size="12">Goblin · Lv 7</text>
-      <rect class="panel" x="12" y="166" width="616" height="182" rx="10"/>
-      <rect class="panel" x="26" y="178" width="112" height="30" rx="6"/>
-      <rect class="selected" x="144" y="178" width="112" height="30" rx="6"/>
-      <text class="txt" x="48" y="198" font-size="12">Overview</text>
-      <text class="txt" x="181" y="198" font-size="12">Items</text>
-      <rect class="selected" x="26" y="218" width="174" height="68" rx="7"/>
-      <rect class="focus" x="208" y="218" width="174" height="68" rx="7"/>
-      <rect class="primary" x="430" y="244" width="176" height="42" rx="7"/>
-      <text class="txt" x="466" y="270" font-size="14">Begin Battle</text>
-      <text class="muted" x="26" y="330" font-size="12">LB/RB Page · A Select · B Escape</text>
+      <path d="M34 246 C130 346 342 366 520 278" fill="none" stroke="#2585a2" stroke-width="3"/>
+      <path d="M382 52 C492 22 592 86 614 176" fill="none" stroke="#2585a2" stroke-width="3"/>
+      <text class="heading" x="14" y="25" font-size="17">ORBITAL PREPARATION</text>
+      <circle class="focus" cx="76" cy="218" r="35"/>
+      <path class="panel" d="M106 172 H260 L270 182 V238 H106 Z"/>
+      <text class="heading" x="120" y="196" font-size="15">HERO · LV 8</text>
+      <text class="txt" x="120" y="218" font-size="12">HP 118/150 · MP 34/50</text>
+      <circle class="danger" cx="552" cy="84" r="37"/>
+      <path class="panel" d="M384 32 H516 V108 H398 L384 94 Z"/>
+      <text class="heading" x="398" y="59" font-size="14">GOBLIN · LV 7</text>
+      <text class="txt" x="398" y="82" font-size="12">HP 52/80 · acts first</text>
+      <circle class="selected" cx="194" cy="292" r="28"/>
+      <circle class="focus" cx="286" cy="320" r="31"/>
+      <circle class="slot" cx="378" cy="321" r="26"/>
+      <path class="raised" d="M232 244 H376 L386 254 V296 H232 Z"/>
+      <text class="txt" x="246" y="266" font-size="12">Strength Tonic</text>
+      <text class="muted" x="246" y="284" font-size="12">ATK +20% · Hero</text>
+      <circle class="primary" cx="542" cy="288" r="45"/>
+      <text class="txt" x="542" y="284" text-anchor="middle" font-size="12">BEGIN</text>
+      <text class="txt" x="542" y="301" text-anchor="middle" font-size="12">BATTLE</text>
+      <text class="muted" x="14" y="348" font-size="12">A Select · X Clear · B Escape</text>
     </g>
   </g>
 
   <!-- 4. Automatic battle -->
   <g transform="translate(0 1315)">
     <text class="row-title" x="40" y="25">4. Automatic battle</text>
-    <text class="row-note" x="40" y="410">Only supported automatic-combat information and cure/escape actions remain visible.</text>
+    <text class="row-note" x="40" y="410">The preparation orbit becomes a combat timeline while both celestial anchors remain spatially stable.</text>
     <g transform="translate(40 40) scale(.5)">
       <rect class="frame" width="1280" height="720"/>
       <rect class="scene" width="1280" height="720"/>
-      <rect class="panel" x="32" y="34" width="350" height="122" rx="16"/>
-      <text class="txt" x="60" y="76" font-size="28">Hero · HP 118/150</text>
-      <rect class="bar" x="60" y="96" width="288" height="18" rx="9"/>
-      <rect class="bar-fill" x="60" y="96" width="224" height="18" rx="9"/>
-      <rect class="panel" x="898" y="34" width="350" height="122" rx="16"/>
-      <text class="txt" x="926" y="76" font-size="28">Goblin · HP 32/80</text>
-      <rect class="bar" x="926" y="96" width="288" height="18" rx="9"/>
-      <rect class="bar-fill" x="926" y="96" width="116" height="18" rx="9"/>
-      <circle class="raised" cx="290" cy="330" r="82"/>
-      <circle class="raised" cx="990" cy="330" r="82"/>
-      <text class="heading" x="524" y="290" font-size="34">POWER STRIKE</text>
-      <rect class="panel" x="24" y="540" width="1232" height="156" rx="18"/>
-      <rect class="bar" x="54" y="572" width="600" height="20" rx="10"/>
-      <rect class="magenta-fill" x="54" y="572" width="410" height="20" rx="10"/>
-      <text class="txt" x="54" y="630" font-size="22">Hero attacks for 24 · Goblin is Weakened</text>
-      <rect class="panel" x="970" y="578" width="118" height="54" rx="8"/>
-      <rect class="panel" x="1100" y="578" width="118" height="54" rx="8"/>
-      <text class="txt" x="998" y="612" font-size="20">Cure</text>
-      <text class="txt" x="1128" y="612" font-size="20">Escape</text>
+      <ellipse cx="640" cy="360" rx="552" ry="258" fill="none" stroke="#2585a2" stroke-width="5"
+               stroke-dasharray="410 64 220 84 510 140" transform="rotate(-10 640 360)"/>
+      <path d="M210 430 C430 296 760 232 1070 192" fill="none" stroke="#aa5b9c" stroke-width="8" stroke-dasharray="30 12"/>
+      <circle class="focus" cx="160" cy="420" r="64"/>
+      <path class="panel" d="M216 332 H440 L458 350 V430 H216 Z"/>
+      <text class="heading" x="238" y="374" font-size="28">HERO</text>
+      <text class="txt" x="238" y="410" font-size="22">HP 118/150 · WEAKENED</text>
+      <circle class="danger" cx="1094" cy="178" r="68"/>
+      <path class="panel" d="M790 86 H1034 L1050 102 V214 H790 Z"/>
+      <text class="heading" x="816" y="132" font-size="27">GOBLIN</text>
+      <text class="txt" x="816" y="168" font-size="22">HP 32/80 · NEXT</text>
+      <path class="raised" d="M492 244 H780 L798 262 V334 L780 352 H492 L474 334 V262 Z"/>
+      <text class="muted" x="636" y="274" text-anchor="middle" font-size="18">AUTOMATIC ACTION // 04</text>
+      <text class="heading" x="636" y="315" text-anchor="middle" font-size="32">POWER STRIKE</text>
+      <circle class="selected" cx="356" cy="590" r="24"/>
+      <circle class="focus" cx="470" cy="622" r="28"/>
+      <circle class="slot" cx="586" cy="642" r="20"/>
+      <circle class="slot" cx="696" cy="638" r="20"/>
+      <path d="M336 588 C470 646 620 660 740 624" fill="none" stroke="#aa5b9c" stroke-width="12" opacity=".65"/>
+      <text class="txt" x="52" y="638" font-size="21">Hero attacks for 24 · Goblin is Weakened</text>
+      <rect class="panel" x="960" y="596" width="112" height="50" rx="8"/>
+      <rect class="panel" x="1088" y="596" width="126" height="50" rx="8"/>
+      <text class="txt" x="990" y="628" font-size="19">Cure</text>
+      <text class="txt" x="1112" y="628" font-size="19">Escape</text>
     </g>
     <g transform="translate(760 40)">
       <rect class="frame" width="640" height="360"/>
       <rect class="scene" width="640" height="360"/>
-      <rect class="panel" x="12" y="12" width="194" height="50" rx="8"/>
-      <text class="txt" x="24" y="33" font-size="12">Hero · HP 118/150</text>
-      <rect class="bar" x="24" y="42" width="166" height="7" rx="4"/>
-      <rect class="bar-fill" x="24" y="42" width="130" height="7" rx="4"/>
-      <rect class="panel" x="434" y="12" width="194" height="50" rx="8"/>
-      <text class="txt" x="446" y="33" font-size="12">Goblin · HP 32/80</text>
-      <circle class="raised" cx="136" cy="168" r="42"/>
-      <circle class="raised" cx="504" cy="168" r="42"/>
-      <text class="heading" x="260" y="144" font-size="16">POWER STRIKE</text>
-      <rect class="panel" x="12" y="272" width="616" height="76" rx="9"/>
-      <rect class="bar" x="24" y="286" width="356" height="8" rx="4"/>
-      <rect class="magenta-fill" x="24" y="286" width="244" height="8" rx="4"/>
-      <text class="txt" x="24" y="318" font-size="12">Hero attacks for 24</text>
-      <rect class="panel" x="472" y="300" width="64" height="32" rx="6"/>
-      <rect class="panel" x="544" y="300" width="72" height="32" rx="6"/>
-      <text class="txt" x="489" y="320" font-size="12">Cure</text>
-      <text class="txt" x="557" y="320" font-size="12">Escape</text>
+      <path d="M34 246 C132 348 352 366 522 274" fill="none" stroke="#2585a2" stroke-width="3"/>
+      <path d="M86 220 C238 138 410 112 554 84" fill="none" stroke="#aa5b9c" stroke-width="5" stroke-dasharray="12 7"/>
+      <circle class="focus" cx="76" cy="218" r="35"/>
+      <path class="panel" d="M106 174 H252 V232 H106 Z"/>
+      <text class="heading" x="120" y="198" font-size="14">HERO</text>
+      <text class="txt" x="120" y="220" font-size="12">HP 118/150 · weakened</text>
+      <circle class="danger" cx="552" cy="84" r="37"/>
+      <path class="panel" d="M392 34 H516 V106 H392 Z"/>
+      <text class="heading" x="404" y="59" font-size="14">GOBLIN</text>
+      <text class="txt" x="404" y="82" font-size="12">HP 32/80 · next</text>
+      <path class="raised" d="M236 130 H402 L412 140 V192 H236 Z"/>
+      <text class="muted" x="324" y="151" text-anchor="middle" font-size="12">AUTO ACTION 04</text>
+      <text class="heading" x="324" y="176" text-anchor="middle" font-size="15">POWER STRIKE</text>
+      <circle class="selected" cx="218" cy="298" r="14"/>
+      <circle class="focus" cx="286" cy="320" r="16"/>
+      <circle class="slot" cx="356" cy="326" r="12"/>
+      <text class="txt" x="16" y="342" font-size="12">Hero attacks for 24</text>
+      <rect class="panel" x="476" y="304" width="62" height="30" rx="6"/>
+      <rect class="panel" x="546" y="304" width="78" height="30" rx="6"/>
+      <text class="txt" x="493" y="323" font-size="12">Cure</text>
+      <text class="txt" x="559" y="323" font-size="12">Escape</text>
     </g>
   </g>
 
   <!-- 5. Inventory -->
   <g transform="translate(0 1735)">
     <text class="row-title" x="40" y="25">5. Inventory and equipment</text>
-    <text class="row-note" x="40" y="410">Desktop uses character/equipment and inventory regions; compact switches to Equipment, Items, and Skills pages.</text>
+    <text class="row-note" x="40" y="410">Equipment orbits the character anchor; the readable item catalogue remains a conventional deployable rail.</text>
     <g transform="translate(40 40) scale(.5)">
       <rect class="frame" width="1280" height="720"/>
       <rect class="panel" x="24" y="24" width="1232" height="672" rx="18"/>
       <text class="heading" x="54" y="72" font-size="34">INVENTORY &amp; EQUIPMENT</text>
       <rect class="raised" x="54" y="96" width="430" height="552" rx="14"/>
       <circle class="slot" cx="128" cy="162" r="46"/>
+      <ellipse cx="228" cy="348" rx="154" ry="144" fill="none" stroke="#2585a2" stroke-width="4" stroke-dasharray="150 24 70 20"/>
       <text class="txt" x="194" y="146" font-size="28">Hero · Lv 8</text>
       <text class="muted" x="194" y="180" font-size="22">HP 150 · ATK 30 · DEF 23</text>
       <g>
@@ -286,6 +326,7 @@
       <text class="txt" x="50" y="100" font-size="12">Equipment</text>
       <text class="txt" x="194" y="100" font-size="12">Items</text>
       <text class="txt" x="320" y="100" font-size="12">Skills</text>
+      <path d="M190 254 A112 112 0 0 1 414 254" fill="none" stroke="#2585a2" stroke-width="3" stroke-dasharray="74 16 42 14"/>
       <g>
         <rect class="slot" x="274" y="126" width="48" height="48" rx="5"/>
         <rect class="slot" x="218" y="182" width="48" height="48" rx="5"/>
@@ -405,10 +446,14 @@
   <!-- 8. Save/load -->
   <g transform="translate(0 2995)">
     <text class="row-title" x="40" y="25">8. Save and load</text>
-    <text class="row-note" x="40" y="410">Four explicit cards preserve metadata and state; compact uses a predictable single-column list.</text>
+    <text class="row-note" x="40" y="410">Save records sit on a navigable star-chart trajectory; the focused record expands without hiding metadata.</text>
     <g transform="translate(40 40) scale(.5)">
       <rect class="frame" width="1280" height="720"/>
       <rect class="panel" x="120" y="48" width="1040" height="624" rx="18"/>
+      <path d="M186 526 C314 410 426 258 606 196 C770 140 914 226 1062 366" fill="none" stroke="#2585a2" stroke-width="4" stroke-dasharray="90 22 48 18"/>
+      <circle class="selected" cx="176" cy="526" r="14"/>
+      <circle class="slot" cx="612" cy="194" r="11"/>
+      <circle class="slot" cx="1060" cy="366" r="11"/>
       <text class="heading" x="160" y="102" font-size="34">LOAD GAME</text>
       <rect class="selected" x="160" y="134" width="450" height="190" rx="14"/>
       <rect class="raised" x="630" y="134" width="450" height="190" rx="14"/>
@@ -429,6 +474,9 @@
     <g transform="translate(760 40)">
       <rect class="frame" width="640" height="360"/>
       <rect class="panel" x="12" y="12" width="616" height="336" rx="10"/>
+      <path d="M44 294 C142 210 250 122 584 74" fill="none" stroke="#2585a2" stroke-width="3" stroke-dasharray="54 14 30 12"/>
+      <circle class="selected" cx="44" cy="294" r="8"/>
+      <circle class="slot" cx="584" cy="74" r="7"/>
       <text class="heading" x="28" y="42" font-size="20">LOAD GAME</text>
       <rect class="selected" x="28" y="54" width="584" height="60" rx="8"/>
       <rect class="raised" x="28" y="122" width="584" height="54" rx="8"/>
@@ -484,10 +532,13 @@
   <!-- 10. Shop -->
   <g transform="translate(0 3835)">
     <text class="row-title" x="40" y="25">10. Shop</text>
-    <text class="row-note" x="40" y="410">Currency, inventory rows, affordability, and feedback remain visible in both compositions.</text>
+    <text class="row-note" x="40" y="410">Player and merchant form opposing anchors; the transaction catalogue deploys between them as a readable rail.</text>
     <g transform="translate(40 40) scale(.5)">
       <rect class="frame" width="1280" height="720"/>
       <rect class="panel" x="120" y="46" width="1040" height="628" rx="18"/>
+      <circle class="focus" cx="194" cy="106" r="30"/>
+      <circle class="slot" cx="1084" cy="106" r="30"/>
+      <path d="M228 106 H1050" fill="none" stroke="#2585a2" stroke-width="4" stroke-dasharray="130 22 70 18"/>
       <text class="heading" x="160" y="100" font-size="32">MOONLIT PROVISIONS</text>
       <text class="txt" x="930" y="100" font-size="24">Gold 100</text>
       <rect class="selected" x="160" y="128" width="170" height="58" rx="8"/>
@@ -515,6 +566,9 @@
     <g transform="translate(760 40)">
       <rect class="frame" width="640" height="360"/>
       <rect class="panel" x="12" y="12" width="616" height="336" rx="10"/>
+      <circle class="focus" cx="44" cy="40" r="15"/>
+      <circle class="slot" cx="594" cy="40" r="15"/>
+      <path d="M62 40 H576" fill="none" stroke="#2585a2" stroke-width="3" stroke-dasharray="70 15 34 12"/>
       <text class="heading" x="28" y="42" font-size="18">MOONLIT PROVISIONS</text>
       <text class="txt" x="548" y="42" font-size="12">Gold 100</text>
       <rect class="selected" x="28" y="54" width="82" height="32" rx="6"/>
@@ -612,7 +666,7 @@
   <!-- 13. Reward -->
   <g transform="translate(0 5095)">
     <text class="row-title" x="40" y="25">13. Reward</text>
-    <text class="row-note" x="40" y="410">Brief rewards queue as non-blocking toasts; important or grouped rewards use an acknowledgement card.</text>
+    <text class="row-note" x="40" y="410">Important rewards illuminate as a temporary constellation before the gold continuation seal appears.</text>
     <g transform="translate(40 40) scale(.5)">
       <rect class="frame" width="1280" height="720"/>
       <rect class="scene" width="1280" height="720"/>
@@ -621,14 +675,18 @@
       <text class="txt" x="986" y="76" font-size="22">Health Potion ×1</text>
       <text class="muted" x="986" y="104" font-size="18">Added to inventory</text>
       <rect class="scrim" width="1280" height="720"/>
-      <rect class="raised" x="410" y="120" width="460" height="480" rx="18"/>
-      <text class="heading" x="522" y="186" font-size="34">TREASURE FOUND</text>
-      <rect class="slot" x="470" y="226" width="80" height="80" rx="9"/>
-      <text class="txt" x="580" y="264" font-size="24">Health Potion ×2</text>
-      <text class="txt" x="580" y="300" font-size="24">Gold +45</text>
-      <text class="txt" x="580" y="336" font-size="24">Experience +120</text>
-      <rect class="primary" x="500" y="496" width="280" height="68" rx="10"/>
-      <text class="txt" x="594" y="539" font-size="24">Continue</text>
+      <text class="heading" x="640" y="120" text-anchor="middle" font-size="34">TREASURE CONSTELLATION</text>
+      <path d="M410 310 L570 222 L728 292 L872 204" fill="none" stroke="#2585a2" stroke-width="5"/>
+      <path d="M570 222 L640 430 L728 292" fill="none" stroke="#b38a22" stroke-width="4" stroke-dasharray="12 10"/>
+      <circle class="selected" cx="410" cy="310" r="54"/>
+      <circle class="focus" cx="570" cy="222" r="58"/>
+      <circle class="slot" cx="728" cy="292" r="50"/>
+      <circle class="slot" cx="872" cy="204" r="36"/>
+      <text class="txt" x="410" y="318" text-anchor="middle" font-size="20">ITEM ×2</text>
+      <text class="txt" x="570" y="230" text-anchor="middle" font-size="20">GOLD +45</text>
+      <text class="txt" x="728" y="300" text-anchor="middle" font-size="20">XP +120</text>
+      <circle class="primary" cx="640" cy="520" r="78"/>
+      <text class="txt" x="640" y="528" text-anchor="middle" font-size="24">CONTINUE</text>
     </g>
     <g transform="translate(760 40)">
       <rect class="frame" width="640" height="360"/>
@@ -638,14 +696,18 @@
       <text class="txt" x="478" y="36" font-size="12">Health Potion ×1</text>
       <text class="muted" x="478" y="52" font-size="12">Added to inventory</text>
       <rect class="scrim" width="640" height="360"/>
-      <rect class="raised" x="150" y="30" width="340" height="300" rx="10"/>
-      <text class="heading" x="236" y="70" font-size="18">TREASURE FOUND</text>
-      <rect class="slot" x="188" y="100" width="48" height="48" rx="6"/>
-      <text class="txt" x="258" y="116" font-size="14">Health Potion ×2</text>
-      <text class="txt" x="258" y="140" font-size="14">Gold +45</text>
-      <text class="txt" x="258" y="164" font-size="14">Experience +120</text>
-      <rect class="primary" x="212" y="252" width="216" height="44" rx="7"/>
-      <text class="txt" x="294" y="279" font-size="14">Continue</text>
+      <text class="heading" x="320" y="54" text-anchor="middle" font-size="18">TREASURE CONSTELLATION</text>
+      <path d="M154 166 L264 104 L374 160 L470 112" fill="none" stroke="#2585a2" stroke-width="3"/>
+      <path d="M264 104 L320 244 L374 160" fill="none" stroke="#b38a22" stroke-width="2" stroke-dasharray="7 6"/>
+      <circle class="selected" cx="154" cy="166" r="30"/>
+      <circle class="focus" cx="264" cy="104" r="32"/>
+      <circle class="slot" cx="374" cy="160" r="28"/>
+      <circle class="slot" cx="470" cy="112" r="20"/>
+      <text class="txt" x="154" y="171" text-anchor="middle" font-size="12">ITEM ×2</text>
+      <text class="txt" x="264" y="109" text-anchor="middle" font-size="12">GOLD +45</text>
+      <text class="txt" x="374" y="165" text-anchor="middle" font-size="12">XP +120</text>
+      <circle class="primary" cx="320" cy="274" r="43"/>
+      <text class="txt" x="320" y="279" text-anchor="middle" font-size="12">CONTINUE</text>
     </g>
   </g>
 
@@ -657,7 +719,7 @@
       <rect class="frame" width="1280" height="720"/>
       <rect class="panel" x="130" y="70" width="1020" height="580" rx="18"/>
       <rect class="scrim" width="1280" height="720"/>
-      <rect class="raised" x="430" y="210" width="420" height="300" rx="18"/>
+      <path class="raised" d="M470 198 H810 L862 250 V470 L810 522 H470 L418 470 V250 Z"/>
       <text class="heading" x="506" y="268" font-size="30">OVERWRITE SAVE?</text>
       <text class="txt" x="474" y="326" font-size="22">Slot 1 contains Hero · Level 8 · Floor 2F.</text>
       <text class="txt" x="522" y="360" font-size="22">This cannot be undone.</text>
@@ -670,7 +732,7 @@
       <rect class="frame" width="640" height="360"/>
       <rect class="panel" x="12" y="12" width="616" height="336" rx="10"/>
       <rect class="scrim" width="640" height="360"/>
-      <rect class="raised" x="110" y="74" width="420" height="212" rx="10"/>
+      <path class="raised" d="M142 64 H498 L540 106 V254 L498 296 H142 L100 254 V106 Z"/>
       <text class="heading" x="224" y="112" font-size="18">OVERWRITE SAVE?</text>
       <text class="txt" x="138" y="152" font-size="14">Slot 1 contains Hero · Level 8 · Floor 2F.</text>
       <text class="txt" x="234" y="176" font-size="14">This cannot be undone.</text>

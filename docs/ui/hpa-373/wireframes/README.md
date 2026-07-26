@@ -26,3 +26,14 @@ The sheet covers:
 15. Error
 
 These are low-fidelity composition and hierarchy references. Exact tokens, state behavior, component geometry, lifecycle rules, and responsive policies are normative in the canonical HPA-373 specification.
+
+The revised sheet applies the Constellation Orrery spatial grammar where it improves identity:
+
+- Partial navigation and HUD arcs
+- Opposing battle and shop anchors
+- Orbital battle items and automatic-combat timeline
+- Character-centred equipment orbit
+- Star-chart save trajectory
+- Reward constellation and confirmation seal
+
+Lists, settings, dialogue, and information-heavy error recovery retain stable reading surfaces rather than forcing every screen into a radial layout.

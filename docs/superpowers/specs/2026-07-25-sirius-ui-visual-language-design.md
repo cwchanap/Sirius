@@ -1,6 +1,6 @@
 # Sirius UI Visual Language and Screen Design
 
-**Version:** 1.0  
+**Version:** 1.1
 **Status:** Review candidate — design approved section by section; written artifact review pending  
 **Linear:** HPA-373  
 **Design decisions approved:** 2026-07-25
@@ -9,7 +9,11 @@
 
 This specification defines the visual language, responsive layouts, interaction rules, component states, platform policy, and asset requirements for the Sirius UI revamp.
 
-The approved direction is **Constellation Grimoire**: a mystical anime-fantasy interface built from deep indigo surfaces, cyan magical focus, gold primary emphasis, and restrained constellation and sigil ornament. Menus and rewards express celestial hope; exploration and battle deepen toward arcane violet and magenta while retaining the same component system.
+The approved direction is **Constellation Orrery**: an ancient celestial machine expressed through anime-fantasy art and restrained interstellar telemetry. Deep indigo surfaces, projected cyan focus, aged-gold commitment, and hostile magenta instrumentation form one system. Orbital paths, opposing celestial anchors, deployable catalogue rails, and decisive seals shape the layout instead of merely decorating rectangular panels.
+
+The battlefield or scenic artwork remains the primary canvas. On gameplay screens, approximately 65% of the composition stays visually open; interface elements attach to the scene through arcs, trajectories, and anchored callouts. Information-heavy lists remain conventional when a radial treatment would reduce readability.
+
+The interstellar layer is an accent, not the genre. If the micro-telemetry is removed, the remaining composition must still read as a mystical anime-fantasy astrolabe. Generic starship framing, technological realism, and cockpit density fail this direction.
 
 This document is the implementation baseline for HPA-374, HPA-354, HPA-355, HPA-356, HPA-357, and HPA-358. Downstream work must not invent new colours, typography, spacing, control states, or screen rules without updating this versioned specification.
 
@@ -110,8 +114,10 @@ Selection uses gold. Keyboard and gamepad focus use a separate 2 px cyan outer r
 
 - Wordmark and major fantasy heading: bundled **Cinzel SemiBold**
 - Controls, body, data, and localization: bundled **Noto Sans**
+- Coordinates, quantities, timers, and short telemetry labels: bundled **Noto Sans Mono Medium**
 - Decorative text falls back to Noto Sans when its glyph coverage is incomplete.
 - Body text and numeric data never use the decorative face.
+- Telemetry is uppercase, short, and tracked; essential instructions are never written as micro-labels.
 
 | Role | Standard | Compact |
 |---|---:|---:|
@@ -130,6 +136,10 @@ Nothing renders below 12 logical pixels.
 - Control radius: 8 px
 - Panel radius: 12 px
 - Feature-panel radius: 16 px
+- Primary spatial primitives: broken ellipses, quarter-orbits, celestial anchors, trajectory lines, anchored callouts, catalogue rails, and octagonal or circular seals
+- Circular nodes retain a 44×44 minimum target even when their illustrated core is smaller.
+- Anchored callouts use clipped or stepped corners and a visible connector to their source.
+- Rectangular surfaces are reserved for text, lists, settings, and other content that needs a stable reading measure.
 - Normal border: 1 px
 - Selected and focus border: 2 px
 - Content panel opacity: 90%
@@ -138,13 +148,13 @@ Nothing renders below 12 logical pixels.
 - Full-screen scrim: 58% black-navy
 - Child-modal scrim: 72% black-navy
 
-Shadows are soft navy-black and appear only beneath raised panels and modals.
+Shadows are soft navy-black and appear only beneath raised callouts, nodes, catalogue rails, and modals. Glow represents emitted light from a focused, selected, hostile, or committed element; it is not applied to every border.
 
 ### 5.4 Ornament
 
-Approved ornament consists of fine constellation lines, four-point stars, small orbit marks, and partial circular sigils. Ornament belongs around major titles, selected feature cards, battle and result frames, or intentionally empty corners.
+Approved ornament consists of fine constellation lines, four-point stars, calibration ticks, small orbit marks, and partial circular sigils. The visual metaphor is ancient astronomical machinery interpreted through precise anime starship instrumentation.
 
-Routine controls, settings rows, lists, and dense slot grids remain quiet. Circuit grids, chrome bevels, dense runic wallpaper, and science-fiction dashboard motifs are prohibited.
+Routine controls, settings rows, lists, and dense slot grids remain quiet. Tiny unreadable labels, generic cockpit frames, circuit-board wallpaper, chrome bevels, and decorative data noise are prohibited. Sci-fi character comes from precision, trajectories, calibration, and spatial behavior rather than glyph density.
 
 ## 6. Component and state matrix
 
@@ -166,21 +176,25 @@ Minimum target size is 44×44 standard and 40×40 compact.
 ### 6.2 Buttons
 
 - Primary: gold emphasis; one dominant primary action per decision area
+- Decisive spatial actions such as **Begin Battle** and required reward continuation use a gold ignition seal.
+- Conventional form actions such as Apply, Save, Buy, and Load remain readable labelled controls.
 - Secondary: indigo surface with cyan interaction feedback
 - Tertiary: text or ghost treatment
 - Destructive: outlined danger treatment until final confirmation
 - Buttons include a text label even when an icon is present.
 
-### 6.3 Panels
+### 6.3 Surfaces
 
-Four panel variants are approved:
+Six surface variants are approved:
 
 - Base content panel
 - Raised feature panel
 - Compact HUD plate
+- Anchored telemetry callout
+- Deployable catalogue rail
 - Blocking modal
 
-No screen creates an additional panel variant solely to achieve a one-off colour.
+Confirmation seals and celestial nodes are geometric controls rather than panel variants. No screen creates an additional surface solely to achieve a one-off colour.
 
 ### 6.4 Bars
 
@@ -238,6 +252,10 @@ Toasts stay inside the safe frame, avoid critical HUD data, queue deterministica
 
 Titles and actions remain fixed while long modal bodies scroll internally.
 
+- Short confirmations use a centred octagonal or circular seal.
+- Information-heavy, service, warning, and error dialogs use a narrow observatory plate.
+- A seal may not be used when the content would require cramped text or scrolling.
+
 ### 7.2 Stack and dismissal
 
 - The parent remains visible but inert beneath a child modal.
@@ -268,15 +286,19 @@ Domain controllers remain responsible for combat, saves, inventory, dialogue, re
 
 | Motion class | Duration |
 |---|---:|
-| Control feedback | 100 ms |
-| Panel enter/exit | 180 ms |
-| Screen transition | 240 ms |
-| Encounter or result emphasis | Up to 320 ms |
+| Control feedback | 100–150 ms |
+| Callout or catalogue deploy/retract | 180–240 ms |
+| Screen transition | 240–320 ms |
+| Orrery state transformation | Up to 400 ms |
 
-Movement is limited to 8–16 logical pixels with soft ease-out. Looping ornament must not compete with content or gameplay.
+Focused nodes enlarge in overlay space without shifting their neighbours. Orrery arcs rotate only a few degrees when the interface changes mode; callouts unfold from their anchor; energy paths communicate target, validation, and commitment. The **Begin Battle** seal closes the broken circuit and sends one pulse toward the hostile anchor before automatic combat begins.
+
+Inputs remain responsive during transitions. Exit motion is shorter than entry motion. Nothing loops continuously except an extremely slow ambient drift that never carries state.
 
 Reduced-motion mode:
 
+- Replaces rotation and unfolding with short crossfades
+- Replaces travelling pulses with static illuminated paths
 - Removes translation, scaling, parallax, flashes, and looping effects
 - Retains opacity transitions of at most 100 ms
 - Preserves all state and timing information without animation
@@ -289,7 +311,7 @@ The paired desktop and compact wireframes are in [Screen wireframes](../../ui/hp
 
 ### 9.1 Main menu
 
-Desktop uses the left third of the safe frame:
+Desktop uses a partial navigation orbit rising from the lower-left through the left third of the safe frame:
 
 1. Sirius title
 2. Continue
@@ -302,6 +324,8 @@ Desktop uses the left third of the safe frame:
 9. Version lower-right
 
 The castle and moon remain unobstructed on the right.
+
+The focused destination is marked by a luminous navigator on the orbit. Labels and the selected Continue summary remain horizontally set for readability; they do not curve with the path.
 
 Continue policy:
 
@@ -316,11 +340,11 @@ Continue policy:
 - Continue does not mutate, repair, or delete invalid saves.
 - Double activation is blocked during transition.
 
-At 640×360, the same order remains. The save summary becomes two lines and uses compact spacing.
+At 640×360, the same order remains. The orbit becomes a single quarter-arc, and the save summary becomes two lines with compact spacing.
 
 ### 9.2 Exploration HUD
 
-Top-left HUD plate:
+The top-left hero anchor collapses into a compact quarter-orbit containing:
 
 - Portrait or graceful identity fallback
 - Name and level
@@ -330,13 +354,13 @@ Top-left HUD plate:
 
 Gold remains in inventory and shop screens. Raw ATK, DEF, SPD, the `Player HUD` heading, drag affordance, Lock control, permanent instructions, and area-colour documentation are removed from normal play.
 
-A floor or area title appears briefly at top centre. A bottom-centre interaction prompt appears only for a valid target, reflects active input bindings, and disappears during incompatible states.
+A floor or area title appears briefly at top centre. A bottom-centre interaction prompt appears only for a valid target, reflects active input bindings, and disappears during incompatible states. A short coordinate-lock line ties the prompt to the target without requiring the player to follow a moving control.
 
 At compact size, the portrait becomes 40 px and bars shorten. Missing optional data collapses without leaving empty frames.
 
 ### 9.3 Battle flow
 
-The retained battle background fills the screen. Player and enemy plates remain in stable opposing positions through all states.
+The retained battle background fills the screen and remains the primary canvas. A large broken ellipse crosses it diagonally from the allied lower-left to the hostile upper-right. Player and enemy celestial anchors remain in stable opposing positions through all states; their readable telemetry callouts extend inward from the ring.
 
 Encounter:
 
@@ -346,21 +370,27 @@ Encounter:
 Preparation:
 
 - Player and enemy identity, level, HP/MP where applicable, core preview, and active-skill summary
-- Lower-third consumable tray with quantity, effect, target, disabled reason, selection, clear selection, and error
-- Explicit gold **Begin Battle** action
+- `PREPARE` deploys three or four consumable nodes along the lower orbit rather than opening a modal or tray.
+- The focused node expands an anchored callout containing quantity, effect, target, disabled reason, and error.
+- Selecting an item projects an energy path to its target and previews supported stat changes beside that target.
+- Clear selection retracts the projected path without closing the item orbit.
+- Disabled nodes remain focusable and explain why they are unavailable.
+- The explicit gold **Begin Battle** ignition seal occupies the broken end of the orbit.
 - No automatic start
 
 Automatic combat:
 
-- Preparation tray collapses to current action, automatic-action progress, status, damage feedback, compact event feed, supported cure-item access, and Escape
+- The preparation orbit transforms into a timeline for current action, automatic-action progress, status, and damage feedback.
+- The item nodes retract; the allied and hostile anchors stay fixed to preserve spatial continuity.
+- A compact event feed, supported cure-item access, and Escape remain available.
 - No manual Attack, Defend, battle-speed, general pause, or skill-editing controls
 
 Results:
 
-- Lower strip becomes victory, defeat, escape, loot, reward, and continuation presentation
+- The combat orbit breaks into a reward constellation for victory, defeat, escape, loot, experience, level changes, and continuation.
 - Exploration does not resume before required information is acknowledged.
 
-At 640×360, preparation uses `Overview` and `Items` pages. Automatic combat abbreviates the feed to the latest entries and puts cure selection in the standard modal.
+At 640×360, the ellipse becomes two quarter-arcs, opposing anchors move closer to their corners, only the focused callout expands, and three consumable nodes appear at once. Additional items paginate along the orbit. Automatic combat abbreviates the feed to the latest entries and puts cure selection in the standard modal.
 
 The polished quality reference is [Battle preparation reference](../../ui/hpa-373/reference/battle-preparation-reference.png); its editable vector source is stored beside it.
 
@@ -369,8 +399,8 @@ The polished quality reference is [Battle preparation reference](../../ui/hpa-37
 Desktop:
 
 - Stable character identity header
-- Left region: portrait, level, supported statistics, five primary equipment slots, accessory slots, and locked states
-- Right region: deterministic alphabetical inventory grid
+- Left region: portrait and supported statistics at an off-centre character anchor; five primary equipment slots orbit that anchor; accessory slots and locked states sit on a secondary arc.
+- Right region: deterministic alphabetical inventory catalogue rail
 - Active-skill configuration belongs with character configuration.
 - Existing tooltip detail remains available, supplemented only by a lightweight focus summary.
 
@@ -378,6 +408,7 @@ Compact:
 
 - Persistent character identity strip
 - `Equipment`, `Items`, and `Skills` pages
+- Equipment uses a simplified upper arc; Items deploys the catalogue as the active page.
 - Shoulder-button, keyboard, and clickable tab navigation
 - Focus and last page preserved across responsive transitions where possible
 
@@ -412,9 +443,9 @@ Staged edits, Apply/Cancel, resolution, fullscreen, auto-save, difficulty, audio
 
 ### 9.7 Save and load
 
-Four cards represent three manual slots and one visually distinct autosave.
+Four celestial records represent three manual slots and one visually distinct autosave. They sit on a navigable star-chart trajectory, and the focused record expands into a readable metadata plate.
 
-Each card shows only reliably available metadata:
+Each record shows only reliably available metadata:
 
 - Slot or Autosave identity
 - Player name and level
@@ -422,7 +453,7 @@ Each card shows only reliably available metadata:
 - Timestamp
 - Empty, valid, corrupted, incompatible, selected, loading, or failure state
 
-Standard uses a 2×2 grid. Compact uses a single scrolling list. Save, Overwrite, Delete, Load, and disabled reasons appear only where supported. Autosave is read-only in Save mode. Overwrite and Delete use child confirmations. Cancel closes the child before returning to Main Menu or Pause.
+Standard places the four records along a shallow two-row trajectory. Compact straightens that trajectory into a single scrolling list. Save, Overwrite, Delete, Load, and disabled reasons appear only where supported. Autosave is read-only in Save mode. Overwrite and Delete use child confirmations. Cancel closes the child before returning to Main Menu or Pause.
 
 ### 9.8 Dialogue
 
@@ -437,7 +468,7 @@ Long text scrolls independently. Compact mode reduces the portrait and permits t
 
 ### 9.9 Shop
 
-A large interaction panel contains:
+Player and merchant form opposing anchors connected by a transaction trajectory. A deployable catalogue rail between them contains:
 
 - NPC identity
 - Player gold
@@ -469,8 +500,9 @@ A medium sigil-framed panel contains title, prompt, answer choices or input, val
 ### 9.12 Rewards
 
 - Brief single reward: queued non-blocking toast
-- Important reward, multiple-item award, battle result, or required acknowledgement: result card
+- Important reward, multiple-item award, battle result, or required acknowledgement: temporary reward constellation
 - Show only supported item icon/name, quantity, currency, experience, or level change.
+- Reward nodes illuminate sequentially before the gold continuation seal becomes available.
 - UI presents but never grants rewards.
 - Duplicate domain emissions must not produce duplicate presentation.
 
@@ -485,6 +517,8 @@ Approved variants:
 - Blocking error
 
 Each includes icon, title, actionable message, safe default focus, double-activation guard, and deterministic parent restoration.
+
+Short confirmations use the centred seal geometry. Warnings and errors use the observatory plate so cause and recovery text never become cramped.
 
 ## 10. Error escalation
 
@@ -520,10 +554,11 @@ Failures preserve the user’s context and domain state. Save corruption, load f
 
 - Bundled Cinzel SemiBold
 - Bundled Noto Sans
+- Bundled Noto Sans Mono Medium
 - Cohesive 16/24/32 px UI icon set
 - Mouse, keyboard, and gamepad input glyphs
 - Equipment-slot and status symbols
-- Reusable panel edge, constellation corner, and partial-sigil ornament
+- Reusable celestial anchor, orbit, trajectory, calibration-tick, anchored-callout, catalogue-rail, ignition-seal, constellation-corner, and partial-sigil primitives
 - Minimum encounter, impact, status, and reward effects
 
 No new world, character, enemy, or floor artwork is required by this specification.
@@ -539,12 +574,15 @@ Every downstream screen migration must validate:
 - Representative long and localized strings
 - Mouse, keyboard, and gamepad focus
 - Selected plus focused state coexistence
+- Deterministic focus order matching the visible orbital path
+- Focus enlargement without layout shift or overlap of required text
 - Reduced-motion behavior
 - Missing portrait/icon fallback
 - Empty, corrupted, incompatible, disabled, warning, and failure states
 - Topmost Cancel and focus restoration
 - Double-activation prevention
 - Existing domain behavior and rollback semantics
+- Battle preparation, item focus, item selected, unavailable item, validation failure, automatic combat, and results at both 1280×720 and 640×360
 
 The HPA-373 artifact package itself is complete when:
 

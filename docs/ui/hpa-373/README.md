@@ -2,7 +2,7 @@
 
 This package supports the canonical [Sirius UI visual-language specification](../../superpowers/specs/2026-07-25-sirius-ui-visual-language-design.md).
 
-Version 1.5 establishes the **Constellation Orrery** direction: a battlefield-first ancient star-machine with anime interstellar telemetry, orbital navigation, anchored callouts, catalogue rails, decisive gold seals, and a readability-first responsive type hierarchy.
+Version 1.6 establishes the **Constellation Orrery** direction: a battlefield-first ancient star-machine with anime interstellar telemetry, orbital navigation, anchored callouts, catalogue rails, decisive gold seals, and a readability-first responsive type hierarchy.
 
 ## Deliverables
 

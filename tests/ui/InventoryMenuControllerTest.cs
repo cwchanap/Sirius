@@ -34,7 +34,7 @@ public partial class InventoryMenuControllerTest : Node
         throw new InvalidOperationException("Failed to reset GameManager singleton for InventoryMenuController tests.");
     }
 
-    [Before]
+    [BeforeTest]
     public async Task Setup()
     {
         _originalVerboseOrphans = ProjectSettings.GetSetting("gdunit4/report/verbose_orphans");
@@ -59,7 +59,7 @@ public partial class InventoryMenuControllerTest : Node
         await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
     }
 
-    [After]
+    [AfterTest]
     public async Task Cleanup()
     {
         if (_inventoryMenu != null && IsInstanceValid(_inventoryMenu))
@@ -78,11 +78,128 @@ public partial class InventoryMenuControllerTest : Node
         }
 
         await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        ((SceneTree)Engine.GetMainLoop()).Paused = false;
         _inventoryMenu = null!;
         _gameManager = null!;
 
         ResetSingleton();
         ProjectSettings.SetSetting("gdunit4/report/verbose_orphans", _originalVerboseOrphans);
+    }
+
+    [TestCase]
+    public void OpenAndClose_FromRunningTree_RestoresRunningTree()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        tree.Paused = false;
+
+        _inventoryMenu.OpenMenu();
+        AssertThat(_inventoryMenu.Visible).IsTrue();
+        AssertThat(tree.Paused).IsTrue();
+
+        _inventoryMenu.CloseMenu();
+        AssertThat(_inventoryMenu.Visible).IsFalse();
+        AssertThat(tree.Paused).IsFalse();
+    }
+
+    [TestCase]
+    public void OpenAndClose_FromPausedParent_RestoresPausedParent()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        tree.Paused = true;
+        try
+        {
+            _inventoryMenu.OpenMenu();
+            _inventoryMenu.OpenMenu();
+            _inventoryMenu.CloseMenu();
+
+            AssertThat(tree.Paused).IsTrue();
+        }
+        finally
+        {
+            tree.Paused = false;
+        }
+    }
+
+    [TestCase]
+    public void CloseMenu_CalledTwice_DoesNotOverwriteRestoredPauseState()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        tree.Paused = true;
+        try
+        {
+            _inventoryMenu.OpenMenu();
+            _inventoryMenu.CloseMenu();
+            _inventoryMenu.CloseMenu();
+
+            AssertThat(tree.Paused).IsTrue();
+        }
+        finally
+        {
+            tree.Paused = false;
+        }
+    }
+
+    [TestCase]
+    public void ExitTree_WhileOpen_RestoresIncomingPauseState()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        tree.Paused = false;
+        _inventoryMenu.OpenMenu();
+
+        _inventoryMenu.Free();
+
+        AssertThat(tree.Paused).IsFalse();
+        _inventoryMenu = null!;
+    }
+
+    [TestCase]
+    public void UiCancelWhileVisible_ClosesAndRestoresIncomingPauseState()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        tree.Paused = false;
+        _inventoryMenu.OpenMenu();
+
+        _inventoryMenu._Input(new InputEventAction
+        {
+            Action = "ui_cancel",
+            Pressed = true
+        });
+
+        AssertThat(_inventoryMenu.Visible).IsFalse();
+        AssertThat(tree.Paused).IsFalse();
+    }
+
+    [TestCase]
+    public void ToggleInventoryWhileVisible_ClosesAndRestoresIncomingPauseState()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        tree.Paused = false;
+        _inventoryMenu.OpenMenu();
+
+        _inventoryMenu._Input(new InputEventAction
+        {
+            Action = "toggle_inventory",
+            Pressed = true
+        });
+
+        AssertThat(_inventoryMenu.Visible).IsFalse();
+        AssertThat(tree.Paused).IsFalse();
+    }
+
+    [TestCase]
+    public void InputWhileHidden_DoesNotChangePauseState()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        tree.Paused = false;
+
+        _inventoryMenu._Input(new InputEventAction
+        {
+            Action = "ui_cancel",
+            Pressed = true
+        });
+
+        AssertThat(_inventoryMenu.Visible).IsFalse();
+        AssertThat(tree.Paused).IsFalse();
     }
 
     [TestCase]

@@ -26,9 +26,10 @@ public partial class SettingsManager : Node
     // Keys that must not be used as remappable game action bindings.
     // Movement keys (W/A/S/D, arrows) are hard-coded in PlayerController._UnhandledInput()
     // and would be swallowed by Game._Input() if also mapped to an action.
-    // UI keys (Escape, Enter, Space, Tab) back Godot's built-in ui_cancel / ui_accept /
-    // ui_focus_next actions; binding a game action to one of these causes Game._Input()
-    // to consume the event before AcceptDialog / SaveLoadDialog controls can see it.
+    // UI keys (Escape, Enter, Space, Tab) back Godot's built-in ui_cancel /
+    // ui_close_dialog / ui_accept / ui_focus_next actions; binding a game action
+    // to one of these causes Game._Input() to consume the event before
+    // AcceptDialog / SaveLoadDialog controls can see it.
     private static readonly System.Collections.Generic.HashSet<long> ReservedKeys = new()
     {
         (long)Key.W, (long)Key.A, (long)Key.S, (long)Key.D,
@@ -51,6 +52,11 @@ public partial class SettingsManager : Node
     {
         WriteIndented = true
     };
+
+    // Keep ownership of only the events mirrored from ui_cancel so a later
+    // rebind can remove stale configured inputs without erasing Godot's native
+    // ui_close_dialog bindings (Escape, platform close shortcuts, etc.).
+    private static readonly System.Collections.Generic.List<InputEvent> MirroredDialogCloseEvents = new();
 
     private SettingsData _settings = SettingsData.CreateDefaults();
     internal DisplayServer.WindowMode LastAppliedWindowMode { get; private set; } = DisplayServer.WindowMode.Windowed;
@@ -383,9 +389,8 @@ public partial class SettingsManager : Node
             // else: action intentionally unbound — leave it with no events
         }
 
-        // Mirror the pause_menu key onto ui_cancel so that AcceptDialog-based
-        // modals (DialogueDialog, ShopDialog, HealDialog, BattleManager) close
-        // with the same key the player configured for pause/cancel.
+        // Mirror the pause_menu key onto ui_cancel so the configured
+        // pause/cancel input remains the effective cancellation action.
         // When pause_menu is unbound (-1), reset ui_cancel to the default
         // pause_menu key (Escape) so it never retains a stale binding from a
         // previous apply.
@@ -399,6 +404,8 @@ public partial class SettingsManager : Node
         {
             RebindAction("ui_cancel", (Key)defaultPauseKey);
         }
+
+        SynchronizeDialogCloseBindings();
     }
 
     private static void RebindAction(string actionName, Key physicalKey)
@@ -432,6 +439,38 @@ public partial class SettingsManager : Node
         {
             PhysicalKeycode = physicalKey
         });
+    }
+
+    private static void SynchronizeDialogCloseBindings()
+    {
+        const string dialogCloseAction = "ui_close_dialog";
+        if (!InputMap.HasAction(dialogCloseAction))
+        {
+            InputMap.AddAction(dialogCloseAction);
+        }
+
+        foreach (var mirroredEvent in MirroredDialogCloseEvents)
+        {
+            InputMap.ActionEraseEvent(dialogCloseAction, mirroredEvent);
+        }
+        MirroredDialogCloseEvents.Clear();
+
+        if (!InputMap.HasAction("ui_cancel"))
+        {
+            return;
+        }
+
+        foreach (var inputEvent in InputMap.ActionGetEvents("ui_cancel"))
+        {
+            if (InputMap.ActionHasEvent(dialogCloseAction, inputEvent))
+            {
+                continue;
+            }
+
+            var mirroredEvent = (InputEvent)inputEvent.Duplicate();
+            InputMap.ActionAddEvent(dialogCloseAction, mirroredEvent);
+            MirroredDialogCloseEvents.Add(mirroredEvent);
+        }
     }
 
     private static void ApplyAutoSaveSetting(bool autoSaveEnabled)
@@ -573,8 +612,9 @@ public partial class SettingsManager : Node
         // case we log a warning and leave it unbound (the player must reassign
         // manually via the settings menu).
 
-        // pause_menu mirrors onto ui_cancel (AcceptDialog dismiss).  Without it,
-        // every modal in the game becomes unclosable.
+        // pause_menu mirrors onto ui_cancel, whose effective events are then
+        // synchronized to ui_close_dialog for AcceptDialog dismissal. Without
+        // it, every modal in the game becomes unclosable.
         if (normalized["pause_menu"] == -1)
         {
             ForceDefaultIfAvailable(normalized, actionOrder, "pause_menu", defaultBindings);

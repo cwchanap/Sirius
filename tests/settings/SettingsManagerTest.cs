@@ -14,6 +14,9 @@ public partial class SettingsManagerTest : Node
     private GameManager? _gameManager;
     private Dictionary<string, List<InputEvent>> _originalBindings = new();
     private List<InputEvent> _originalUiCancelEvents = new();
+    private List<InputEvent> _originalUiCloseDialogEvents = new();
+    private bool _uiCancelActionExisted;
+    private bool _uiCloseDialogActionExisted;
     private DisplayServer.WindowMode _originalWindowMode;
     private Vector2I _originalWindowSize;
     private DisplayServer.WindowMode _simulatedWindowMode;
@@ -564,6 +567,7 @@ public partial class SettingsManagerTest : Node
         // branch in ApplyInputBindings resets ui_cancel when pause_menu is -1.
         var uiCancelKey = GetPrimaryKey("ui_cancel");
         AssertThat(uiCancelKey).IsEqual((long)Key.Escape);
+        AssertThat(HasKeyBinding("ui_close_dialog", Key.Escape)).IsTrue();
     }
 
     [TestCase]
@@ -576,6 +580,7 @@ public partial class SettingsManagerTest : Node
 
         AssertThat(manager.ApplyAndSave(firstCandidate)).IsTrue();
         AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.P);
+        AssertThat(HasKeyBinding("ui_close_dialog", Key.P)).IsTrue();
 
         // Second save: restore pause_menu to its default (Escape).
         // ui_cancel must mirror to Escape rather than retaining the stale P
@@ -587,6 +592,8 @@ public partial class SettingsManagerTest : Node
 
         AssertThat(manager.GetSnapshot().PrimaryKeybindings["pause_menu"]).IsEqual((long)Key.Escape);
         AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.Escape);
+        AssertThat(HasKeyBinding("ui_close_dialog", Key.Escape)).IsTrue();
+        AssertThat(HasKeyBinding("ui_close_dialog", Key.P)).IsFalse();
     }
 
     [TestCase]
@@ -602,6 +609,15 @@ public partial class SettingsManagerTest : Node
         {
             ButtonIndex = (JoyButton)10
         });
+        if (!InputMap.HasAction("ui_close_dialog"))
+        {
+            InputMap.AddAction("ui_close_dialog");
+        }
+        var nativeCloseBinding = new InputEventKey
+        {
+            PhysicalKeycode = Key.F12
+        };
+        InputMap.ActionAddEvent("ui_close_dialog", nativeCloseBinding);
 
         var candidate = manager.GetSnapshot();
         candidate.PrimaryKeybindings["pause_menu"] = (long)Key.P;
@@ -620,6 +636,9 @@ public partial class SettingsManagerTest : Node
 
         AssertThat(hasJoypadEvent).IsTrue();
         AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.P);
+        AssertThat(HasKeyBinding("ui_close_dialog", Key.P)).IsTrue();
+        AssertThat(HasJoypadBinding("ui_close_dialog", (JoyButton)10)).IsTrue();
+        AssertThat(InputMap.ActionHasEvent("ui_close_dialog", nativeCloseBinding)).IsTrue();
     }
 
     [TestCase]
@@ -656,6 +675,8 @@ public partial class SettingsManagerTest : Node
         AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.P);
         // ui_cancel should also be rebound to P
         AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.P);
+        // AcceptDialog listens to ui_close_dialog rather than ui_cancel.
+        AssertThat(HasKeyBinding("ui_close_dialog", Key.P)).IsTrue();
     }
 
     [TestCase]
@@ -1495,9 +1516,14 @@ public partial class SettingsManagerTest : Node
                 : new List<InputEvent>();
         }
 
-        // Also capture ui_cancel since ApplyInputBindings now mirrors pause_menu onto it.
-        _originalUiCancelEvents = InputMap.HasAction("ui_cancel")
+        // Also capture the built-in UI actions changed by input synchronization.
+        _uiCancelActionExisted = InputMap.HasAction("ui_cancel");
+        _originalUiCancelEvents = _uiCancelActionExisted
             ? new List<InputEvent>(InputMap.ActionGetEvents("ui_cancel"))
+            : new List<InputEvent>();
+        _uiCloseDialogActionExisted = InputMap.HasAction("ui_close_dialog");
+        _originalUiCloseDialogEvents = _uiCloseDialogActionExisted
+            ? new List<InputEvent>(InputMap.ActionGetEvents("ui_close_dialog"))
             : new List<InputEvent>();
 
         _originalWindowMode = DisplayServer.WindowGetMode();
@@ -1536,20 +1562,8 @@ public partial class SettingsManagerTest : Node
             }
         }
 
-        // Restore ui_cancel to its original full event list.
-        if (_originalUiCancelEvents.Count > 0)
-        {
-            if (InputMap.HasAction("ui_cancel"))
-            {
-                InputMap.EraseAction("ui_cancel");
-            }
-
-            InputMap.AddAction("ui_cancel");
-            foreach (var evt in _originalUiCancelEvents)
-            {
-                InputMap.ActionAddEvent("ui_cancel", evt);
-            }
-        }
+        RestoreActionEvents("ui_cancel", _uiCancelActionExisted, _originalUiCancelEvents);
+        RestoreActionEvents("ui_close_dialog", _uiCloseDialogActionExisted, _originalUiCloseDialogEvents);
 
         while (AudioServer.BusCount > _originalBusCount)
         {
@@ -1603,6 +1617,66 @@ public partial class SettingsManagerTest : Node
         }
 
         return 0L;
+    }
+
+    private static bool HasKeyBinding(string actionName, Key physicalKey)
+    {
+        if (!InputMap.HasAction(actionName))
+        {
+            return false;
+        }
+
+        foreach (var inputEvent in InputMap.ActionGetEvents(actionName))
+        {
+            if (inputEvent is InputEventKey keyEvent
+                && keyEvent.PhysicalKeycode == physicalKey)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasJoypadBinding(string actionName, JoyButton button)
+    {
+        if (!InputMap.HasAction(actionName))
+        {
+            return false;
+        }
+
+        foreach (var inputEvent in InputMap.ActionGetEvents(actionName))
+        {
+            if (inputEvent is InputEventJoypadButton joypadEvent
+                && joypadEvent.ButtonIndex == button)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void RestoreActionEvents(
+        string actionName,
+        bool actionExisted,
+        List<InputEvent> originalEvents)
+    {
+        if (InputMap.HasAction(actionName))
+        {
+            InputMap.EraseAction(actionName);
+        }
+
+        if (!actionExisted)
+        {
+            return;
+        }
+
+        InputMap.AddAction(actionName);
+        foreach (var inputEvent in originalEvents)
+        {
+            InputMap.ActionAddEvent(actionName, inputEvent);
+        }
     }
 
     private static void DeleteSettingsFiles()

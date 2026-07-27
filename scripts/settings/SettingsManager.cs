@@ -53,10 +53,11 @@ public partial class SettingsManager : Node
         WriteIndented = true
     };
 
-    // Keep ownership of only the events mirrored from ui_cancel so a later
-    // rebind can remove stale configured inputs without erasing Godot's native
-    // ui_close_dialog bindings (Escape, platform close shortcuts, etc.).
-    private static readonly System.Collections.Generic.List<InputEvent> MirroredDialogCloseEvents = new();
+    // Keep ownership of only the exact InputMap event instances mirrored from
+    // ui_cancel. Equivalent replacement events may be restored by another
+    // owner, so resource equality is not sufficient to decide what we may
+    // remove on the next synchronization.
+    private static readonly System.Collections.Generic.HashSet<ulong> MirroredDialogCloseEventInstanceIds = new();
 
     private SettingsData _settings = SettingsData.CreateDefaults();
     internal DisplayServer.WindowMode LastAppliedWindowMode { get; private set; } = DisplayServer.WindowMode.Windowed;
@@ -449,11 +450,14 @@ public partial class SettingsManager : Node
             InputMap.AddAction(dialogCloseAction);
         }
 
-        foreach (var mirroredEvent in MirroredDialogCloseEvents)
+        foreach (var currentEvent in InputMap.ActionGetEvents(dialogCloseAction))
         {
-            InputMap.ActionEraseEvent(dialogCloseAction, mirroredEvent);
+            if (MirroredDialogCloseEventInstanceIds.Contains(currentEvent.GetInstanceId()))
+            {
+                InputMap.ActionEraseEvent(dialogCloseAction, currentEvent);
+            }
         }
-        MirroredDialogCloseEvents.Clear();
+        MirroredDialogCloseEventInstanceIds.Clear();
 
         if (!InputMap.HasAction("ui_cancel"))
         {
@@ -468,8 +472,16 @@ public partial class SettingsManager : Node
             }
 
             var mirroredEvent = (InputEvent)inputEvent.Duplicate();
+            var mirroredInstanceId = mirroredEvent.GetInstanceId();
             InputMap.ActionAddEvent(dialogCloseAction, mirroredEvent);
-            MirroredDialogCloseEvents.Add(mirroredEvent);
+            foreach (var currentEvent in InputMap.ActionGetEvents(dialogCloseAction))
+            {
+                if (currentEvent.GetInstanceId() == mirroredInstanceId)
+                {
+                    MirroredDialogCloseEventInstanceIds.Add(mirroredInstanceId);
+                    break;
+                }
+            }
         }
     }
 

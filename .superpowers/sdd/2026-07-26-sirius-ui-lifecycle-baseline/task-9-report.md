@@ -2,13 +2,16 @@
 
 ## Status
 
-DONE after final whole-branch review fix 1.
+DONE after final whole-branch review fix 2.
 
 ## Commits
 
 - Implementation-start commit:
   `33e9567b04d06bf532ce1d7deb3b6432cb5a927a`.
 - Executable implementation commit under test:
+  `61b6e3d9658f9451f7182f12a47a7724a939e55e`
+  (`fix: preserve native dialog close bindings`).
+- Configured-Cancel bridge commit:
   `30e86d259f88259d6e2779f8280f6b975403b0e1`
   (`fix: route configured cancel to modal owners`).
 - Initial Task 9 contract commit:
@@ -19,8 +22,10 @@ DONE after final whole-branch review fix 1.
 - `SettingsManager` now preserves the effective `ui_cancel` key/controller
   bindings while synchronizing them into Godot's actual
   `ui_close_dialog` action for `AcceptDialog` owners.
-- Synchronization tracks and removes only previously injected events, preserves
-  native close bindings, and removes stale configured bindings on reapply.
+- Synchronization tracks exact injected `InputEvent` instance IDs. It removes
+  only an owned instance still present in `InputMap`; a missing ID is stale
+  ownership and cannot erase an equivalent native replacement. Native close
+  bindings remain preserved while configured bindings advance on reapply.
 - `GameInputLifecycleTest` now uses `[BeforeTest]`/`[AfterTest]`, a fresh
   tree-owned fixture per case, InputMap/audio/override snapshots, explicit
   restoration, and awaited cleanup.
@@ -64,6 +69,13 @@ After the change:
 - the complete per-test-isolated `GameInputLifecycleTest` suite passed 10/10
   without an orphan warning.
 
+Final whole-branch review fix 2 added a separate ownership regression. Before
+the identity fix, it failed 1/1 after a distinct equivalent native P binding
+was reconstructed: the expected native instance ID was replaced by `0` on the
+next configured resync. After exact-instance ownership was implemented, the
+regression passed 1/1, including a second resync from Q to R while the native P
+instance remained unchanged.
+
 ## Matrix and evidence validation
 
 The final audits report:
@@ -81,13 +93,15 @@ scan covers `pause_menu`, direct `ui_cancel`, dialog `ui_close_dialog`,
 
 ## Focused verification
 
-All commands used `rtk proxy dotnet test`; later commands used
-`--no-build --no-restore` against the same compiled implementation commit.
+All commands used `rtk proxy dotnet test --no-restore`. Unaffected lifecycle
+filters below retain their fix-1 focused evidence; the affected Settings and
+Game-input filters were rerun on fix 2, followed by the authoritative full
+suite on the exact executable commit.
 
 | Focused filter | Passed | Failed | Skipped |
 |---|---:|---:|---:|
 | `InventoryMenuControllerTest` | 8 | 0 | 0 |
-| `SettingsManagerTest` | 51 | 0 | 0 |
+| `SettingsManagerTest` | 52 | 0 | 0 |
 | `SettingsDataTest` | 4 | 0 | 0 |
 | `SettingsMenuControllerTest` | 54 | 0 | 0 |
 | `PauseMenuDialogTest` | 14 | 0 | 0 |
@@ -97,37 +111,39 @@ All commands used `rtk proxy dotnet test`; later commands used
 | `NpcInteractionControllerTest\|ShopDialogTest` | 8 | 0 | 0 |
 | `BattleManagerTest` | 14 | 0 | 0 |
 | `GameInputLifecycleTest\|GameTest` | 55 | 0 | 0 |
+| `GameInputLifecycleTest` (fix-2 rerun) | 10 | 0 | 0 |
+| `SettingsManagerTest\|GameInputLifecycleTest` (one process) | 62 | 0 | 0 |
 
 Every focused process exited 0.
 
 ## Full-suite evidence
 
 The authoritative suite ran outside the filesystem sandbox on executable commit
-`30e86d259f88259d6e2779f8280f6b975403b0e1`:
+`61b6e3d9658f9451f7182f12a47a7724a939e55e`:
 
 ```text
-rtk zsh -o pipefail -c 'rtk proxy dotnet test Sirius.sln --settings test.runsettings.local --no-restore --results-directory .superpowers/sdd/2026-07-26-sirius-ui-lifecycle-baseline/artifacts --logger "trx;LogFileName=final-review-fix-1-full.trx" --logger "console;verbosity=minimal" 2>&1 | rtk tee /tmp/hpa-376-final-review-fix-1.log'
+rtk zsh -o pipefail -c 'rtk proxy dotnet test Sirius.sln --settings test.runsettings.local --no-restore --results-directory .superpowers/sdd/2026-07-26-sirius-ui-lifecycle-baseline/artifacts --logger "trx;LogFileName=final-review-fix-2-full.trx" --logger "console;verbosity=minimal" 2>&1 | rtk tee /tmp/hpa-376-final-review-fix-2.log'
 ```
 
 Console result:
 
 ```text
-Passed!  - Failed: 0, Passed: 914, Skipped: 0, Total: 914
+Passed!  - Failed: 0, Passed: 915, Skipped: 0, Total: 915
 ```
 
 Persistent TRX result:
 
 ```text
 outcome="Completed"
-total="914" executed="914" passed="914" failed="0" notExecuted="0"
+total="915" executed="915" passed="915" failed="0" notExecuted="0"
 ```
 
 Evidence provenance:
 
 - baseline console log: `/tmp/hpa-376-test-baseline.log`;
-- final console log: `/tmp/hpa-376-final-review-fix-1.log`;
+- final console log: `/tmp/hpa-376-final-review-fix-2.log`;
 - final ignored local TRX:
-  `.superpowers/sdd/2026-07-26-sirius-ui-lifecycle-baseline/artifacts/final-review-fix-1-full.trx`.
+  `.superpowers/sdd/2026-07-26-sirius-ui-lifecycle-baseline/artifacts/final-review-fix-2-full.trx`.
 
 The logs and TRX are local evidence, not branch content.
 
@@ -143,7 +159,7 @@ No new orphan line or distinct message was introduced.
 
 ## Test-total delta accounting
 
-The final 914 total is the 863-test implementation start plus 51 named HPA-376
+The final 915 total is the 863-test implementation start plus 52 named HPA-376
 tests:
 
 - Task 2: +7 Inventory lifecycle tests
@@ -154,8 +170,9 @@ tests:
 - Task 7 after correction: +2 public-path BattleManager lifecycle tests
 - Task 8: +7 Game input/prompt/floor/defeat lifecycle tests
 - Final review fix 1: +3 physical configured-cancel lifecycle tests
+- Final review fix 2: +1 exact-instance dialog-binding ownership regression
 
-These groups sum to 51. The historical 869-test count at `bc82ead` is not used
+These groups sum to 52. The historical 869-test count at `bc82ead` is not used
 as the implementation baseline.
 
 ## Scope and hygiene
@@ -164,6 +181,7 @@ as the implementation baseline.
   architecture was implemented.
 - No Battle production behavior was changed.
 - The action bridge is confined to Settings runtime binding application.
+- The identity hardening adds no public test-only reset or modal architecture.
 - The ignored console/TRX evidence did not enter branch content.
 - `git diff --check`, row/disposition/evidence/source audits, and clean final
   status are required before the documentation commit.

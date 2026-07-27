@@ -11,6 +11,7 @@ public partial class PuzzleRiddleDialog : AcceptDialog
     private Label _messageLabel = null!;
     private RichTextLabel _promptLabel = null!;
     private VBoxContainer _choicesContainer = null!;
+    private bool _terminalEmitted;
 
     public override void _Ready()
     {
@@ -44,6 +45,7 @@ public partial class PuzzleRiddleDialog : AcceptDialog
 
     public void OpenRiddle(PuzzleRiddleSpawn riddle, string? message = null)
     {
+        _terminalEmitted = false;
         Title = string.IsNullOrWhiteSpace(riddle.RiddleId) ? "Seal" : riddle.RiddleId;
         _messageLabel.Text = message ?? "";
         _messageLabel.Visible = !string.IsNullOrWhiteSpace(_messageLabel.Text);
@@ -62,7 +64,7 @@ public partial class PuzzleRiddleDialog : AcceptDialog
                 AutowrapMode = TextServer.AutowrapMode.WordSmart
             };
             string capturedId = choice.Id;
-            button.Pressed += () => EmitSignal(SignalName.ChoiceSelected, capturedId);
+            button.Pressed += () => EmitChoiceOnce(capturedId);
             _choicesContainer.AddChild(button);
         }
 
@@ -71,7 +73,20 @@ public partial class PuzzleRiddleDialog : AcceptDialog
 
     private void OnCloseRequested()
     {
+        if (_terminalEmitted)
+            return;
+
+        _terminalEmitted = true;
         EmitSignal(SignalName.PuzzleRiddleClosed);
+    }
+
+    private void EmitChoiceOnce(string choiceId)
+    {
+        if (_terminalEmitted)
+            return;
+
+        _terminalEmitted = true;
+        EmitSignal(SignalName.ChoiceSelected, choiceId);
     }
 
     public override void _ExitTree()

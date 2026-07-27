@@ -17,6 +17,7 @@ public partial class DialogueDialog : AcceptDialog
     private DialogueTree _tree;
     private Character _player;
     private HashSet<string> _questFlags;
+    private bool _terminalEmitted;
 
     public override void _Ready()
     {
@@ -56,6 +57,7 @@ public partial class DialogueDialog : AcceptDialog
     /// <summary>Begins the dialogue from the tree's root node.</summary>
     public void StartDialogue(NpcData npc, DialogueTree tree, Character player, HashSet<string> questFlags)
     {
+        _terminalEmitted = false;
         Title = npc.DisplayName;
         _tree = tree;
         _player = player;
@@ -64,7 +66,7 @@ public partial class DialogueDialog : AcceptDialog
         if (rootNode == null)
         {
             GD.PushError($"[DialogueDialog] Dialogue tree '{tree.TreeId}' has no 'root' node.");
-            EmitSignal(SignalName.DialogueClosed);
+            EmitClosedOnce();
             return;
         }
 
@@ -92,7 +94,7 @@ public partial class DialogueDialog : AcceptDialog
             // Leaf node — show a close button
             var closeBtn = new Button();
             closeBtn.Text = "Farewell.";
-            closeBtn.Pressed += () => EmitSignal(SignalName.DialogueClosed);
+            closeBtn.Pressed += EmitClosedOnce;
             _choicesContainer.AddChild(closeBtn);
         }
         else
@@ -117,13 +119,13 @@ public partial class DialogueDialog : AcceptDialog
 
         if (choice.Outcome != DialogueOutcomeType.None)
         {
-            EmitSignal(SignalName.DialogueOutcome, (int)choice.Outcome);
+            EmitOutcomeOnce(choice.Outcome);
             return;
         }
 
         if (choice.NextNodeId == null)
         {
-            EmitSignal(SignalName.DialogueClosed);
+            EmitClosedOnce();
             return;
         }
 
@@ -131,7 +133,7 @@ public partial class DialogueDialog : AcceptDialog
         if (nextNode == null)
         {
             GD.PushError($"[DialogueDialog] Broken dialogue tree '{_tree.TreeId}': choice '{choice.Label}' references NextNodeId '{choice.NextNodeId}' which does not exist. Closing dialogue.");
-            EmitSignal(SignalName.DialogueClosed);
+            EmitClosedOnce();
             return;
         }
 
@@ -140,7 +142,28 @@ public partial class DialogueDialog : AcceptDialog
 
     private void OnCloseRequested()
     {
-        EmitSignal(SignalName.DialogueClosed);
+        EmitClosedOnce();
+    }
+
+    private bool TryBeginTerminal()
+    {
+        if (_terminalEmitted)
+            return false;
+
+        _terminalEmitted = true;
+        return true;
+    }
+
+    private void EmitClosedOnce()
+    {
+        if (TryBeginTerminal())
+            EmitSignal(SignalName.DialogueClosed);
+    }
+
+    private void EmitOutcomeOnce(DialogueOutcomeType outcome)
+    {
+        if (TryBeginTerminal())
+            EmitSignal(SignalName.DialogueOutcome, (int)outcome);
     }
 
     public override void _ExitTree()

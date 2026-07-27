@@ -15,6 +15,7 @@ public partial class HealDialog : AcceptDialog
     private Label _feedbackLabel;
     private Button _healBtn;
     private Button _cancelBtn;
+    private bool _terminalEmitted;
 
     public override void _Ready()
     {
@@ -58,6 +59,7 @@ public partial class HealDialog : AcceptDialog
     /// <summary>Opens the heal dialog for the given NPC and player.</summary>
     public void OpenHeal(NpcData npc, Character player)
     {
+        _terminalEmitted = false;
         if (npc.HealCost <= 0)
             GD.PushWarning($"[HealDialog] NPC '{npc.NpcId}' has HealCost={npc.HealCost}. This allows free healing — check NpcCatalog.");
         Title = npc.DisplayName;
@@ -80,6 +82,9 @@ public partial class HealDialog : AcceptDialog
 
     private void OnHealPressed()
     {
+        if (_terminalEmitted)
+            return;
+
         int maxHp = _player.GetEffectiveMaxHealth();
         if (_player.CurrentHealth >= maxHp)
         {
@@ -97,11 +102,21 @@ public partial class HealDialog : AcceptDialog
 
         _player.CurrentHealth = maxHp;
         GameManager.Instance?.NotifyPlayerStatsChanged();
+        _terminalEmitted = true;
         EmitSignal(SignalName.HealComplete);
     }
 
     private void OnCancelPressed()
     {
+        EmitCancelledOnce();
+    }
+
+    private void EmitCancelledOnce()
+    {
+        if (_terminalEmitted)
+            return;
+
+        _terminalEmitted = true;
         EmitSignal(SignalName.HealCancelled);
     }
 

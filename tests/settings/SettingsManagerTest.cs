@@ -597,6 +597,43 @@ public partial class SettingsManagerTest : Node
     }
 
     [TestCase]
+    public async Task SettingsManager_ReplacedEquivalentDialogCloseBinding_RemainsNativeAcrossResyncs()
+    {
+        var manager = await BootstrapSettingsManager();
+        var firstCandidate = manager.GetSnapshot();
+        firstCandidate.PrimaryKeybindings["pause_menu"] = (long)Key.P;
+
+        AssertThat(manager.ApplyAndSave(firstCandidate)).IsTrue();
+        var mirroredPInstanceId = GetKeyBindingInstanceId("ui_close_dialog", Key.P);
+
+        // Simulate another owner rebuilding the action from a snapshot. The
+        // replacement is equivalent to the injected P binding but is a
+        // distinct native event that SettingsManager does not own.
+        InputMap.ActionEraseEvents("ui_close_dialog");
+        InputMap.ActionAddEvent("ui_close_dialog", new InputEventKey
+        {
+            PhysicalKeycode = Key.P
+        });
+        var nativePInstanceId = GetKeyBindingInstanceId("ui_close_dialog", Key.P);
+        AssertThat(nativePInstanceId).IsNotEqual(mirroredPInstanceId);
+
+        var secondCandidate = manager.GetSnapshot();
+        secondCandidate.PrimaryKeybindings["pause_menu"] = (long)Key.Q;
+
+        AssertThat(manager.ApplyAndSave(secondCandidate)).IsTrue();
+        AssertThat(GetKeyBindingInstanceId("ui_close_dialog", Key.P)).IsEqual(nativePInstanceId);
+        AssertThat(HasKeyBinding("ui_close_dialog", Key.Q)).IsTrue();
+
+        var thirdCandidate = manager.GetSnapshot();
+        thirdCandidate.PrimaryKeybindings["pause_menu"] = (long)Key.R;
+
+        AssertThat(manager.ApplyAndSave(thirdCandidate)).IsTrue();
+        AssertThat(GetKeyBindingInstanceId("ui_close_dialog", Key.P)).IsEqual(nativePInstanceId);
+        AssertThat(HasKeyBinding("ui_close_dialog", Key.Q)).IsFalse();
+        AssertThat(HasKeyBinding("ui_close_dialog", Key.R)).IsTrue();
+    }
+
+    [TestCase]
     public async Task SettingsManager_PauseMenuRemap_PreservesNonKeyUiCancelEvents()
     {
         var manager = await BootstrapSettingsManager();
@@ -1617,6 +1654,25 @@ public partial class SettingsManagerTest : Node
         }
 
         return 0L;
+    }
+
+    private static ulong GetKeyBindingInstanceId(string actionName, Key physicalKey)
+    {
+        if (!InputMap.HasAction(actionName))
+        {
+            return 0UL;
+        }
+
+        foreach (var inputEvent in InputMap.ActionGetEvents(actionName))
+        {
+            if (inputEvent is InputEventKey keyEvent
+                && keyEvent.PhysicalKeycode == physicalKey)
+            {
+                return inputEvent.GetInstanceId();
+            }
+        }
+
+        return 0UL;
     }
 
     private static bool HasKeyBinding(string actionName, Key physicalKey)

@@ -61,6 +61,37 @@ public partial class SettingsMenuControllerTest : Node
     }
 
     [TestCase]
+    public void CancelAfterStagedEdit_DoesNotMutateSnapshot_AndEmitsClosedOnce()
+    {
+        var snapshot = SettingsData.CreateDefaults();
+        snapshot.MasterVolumePercent = 70;
+        int closedCount = 0;
+        _ctrl.Closed += () => closedCount++;
+        _ctrl.OpenSettings(snapshot);
+
+        GetField<HSlider>(_ctrl, "_masterSlider").Value = 15;
+        InvokePrivate(_ctrl, "OnCancelPressed");
+        InvokePrivate(_ctrl, "OnCancelPressed");
+
+        AssertThat(snapshot.MasterVolumePercent).IsEqual(70);
+        AssertThat(closedCount).IsEqual(1);
+    }
+
+    [TestCase]
+    public void ReopenAfterCancel_AllowsOneNewClosedEmission()
+    {
+        int closedCount = 0;
+        _ctrl.Closed += () => closedCount++;
+
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        InvokePrivate(_ctrl, "OnCancelPressed");
+        _ctrl.OpenSettings(SettingsData.CreateDefaults());
+        InvokePrivate(_ctrl, "OnCancelPressed");
+
+        AssertThat(closedCount).IsEqual(2);
+    }
+
+    [TestCase]
     public void OpenSettings_SetsAudioSliderValues()
     {
         var data = SettingsData.CreateDefaults();

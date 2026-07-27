@@ -56,12 +56,36 @@ public partial class PauseMenuDialogTest : Node
     }
 
     [TestCase]
+    public async Task SaveButton_Pressed_HidesBeforeSignal()
+    {
+        bool visibleWhenEmitted = true;
+        _dialog.SaveRequested += () => visibleWhenEmitted = _dialog.Visible;
+        await OpenDialog();
+
+        FindButton("Save Game").EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(visibleWhenEmitted).IsFalse();
+    }
+
+    [TestCase]
     public void LoadButton_Pressed_EmitsLoadRequested()
     {
         bool fired = false;
         _dialog.LoadRequested += () => fired = true;
         FindButton("Load Game").EmitSignal(Button.SignalName.Pressed);
         AssertThat(fired).IsTrue();
+    }
+
+    [TestCase]
+    public async Task LoadButton_Pressed_HidesBeforeSignal()
+    {
+        bool visibleWhenEmitted = true;
+        _dialog.LoadRequested += () => visibleWhenEmitted = _dialog.Visible;
+        await OpenDialog();
+
+        FindButton("Load Game").EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(visibleWhenEmitted).IsFalse();
     }
 
     [TestCase]
@@ -80,6 +104,18 @@ public partial class PauseMenuDialogTest : Node
         _dialog.QuitToMenuRequested += () => fired = true;
         FindButton("Quit to Main Menu").EmitSignal(Button.SignalName.Pressed);
         AssertThat(fired).IsTrue();
+    }
+
+    [TestCase]
+    public async Task QuitToMenuButton_Pressed_HidesBeforeSignal()
+    {
+        bool visibleWhenEmitted = true;
+        _dialog.QuitToMenuRequested += () => visibleWhenEmitted = _dialog.Visible;
+        await OpenDialog();
+
+        FindButton("Quit to Main Menu").EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(visibleWhenEmitted).IsFalse();
     }
 
     [TestCase]
@@ -128,6 +164,19 @@ public partial class PauseMenuDialogTest : Node
         _dialog.EmitSignal(AcceptDialog.SignalName.CloseRequested);
         await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
         AssertThat(count).IsEqual(2);
+    }
+
+    [TestCase]
+    public async Task CanceledThenCloseRequested_EmitsResumeRequestedOnce()
+    {
+        int count = 0;
+        _dialog.ResumeRequested += () => count++;
+        await OpenDialog();
+
+        _dialog.EmitSignal(AcceptDialog.SignalName.Canceled);
+        _dialog.EmitSignal(AcceptDialog.SignalName.CloseRequested);
+
+        AssertThat(count).IsEqual(1);
     }
 
     [TestCase]

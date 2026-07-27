@@ -20,6 +20,7 @@ public partial class SettingsMenuController : Control
 
     private SettingsData _editedSettings = SettingsData.CreateDefaults();
     private string? _listeningAction;
+    private bool _closedEmitted;
 
     // Audio
     private HSlider _masterSlider;
@@ -63,6 +64,7 @@ public partial class SettingsMenuController : Control
     public void OpenSettings(SettingsData? snapshot = null, bool showOverlay = true)
     {
         if (_listeningAction != null) CancelKeyCapture();
+        _closedEmitted = false;
 
         var bg = GetNodeOrNull<ColorRect>("Background");
         if (bg != null) bg.Visible = showOverlay;
@@ -560,13 +562,21 @@ public partial class SettingsMenuController : Control
             return;
         }
 
-        SetProcessInput(false);
-        EmitSignal(SignalName.Closed);
+        EmitClosedOnce();
     }
 
     private void OnCancelPressed()
     {
         CancelKeyCapture();
+        EmitClosedOnce();
+    }
+
+    private void EmitClosedOnce()
+    {
+        if (_closedEmitted)
+            return;
+
+        _closedEmitted = true;
         SetProcessInput(false);
         EmitSignal(SignalName.Closed);
     }

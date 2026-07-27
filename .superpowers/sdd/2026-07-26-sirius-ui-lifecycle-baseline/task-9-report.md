@@ -9,7 +9,7 @@ DONE.
 - Implementation commit under test:
   `9af2eb90d420b0243558db0f60e63879b1b5b76e`
   (`test: prove floor prompt restoration`).
-- Final contract commit:
+- Initial Task 9 contract commit:
   `b9bc4c09e0b5fbaff5e6be38d53526d7d8b9645e`
   (`docs: finalize HPA-376 lifecycle evidence`).
 
@@ -173,3 +173,39 @@ No correctness or scope concern remains.
 The repository still emits its pre-existing compiler warnings and the
 environmental NuGet `NU1900` vulnerability-source warning. The nine orphan
 lines are also pre-existing and unchanged from the captured baseline.
+
+## Fix round 1 of 5
+
+### Finding
+
+Important: the `SET-PAUSE` observed terminal cell still described `Closed` as
+currently unguarded, contradicting the implemented Settings lifecycle.
+
+### Correction
+
+- Updated only the `SET-PAUSE` observed terminal and restoration cells.
+- The current observation now names the per-open `_closedEmitted` state and
+  `EmitClosedOnce`, states that Apply, Cancel, and competing/repeated terminal
+  paths emit `Closed` exactly once, and retains Game's current deferred Pause
+  restoration ownership.
+- Preserved the row's existing `file:member` citations, required migration
+  contract, disposition, and exact test evidence.
+
+### Verification
+
+- 50-row audit: `row_count=50, duplicates=no`.
+- Dispositions: 31 `Preserve`, 12 `Fix in HPA-376`, and 7
+  `Replace in HPA-378/379`.
+- Evidence audit: 43 non-replacement rows, 84 exact test tokens, 0 missing.
+- Source citation audit: 66 unique current citations, 0 unresolved.
+- All seven exact replacement handoff strings remain present.
+- `git diff --check` passed, and pre-commit status contained only the contract
+  and this required Task 9 report.
+
+Runtime suites were not rerun because this fix changes documentation only,
+does not alter a test token or behavioral contract, and the same implementation
+commit remains covered by the previously recorded 912/912 full-suite TRX.
+
+### Fix-round concern
+
+None.

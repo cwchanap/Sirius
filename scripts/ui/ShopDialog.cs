@@ -261,6 +261,7 @@ public partial class ShopDialog : AcceptDialog
     {
         if (_closed) return;
         _closed = true;
+        CancelFeedbackTimer();
         if (Visible)
             Hide();
         EmitSignal(SignalName.ShopClosed);

@@ -13,7 +13,7 @@ public partial class ShopDialogTest : Node
     private SceneTree _sceneTree = null!;
     private Variant _originalVerboseOrphans;
 
-    [Before]
+    [BeforeTest]
     public async Task Setup()
     {
         _originalVerboseOrphans = ProjectSettings.GetSetting("gdunit4/report/verbose_orphans");
@@ -25,7 +25,7 @@ public partial class ShopDialogTest : Node
         await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
     }
 
-    [After]
+    [AfterTest]
     public async Task Cleanup()
     {
         if (_dialog != null && GodotObject.IsInstanceValid(_dialog))
@@ -83,6 +83,27 @@ public partial class ShopDialogTest : Node
         AssertThat(feedbackLabel.Visible).IsFalse();
     }
 
+    [TestCase]
+    public void CanceledThenCloseRequested_EmitsShopClosedOnce()
+    {
+        int count = 0;
+        _dialog.ShopClosed += () => count++;
+
+        _dialog.EmitSignal(AcceptDialog.SignalName.Canceled);
+        _dialog.EmitSignal(AcceptDialog.SignalName.CloseRequested);
+
+        AssertThat(count).IsEqual(1);
+    }
+
+    [TestCase]
+    public void Close_CancelsPendingFeedbackTimer()
+    {
+        InvokePrivateMethod(_dialog, "ShowFeedback", "Pending");
+        _dialog.EmitSignal(AcceptDialog.SignalName.Canceled);
+
+        AssertThat(GetNullablePrivateField<SceneTreeTimer>(_dialog, "_feedbackTimer")).IsNull();
+    }
+
     private static Character CreatePlayer(int gold) => new Character
     {
         Name = "ShopDialogTester",
@@ -116,6 +137,18 @@ public partial class ShopDialogTest : Node
             return value;
 
         throw new InvalidOperationException($"Failed to read private field '{fieldName}'.");
+    }
+
+    private static T? GetNullablePrivateField<T>(object instance, string fieldName)
+        where T : class
+    {
+        var field = instance.GetType().GetField(
+            fieldName,
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        if (field == null)
+            throw new InvalidOperationException($"Failed to locate private field '{fieldName}'.");
+
+        return field.GetValue(instance) as T;
     }
 
     private static void InvokePrivateMethod(object instance, string methodName, params object[] args)

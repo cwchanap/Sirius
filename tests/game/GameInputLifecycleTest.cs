@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
@@ -12,11 +13,32 @@ public partial class GameInputLifecycleTest : Node
     private LifecycleGame? _game;
     private SubViewport? _viewport;
     private GameManager? _gameManager;
+    private Game? _realGame;
+    private readonly Dictionary<string, InputActionSnapshot> _inputActionSnapshots = new();
+    private readonly Dictionary<int, float> _audioBusVolumes = new();
+    private bool _treeWasPaused;
+    private int _audioBusCount;
+    private DisplayServer.WindowMode _simulatedWindowMode;
+    private Vector2I _simulatedWindowSize;
+    private Action<DisplayServer.WindowMode>? _previousWindowSetModeOverride;
+    private Action<Vector2I>? _previousWindowSetSizeOverride;
+    private Func<DisplayServer.WindowMode>? _previousWindowGetModeOverride;
+    private Func<Vector2I>? _previousWindowGetSizeOverride;
+    private Action<string, string>? _previousFileWriteTextOverride;
+    private Action<string, string, bool>? _previousFileMoveWithOverwriteOverride;
+    private Action<string, string>? _previousFileMoveOverride;
+    private Action<string>? _previousFileDeleteOverride;
 
-    [Before]
+    [BeforeTest]
     public async Task Setup()
     {
         var sceneTree = (SceneTree)Engine.GetMainLoop();
+        _treeWasPaused = sceneTree.Paused;
+        sceneTree.Paused = false;
+        CaptureInputActions("pause_menu", "ui_cancel", "ui_close_dialog");
+        CaptureAudioState();
+        CaptureAndInstallSettingsOverrides();
+
         _viewport = new SubViewport
         {
             Disable3D = true,
@@ -29,15 +51,25 @@ public partial class GameInputLifecycleTest : Node
         _viewport.AddChild(_game);
         _game.AddChild(new CanvasLayer { Name = "UI" });
 
-        _gameManager = new GameManager();
+        _gameManager = new LifecycleGameManager();
+        _game.AddChild(_gameManager);
         SetPrivateField(_game, "_gameManager", _gameManager);
 
         await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
     }
 
-    [After]
+    [AfterTest]
     public async Task Cleanup()
     {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        sceneTree.Paused = false;
+
+        if (_realGame != null && IsInstanceValid(_realGame))
+        {
+            _realGame.Free();
+            _realGame = null;
+        }
+
         if (_gameManager != null && IsInstanceValid(_gameManager))
         {
             if (_gameManager.IsInNpcInteraction) _gameManager.EndNpcInteraction();
@@ -63,7 +95,11 @@ public partial class GameInputLifecycleTest : Node
             _gameManager = null;
         }
 
-        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        await AwaitFrames(2);
+        RestoreInputActions();
+        RestoreAudioState();
+        RestoreSettingsOverrides();
+        sceneTree.Paused = _treeWasPaused;
     }
 
     [TestCase]
@@ -83,7 +119,7 @@ public partial class GameInputLifecycleTest : Node
 
         AssertThat(_viewport!.IsInputHandled()).IsTrue();
         AssertThat(battle.Visible).IsFalse();
-        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNull();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game!, "_pauseMenuDialog")).IsNull();
     }
 
     [TestCase]
@@ -94,7 +130,7 @@ public partial class GameInputLifecycleTest : Node
         PushPauseEvent();
 
         AssertThat(_viewport!.IsInputHandled()).IsTrue();
-        AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNull();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_game!, "_pauseMenuDialog")).IsNull();
     }
 
     [TestCase]
@@ -114,6 +150,133 @@ public partial class GameInputLifecycleTest : Node
         AssertThat(_viewport!.IsInputHandled()).IsTrue();
         AssertThat(GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup")).IsNull();
         AssertThat(pause.Visible).IsTrue();
+    }
+
+    [TestCase]
+    public async Task ConfiguredKeyboardCancel_ClosesAcceptDialogExactlyOnce()
+    {
+        ConfigureCancelBindings(Key.P);
+        _viewport!.GuiEmbedSubwindows = true;
+        var dialog = new AcceptDialog();
+        int canceledCount = 0;
+        dialog.Canceled += () => canceledCount++;
+        _viewport.AddChild(dialog);
+        await AwaitFrames(1);
+        try
+        {
+            dialog.PopupCentered();
+            await AwaitFrames(1);
+            AssertThat(_viewport.GetEmbeddedSubwindows().Count).IsEqual(1);
+
+            PushPhysicalKey(Key.P);
+            await AwaitFrames(1);
+            PushPhysicalKey(Key.P);
+
+            AssertThat(canceledCount).IsEqual(1);
+            AssertThat(dialog.Visible).IsFalse();
+        }
+        finally
+        {
+            if (IsInstanceValid(dialog))
+            {
+                dialog.Free();
+            }
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task ConfiguredControllerCancel_ClosesSaveLoadDialogExactlyOnce()
+    {
+        var controllerBinding = new InputEventJoypadButton
+        {
+            ButtonIndex = (JoyButton)10
+        };
+        ConfigureCancelBindings(Key.P, controllerBinding);
+        _viewport!.GuiEmbedSubwindows = true;
+        var dialog = new SaveLoadDialog();
+        int closedCount = 0;
+        dialog.DialogClosed += () => closedCount++;
+        _viewport.AddChild(dialog);
+        await AwaitFrames(1);
+        try
+        {
+            dialog.ShowDialog(SaveLoadDialog.DialogMode.Load);
+            await AwaitFrames(1);
+            AssertThat(_viewport.GetEmbeddedSubwindows().Count).IsEqual(1);
+
+            PushPhysicalJoypadButton((JoyButton)10);
+            await AwaitFrames(1);
+            PushPhysicalJoypadButton((JoyButton)10);
+
+            AssertThat(closedCount).IsEqual(1);
+            AssertThat(dialog.Visible).IsFalse();
+        }
+        finally
+        {
+            if (IsInstanceValid(dialog))
+            {
+                dialog.Free();
+            }
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task ConfiguredKeyboardCancel_ClosesTopmostRiddleAndRestoresGameplay()
+    {
+        ConfigureCancelBindings(Key.P);
+        _viewport!.GuiEmbedSubwindows = true;
+        await FreeLifecycleFixture();
+        _realGame = await InstantiateGameScene(_viewport);
+
+        var floorManager = _realGame.GetNode<FloorManager>("FloorManager");
+        var gridMap = floorManager.CurrentGridMap;
+        var playerController = _realGame.GetNode<PlayerController>("PlayerController");
+        var gameManager = _realGame.GetNode<GameManager>("GameManager");
+        var riddle = CreateRuntimeRiddle(
+            "PuzzleRiddle_ConfiguredCancelTest",
+            "Puzzle_ConfiguredCancelTest",
+            new Vector2I(8, 51));
+        gridMap.AddChild(riddle);
+        riddle.AddToGroup("PuzzleRiddleSpawn");
+        SetPrivateField(gridMap, "_grid", new int[gridMap.GridWidth, gridMap.GridHeight]);
+        SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 50));
+        SetPrivateField(playerController, "_lastFacingDirection", Vector2I.Down);
+        gridMap.CallDeferred(nameof(GridMap.RegisterStaticPuzzleEntities));
+        await AwaitFrames(3);
+        InvokePrivate(_realGame, "UpdateInteractionPrompt");
+
+        var prompt = _realGame.GetNode<Label>("UI/GameUI/InteractionPrompt");
+        AssertThat(prompt.Visible).IsTrue();
+        AssertThat(prompt.Text).IsEqual("Solve");
+
+        InvokePrivate(_realGame, "OpenPuzzleRiddle", riddle);
+        var dialog = GetPrivateField<PuzzleRiddleDialog>(_realGame, "_puzzleRiddleDialog");
+        int closedCount = 0;
+        dialog.PuzzleRiddleClosed += () => closedCount++;
+        AssertThat(gameManager.IsInWorldInteraction).IsTrue();
+        AssertThat(prompt.Visible).IsFalse();
+        await AwaitFrames(1);
+        AssertThat(_viewport!.GetEmbeddedSubwindows().Count).IsEqual(1);
+
+        _viewport.PushInput(new InputEventKey
+        {
+            PhysicalKeycode = Key.P,
+            Pressed = true
+        });
+        _viewport.PushInput(new InputEventKey
+        {
+            PhysicalKeycode = Key.P,
+            Pressed = false
+        });
+        await AwaitFrames(2);
+
+        AssertThat(closedCount).IsEqual(1);
+        AssertThat(GetPrivateField<PuzzleRiddleDialog?>(_realGame, "_puzzleRiddleDialog")).IsNull();
+        AssertThat(gameManager.IsInWorldInteraction).IsFalse();
+        AssertThat(prompt.Visible).IsTrue();
+        AssertThat(GetPrivateField<PauseMenuDialog?>(_realGame, "_pauseMenuDialog")).IsNull();
     }
 
     [TestCase]
@@ -165,7 +328,7 @@ public partial class GameInputLifecycleTest : Node
     [TestCase]
     public async Task FloorReplacement_RebindsGridAndRefreshesPrompt()
     {
-        var game = await InstantiateGameScene();
+        var game = await InstantiateGameScene(_viewport!);
         try
         {
             var floorManager = game.GetNode<FloorManager>("FloorManager");
@@ -192,7 +355,7 @@ public partial class GameInputLifecycleTest : Node
     [TestCase]
     public async Task InteractionPrompt_HidesDuringBattleAndRestoresAfterEscape()
     {
-        var game = await InstantiateGameScene();
+        var game = await InstantiateGameScene(_viewport!);
         try
         {
             var floorManager = game.GetNode<FloorManager>("FloorManager");
@@ -244,12 +407,84 @@ public partial class GameInputLifecycleTest : Node
         });
     }
 
-    private static async Task<Game> InstantiateGameScene()
+    private void ConfigureCancelBindings(Key pauseKey, InputEvent? controllerBinding = null)
+    {
+        if (controllerBinding != null)
+        {
+            EnsureInputAction("ui_cancel");
+            InputMap.ActionAddEvent("ui_cancel", controllerBinding);
+        }
+
+        var settingsManager = new SettingsManager();
+        try
+        {
+            var candidate = settingsManager.GetSnapshot();
+            candidate.PrimaryKeybindings["pause_menu"] = (long)pauseKey;
+
+            AssertThat(settingsManager.ApplyAndSave(candidate)).IsTrue();
+        }
+        finally
+        {
+            settingsManager.Free();
+        }
+    }
+
+    private void PushPhysicalKey(Key physicalKey)
+    {
+        var pressedEvent = new InputEventKey
+        {
+            PhysicalKeycode = physicalKey,
+            Pressed = true
+        };
+        AssertThat(pressedEvent.IsActionPressed("pause_menu")).IsTrue();
+        AssertThat(pressedEvent.IsActionPressed("ui_close_dialog")).IsTrue();
+        _viewport!.PushInput(pressedEvent);
+        _viewport.PushInput(new InputEventKey
+        {
+            PhysicalKeycode = physicalKey,
+            Pressed = false
+        });
+    }
+
+    private void PushPhysicalJoypadButton(JoyButton button)
+    {
+        var pressedEvent = new InputEventJoypadButton
+        {
+            ButtonIndex = button,
+            Pressed = true
+        };
+        AssertThat(pressedEvent.IsActionPressed("ui_close_dialog")).IsTrue();
+        _viewport!.PushInput(pressedEvent);
+        _viewport.PushInput(new InputEventJoypadButton
+        {
+            ButtonIndex = button,
+            Pressed = false
+        });
+    }
+
+    private async Task FreeLifecycleFixture()
+    {
+        if (_game != null && IsInstanceValid(_game))
+        {
+            _game.Free();
+            _game = null;
+        }
+
+        if (_gameManager != null && IsInstanceValid(_gameManager))
+        {
+            _gameManager.Free();
+            _gameManager = null;
+        }
+
+        await AwaitFrames(2);
+    }
+
+    private static async Task<Game> InstantiateGameScene(Node parent)
     {
         var scene = GD.Load<PackedScene>("res://scenes/game/Game.tscn")
             ?? throw new InvalidOperationException("Failed to load Game.tscn.");
         var game = scene.Instantiate<Game>();
-        ((SceneTree)Engine.GetMainLoop()).Root.AddChild(game);
+        parent.AddChild(game);
         await AwaitFrames(8);
         return game;
     }
@@ -273,11 +508,11 @@ public partial class GameInputLifecycleTest : Node
         }
     }
 
-    private static void InvokePrivate(object instance, string methodName)
+    private static void InvokePrivate(object instance, string methodName, params object?[] arguments)
     {
         var method = FindPrivateMethod(instance.GetType(), methodName)
             ?? throw new MissingMethodException(instance.GetType().FullName, methodName);
-        method.Invoke(instance, null);
+        method.Invoke(instance, arguments);
     }
 
     private static void SetPrivateField(object instance, string fieldName, object? value)
@@ -326,12 +561,167 @@ public partial class GameInputLifecycleTest : Node
         return null;
     }
 
+    private void CaptureInputActions(params string[] actionNames)
+    {
+        _inputActionSnapshots.Clear();
+        foreach (var actionName in actionNames)
+        {
+            var snapshot = new InputActionSnapshot
+            {
+                Existed = InputMap.HasAction(actionName),
+                Deadzone = InputMap.HasAction(actionName)
+                    ? InputMap.ActionGetDeadzone(actionName)
+                    : 0.5f
+            };
+
+            if (snapshot.Existed)
+            {
+                foreach (var inputEvent in InputMap.ActionGetEvents(actionName))
+                {
+                    snapshot.Events.Add((InputEvent)inputEvent.Duplicate());
+                }
+            }
+
+            _inputActionSnapshots[actionName] = snapshot;
+        }
+    }
+
+    private void RestoreInputActions()
+    {
+        foreach (var (actionName, snapshot) in _inputActionSnapshots)
+        {
+            if (!snapshot.Existed)
+            {
+                if (InputMap.HasAction(actionName))
+                {
+                    InputMap.EraseAction(actionName);
+                }
+                continue;
+            }
+
+            EnsureInputAction(actionName);
+            InputMap.ActionSetDeadzone(actionName, snapshot.Deadzone);
+            foreach (var inputEvent in InputMap.ActionGetEvents(actionName))
+            {
+                InputMap.ActionEraseEvent(actionName, inputEvent);
+            }
+            foreach (var inputEvent in snapshot.Events)
+            {
+                InputMap.ActionAddEvent(actionName, (InputEvent)inputEvent.Duplicate());
+            }
+        }
+
+        _inputActionSnapshots.Clear();
+    }
+
+    private static void EnsureInputAction(string actionName)
+    {
+        if (!InputMap.HasAction(actionName))
+        {
+            InputMap.AddAction(actionName);
+        }
+    }
+
+    private void CaptureAudioState()
+    {
+        _audioBusCount = AudioServer.BusCount;
+        _audioBusVolumes.Clear();
+        for (int i = 0; i < _audioBusCount; i++)
+        {
+            _audioBusVolumes[i] = AudioServer.GetBusVolumeDb(i);
+        }
+    }
+
+    private void RestoreAudioState()
+    {
+        while (AudioServer.BusCount > _audioBusCount)
+        {
+            AudioServer.RemoveBus(AudioServer.BusCount - 1);
+        }
+
+        foreach (var (busIndex, volumeDb) in _audioBusVolumes)
+        {
+            if (busIndex < AudioServer.BusCount)
+            {
+                AudioServer.SetBusVolumeDb(busIndex, volumeDb);
+            }
+        }
+    }
+
+    private void CaptureAndInstallSettingsOverrides()
+    {
+        _previousWindowSetModeOverride = SettingsManager.WindowSetModeOverride;
+        _previousWindowSetSizeOverride = SettingsManager.WindowSetSizeOverride;
+        _previousWindowGetModeOverride = SettingsManager.WindowGetModeOverride;
+        _previousWindowGetSizeOverride = SettingsManager.WindowGetSizeOverride;
+        _previousFileWriteTextOverride = SettingsManager.FileWriteTextOverride;
+        _previousFileMoveWithOverwriteOverride = SettingsManager.FileMoveWithOverwriteOverride;
+        _previousFileMoveOverride = SettingsManager.FileMoveOverride;
+        _previousFileDeleteOverride = SettingsManager.FileDeleteOverride;
+
+        _simulatedWindowMode = DisplayServer.WindowGetMode();
+        _simulatedWindowSize = DisplayServer.WindowGetSize();
+        SettingsManager.WindowSetModeOverride = mode => _simulatedWindowMode = mode;
+        SettingsManager.WindowSetSizeOverride = size => _simulatedWindowSize = size;
+        SettingsManager.WindowGetModeOverride = () => _simulatedWindowMode;
+        SettingsManager.WindowGetSizeOverride = () => _simulatedWindowSize;
+        SettingsManager.FileWriteTextOverride = (_, _) => { };
+        SettingsManager.FileMoveWithOverwriteOverride = (_, _, _) => { };
+        SettingsManager.FileMoveOverride = (_, _) => { };
+        SettingsManager.FileDeleteOverride = _ => { };
+    }
+
+    private void RestoreSettingsOverrides()
+    {
+        SettingsManager.WindowSetModeOverride = _previousWindowSetModeOverride;
+        SettingsManager.WindowSetSizeOverride = _previousWindowSetSizeOverride;
+        SettingsManager.WindowGetModeOverride = _previousWindowGetModeOverride;
+        SettingsManager.WindowGetSizeOverride = _previousWindowGetSizeOverride;
+        SettingsManager.FileWriteTextOverride = _previousFileWriteTextOverride;
+        SettingsManager.FileMoveWithOverwriteOverride = _previousFileMoveWithOverwriteOverride;
+        SettingsManager.FileMoveOverride = _previousFileMoveOverride;
+        SettingsManager.FileDeleteOverride = _previousFileDeleteOverride;
+    }
+
+    private static PuzzleRiddleSpawn CreateRuntimeRiddle(
+        string name,
+        string puzzleId,
+        Vector2I gridPosition)
+    {
+        return new PuzzleRiddleSpawn
+        {
+            Name = name,
+            RiddleId = name,
+            PuzzleId = puzzleId,
+            GridPosition = gridPosition,
+            PromptText = "Which stone opens the old gate?",
+            ChoiceIds = new Godot.Collections.Array<string> { "east_stone" },
+            ChoiceLabels = new Godot.Collections.Array<string> { "East Stone" },
+            CorrectChoiceId = "east_stone",
+            WrongAnswerDamage = 12
+        };
+    }
+
+    private sealed class InputActionSnapshot
+    {
+        public bool Existed { get; init; }
+        public float Deadzone { get; init; }
+        public List<InputEvent> Events { get; } = new();
+    }
+
     public partial class LifecycleGame : Game
     {
         public Action? MainMenuNavigationRequested { get; set; }
         protected override double DefeatReturnDelaySeconds => 0.01;
         protected override void ReturnToMainMenu() => MainMenuNavigationRequested?.Invoke();
 
+        public override void _Ready()
+        {
+        }
+    }
+
+    public partial class LifecycleGameManager : GameManager
+    {
         public override void _Ready()
         {
         }

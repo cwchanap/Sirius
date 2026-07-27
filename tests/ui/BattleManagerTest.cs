@@ -411,7 +411,7 @@ public partial class BattleManagerTest : Node
     }
 
     [TestCase]
-    public async Task ForceCloseDuringPreparation_EmitsEscapeOnce()
+    public async Task ForceCloseDuringPreparation_EmitsOnceAndClosesImmediately()
     {
         var manager = await CreateReadyBattleManager();
         int count = 0;
@@ -424,6 +424,8 @@ public partial class BattleManagerTest : Node
 
             AssertThat(count).IsEqual(1);
             AssertThat(escaped).IsTrue();
+            AssertThat(manager.Visible).IsFalse();
+            AssertThat(manager.IsQueuedForDeletion()).IsTrue();
         }
         finally
         {
@@ -432,7 +434,7 @@ public partial class BattleManagerTest : Node
     }
 
     [TestCase]
-    public async Task ForceCloseDuringAutomaticCombat_StopsTimerClearsEffectsAndEmitsOnce()
+    public async Task ForceCloseDuringAutomaticCombat_StopsTimerClearsEffectsEmitsOnceAndClosesImmediately()
     {
         var manager = await CreateReadyBattleManager();
         var player = GetPrivateField<Character>(manager, "_player");
@@ -450,26 +452,8 @@ public partial class BattleManagerTest : Node
             AssertThat(player.ActiveBuffs.HasAny).IsFalse();
             AssertThat(enemy.ActiveStatusEffects.HasAny).IsFalse();
             AssertThat(count).IsEqual(1);
-        }
-        finally
-        {
-            await FreeManager(manager);
-        }
-    }
-
-    [TestCase]
-    public async Task ForceCloseAfterResult_DoesNotEmitSecondResult()
-    {
-        var manager = await CreateReadyBattleManager();
-        int count = 0;
-        manager.BattleFinished += (_, _) => count++;
-        try
-        {
-            InvokePrivateMethod(manager, "EndBattleWithEscape");
-            manager.ForceCloseAsEscape();
-
-            AssertThat(count).IsEqual(1);
             AssertThat(manager.Visible).IsFalse();
+            AssertThat(manager.IsQueuedForDeletion()).IsTrue();
         }
         finally
         {

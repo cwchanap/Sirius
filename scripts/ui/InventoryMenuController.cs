@@ -25,6 +25,8 @@ public partial class InventoryMenuController : Control
 	private StyleBoxFlat _basePanelStyle;
 	private StyleBoxFlat _equippedPanelStyle;
 	private StyleBoxFlat _lockedPanelStyle;
+	private bool _pauseSnapshotCaptured;
+	private bool _treeWasPausedBeforeOpen;
 
 	public override void _Ready()
 	{
@@ -190,6 +192,12 @@ public partial class InventoryMenuController : Control
 
 	public void OpenMenu()
 	{
+		if (!_pauseSnapshotCaptured)
+		{
+			_treeWasPausedBeforeOpen = GetTree().Paused;
+			_pauseSnapshotCaptured = true;
+		}
+
 		RefreshUI();
 		Show();
 		GetTree().Paused = true;
@@ -198,7 +206,21 @@ public partial class InventoryMenuController : Control
 	public void CloseMenu()
 	{
 		Hide();
-		GetTree().Paused = false;
+		RestoreTreePause();
+	}
+
+	private void RestoreTreePause()
+	{
+		if (!_pauseSnapshotCaptured)
+			return;
+
+		GetTree().Paused = _treeWasPausedBeforeOpen;
+		_pauseSnapshotCaptured = false;
+	}
+
+	public override void _ExitTree()
+	{
+		RestoreTreePause();
 	}
 
 	private void RefreshUI()

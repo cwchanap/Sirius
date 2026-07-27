@@ -171,11 +171,13 @@ public partial class GameInputLifecycleTest : Node
             var floorManager = game.GetNode<FloorManager>("FloorManager");
             var originalGrid = floorManager.CurrentGridMap;
             ulong originalGridId = originalGrid.GetInstanceId();
+            var prompt = game.GetNode<Label>("UI/GameUI/InteractionPrompt");
+            prompt.Visible = true;
+            AssertThat(prompt.Visible).IsTrue();
 
             AssertThat(floorManager.LoadFloor(1)).IsTrue();
             await AwaitFrames(8);
 
-            var prompt = game.GetNode<Label>("UI/GameUI/InteractionPrompt");
             AssertThat(floorManager.CurrentGridMap.GetInstanceId()).IsNotEqual(originalGridId);
             AssertThat(GetPrivateField<GridMap>(game, "_gridMap"))
                 .IsEqual(floorManager.CurrentGridMap);

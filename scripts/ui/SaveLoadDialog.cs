@@ -31,6 +31,7 @@ public partial class SaveLoadDialog : AcceptDialog
     private readonly SaveSlotInfo[] _slotInfos = new SaveSlotInfo[4];
     private int _pendingSaveSlot = -1;
     private AcceptDialog? _activeConfirmDialog;
+    private bool _terminalEmitted;
 
     public override void _Ready()
     {
@@ -103,11 +104,13 @@ public partial class SaveLoadDialog : AcceptDialog
 
         // Connect dialog close signal
         CloseRequested += OnCloseRequested;
+        Canceled += OnCloseRequested;
     }
 
     public override void _ExitTree()
     {
         CloseRequested -= OnCloseRequested;
+        Canceled -= OnCloseRequested;
         if (_mainMenuButton != null)
             _mainMenuButton.Pressed -= OnMainMenuPressed;
         if (_cancelButton != null)
@@ -135,6 +138,7 @@ public partial class SaveLoadDialog : AcceptDialog
     /// </summary>
     public void ShowDialog(DialogMode mode)
     {
+        _terminalEmitted = false;
         _mode = mode;
         Title = mode == DialogMode.Save ? "Save Game" : "Load Game";
 
@@ -209,12 +213,18 @@ public partial class SaveLoadDialog : AcceptDialog
             else
             {
                 // Empty slot, corrupted, or autosave - proceed immediately
+                if (!TryBeginTerminal())
+                    return;
+
                 Hide();
                 EmitSignal(SignalName.SaveSlotSelected, slot);
             }
         }
         else
         {
+            if (!TryBeginTerminal())
+                return;
+
             Hide();
             EmitSignal(SignalName.LoadSlotSelected, slot);
         }
@@ -273,6 +283,9 @@ public partial class SaveLoadDialog : AcceptDialog
 
             if (slotToSave >= 0)
             {
+                if (!TryBeginTerminal())
+                    return;
+
                 // Hide parent dialog before emitting to prevent further slot interaction
                 Hide();
                 EmitSignal(SignalName.SaveSlotSelected, slotToSave);
@@ -303,6 +316,9 @@ public partial class SaveLoadDialog : AcceptDialog
     private void OnMainMenuPressed()
     {
         GD.Print("Main Menu button pressed");
+        if (!TryBeginTerminal())
+            return;
+
         Hide();
 
         // The save dialog should only be reachable when not in battle.
@@ -323,8 +339,7 @@ public partial class SaveLoadDialog : AcceptDialog
     private void OnCancelPressed()
     {
         GD.Print("Cancel button pressed");
-        Hide();
-        EmitSignal(SignalName.DialogClosed);
+        EmitDialogClosedOnce();
     }
 
     /// <summary>
@@ -351,6 +366,23 @@ public partial class SaveLoadDialog : AcceptDialog
 
     private void OnCloseRequested()
     {
+        EmitDialogClosedOnce();
+    }
+
+    private bool TryBeginTerminal()
+    {
+        if (_terminalEmitted)
+            return false;
+
+        _terminalEmitted = true;
+        return true;
+    }
+
+    private void EmitDialogClosedOnce()
+    {
+        if (!TryBeginTerminal())
+            return;
+
         Hide();
         EmitSignal(SignalName.DialogClosed);
     }

@@ -184,6 +184,11 @@ public partial class MainMenu : Control
 	private void _on_quit_button_pressed()
 	{
 		GD.Print("Quit button pressed");
+		RequestApplicationQuit();
+	}
+
+	protected virtual void RequestApplicationQuit()
+	{
 		GetTree().Quit();
 	}
 

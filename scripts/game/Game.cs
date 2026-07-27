@@ -40,6 +40,10 @@ public partial class Game : Node2D
     private Label? _interactionPromptLabel;
     private bool _pauseMenuRestorePending;
     private bool _saveLoadFromPause;
+    private SceneTreeTimer? _defeatReturnTimer;
+    private Action? _defeatReturnHandler;
+
+    protected virtual double DefeatReturnDelaySeconds => 2.0;
 
     public override void _EnterTree()
     {
@@ -343,6 +347,15 @@ public partial class Game : Node2D
             return;
         }
 
+        if (_battleManager != null
+            && GodotObject.IsInstanceValid(_battleManager)
+            && _battleManager.Visible)
+        {
+            _battleManager.ForceCloseAsEscape();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         if (_puzzleRiddleDialog != null && IsInstanceValid(_puzzleRiddleDialog))
         {
             return;
@@ -378,7 +391,7 @@ public partial class Game : Node2D
         }
 
         // In battle: close the battle dialog as an escape to unlock input
-        if (_battleManager != null)
+        if (_battleManager != null && GodotObject.IsInstanceValid(_battleManager))
         {
             GD.Print("ESC pressed during battle - requesting battle dialog to close as escape");
             _battleManager.ForceCloseAsEscape();
@@ -460,6 +473,7 @@ public partial class Game : Node2D
         if (npcData == null) return;
 
         _gameManager.StartNpcInteraction();
+        UpdateInteractionPrompt();
 
         _npcInteractionController = new NpcInteractionController(
             _gameManager, GetNode("UI"), npcData, _gameManager.Player, _questFlags);
@@ -474,6 +488,7 @@ public partial class Game : Node2D
             _npcInteractionController.InteractionComplete -= OnNpcInteractionComplete;
             _npcInteractionController = null;
             _gameManager.EndNpcInteraction();
+            UpdateInteractionPrompt();
         }
     }
 
@@ -960,6 +975,7 @@ public partial class Game : Node2D
         _gameManager.EndNpcInteraction();
         _npcInteractionController = null;
         UpdatePlayerUI();
+        UpdateInteractionPrompt();
     }
 
     private void OnNpcInteractionResetRequested()
@@ -1135,6 +1151,7 @@ public partial class Game : Node2D
     private void OnBattleStarted(Enemy enemy)
     {
         GD.Print($"Starting battle with {enemy.Name}");
+        UpdateInteractionPrompt();
 
         // Don't hide game UI - battle will be shown as a popup dialog
 
@@ -1184,9 +1201,13 @@ public partial class Game : Node2D
         // Clean up the battle dialog
         if (_battleManager != null)
         {
-            _battleManager.BattleFinished -= OnBattleFinished;
-            _battleManager.Confirmed -= OnBattleDialogConfirmed;
-            _battleManager.QueueFree();
+            if (GodotObject.IsInstanceValid(_battleManager))
+            {
+                _battleManager.BattleFinished -= OnBattleFinished;
+                _battleManager.Confirmed -= OnBattleDialogConfirmed;
+                _battleManager.QueueFree();
+            }
+
             _battleManager = null;
         }
         
@@ -1205,9 +1226,9 @@ public partial class Game : Node2D
         GD.Print($"OnBattleFinished called. Player won: {playerWon}, Player escaped: {playerEscaped}");
         
         // Prevent multiple calls
-        if (_battleManager == null)
+        if (_battleManager == null || !GodotObject.IsInstanceValid(_battleManager))
         {
-            GD.Print("BattleManager is null, battle already finished");
+            GD.Print("BattleManager is unavailable, battle already finished");
             return;
         }
         
@@ -1238,8 +1259,10 @@ public partial class Game : Node2D
         // Only return to main menu if player was actually defeated (not escaped)
         if (!playerWon && !playerEscaped)
         {
-            GetTree().CreateTimer(2.0).Timeout += ReturnToMainMenu;
+            ScheduleDefeatReturnToMainMenu();
         }
+
+        UpdateInteractionPrompt();
     }
 
     private void UpdatePlayerUI()
@@ -1350,7 +1373,37 @@ public partial class Game : Node2D
         }
     }
 
-    private void ReturnToMainMenu()
+    private void ScheduleDefeatReturnToMainMenu()
+    {
+        CancelDefeatReturnToMainMenu();
+        _defeatReturnTimer = GetTree().CreateTimer(DefeatReturnDelaySeconds);
+        _defeatReturnHandler = OnDefeatReturnTimeout;
+        _defeatReturnTimer.Timeout += _defeatReturnHandler;
+    }
+
+    private void OnDefeatReturnTimeout()
+    {
+        CancelDefeatReturnToMainMenu();
+        if (IsInsideTree())
+        {
+            ReturnToMainMenu();
+        }
+    }
+
+    private void CancelDefeatReturnToMainMenu()
+    {
+        if (_defeatReturnTimer != null
+            && GodotObject.IsInstanceValid(_defeatReturnTimer)
+            && _defeatReturnHandler != null)
+        {
+            _defeatReturnTimer.Timeout -= _defeatReturnHandler;
+        }
+
+        _defeatReturnTimer = null;
+        _defeatReturnHandler = null;
+    }
+
+    protected virtual void ReturnToMainMenu()
     {
         GD.Print("Returning to main menu");
         GetTree().ChangeSceneToFile("res://scenes/ui/MainMenu.tscn");
@@ -1825,6 +1878,8 @@ public partial class Game : Node2D
 
     public override void _ExitTree()
     {
+        CancelDefeatReturnToMainMenu();
+
         // Disconnect all signal subscriptions to prevent memory leaks
         if (_gameManager != null)
         {
@@ -1885,9 +1940,13 @@ public partial class Game : Node2D
 
         if (_battleManager != null)
         {
-            _battleManager.BattleFinished -= OnBattleFinished;
-            _battleManager.Confirmed -= OnBattleDialogConfirmed;
-            _battleManager.QueueFree();
+            if (GodotObject.IsInstanceValid(_battleManager))
+            {
+                _battleManager.BattleFinished -= OnBattleFinished;
+                _battleManager.Confirmed -= OnBattleDialogConfirmed;
+                _battleManager.QueueFree();
+            }
+
             _battleManager = null;
         }
 

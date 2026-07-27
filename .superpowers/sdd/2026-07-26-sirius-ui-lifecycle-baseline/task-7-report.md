@@ -42,9 +42,19 @@ rtk proxy dotnet test Sirius.sln --settings test.runsettings.local --no-restore 
 The run completed through the repository's pre-existing orphan warnings
 (`Detected <7>`, `Detected <10>`, and seven `Detected <1>` messages), but its
 runner emitted no final aggregate and left the requested results directory
-empty. This prevents a trustworthy exact all-suite count in this subtask.
-The controller will rerun the exact committed revision at its direct runtime
-boundary with a persistent TRX artifact.
+empty at this subtask's execution boundary.
+
+### Controller validation
+
+The controller reran the exact committed revision (`7bbbecd`) at its direct
+unsandboxed runtime boundary with a persistent TRX artifact:
+
+```bash
+rtk dotnet test Sirius.sln --settings test.runsettings.local --no-restore --results-directory /private/tmp/hpa-376-task7-controller-results --logger "trx;LogFileName=task7.trx"
+```
+
+Result: **905 passed, 0 failed, 0 skipped**, with 320 pre-existing warnings.
+This is the authoritative complete-suite verification for Task 7.
 
 `rtk git diff --check` passed.
 
@@ -65,7 +75,5 @@ boundary with a persistent TRX artifact.
 
 ## Concern
 
-The focused suite is verified green. Full-suite completion and the preserved
-orphan-warning pattern were observed, but the requested Task 7 TRX artifact
-was not produced by this execution boundary; exact full-suite totals remain
-for the controller's direct post-commit rerun.
+None. The controller's persistent-TRX run resolved the local full-suite
+artifact limitation and verified the exact Task 7 commit.

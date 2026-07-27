@@ -96,7 +96,7 @@ outcome="Completed"
 total="912" executed="912" passed="912" failed="0" notExecuted="0"
 ```
 
-Artifact:
+Local ignored evidence input (not committed branch content):
 
 `.superpowers/sdd/2026-07-26-sirius-ui-lifecycle-baseline/artifacts/task-8-full.trx`
 
@@ -128,3 +128,39 @@ An initial full-suite attempt hit GdUnit4's 20-second Godot compilation timeout 
 ## Concerns
 
 No correctness or scope concerns remain. The only verification concern was the transient first-run GdUnit4 compilation timeout; the subsequent retained full-suite artifact is complete and green.
+
+## Fix Round 1
+
+Review finding addressed:
+
+- Strengthened `FloorReplacement_RebindsGridAndRefreshesPrompt` so the real-scene prompt is explicitly made visible and asserted visible before `FloorManager.LoadFloor(1)`. The post-transition assertion now proves the deferred `OnFloorLoaded` refresh clears stale visible state after rebinding.
+- Clarified that TRX files under `artifacts/` are local ignored evidence inputs, not committed branch content.
+
+Covering verification:
+
+```bash
+rtk dotnet test Sirius.sln --settings test.runsettings.local \
+  --filter "FullyQualifiedName~GameInputLifecycleTest" \
+  --logger "console;verbosity=minimal"
+```
+
+Result: 7 passed, 0 failed, 0 skipped.
+
+```bash
+rtk dotnet test Sirius.sln --settings test.runsettings.local \
+  --filter "FullyQualifiedName~GameTest" \
+  --logger "console;verbosity=minimal"
+```
+
+Result: 45 passed, 0 failed, 0 skipped.
+
+```bash
+rtk proxy dotnet test Sirius.sln --settings test.runsettings.local \
+  --results-directory .superpowers/sdd/2026-07-26-sirius-ui-lifecycle-baseline/artifacts \
+  --logger "trx;LogFileName=task-8-fix-round-1-full.trx" \
+  --logger "console;verbosity=minimal"
+```
+
+Result: 912 passed, 0 failed, 0 skipped. Local ignored evidence input:
+
+`.superpowers/sdd/2026-07-26-sirius-ui-lifecycle-baseline/artifacts/task-8-fix-round-1-full.trx`

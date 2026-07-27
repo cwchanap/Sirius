@@ -883,17 +883,17 @@ git commit -m "fix: emit modal terminal outcomes once"
 
 ---
 
-### Task 6: Characterize NPC Transitions and Shop Cleanup
+### Task 6: Characterize NPC Transitions and Fix Shop Cleanup
 
 **Files:**
 - Create: `tests/ui/NpcInteractionControllerTest.cs`
 - Modify: `tests/ui/ShopDialogTest.cs`
+- Modify: `scripts/ui/ShopDialog.cs`
 - Reference: `scripts/ui/NpcInteractionController.cs`
-- Reference: `scripts/ui/ShopDialog.cs`
 
 **Interfaces:**
 - Consumes: terminal guarantees from Task 5 and `NpcInteractionController.InteractionComplete`.
-- Produces: executable dialogue-to-shop/heal restoration and cleanup evidence.
+- Produces: executable dialogue-to-shop/heal restoration evidence and immediate Shop feedback-timer cleanup on close.
 
 - [ ] **Step 1: Add NPC orchestration tests**
 
@@ -1019,19 +1019,47 @@ private static T? GetNullablePrivateField<T>(object instance, string fieldName)
 }
 ```
 
-- [ ] **Step 3: Run the NPC and Shop suites**
+- [ ] **Step 3: Run the NPC and Shop suites and observe the timer-cleanup failure**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~ShopDialogTest"
 ```
 
-Expected: all selected tests pass without source changes. A failure is a review stop because it contradicts the current-source characterization; revise the plan before making any `NpcInteractionController` or `ShopDialog` production edit.
+Expected: the NPC transition and Shop close-idempotency cases pass, while `Close_CancelsPendingFeedbackTimer` fails because `OnCloseRequested()` leaves `_feedbackTimer` attached until `_ExitTree()`.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Cancel pending feedback immediately on Shop close**
+
+In `ShopDialog.OnCloseRequested()`, call `CancelFeedbackTimer()` after acquiring the existing `_closed` gate and before hiding/emitting `ShopClosed`:
+
+```csharp
+private void OnCloseRequested()
+{
+    if (_closed)
+        return;
+
+    _closed = true;
+    CancelFeedbackTimer();
+    Hide();
+    EmitSignal(SignalName.ShopClosed);
+}
+```
+
+Do not change Shop ownership, public signals, or `NpcInteractionController`.
+
+- [ ] **Step 5: Run the focused and full suites**
 
 ```bash
-git add tests/ui/NpcInteractionControllerTest.cs tests/ui/ShopDialogTest.cs
-git commit -m "test: characterize NPC lifecycle transitions"
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~ShopDialogTest"
+dotnet test Sirius.sln --settings test.runsettings.local
+```
+
+Expected: all selected tests and the full suite pass.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add scripts/ui/ShopDialog.cs tests/ui/NpcInteractionControllerTest.cs tests/ui/ShopDialogTest.cs
+git commit -m "fix: clean up shop feedback on close"
 ```
 
 ---

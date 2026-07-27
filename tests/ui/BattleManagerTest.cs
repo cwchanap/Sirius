@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using System;
+using System.Threading.Tasks;
 using static GdUnit4.Assertions;
 
 /// <summary>
@@ -407,6 +408,94 @@ public partial class BattleManagerTest : Node
             AssertThat(cooldowns["heal"]).IsEqual(2)
                 .OverrideFailureMessage("Passive cooldowns must tick even when the active skill kills the enemy on that turn.");
         });
+    }
+
+    [TestCase]
+    public async Task ForceCloseDuringPreparation_EmitsEscapeOnce()
+    {
+        var manager = await CreateReadyBattleManager();
+        int count = 0;
+        bool escaped = false;
+        manager.BattleFinished += (_, wasEscaped) => { count++; escaped = wasEscaped; };
+        try
+        {
+            manager.ForceCloseAsEscape();
+            manager.ForceCloseAsEscape();
+
+            AssertThat(count).IsEqual(1);
+            AssertThat(escaped).IsTrue();
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
+    [TestCase]
+    public async Task ForceCloseDuringAutomaticCombat_StopsTimerClearsEffectsAndEmitsOnce()
+    {
+        var manager = await CreateReadyBattleManager();
+        var player = GetPrivateField<Character>(manager, "_player");
+        var enemy = GetPrivateField<Enemy>(manager, "_enemy");
+        player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Strength, 2, 2));
+        enemy.ActiveStatusEffects.Add(new ActiveStatusEffect(StatusEffectType.Poison, 1, 2));
+        InvokePrivateMethod(manager, "OnStartButtonPressed");
+        int count = 0;
+        manager.BattleFinished += (_, _) => count++;
+        try
+        {
+            manager.ForceCloseAsEscape();
+
+            AssertThat(GetPrivateField<Timer>(manager, "_battleTimer").IsStopped()).IsTrue();
+            AssertThat(player.ActiveBuffs.HasAny).IsFalse();
+            AssertThat(enemy.ActiveStatusEffects.HasAny).IsFalse();
+            AssertThat(count).IsEqual(1);
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
+    [TestCase]
+    public async Task ForceCloseAfterResult_DoesNotEmitSecondResult()
+    {
+        var manager = await CreateReadyBattleManager();
+        int count = 0;
+        manager.BattleFinished += (_, _) => count++;
+        try
+        {
+            InvokePrivateMethod(manager, "EndBattleWithEscape");
+            manager.ForceCloseAsEscape();
+
+            AssertThat(count).IsEqual(1);
+            AssertThat(manager.Visible).IsFalse();
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
+    private async Task<BattleManager> CreateReadyBattleManager()
+    {
+        var scene = GD.Load<PackedScene>("res://scenes/ui/BattleScene.tscn")
+            ?? throw new InvalidOperationException("Failed to load BattleScene.tscn.");
+        var manager = scene.Instantiate<BattleManager>();
+        ((SceneTree)Engine.GetMainLoop()).Root.AddChild(manager);
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        manager.PopupCentered();
+        manager.StartBattle(TestHelpers.CreateTestCharacter(), Enemy.CreateGoblin());
+        return manager;
+    }
+
+    private async Task FreeManager(BattleManager manager)
+    {
+        if (GodotObject.IsInstanceValid(manager) && !manager.IsQueuedForDeletion())
+            manager.QueueFree();
+
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
     }
 
     private static void WithBattleManager(Action<BattleManager> testBody)

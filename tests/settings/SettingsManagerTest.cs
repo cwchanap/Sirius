@@ -12,11 +12,7 @@ public partial class SettingsManagerTest : Node
 {
     private SettingsManager? _settingsManager;
     private GameManager? _gameManager;
-    private Dictionary<string, List<InputEvent>> _originalBindings = new();
-    private List<InputEvent> _originalUiCancelEvents = new();
-    private List<InputEvent> _originalUiCloseDialogEvents = new();
-    private bool _uiCancelActionExisted;
-    private bool _uiCloseDialogActionExisted;
+    private Dictionary<string, InputActionSnapshot> _originalBindings = new();
     private DisplayServer.WindowMode _originalWindowMode;
     private Vector2I _originalWindowSize;
     private DisplayServer.WindowMode _simulatedWindowMode;
@@ -29,6 +25,15 @@ public partial class SettingsManagerTest : Node
         "toggle_inventory",
         "interact",
         "pause_menu"
+    };
+
+    // UI actions synchronized by SettingsManager.ApplyInputBindings in
+    // addition to the managed game actions. Captured alongside ManagedActions
+    // so cleanup restores existence and deadzone, not just event lists.
+    private static readonly string[] CapturedUiActions =
+    {
+        "ui_cancel",
+        "ui_close_dialog"
     };
 
     [BeforeTest]
@@ -1545,23 +1550,15 @@ public partial class SettingsManagerTest : Node
 
     private void CaptureRuntimeState()
     {
-        _originalBindings = new Dictionary<string, List<InputEvent>>();
+        _originalBindings = new Dictionary<string, InputActionSnapshot>();
         foreach (var action in ManagedActions)
         {
-            _originalBindings[action] = InputMap.HasAction(action)
-                ? new List<InputEvent>(InputMap.ActionGetEvents(action))
-                : new List<InputEvent>();
+            _originalBindings[action] = CaptureActionSnapshot(action);
         }
-
-        // Also capture the built-in UI actions changed by input synchronization.
-        _uiCancelActionExisted = InputMap.HasAction("ui_cancel");
-        _originalUiCancelEvents = _uiCancelActionExisted
-            ? new List<InputEvent>(InputMap.ActionGetEvents("ui_cancel"))
-            : new List<InputEvent>();
-        _uiCloseDialogActionExisted = InputMap.HasAction("ui_close_dialog");
-        _originalUiCloseDialogEvents = _uiCloseDialogActionExisted
-            ? new List<InputEvent>(InputMap.ActionGetEvents("ui_close_dialog"))
-            : new List<InputEvent>();
+        foreach (var action in CapturedUiActions)
+        {
+            _originalBindings[action] = CaptureActionSnapshot(action);
+        }
 
         _originalWindowMode = DisplayServer.WindowGetMode();
         _originalWindowSize = DisplayServer.WindowGetSize();
@@ -1575,32 +1572,45 @@ public partial class SettingsManagerTest : Node
         }
     }
 
+    private static InputActionSnapshot CaptureActionSnapshot(string action)
+    {
+        var existed = InputMap.HasAction(action);
+        var snapshot = new InputActionSnapshot
+        {
+            Existed = existed,
+            Deadzone = existed ? InputMap.ActionGetDeadzone(action) : 0.5f
+        };
+        if (existed)
+        {
+            foreach (var inputEvent in InputMap.ActionGetEvents(action))
+            {
+                snapshot.Events.Add((InputEvent)inputEvent.Duplicate());
+            }
+        }
+        return snapshot;
+    }
+
     private void RestoreRuntimeState()
     {
-        foreach (var action in ManagedActions)
+        foreach (var (action, snapshot) in _originalBindings)
         {
             if (InputMap.HasAction(action))
             {
                 InputMap.EraseAction(action);
             }
 
-            var originalEvents = _originalBindings[action];
-            if (originalEvents.Count > 0)
+            if (!snapshot.Existed)
             {
-                if (!InputMap.HasAction(action))
-                {
-                    InputMap.AddAction(action);
-                }
+                continue;
+            }
 
-                foreach (var evt in originalEvents)
-                {
-                    InputMap.ActionAddEvent(action, evt);
-                }
+            InputMap.AddAction(action);
+            InputMap.ActionSetDeadzone(action, snapshot.Deadzone);
+            foreach (var inputEvent in snapshot.Events)
+            {
+                InputMap.ActionAddEvent(action, (InputEvent)inputEvent.Duplicate());
             }
         }
-
-        RestoreActionEvents("ui_cancel", _uiCancelActionExisted, _originalUiCancelEvents);
-        RestoreActionEvents("ui_close_dialog", _uiCloseDialogActionExisted, _originalUiCloseDialogEvents);
 
         while (AudioServer.BusCount > _originalBusCount)
         {
@@ -1713,28 +1723,6 @@ public partial class SettingsManagerTest : Node
         return false;
     }
 
-    private static void RestoreActionEvents(
-        string actionName,
-        bool actionExisted,
-        List<InputEvent> originalEvents)
-    {
-        if (InputMap.HasAction(actionName))
-        {
-            InputMap.EraseAction(actionName);
-        }
-
-        if (!actionExisted)
-        {
-            return;
-        }
-
-        InputMap.AddAction(actionName);
-        foreach (var inputEvent in originalEvents)
-        {
-            InputMap.ActionAddEvent(actionName, inputEvent);
-        }
-    }
-
     private static void DeleteSettingsFiles()
     {
         foreach (var path in new[]
@@ -1754,5 +1742,12 @@ public partial class SettingsManagerTest : Node
                 Directory.Delete(path, true);
             }
         }
+    }
+
+    private sealed class InputActionSnapshot
+    {
+        public bool Existed;
+        public float Deadzone = 0.5f;
+        public readonly List<InputEvent> Events = new();
     }
 }

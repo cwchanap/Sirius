@@ -31,7 +31,7 @@ public partial class SettingsManagerTest : Node
         "pause_menu"
     };
 
-    [Before]
+    [BeforeTest]
     public async Task Setup()
     {
         ResetSingleton();
@@ -42,7 +42,7 @@ public partial class SettingsManagerTest : Node
         await EnsureManagersFreed();
     }
 
-    [After]
+    [AfterTest]
     public async Task Cleanup()
     {
         await EnsureManagersFreed();

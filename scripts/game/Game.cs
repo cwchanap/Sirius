@@ -1195,10 +1195,8 @@ public partial class Game : Node2D
         // Battle logic is now handled in OnBattleFinished
     }
 
-    private void OnBattleDialogConfirmed()
+    private void CleanupBattleManager()
     {
-        GD.Print("Battle dialog confirmed (OK button pressed)");
-        // Clean up the battle dialog
         if (_battleManager != null)
         {
             if (GodotObject.IsInstanceValid(_battleManager))
@@ -1210,7 +1208,14 @@ public partial class Game : Node2D
 
             _battleManager = null;
         }
-        
+    }
+
+    private void OnBattleDialogConfirmed()
+    {
+        GD.Print("Battle dialog confirmed (OK button pressed)");
+        // Clean up the battle dialog
+        CleanupBattleManager();
+
         // Ensure battle state is properly reset (safety check)
         if (_gameManager.IsInBattle)
         {
@@ -1938,17 +1943,7 @@ public partial class Game : Node2D
             _activeErrorPopup = null;
         }
 
-        if (_battleManager != null)
-        {
-            if (GodotObject.IsInstanceValid(_battleManager))
-            {
-                _battleManager.BattleFinished -= OnBattleFinished;
-                _battleManager.Confirmed -= OnBattleDialogConfirmed;
-                _battleManager.QueueFree();
-            }
-
-            _battleManager = null;
-        }
+        CleanupBattleManager();
 
         if (_pauseMenuDialog != null)
         {

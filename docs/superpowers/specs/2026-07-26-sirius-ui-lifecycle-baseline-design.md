@@ -148,7 +148,7 @@ The implementation contract must contain one row for every ID below. An ID may n
 | `BATTLE-ESC-ACTIVE` | Escape during automatic combat | Timer/effect cleanup and exactly-once result | Audit; fix only on failing contract |
 | `BATTLE-RESULT-VICTORY` | Visible victory/loot Continue surface | `IsInBattle` may already be false | Topmost routing is `Fix in HPA-376`; legacy Cancel dismissal is `Preserve` |
 | `BATTLE-RESULT-DEFEAT` | Defeat result and delayed return-to-menu | Unretained two-second `SceneTreeTimer` callback can outlive the tested flow and trigger stale navigation | Topmost routing and owned/guarded delayed transition are `Fix in HPA-376` |
-| `BATTLE-RESULT-ESCAPE` | Escape result Continue surface | `IsInBattle` may already be false | Topmost routing is `Fix in HPA-376`; legacy Cancel dismissal is `Preserve` |
+| `BATTLE-RESULT-ESCAPE` | Escape result immediate close | `IsInBattle` clears when the escape result emits, and `OnCloseRequested` continues synchronously to hide/queue | `Preserve` immediate-close escape contract and exactly-one result |
 | `BATTLE-CLEANUP` | Battle close/free cleanup | Continue, Cancel, window close, deferred callbacks, and repeat triggers | Audit; exactly-once defects may be fixed |
 | `NPC-DIALOGUE` | Dialogue active | Continue/choice and permitted Cancel | Audit from source |
 | `NPC-TO-SHOP` | Dialogue-to-Shop transition | Dialogue parent retained or replaced; focus/restoration | Audit from source |
@@ -228,7 +228,7 @@ Key exceptions remain explicit:
 - While `_pauseMenuRestorePending` is true, `pause_menu` is consumed as a no-op so the closing child cannot immediately toggle the parent being restored. HPA-376 preserves that outcome; HPA-378 may replace the boolean mechanism with an atomic navigation transition.
 - NPC and puzzle dialogs receive Cancel without Pause opening behind them.
 - A cancelable world-interaction modal such as a puzzle/riddle receives Cancel itself. A non-cancelable atomic world interaction such as treasure opening blocks inventory and Pause until its `IsInWorldInteraction` cleanup completes.
-- Battle preparation and automatic combat use the existing battle escape policy. The legacy battle Continue surface remains Cancel-dismissible, but it remains topmost even after the battle domain flag has cleared; HPA-376 routes it through `BattleManager.ForceCloseAsEscape()`, consumes the input, and prevents Pause from opening behind it.
+- Battle preparation and automatic combat use the existing battle escape policy, which closes immediately without a player-visible escape-result surface. The legacy victory/defeat Continue surface remains Cancel-dismissible, but it remains topmost even after the battle domain flag has cleared; HPA-376 routes it through guarded public close, consumes the input, and prevents Pause from opening behind it.
 - Pause and Save/Load quit-to-title actions retain their current cleanup semantics, but HPA-378/379 must insert HPA-373's explicit quit-with-risk confirmation before navigation.
 - A producer-designated required acknowledgement is distinct from the legacy battle Continue surface. It does not dismiss through a generic Cancel path and is implemented by downstream host/reward presentation work.
 
@@ -250,7 +250,7 @@ The audit explicitly exercises both currently guarded controllers (`PauseMenuDia
 
 ### 8.1 Known battle-result routing correction
 
-HPA-376 owns one known cross-controller defect. While a battle result, defeat, or escape Continue surface is valid and visible, `Game` routes Cancel to that presentation before considering Pause even when `GameManager.IsInBattle` is already false.
+HPA-376 owns one known cross-controller defect. While a battle result or defeat Continue surface is valid and visible, `Game` routes Cancel to that presentation before considering Pause even when `GameManager.IsInBattle` is already false. Escape closes immediately and exposes no standalone visible surface.
 
 The correction:
 

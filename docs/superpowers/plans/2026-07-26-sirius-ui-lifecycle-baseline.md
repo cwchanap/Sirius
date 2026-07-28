@@ -204,7 +204,7 @@ Use these exact HPA-376-owned fixes:
 INV-GAMEPLAY: prior-pause snapshot and restoration
 SET-MAIN / SET-PAUSE: exactly-once Closed emission
 SAVE-MAIN / SAVE-PAUSE: ui_cancel handling and exactly-once terminal emission
-BATTLE-RESULT-VICTORY / BATTLE-RESULT-ESCAPE: visible result routing
+BATTLE-RESULT-VICTORY: visible result routing
 BATTLE-RESULT-DEFEAT: visible result routing and owned delayed navigation
 NPC-DIALOGUE / NPC-HEAL / WORLD-RIDDLE: exactly-once mutually exclusive terminal emission
 EXP-PROMPT: refresh at battle/NPC lifecycle boundaries
@@ -1146,26 +1146,6 @@ public async Task ForceCloseDuringAutomaticCombat_StopsTimerClearsEffectsAndEmit
         AssertThat(player.ActiveBuffs.HasAny).IsFalse();
         AssertThat(enemy.ActiveStatusEffects.HasAny).IsFalse();
         AssertThat(count).IsEqual(1);
-    }
-    finally
-    {
-        await FreeManager(manager);
-    }
-}
-
-[TestCase]
-public async Task ForceCloseAfterResult_DoesNotEmitSecondResult()
-{
-    var manager = await CreateReadyBattleManager();
-    int count = 0;
-    manager.BattleFinished += (_, _) => count++;
-    try
-    {
-        InvokePrivateMethod(manager, "EndBattleWithEscape");
-        manager.ForceCloseAsEscape();
-
-        AssertThat(count).IsEqual(1);
-        AssertThat(manager.Visible).IsFalse();
     }
     finally
     {

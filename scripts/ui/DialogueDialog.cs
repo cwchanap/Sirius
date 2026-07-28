@@ -113,6 +113,13 @@ public partial class DialogueDialog : AcceptDialog
 
     private void OnChoicePressed(DialogueChoice choice)
     {
+        // A terminal signal may have already been emitted (e.g. a prior
+        // choice in the same frame, or NpcInteractionController disconnecting
+        // and QueueFree'ing this dialog). Guard before any domain side effect
+        // so exactly-once signalling is also exactly-once domain behaviour.
+        if (_terminalEmitted)
+            return;
+
         // Grant quest flag if specified
         if (!string.IsNullOrEmpty(choice.GrantFlag))
             _questFlags?.Add(choice.GrantFlag);

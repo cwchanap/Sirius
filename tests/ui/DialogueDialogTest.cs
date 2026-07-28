@@ -67,6 +67,62 @@ public partial class DialogueDialogTest : Node
         AssertThat(closed).IsEqual(0);
     }
 
+    [TestCase]
+    public void SecondTerminalChoice_AfterTerminalEmitted_GrantsOnlyFirstFlag()
+    {
+        // Two terminal choices on the root node, each granting a different
+        // quest flag. After the first choice fires its terminal signal,
+        // a second already-dispatched button press must not grant the
+        // second flag (exactly-once domain behaviour, not just signalling).
+        var flags = new HashSet<string>();
+        var tree = new DialogueTree
+        {
+            TreeId = "test_two_terminal_choices",
+            Nodes = new Dictionary<string, DialogueNode>
+            {
+                ["root"] = new DialogueNode
+                {
+                    NodeId = "root",
+                    SpeakerName = "Test",
+                    Text = "Pick one.",
+                    Choices = new[]
+                    {
+                        new DialogueChoice
+                        {
+                            Label = "First terminal.",
+                            Outcome = DialogueOutcomeType.CloseAndReturn,
+                            GrantFlag = "first_flag"
+                        },
+                        new DialogueChoice
+                        {
+                            Label = "Second terminal.",
+                            Outcome = DialogueOutcomeType.CloseAndReturn,
+                            GrantFlag = "second_flag"
+                        }
+                    }
+                }
+            }
+        };
+
+        int outcomes = 0;
+        _dialog.DialogueOutcome += _ => outcomes++;
+        _dialog.StartDialogue(
+            NpcCatalog.GetById("old_farmer")!,
+            tree,
+            TestHelpers.CreateTestCharacter(),
+            flags);
+
+        FindButton("First terminal.").EmitSignal(Button.SignalName.Pressed);
+        // Simulate a second button press reaching OnChoicePressed after the
+        // terminal signal has already been emitted (e.g. a queued event
+        // dispatched before NpcInteractionController's QueueFree takes effect).
+        FindButton("Second terminal.").EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(outcomes).IsEqual(1);
+        AssertThat(flags.Contains("first_flag")).IsTrue();
+        AssertThat(flags.Contains("second_flag")).IsFalse();
+    }
+
     private Button FindButton(string text)
     {
         var button = FindButton(_dialog, text);

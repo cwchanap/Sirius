@@ -35,7 +35,7 @@ public partial class GameInputLifecycleTest : Node
         var sceneTree = (SceneTree)Engine.GetMainLoop();
         _treeWasPaused = sceneTree.Paused;
         sceneTree.Paused = false;
-        CaptureInputActions("pause_menu", "ui_cancel", "ui_close_dialog");
+        CaptureInputActions("toggle_inventory", "interact", "pause_menu", "ui_cancel", "ui_close_dialog");
         CaptureAudioState();
         CaptureAndInstallSettingsOverrides();
 

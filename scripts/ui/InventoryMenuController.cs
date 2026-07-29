@@ -5,7 +5,10 @@ using System.Text;
 
 public partial class InventoryMenuController : Control
 {
+	private static readonly StringName ToggleInventoryAction = "toggle_inventory";
+	private readonly InputHintPresenter _inputHintPresenter = new();
 	private GameManager _gameManager;
+	private Button _closeButton = null!;
 
 	private readonly Dictionary<EquipmentSlotType, EquipmentSlotUI> _equipmentSlots = new();
 	private readonly List<AccessorySlotUI> _accessorySlots = new();
@@ -41,6 +44,8 @@ public partial class InventoryMenuController : Control
 
 		UiIconPresenter.Apply(GetNode<TextureRect>("%EquipmentTitleIcon"), UiIconId.Equipment, UiIconSize.Default);
 		UiIconPresenter.Apply(GetNode<TextureRect>("%InventoryTitleIcon"), UiIconId.General, UiIconSize.Default);
+		_closeButton = GetNode<Button>("%CloseButton");
+		RefreshCloseHint();
 		CacheStyles();
 		InitializeSkillSelector();
 		InitializeEquipmentSlots();
@@ -52,6 +57,9 @@ public partial class InventoryMenuController : Control
 
 	public override void _Input(InputEvent @event)
 	{
+		if (_inputHintPresenter.Observe(@event) && Visible)
+			RefreshCloseHint();
+
 		if (@event.IsActionPressed("ui_cancel") || @event.IsActionPressed("toggle_inventory"))
 		{
 			if (Visible)
@@ -201,8 +209,14 @@ public partial class InventoryMenuController : Control
 		}
 
 		RefreshUI();
+		RefreshCloseHint();
 		Show();
 		GetTree().Paused = true;
+	}
+
+	private void RefreshCloseHint()
+	{
+		_inputHintPresenter.ApplyCompactButton(_closeButton, "Close", ToggleInventoryAction);
 	}
 
 	public void CloseMenu()

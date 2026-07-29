@@ -1,5 +1,166 @@
 [
   {
+    "alpha_sha256": "3c2a4a755bf8d32e7a8c1b1d5766395125744fdc421da969a2abb034e002a778",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/effects/encounter_burst-alpha.png",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "effects",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "encounter_burst",
+    "intended_usage": "Battle encounter transition burst",
+    "kind": "effect",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 1,
+      "high_alpha_chroma_despill": true,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/effects/encounter_burst-source.png",
+    "source_sha256": "31d22c0b9b617c73c9f6d273654e7a5b53af468e6930c59e49a1c162b64c62da",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        256,
+        256
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "f200e4d2bb469ccc36fce97d8a5649f00fa98f93b0421253c72e868ee3312f10",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/effects/hit_impact-alpha.png",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "effects",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "hit_impact",
+    "intended_usage": "Battle hit-impact overlay",
+    "kind": "effect",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/effects/hit_impact-source.png",
+    "source_sha256": "d1026cac6f5e825ede80eab552ec9ca1b28fce865d603a593d410a967ba4c430",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        256,
+        256
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "9911eb8b34c8b24930cdb0c1de3b8dd16e6f47241c851780b76753cf80ab8236",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/effects/reward_level_up-alpha.png",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "effects",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "reward_level_up",
+    "intended_usage": "Level-up reward overlay",
+    "kind": "effect",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/effects/reward_level_up-source.png",
+    "source_sha256": "d6d2133689a8348016f30d7a5b824b368845c690ce7db11e0ca39268d3cfbf93",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        256,
+        256
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "6bba926d9c88c2c723b1b36d2d74378ff293a2ba75794b318f5a67392b55b18c",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/effects/status_pulse-alpha.png",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "effects",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "status_pulse",
+    "intended_usage": "Status-effect pulse overlay",
+    "kind": "effect",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/effects/status_pulse-source.png",
+    "source_sha256": "0588d112691c14df1003b0999e0420fb76d149d8f5e0972cf585504ef08a04d3",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        256,
+        256
+      ]
+    ]
+  },
+  {
     "alpha_sha256": "844f096b58663d7584d12ed7e1de285fd30eedccc988e9a9505a39d6b878f58e",
     "alpha_size": [
       1254,

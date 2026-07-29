@@ -7,7 +7,7 @@ import subprocess
 from PIL import Image
 
 from tools.ui_art_pipeline import MAP_RELATIVE_PATH, _intended_usage, runtime_path, sha256_file
-from tools.ui_art_spec import ICON_FAMILIES, ICON_GROUPS, ORNAMENT_SIZES
+from tools.ui_art_spec import EFFECT_SIZES, ICON_FAMILIES, ICON_GROUPS, ORNAMENT_SIZES
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -36,6 +36,11 @@ def _input_glyph_records() -> list[dict]:
 def _ornament_records() -> list[dict]:
     return [record for record in json.loads((PROJECT_ROOT / MAP_RELATIVE_PATH).read_text())
             if record["family"] == "ornaments"]
+
+
+def _effect_records() -> list[dict]:
+    return [record for record in json.loads((PROJECT_ROOT / MAP_RELATIVE_PATH).read_text())
+            if record["family"] == "effects"]
 
 
 def test_input_glyph_family_has_all_true_size_runtime_derivatives():
@@ -126,6 +131,65 @@ def test_icon_import_sidecars_are_never_tracked():
     assert not [path for path in tracked if path.startswith((
         "assets/sprites/ui/icons/", "assets/sprites/ui/ornaments/",
     ))]
+
+
+def test_effects_are_the_exact_tracked_mipmap_import_exception():
+    tracked = subprocess.check_output(
+        ["git", "ls-files", "*.png.import"], cwd=PROJECT_ROOT, text=True
+    ).splitlines()
+    expected = {
+        f"assets/sprites/effects/ui/{asset_id}.png.import"
+        for asset_id in EFFECT_SIZES
+    }
+    assert {path for path in tracked if path.startswith("assets/sprites/effects/ui/")} == expected
+    for relative_path in sorted(expected):
+        contents = (PROJECT_ROOT / relative_path).read_text()
+        for setting in (
+            "compress/mode=0", "mipmaps/generate=true", "mipmaps/limit=-1",
+            "process/fix_alpha_border=true", "process/premult_alpha=false",
+        ):
+            assert setting in contents
+
+
+def test_effect_runtime_pngs_preserve_alpha_and_chroma_contracts():
+    records = _effect_records()
+    assert {record["id"] for record in records} == set(EFFECT_SIZES)
+    for record in records:
+        width, height = EFFECT_SIZES[record["id"]]
+        path = runtime_path(record, PROJECT_ROOT, width, height)
+        with Image.open(path) as image:
+            assert image.mode == "RGBA"
+            assert image.size == (width, height)
+            assert "icc_profile" not in image.info
+            rgba = image.convert("RGBA")
+        alpha = rgba.getchannel("A")
+        visible = alpha.getbbox()
+        assert alpha.getextrema()[0] == 0
+        assert visible is not None
+        left, top, right, bottom = visible
+        assert left >= 1 and top >= 1 and right <= width - 1 and bottom <= height - 1
+        assert not any(a and g > 160 and g > r * 1.3 and g > b * 1.3 for r, g, b, a in rgba.getdata())
+
+
+def test_effect_map_hashes_and_manifest_agree_when_local_masters_exist():
+    records = _effect_records()
+    assert len(records) == len(EFFECT_SIZES)
+    manifest = (PROJECT_ROOT / "docs/ui/hpa-374/sources/SOURCE_MANIFEST.md").read_text()
+    for record in records:
+        source = PROJECT_ROOT / record["source"]
+        alpha = PROJECT_ROOT / record["alpha_source"]
+        if source.is_file():
+            assert sha256_file(source) == record["source_sha256"]
+        if alpha.is_file():
+            assert sha256_file(alpha) == record["alpha_sha256"]
+        for expected in (
+            record["id"], record["family"], record["source"], record["alpha_source"],
+            record["source_sha256"], record["alpha_sha256"], str(record["source_size"]),
+            str(record["alpha_size"]), str(record["crop"]), str(record["target_sizes"]),
+            json.dumps(record["postprocess"], sort_keys=True), record["generator"], record["generated_on"],
+            record["intended_usage"],
+        ):
+            assert expected in manifest
 
 
 def test_ornament_runtime_pngs_preserve_live_release_contracts():

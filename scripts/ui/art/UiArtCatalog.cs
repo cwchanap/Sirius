@@ -39,6 +39,7 @@ public enum UiEffectId
 public static class UiArtCatalog
 {
     private static readonly HashSet<string> MissingPaths = new();
+    private static Func<string, bool> ResourceExists = path => ResourceLoader.Exists(path);
 
     public static string GetIconPath(UiIconId id, UiIconSize size)
     {
@@ -161,7 +162,7 @@ public static class UiArtCatalog
 
     private static T? LoadOnce<T>(string path) where T : Resource
     {
-        if (ResourceLoader.Exists(path))
+        if (ResourceExists(path))
             return ResourceLoader.Load<T>(path);
 
         if (MissingPaths.Add(path))

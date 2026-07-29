@@ -74,6 +74,21 @@ def remove_low_alpha_chroma_residue(image: Image.Image, *, opaque_threshold: int
     return cleaned
 
 
+def remove_scoped_high_alpha_chroma_residue(image: Image.Image, postprocess: dict) -> Image.Image:
+    """Despill opaque key residue only for the explicitly registered exceptional master."""
+    if not postprocess.get("high_alpha_chroma_despill", False):
+        return image
+    opaque_threshold = postprocess.get("opaque_threshold", POSTPROCESS["opaque_threshold"])
+    cleaned = image.convert("RGBA").copy()
+    cleaned.putdata([
+        (red, min(green, int(max(red, blue) * 1.3)), blue, alpha)
+        if alpha >= opaque_threshold and _is_chroma_contamination(red, green, blue, alpha)
+        else (red, green, blue, alpha)
+        for red, green, blue, alpha in cleaned.getdata()
+    ])
+    return cleaned
+
+
 def runtime_path(record: dict, project_root: Path, target_width: int, target_height: int) -> Path:
     asset_id = record["id"]
     match record["kind"]:
@@ -239,6 +254,9 @@ def export_record(record: dict, project_root: Path) -> list[Path]:
             resized = enforce_horizontal_seam(resized)
         resized = remove_low_alpha_chroma_residue(
             resized, opaque_threshold={**POSTPROCESS, **record.get("postprocess", {})}["opaque_threshold"]
+        )
+        resized = remove_scoped_high_alpha_chroma_residue(
+            resized, {**POSTPROCESS, **record.get("postprocess", {})}
         )
         _validate_final_asset(record, resized)
         derivatives.append(resized)
@@ -694,6 +712,10 @@ INTENDED_USAGE = {
     "gamepad_dpad": "Gamepad D-pad direction binding glyph",
     "gamepad_stick": "Gamepad analog-stick direction binding glyph",
     "gamepad_shoulder": "Gamepad shoulder/trigger binding glyph",
+    "encounter_burst": "Battle encounter transition burst",
+    "hit_impact": "Battle hit-impact overlay",
+    "status_pulse": "Status-effect pulse overlay",
+    "reward_level_up": "Level-up reward overlay",
 }
 
 

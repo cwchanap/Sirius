@@ -10,7 +10,7 @@ For overall asset status see `docs/items/ASSET_STATUS.md`.
 - `assets/sprites/ui/ui_main_menu_background.png` — existing background, `1920×1080`
 - `assets/sprites/ui/ui_battle_background.png` — existing background, `1280×720`
 - `assets/sprites/ui/original/` contains reference copies of both existing shipped backgrounds
-- Buttons, status icons, and combat effects do not have shipped runtime assets yet, so their documented target sizes remain the current planning reference
+- HPA-374 catalog icons and effects are runtime assets; `UiArtCatalog` owns their paths and optional-load behavior.
 
 ## Generation Notes
 
@@ -45,15 +45,16 @@ For overall asset status see `docs/items/ASSET_STATUS.md`.
 | ❌ missing | `assets/sprites/ui/icon_experience.png` | 16×16 |
 | ❌ missing | `assets/sprites/ui/icon_level.png` | 16×16 |
 
-### Combat Effects
+### Catalog Effects (HPA-374)
 
-| Status | File | Size |
-|--------|------|------|
-| ❌ missing | `assets/sprites/effects/effect_hit_impact.png` | 96×96 |
-| ❌ missing | `assets/sprites/effects/effect_magic_sparkles.png` | 96×96 |
-| ❌ missing | `assets/sprites/effects/effect_level_up.png` | 96×96 |
+| Status | File | Size | Mipmaps |
+|--------|------|------|---------|
+| ✅ exists | `assets/sprites/effects/ui/encounter_burst.png` | 256×256 | enabled |
+| ✅ exists | `assets/sprites/effects/ui/hit_impact.png` | 256×256 | enabled |
+| ✅ exists | `assets/sprites/effects/ui/status_pulse.png` | 256×256 | enabled |
+| ✅ exists | `assets/sprites/effects/ui/reward_level_up.png` | 256×256 | enabled |
 
-> Combat effects have no loading code yet — reserved for future battle animations.
+> These are static catalog resources. `UiArtCatalog.LoadEffect()` remains the single runtime loading path; this task does not add scene integration or animation playback.
 
 ---
 
@@ -95,11 +96,4 @@ For overall asset status see `docs/items/ASSET_STATUS.md`.
 
 ## Combat Effect Prompts
 
-**Hit Impact** (`effect_hit_impact.png`) — ❌ needs generation
-> "Create a 96x96 anime-style impact effect sprite. Explosive impact with anime-style action lines, energy bursts, and dynamic shapes. Bright anime colors with bold black outlines. Powerful and dramatic, anime battle effect aesthetics — intense, impactful. Include starburst patterns and energy waves. Vibrant oranges, yellows, white highlights. Transparent background."
-
-**Magic Sparkles** (`effect_magic_sparkles.png`) — ❌ needs generation
-> "Create a 96x96 anime-style magical sparkle effect sprite. Floating sparkles, magical particles, and energy wisps. Bright anime colors with soft glowing effects. Mystical and beautiful, anime magic aesthetics — ethereal, enchanting. Include various sized sparkles and light particles. Vibrant purples, blues, golden magical effects. Transparent background."
-
-**Level Up** (`effect_level_up.png`) — ❌ needs generation
-> "Create a 96x96 anime-style level up effect sprite. Triumphant light rays, rising stars, and celebratory sparkles. Bright anime colors with bold highlights. Victorious and empowering, anime achievement aesthetics — glorious, uplifting. Include ascending light beams and celebration particles. Vibrant golds, whites, rainbow highlights. Transparent background."
+Canonical HPA-374 prompts and their visual/reference contracts are recorded in `docs/ui/hpa-374/sources/prompts/effects.md`. The four catalog effects above supersede the older 96×96 planning placeholders.

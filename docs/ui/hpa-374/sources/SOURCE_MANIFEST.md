@@ -3,6 +3,74 @@
 The UI artwork listed in this manifest was generated specifically for Sirius
 with OpenAI image_gen and was not sourced from a third-party art pack.
 
+## `encounter_burst`
+
+- Family: `effects`
+- Selected source: `art_source/ui/hpa-374/boards/effects/encounter_burst-source.png`
+- Source SHA-256: `31d22c0b9b617c73c9f6d273654e7a5b53af468e6930c59e49a1c162b64c62da`
+- Selected alpha source: `art_source/ui/hpa-374/boards/effects/encounter_burst-alpha.png`
+- Alpha SHA-256: `3c2a4a755bf8d32e7a8c1b1d5766395125744fdc421da969a2abb034e002a778`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[256, 256]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 1, "high_alpha_chroma_despill": true, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`effects.md`](prompts/effects.md)
+- Intended usage: Battle encounter transition burst
+- Runtime derivatives: `assets/sprites/effects/ui/encounter_burst.png`
+
+## `hit_impact`
+
+- Family: `effects`
+- Selected source: `art_source/ui/hpa-374/boards/effects/hit_impact-source.png`
+- Source SHA-256: `d1026cac6f5e825ede80eab552ec9ca1b28fce865d603a593d410a967ba4c430`
+- Selected alpha source: `art_source/ui/hpa-374/boards/effects/hit_impact-alpha.png`
+- Alpha SHA-256: `f200e4d2bb469ccc36fce97d8a5649f00fa98f93b0421253c72e868ee3312f10`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[256, 256]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`effects.md`](prompts/effects.md)
+- Intended usage: Battle hit-impact overlay
+- Runtime derivatives: `assets/sprites/effects/ui/hit_impact.png`
+
+## `reward_level_up`
+
+- Family: `effects`
+- Selected source: `art_source/ui/hpa-374/boards/effects/reward_level_up-source.png`
+- Source SHA-256: `d6d2133689a8348016f30d7a5b824b368845c690ce7db11e0ca39268d3cfbf93`
+- Selected alpha source: `art_source/ui/hpa-374/boards/effects/reward_level_up-alpha.png`
+- Alpha SHA-256: `9911eb8b34c8b24930cdb0c1de3b8dd16e6f47241c851780b76753cf80ab8236`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[256, 256]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`effects.md`](prompts/effects.md)
+- Intended usage: Level-up reward overlay
+- Runtime derivatives: `assets/sprites/effects/ui/reward_level_up.png`
+
+## `status_pulse`
+
+- Family: `effects`
+- Selected source: `art_source/ui/hpa-374/boards/effects/status_pulse-source.png`
+- Source SHA-256: `0588d112691c14df1003b0999e0420fb76d149d8f5e0972cf585504ef08a04d3`
+- Selected alpha source: `art_source/ui/hpa-374/boards/effects/status_pulse-alpha.png`
+- Alpha SHA-256: `6bba926d9c88c2c723b1b36d2d74378ff293a2ba75794b318f5a67392b55b18c`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[256, 256]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`effects.md`](prompts/effects.md)
+- Intended usage: Status-effect pulse overlay
+- Runtime derivatives: `assets/sprites/effects/ui/status_pulse.png`
+
 ## `load`
 
 - Family: `flow-semantic`
@@ -1296,15 +1364,10 @@ The initial `save` source was rejected by the unmodified 16px opaque-core valida
 The rejected ignored masters remain at `save-rejected-source.png` (`6a8191228b9c7aa4bfeafa440dfb3d6cf8e01818fa4c2cbc1e5a93e9c1b22c0d`) and `save-rejected-alpha.png` (`4ab5516e2095d3e772424af012408bd41f496f12e06355e6a512f3f128d43ec7`).
 One targeted built-in regeneration produced the accepted ignored masters `save-replacement-source.png` (`436e0ee4cefe5671c9dfa0c558847b6fcf44e1844445b281118657374561d6ae`) and `save-replacement-alpha.png` (`12f7ad549ac3ca9c000ece0616a47a616adc73ce4ca3e950de9f44305c8d964b`), which were copied into the registered `save` source names before extraction. The unmodified extractor then accepted the complete family.
 
-## Ornament replacement history
+## Encounter burst extraction history
 
-All 13 logical ornaments began with one built-in OpenAI image_gen call. Five targeted built-in replacements were permitted only after source-level visual rejection, and a further callout candidate was rejected by the unmodified exporter before runtime promotion. These local masters are deliberately ignored; the selected source and alpha hashes are recorded in each ornament entry above.
+The first built-in `image_gen` source was retained as `encounter_burst-initial-chroma-source.png` (`31d22c0b9b617c73c9f6d273654e7a5b53af468e6930c59e49a1c162b64c62da`). Its initial chroma extraction alpha was retained as `encounter_burst-initial-alpha.png` (`fe1fdbc4f8aa68d2ec0d5634becbdd662d99eda5af6bcb0edde0d79d64bffe3c`). The existing extraction helper was retried once with the permitted `edge_contract: 1`; the selected alpha is `encounter_burst-edge-contract-alpha.png` (`3c2a4a755bf8d32e7a8c1b1d5766395125744fdc421da969a2abb034e002a778`) and is registered as the current alpha source.
 
-- `callout_frame-rejected-source.png` (`9ccd8913cdf6e28316b32fe808d2a8476779658e2623946204bf62dfeae47562`) was rejected because its top and bottom borders fell outside the centered 2:1 crop. `callout_frame-replacement-1-rejected-source.png` (`748aee2a2f472374d960fc59fe23b59631a72d32a429536625c97d2889c4f181`) / `callout_frame-replacement-1-rejected-alpha.png` (`d6e24b3821d671137ae8dcf0bd0307fa0c070d814b842bf7894e732b6feafb29`) then failed the unmodified transparent-center validation after downsampling. The selected masters are `callout_frame-source.png` (`a6f4cf435ef7bf8b74f022e975c96edd06be771e4ce1a863bb1bc3d22d490035`) / `callout_frame-alpha.png` (`a68c89f514a22b6c43867ac4eb90641522ba7d75167df1ef989cac9948dd8a5d`), extracted from a symmetric exact 2:1 crop `[70, 35, 1634, 817]` that preserves every border inside the final 32px bands.
-- `catalogue_rail_endcap-rejected-source.png` (`a5089e86d662d6fced3a2961747d061512729984407987867c6a1667f4d5dc44`), `partial_sigil-rejected-source.png` (`71710ae62e481a62ea5ed0d17bf27fb81bc413fcb7721449e041006dc4876014`), `focus_halo-rejected-source.png` (`8c49e6f197821c0ab7c2a51d41d73f9d69ab241ff7b114f7bc8707187942b891`), and `selection_halo-rejected-source.png` (`4674e917e9c3335ecf8a3725ac4ca05412348c783f5541aeb8fcca3926e00942`) were rejected because they contained a baked checkerboard rather than the required flat #00FF00 chroma-key background. Their selected clean-chroma masters are tracked by the corresponding ornament records above.
+After explicit user authorization, one built-in native-transparency fallback was attempted (`exec-576dda6c-368d-4dea-bba9-0fe58ee450a5.png`, SHA-256 `cf1514a6e5c260be059181c23a309e00bc423ddeb592a9300bf5af6794702b3a`). It was rejected before promotion because its alpha extrema were `(255, 255)`: the apparent checkerboard was baked into a fully opaque image.
 
-## Ornament final derivative cleanup correction
-
-The final-output review found low-alpha green-key residue after Lanczos resampling in the checked-in `orbit_arc`, `trajectory_line`, and `constellation_divider` derivatives. The extractor now deterministically removes only a pixel with `0 < alpha < opaque_threshold` that satisfies the established chroma-key predicate `g > 160`, `g > 1.3r`, and `g > 1.3b`; cyan and gold antialiased edge pixels do not satisfy that predicate and remain unchanged. The repair used the explicit hash-validated, atomic `repair-ornaments --ids orbit_arc trajectory_line constellation_divider` path, retaining all selected masters and map hashes unchanged.
-
-The corrected runtime SHA-256 values are `orbit_arc.png` (`c86f1677baae55f631c8e72dfbf595d43c3ffc70b6555e03393c7975c2b9b6fa`), `trajectory_line.png` (`d1b11a7a6d092e055dde76746fd3c1362b80cda993224b6216e63de4e58b6ecd`), and `constellation_divider.png` (`eb05456a3560b816c8e652b2fb75b8aafb0b9587a487151b2fc641a39933bc12`). Final verification rechecks every released ornament for exact RGBA size, no embedded profile, transparency, chroma absence, normal/callout/calibration safety geometry, and the calibration seam.
+The selected edge-contract output had two remaining high-alpha green-key residues after resize. Only the registered `encounter_burst` record therefore opts into `high_alpha_chroma_despill`; it preserves alpha, red, and blue and clamps only the excessive green component of pixels already matching the chroma-contamination predicate. The final derivative SHA-256 is `9d450d80042643b693443661d9d48a56b65d084bdb793def7352c99af3146c7f`.

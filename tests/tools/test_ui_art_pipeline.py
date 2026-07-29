@@ -190,6 +190,43 @@ def test_low_alpha_chroma_cleanup_removes_review_residues_without_touching_cyan_
     assert cleaned.getpixel((3, 0)) == (245, 215, 110, 27)
 
 
+def test_scoped_high_alpha_despill_clamps_the_two_encounter_residues_without_changing_alpha_or_red_blue():
+    """Removing the scoped clamp would leave the observed opaque encounter-key spill in release art."""
+    image = Image.new("RGBA", (2, 1))
+    image.putdata([
+        (167, 226, 167, 255),  # encounter_burst edge-contract residue at (95, 87)
+        (128, 189, 137, 255),  # encounter_burst edge-contract residue at (121, 175)
+    ])
+
+    cleaned = pipeline.remove_scoped_high_alpha_chroma_residue(
+        image, {"high_alpha_chroma_despill": True}
+    )
+
+    assert cleaned.getpixel((0, 0)) == (167, 217, 167, 255)
+    assert cleaned.getpixel((1, 0)) == (128, 178, 137, 255)
+
+
+def test_scoped_high_alpha_despill_leaves_authored_colours_and_unscoped_records_unchanged():
+    """A global clamp would damage legitimate glow and is not an acceptable chroma-key repair."""
+    image = Image.new("RGBA", (6, 1))
+    image.putdata([
+        (98, 220, 255, 27),   # authored cyan edge
+        (245, 215, 110, 27),  # authored gold edge
+        (214, 98, 190, 27),   # authored magenta edge
+        (104, 210, 168, 255), # legitimate green palette sample; not contamination
+        (167, 226, 167, 255), # matching high-alpha residue
+        (128, 189, 137, 255), # matching high-alpha residue
+    ])
+
+    scoped = pipeline.remove_scoped_high_alpha_chroma_residue(
+        image, {"high_alpha_chroma_despill": True}
+    )
+    unscoped = pipeline.remove_scoped_high_alpha_chroma_residue(image, {})
+
+    assert list(scoped.getdata())[:4] == list(image.getdata())[:4]
+    assert list(unscoped.getdata()) == list(image.getdata())
+
+
 def test_verify_rejects_final_ornament_chroma_contamination(tmp_path: Path):
     """Verification must catch a green resampling fringe in a committed runtime file."""
     project = tmp_path / "project"

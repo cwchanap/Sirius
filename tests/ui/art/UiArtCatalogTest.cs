@@ -128,32 +128,66 @@ public partial class UiArtCatalogTest : Node
     public void Catalog_LoadIcon_DeduplicatesMissingWarningsAndFallsBackToSizeMatchedInfo()
     {
         var missingPaths = GetMissingPaths();
+        var originalResourceExists = GetResourceExists();
         missingPaths.Clear();
+        SetResourceExists(_ => false);
 
-        AssertThat(UiArtCatalog.LoadIcon(UiIconId.Health, UiIconSize.Feature)).IsNull();
-        AssertThat(missingPaths.SetEquals(new[]
+        try
         {
-            "res://assets/sprites/ui/icons/stats/32/health.png",
-            "res://assets/sprites/ui/icons/semantic/32/info.png"
-        })).IsTrue();
+            AssertThat(UiArtCatalog.LoadIcon(UiIconId.Health, UiIconSize.Feature)).IsNull();
+            AssertThat(missingPaths.SetEquals(new[]
+            {
+                "res://assets/sprites/ui/icons/stats/32/health.png",
+                "res://assets/sprites/ui/icons/semantic/32/info.png"
+            })).IsTrue();
 
-        AssertThat(UiArtCatalog.LoadIcon(UiIconId.Health, UiIconSize.Feature)).IsNull();
-        AssertThat(missingPaths.Count).IsEqual(2);
+            AssertThat(UiArtCatalog.LoadIcon(UiIconId.Health, UiIconSize.Feature)).IsNull();
+            AssertThat(missingPaths.Count).IsEqual(2);
+        }
+        finally
+        {
+            SetResourceExists(originalResourceExists);
+            missingPaths.Clear();
+        }
     }
 
     [TestCase]
     public void Catalog_LoadIcon_InvalidIdUsesReadableInfoFallbackWithoutInvalidPath()
     {
         var missingPaths = GetMissingPaths();
+        var originalResourceExists = GetResourceExists();
         missingPaths.Clear();
+        SetResourceExists(_ => false);
 
-        AssertThat(UiArtCatalog.LoadIcon((UiIconId)999, UiIconSize.Metadata)).IsNull();
-        AssertThat(missingPaths.SetEquals(new[]
+        try
         {
-            "res://assets/sprites/ui/icons/semantic/16/info.png"
-        })).IsTrue();
-        AssertThrown(() => UiArtCatalog.GetIconPath((UiIconId)999, UiIconSize.Metadata))
-            .IsInstanceOf<ArgumentOutOfRangeException>();
+            AssertThat(UiArtCatalog.LoadIcon((UiIconId)999, UiIconSize.Metadata)).IsNull();
+            AssertThat(missingPaths.SetEquals(new[]
+            {
+                "res://assets/sprites/ui/icons/semantic/16/info.png"
+            })).IsTrue();
+            AssertThrown(() => UiArtCatalog.GetIconPath((UiIconId)999, UiIconSize.Metadata))
+                .IsInstanceOf<ArgumentOutOfRangeException>();
+        }
+        finally
+        {
+            SetResourceExists(originalResourceExists);
+            missingPaths.Clear();
+        }
+    }
+
+    [TestCase]
+    public void Effects_LoadAtDocumentedSizeWithMipmaps()
+    {
+        foreach (var id in Enum.GetValues<UiEffectId>())
+        {
+            var texture = UiArtCatalog.LoadEffect(id);
+            AssertThat(texture).IsNotNull();
+            AssertThat(texture!.GetSize()).IsEqual(new Vector2(256, 256));
+            var image = texture.GetImage();
+            AssertThat(image).IsNotNull();
+            AssertThat(image!.HasMipmaps()).IsTrue();
+        }
     }
 
     private static HashSet<string> GetMissingPaths()
@@ -161,5 +195,19 @@ public partial class UiArtCatalogTest : Node
         var field = typeof(UiArtCatalog).GetField(
             "MissingPaths", BindingFlags.NonPublic | BindingFlags.Static)!;
         return (HashSet<string>)field.GetValue(null)!;
+    }
+
+    private static Func<string, bool> GetResourceExists()
+    {
+        var field = typeof(UiArtCatalog).GetField(
+            "ResourceExists", BindingFlags.NonPublic | BindingFlags.Static)!;
+        return (Func<string, bool>)field.GetValue(null)!;
+    }
+
+    private static void SetResourceExists(Func<string, bool> resourceExists)
+    {
+        var field = typeof(UiArtCatalog).GetField(
+            "ResourceExists", BindingFlags.NonPublic | BindingFlags.Static)!;
+        field.SetValue(null, resourceExists);
     }
 }

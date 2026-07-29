@@ -283,6 +283,8 @@ def _registered_record(family: str, asset_id: str, kind: str, category: str | No
               "postprocess": {**POSTPROCESS, "edge_contract": int(asset_id == "calibration_ticks")}}
     if category is not None:
         record["category"] = category
+    if old and old.get("intended_usage"):
+        record["intended_usage"] = old["intended_usage"]
     if old and old.get("source_sha256") == source_hash and old.get("alpha_sha256") == alpha_hash:
         record["generated_on"] = old["generated_on"]
     return record
@@ -605,10 +607,23 @@ INTENDED_USAGE = {
     "error": "Error semantic indicator paired with readable text",
     "confirm": "Confirm semantic control paired with readable text",
     "cancel_close": "Cancel or close semantic control paired with readable text",
+    "keyboard": "Keyboard device-context glyph",
+    "keycap_blank": "Localized keyboard binding label frame",
+    "mouse": "Mouse device-context glyph",
+    "mouse_primary": "Primary mouse-button binding glyph",
+    "mouse_secondary": "Secondary mouse-button binding glyph",
+    "mouse_wheel": "Mouse-wheel binding glyph",
+    "gamepad": "Gamepad device-context glyph",
+    "gamepad_face_blank": "Localized gamepad face-button binding frame",
+    "gamepad_dpad": "Gamepad D-pad direction binding glyph",
+    "gamepad_stick": "Gamepad analog-stick direction binding glyph",
+    "gamepad_shoulder": "Gamepad shoulder/trigger binding glyph",
 }
 
 
 def _intended_usage(record: dict) -> str:
+    if "intended_usage" in record:
+        return record["intended_usage"]
     if record["id"] in INTENDED_USAGE:
         return INTENDED_USAGE[record["id"]]
     return f"{record['family']} UI artwork"

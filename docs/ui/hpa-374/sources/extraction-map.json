@@ -737,6 +737,7 @@
     "generated_on": "2026-07-29",
     "generator": "OpenAI image_gen",
     "id": "gamepad",
+    "intended_usage": "Gamepad device-context glyph",
     "kind": "icon",
     "postprocess": {
       "auto_key": "border",
@@ -785,6 +786,7 @@
     "generated_on": "2026-07-29",
     "generator": "OpenAI image_gen",
     "id": "gamepad_dpad",
+    "intended_usage": "Gamepad D-pad direction binding glyph",
     "kind": "icon",
     "postprocess": {
       "auto_key": "border",
@@ -833,6 +835,7 @@
     "generated_on": "2026-07-29",
     "generator": "OpenAI image_gen",
     "id": "gamepad_face_blank",
+    "intended_usage": "Localized gamepad face-button binding frame",
     "kind": "icon",
     "postprocess": {
       "auto_key": "border",
@@ -881,6 +884,7 @@
     "generated_on": "2026-07-29",
     "generator": "OpenAI image_gen",
     "id": "gamepad_shoulder",
+    "intended_usage": "Gamepad shoulder/trigger binding glyph",
     "kind": "icon",
     "postprocess": {
       "auto_key": "border",
@@ -929,6 +933,7 @@
     "generated_on": "2026-07-29",
     "generator": "OpenAI image_gen",
     "id": "gamepad_stick",
+    "intended_usage": "Gamepad analog-stick direction binding glyph",
     "kind": "icon",
     "postprocess": {
       "auto_key": "border",
@@ -977,6 +982,7 @@
     "generated_on": "2026-07-29",
     "generator": "OpenAI image_gen",
     "id": "keyboard",
+    "intended_usage": "Keyboard device-context glyph",
     "kind": "icon",
     "postprocess": {
       "auto_key": "border",
@@ -1025,6 +1031,7 @@
     "generated_on": "2026-07-29",
     "generator": "OpenAI image_gen",
     "id": "keycap_blank",
+    "intended_usage": "Localized keyboard binding label frame",
     "kind": "icon",
     "postprocess": {
       "auto_key": "border",
@@ -1073,6 +1080,7 @@
     "generated_on": "2026-07-29",
     "generator": "OpenAI image_gen",
     "id": "mouse",
+    "intended_usage": "Mouse device-context glyph",
     "kind": "icon",
     "postprocess": {
       "auto_key": "border",
@@ -1121,6 +1129,7 @@
     "generated_on": "2026-07-29",
     "generator": "OpenAI image_gen",
     "id": "mouse_primary",
+    "intended_usage": "Primary mouse-button binding glyph",
     "kind": "icon",
     "postprocess": {
       "auto_key": "border",
@@ -1169,6 +1178,7 @@
     "generated_on": "2026-07-29",
     "generator": "OpenAI image_gen",
     "id": "mouse_secondary",
+    "intended_usage": "Secondary mouse-button binding glyph",
     "kind": "icon",
     "postprocess": {
       "auto_key": "border",
@@ -1217,6 +1227,7 @@
     "generated_on": "2026-07-29",
     "generator": "OpenAI image_gen",
     "id": "mouse_wheel",
+    "intended_usage": "Mouse-wheel binding glyph",
     "kind": "icon",
     "postprocess": {
       "auto_key": "border",

@@ -272,7 +272,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
-- Intended usage: input-glyphs UI artwork
+- Intended usage: Gamepad device-context glyph
 - Runtime derivatives: `assets/sprites/ui/icons/input/16/gamepad.png`, `assets/sprites/ui/icons/input/24/gamepad.png`, `assets/sprites/ui/icons/input/32/gamepad.png`
 
 ## `gamepad_dpad`
@@ -289,7 +289,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
-- Intended usage: input-glyphs UI artwork
+- Intended usage: Gamepad D-pad direction binding glyph
 - Runtime derivatives: `assets/sprites/ui/icons/input/16/gamepad_dpad.png`, `assets/sprites/ui/icons/input/24/gamepad_dpad.png`, `assets/sprites/ui/icons/input/32/gamepad_dpad.png`
 
 ## `gamepad_face_blank`
@@ -306,7 +306,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
-- Intended usage: input-glyphs UI artwork
+- Intended usage: Localized gamepad face-button binding frame
 - Runtime derivatives: `assets/sprites/ui/icons/input/16/gamepad_face_blank.png`, `assets/sprites/ui/icons/input/24/gamepad_face_blank.png`, `assets/sprites/ui/icons/input/32/gamepad_face_blank.png`
 
 ## `gamepad_shoulder`
@@ -323,7 +323,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
-- Intended usage: input-glyphs UI artwork
+- Intended usage: Gamepad shoulder/trigger binding glyph
 - Runtime derivatives: `assets/sprites/ui/icons/input/16/gamepad_shoulder.png`, `assets/sprites/ui/icons/input/24/gamepad_shoulder.png`, `assets/sprites/ui/icons/input/32/gamepad_shoulder.png`
 
 ## `gamepad_stick`
@@ -340,7 +340,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
-- Intended usage: input-glyphs UI artwork
+- Intended usage: Gamepad analog-stick direction binding glyph
 - Runtime derivatives: `assets/sprites/ui/icons/input/16/gamepad_stick.png`, `assets/sprites/ui/icons/input/24/gamepad_stick.png`, `assets/sprites/ui/icons/input/32/gamepad_stick.png`
 
 ## `keyboard`
@@ -357,7 +357,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
-- Intended usage: input-glyphs UI artwork
+- Intended usage: Keyboard device-context glyph
 - Runtime derivatives: `assets/sprites/ui/icons/input/16/keyboard.png`, `assets/sprites/ui/icons/input/24/keyboard.png`, `assets/sprites/ui/icons/input/32/keyboard.png`
 
 ## `keycap_blank`
@@ -374,7 +374,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
-- Intended usage: input-glyphs UI artwork
+- Intended usage: Localized keyboard binding label frame
 - Runtime derivatives: `assets/sprites/ui/icons/input/16/keycap_blank.png`, `assets/sprites/ui/icons/input/24/keycap_blank.png`, `assets/sprites/ui/icons/input/32/keycap_blank.png`
 
 ## `mouse`
@@ -391,7 +391,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
-- Intended usage: input-glyphs UI artwork
+- Intended usage: Mouse device-context glyph
 - Runtime derivatives: `assets/sprites/ui/icons/input/16/mouse.png`, `assets/sprites/ui/icons/input/24/mouse.png`, `assets/sprites/ui/icons/input/32/mouse.png`
 
 ## `mouse_primary`
@@ -408,7 +408,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
-- Intended usage: input-glyphs UI artwork
+- Intended usage: Primary mouse-button binding glyph
 - Runtime derivatives: `assets/sprites/ui/icons/input/16/mouse_primary.png`, `assets/sprites/ui/icons/input/24/mouse_primary.png`, `assets/sprites/ui/icons/input/32/mouse_primary.png`
 
 ## `mouse_secondary`
@@ -425,7 +425,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
-- Intended usage: input-glyphs UI artwork
+- Intended usage: Secondary mouse-button binding glyph
 - Runtime derivatives: `assets/sprites/ui/icons/input/16/mouse_secondary.png`, `assets/sprites/ui/icons/input/24/mouse_secondary.png`, `assets/sprites/ui/icons/input/32/mouse_secondary.png`
 
 ## `mouse_wheel`
@@ -442,7 +442,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
-- Intended usage: input-glyphs UI artwork
+- Intended usage: Mouse-wheel binding glyph
 - Runtime derivatives: `assets/sprites/ui/icons/input/16/mouse_wheel.png`, `assets/sprites/ui/icons/input/24/mouse_wheel.png`, `assets/sprites/ui/icons/input/32/mouse_wheel.png`
 
 ## `assign`

@@ -45,10 +45,11 @@ of this inventory.
 rtk uv run --with-requirements requirements-dev.txt python3 -m pytest tests/tools -q
 rtk uv run --with-requirements requirements-dev.txt python3 tools/ui_art_pipeline.py manifest
 rtk uv run --with-requirements requirements-dev.txt python3 tools/ui_art_pipeline.py contact-sheets
-rtk proxy dotnet test Sirius.sln --settings test.runsettings.local --filter 'Class=UiArtCatalogTest' --no-build
-rtk proxy dotnet test Sirius.sln --settings test.runsettings.local --filter 'Name=Effects_LoadAtDocumentedSizeWithMipmaps' --no-build
-rtk proxy dotnet test Sirius.sln --settings test.runsettings.local --filter 'Name=InventoryHeadings_UseReadableLabelsAndGeneratedIcons|Name=OpenMenu_UsesCurrentToggleInventoryBindingInCloseLabel' --no-build
+rtk proxy dotnet vstest .godot/mono/temp/bin/Debug/Sirius.dll --Settings:test.runsettings.local --Tests:Catalog_ContainsExactReleaseInventory,Effects_LoadAtDocumentedSizeWithMipmaps,ApprovedFonts_LoadAsFontFiles
+rtk proxy dotnet vstest .godot/mono/temp/bin/Debug/Sirius.dll --Settings:test.runsettings.local --Tests:Resolve_ReReadsKeyboardBindingOnEveryCall,Observe_SwitchesBetweenMouseJoypadButtonAndJoypadAxis,Resolve_UnboundActionReturnsReadableFallback,Resolve_MapsMousePrimaryComponent,Resolve_MapsFaceButtonAndStickAxisComponents,Observe_IgnoresJoypadMotionBelowDeadzone
+rtk proxy dotnet vstest .godot/mono/temp/bin/Debug/Sirius.dll --Settings:test.runsettings.local --Tests:InventoryHeadings_UseReadableLabelsAndGeneratedIcons,OpenMenu_UsesCurrentToggleInventoryBindingInCloseLabel
 ```
 
-The focused Godot commands deliberately use VSTest's verified `Class=` and
-exact `Name=` selectors, rather than stale `FullyQualifiedName~` examples.
+These literal VSTest commands were freshly reproduced with 3 catalog/font/effect
+cases, 6 InputHintPresenter cases, and 2 Inventory cases passed. The explicit
+`--Tests:` display names avoid unsupported `dotnet test --filter` selectors.

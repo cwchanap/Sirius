@@ -172,6 +172,69 @@ def test_export_rejects_registered_chroma_contamination(tmp_path: Path):
         export_record(_record(source), tmp_path / "project")
 
 
+def test_low_alpha_chroma_cleanup_removes_review_residues_without_touching_cyan_or_gold():
+    """A post-resize green fringe must not survive into a final UI PNG."""
+    image = Image.new("RGBA", (4, 1), (0, 0, 0, 0))
+    image.putdata([
+        (0, 182, 91, 14),   # orbit_arc review sample
+        (18, 170, 0, 27),   # trajectory_line review sample
+        (98, 220, 255, 27), # intended low-alpha cyan edge
+        (245, 215, 110, 27),# intended low-alpha gold edge
+    ])
+
+    cleaned = pipeline.remove_low_alpha_chroma_residue(image, opaque_threshold=220)
+
+    assert cleaned.getpixel((0, 0)) == (0, 0, 0, 0)
+    assert cleaned.getpixel((1, 0)) == (0, 0, 0, 0)
+    assert cleaned.getpixel((2, 0)) == (98, 220, 255, 27)
+    assert cleaned.getpixel((3, 0)) == (245, 215, 110, 27)
+
+
+def test_verify_rejects_final_ornament_chroma_contamination(tmp_path: Path):
+    """Verification must catch a green resampling fringe in a committed runtime file."""
+    project = tmp_path / "project"
+    record = {
+        "id": "orbit_arc", "family": "ornaments", "kind": "ornament",
+        "target_sizes": [[512, 256]],
+    }
+    output = runtime_path(record, project, 512, 256)
+    output.parent.mkdir(parents=True)
+    image = Image.new("RGBA", (512, 256), (0, 0, 0, 0))
+    image.putpixel((10, 10), (98, 220, 255, 255))
+    image.putpixel((449, 111), (0, 182, 91, 14))
+    image.save(output)
+
+    with pytest.raises(ValueError, match="Chroma contamination"):
+        pipeline._verify_records([record], project)
+
+
+def test_scoped_ornament_repair_replaces_only_requested_derivative(tmp_path: Path):
+    """The repair path is explicit and never becomes a family-wide overwrite escape hatch."""
+    project = tmp_path / "project"
+    source = project / "masters/orbit-alpha.png"
+    source.parent.mkdir(parents=True)
+    image = Image.new("RGBA", (1024, 512), (0, 0, 0, 0))
+    image.paste((98, 220, 255, 255), (200, 200, 824, 312))
+    image.save(source)
+    record = {
+        "id": "orbit_arc", "family": "ornaments", "kind": "ornament",
+        "source": str(source), "alpha_source": str(source),
+        "source_sha256": sha256_file(source), "alpha_sha256": sha256_file(source),
+        "crop": [0, 0, 1024, 512], "target_sizes": [[512, 256]],
+    }
+    map_path = project / pipeline.MAP_RELATIVE_PATH
+    map_path.parent.mkdir(parents=True)
+    map_path.write_text(json.dumps([record]))
+    output = runtime_path(record, project, 512, 256)
+    output.parent.mkdir(parents=True)
+    Image.new("RGBA", (512, 256), (255, 0, 255, 255)).save(output)
+
+    repaired = pipeline.repair_ornament_derivatives(("orbit_arc",), map_path, project)
+
+    assert repaired == [output]
+    assert Image.open(output).getpixel((256, 128)) == (98, 220, 255, 255)
+
+
 def test_export_rejects_registered_icon_without_final_safety_inset(tmp_path: Path):
     source = tmp_path / "source.png"
     image = Image.new("RGBA", (64, 64), (0, 0, 0, 0))

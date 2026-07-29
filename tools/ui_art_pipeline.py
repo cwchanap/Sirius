@@ -59,6 +59,21 @@ def enforce_horizontal_seam(image: Image.Image) -> Image.Image:
     return repaired
 
 
+def _is_chroma_contamination(red: int, green: int, blue: int, alpha: int) -> bool:
+    return bool(alpha and green > 160 and green > red * 1.3 and green > blue * 1.3)
+
+
+def remove_low_alpha_chroma_residue(image: Image.Image, *, opaque_threshold: int) -> Image.Image:
+    """Discard green-key residue introduced by resampling without touching cyan or gold edges."""
+    cleaned = image.convert("RGBA").copy()
+    cleaned.putdata([
+        (0, 0, 0, 0) if 0 < alpha < opaque_threshold and _is_chroma_contamination(red, green, blue, alpha)
+        else (red, green, blue, alpha)
+        for red, green, blue, alpha in cleaned.getdata()
+    ])
+    return cleaned
+
+
 def runtime_path(record: dict, project_root: Path, target_width: int, target_height: int) -> Path:
     asset_id = record["id"]
     match record["kind"]:
@@ -123,9 +138,7 @@ def _validate_alpha_source(record: dict, image: Image.Image) -> None:
     visible = alpha.getbbox()
     if visible is None or alpha.getextrema()[0] != 0:
         raise ValueError(f"Missing transparent alpha for {record['id']}")
-    pixels = rgba.getdata()
-    if any(alpha_value and green > 160 and green > red * 1.3 and green > blue * 1.3
-           for red, green, blue, alpha_value in pixels):
+    if any(_is_chroma_contamination(*pixel) for pixel in rgba.getdata()):
         raise ValueError(f"Chroma contamination for {record['id']}")
 
 
@@ -139,9 +152,18 @@ def _validate_final_asset(record: dict, image: Image.Image) -> None:
     left, top, right, bottom = visible
     is_callout_frame = record["id"] == "callout_frame"
     touches_horizontal = record["id"] == "calibration_ticks"
+    if any(_is_chroma_contamination(*pixel) for pixel in image.convert("RGBA").getdata()):
+        raise ValueError(f"Chroma contamination for {record['id']}")
     if (not is_callout_frame and
             (top < 1 or bottom > image.height - 1 or (not touches_horizontal and (left < 1 or right > image.width - 1)))):
         raise ValueError(f"Final safety inset violated for {record['id']}")
+    if touches_horizontal:
+        if left != 0 or right != image.width or top < 1 or bottom > image.height - 1:
+            raise ValueError("Calibration ticks must touch both horizontal edges and retain vertical safety inset")
+        if image.crop((0, 0, 1, image.height)).tobytes() != image.crop((image.width - 1, 0, image.width, image.height)).tobytes():
+            raise ValueError("Calibration seam mismatch")
+        if alpha.crop((0, 0, 1, image.height)).getbbox() is None:
+            raise ValueError("Calibration ticks must have nonempty horizontal edges")
     if record["kind"] == "icon" and image.size == (16, 16):
         core = alpha.point(lambda value: 255 if value >= 128 else 0).getbbox()
         if core is None:
@@ -215,6 +237,9 @@ def export_record(record: dict, project_root: Path) -> list[Path]:
         resized = _apply_alpha_contract(record, premultiplied_resize(image, (target_width, target_height)))
         if record["id"] == "calibration_ticks":
             resized = enforce_horizontal_seam(resized)
+        resized = remove_low_alpha_chroma_residue(
+            resized, opaque_threshold={**POSTPROCESS, **record.get("postprocess", {})}["opaque_threshold"]
+        )
         _validate_final_asset(record, resized)
         derivatives.append(resized)
     for output, resized in zip(outputs, derivatives):
@@ -342,8 +367,9 @@ def _verify_records(records: list[dict], project_root: Path) -> list[Path]:
             with Image.open(path) as image:
                 if image.mode != "RGBA" or image.size != (width, height):
                     raise ValueError(f"Invalid runtime derivative: {path}")
-                if record["id"] == "calibration_ticks" and image.crop((0, 0, 1, image.height)).tobytes() != image.crop((image.width - 1, 0, image.width, image.height)).tobytes():
-                    raise ValueError(f"Calibration seam mismatch: {path}")
+                if "icc_profile" in image.info or "srgb" in image.info:
+                    raise ValueError(f"Runtime derivative retains a color profile: {path}")
+                _validate_final_asset(record, image.convert("RGBA"))
             verified.append(path)
     return verified
 
@@ -392,6 +418,56 @@ def extract_family(family: str, map_path: Path, project_root: Path) -> list[Path
                     destination.unlink(missing_ok=True)
             raise
         return [destination for _, destination in promoted]
+    finally:
+        shutil.rmtree(temporary_root, ignore_errors=True)
+
+
+def repair_ornament_derivatives(asset_ids: tuple[str, ...], map_path: Path, project_root: Path) -> list[Path]:
+    """Atomically replace named ornament derivatives from their hash-verified selected masters."""
+    requested = tuple(dict.fromkeys(asset_ids))
+    if not requested or any(asset_id not in ORNAMENT_SIZES for asset_id in requested):
+        raise ValueError("Repair requires one or more known ornament IDs")
+    project_root = Path(project_root).resolve()
+    records_by_id = {record["id"]: record for record in _records_for_family("ornaments", Path(map_path))}
+    if not set(requested) <= set(records_by_id):
+        raise ValueError("Repair IDs must be registered ornament records")
+    records = [records_by_id[asset_id] for asset_id in requested]
+    for record in records:
+        _validate_record(record, project_root)
+    targets = [runtime_path(record, project_root, width, height)
+               for record in records for width, height in record["target_sizes"]]
+    missing = next((path for path in targets if not path.exists()), None)
+    if missing is not None:
+        raise FileNotFoundError(f"Scoped repair refuses to create a missing runtime target: {missing}")
+
+    temporary_root = Path(tempfile.mkdtemp(prefix=".ornament-repair-", dir=project_root.parent))
+    staged_project, backup_root = temporary_root / project_root.name, temporary_root / "backups"
+    try:
+        staged: list[Path] = []
+        for record in records:
+            staged_record = dict(record)
+            staged_record["alpha_source"] = str(_source_path(record, project_root))
+            staged.extend(export_record(staged_record, staged_project))
+        _verify_records(records, staged_project)
+
+        promoted: list[tuple[Path, Path]] = []
+        try:
+            for destination in targets:
+                backup = backup_root / destination.relative_to(project_root)
+                backup.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(destination, backup)
+                promoted.append((backup, destination))
+            for staged_path in staged:
+                destination = project_root / staged_path.relative_to(staged_project)
+                os.replace(staged_path, destination)
+        except Exception:
+            for _, destination in promoted:
+                destination.unlink(missing_ok=True)
+            for backup, destination in reversed(promoted):
+                if backup.exists():
+                    os.replace(backup, destination)
+            raise
+        return targets
     finally:
         shutil.rmtree(temporary_root, ignore_errors=True)
 
@@ -696,6 +772,10 @@ def main() -> int:
         sub.add_argument("--map", type=Path)
         if command == "register":
             sub.add_argument("--source-root", type=Path)
+    repair = commands.add_parser("repair-ornaments")
+    repair.add_argument("--ids", nargs="+", required=True, choices=tuple(ORNAMENT_SIZES))
+    repair.add_argument("--project-root", type=Path, default=Path.cwd())
+    repair.add_argument("--map", type=Path)
     for command in ("contact-sheets", "manifest"):
         sub = commands.add_parser(command)
         sub.add_argument("--project-root", type=Path, default=Path.cwd())
@@ -710,6 +790,8 @@ def main() -> int:
         extract_family(args.family, map_path, root)
     elif args.command == "verify":
         verify_family(args.family, root)
+    elif args.command == "repair-ornaments":
+        repair_ornament_derivatives(tuple(args.ids), map_path, root)
     elif args.command == "contact-sheets":
         build_contact_sheets(root)
     else:

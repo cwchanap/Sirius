@@ -1,7 +1,9 @@
 using GdUnit4;
 using Godot;
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using static GdUnit4.Assertions;
 
 [TestSuite]
@@ -11,9 +13,38 @@ public partial class UiArtCatalogTest : Node
     [TestCase]
     public void Catalog_ContainsExactReleaseInventory()
     {
-        AssertThat(Enum.GetValues<UiIconId>().Length).IsEqual(62);
-        AssertThat(Enum.GetValues<UiOrnamentId>().Length).IsEqual(13);
-        AssertThat(Enum.GetValues<UiEffectId>().Length).IsEqual(4);
+        AssertThat(Enum.GetValues<UiIconId>()).ContainsExactly(
+            UiIconId.Health, UiIconId.Mana, UiIconId.Experience, UiIconId.Level,
+            UiIconId.Gold, UiIconId.Attack, UiIconId.Defense, UiIconId.Speed,
+            UiIconId.Poison, UiIconId.Burn, UiIconId.Stun, UiIconId.Weaken,
+            UiIconId.Slow, UiIconId.Blind, UiIconId.Regen, UiIconId.Haste,
+            UiIconId.Strength, UiIconId.Fortify,
+            UiIconId.General, UiIconId.Equipment, UiIconId.Consumable, UiIconId.Quest,
+            UiIconId.Weapon, UiIconId.Shield, UiIconId.Armor, UiIconId.Helmet,
+            UiIconId.Shoe, UiIconId.Accessory, UiIconId.ActiveSkill, UiIconId.Locked,
+            UiIconId.Equip, UiIconId.Unequip, UiIconId.Use, UiIconId.Assign,
+            UiIconId.Buy, UiIconId.Sell,
+            UiIconId.Pause, UiIconId.Resume, UiIconId.Settings, UiIconId.Save,
+            UiIconId.Load,
+            UiIconId.Dialogue, UiIconId.Shop, UiIconId.Heal, UiIconId.Puzzle,
+            UiIconId.Reward,
+            UiIconId.Info, UiIconId.Warning, UiIconId.Error, UiIconId.Confirm,
+            UiIconId.CancelClose,
+            UiIconId.Keyboard, UiIconId.KeycapBlank, UiIconId.Mouse,
+            UiIconId.MousePrimary, UiIconId.MouseSecondary, UiIconId.MouseWheel,
+            UiIconId.Gamepad, UiIconId.GamepadFaceBlank, UiIconId.GamepadDpad,
+            UiIconId.GamepadStick, UiIconId.GamepadShoulder);
+        AssertThat(Enum.GetValues<UiOrnamentId>()).ContainsExactly(
+            UiOrnamentId.CelestialAnchor, UiOrnamentId.OrbitArc,
+            UiOrnamentId.TrajectoryLine, UiOrnamentId.CalibrationTicks,
+            UiOrnamentId.CalloutFrame, UiOrnamentId.CalloutConnector,
+            UiOrnamentId.CatalogueRailEndcap, UiOrnamentId.IgnitionSeal,
+            UiOrnamentId.ConstellationCorner, UiOrnamentId.ConstellationDivider,
+            UiOrnamentId.PartialSigil, UiOrnamentId.FocusHalo,
+            UiOrnamentId.SelectionHalo);
+        AssertThat(Enum.GetValues<UiEffectId>()).ContainsExactly(
+            UiEffectId.EncounterBurst, UiEffectId.HitImpact,
+            UiEffectId.StatusPulse, UiEffectId.RewardLevelUp);
         AssertThat(Enum.GetValues<UiIconSize>().Select(value => (int)value).ToArray())
             .ContainsExactly(16, 24, 32);
     }
@@ -34,11 +65,101 @@ public partial class UiArtCatalogTest : Node
     }
 
     [TestCase]
-    public void Catalog_MapsRuntimeEnumsAndRejectsReservedStatusValue()
+    public void Catalog_MapsEveryRuntimeEnumAndRejectsUnsupportedValues()
     {
-        AssertThat(UiArtCatalog.ForStatusEffect(StatusEffectType.Poison)).IsEqual(UiIconId.Poison);
-        AssertThat(UiArtCatalog.ForItemCategory(ItemCategory.Quest)).IsEqual(UiIconId.Quest);
-        AssertThat(UiArtCatalog.ForEquipmentSlot(EquipmentSlotType.Shoe)).IsEqual(UiIconId.Shoe);
+        var statusMappings = new[]
+        {
+            (StatusEffectType.Poison, UiIconId.Poison),
+            (StatusEffectType.Burn, UiIconId.Burn),
+            (StatusEffectType.Stun, UiIconId.Stun),
+            (StatusEffectType.Weaken, UiIconId.Weaken),
+            (StatusEffectType.Slow, UiIconId.Slow),
+            (StatusEffectType.Blind, UiIconId.Blind),
+            (StatusEffectType.Regen, UiIconId.Regen),
+            (StatusEffectType.Haste, UiIconId.Haste),
+            (StatusEffectType.Strength, UiIconId.Strength),
+            (StatusEffectType.Fortify, UiIconId.Fortify)
+        };
+        AssertThat(Enum.GetValues<StatusEffectType>())
+            .ContainsExactly(statusMappings.Select(mapping => mapping.Item1).ToArray());
+        foreach (var (statusEffect, icon) in statusMappings)
+        {
+            AssertThat(UiArtCatalog.ForStatusEffect(statusEffect)).IsEqual(icon);
+            AssertThat(UiArtCatalog.TryForStatusEffect(statusEffect, out var mappedIcon)).IsTrue();
+            AssertThat(mappedIcon).IsEqual(icon);
+        }
+
         AssertThat(UiArtCatalog.TryForStatusEffect((StatusEffectType)11, out _)).IsFalse();
+        AssertThrown(() => UiArtCatalog.ForStatusEffect((StatusEffectType)11))
+            .IsInstanceOf<ArgumentOutOfRangeException>();
+
+        var categoryMappings = new[]
+        {
+            (ItemCategory.General, UiIconId.General),
+            (ItemCategory.Equipment, UiIconId.Equipment),
+            (ItemCategory.Consumable, UiIconId.Consumable),
+            (ItemCategory.Quest, UiIconId.Quest)
+        };
+        AssertThat(Enum.GetValues<ItemCategory>())
+            .ContainsExactly(categoryMappings.Select(mapping => mapping.Item1).ToArray());
+        foreach (var (category, icon) in categoryMappings)
+            AssertThat(UiArtCatalog.ForItemCategory(category)).IsEqual(icon);
+        AssertThrown(() => UiArtCatalog.ForItemCategory((ItemCategory)99))
+            .IsInstanceOf<ArgumentOutOfRangeException>();
+
+        var equipmentMappings = new[]
+        {
+            (EquipmentSlotType.Weapon, UiIconId.Weapon),
+            (EquipmentSlotType.Shield, UiIconId.Shield),
+            (EquipmentSlotType.Armor, UiIconId.Armor),
+            (EquipmentSlotType.Helmet, UiIconId.Helmet),
+            (EquipmentSlotType.Shoe, UiIconId.Shoe),
+            (EquipmentSlotType.Accessory, UiIconId.Accessory)
+        };
+        AssertThat(Enum.GetValues<EquipmentSlotType>())
+            .ContainsExactly(equipmentMappings.Select(mapping => mapping.Item1).ToArray());
+        foreach (var (slot, icon) in equipmentMappings)
+            AssertThat(UiArtCatalog.ForEquipmentSlot(slot)).IsEqual(icon);
+        AssertThrown(() => UiArtCatalog.ForEquipmentSlot((EquipmentSlotType)99))
+            .IsInstanceOf<ArgumentOutOfRangeException>();
+    }
+
+    [TestCase]
+    public void Catalog_LoadIcon_DeduplicatesMissingWarningsAndFallsBackToSizeMatchedInfo()
+    {
+        var missingPaths = GetMissingPaths();
+        missingPaths.Clear();
+
+        AssertThat(UiArtCatalog.LoadIcon(UiIconId.Health, UiIconSize.Feature)).IsNull();
+        AssertThat(missingPaths.SetEquals(new[]
+        {
+            "res://assets/sprites/ui/icons/stats/32/health.png",
+            "res://assets/sprites/ui/icons/semantic/32/info.png"
+        })).IsTrue();
+
+        AssertThat(UiArtCatalog.LoadIcon(UiIconId.Health, UiIconSize.Feature)).IsNull();
+        AssertThat(missingPaths.Count).IsEqual(2);
+    }
+
+    [TestCase]
+    public void Catalog_LoadIcon_InvalidIdUsesReadableInfoFallbackWithoutInvalidPath()
+    {
+        var missingPaths = GetMissingPaths();
+        missingPaths.Clear();
+
+        AssertThat(UiArtCatalog.LoadIcon((UiIconId)999, UiIconSize.Metadata)).IsNull();
+        AssertThat(missingPaths.SetEquals(new[]
+        {
+            "res://assets/sprites/ui/icons/semantic/16/info.png"
+        })).IsTrue();
+        AssertThrown(() => UiArtCatalog.GetIconPath((UiIconId)999, UiIconSize.Metadata))
+            .IsInstanceOf<ArgumentOutOfRangeException>();
+    }
+
+    private static HashSet<string> GetMissingPaths()
+    {
+        var field = typeof(UiArtCatalog).GetField(
+            "MissingPaths", BindingFlags.NonPublic | BindingFlags.Static)!;
+        return (HashSet<string>)field.GetValue(null)!;
     }
 }

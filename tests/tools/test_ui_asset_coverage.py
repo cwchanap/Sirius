@@ -7,7 +7,7 @@ import subprocess
 from PIL import Image
 
 from tools.ui_art_pipeline import MAP_RELATIVE_PATH, _intended_usage, runtime_path, sha256_file
-from tools.ui_art_spec import ICON_FAMILIES, ICON_GROUPS
+from tools.ui_art_spec import ICON_FAMILIES, ICON_GROUPS, ORNAMENT_SIZES
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -31,6 +31,11 @@ def _flow_semantic_records() -> list[dict]:
 def _input_glyph_records() -> list[dict]:
     return [record for record in json.loads((PROJECT_ROOT / MAP_RELATIVE_PATH).read_text())
             if record["family"] == "input-glyphs"]
+
+
+def _ornament_records() -> list[dict]:
+    return [record for record in json.loads((PROJECT_ROOT / MAP_RELATIVE_PATH).read_text())
+            if record["family"] == "ornaments"]
 
 
 def test_input_glyph_family_has_all_true_size_runtime_derivatives():
@@ -118,7 +123,42 @@ def test_icon_import_sidecars_are_never_tracked():
     tracked = subprocess.check_output(
         ["git", "ls-files", "*.png.import"], cwd=PROJECT_ROOT, text=True
     ).splitlines()
-    assert not [path for path in tracked if path.startswith("assets/sprites/ui/icons/")]
+    assert not [path for path in tracked if path.startswith((
+        "assets/sprites/ui/icons/", "assets/sprites/ui/ornaments/",
+    ))]
+
+
+def test_ornament_runtime_pngs_preserve_live_release_contracts():
+    """All committed ornaments, not only synthetic exports, retain their release contracts."""
+    records = _ornament_records()
+    assert {record["id"] for record in records} == set(ORNAMENT_SIZES)
+    for record in records:
+        width, height = ORNAMENT_SIZES[record["id"]]
+        path = runtime_path(record, PROJECT_ROOT, width, height)
+        with Image.open(path) as image:
+            assert image.mode == "RGBA"
+            assert image.size == (width, height)
+            assert "icc_profile" not in image.info
+            rgba = image.convert("RGBA")
+        alpha = rgba.getchannel("A")
+        visible = alpha.getbbox()
+        assert alpha.getextrema()[0] == 0
+        assert visible is not None
+        left, top, right, bottom = visible
+        if record["id"] == "calibration_ticks":
+            assert left == 0 and right == width
+            assert top >= 1 and bottom <= height - 1
+            assert rgba.crop((0, 0, 1, height)).tobytes() == rgba.crop((width - 1, 0, width, height)).tobytes()
+            assert alpha.crop((0, 0, 1, height)).getbbox() is not None
+        elif record["id"] == "callout_frame":
+            assert alpha.crop((32, 32, width - 32, height - 32)).getextrema()[1] == 0
+            assert all(alpha.crop(band).getbbox() is not None for band in (
+                (0, 0, width, 32), (0, height - 32, width, height),
+                (0, 0, 32, height), (width - 32, 0, width, height),
+            ))
+        else:
+            assert left >= 1 and top >= 1 and right <= width - 1 and bottom <= height - 1
+        assert not any(a and g > 160 and g > r * 1.3 and g > b * 1.3 for r, g, b, a in rgba.getdata())
 
 
 def test_inventory_action_family_has_all_true_size_runtime_derivatives():

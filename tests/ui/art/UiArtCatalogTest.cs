@@ -210,6 +210,82 @@ public partial class UiArtCatalogTest : Node
         }
     }
 
+    [TestCase]
+    public void EveryTypedIconLoadsAtItsDeclaredTrueSizeWithoutMipmaps()
+    {
+        foreach (var id in Enum.GetValues<UiIconId>())
+        {
+            foreach (var size in Enum.GetValues<UiIconSize>())
+            {
+                var path = UiArtCatalog.GetIconPath(id, size);
+                AssertThat(ResourceLoader.Exists(path)).IsTrue();
+                var texture = UiArtCatalog.LoadIcon(id, size);
+                AssertThat(texture).IsNotNull();
+                AssertThat(texture!.GetSize()).IsEqual(new Vector2((int)size, (int)size));
+                var image = texture.GetImage();
+                AssertThat(image).IsNotNull();
+                AssertThat(image!.HasMipmaps()).IsFalse();
+            }
+        }
+    }
+
+    [TestCase]
+    public void EveryTypedOrnamentLoadsAtItsDeclaredSizeWithoutMipmaps()
+    {
+        var sizes = new Dictionary<UiOrnamentId, Vector2>
+        {
+            [UiOrnamentId.CelestialAnchor] = new(192, 192),
+            [UiOrnamentId.OrbitArc] = new(512, 256),
+            [UiOrnamentId.TrajectoryLine] = new(512, 64),
+            [UiOrnamentId.CalibrationTicks] = new(256, 64),
+            [UiOrnamentId.CalloutFrame] = new(512, 256),
+            [UiOrnamentId.CalloutConnector] = new(256, 64),
+            [UiOrnamentId.CatalogueRailEndcap] = new(128, 256),
+            [UiOrnamentId.IgnitionSeal] = new(192, 192),
+            [UiOrnamentId.ConstellationCorner] = new(128, 128),
+            [UiOrnamentId.ConstellationDivider] = new(512, 64),
+            [UiOrnamentId.PartialSigil] = new(256, 256),
+            [UiOrnamentId.FocusHalo] = new(96, 96),
+            [UiOrnamentId.SelectionHalo] = new(96, 96)
+        };
+
+        foreach (var (id, expectedSize) in sizes)
+        {
+            var texture = UiArtCatalog.LoadOrnament(id);
+            AssertThat(texture).IsNotNull();
+            AssertThat(texture!.GetSize()).IsEqual(expectedSize);
+            var image = texture.GetImage();
+            AssertThat(image).IsNotNull();
+            AssertThat(image!.HasMipmaps()).IsFalse();
+        }
+    }
+
+    [TestCase]
+    public void RuntimeEnumsHaveExhaustiveMappingsExceptReservedStatusValue()
+    {
+        foreach (var type in Enum.GetValues<StatusEffectType>())
+            AssertThat(UiArtCatalog.TryForStatusEffect(type, out _)).IsTrue();
+        AssertThat(UiArtCatalog.TryForStatusEffect((StatusEffectType)11, out _)).IsFalse();
+        foreach (var category in Enum.GetValues<ItemCategory>())
+            AssertThat(Enum.IsDefined(UiArtCatalog.ForItemCategory(category))).IsTrue();
+        foreach (var slot in Enum.GetValues<EquipmentSlotType>())
+            AssertThat(Enum.IsDefined(UiArtCatalog.ForEquipmentSlot(slot))).IsTrue();
+    }
+
+    [TestCase]
+    public void RetainedScenicBackgrounds_LoadFromStablePaths()
+    {
+        var mainMenu = ResourceLoader.Load<Texture2D>(
+            "res://assets/sprites/ui/ui_main_menu_background.png");
+        var battle = ResourceLoader.Load<Texture2D>(
+            "res://assets/sprites/ui/ui_battle_background.png");
+
+        AssertThat(mainMenu).IsNotNull();
+        AssertThat(mainMenu!.GetSize()).IsEqual(new Vector2(1920, 1080));
+        AssertThat(battle).IsNotNull();
+        AssertThat(battle!.GetSize()).IsEqual(new Vector2(1280, 720));
+    }
+
     private static HashSet<string> GetMissingPaths()
     {
         var field = typeof(UiArtCatalog).GetField(

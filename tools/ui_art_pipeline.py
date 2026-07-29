@@ -590,6 +590,21 @@ INTENDED_USAGE = {
     "haste": "Active Haste buff indicator",
     "strength": "Active Strength buff indicator",
     "fortify": "Active Fortify buff indicator",
+    "pause": "Pause gameplay flow control",
+    "resume": "Resume gameplay flow control",
+    "settings": "Open settings flow control",
+    "save": "Save-game flow control",
+    "load": "Load-game flow control",
+    "dialogue": "Dialogue interaction entry",
+    "shop": "Shop interaction entry",
+    "heal": "Healing interaction entry",
+    "puzzle": "Puzzle interaction entry",
+    "reward": "Reward interaction indicator",
+    "info": "Informational semantic indicator",
+    "warning": "Warning semantic indicator paired with readable text",
+    "error": "Error semantic indicator paired with readable text",
+    "confirm": "Confirm semantic control paired with readable text",
+    "cancel_close": "Cancel or close semantic control paired with readable text",
 }
 
 
@@ -640,6 +655,14 @@ def write_manifest(map_path: Path, project_root: Path) -> Path:
             "The initial `weaken` source was rejected by the unmodified 16px opaque-core validation: its separated blade fragments produced an unreadable narrow silhouette. The rejected ignored masters remain at `weaken-rejected-source.png` (`d9ee160e049d30762a0893ac1a8372798c29e2e97f202d2538980a74dbe80607`) and `weaken-rejected-alpha.png` (`c41f28c97978983b77616fdff30c3fd6f3b69daa6a9f9182cd0475db689e3654`).",
             "Three targeted built-in regenerations were then rejected before runtime promotion: `weaken-replacement-1-rejected-source.png` (`325a9c5b7b79b72691e37d6bbf82c6ad777ebc97dd2a2e3603eb7333af152380`) / `weaken-replacement-1-rejected-alpha.png` (`a23b46dade9730851c692edbf2a7bb4a19094344f1fb5abc5e783051ad52e161`) still had a four-pixel 16px core; `weaken-replacement-2-rejected-source.png` (`e37123d4503c46faeb92d0b9bf01d7170ff734f65c9228121840e2d16d5dc52a`) / `weaken-replacement-2-rejected-alpha.png` (`c812ffb3be29704c801b23a75cf00e3d2c723641255eeb15fe88d1e4460a499a`) violated the final one-pixel safety inset; and `weaken-replacement-3-rejected-source.png` (`b78fabfca01fe305bdcce7b8dc3a450dc365c54366a0162f00d62e3005f3e4ac`) / `weaken-replacement-3-rejected-alpha.png` (`4e7c00417a72a39b08e8107d120d352aebd38ef21ee0756d34b8558bc002cd3a`) retained a bottom-edge alpha pixel after the unmodified pipeline contract.",
             "The accepted fourth replacement remains at `weaken-replacement-4-source.png` (`ea3b087ea4bcc482b09bbbf154775a3469d7c9c41586a2baf9be93a5363b10a2`) and `weaken-replacement-4-alpha.png` (`9c736563e4aa44199242dcd0571b600cae422435ba0091e96fcc6a053d88aa62`). It produces an 8x12px opaque 16px core and preserves the one-pixel inset under the unmodified extractor.",
+        ])
+    if any(record["id"] == "save" and record["family"] == "flow-semantic"
+           for record in _load_map(Path(map_path))):
+        lines.extend([
+            "", "## Save replacement history", "",
+            "The initial `save` source was rejected by the unmodified 16px opaque-core validation before runtime promotion: its narrow archive-and-ray silhouette was unreadable after downscaling.",
+            "The rejected ignored masters remain at `save-rejected-source.png` (`6a8191228b9c7aa4bfeafa440dfb3d6cf8e01818fa4c2cbc1e5a93e9c1b22c0d`) and `save-rejected-alpha.png` (`4ab5516e2095d3e772424af012408bd41f496f12e06355e6a512f3f128d43ec7`).",
+            "One targeted built-in regeneration produced the accepted ignored masters `save-replacement-source.png` (`436e0ee4cefe5671c9dfa0c558847b6fcf44e1844445b281118657374561d6ae`) and `save-replacement-alpha.png` (`12f7ad549ac3ca9c000ece0616a47a616adc73ce4ca3e950de9f44305c8d964b`), which were copied into the registered `save` source names before extraction. The unmodified extractor then accepted the complete family.",
         ])
     output = Path(project_root) / "docs/ui/hpa-374/sources/SOURCE_MANIFEST.md"
     output.parent.mkdir(parents=True, exist_ok=True)

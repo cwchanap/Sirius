@@ -3,6 +3,261 @@
 The UI artwork listed in this manifest was generated specifically for Sirius
 with OpenAI image_gen and was not sourced from a third-party art pack.
 
+## `load`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/load-source.png`
+- Source SHA-256: `0e85136885cc113c2afa75f2c02721cb79885fd3cc7a40aa28d56b1538db8de0`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/load-alpha.png`
+- Alpha SHA-256: `844f096b58663d7584d12ed7e1de285fd30eedccc988e9a9505a39d6b878f58e`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Load-game flow control
+- Runtime derivatives: `assets/sprites/ui/icons/flow/16/load.png`, `assets/sprites/ui/icons/flow/24/load.png`, `assets/sprites/ui/icons/flow/32/load.png`
+
+## `pause`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/pause-source.png`
+- Source SHA-256: `6f587d8e739abb4421c28d56c67cc72799f4841270e74695d78cb6bb5b7a6c9e`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/pause-alpha.png`
+- Alpha SHA-256: `79645f92ea130e7cc3e10cc293b07bc92471b0271cdd91f37984d1dd778dddf1`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Pause gameplay flow control
+- Runtime derivatives: `assets/sprites/ui/icons/flow/16/pause.png`, `assets/sprites/ui/icons/flow/24/pause.png`, `assets/sprites/ui/icons/flow/32/pause.png`
+
+## `resume`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/resume-source.png`
+- Source SHA-256: `4c90b76bedc60deff8163fa9515bc0b6fbe089a61885681f7a762b3f7f9c9dde`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/resume-alpha.png`
+- Alpha SHA-256: `47625212371eb2e05c9aeabee7503b0a5f40384cbe5f6ab7d58a351450c60f5b`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Resume gameplay flow control
+- Runtime derivatives: `assets/sprites/ui/icons/flow/16/resume.png`, `assets/sprites/ui/icons/flow/24/resume.png`, `assets/sprites/ui/icons/flow/32/resume.png`
+
+## `save`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/save-source.png`
+- Source SHA-256: `436e0ee4cefe5671c9dfa0c558847b6fcf44e1844445b281118657374561d6ae`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/save-alpha.png`
+- Alpha SHA-256: `12f7ad549ac3ca9c000ece0616a47a616adc73ce4ca3e950de9f44305c8d964b`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Save-game flow control
+- Runtime derivatives: `assets/sprites/ui/icons/flow/16/save.png`, `assets/sprites/ui/icons/flow/24/save.png`, `assets/sprites/ui/icons/flow/32/save.png`
+
+## `settings`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/settings-source.png`
+- Source SHA-256: `6a617caa1bafc8ffe3f63fa127946d756d12c1f99b513f1ba7e69f7b70f88f77`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/settings-alpha.png`
+- Alpha SHA-256: `080bd7bcb044c9f2e38459ad417ccf032138bce110a15643805653b33f71379f`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Open settings flow control
+- Runtime derivatives: `assets/sprites/ui/icons/flow/16/settings.png`, `assets/sprites/ui/icons/flow/24/settings.png`, `assets/sprites/ui/icons/flow/32/settings.png`
+
+## `dialogue`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/dialogue-source.png`
+- Source SHA-256: `2af529203addbc34ac17787f4ace2a6330cc2228cb94aa248c8b9c0a0cb36014`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/dialogue-alpha.png`
+- Alpha SHA-256: `c2bf24443ee66769c874541ac0cbb5888b4e24873a1d6c399f69b28a2ccee4c2`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Dialogue interaction entry
+- Runtime derivatives: `assets/sprites/ui/icons/interaction/16/dialogue.png`, `assets/sprites/ui/icons/interaction/24/dialogue.png`, `assets/sprites/ui/icons/interaction/32/dialogue.png`
+
+## `heal`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/heal-source.png`
+- Source SHA-256: `2e28ccd7967ed950f7b817604fe47212d01c7992abac190b420b3be919f4cd7f`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/heal-alpha.png`
+- Alpha SHA-256: `49979a124c21829965cea7e5401d47ff9b370a8243f0d61f24f9b5c0859a1b95`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Healing interaction entry
+- Runtime derivatives: `assets/sprites/ui/icons/interaction/16/heal.png`, `assets/sprites/ui/icons/interaction/24/heal.png`, `assets/sprites/ui/icons/interaction/32/heal.png`
+
+## `puzzle`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/puzzle-source.png`
+- Source SHA-256: `47f21408c42c0a45a53252e8fe51d2cc48155076bf39349f2fa3d87816989fdd`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/puzzle-alpha.png`
+- Alpha SHA-256: `f1dd8789dda35f42dfb1b4a11ada2a0ca8dbb1781613708f13d6b6890215ad78`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Puzzle interaction entry
+- Runtime derivatives: `assets/sprites/ui/icons/interaction/16/puzzle.png`, `assets/sprites/ui/icons/interaction/24/puzzle.png`, `assets/sprites/ui/icons/interaction/32/puzzle.png`
+
+## `reward`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/reward-source.png`
+- Source SHA-256: `feabaa0f057d2c7f4bdbeba8c3783439bd593ec482792a68b33691b9c042e8ae`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/reward-alpha.png`
+- Alpha SHA-256: `681ef7cd0fcf72bc99f90577db103dd9b6d1fbc0b26649ed2e02923289eea37f`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Reward interaction indicator
+- Runtime derivatives: `assets/sprites/ui/icons/interaction/16/reward.png`, `assets/sprites/ui/icons/interaction/24/reward.png`, `assets/sprites/ui/icons/interaction/32/reward.png`
+
+## `shop`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/shop-source.png`
+- Source SHA-256: `f82ce5aab283f4f2d3ba3c1b1a360d9d348c1baae314ee484bf53ba1c7fe5103`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/shop-alpha.png`
+- Alpha SHA-256: `5f4a3179049ac0ceb6a761c5c261c9073da2938b767a4c5686933a1e6a349c0c`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Shop interaction entry
+- Runtime derivatives: `assets/sprites/ui/icons/interaction/16/shop.png`, `assets/sprites/ui/icons/interaction/24/shop.png`, `assets/sprites/ui/icons/interaction/32/shop.png`
+
+## `cancel_close`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/cancel_close-source.png`
+- Source SHA-256: `4990a06b70a69c434fe0bc64d549129d3c074b34f5e7b9b139fe30e0bf5d1462`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/cancel_close-alpha.png`
+- Alpha SHA-256: `dc3d59e83a12c3555b34658c0747d17257d42239c9279f2278132f2b0c51cdf2`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Cancel or close semantic control paired with readable text
+- Runtime derivatives: `assets/sprites/ui/icons/semantic/16/cancel_close.png`, `assets/sprites/ui/icons/semantic/24/cancel_close.png`, `assets/sprites/ui/icons/semantic/32/cancel_close.png`
+
+## `confirm`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/confirm-source.png`
+- Source SHA-256: `81a3fbe6ac07bffa2ac1ec109d4e945bd95637757ec960bbca59d7a5b295770d`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/confirm-alpha.png`
+- Alpha SHA-256: `b293818124fa38947780baefc7478f2f2af4bb70e2ce96bf69972fd6ebbc0394`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Confirm semantic control paired with readable text
+- Runtime derivatives: `assets/sprites/ui/icons/semantic/16/confirm.png`, `assets/sprites/ui/icons/semantic/24/confirm.png`, `assets/sprites/ui/icons/semantic/32/confirm.png`
+
+## `error`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/error-source.png`
+- Source SHA-256: `7fc68f0107fad08984e6719bdc0bb1ab8c9ff5315dc2ab4ce2584edad5da9463`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/error-alpha.png`
+- Alpha SHA-256: `96f12dbcb1a62d44d370412efc05747988bc8deedf02f6e5a34b3c76b1773160`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Error semantic indicator paired with readable text
+- Runtime derivatives: `assets/sprites/ui/icons/semantic/16/error.png`, `assets/sprites/ui/icons/semantic/24/error.png`, `assets/sprites/ui/icons/semantic/32/error.png`
+
+## `info`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/info-source.png`
+- Source SHA-256: `fdb35eb2c6f6c5a236a81caa9ca9f1db67c02d33122c5c89a37417515435f0e2`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/info-alpha.png`
+- Alpha SHA-256: `415226d73b4cf4e58132a839b69401b47bf1bf7f3f0e12c0cda0cffaa62b2600`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Informational semantic indicator
+- Runtime derivatives: `assets/sprites/ui/icons/semantic/16/info.png`, `assets/sprites/ui/icons/semantic/24/info.png`, `assets/sprites/ui/icons/semantic/32/info.png`
+
+## `warning`
+
+- Family: `flow-semantic`
+- Selected source: `art_source/ui/hpa-374/boards/flow-semantic/warning-source.png`
+- Source SHA-256: `c73a73ec6cecef7b8fc20110b1b668c2990e4cda587d45a9da3ea5b3774fb0c7`
+- Selected alpha source: `art_source/ui/hpa-374/boards/flow-semantic/warning-alpha.png`
+- Alpha SHA-256: `1a521a86d65bb95e1f8e8726bffcdd8b3227c0b3b0a010c9c91b39833049924b`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`flow-semantic.md`](prompts/flow-semantic.md)
+- Intended usage: Warning semantic indicator paired with readable text
+- Runtime derivatives: `assets/sprites/ui/icons/semantic/16/warning.png`, `assets/sprites/ui/icons/semantic/24/warning.png`, `assets/sprites/ui/icons/semantic/32/warning.png`
+
 ## `assign`
 
 - Family: `inventory-actions`
@@ -626,3 +881,9 @@ One targeted regeneration produced the accepted ignored masters `weapon-replacem
 The initial `weaken` source was rejected by the unmodified 16px opaque-core validation: its separated blade fragments produced an unreadable narrow silhouette. The rejected ignored masters remain at `weaken-rejected-source.png` (`d9ee160e049d30762a0893ac1a8372798c29e2e97f202d2538980a74dbe80607`) and `weaken-rejected-alpha.png` (`c41f28c97978983b77616fdff30c3fd6f3b69daa6a9f9182cd0475db689e3654`).
 Three targeted built-in regenerations were then rejected before runtime promotion: `weaken-replacement-1-rejected-source.png` (`325a9c5b7b79b72691e37d6bbf82c6ad777ebc97dd2a2e3603eb7333af152380`) / `weaken-replacement-1-rejected-alpha.png` (`a23b46dade9730851c692edbf2a7bb4a19094344f1fb5abc5e783051ad52e161`) still had a four-pixel 16px core; `weaken-replacement-2-rejected-source.png` (`e37123d4503c46faeb92d0b9bf01d7170ff734f65c9228121840e2d16d5dc52a`) / `weaken-replacement-2-rejected-alpha.png` (`c812ffb3be29704c801b23a75cf00e3d2c723641255eeb15fe88d1e4460a499a`) violated the final one-pixel safety inset; and `weaken-replacement-3-rejected-source.png` (`b78fabfca01fe305bdcce7b8dc3a450dc365c54366a0162f00d62e3005f3e4ac`) / `weaken-replacement-3-rejected-alpha.png` (`4e7c00417a72a39b08e8107d120d352aebd38ef21ee0756d34b8558bc002cd3a`) retained a bottom-edge alpha pixel after the unmodified pipeline contract.
 The accepted fourth replacement remains at `weaken-replacement-4-source.png` (`ea3b087ea4bcc482b09bbbf154775a3469d7c9c41586a2baf9be93a5363b10a2`) and `weaken-replacement-4-alpha.png` (`9c736563e4aa44199242dcd0571b600cae422435ba0091e96fcc6a053d88aa62`). It produces an 8x12px opaque 16px core and preserves the one-pixel inset under the unmodified extractor.
+
+## Save replacement history
+
+The initial `save` source was rejected by the unmodified 16px opaque-core validation before runtime promotion: its narrow archive-and-ray silhouette was unreadable after downscaling.
+The rejected ignored masters remain at `save-rejected-source.png` (`6a8191228b9c7aa4bfeafa440dfb3d6cf8e01818fa4c2cbc1e5a93e9c1b22c0d`) and `save-rejected-alpha.png` (`4ab5516e2095d3e772424af012408bd41f496f12e06355e6a512f3f128d43ec7`).
+One targeted built-in regeneration produced the accepted ignored masters `save-replacement-source.png` (`436e0ee4cefe5671c9dfa0c558847b6fcf44e1844445b281118657374561d6ae`) and `save-replacement-alpha.png` (`12f7ad549ac3ca9c000ece0616a47a616adc73ce4ca3e950de9f44305c8d964b`), which were copied into the registered `save` source names before extraction. The unmodified extractor then accepted the complete family.

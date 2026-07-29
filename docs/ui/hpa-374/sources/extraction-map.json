@@ -1,5 +1,725 @@
 [
   {
+    "alpha_sha256": "844f096b58663d7584d12ed7e1de285fd30eedccc988e9a9505a39d6b878f58e",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/load-alpha.png",
+    "category": "flow",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "load",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/load-source.png",
+    "source_sha256": "0e85136885cc113c2afa75f2c02721cb79885fd3cc7a40aa28d56b1538db8de0",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "79645f92ea130e7cc3e10cc293b07bc92471b0271cdd91f37984d1dd778dddf1",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/pause-alpha.png",
+    "category": "flow",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "pause",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/pause-source.png",
+    "source_sha256": "6f587d8e739abb4421c28d56c67cc72799f4841270e74695d78cb6bb5b7a6c9e",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "47625212371eb2e05c9aeabee7503b0a5f40384cbe5f6ab7d58a351450c60f5b",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/resume-alpha.png",
+    "category": "flow",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "resume",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/resume-source.png",
+    "source_sha256": "4c90b76bedc60deff8163fa9515bc0b6fbe089a61885681f7a762b3f7f9c9dde",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "12f7ad549ac3ca9c000ece0616a47a616adc73ce4ca3e950de9f44305c8d964b",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/save-alpha.png",
+    "category": "flow",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "save",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/save-source.png",
+    "source_sha256": "436e0ee4cefe5671c9dfa0c558847b6fcf44e1844445b281118657374561d6ae",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "080bd7bcb044c9f2e38459ad417ccf032138bce110a15643805653b33f71379f",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/settings-alpha.png",
+    "category": "flow",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "settings",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/settings-source.png",
+    "source_sha256": "6a617caa1bafc8ffe3f63fa127946d756d12c1f99b513f1ba7e69f7b70f88f77",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "c2bf24443ee66769c874541ac0cbb5888b4e24873a1d6c399f69b28a2ccee4c2",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/dialogue-alpha.png",
+    "category": "interaction",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "dialogue",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/dialogue-source.png",
+    "source_sha256": "2af529203addbc34ac17787f4ace2a6330cc2228cb94aa248c8b9c0a0cb36014",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "49979a124c21829965cea7e5401d47ff9b370a8243f0d61f24f9b5c0859a1b95",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/heal-alpha.png",
+    "category": "interaction",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "heal",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/heal-source.png",
+    "source_sha256": "2e28ccd7967ed950f7b817604fe47212d01c7992abac190b420b3be919f4cd7f",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "f1dd8789dda35f42dfb1b4a11ada2a0ca8dbb1781613708f13d6b6890215ad78",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/puzzle-alpha.png",
+    "category": "interaction",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "puzzle",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/puzzle-source.png",
+    "source_sha256": "47f21408c42c0a45a53252e8fe51d2cc48155076bf39349f2fa3d87816989fdd",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "681ef7cd0fcf72bc99f90577db103dd9b6d1fbc0b26649ed2e02923289eea37f",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/reward-alpha.png",
+    "category": "interaction",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "reward",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/reward-source.png",
+    "source_sha256": "feabaa0f057d2c7f4bdbeba8c3783439bd593ec482792a68b33691b9c042e8ae",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "5f4a3179049ac0ceb6a761c5c261c9073da2938b767a4c5686933a1e6a349c0c",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/shop-alpha.png",
+    "category": "interaction",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "shop",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/shop-source.png",
+    "source_sha256": "f82ce5aab283f4f2d3ba3c1b1a360d9d348c1baae314ee484bf53ba1c7fe5103",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "dc3d59e83a12c3555b34658c0747d17257d42239c9279f2278132f2b0c51cdf2",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/cancel_close-alpha.png",
+    "category": "semantic",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "cancel_close",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/cancel_close-source.png",
+    "source_sha256": "4990a06b70a69c434fe0bc64d549129d3c074b34f5e7b9b139fe30e0bf5d1462",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "b293818124fa38947780baefc7478f2f2af4bb70e2ce96bf69972fd6ebbc0394",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/confirm-alpha.png",
+    "category": "semantic",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "confirm",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/confirm-source.png",
+    "source_sha256": "81a3fbe6ac07bffa2ac1ec109d4e945bd95637757ec960bbca59d7a5b295770d",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "96f12dbcb1a62d44d370412efc05747988bc8deedf02f6e5a34b3c76b1773160",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/error-alpha.png",
+    "category": "semantic",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "error",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/error-source.png",
+    "source_sha256": "7fc68f0107fad08984e6719bdc0bb1ab8c9ff5315dc2ab4ce2584edad5da9463",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "415226d73b4cf4e58132a839b69401b47bf1bf7f3f0e12c0cda0cffaa62b2600",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/info-alpha.png",
+    "category": "semantic",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "info",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/info-source.png",
+    "source_sha256": "fdb35eb2c6f6c5a236a81caa9ca9f1db67c02d33122c5c89a37417515435f0e2",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "1a521a86d65bb95e1f8e8726bffcdd8b3227c0b3b0a010c9c91b39833049924b",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/flow-semantic/warning-alpha.png",
+    "category": "semantic",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "flow-semantic",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "warning",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/flow-semantic/warning-source.png",
+    "source_sha256": "c73a73ec6cecef7b8fc20110b1b668c2990e4cda587d45a9da3ea5b3774fb0c7",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
     "alpha_sha256": "3317277ee4c4fd531e9c7f9994b2876cae8faf281af584440e3755eddadcd3f9",
     "alpha_size": [
       1254,

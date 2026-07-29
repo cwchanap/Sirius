@@ -309,6 +309,320 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Intended usage: Empty weapon equipment slot glyph
 - Runtime derivatives: `assets/sprites/ui/icons/inventory/16/weapon.png`, `assets/sprites/ui/icons/inventory/24/weapon.png`, `assets/sprites/ui/icons/inventory/32/weapon.png`
 
+## `attack`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/attack-source.png`
+- Source SHA-256: `2985f3694b17dde2a8fc1f1716c71e42f93899104c4b9a6ef79e46ffd3803895`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/attack-alpha.png`
+- Alpha SHA-256: `a66d688a2d67f915eb9b362e0d01e1da1cd11967e1bb9e7c07345275663d09d6`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/stats/16/attack.png`, `assets/sprites/ui/icons/stats/24/attack.png`, `assets/sprites/ui/icons/stats/32/attack.png`
+
+## `defense`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/defense-source.png`
+- Source SHA-256: `25967d19ea1b97b35b94262613f3ced8f7b18f694a2edc267a25631b46cb22dc`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/defense-alpha.png`
+- Alpha SHA-256: `5bc56f0c51b32c9deb34687127f7fb52f9dce71a17604f7ab8b418a2fd47fc06`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/stats/16/defense.png`, `assets/sprites/ui/icons/stats/24/defense.png`, `assets/sprites/ui/icons/stats/32/defense.png`
+
+## `experience`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/experience-source.png`
+- Source SHA-256: `bf10504485a383094de1ca64e3e480e6d9d4ec2e48d6dced2a3cda395ff474a2`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/experience-alpha.png`
+- Alpha SHA-256: `fb6f340d7953e6611b9e8143180605c724aa4b5f055946d851ad2e5ae511796d`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/stats/16/experience.png`, `assets/sprites/ui/icons/stats/24/experience.png`, `assets/sprites/ui/icons/stats/32/experience.png`
+
+## `gold`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/gold-source.png`
+- Source SHA-256: `c66b7bca9a5520fcf36f9890986a096e9ade4478303b1c63c84a5fc87cbc1261`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/gold-alpha.png`
+- Alpha SHA-256: `19b7944127b41e92437e53aa6e2e755c705de3d3645b22bc70fbe2c8df102393`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/stats/16/gold.png`, `assets/sprites/ui/icons/stats/24/gold.png`, `assets/sprites/ui/icons/stats/32/gold.png`
+
+## `health`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/health-source.png`
+- Source SHA-256: `c798bce9ede00c042ce48f78b4d0db6e4208c59c160ef62c9e037ae9d49458d8`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/health-alpha.png`
+- Alpha SHA-256: `929fc01bd1fb4f6262cd2e2608f21218562322a1f9b593f9dd2519619099e4d0`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/stats/16/health.png`, `assets/sprites/ui/icons/stats/24/health.png`, `assets/sprites/ui/icons/stats/32/health.png`
+
+## `level`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/level-source.png`
+- Source SHA-256: `6d787c4333e495fac85aa65c28b0546fddbe18a188a086ca80ecf47edd63b5b0`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/level-alpha.png`
+- Alpha SHA-256: `192ea5962aecfa579eff24a320c64a5f8e15b0e8e4d1fa1f2e3292c00a499c2a`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/stats/16/level.png`, `assets/sprites/ui/icons/stats/24/level.png`, `assets/sprites/ui/icons/stats/32/level.png`
+
+## `mana`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/mana-source.png`
+- Source SHA-256: `f443b37ea76766dfadb5d14b48d7b787121d64634c4795f1cb1c1160b8cbccd7`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/mana-alpha.png`
+- Alpha SHA-256: `3d29ea92c2827876bc774b64cf1a92a0af36cb35f19f998d3d6c475220587b57`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/stats/16/mana.png`, `assets/sprites/ui/icons/stats/24/mana.png`, `assets/sprites/ui/icons/stats/32/mana.png`
+
+## `speed`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/speed-source.png`
+- Source SHA-256: `030c6af0532b4ae8a3d355fda9d3d0dcfd86c4dcaf82afc37a6fed1c30af3566`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/speed-alpha.png`
+- Alpha SHA-256: `a24fd0332d66b5fcf466fe61b20c9b042729356ee3f94731bb5b1620c31af925`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/stats/16/speed.png`, `assets/sprites/ui/icons/stats/24/speed.png`, `assets/sprites/ui/icons/stats/32/speed.png`
+
+## `blind`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/blind-source.png`
+- Source SHA-256: `d501211f6c5a4cc655c5b2af69c5ca5e6a2824716607e18f258889bfa574dfb6`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/blind-alpha.png`
+- Alpha SHA-256: `29cd42f89dc1f53e023e37f7b1be58f7aa1dc89296d28f80e4548bee65fdfcae`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/status/16/blind.png`, `assets/sprites/ui/icons/status/24/blind.png`, `assets/sprites/ui/icons/status/32/blind.png`
+
+## `burn`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/burn-source.png`
+- Source SHA-256: `6b6e17afd02e6fadfd166339bbf523f91bacf39d0f9e781142b13481ce88c5b0`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/burn-alpha.png`
+- Alpha SHA-256: `1b82d1cd6f5cfa4958ea7d8ab4a03b4fda330bda259c0d01ee29aca9c6b3689b`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/status/16/burn.png`, `assets/sprites/ui/icons/status/24/burn.png`, `assets/sprites/ui/icons/status/32/burn.png`
+
+## `fortify`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/fortify-source.png`
+- Source SHA-256: `d3f0273858b87b557f43bcd172176246e80716d46230c5a145d39c759f3cd2ff`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/fortify-alpha.png`
+- Alpha SHA-256: `b30a4d061fbe5cca6ff5f3b556c4d06e30bf6823f99e3cf99a6e5125ba282bff`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/status/16/fortify.png`, `assets/sprites/ui/icons/status/24/fortify.png`, `assets/sprites/ui/icons/status/32/fortify.png`
+
+## `haste`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/haste-source.png`
+- Source SHA-256: `8ef33014a74286c361951104345839dc2ed87b3d58d4aa3d49b51d62cbdc90af`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/haste-alpha.png`
+- Alpha SHA-256: `3f0a7bfd634126f0a7a5f8107ea889a499096142bd0c6774c9d9b0837a901a1a`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/status/16/haste.png`, `assets/sprites/ui/icons/status/24/haste.png`, `assets/sprites/ui/icons/status/32/haste.png`
+
+## `poison`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/poison-source.png`
+- Source SHA-256: `f03c1a88d042d3a9b134f43b139a1c8481d35b5d292ec3d3f5184a08e8b4b0dd`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/poison-alpha.png`
+- Alpha SHA-256: `948d29da69fe24dae8b7ae8eefa4aefbafe251a0bfa7e5d1d35025a9856b57fe`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/status/16/poison.png`, `assets/sprites/ui/icons/status/24/poison.png`, `assets/sprites/ui/icons/status/32/poison.png`
+
+## `regen`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/regen-source.png`
+- Source SHA-256: `4ddcdb9bd02a47b0ccd726f3ce53ffac1e7f0468e2da04f89dd53bf22bf16429`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/regen-alpha.png`
+- Alpha SHA-256: `e16601d55f296c72e8dccd37723e2355349f93169dd7cb6e20e818992570afa5`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/status/16/regen.png`, `assets/sprites/ui/icons/status/24/regen.png`, `assets/sprites/ui/icons/status/32/regen.png`
+
+## `slow`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/slow-source.png`
+- Source SHA-256: `f4c60c91db412b1064b7147eb870975a7db65244978f281cb84cbdd21c797877`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/slow-alpha.png`
+- Alpha SHA-256: `d321848d9d6de6fea7f6a8d7f715359a8733cfd76e5387f7713804ad81e7162a`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/status/16/slow.png`, `assets/sprites/ui/icons/status/24/slow.png`, `assets/sprites/ui/icons/status/32/slow.png`
+
+## `strength`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/strength-source.png`
+- Source SHA-256: `ae78f4213809736dd9795fd0dd79a60b5a69019344beb3d17ae39e35807fc76d`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/strength-alpha.png`
+- Alpha SHA-256: `26708d63738631714516f3d3bbb55ca9578d11b264a55eff7b3b7e48d8c306f7`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/status/16/strength.png`, `assets/sprites/ui/icons/status/24/strength.png`, `assets/sprites/ui/icons/status/32/strength.png`
+
+## `stun`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/stun-source.png`
+- Source SHA-256: `f1bcda13ea466d284a04f43069efc6499a94c349230d9b76b9657722c5ec4085`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/stun-alpha.png`
+- Alpha SHA-256: `213c53108260fd989488bf29cc99b725563cc504c3c290d8b1103d6d9ed650ec`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/status/16/stun.png`, `assets/sprites/ui/icons/status/24/stun.png`, `assets/sprites/ui/icons/status/32/stun.png`
+
+## `weaken`
+
+- Family: `stats-status`
+- Selected source: `art_source/ui/hpa-374/boards/stats-status/weaken-replacement-4-source.png`
+- Source SHA-256: `ea3b087ea4bcc482b09bbbf154775a3469d7c9c41586a2baf9be93a5363b10a2`
+- Selected alpha source: `art_source/ui/hpa-374/boards/stats-status/weaken-replacement-4-alpha.png`
+- Alpha SHA-256: `9c736563e4aa44199242dcd0571b600cae422435ba0091e96fcc6a053d88aa62`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`stats-status.md`](prompts/stats-status.md)
+- Intended usage: stats-status UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/status/16/weaken.png`, `assets/sprites/ui/icons/status/24/weaken.png`, `assets/sprites/ui/icons/status/32/weaken.png`
+
+## Weaken replacement history
+
+The initial `weaken` source was rejected by the unmodified 16px opaque-core validation: its separated blade fragments produced an unreadable narrow silhouette. The rejected ignored masters remain at `weaken-rejected-source.png` (`d9ee160e049d30762a0893ac1a8372798c29e2e97f202d2538980a74dbe80607`) and `weaken-rejected-alpha.png` (`c41f28c97978983b77616fdff30c3fd6f3b69daa6a9f9182cd0475db689e3654`).
+
+Three targeted built-in regenerations were then rejected before runtime promotion: `weaken-replacement-1-rejected-source.png` (`325a9c5b7b79b72691e37d6bbf82c6ad777ebc97dd2a2e3603eb7333af152380`) / `weaken-replacement-1-rejected-alpha.png` (`a23b46dade9730851c692edbf2a7bb4a19094344f1fb5abc5e783051ad52e161`) still had a four-pixel 16px core; `weaken-replacement-2-rejected-source.png` (`e37123d4503c46faeb92d0b9bf01d7170ff734f65c9228121840e2d16d5dc52a`) / `weaken-replacement-2-rejected-alpha.png` (`c812ffb3be29704c801b23a75cf00e3d2c723641255eeb15fe88d1e4460a499a`) violated the final one-pixel safety inset; and `weaken-replacement-3-rejected-source.png` (`b78fabfca01fe305bdcce7b8dc3a450dc365c54366a0162f00d62e3005f3e4ac`) / `weaken-replacement-3-rejected-alpha.png` (`4e7c00417a72a39b08e8107d120d352aebd38ef21ee0756d34b8558bc002cd3a`) retained a bottom-edge alpha pixel after the unmodified pipeline contract.
+
+The accepted fourth replacement remains at `weaken-replacement-4-source.png` (`ea3b087ea4bcc482b09bbbf154775a3469d7c9c41586a2baf9be93a5363b10a2`) and `weaken-replacement-4-alpha.png` (`9c736563e4aa44199242dcd0571b600cae422435ba0091e96fcc6a053d88aa62`). It produces an 8x12px opaque 16px core and preserves the one-pixel inset under the unmodified extractor.
+
 ## Weapon replacement history
 
 The first `weapon` source was rejected by the unmodified 16px opaque-core validation: its tall, narrow silhouette could not satisfy that gate while retaining the required one-pixel transparent inset.

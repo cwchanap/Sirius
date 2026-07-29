@@ -2123,6 +2123,526 @@
     ]
   },
   {
+    "alpha_sha256": "7c6c040694b8fa6122a7b8b248fdcfae26e761cd087071123f3672bc35f5d65f",
+    "alpha_size": [
+      1774,
+      887
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/ornaments/calibration_ticks-alpha.png",
+    "crop": [
+      1,
+      222,
+      1772,
+      443
+    ],
+    "family": "ornaments",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "calibration_ticks",
+    "intended_usage": "Seamless horizontal calibration baseline for reusable tactical UI measurements",
+    "kind": "ornament",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 1,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/ornaments/calibration_ticks-source.png",
+    "source_sha256": "6a2b1de4d6926f09e80357cda893e532ebff19a82d32909bc57a9cbd366604e6",
+    "source_size": [
+      1774,
+      887
+    ],
+    "target_sizes": [
+      [
+        256,
+        64
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "d16f5915154abc0f366d54bd5d9cac4129a431692c9a005828920d50f44dfcff",
+    "alpha_size": [
+      1774,
+      887
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/ornaments/callout_connector-alpha.png",
+    "crop": [
+      1,
+      222,
+      1772,
+      443
+    ],
+    "family": "ornaments",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "callout_connector",
+    "intended_usage": "Stretch-safe connector between reusable tactical callouts",
+    "kind": "ornament",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/ornaments/callout_connector-source.png",
+    "source_sha256": "6e03e43bcf6f19342d1450c92714f9a0d5452496db3260ad41c81ec67c8decaa",
+    "source_size": [
+      1774,
+      887
+    ],
+    "target_sizes": [
+      [
+        256,
+        64
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "a68c89f514a22b6c43867ac4eb90641522ba7d75167df1ef989cac9948dd8a5d",
+    "alpha_size": [
+      1774,
+      887
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/ornaments/callout_frame-alpha.png",
+    "crop": [
+      70,
+      35,
+      1634,
+      817
+    ],
+    "family": "ornaments",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "callout_frame",
+    "intended_usage": "Nine-patch transparent-content border for tactical callouts",
+    "kind": "ornament",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/ornaments/callout_frame-source.png",
+    "source_sha256": "a6f4cf435ef7bf8b74f022e975c96edd06be771e4ce1a863bb1bc3d22d490035",
+    "source_size": [
+      1774,
+      887
+    ],
+    "target_sizes": [
+      [
+        512,
+        256
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "5558a9a95aba5567e16594ecc545b17f80597fb8e6aa259c6efcfa4407edf608",
+    "alpha_size": [
+      887,
+      1774
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/ornaments/catalogue_rail_endcap-alpha.png",
+    "crop": [
+      0,
+      0,
+      887,
+      1774
+    ],
+    "family": "ornaments",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "catalogue_rail_endcap",
+    "intended_usage": "Uniform-scale celestial cap at a reusable catalogue rail end",
+    "kind": "ornament",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/ornaments/catalogue_rail_endcap-source.png",
+    "source_sha256": "0303012abbe23f13df99b02316a93fbb383f52010ff9d1f1ef93683e3e609577",
+    "source_size": [
+      887,
+      1774
+    ],
+    "target_sizes": [
+      [
+        128,
+        256
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "6cf0e6ba1b8e9c7138b188f621ad81dba72d257ba87be2124992afff73dc75c9",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/ornaments/celestial_anchor-alpha.png",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "ornaments",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "celestial_anchor",
+    "intended_usage": "Uniform-scale compass anchor for a focal tactical node",
+    "kind": "ornament",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/ornaments/celestial_anchor-source.png",
+    "source_sha256": "4113e172f4ec442f56ee4ad97e6fd83dab77674abf93c8f15b87d8d27af0bb6f",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        192,
+        192
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "1ef7515328b213220da9451c2ffafe08356d44ec26df1337beae7a001265386c",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/ornaments/constellation_corner-alpha.png",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "ornaments",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "constellation_corner",
+    "intended_usage": "Uniform-scale inset constellation flourish at a modular UI corner",
+    "kind": "ornament",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/ornaments/constellation_corner-source.png",
+    "source_sha256": "024948aa2fabfdac16779c87d90eb81ba4ab18f5751dba302b0b977ef9e2df80",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        128,
+        128
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "81a6c6082efd2bedad7012ee7963892babe85f05843e7e39f14614f0377f47f7",
+    "alpha_size": [
+      1774,
+      887
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/ornaments/constellation_divider-alpha.png",
+    "crop": [
+      3,
+      333,
+      1768,
+      221
+    ],
+    "family": "ornaments",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "constellation_divider",
+    "intended_usage": "Stretch-safe sparse divider between celestial UI sections",
+    "kind": "ornament",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/ornaments/constellation_divider-source.png",
+    "source_sha256": "12b8d5b9d48ee35b9069a8199876b8cd874d740f88fbfed24b66f9ef9daab726",
+    "source_size": [
+      1774,
+      887
+    ],
+    "target_sizes": [
+      [
+        512,
+        64
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "8c056e0699c33eeee1075f4ee8e54cb9769d90834a3c2b7886c059980b93f35d",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/ornaments/focus_halo-alpha.png",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "ornaments",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "focus_halo",
+    "intended_usage": "Cyan focus-only node overlay with cardinal markers",
+    "kind": "ornament",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/ornaments/focus_halo-source.png",
+    "source_sha256": "1a3f06cb3ca15b6b7aa73c02f0897e31d88d6c4e5e76150d89eac5d7c87ff869",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        96,
+        96
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "be577ac0fb5e8103c79e57dddf185be1fe98fb16f1f693e509b6778584fc110f",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/ornaments/ignition_seal-alpha.png",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "ornaments",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "ignition_seal",
+    "intended_usage": "Uniform-scale open-center ignition state seal",
+    "kind": "ornament",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/ornaments/ignition_seal-source.png",
+    "source_sha256": "2d929cc12d9100246c6f15d13f36cc92163e1262f3c5761256698d1685a9aa84",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        192,
+        192
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "0a378eff4bc3638ba55785c243edda29ca397633f7e4d80b720911d0568f5da7",
+    "alpha_size": [
+      1774,
+      887
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/ornaments/orbit_arc-alpha.png",
+    "crop": [
+      0,
+      0,
+      1774,
+      887
+    ],
+    "family": "ornaments",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "orbit_arc",
+    "intended_usage": "Crop-safe wide orbital relation arc for tactical composition",
+    "kind": "ornament",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/ornaments/orbit_arc-source.png",
+    "source_sha256": "c31e7a4412fa8990356251f34fd35fb5f3d3bc9eea996445711605baaea0eaa4",
+    "source_size": [
+      1774,
+      887
+    ],
+    "target_sizes": [
+      [
+        512,
+        256
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "c7625842d843e8c38339fa7ed83866d1c3797e3d0227e56695d3c12fd926d123",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/ornaments/partial_sigil-alpha.png",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "ornaments",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "partial_sigil",
+    "intended_usage": "Uniform-scale incomplete sigil fragment for celestial emphasis",
+    "kind": "ornament",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/ornaments/partial_sigil-source.png",
+    "source_sha256": "bf25444d82c30362694c1919b4543473aa51fab863fe8acd98adcc7c422ab80c",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        256,
+        256
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "c8980d76cc1ba55dd8c1b734e63210d03e9e868a70781df9ddc5b2ca89db4337",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/ornaments/selection_halo-alpha.png",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "ornaments",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "selection_halo",
+    "intended_usage": "Gold selection-only node overlay with offset star markers",
+    "kind": "ornament",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/ornaments/selection_halo-source.png",
+    "source_sha256": "c2fbb6d09128be529a98d0337ead1741b0880df513bb4d3ee366059aeb6d6f41",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        96,
+        96
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "b37bceca3ba8e1eb826d736d0070d34e0a2aeb75927eaf211e68ed093d86414b",
+    "alpha_size": [
+      1774,
+      887
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/ornaments/trajectory_line-alpha.png",
+    "crop": [
+      3,
+      333,
+      1768,
+      221
+    ],
+    "family": "ornaments",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "trajectory_line",
+    "intended_usage": "Stretch-safe comet trajectory connector for tactical flow",
+    "kind": "ornament",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/ornaments/trajectory_line-source.png",
+    "source_sha256": "943bac79334ec403a223d53e7b75414ebd4477f3970f4571b0a8033f667a440f",
+    "source_size": [
+      1774,
+      887
+    ],
+    "target_sizes": [
+      [
+        512,
+        64
+      ]
+    ]
+  },
+  {
     "alpha_sha256": "a66d688a2d67f915eb9b362e0d01e1da1cd11967e1bb9e7c07345275663d09d6",
     "alpha_size": [
       1254,

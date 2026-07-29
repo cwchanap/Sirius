@@ -751,6 +751,227 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Intended usage: Empty weapon equipment slot glyph
 - Runtime derivatives: `assets/sprites/ui/icons/inventory/16/weapon.png`, `assets/sprites/ui/icons/inventory/24/weapon.png`, `assets/sprites/ui/icons/inventory/32/weapon.png`
 
+## `calibration_ticks`
+
+- Family: `ornaments`
+- Selected source: `art_source/ui/hpa-374/boards/ornaments/calibration_ticks-source.png`
+- Source SHA-256: `6a2b1de4d6926f09e80357cda893e532ebff19a82d32909bc57a9cbd366604e6`
+- Selected alpha source: `art_source/ui/hpa-374/boards/ornaments/calibration_ticks-alpha.png`
+- Alpha SHA-256: `7c6c040694b8fa6122a7b8b248fdcfae26e761cd087071123f3672bc35f5d65f`
+- Actual source size: `[1774, 887]` (1774x887)
+- Actual alpha size: `[1774, 887]` (1774x887)
+- Crop: `[1, 222, 1772, 443]`
+- Target sizes: `[[256, 64]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 1, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`ornaments.md`](prompts/ornaments.md)
+- Intended usage: Seamless horizontal calibration baseline for reusable tactical UI measurements
+- Runtime derivatives: `assets/sprites/ui/ornaments/calibration_ticks.png`
+
+## `callout_connector`
+
+- Family: `ornaments`
+- Selected source: `art_source/ui/hpa-374/boards/ornaments/callout_connector-source.png`
+- Source SHA-256: `6e03e43bcf6f19342d1450c92714f9a0d5452496db3260ad41c81ec67c8decaa`
+- Selected alpha source: `art_source/ui/hpa-374/boards/ornaments/callout_connector-alpha.png`
+- Alpha SHA-256: `d16f5915154abc0f366d54bd5d9cac4129a431692c9a005828920d50f44dfcff`
+- Actual source size: `[1774, 887]` (1774x887)
+- Actual alpha size: `[1774, 887]` (1774x887)
+- Crop: `[1, 222, 1772, 443]`
+- Target sizes: `[[256, 64]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`ornaments.md`](prompts/ornaments.md)
+- Intended usage: Stretch-safe connector between reusable tactical callouts
+- Runtime derivatives: `assets/sprites/ui/ornaments/callout_connector.png`
+
+## `callout_frame`
+
+- Family: `ornaments`
+- Selected source: `art_source/ui/hpa-374/boards/ornaments/callout_frame-source.png`
+- Source SHA-256: `a6f4cf435ef7bf8b74f022e975c96edd06be771e4ce1a863bb1bc3d22d490035`
+- Selected alpha source: `art_source/ui/hpa-374/boards/ornaments/callout_frame-alpha.png`
+- Alpha SHA-256: `a68c89f514a22b6c43867ac4eb90641522ba7d75167df1ef989cac9948dd8a5d`
+- Actual source size: `[1774, 887]` (1774x887)
+- Actual alpha size: `[1774, 887]` (1774x887)
+- Crop: `[70, 35, 1634, 817]`
+- Target sizes: `[[512, 256]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`ornaments.md`](prompts/ornaments.md)
+- Intended usage: Nine-patch transparent-content border for tactical callouts
+- Runtime derivatives: `assets/sprites/ui/ornaments/callout_frame.png`
+
+## `catalogue_rail_endcap`
+
+- Family: `ornaments`
+- Selected source: `art_source/ui/hpa-374/boards/ornaments/catalogue_rail_endcap-source.png`
+- Source SHA-256: `0303012abbe23f13df99b02316a93fbb383f52010ff9d1f1ef93683e3e609577`
+- Selected alpha source: `art_source/ui/hpa-374/boards/ornaments/catalogue_rail_endcap-alpha.png`
+- Alpha SHA-256: `5558a9a95aba5567e16594ecc545b17f80597fb8e6aa259c6efcfa4407edf608`
+- Actual source size: `[887, 1774]` (887x1774)
+- Actual alpha size: `[887, 1774]` (887x1774)
+- Crop: `[0, 0, 887, 1774]`
+- Target sizes: `[[128, 256]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`ornaments.md`](prompts/ornaments.md)
+- Intended usage: Uniform-scale celestial cap at a reusable catalogue rail end
+- Runtime derivatives: `assets/sprites/ui/ornaments/catalogue_rail_endcap.png`
+
+## `celestial_anchor`
+
+- Family: `ornaments`
+- Selected source: `art_source/ui/hpa-374/boards/ornaments/celestial_anchor-source.png`
+- Source SHA-256: `4113e172f4ec442f56ee4ad97e6fd83dab77674abf93c8f15b87d8d27af0bb6f`
+- Selected alpha source: `art_source/ui/hpa-374/boards/ornaments/celestial_anchor-alpha.png`
+- Alpha SHA-256: `6cf0e6ba1b8e9c7138b188f621ad81dba72d257ba87be2124992afff73dc75c9`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[192, 192]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`ornaments.md`](prompts/ornaments.md)
+- Intended usage: Uniform-scale compass anchor for a focal tactical node
+- Runtime derivatives: `assets/sprites/ui/ornaments/celestial_anchor.png`
+
+## `constellation_corner`
+
+- Family: `ornaments`
+- Selected source: `art_source/ui/hpa-374/boards/ornaments/constellation_corner-source.png`
+- Source SHA-256: `024948aa2fabfdac16779c87d90eb81ba4ab18f5751dba302b0b977ef9e2df80`
+- Selected alpha source: `art_source/ui/hpa-374/boards/ornaments/constellation_corner-alpha.png`
+- Alpha SHA-256: `1ef7515328b213220da9451c2ffafe08356d44ec26df1337beae7a001265386c`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[128, 128]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`ornaments.md`](prompts/ornaments.md)
+- Intended usage: Uniform-scale inset constellation flourish at a modular UI corner
+- Runtime derivatives: `assets/sprites/ui/ornaments/constellation_corner.png`
+
+## `constellation_divider`
+
+- Family: `ornaments`
+- Selected source: `art_source/ui/hpa-374/boards/ornaments/constellation_divider-source.png`
+- Source SHA-256: `12b8d5b9d48ee35b9069a8199876b8cd874d740f88fbfed24b66f9ef9daab726`
+- Selected alpha source: `art_source/ui/hpa-374/boards/ornaments/constellation_divider-alpha.png`
+- Alpha SHA-256: `81a6c6082efd2bedad7012ee7963892babe85f05843e7e39f14614f0377f47f7`
+- Actual source size: `[1774, 887]` (1774x887)
+- Actual alpha size: `[1774, 887]` (1774x887)
+- Crop: `[3, 333, 1768, 221]`
+- Target sizes: `[[512, 64]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`ornaments.md`](prompts/ornaments.md)
+- Intended usage: Stretch-safe sparse divider between celestial UI sections
+- Runtime derivatives: `assets/sprites/ui/ornaments/constellation_divider.png`
+
+## `focus_halo`
+
+- Family: `ornaments`
+- Selected source: `art_source/ui/hpa-374/boards/ornaments/focus_halo-source.png`
+- Source SHA-256: `1a3f06cb3ca15b6b7aa73c02f0897e31d88d6c4e5e76150d89eac5d7c87ff869`
+- Selected alpha source: `art_source/ui/hpa-374/boards/ornaments/focus_halo-alpha.png`
+- Alpha SHA-256: `8c056e0699c33eeee1075f4ee8e54cb9769d90834a3c2b7886c059980b93f35d`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[96, 96]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`ornaments.md`](prompts/ornaments.md)
+- Intended usage: Cyan focus-only node overlay with cardinal markers
+- Runtime derivatives: `assets/sprites/ui/ornaments/focus_halo.png`
+
+## `ignition_seal`
+
+- Family: `ornaments`
+- Selected source: `art_source/ui/hpa-374/boards/ornaments/ignition_seal-source.png`
+- Source SHA-256: `2d929cc12d9100246c6f15d13f36cc92163e1262f3c5761256698d1685a9aa84`
+- Selected alpha source: `art_source/ui/hpa-374/boards/ornaments/ignition_seal-alpha.png`
+- Alpha SHA-256: `be577ac0fb5e8103c79e57dddf185be1fe98fb16f1f693e509b6778584fc110f`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[192, 192]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`ornaments.md`](prompts/ornaments.md)
+- Intended usage: Uniform-scale open-center ignition state seal
+- Runtime derivatives: `assets/sprites/ui/ornaments/ignition_seal.png`
+
+## `orbit_arc`
+
+- Family: `ornaments`
+- Selected source: `art_source/ui/hpa-374/boards/ornaments/orbit_arc-source.png`
+- Source SHA-256: `c31e7a4412fa8990356251f34fd35fb5f3d3bc9eea996445711605baaea0eaa4`
+- Selected alpha source: `art_source/ui/hpa-374/boards/ornaments/orbit_arc-alpha.png`
+- Alpha SHA-256: `0a378eff4bc3638ba55785c243edda29ca397633f7e4d80b720911d0568f5da7`
+- Actual source size: `[1774, 887]` (1774x887)
+- Actual alpha size: `[1774, 887]` (1774x887)
+- Crop: `[0, 0, 1774, 887]`
+- Target sizes: `[[512, 256]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`ornaments.md`](prompts/ornaments.md)
+- Intended usage: Crop-safe wide orbital relation arc for tactical composition
+- Runtime derivatives: `assets/sprites/ui/ornaments/orbit_arc.png`
+
+## `partial_sigil`
+
+- Family: `ornaments`
+- Selected source: `art_source/ui/hpa-374/boards/ornaments/partial_sigil-source.png`
+- Source SHA-256: `bf25444d82c30362694c1919b4543473aa51fab863fe8acd98adcc7c422ab80c`
+- Selected alpha source: `art_source/ui/hpa-374/boards/ornaments/partial_sigil-alpha.png`
+- Alpha SHA-256: `c7625842d843e8c38339fa7ed83866d1c3797e3d0227e56695d3c12fd926d123`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[256, 256]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`ornaments.md`](prompts/ornaments.md)
+- Intended usage: Uniform-scale incomplete sigil fragment for celestial emphasis
+- Runtime derivatives: `assets/sprites/ui/ornaments/partial_sigil.png`
+
+## `selection_halo`
+
+- Family: `ornaments`
+- Selected source: `art_source/ui/hpa-374/boards/ornaments/selection_halo-source.png`
+- Source SHA-256: `c2fbb6d09128be529a98d0337ead1741b0880df513bb4d3ee366059aeb6d6f41`
+- Selected alpha source: `art_source/ui/hpa-374/boards/ornaments/selection_halo-alpha.png`
+- Alpha SHA-256: `c8980d76cc1ba55dd8c1b734e63210d03e9e868a70781df9ddc5b2ca89db4337`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[96, 96]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`ornaments.md`](prompts/ornaments.md)
+- Intended usage: Gold selection-only node overlay with offset star markers
+- Runtime derivatives: `assets/sprites/ui/ornaments/selection_halo.png`
+
+## `trajectory_line`
+
+- Family: `ornaments`
+- Selected source: `art_source/ui/hpa-374/boards/ornaments/trajectory_line-source.png`
+- Source SHA-256: `943bac79334ec403a223d53e7b75414ebd4477f3970f4571b0a8033f667a440f`
+- Selected alpha source: `art_source/ui/hpa-374/boards/ornaments/trajectory_line-alpha.png`
+- Alpha SHA-256: `b37bceca3ba8e1eb826d736d0070d34e0a2aeb75927eaf211e68ed093d86414b`
+- Actual source size: `[1774, 887]` (1774x887)
+- Actual alpha size: `[1774, 887]` (1774x887)
+- Crop: `[3, 333, 1768, 221]`
+- Target sizes: `[[512, 64]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`ornaments.md`](prompts/ornaments.md)
+- Intended usage: Stretch-safe comet trajectory connector for tactical flow
+- Runtime derivatives: `assets/sprites/ui/ornaments/trajectory_line.png`
+
 ## `attack`
 
 - Family: `stats-status`
@@ -1074,3 +1295,10 @@ The accepted fourth replacement remains at `weaken-replacement-4-source.png` (`e
 The initial `save` source was rejected by the unmodified 16px opaque-core validation before runtime promotion: its narrow archive-and-ray silhouette was unreadable after downscaling.
 The rejected ignored masters remain at `save-rejected-source.png` (`6a8191228b9c7aa4bfeafa440dfb3d6cf8e01818fa4c2cbc1e5a93e9c1b22c0d`) and `save-rejected-alpha.png` (`4ab5516e2095d3e772424af012408bd41f496f12e06355e6a512f3f128d43ec7`).
 One targeted built-in regeneration produced the accepted ignored masters `save-replacement-source.png` (`436e0ee4cefe5671c9dfa0c558847b6fcf44e1844445b281118657374561d6ae`) and `save-replacement-alpha.png` (`12f7ad549ac3ca9c000ece0616a47a616adc73ce4ca3e950de9f44305c8d964b`), which were copied into the registered `save` source names before extraction. The unmodified extractor then accepted the complete family.
+
+## Ornament replacement history
+
+All 13 logical ornaments began with one built-in OpenAI image_gen call. Five targeted built-in replacements were permitted only after source-level visual rejection, and a further callout candidate was rejected by the unmodified exporter before runtime promotion. These local masters are deliberately ignored; the selected source and alpha hashes are recorded in each ornament entry above.
+
+- `callout_frame-rejected-source.png` (`9ccd8913cdf6e28316b32fe808d2a8476779658e2623946204bf62dfeae47562`) was rejected because its top and bottom borders fell outside the centered 2:1 crop. `callout_frame-replacement-1-rejected-source.png` (`748aee2a2f472374d960fc59fe23b59631a72d32a429536625c97d2889c4f181`) / `callout_frame-replacement-1-rejected-alpha.png` (`d6e24b3821d671137ae8dcf0bd0307fa0c070d814b842bf7894e732b6feafb29`) then failed the unmodified transparent-center validation after downsampling. The selected masters are `callout_frame-source.png` (`a6f4cf435ef7bf8b74f022e975c96edd06be771e4ce1a863bb1bc3d22d490035`) / `callout_frame-alpha.png` (`a68c89f514a22b6c43867ac4eb90641522ba7d75167df1ef989cac9948dd8a5d`), extracted from a symmetric exact 2:1 crop `[70, 35, 1634, 817]` that preserves every border inside the final 32px bands.
+- `catalogue_rail_endcap-rejected-source.png` (`a5089e86d662d6fced3a2961747d061512729984407987867c6a1667f4d5dc44`), `partial_sigil-rejected-source.png` (`71710ae62e481a62ea5ed0d17bf27fb81bc413fcb7721449e041006dc4876014`), `focus_halo-rejected-source.png` (`8c49e6f197821c0ab7c2a51d41d73f9d69ab241ff7b114f7bc8707187942b891`), and `selection_halo-rejected-source.png` (`4674e917e9c3335ecf8a3725ac4ca05412348c783f5541aeb8fcca3926e00942`) were rejected because they contained a baked checkerboard rather than the required flat #00FF00 chroma-key background. Their selected clean-chroma masters are tracked by the corresponding ornament records above.

@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
 
@@ -363,6 +364,36 @@ public partial class InventoryMenuControllerTest : Node
         _inventoryMenu.OpenMenu();
         AssertThat(accessory.Disabled).IsFalse();
         AssertAllButtonTexturePaths(accessory, charm.AssetPath);
+    }
+
+    [TestCase]
+    public void OpenMenu_UsesCurrentToggleInventoryBindingInCloseLabel()
+    {
+        _inventoryMenu.OpenMenu();
+        AssertThat(_inventoryMenu.GetNode<Button>("%CloseButton").Text).IsEqual("Close [I]");
+    }
+
+    [TestCase]
+    public void ReopenMenu_ReReadsChangedToggleInventoryBinding()
+    {
+        var original = InputMap.ActionGetEvents("toggle_inventory")
+            .Select(inputEvent => (InputEvent)inputEvent.Duplicate())
+            .ToArray();
+        try
+        {
+            InputMap.ActionEraseEvents("toggle_inventory");
+            InputMap.ActionAddEvent("toggle_inventory", new InputEventKey { PhysicalKeycode = Key.K });
+            _inventoryMenu.OpenMenu();
+            AssertThat(_inventoryMenu.GetNode<Button>("%CloseButton").Text).IsEqual("Close [K]");
+        }
+        finally
+        {
+            if (_inventoryMenu.Visible)
+                _inventoryMenu.CloseMenu();
+            InputMap.ActionEraseEvents("toggle_inventory");
+            foreach (var inputEvent in original)
+                InputMap.ActionAddEvent("toggle_inventory", inputEvent);
+        }
     }
 
     private TextureButton GetSlotButton(string slotPath) =>

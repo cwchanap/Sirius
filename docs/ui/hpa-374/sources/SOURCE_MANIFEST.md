@@ -258,6 +258,193 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Intended usage: Warning semantic indicator paired with readable text
 - Runtime derivatives: `assets/sprites/ui/icons/semantic/16/warning.png`, `assets/sprites/ui/icons/semantic/24/warning.png`, `assets/sprites/ui/icons/semantic/32/warning.png`
 
+## `gamepad`
+
+- Family: `input-glyphs`
+- Selected source: `art_source/ui/hpa-374/boards/input-glyphs/gamepad-source.png`
+- Source SHA-256: `48bcb55b5cc673d60cd6ac5db7ef9ab4290d4fbff120c3a9df492c8210b93d1c`
+- Selected alpha source: `art_source/ui/hpa-374/boards/input-glyphs/gamepad-alpha.png`
+- Alpha SHA-256: `b422714ac9003d20242859aae939a5db51f4665a7773581c6da3618b1d592c0e`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
+- Intended usage: input-glyphs UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/input/16/gamepad.png`, `assets/sprites/ui/icons/input/24/gamepad.png`, `assets/sprites/ui/icons/input/32/gamepad.png`
+
+## `gamepad_dpad`
+
+- Family: `input-glyphs`
+- Selected source: `art_source/ui/hpa-374/boards/input-glyphs/gamepad_dpad-source.png`
+- Source SHA-256: `121d03ff80072e1f45f7b161a14289489d81209392e9e6771fb568e42bcf9b32`
+- Selected alpha source: `art_source/ui/hpa-374/boards/input-glyphs/gamepad_dpad-alpha.png`
+- Alpha SHA-256: `50bd8f28dc4c7cff3ec6eb1fef1ce021eac34da6501dc306a5cb9584a498e445`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
+- Intended usage: input-glyphs UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/input/16/gamepad_dpad.png`, `assets/sprites/ui/icons/input/24/gamepad_dpad.png`, `assets/sprites/ui/icons/input/32/gamepad_dpad.png`
+
+## `gamepad_face_blank`
+
+- Family: `input-glyphs`
+- Selected source: `art_source/ui/hpa-374/boards/input-glyphs/gamepad_face_blank-source.png`
+- Source SHA-256: `8a878fba9ec7cac7d2ac201f3321ac563be400eb66ef52a20d78d33c3cf6d521`
+- Selected alpha source: `art_source/ui/hpa-374/boards/input-glyphs/gamepad_face_blank-alpha.png`
+- Alpha SHA-256: `27724b5d90711556a052bbfad3ab10ebfa35e120c2c132f93a86de76a8fd682f`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
+- Intended usage: input-glyphs UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/input/16/gamepad_face_blank.png`, `assets/sprites/ui/icons/input/24/gamepad_face_blank.png`, `assets/sprites/ui/icons/input/32/gamepad_face_blank.png`
+
+## `gamepad_shoulder`
+
+- Family: `input-glyphs`
+- Selected source: `art_source/ui/hpa-374/boards/input-glyphs/gamepad_shoulder-source.png`
+- Source SHA-256: `11027e698276fe6788bb3fa9570f8320434b1fc2d0d8611d5f686fbe42d1f523`
+- Selected alpha source: `art_source/ui/hpa-374/boards/input-glyphs/gamepad_shoulder-alpha.png`
+- Alpha SHA-256: `44e89306b59eedc4f8279d5764024d09d245135fe5fe090815765590484a53ea`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
+- Intended usage: input-glyphs UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/input/16/gamepad_shoulder.png`, `assets/sprites/ui/icons/input/24/gamepad_shoulder.png`, `assets/sprites/ui/icons/input/32/gamepad_shoulder.png`
+
+## `gamepad_stick`
+
+- Family: `input-glyphs`
+- Selected source: `art_source/ui/hpa-374/boards/input-glyphs/gamepad_stick-source.png`
+- Source SHA-256: `029e714ba9da505076db5eede975a72e3c0d8f3fc52b8048f7e739f834e4eec5`
+- Selected alpha source: `art_source/ui/hpa-374/boards/input-glyphs/gamepad_stick-alpha.png`
+- Alpha SHA-256: `25b569a1fe5c8516e344a375aca78a541bf9a4beb3a138c1375aaa29729caa7d`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
+- Intended usage: input-glyphs UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/input/16/gamepad_stick.png`, `assets/sprites/ui/icons/input/24/gamepad_stick.png`, `assets/sprites/ui/icons/input/32/gamepad_stick.png`
+
+## `keyboard`
+
+- Family: `input-glyphs`
+- Selected source: `art_source/ui/hpa-374/boards/input-glyphs/keyboard-source.png`
+- Source SHA-256: `011e91603f31c4100eb649526adcd24cc1687168ffe17e84e04a08aee6882420`
+- Selected alpha source: `art_source/ui/hpa-374/boards/input-glyphs/keyboard-alpha.png`
+- Alpha SHA-256: `275e4e08bf784162e802e11db4feac0d69ce6b828ae8266460ad19ad09340485`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
+- Intended usage: input-glyphs UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/input/16/keyboard.png`, `assets/sprites/ui/icons/input/24/keyboard.png`, `assets/sprites/ui/icons/input/32/keyboard.png`
+
+## `keycap_blank`
+
+- Family: `input-glyphs`
+- Selected source: `art_source/ui/hpa-374/boards/input-glyphs/keycap_blank-source.png`
+- Source SHA-256: `281127aa4edcaed4cc489120b6bb46ddb5f73383117dde9dcfd6d5b126bf3357`
+- Selected alpha source: `art_source/ui/hpa-374/boards/input-glyphs/keycap_blank-alpha.png`
+- Alpha SHA-256: `521ffc5f2abbb3ce284714fe73ec9cf253b3178286e5512ecbc43992948417ff`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
+- Intended usage: input-glyphs UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/input/16/keycap_blank.png`, `assets/sprites/ui/icons/input/24/keycap_blank.png`, `assets/sprites/ui/icons/input/32/keycap_blank.png`
+
+## `mouse`
+
+- Family: `input-glyphs`
+- Selected source: `art_source/ui/hpa-374/boards/input-glyphs/mouse-source.png`
+- Source SHA-256: `d9ef522df3f856f39861803d4292fd5568f4af740177f3426e68876243dfd5a3`
+- Selected alpha source: `art_source/ui/hpa-374/boards/input-glyphs/mouse-alpha.png`
+- Alpha SHA-256: `5555c1139212d5fd85bb463694da9efddbd831e63e95a78f25d7a4efb9b47697`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
+- Intended usage: input-glyphs UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/input/16/mouse.png`, `assets/sprites/ui/icons/input/24/mouse.png`, `assets/sprites/ui/icons/input/32/mouse.png`
+
+## `mouse_primary`
+
+- Family: `input-glyphs`
+- Selected source: `art_source/ui/hpa-374/boards/input-glyphs/mouse_primary-source.png`
+- Source SHA-256: `7ea17363e0449c195e7729d9cb855a80388d73649e08c57ad524f5ef85d89454`
+- Selected alpha source: `art_source/ui/hpa-374/boards/input-glyphs/mouse_primary-alpha.png`
+- Alpha SHA-256: `4eb95c51408b72870a312716e5fc15a82ddab69ac8744ddd82276be839b9fd64`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
+- Intended usage: input-glyphs UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/input/16/mouse_primary.png`, `assets/sprites/ui/icons/input/24/mouse_primary.png`, `assets/sprites/ui/icons/input/32/mouse_primary.png`
+
+## `mouse_secondary`
+
+- Family: `input-glyphs`
+- Selected source: `art_source/ui/hpa-374/boards/input-glyphs/mouse_secondary-source.png`
+- Source SHA-256: `622a94cf9dad032b446c6e32d9655763351c77cf194424f2d9d9b9de11db7034`
+- Selected alpha source: `art_source/ui/hpa-374/boards/input-glyphs/mouse_secondary-alpha.png`
+- Alpha SHA-256: `76055d6b18cc2bfabcfa2af84e7dafc04bcd6f1388043789422d35ad7d695162`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
+- Intended usage: input-glyphs UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/input/16/mouse_secondary.png`, `assets/sprites/ui/icons/input/24/mouse_secondary.png`, `assets/sprites/ui/icons/input/32/mouse_secondary.png`
+
+## `mouse_wheel`
+
+- Family: `input-glyphs`
+- Selected source: `art_source/ui/hpa-374/boards/input-glyphs/mouse_wheel-source.png`
+- Source SHA-256: `b6edd8462e4c266084c794c4ef340883a48b2a640b4dbe4ae63fccb6485a48a0`
+- Selected alpha source: `art_source/ui/hpa-374/boards/input-glyphs/mouse_wheel-alpha.png`
+- Alpha SHA-256: `c2cbd0a6b28fd284f623729f53653abf156264ea3396e3ec62b99ac5fe1852da`
+- Actual source size: `[1254, 1254]` (1254x1254)
+- Actual alpha size: `[1254, 1254]` (1254x1254)
+- Crop: `[0, 0, 1254, 1254]`
+- Target sizes: `[[16, 16], [24, 24], [32, 32]]`
+- Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
+- Generator/date: `OpenAI image_gen` / `2026-07-29`
+- Prompt reference: [`input-glyphs.md`](prompts/input-glyphs.md)
+- Intended usage: input-glyphs UI artwork
+- Runtime derivatives: `assets/sprites/ui/icons/input/16/mouse_wheel.png`, `assets/sprites/ui/icons/input/24/mouse_wheel.png`, `assets/sprites/ui/icons/input/32/mouse_wheel.png`
+
 ## `assign`
 
 - Family: `inventory-actions`

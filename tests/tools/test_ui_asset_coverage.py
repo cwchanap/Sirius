@@ -27,6 +27,66 @@ def _flow_semantic_records() -> list[dict]:
             if record["family"] == "flow-semantic"]
 
 
+def _input_glyph_records() -> list[dict]:
+    return [record for record in json.loads((PROJECT_ROOT / MAP_RELATIVE_PATH).read_text())
+            if record["family"] == "input-glyphs"]
+
+
+def test_input_glyph_family_has_all_true_size_runtime_derivatives():
+    """Binding-aware presenters only consume the complete generated input family."""
+    missing: list[str] = []
+    for asset_id in ICON_GROUPS["input"]:
+        for size in (16, 24, 32):
+            path = PROJECT_ROOT / "assets/sprites/ui/icons/input" / str(size) / f"{asset_id}.png"
+            if not path.is_file():
+                missing.append(path.relative_to(PROJECT_ROOT).as_posix())
+                continue
+            with Image.open(path) as image:
+                assert image.mode == "RGBA"
+                assert image.size == (size, size)
+    assert missing == []
+
+
+def test_input_glyph_records_and_runtime_pngs_preserve_alpha_safety():
+    records = _input_glyph_records()
+    assert {record["id"] for record in records} == set(ICON_GROUPS["input"])
+    for record in records:
+        for size, _ in record["target_sizes"]:
+            path = runtime_path(record, PROJECT_ROOT, size, size)
+            assert not path.with_suffix(".png.import").exists()
+            with Image.open(path) as image:
+                assert image.mode == "RGBA"
+                assert "icc_profile" not in image.info
+                rgba = image.convert("RGBA")
+            alpha = rgba.getchannel("A")
+            visible = alpha.getbbox()
+            assert alpha.getextrema()[0] == 0
+            assert visible is not None
+            left, top, right, bottom = visible
+            assert left >= 1 and top >= 1 and right <= size - 1 and bottom <= size - 1
+            assert not any(a and g > 160 and g > r * 1.3 and g > b * 1.3 for r, g, b, a in rgba.getdata())
+
+
+def test_input_glyph_map_hashes_and_manifest_agree_when_local_masters_exist():
+    records = _input_glyph_records()
+    assert len(records) == 11
+    manifest = (PROJECT_ROOT / "docs/ui/hpa-374/sources/SOURCE_MANIFEST.md").read_text()
+    for record in records:
+        source = PROJECT_ROOT / record["source"]
+        alpha = PROJECT_ROOT / record["alpha_source"]
+        if source.is_file():
+            assert sha256_file(source) == record["source_sha256"]
+        if alpha.is_file():
+            assert sha256_file(alpha) == record["alpha_sha256"]
+        for expected in (
+            record["id"], record["family"], record["source"], record["alpha_source"],
+            record["source_sha256"], record["alpha_sha256"], str(record["source_size"]),
+            str(record["alpha_size"]), str(record["crop"]), str(record["target_sizes"]),
+            json.dumps(record["postprocess"], sort_keys=True), record["generator"], record["generated_on"],
+        ):
+            assert expected in manifest
+
+
 def test_inventory_action_family_has_all_true_size_runtime_derivatives():
     """The first shipped family must be complete before screen integration."""
     missing: list[str] = []

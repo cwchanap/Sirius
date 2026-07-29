@@ -1,2 +1,5 @@
 # Normalize EOL for all files that Git considers text files.
 * text=auto eol=lf
+
+# Byte-exact upstream SIL Open Font License copies retain their authored trailing space.
+assets/fonts/**/OFL.txt whitespace=-trailing-space

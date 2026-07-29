@@ -862,7 +862,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Alpha SHA-256: `a68c89f514a22b6c43867ac4eb90641522ba7d75167df1ef989cac9948dd8a5d`
 - Actual source size: `[1774, 887]` (1774x887)
 - Actual alpha size: `[1774, 887]` (1774x887)
-- Crop: `[70, 35, 1634, 817]`
+- Crop: `[47, 23, 1680, 840]`
 - Target sizes: `[[512, 256]]`
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
@@ -1371,3 +1371,9 @@ The first built-in `image_gen` source was retained as `encounter_burst-initial-c
 After explicit user authorization, one built-in native-transparency fallback was attempted (`exec-576dda6c-368d-4dea-bba9-0fe58ee450a5.png`, SHA-256 `cf1514a6e5c260be059181c23a309e00bc423ddeb592a9300bf5af6794702b3a`). It was rejected before promotion because its alpha extrema were `(255, 255)`: the apparent checkerboard was baked into a fully opaque image.
 
 The selected edge-contract output had two remaining high-alpha green-key residues after resize. Only the registered `encounter_burst` record therefore opts into `high_alpha_chroma_despill`; it preserves alpha, red, and blue and clamps only the excessive green component of pixels already matching the chroma-contamination predicate. The final derivative SHA-256 is `9d450d80042643b693443661d9d48a56b65d084bdb793def7352c99af3146c7f`.
+
+## Callout frame crop repair history
+
+Task 11's final gate found that the originally selected, hash-bound `callout_frame` masters were sound, but their first exact 2:1 crop `[70, 35, 1634, 817]` clipped the authored side border to the runtime image edges. The selected source remains `callout_frame-source.png` (`a6f4cf435ef7bf8b74f022e975c96edd06be771e4ce1a863bb1bc3d22d490035`) and the selected alpha remains `callout_frame-alpha.png` (`a68c89f514a22b6c43867ac4eb90641522ba7d75167df1ef989cac9948dd8a5d`); no source was regenerated or replaced.
+
+The deterministic repair records the narrowest wider centered exact 2:1 crop that retains a transparent 32px content center, all four nonempty 32px border bands, and at least one transparent output pixel on every edge: `[47, 23, 1680, 840]`. It was atomically re-extracted only for `callout_frame`; the repaired runtime derivative SHA-256 is `312efefb954ac036b1b54a93fc4669f1b826443bf512495595506a83af17e7d6`.

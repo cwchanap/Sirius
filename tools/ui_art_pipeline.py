@@ -169,8 +169,8 @@ def _validate_final_asset(record: dict, image: Image.Image) -> None:
     touches_horizontal = record["id"] == "calibration_ticks"
     if any(_is_chroma_contamination(*pixel) for pixel in image.convert("RGBA").getdata()):
         raise ValueError(f"Chroma contamination for {record['id']}")
-    if (not is_callout_frame and
-            (top < 1 or bottom > image.height - 1 or (not touches_horizontal and (left < 1 or right > image.width - 1)))):
+    if (top < 1 or bottom > image.height - 1 or
+            (not touches_horizontal and (left < 1 or right > image.width - 1))):
         raise ValueError(f"Final safety inset violated for {record['id']}")
     if touches_horizontal:
         if left != 0 or right != image.width or top < 1 or bottom > image.height - 1:

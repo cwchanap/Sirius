@@ -190,6 +190,26 @@ public partial class UiArtCatalogTest : Node
         }
     }
 
+    [TestCase]
+    public void ApprovedFonts_LoadAsFontFiles()
+    {
+        string[] paths =
+        [
+            "res://assets/fonts/cinzel/Cinzel-Variable.ttf",
+            "res://assets/fonts/noto_sans/NotoSans-Regular.ttf",
+            "res://assets/fonts/noto_sans/NotoSans-Medium.ttf",
+            "res://assets/fonts/noto_sans/NotoSans-SemiBold.ttf",
+            "res://assets/fonts/noto_sans_mono/NotoSansMono-Medium.ttf"
+        ];
+
+        foreach (var path in paths)
+        {
+            AssertThat(FileAccess.FileExists(path)).IsTrue();
+            AssertThat(ResourceLoader.Exists(path)).IsTrue();
+            AssertThat(ResourceLoader.Load<FontFile>(path)).IsNotNull();
+        }
+    }
+
     private static HashSet<string> GetMissingPaths()
     {
         var field = typeof(UiArtCatalog).GetField(

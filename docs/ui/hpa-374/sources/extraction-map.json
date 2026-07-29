@@ -1,0 +1,866 @@
+[
+  {
+    "alpha_sha256": "3317277ee4c4fd531e9c7f9994b2876cae8faf281af584440e3755eddadcd3f9",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/assign-alpha.png",
+    "category": "actions",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "assign",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/assign-source.png",
+    "source_sha256": "7fd5d87984158db13201fbcceac682c65c37eb1e558597a121a306401a578e4c",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "6819ebbfc543cd81ba1226325b8a057f3727d0307824e19c0cb5048c201433c9",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/buy-alpha.png",
+    "category": "actions",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "buy",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/buy-source.png",
+    "source_sha256": "e74beb6255e844750895b7e07ae389887745d5cb9d29d01310c872ea66cc3da0",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "a6d6c9425f5b8889781aa7f728d23c56530686bdb1f41e138ee962b83bc584bc",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/equip-alpha.png",
+    "category": "actions",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "equip",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/equip-source.png",
+    "source_sha256": "74d3e289069034ad0db5697bbc6fd7feb846e1d6f2954820866df8656e1f7f15",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "73ba87f2d36732dc45c80972b3d8ba85231589f0575d0993e9006bd971645a4d",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/sell-alpha.png",
+    "category": "actions",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "sell",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/sell-source.png",
+    "source_sha256": "372ef124867d9080dd9ed55e7e5198fb0aa5c5288bc2bec35be64adf3c7cd2e9",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "5b72dfa5df05b1d5e34c43ce64368f50f82d29c6882ddbd94795feaa584b13ce",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/unequip-alpha.png",
+    "category": "actions",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "unequip",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/unequip-source.png",
+    "source_sha256": "fc7851d28130745998406b41947ba2f6b6f50e9fedda47e39df8accae0c49982",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "a1cdea830ed398346e9a2fdc23e468a3140a6bbdecaaac4ce6ce378c0c468e64",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/use-alpha.png",
+    "category": "actions",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "use",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/use-source.png",
+    "source_sha256": "e350b58e793def9a170ed93929162b755f644edac151e0a37f792a31e3422f39",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "372dec38fa296b1f8bfe9b926a56b4d21c1514c48ad167e17021e498bc41fd9c",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/accessory-alpha.png",
+    "category": "inventory",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "accessory",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/accessory-source.png",
+    "source_sha256": "cde776032fedf15f510179a3eef7845fb4926f93a909149ec342027994884ce8",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "fe3f5bab1896062a6adb0ce4652f9b3ef0ed793e45697ddba461dd89fad1c28f",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/active_skill-alpha.png",
+    "category": "inventory",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "active_skill",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/active_skill-source.png",
+    "source_sha256": "2e4210d6ae594cfc17cb834fca823c63067181c0d826f784af0bb08c953fd005",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "da860f35d73a51d421a438a09241793e2f5a892f2917e730f9a1fa99d9163c25",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/armor-alpha.png",
+    "category": "inventory",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "armor",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/armor-source.png",
+    "source_sha256": "d62e427ccf8347db92202379317dae7bcac0cfdd4d2c10ca84dcab3594ed4b8d",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "9fc74b13c06105b54cdc9e7565e14439969d7a31e0609ef31a290c6e7755e5fd",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/consumable-alpha.png",
+    "category": "inventory",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "consumable",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/consumable-source.png",
+    "source_sha256": "0ea14e10f6c206080e1d867350390c959981af6acc6c76a7889de5f576b96277",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "77f6616bbd799b4432cb3108532cffcea5239863de56a911e75f2c05c2189458",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/equipment-alpha.png",
+    "category": "inventory",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "equipment",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/equipment-source.png",
+    "source_sha256": "6f9522178633977677174ec21c15a3f61262f538f990cbb4c5cd29feea7cef0d",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "a9ea89267614eae7aca981430f1b6c9a128dd36e419e6bf2ff392f2d7dbb8295",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/general-alpha.png",
+    "category": "inventory",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "general",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/general-source.png",
+    "source_sha256": "d20953a3ad75d135f22c69ee2ef2e27a3f18bad14598d745db27f22e71d4f7ff",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "d925f03ea4e5983a9008789e30209f8391e96e76e6b8efff0ef4faebb1e7eeb1",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/helmet-alpha.png",
+    "category": "inventory",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "helmet",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/helmet-source.png",
+    "source_sha256": "e2f03f77b4892e51537258ff991ce3a7a74fe0507bc0a32253c9b0ba1c04534d",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "4eb4a8ae0250731cf790615ba3e95695b74e67c027e910d85e5690a7e9c76ab1",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/locked-alpha.png",
+    "category": "inventory",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "locked",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/locked-source.png",
+    "source_sha256": "04fcd02c9a03dd932c5ca773e5ba9d1b12ed3aa9cc0b723ad6e1b97bca12e83c",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "3993e4289c3baab212e605b7d75dd1ba04b7fb4d3a2ac730418e95c7e391deea",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/quest-alpha.png",
+    "category": "inventory",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "quest",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/quest-source.png",
+    "source_sha256": "ce3b832ed6c1ce34f27dec0741ad8d84bf1e9f38f370cf2291a67c1b15fd73e5",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "ed6d67ff2c84c9b92803c92cf4ab165aece00ee1b25a2dcc65c2ef7093442277",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/shield-alpha.png",
+    "category": "inventory",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "shield",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/shield-source.png",
+    "source_sha256": "fdcd2c6724fbe0d3dee4fd01d6928a2949e38686e28eb6207809e535146a4202",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "f471dd2b47f98c08e0acb9e01dd3d631cdef1212b8c91f9b346c7ee687dd65b1",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/shoe-alpha.png",
+    "category": "inventory",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "shoe",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/shoe-source.png",
+    "source_sha256": "41b37ab5f5905e87ac8a3256d4222fdff6cad1a65a0203cad24c24bafeb78d5e",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  },
+  {
+    "alpha_sha256": "ef557c76520d1952586ea9b83f962093b98699c0c3962544a025adeaa4890662",
+    "alpha_size": [
+      1254,
+      1254
+    ],
+    "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/weapon-alpha.png",
+    "category": "inventory",
+    "crop": [
+      0,
+      0,
+      1254,
+      1254
+    ],
+    "family": "inventory-actions",
+    "generated_on": "2026-07-29",
+    "generator": "OpenAI image_gen",
+    "id": "weapon",
+    "kind": "icon",
+    "postprocess": {
+      "auto_key": "border",
+      "despill": true,
+      "edge_contract": 0,
+      "opaque_threshold": 220,
+      "soft_matte": true,
+      "transparent_threshold": 12
+    },
+    "source": "art_source/ui/hpa-374/boards/inventory-actions/weapon-source.png",
+    "source_sha256": "d423dbe54083d82cbac606f0a75c17e288a48692857362c642444d7d41068287",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "target_sizes": [
+      [
+        16,
+        16
+      ],
+      [
+        24,
+        24
+      ],
+      [
+        32,
+        32
+      ]
+    ]
+  }
+]

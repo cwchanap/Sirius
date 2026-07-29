@@ -323,7 +323,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Player/battle attack stat indicator
 - Runtime derivatives: `assets/sprites/ui/icons/stats/16/attack.png`, `assets/sprites/ui/icons/stats/24/attack.png`, `assets/sprites/ui/icons/stats/32/attack.png`
 
 ## `defense`
@@ -340,7 +340,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Player/battle defense stat indicator
 - Runtime derivatives: `assets/sprites/ui/icons/stats/16/defense.png`, `assets/sprites/ui/icons/stats/24/defense.png`, `assets/sprites/ui/icons/stats/32/defense.png`
 
 ## `experience`
@@ -357,7 +357,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Player experience resource indicator
 - Runtime derivatives: `assets/sprites/ui/icons/stats/16/experience.png`, `assets/sprites/ui/icons/stats/24/experience.png`, `assets/sprites/ui/icons/stats/32/experience.png`
 
 ## `gold`
@@ -374,7 +374,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Player gold resource indicator
 - Runtime derivatives: `assets/sprites/ui/icons/stats/16/gold.png`, `assets/sprites/ui/icons/stats/24/gold.png`, `assets/sprites/ui/icons/stats/32/gold.png`
 
 ## `health`
@@ -391,7 +391,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Player health resource indicator
 - Runtime derivatives: `assets/sprites/ui/icons/stats/16/health.png`, `assets/sprites/ui/icons/stats/24/health.png`, `assets/sprites/ui/icons/stats/32/health.png`
 
 ## `level`
@@ -408,7 +408,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Player level indicator
 - Runtime derivatives: `assets/sprites/ui/icons/stats/16/level.png`, `assets/sprites/ui/icons/stats/24/level.png`, `assets/sprites/ui/icons/stats/32/level.png`
 
 ## `mana`
@@ -425,7 +425,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Player mana resource indicator
 - Runtime derivatives: `assets/sprites/ui/icons/stats/16/mana.png`, `assets/sprites/ui/icons/stats/24/mana.png`, `assets/sprites/ui/icons/stats/32/mana.png`
 
 ## `speed`
@@ -442,7 +442,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Player/battle speed stat indicator
 - Runtime derivatives: `assets/sprites/ui/icons/stats/16/speed.png`, `assets/sprites/ui/icons/stats/24/speed.png`, `assets/sprites/ui/icons/stats/32/speed.png`
 
 ## `blind`
@@ -459,7 +459,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Active Blind debuff indicator
 - Runtime derivatives: `assets/sprites/ui/icons/status/16/blind.png`, `assets/sprites/ui/icons/status/24/blind.png`, `assets/sprites/ui/icons/status/32/blind.png`
 
 ## `burn`
@@ -476,7 +476,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Active Burn debuff indicator
 - Runtime derivatives: `assets/sprites/ui/icons/status/16/burn.png`, `assets/sprites/ui/icons/status/24/burn.png`, `assets/sprites/ui/icons/status/32/burn.png`
 
 ## `fortify`
@@ -493,7 +493,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Active Fortify buff indicator
 - Runtime derivatives: `assets/sprites/ui/icons/status/16/fortify.png`, `assets/sprites/ui/icons/status/24/fortify.png`, `assets/sprites/ui/icons/status/32/fortify.png`
 
 ## `haste`
@@ -510,7 +510,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Active Haste buff indicator
 - Runtime derivatives: `assets/sprites/ui/icons/status/16/haste.png`, `assets/sprites/ui/icons/status/24/haste.png`, `assets/sprites/ui/icons/status/32/haste.png`
 
 ## `poison`
@@ -527,7 +527,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Active Poison debuff indicator
 - Runtime derivatives: `assets/sprites/ui/icons/status/16/poison.png`, `assets/sprites/ui/icons/status/24/poison.png`, `assets/sprites/ui/icons/status/32/poison.png`
 
 ## `regen`
@@ -544,7 +544,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Active Regen buff indicator
 - Runtime derivatives: `assets/sprites/ui/icons/status/16/regen.png`, `assets/sprites/ui/icons/status/24/regen.png`, `assets/sprites/ui/icons/status/32/regen.png`
 
 ## `slow`
@@ -561,7 +561,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Active Slow debuff indicator
 - Runtime derivatives: `assets/sprites/ui/icons/status/16/slow.png`, `assets/sprites/ui/icons/status/24/slow.png`, `assets/sprites/ui/icons/status/32/slow.png`
 
 ## `strength`
@@ -578,7 +578,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Active Strength buff indicator
 - Runtime derivatives: `assets/sprites/ui/icons/status/16/strength.png`, `assets/sprites/ui/icons/status/24/strength.png`, `assets/sprites/ui/icons/status/32/strength.png`
 
 ## `stun`
@@ -595,7 +595,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Active Stun debuff indicator
 - Runtime derivatives: `assets/sprites/ui/icons/status/16/stun.png`, `assets/sprites/ui/icons/status/24/stun.png`, `assets/sprites/ui/icons/status/32/stun.png`
 
 ## `weaken`
@@ -612,19 +612,17 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`stats-status.md`](prompts/stats-status.md)
-- Intended usage: stats-status UI artwork
+- Intended usage: Active Weaken debuff indicator
 - Runtime derivatives: `assets/sprites/ui/icons/status/16/weaken.png`, `assets/sprites/ui/icons/status/24/weaken.png`, `assets/sprites/ui/icons/status/32/weaken.png`
-
-## Weaken replacement history
-
-The initial `weaken` source was rejected by the unmodified 16px opaque-core validation: its separated blade fragments produced an unreadable narrow silhouette. The rejected ignored masters remain at `weaken-rejected-source.png` (`d9ee160e049d30762a0893ac1a8372798c29e2e97f202d2538980a74dbe80607`) and `weaken-rejected-alpha.png` (`c41f28c97978983b77616fdff30c3fd6f3b69daa6a9f9182cd0475db689e3654`).
-
-Three targeted built-in regenerations were then rejected before runtime promotion: `weaken-replacement-1-rejected-source.png` (`325a9c5b7b79b72691e37d6bbf82c6ad777ebc97dd2a2e3603eb7333af152380`) / `weaken-replacement-1-rejected-alpha.png` (`a23b46dade9730851c692edbf2a7bb4a19094344f1fb5abc5e783051ad52e161`) still had a four-pixel 16px core; `weaken-replacement-2-rejected-source.png` (`e37123d4503c46faeb92d0b9bf01d7170ff734f65c9228121840e2d16d5dc52a`) / `weaken-replacement-2-rejected-alpha.png` (`c812ffb3be29704c801b23a75cf00e3d2c723641255eeb15fe88d1e4460a499a`) violated the final one-pixel safety inset; and `weaken-replacement-3-rejected-source.png` (`b78fabfca01fe305bdcce7b8dc3a450dc365c54366a0162f00d62e3005f3e4ac`) / `weaken-replacement-3-rejected-alpha.png` (`4e7c00417a72a39b08e8107d120d352aebd38ef21ee0756d34b8558bc002cd3a`) retained a bottom-edge alpha pixel after the unmodified pipeline contract.
-
-The accepted fourth replacement remains at `weaken-replacement-4-source.png` (`ea3b087ea4bcc482b09bbbf154775a3469d7c9c41586a2baf9be93a5363b10a2`) and `weaken-replacement-4-alpha.png` (`9c736563e4aa44199242dcd0571b600cae422435ba0091e96fcc6a053d88aa62`). It produces an 8x12px opaque 16px core and preserves the one-pixel inset under the unmodified extractor.
 
 ## Weapon replacement history
 
 The first `weapon` source was rejected by the unmodified 16px opaque-core validation: its tall, narrow silhouette could not satisfy that gate while retaining the required one-pixel transparent inset.
 The rejected ignored masters remain at `weapon-rejected-source.png` (`92ae4f56482ad06eff8fdf155033f291be1516cbe3c092fabaa252cb582f8955`) and `weapon-rejected-alpha.png` (`113698e0a114d479c210f523d16930912314323639bd5a1fa0c746eafa8a7dc8`).
 One targeted regeneration produced the accepted ignored masters `weapon-replacement-source.png` (`d423dbe54083d82cbac606f0a75c17e288a48692857362c642444d7d41068287`) and `weapon-replacement-alpha.png` (`ef557c76520d1952586ea9b83f962093b98699c0c3962544a025adeaa4890662`), which were copied into the registered `weapon` source names before extraction.
+
+## Weaken replacement history
+
+The initial `weaken` source was rejected by the unmodified 16px opaque-core validation: its separated blade fragments produced an unreadable narrow silhouette. The rejected ignored masters remain at `weaken-rejected-source.png` (`d9ee160e049d30762a0893ac1a8372798c29e2e97f202d2538980a74dbe80607`) and `weaken-rejected-alpha.png` (`c41f28c97978983b77616fdff30c3fd6f3b69daa6a9f9182cd0475db689e3654`).
+Three targeted built-in regenerations were then rejected before runtime promotion: `weaken-replacement-1-rejected-source.png` (`325a9c5b7b79b72691e37d6bbf82c6ad777ebc97dd2a2e3603eb7333af152380`) / `weaken-replacement-1-rejected-alpha.png` (`a23b46dade9730851c692edbf2a7bb4a19094344f1fb5abc5e783051ad52e161`) still had a four-pixel 16px core; `weaken-replacement-2-rejected-source.png` (`e37123d4503c46faeb92d0b9bf01d7170ff734f65c9228121840e2d16d5dc52a`) / `weaken-replacement-2-rejected-alpha.png` (`c812ffb3be29704c801b23a75cf00e3d2c723641255eeb15fe88d1e4460a499a`) violated the final one-pixel safety inset; and `weaken-replacement-3-rejected-source.png` (`b78fabfca01fe305bdcce7b8dc3a450dc365c54366a0162f00d62e3005f3e4ac`) / `weaken-replacement-3-rejected-alpha.png` (`4e7c00417a72a39b08e8107d120d352aebd38ef21ee0756d34b8558bc002cd3a`) retained a bottom-edge alpha pixel after the unmodified pipeline contract.
+The accepted fourth replacement remains at `weaken-replacement-4-source.png` (`ea3b087ea4bcc482b09bbbf154775a3469d7c9c41586a2baf9be93a5363b10a2`) and `weaken-replacement-4-alpha.png` (`9c736563e4aa44199242dcd0571b600cae422435ba0091e96fcc6a053d88aa62`). It produces an 8x12px opaque 16px core and preserves the one-pixel inset under the unmodified extractor.

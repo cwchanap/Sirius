@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from tools.ui_art_pipeline import MAP_RELATIVE_PATH, runtime_path, sha256_file
+from tools.ui_art_pipeline import MAP_RELATIVE_PATH, _intended_usage, runtime_path, sha256_file
 from tools.ui_art_spec import ICON_FAMILIES, ICON_GROUPS
 
 
@@ -145,3 +145,69 @@ def test_stats_status_map_hashes_and_manifest_agree_when_local_masters_exist():
             json.dumps(record["postprocess"], sort_keys=True), record["generator"], record["generated_on"],
         ):
             assert expected in manifest
+
+
+def test_stats_status_records_have_exact_non_generic_intended_usage():
+    expected_roles = {
+        "health": "Player health resource indicator",
+        "mana": "Player mana resource indicator",
+        "experience": "Player experience resource indicator",
+        "level": "Player level indicator",
+        "gold": "Player gold resource indicator",
+        "attack": "Player/battle attack stat indicator",
+        "defense": "Player/battle defense stat indicator",
+        "speed": "Player/battle speed stat indicator",
+        "poison": "Active Poison debuff indicator",
+        "burn": "Active Burn debuff indicator",
+        "stun": "Active Stun debuff indicator",
+        "weaken": "Active Weaken debuff indicator",
+        "slow": "Active Slow debuff indicator",
+        "blind": "Active Blind debuff indicator",
+        "regen": "Active Regen buff indicator",
+        "haste": "Active Haste buff indicator",
+        "strength": "Active Strength buff indicator",
+        "fortify": "Active Fortify buff indicator",
+    }
+    records = _stats_status_records()
+    assert {record["id"] for record in records} == set(expected_roles)
+    manifest = (PROJECT_ROOT / "docs/ui/hpa-374/sources/SOURCE_MANIFEST.md").read_text()
+    assert "Intended usage: stats-status UI artwork" not in manifest
+    for record in records:
+        role = expected_roles[record["id"]]
+        assert _intended_usage(record) == role
+        assert f"- Intended usage: {role}" in manifest
+
+
+def test_regenerated_manifest_preserves_inventory_roles_and_weaken_history():
+    manifest = (PROJECT_ROOT / "docs/ui/hpa-374/sources/SOURCE_MANIFEST.md").read_text()
+    for role in (
+        "Inventory general category heading icon",
+        "Inventory equipment category heading icon",
+        "Inventory consumable category tab icon",
+        "Inventory quest category tab icon",
+        "Empty weapon equipment slot glyph",
+        "Empty shield equipment slot glyph",
+        "Empty armor equipment slot glyph",
+        "Empty helmet equipment slot glyph",
+        "Empty shoe equipment slot glyph",
+        "Empty accessory equipment slot glyph",
+        "Inactive accessory placeholder",
+        "Active-skill selector/slot glyph",
+        "Equip selected item action",
+        "Unequip selected item action",
+        "Use selected consumable action",
+        "Assign active skill action",
+        "Shop purchase action",
+        "Shop sale action",
+    ):
+        assert f"- Intended usage: {role}" in manifest
+    for expected in (
+        "## Weaken replacement history",
+        "weaken-rejected-source.png",
+        "weaken-replacement-1-rejected-source.png",
+        "weaken-replacement-2-rejected-source.png",
+        "weaken-replacement-3-rejected-source.png",
+        "weaken-replacement-4-source.png",
+        "8x12px opaque 16px core",
+    ):
+        assert expected in manifest

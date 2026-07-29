@@ -1975,7 +1975,7 @@ public void ApprovedFonts_LoadAsFontFiles()
 Run the focused test and confirm it fails because the font files are absent:
 
 ```bash
-rtk dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~UiArtCatalogTest.ApprovedFonts_LoadAsFontFiles"
+rtk dotnet vstest .godot/mono/temp/bin/Debug/Sirius.dll --Tests:ApprovedFonts_LoadAsFontFiles --Settings:test.runsettings.local
 ```
 
 - [ ] **Step 2: Download exact official upstream revisions**
@@ -2047,7 +2047,7 @@ Run:
 
 ```bash
 rtk /Applications/Godot_mono.app/Contents/MacOS/Godot --headless --editor --path . --quit
-rtk dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~UiArtCatalogTest.ApprovedFonts_LoadAsFontFiles"
+rtk dotnet vstest .godot/mono/temp/bin/Debug/Sirius.dll --Tests:ApprovedFonts_LoadAsFontFiles --Settings:test.runsettings.local
 rtk git diff --check
 ```
 

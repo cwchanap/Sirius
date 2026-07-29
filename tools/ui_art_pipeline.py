@@ -411,35 +411,89 @@ def _sheet(output: Path, images: list[Image.Image], cell: int = 64, columns: int
     return output
 
 
-def _icon_state_preview(image: Image.Image, state: str) -> Image.Image:
-    cell = 64
-    preview = Image.new("RGBA", (cell, cell), (9, 17, 30, 255))
+def icon_sheet_layout(entries: list[tuple[str, str, Image.Image]], columns: int = 6,
+                      cell_width: int = 128, art_height: int = 96, label_height: int = 32) -> dict:
+    """Return deterministic, non-overlapping artwork and caption boxes."""
+    rows = max(1, (len(entries) + columns - 1) // columns)
+    cell_height = art_height + label_height
+    positioned = []
+    for index, (category, asset_id, _) in enumerate(entries):
+        left, top = (index % columns) * cell_width, (index // columns) * cell_height
+        positioned.append({
+            "category": category, "id": asset_id,
+            "art_box": (left, top, left + cell_width, top + art_height),
+            "label_box": (left, top + art_height, left + cell_width, top + cell_height),
+        })
+    return {"canvas": (columns * cell_width, rows * cell_height), "entries": positioned}
+
+
+def state_sheet_layout(entries: list[tuple[str, str, Image.Image]], columns: int = 4,
+                       cell_width: int = 192, art_height: int = 96, label_height: int = 32) -> dict:
+    """Lay out every icon state with enough caption width for category, ID, and state."""
+    expanded = [(category, asset_id, state)
+                for category, asset_id, _ in entries
+                for state in ("normal", "focused", "selected", "disabled")]
+    rows = max(1, (len(expanded) + columns - 1) // columns)
+    cell_height = art_height + label_height
+    positioned = []
+    for index, (category, asset_id, state) in enumerate(expanded):
+        left, top = (index % columns) * cell_width, (index // columns) * cell_height
+        positioned.append({
+            "category": category, "id": asset_id, "state": state,
+            "art_box": (left, top, left + cell_width, top + art_height),
+            "label_box": (left, top + art_height, left + cell_width, top + cell_height),
+        })
+    return {"canvas": (columns * cell_width, rows * cell_height), "entries": positioned}
+
+
+def _draw_caption(draw: ImageDraw.ImageDraw, label_box: tuple[int, int, int, int],
+                  category: str, asset_id: str, state: str | None = None) -> None:
+    left, top, _, _ = label_box
+    font = ImageFont.load_default()
+    draw.text((left + 4, top + 2), category, fill=(151, 213, 255, 255), font=font)
+    suffix = f" / {state}" if state is not None else ""
+    draw.text((left + 4, top + 16), f"{asset_id}{suffix}", fill=(237, 241, 255, 255), font=font)
+
+
+def _labelled_icon_sheet(output: Path, entries: list[tuple[str, str, Image.Image]], size: int) -> Path:
+    layout = icon_sheet_layout(entries)
+    sheet = Image.new("RGBA", layout["canvas"], (9, 17, 30, 255))
+    draw = ImageDraw.Draw(sheet)
+    for entry, (_, _, image) in zip(layout["entries"], entries):
+        left, top, right, bottom = entry["art_box"]
+        art = image.convert("RGBA")
+        sheet.alpha_composite(art, (left + (right - left - art.width) // 2, top + (bottom - top - art.height) // 2))
+        _draw_caption(draw, entry["label_box"], entry["category"], entry["id"])
+    output.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(output, format="PNG", icc_profile=None, optimize=True)
+    return output
+
+
+def _icon_state_preview(image: Image.Image, state: str, cell_width: int, cell_height: int) -> Image.Image:
+    preview = Image.new("RGBA", (cell_width, cell_height), (9, 17, 30, 255))
     art = image.convert("RGBA").copy()
-    art.thumbnail((48, 48), Image.Resampling.LANCZOS)
+    art.thumbnail((cell_width - 32, cell_height - 16), Image.Resampling.LANCZOS)
     if state == "disabled":
         art.putalpha(art.getchannel("A").point(lambda alpha: alpha * 115 // 255))
-    preview.alpha_composite(art, ((cell - art.width) // 2, (cell - art.height) // 2))
+    preview.alpha_composite(art, ((cell_width - art.width) // 2, (cell_height - art.height) // 2))
     draw = ImageDraw.Draw(preview)
     if state == "focused":
-        draw.rectangle((2, 2, cell - 3, cell - 3), outline=(0, 255, 255, 255), width=2)
+        draw.rectangle((2, 2, cell_width - 3, cell_height - 3), outline=(0, 255, 255, 255), width=2)
     elif state == "selected":
-        draw.rectangle((2, 2, cell - 3, cell - 3), outline=(255, 204, 64, 255), width=2)
+        draw.rectangle((2, 2, cell_width - 3, cell_height - 3), outline=(255, 204, 64, 255), width=2)
     return preview
 
 
-def _state_sheet(output: Path, entries: list[tuple[str, Image.Image, str]]) -> Path:
-    cell, label_height, columns = 64, 18, 4
-    rows = max(1, (len(entries) + columns - 1) // columns)
-    sheet = Image.new("RGBA", (columns * cell, rows * (cell + label_height)), (9, 17, 30, 255))
+def _state_sheet(output: Path, entries: list[tuple[str, str, Image.Image]]) -> Path:
+    layout = state_sheet_layout(entries)
+    sheet = Image.new("RGBA", layout["canvas"], (9, 17, 30, 255))
     draw = ImageDraw.Draw(sheet)
-    font = ImageFont.load_default()
-    for index, (category, image, state) in enumerate(entries):
-        x = (index % columns) * cell
-        y = (index // columns) * (cell + label_height)
-        sheet.alpha_composite(_icon_state_preview(image, state), (x, y))
-        # Labels deliberately live below the art so the rendered asset remains
-        # unmodified while review sheets retain category/state context.
-        draw.text((x + 1, y + cell), f"{category} {state}", fill=(230, 235, 255, 255), font=font)
+    image_by_id = {(category, asset_id): image for category, asset_id, image in entries}
+    for entry in layout["entries"]:
+        left, top, right, bottom = entry["art_box"]
+        image = image_by_id[(entry["category"], entry["id"])]
+        sheet.alpha_composite(_icon_state_preview(image, entry["state"], right - left, bottom - top), (left, top))
+        _draw_caption(draw, entry["label_box"], entry["category"], entry["id"], entry["state"])
     output.parent.mkdir(parents=True, exist_ok=True)
     sheet.save(output, format="PNG", icc_profile=None, optimize=True)
     return output
@@ -462,7 +516,7 @@ def build_contact_sheets(project_root: Path) -> list[Path]:
     project_root = Path(project_root)
     icons = {size: [] for size in (16, 24, 32)}
     ornaments, effects = [], []
-    states: list[tuple[str, Image.Image, str]] = []
+    states: list[tuple[str, str, Image.Image]] = []
     for record in _load_map(project_root / MAP_RELATIVE_PATH):
         if record["kind"] == "icon":
             copies = []
@@ -472,12 +526,11 @@ def build_contact_sheets(project_root: Path) -> list[Path]:
                     continue
                 with Image.open(path) as image:
                     copy = image.convert("RGBA").copy()
-                icons[width].append(copy)
+                icons[width].append((record["category"], record["id"], copy))
                 copies.append(copy)
             if not copies:
                 continue
-            copy = copies[-1]
-            states.extend((record["category"], copy, state) for state in ("normal", "focused", "selected", "disabled"))
+            states.append((record["category"], record["id"], copies[-1]))
         else:
             width, height = record["target_sizes"][-1]
             path = runtime_path(record, project_root, width, height)
@@ -496,15 +549,52 @@ def build_contact_sheets(project_root: Path) -> list[Path]:
             if record["kind"] == "effect":
                 effects.append(copy)
     root = project_root / SHEETS_RELATIVE_PATH
-    return ([_sheet(root / f"icons-{size}.png", images, cell=size) for size, images in icons.items()] +
+    return ([_labelled_icon_sheet(root / f"icons-{size}.png", images, size) for size, images in icons.items()] +
             [_state_sheet(root / "icon-states.png", states), _sheet(root / "ornaments.png", ornaments), _sheet(root / "effects.png", effects)])
 
 
+def _intended_usage(record: dict) -> str:
+    if record.get("category") == "inventory":
+        return "Inventory heading icon"
+    if record.get("category") == "actions":
+        return "Inventory action control"
+    return f"{record['family']} UI artwork"
+
+
 def write_manifest(map_path: Path, project_root: Path) -> Path:
-    lines = ["# HPA-374 UI Art Source Manifest", "", "| ID | Family | Source | Runtime derivatives |", "| --- | --- | --- | --- |"]
+    lines = [
+        "# HPA-374 UI Art Source Manifest", "",
+        "The UI artwork listed in this manifest was generated specifically for Sirius",
+        "with OpenAI image_gen and was not sourced from a third-party art pack.",
+    ]
     for record in _load_map(Path(map_path)):
         paths = [runtime_path(record, Path(project_root), width, height).relative_to(project_root).as_posix() for width, height in record["target_sizes"]]
-        lines.append(f"| `{record['id']}` | `{record['family']}` | `{record['alpha_source']}` | " + "<br>".join(f"`{path}`" for path in paths) + " |")
+        prompt = f"prompts/{record['family']}.md"
+        lines.extend([
+            "", f"## `{record['id']}`", "",
+            f"- Family: `{record['family']}`",
+            f"- Selected source: `{record['source']}`",
+            f"- Source SHA-256: `{record['source_sha256']}`",
+            f"- Selected alpha source: `{record['alpha_source']}`",
+            f"- Alpha SHA-256: `{record['alpha_sha256']}`",
+            f"- Actual source size: `{record['source_size']}` ({record['source_size'][0]}x{record['source_size'][1]})",
+            f"- Actual alpha size: `{record['alpha_size']}` ({record['alpha_size'][0]}x{record['alpha_size'][1]})",
+            f"- Crop: `{record['crop']}`",
+            f"- Target sizes: `{record['target_sizes']}`",
+            f"- Post-process: `{json.dumps(record['postprocess'], sort_keys=True)}`",
+            f"- Generator/date: `{record['generator']}` / `{record['generated_on']}`",
+            f"- Prompt reference: [`{record['family']}.md`]({prompt})",
+            f"- Intended usage: {_intended_usage(record)}",
+            "- Runtime derivatives: " + ", ".join(f"`{path}`" for path in paths),
+        ])
+    if any(record["id"] == "weapon" and record["family"] == "inventory-actions"
+           for record in _load_map(Path(map_path))):
+        lines.extend([
+            "", "## Weapon replacement history", "",
+            "The first `weapon` source was rejected by the unmodified 16px opaque-core validation: its tall, narrow silhouette could not satisfy that gate while retaining the required one-pixel transparent inset.",
+            "The rejected ignored masters remain at `weapon-rejected-source.png` (`92ae4f56482ad06eff8fdf155033f291be1516cbe3c092fabaa252cb582f8955`) and `weapon-rejected-alpha.png` (`113698e0a114d479c210f523d16930912314323639bd5a1fa0c746eafa8a7dc8`).",
+            "One targeted regeneration produced the accepted ignored masters `weapon-replacement-source.png` (`d423dbe54083d82cbac606f0a75c17e288a48692857362c642444d7d41068287`) and `weapon-replacement-alpha.png` (`ef557c76520d1952586ea9b83f962093b98699c0c3962544a025adeaa4890662`), which were copied into the registered `weapon` source names before extraction.",
+        ])
     output = Path(project_root) / "docs/ui/hpa-374/sources/SOURCE_MANIFEST.md"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text("\n".join(lines) + "\n", encoding="utf-8")

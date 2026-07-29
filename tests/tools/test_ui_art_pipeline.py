@@ -17,6 +17,9 @@ from tools.ui_art_pipeline import (
     register_family,
     runtime_path,
     sha256_file,
+    icon_sheet_layout,
+    state_sheet_layout,
+    write_manifest,
 )
 from tools.ui_art_spec import EFFECT_SIZES, ICON_FAMILIES, ICON_GROUPS, ORNAMENT_SIZES
 
@@ -298,8 +301,69 @@ def test_contact_sheets_annotate_categories_states_and_nine_patch(tmp_path: Path
         states.crop((0, 0, 64, 64)).convert("RGB"),
         states.crop((64, 0, 128, 64)).convert("RGB"),
     ).getbbox() is not None
+    icon_layout = icon_sheet_layout([("stats", "health", Image.new("RGBA", (16, 16)))])
+    icon_labels = Image.open(project / pipeline.SHEETS_RELATIVE_PATH / "icons-16.png").convert("RGBA")
+    assert any(pixel != (9, 17, 30, 255)
+               for pixel in icon_labels.crop(icon_layout["entries"][0]["label_box"]).getdata())
+    state_layout = state_sheet_layout([("stats", "health", Image.new("RGBA", (16, 16)))])
+    assert any(pixel != (9, 17, 30, 255)
+               for pixel in states.crop(state_layout["entries"][0]["label_box"]).getdata())
     ornaments = Image.open(project / pipeline.SHEETS_RELATIVE_PATH / "ornaments.png").convert("RGBA")
     assert (0, 255, 255, 255) in ornaments.getdata()
+
+
+def test_icon_and_state_sheet_layouts_reserve_non_overlapping_label_regions():
+    entries = [
+        ("inventory", "general", Image.new("RGBA", (16, 16), (98, 220, 255, 255))),
+        ("actions", "equip", Image.new("RGBA", (16, 16), (98, 220, 255, 255))),
+    ]
+
+    icon_layout = icon_sheet_layout(entries)
+    state_layout = state_sheet_layout(entries)
+
+    for layout in (icon_layout, state_layout):
+        assert layout["canvas"][0] > 0 and layout["canvas"][1] > 0
+        boxes = [entry["label_box"] for entry in layout["entries"]]
+        assert all(left >= 0 and top >= 0 and right <= layout["canvas"][0] and bottom <= layout["canvas"][1]
+                   for left, top, right, bottom in boxes)
+        assert all(first[2] <= second[0] or second[2] <= first[0] or first[3] <= second[1] or second[3] <= first[1]
+                   for index, first in enumerate(boxes) for second in boxes[index + 1:])
+        assert all(entry["category"] in {"inventory", "actions"} and entry["id"] in {"general", "equip"}
+                   for entry in layout["entries"])
+    assert {entry["state"] for entry in state_layout["entries"]} == {
+        "normal", "focused", "selected", "disabled",
+    }
+
+
+def test_manifest_emits_full_record_provenance_and_sirius_statement(tmp_path: Path):
+    project = tmp_path / "project"
+    master = tmp_path / "master.png"
+    Image.new("RGBA", (64, 64), (0, 0, 0, 0)).save(master)
+    record = _record(master, asset_id="general", category="inventory")
+    record.update({
+        "source": "art_source/ui/hpa-374/boards/inventory-actions/general-source.png",
+        "alpha_source": "art_source/ui/hpa-374/boards/inventory-actions/general-alpha.png",
+        "source_sha256": "a" * 64, "alpha_sha256": "b" * 64,
+        "source_size": [1254, 1254], "alpha_size": [1254, 1254],
+        "crop": [0, 0, 1254, 1254], "target_sizes": [[16, 16], [24, 24], [32, 32]],
+        "generator": "OpenAI image_gen", "generated_on": "2026-07-29",
+        "family": "inventory-actions",
+        "postprocess": {"auto_key": "border", "soft_matte": True, "transparent_threshold": 12,
+                        "opaque_threshold": 220, "despill": True, "edge_contract": 0},
+    })
+    map_path = project / pipeline.MAP_RELATIVE_PATH
+    map_path.parent.mkdir(parents=True)
+    map_path.write_text(json.dumps([record]))
+
+    manifest = write_manifest(map_path, project).read_text()
+
+    for expected in (
+        "generated specifically for Sirius", "not sourced from a third-party art pack",
+        "general-source.png", "general-alpha.png", "a" * 64, "b" * 64,
+        "1254x1254", "[0, 0, 1254, 1254]", "OpenAI image_gen", "2026-07-29",
+        "inventory-actions", "Inventory heading icon", "inventory-actions.md",
+    ):
+        assert expected in manifest
 
 
 def test_profiled_source_exports_straight_rgba_without_profile(tmp_path: Path):

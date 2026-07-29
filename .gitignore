@@ -39,3 +39,8 @@ tests/tools/__pycache__/
 # The deprecated Python generators in tools/floor*_maze_generator.py are frozen
 # historical references; the C# FloorGenerationService is the source of truth.
 
+# HPA-374 generated-image masters are local provenance inputs, not runtime assets.
+art_source/ui/hpa-374/boards/
+
+# HPA-374 effects intentionally preserve per-file mipmap import settings.
+!assets/sprites/effects/ui/*.png.import

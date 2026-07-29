@@ -7,6 +7,7 @@ import re
 import subprocess
 
 from PIL import Image
+import pytest
 
 from tools.ui_art_pipeline import MAP_RELATIVE_PATH, _intended_usage, runtime_path, sha256_file
 from tools.ui_art_spec import EFFECT_SIZES, ICON_FAMILIES, ICON_GROUPS, ORNAMENT_SIZES
@@ -69,6 +70,38 @@ def _ornament_records() -> list[dict]:
 def _effect_records() -> list[dict]:
     return [record for record in json.loads((PROJECT_ROOT / MAP_RELATIVE_PATH).read_text())
             if record["family"] == "effects"]
+
+
+def expected_runtime_png_sets() -> tuple[set[Path], set[Path], set[Path]]:
+    icons = {
+        PROJECT_ROOT / "assets/sprites/ui/icons" / category / str(size) / f"{asset_id}.png"
+        for category, ids in ICON_GROUPS.items()
+        for size in ICON_SIZES
+        for asset_id in ids
+    }
+    ornaments = {
+        PROJECT_ROOT / "assets/sprites/ui/ornaments" / f"{asset_id}.png"
+        for asset_id in ORNAMENT_SIZES
+    }
+    effects = {
+        PROJECT_ROOT / "assets/sprites/effects/ui" / f"{asset_id}.png"
+        for asset_id in EFFECT_SIZES
+    }
+    return icons, ornaments, effects
+
+
+def assert_exact_runtime_png_sets() -> None:
+    expected_icons, expected_ornaments, expected_effects = expected_runtime_png_sets()
+    actual_icons = set((PROJECT_ROOT / "assets/sprites/ui/icons").rglob("*.png"))
+    actual_ornaments = set((PROJECT_ROOT / "assets/sprites/ui/ornaments").glob("*.png"))
+    actual_effects = set((PROJECT_ROOT / "assets/sprites/effects/ui").glob("*.png"))
+    assert actual_icons == expected_icons
+    assert actual_ornaments == expected_ornaments
+    assert actual_effects == expected_effects
+    assert len(expected_icons) == 186
+    assert len(expected_ornaments) == 13
+    assert len(expected_effects) == 4
+    assert len(actual_icons | actual_ornaments | actual_effects) == 203
 
 
 def test_input_glyph_family_has_all_true_size_runtime_derivatives():
@@ -536,15 +569,8 @@ def test_flow_semantic_records_have_exact_non_generic_intended_usage():
 
 
 def test_final_runtime_inventory_and_font_hashes_are_exact():
-    icon_paths = [
-        PROJECT_ROOT / "assets/sprites/ui/icons" / category / str(size) / f"{asset_id}.png"
-        for category, ids in ICON_GROUPS.items()
-        for size in ICON_SIZES
-        for asset_id in ids
-    ]
-    assert len(icon_paths) == 186
-    assert len(ORNAMENT_SIZES) == 13
-    assert len(EFFECT_SIZES) == 4
+    assert_exact_runtime_png_sets()
+    icon_paths, _, _ = expected_runtime_png_sets()
     for path in icon_paths:
         size = int(path.parent.name)
         with Image.open(path) as image:
@@ -565,6 +591,17 @@ def test_final_runtime_inventory_and_font_hashes_are_exact():
         path = PROJECT_ROOT / relative
         assert path.is_file(), path
         assert sha256(path.read_bytes()).hexdigest() == expected_hash, path
+
+
+def test_exact_runtime_inventory_rejects_an_unregistered_png():
+    extra_path = PROJECT_ROOT / "assets/sprites/ui/icons/stats/16/_coverage_extra.png"
+    try:
+        extra_path.write_bytes(b"not a registered runtime PNG")
+        with pytest.raises(AssertionError):
+            assert_exact_runtime_png_sets()
+    finally:
+        extra_path.unlink(missing_ok=True)
+    assert_exact_runtime_png_sets()
 
 
 def test_final_provenance_negative_paths_and_docs_are_current():

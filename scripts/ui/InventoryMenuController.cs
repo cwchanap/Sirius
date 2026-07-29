@@ -39,6 +39,8 @@ public partial class InventoryMenuController : Control
 			return;
 		}
 
+		UiIconPresenter.Apply(GetNode<TextureRect>("%EquipmentTitleIcon"), UiIconId.Equipment, UiIconSize.Default);
+		UiIconPresenter.Apply(GetNode<TextureRect>("%InventoryTitleIcon"), UiIconId.General, UiIconSize.Default);
 		CacheStyles();
 		InitializeSkillSelector();
 		InitializeEquipmentSlots();
@@ -312,7 +314,7 @@ public partial class InventoryMenuController : Control
 			else
 			{
 				ApplyPanelStyle(slot.Panel, _basePanelStyle);
-				ClearButtonIcon(slot.Button);
+				UiIconPresenter.Apply(slot.Button, UiArtCatalog.ForEquipmentSlot(slotType), UiIconSize.Feature);
 				slot.Button.TooltipText = $"{SlotDisplayName(slotType)}\nEmpty";
 				slot.Button.Disabled = true;
 			}
@@ -328,7 +330,7 @@ public partial class InventoryMenuController : Control
 			if (!slot.IsActive)
 			{
 				ApplyPanelStyle(slot.Panel, _lockedPanelStyle);
-				ClearButtonIcon(slot.Button);
+				UiIconPresenter.Apply(slot.Button, UiIconId.Locked, UiIconSize.Feature);
 				slot.Button.Disabled = true;
 				slot.Button.TooltipText = "Accessory Slot Locked";
 				continue;
@@ -345,7 +347,7 @@ public partial class InventoryMenuController : Control
 			else
 			{
 				ApplyPanelStyle(slot.Panel, _basePanelStyle);
-				ClearButtonIcon(slot.Button);
+				UiIconPresenter.Apply(slot.Button, UiIconId.Accessory, UiIconSize.Feature);
 				slot.Button.TooltipText = $"Accessory Slot {slot.Index + 1}\nEmpty";
 				slot.Button.Disabled = true;
 			}

@@ -225,4 +225,66 @@ public partial class InventoryMenuControllerTest : Node
         AssertThat(player.ActiveSkillId).IsEqual("fire_bolt");
         AssertThat(selector.TooltipText).Contains("Currently equipped");
     }
+
+    [TestCase]
+    public void InventoryHeadings_UseReadableLabelsAndGeneratedIcons()
+    {
+        var equipmentLabel = _inventoryMenu.GetNode<Label>("%EquipmentTitleLabel");
+        var itemsLabel = _inventoryMenu.GetNode<Label>("%InventoryTitleLabel");
+        var equipmentIcon = _inventoryMenu.GetNode<TextureRect>("%EquipmentTitleIcon");
+        var itemsIcon = _inventoryMenu.GetNode<TextureRect>("%InventoryTitleIcon");
+
+        AssertThat(equipmentLabel.Text).IsEqual("Equipment");
+        AssertThat(itemsLabel.Text).IsEqual("Items");
+        AssertThat(equipmentIcon.Texture.ResourcePath)
+            .IsEqual(UiArtCatalog.GetIconPath(UiIconId.Equipment, UiIconSize.Default));
+        AssertThat(itemsIcon.Texture.ResourcePath)
+            .IsEqual(UiArtCatalog.GetIconPath(UiIconId.General, UiIconSize.Default));
+    }
+
+    [TestCase]
+    public void EmptyEquipmentAndAccessorySlots_ShowTypeGlyphs()
+    {
+        AssertThat(_gameManager.Player.Unequip(EquipmentSlotType.Weapon)).IsNotNull();
+        _inventoryMenu.OpenMenu();
+
+        var weapon = _inventoryMenu.GetNode<PanelContainer>("%WeaponSlot")
+            .GetNode<TextureButton>("Button");
+        var accessory = _inventoryMenu.GetNode<PanelContainer>("%AccessorySlot0")
+            .GetNode<TextureButton>("Button");
+
+        AssertThat(weapon.TextureNormal.ResourcePath)
+            .IsEqual(UiArtCatalog.GetIconPath(UiIconId.Weapon, UiIconSize.Feature));
+        AssertThat(accessory.TextureNormal.ResourcePath)
+            .IsEqual(UiArtCatalog.GetIconPath(UiIconId.Accessory, UiIconSize.Feature));
+    }
+
+    [TestCase]
+    public void InactiveAccessoryPlaceholders_ShowLockWithoutUnlockRule()
+    {
+        for (var index = EquipmentSet.AccessorySlotCount; index < 6; index++)
+        {
+            var button = _inventoryMenu.GetNode<PanelContainer>($"%AccessorySlot{index}")
+                .GetNode<TextureButton>("Button");
+            AssertThat(button.Disabled).IsTrue();
+            AssertThat(button.TextureDisabled.ResourcePath)
+                .IsEqual(UiArtCatalog.GetIconPath(UiIconId.Locked, UiIconSize.Feature));
+            AssertThat(button.TooltipText).IsEqual("Accessory Slot Locked");
+        }
+    }
+
+    [TestCase]
+    public void PopulatedEquipmentSlot_ItemArtOverridesTypeGlyph()
+    {
+        var sword = EquipmentCatalog.CreateWoodenSword();
+        AssertThat(_gameManager.Player.TryEquip(sword, out _)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+
+        var weapon = _inventoryMenu.GetNode<PanelContainer>("%WeaponSlot")
+            .GetNode<TextureButton>("Button");
+        AssertThat(weapon.TextureNormal.ResourcePath).IsEqual(sword.AssetPath);
+        AssertThat(weapon.TextureNormal.ResourcePath)
+            .IsNotEqual(UiArtCatalog.GetIconPath(UiIconId.Weapon, UiIconSize.Feature));
+    }
 }

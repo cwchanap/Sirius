@@ -22,6 +22,11 @@ def _stats_status_records() -> list[dict]:
             if record["family"] == "stats-status"]
 
 
+def _flow_semantic_records() -> list[dict]:
+    return [record for record in json.loads((PROJECT_ROOT / MAP_RELATIVE_PATH).read_text())
+            if record["family"] == "flow-semantic"]
+
+
 def test_inventory_action_family_has_all_true_size_runtime_derivatives():
     """The first shipped family must be complete before screen integration."""
     missing: list[str] = []
@@ -211,3 +216,96 @@ def test_regenerated_manifest_preserves_inventory_roles_and_weaken_history():
         "8x12px opaque 16px core",
     ):
         assert expected in manifest
+
+
+def test_flow_semantic_family_has_all_true_size_runtime_derivatives():
+    """Flow, interaction, and semantic controls ship as complete typed inputs."""
+    missing: list[str] = []
+    for category in ICON_FAMILIES["flow-semantic"]:
+        for asset_id in ICON_GROUPS[category]:
+            for size in (16, 24, 32):
+                path = PROJECT_ROOT / "assets/sprites/ui/icons" / category / str(size) / f"{asset_id}.png"
+                if not path.is_file():
+                    missing.append(path.relative_to(PROJECT_ROOT).as_posix())
+                    continue
+                with Image.open(path) as image:
+                    assert image.mode == "RGBA"
+                    assert image.size == (size, size)
+    assert missing == []
+
+
+def test_flow_semantic_runtime_pngs_preserve_real_alpha_safety_and_srgb_contracts():
+    records = _flow_semantic_records()
+    assert len(records) == 15
+    assert {record["id"] for record in records if record["category"] == "flow"} == set(ICON_GROUPS["flow"])
+    assert {record["id"] for record in records if record["category"] == "interaction"} == set(ICON_GROUPS["interaction"])
+    assert {record["id"] for record in records if record["category"] == "semantic"} == set(ICON_GROUPS["semantic"])
+    for record in records:
+        for size, _ in record["target_sizes"]:
+            path = runtime_path(record, PROJECT_ROOT, size, size)
+            assert not path.with_suffix(".png.import").exists()
+            with Image.open(path) as image:
+                assert image.mode == "RGBA"
+                assert "icc_profile" not in image.info
+                rgba = image.convert("RGBA")
+            alpha = rgba.getchannel("A")
+            visible = alpha.getbbox()
+            assert alpha.getextrema()[0] == 0
+            assert visible is not None
+            left, top, right, bottom = visible
+            assert left >= 1 and top >= 1 and right <= size - 1 and bottom <= size - 1
+            assert not any(a and g > 160 and g > r * 1.3 and g > b * 1.3 for r, g, b, a in rgba.getdata())
+            if size == 16:
+                core = alpha.point(lambda value: 255 if value >= 128 else 0).getbbox()
+                assert core is not None
+                core_width, core_height = core[2] - core[0], core[3] - core[1]
+                assert core_width >= 0.30 * 16 and core_height >= 0.30 * 16
+                assert max(core_width, core_height) >= 0.50 * 16
+
+
+def test_flow_semantic_map_hashes_and_manifest_agree_when_local_masters_exist():
+    records = _flow_semantic_records()
+    assert len(records) == 15
+    manifest = (PROJECT_ROOT / "docs/ui/hpa-374/sources/SOURCE_MANIFEST.md").read_text()
+    for record in records:
+        source = PROJECT_ROOT / record["source"]
+        alpha = PROJECT_ROOT / record["alpha_source"]
+        if source.is_file():
+            assert sha256_file(source) == record["source_sha256"]
+        if alpha.is_file():
+            assert sha256_file(alpha) == record["alpha_sha256"]
+        for expected in (
+            record["id"], record["family"], record["source"], record["alpha_source"],
+            record["source_sha256"], record["alpha_sha256"], str(record["source_size"]),
+            str(record["alpha_size"]), str(record["crop"]), str(record["target_sizes"]),
+            json.dumps(record["postprocess"], sort_keys=True), record["generator"], record["generated_on"],
+        ):
+            assert expected in manifest
+
+
+def test_flow_semantic_records_have_exact_non_generic_intended_usage():
+    expected_roles = {
+        "pause": "Pause gameplay flow control",
+        "resume": "Resume gameplay flow control",
+        "settings": "Open settings flow control",
+        "save": "Save-game flow control",
+        "load": "Load-game flow control",
+        "dialogue": "Dialogue interaction entry",
+        "shop": "Shop interaction entry",
+        "heal": "Healing interaction entry",
+        "puzzle": "Puzzle interaction entry",
+        "reward": "Reward interaction indicator",
+        "info": "Informational semantic indicator",
+        "warning": "Warning semantic indicator paired with readable text",
+        "error": "Error semantic indicator paired with readable text",
+        "confirm": "Confirm semantic control paired with readable text",
+        "cancel_close": "Cancel or close semantic control paired with readable text",
+    }
+    records = _flow_semantic_records()
+    assert {record["id"] for record in records} == set(expected_roles)
+    manifest = (PROJECT_ROOT / "docs/ui/hpa-374/sources/SOURCE_MANIFEST.md").read_text()
+    assert "Intended usage: flow-semantic UI artwork" not in manifest
+    for record in records:
+        role = expected_roles[record["id"]]
+        assert _intended_usage(record) == role
+        assert f"- Intended usage: {role}" in manifest

@@ -183,7 +183,7 @@ tooltip_text = "Select the active skill that auto-fires in battle."
 custom_minimum_size = Vector2(100, 40)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Close [I]"
+text = "Close"
 
 [node name="SplitContainer" type="HSplitContainer" parent="MainPanel/Content"]
 layout_mode = 2
@@ -201,10 +201,22 @@ theme_override_styles/panel = SubResource("2_section_bg")
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="EquipmentTitle" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent"]
+[node name="EquipmentTitleRow" type="HBoxContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="EquipmentTitleIcon" type="TextureRect" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentTitleRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="EquipmentTitleLabel" type="Label" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent/EquipmentTitleRow"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "⚔ Equipment"
+text = "Equipment"
 
 
 [node name="EquipmentGrid" type="GridContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent"]
@@ -314,6 +326,7 @@ theme_override_font_sizes/font_size = 18
 text = "Accessories"
 
 [node name="AccessoryGrid" type="GridContainer" parent="MainPanel/Content/SplitContainer/EquipmentPanel/EquipmentContent"]
+unique_name_in_owner = true
 layout_mode = 2
 columns = 3
 theme_override_constants/h_separation = 12
@@ -413,10 +426,22 @@ theme_override_styles/panel = SubResource("2_section_bg")
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="InventoryTitle" type="Label" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent"]
+[node name="InventoryTitleRow" type="HBoxContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="InventoryTitleIcon" type="TextureRect" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryTitleRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="InventoryTitleLabel" type="Label" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent/InventoryTitleRow"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "🎒 Items"
+text = "Items"
 
 [node name="InventoryGrid" type="GridContainer" parent="MainPanel/Content/SplitContainer/InventoryPanel/InventoryContent"]
 unique_name_in_owner = true

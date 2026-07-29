@@ -287,4 +287,93 @@ public partial class InventoryMenuControllerTest : Node
         AssertThat(weapon.TextureNormal.ResourcePath)
             .IsNotEqual(UiArtCatalog.GetIconPath(UiIconId.Weapon, UiIconSize.Feature));
     }
+
+    [TestCase]
+    public void ActiveEmptyEquipmentAndAccessorySlots_RenderTypeGlyphsWhenDisabled()
+    {
+        AssertThat(_gameManager.Player.Unequip(EquipmentSlotType.Weapon)).IsNotNull();
+        _inventoryMenu.OpenMenu();
+
+        var weapon = GetSlotButton("%WeaponSlot");
+        var accessory = GetSlotButton("%AccessorySlot0");
+
+        AssertThat(weapon.Disabled).IsTrue();
+        AssertThat(weapon.TextureDisabled.ResourcePath)
+            .IsEqual(UiArtCatalog.GetIconPath(UiIconId.Weapon, UiIconSize.Feature));
+        AssertThat(accessory.Disabled).IsTrue();
+        AssertThat(accessory.TextureDisabled.ResourcePath)
+            .IsEqual(UiArtCatalog.GetIconPath(UiIconId.Accessory, UiIconSize.Feature));
+        AssertThat(accessory.TextureDisabled.ResourcePath)
+            .IsNotEqual(UiArtCatalog.GetIconPath(UiIconId.Locked, UiIconSize.Feature));
+    }
+
+    [TestCase]
+    public void EquipmentSlot_TransitionsAllTextureStatesBetweenItemAndEmptyGlyph()
+    {
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(_gameManager.Player.TryEquip(sword, out _)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+        var weapon = GetSlotButton("%WeaponSlot");
+        AssertThat(weapon.Disabled).IsFalse();
+        AssertAllButtonTexturePaths(weapon, sword.AssetPath);
+
+        AssertThat(_gameManager.Player.Unequip(EquipmentSlotType.Weapon)).IsNotNull();
+        _inventoryMenu.OpenMenu();
+        AssertThat(weapon.Disabled).IsTrue();
+        AssertAllButtonTexturePaths(
+            weapon,
+            UiArtCatalog.GetIconPath(UiIconId.Weapon, UiIconSize.Feature));
+        AssertThat(weapon.TextureDisabled.ResourcePath)
+            .IsNotEqual(UiArtCatalog.GetIconPath(UiIconId.Locked, UiIconSize.Feature));
+
+        AssertThat(_gameManager.Player.TryEquip(sword, out _)).IsTrue();
+        _inventoryMenu.OpenMenu();
+        AssertThat(weapon.Disabled).IsFalse();
+        AssertAllButtonTexturePaths(weapon, sword.AssetPath);
+    }
+
+    [TestCase]
+    public void AccessorySlot_TransitionsAllTextureStatesBetweenItemAndEmptyGlyph()
+    {
+        var charm = new EquipmentItem
+        {
+            Id = "test_transition_charm",
+            DisplayName = "Test Transition Charm",
+            SlotType = EquipmentSlotType.Accessory,
+            AssetPath = "res://assets/sprites/items/consumables/warding_charm.png"
+        };
+        AssertThat(_gameManager.Player.TryEquip(charm, out _, 0)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+        var accessory = GetSlotButton("%AccessorySlot0");
+        AssertThat(accessory.Disabled).IsFalse();
+        AssertAllButtonTexturePaths(accessory, charm.AssetPath);
+
+        AssertThat(_gameManager.Player.Unequip(EquipmentSlotType.Accessory, 0)).IsNotNull();
+        _inventoryMenu.OpenMenu();
+        AssertThat(accessory.Disabled).IsTrue();
+        AssertAllButtonTexturePaths(
+            accessory,
+            UiArtCatalog.GetIconPath(UiIconId.Accessory, UiIconSize.Feature));
+        AssertThat(accessory.TextureDisabled.ResourcePath)
+            .IsNotEqual(UiArtCatalog.GetIconPath(UiIconId.Locked, UiIconSize.Feature));
+
+        AssertThat(_gameManager.Player.TryEquip(charm, out _, 0)).IsTrue();
+        _inventoryMenu.OpenMenu();
+        AssertThat(accessory.Disabled).IsFalse();
+        AssertAllButtonTexturePaths(accessory, charm.AssetPath);
+    }
+
+    private TextureButton GetSlotButton(string slotPath) =>
+        _inventoryMenu.GetNode<PanelContainer>(slotPath).GetNode<TextureButton>("Button");
+
+    private static void AssertAllButtonTexturePaths(TextureButton button, string expectedPath)
+    {
+        AssertThat(button.TextureNormal.ResourcePath).IsEqual(expectedPath);
+        AssertThat(button.TextureHover.ResourcePath).IsEqual(expectedPath);
+        AssertThat(button.TexturePressed.ResourcePath).IsEqual(expectedPath);
+        AssertThat(button.TextureDisabled.ResourcePath).IsEqual(expectedPath);
+        AssertThat(button.TextureFocused.ResourcePath).IsEqual(expectedPath);
+    }
 }

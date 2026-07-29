@@ -17,7 +17,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory action control
+- Intended usage: Assign active skill action
 - Runtime derivatives: `assets/sprites/ui/icons/actions/16/assign.png`, `assets/sprites/ui/icons/actions/24/assign.png`, `assets/sprites/ui/icons/actions/32/assign.png`
 
 ## `buy`
@@ -34,7 +34,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory action control
+- Intended usage: Shop purchase action
 - Runtime derivatives: `assets/sprites/ui/icons/actions/16/buy.png`, `assets/sprites/ui/icons/actions/24/buy.png`, `assets/sprites/ui/icons/actions/32/buy.png`
 
 ## `equip`
@@ -51,7 +51,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory action control
+- Intended usage: Equip selected item action
 - Runtime derivatives: `assets/sprites/ui/icons/actions/16/equip.png`, `assets/sprites/ui/icons/actions/24/equip.png`, `assets/sprites/ui/icons/actions/32/equip.png`
 
 ## `sell`
@@ -68,7 +68,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory action control
+- Intended usage: Shop sale action
 - Runtime derivatives: `assets/sprites/ui/icons/actions/16/sell.png`, `assets/sprites/ui/icons/actions/24/sell.png`, `assets/sprites/ui/icons/actions/32/sell.png`
 
 ## `unequip`
@@ -85,7 +85,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory action control
+- Intended usage: Unequip selected item action
 - Runtime derivatives: `assets/sprites/ui/icons/actions/16/unequip.png`, `assets/sprites/ui/icons/actions/24/unequip.png`, `assets/sprites/ui/icons/actions/32/unequip.png`
 
 ## `use`
@@ -102,7 +102,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory action control
+- Intended usage: Use selected consumable action
 - Runtime derivatives: `assets/sprites/ui/icons/actions/16/use.png`, `assets/sprites/ui/icons/actions/24/use.png`, `assets/sprites/ui/icons/actions/32/use.png`
 
 ## `accessory`
@@ -119,7 +119,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory heading icon
+- Intended usage: Empty accessory equipment slot glyph
 - Runtime derivatives: `assets/sprites/ui/icons/inventory/16/accessory.png`, `assets/sprites/ui/icons/inventory/24/accessory.png`, `assets/sprites/ui/icons/inventory/32/accessory.png`
 
 ## `active_skill`
@@ -136,7 +136,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory heading icon
+- Intended usage: Active-skill selector/slot glyph
 - Runtime derivatives: `assets/sprites/ui/icons/inventory/16/active_skill.png`, `assets/sprites/ui/icons/inventory/24/active_skill.png`, `assets/sprites/ui/icons/inventory/32/active_skill.png`
 
 ## `armor`
@@ -153,7 +153,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory heading icon
+- Intended usage: Empty armor equipment slot glyph
 - Runtime derivatives: `assets/sprites/ui/icons/inventory/16/armor.png`, `assets/sprites/ui/icons/inventory/24/armor.png`, `assets/sprites/ui/icons/inventory/32/armor.png`
 
 ## `consumable`
@@ -170,7 +170,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory heading icon
+- Intended usage: Inventory consumable category tab icon
 - Runtime derivatives: `assets/sprites/ui/icons/inventory/16/consumable.png`, `assets/sprites/ui/icons/inventory/24/consumable.png`, `assets/sprites/ui/icons/inventory/32/consumable.png`
 
 ## `equipment`
@@ -187,7 +187,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory heading icon
+- Intended usage: Inventory equipment category heading icon
 - Runtime derivatives: `assets/sprites/ui/icons/inventory/16/equipment.png`, `assets/sprites/ui/icons/inventory/24/equipment.png`, `assets/sprites/ui/icons/inventory/32/equipment.png`
 
 ## `general`
@@ -204,7 +204,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory heading icon
+- Intended usage: Inventory general category heading icon
 - Runtime derivatives: `assets/sprites/ui/icons/inventory/16/general.png`, `assets/sprites/ui/icons/inventory/24/general.png`, `assets/sprites/ui/icons/inventory/32/general.png`
 
 ## `helmet`
@@ -221,7 +221,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory heading icon
+- Intended usage: Empty helmet equipment slot glyph
 - Runtime derivatives: `assets/sprites/ui/icons/inventory/16/helmet.png`, `assets/sprites/ui/icons/inventory/24/helmet.png`, `assets/sprites/ui/icons/inventory/32/helmet.png`
 
 ## `locked`
@@ -238,7 +238,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory heading icon
+- Intended usage: Inactive accessory placeholder
 - Runtime derivatives: `assets/sprites/ui/icons/inventory/16/locked.png`, `assets/sprites/ui/icons/inventory/24/locked.png`, `assets/sprites/ui/icons/inventory/32/locked.png`
 
 ## `quest`
@@ -255,7 +255,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory heading icon
+- Intended usage: Inventory quest category tab icon
 - Runtime derivatives: `assets/sprites/ui/icons/inventory/16/quest.png`, `assets/sprites/ui/icons/inventory/24/quest.png`, `assets/sprites/ui/icons/inventory/32/quest.png`
 
 ## `shield`
@@ -272,7 +272,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory heading icon
+- Intended usage: Empty shield equipment slot glyph
 - Runtime derivatives: `assets/sprites/ui/icons/inventory/16/shield.png`, `assets/sprites/ui/icons/inventory/24/shield.png`, `assets/sprites/ui/icons/inventory/32/shield.png`
 
 ## `shoe`
@@ -289,7 +289,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory heading icon
+- Intended usage: Empty shoe equipment slot glyph
 - Runtime derivatives: `assets/sprites/ui/icons/inventory/16/shoe.png`, `assets/sprites/ui/icons/inventory/24/shoe.png`, `assets/sprites/ui/icons/inventory/32/shoe.png`
 
 ## `weapon`
@@ -306,7 +306,7 @@ with OpenAI image_gen and was not sourced from a third-party art pack.
 - Post-process: `{"auto_key": "border", "despill": true, "edge_contract": 0, "opaque_threshold": 220, "soft_matte": true, "transparent_threshold": 12}`
 - Generator/date: `OpenAI image_gen` / `2026-07-29`
 - Prompt reference: [`inventory-actions.md`](prompts/inventory-actions.md)
-- Intended usage: Inventory heading icon
+- Intended usage: Empty weapon equipment slot glyph
 - Runtime derivatives: `assets/sprites/ui/icons/inventory/16/weapon.png`, `assets/sprites/ui/icons/inventory/24/weapon.png`, `assets/sprites/ui/icons/inventory/32/weapon.png`
 
 ## Weapon replacement history

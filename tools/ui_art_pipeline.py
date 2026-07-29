@@ -553,11 +553,31 @@ def build_contact_sheets(project_root: Path) -> list[Path]:
             [_state_sheet(root / "icon-states.png", states), _sheet(root / "ornaments.png", ornaments), _sheet(root / "effects.png", effects)])
 
 
+INTENDED_USAGE = {
+    "general": "Inventory general category heading icon",
+    "equipment": "Inventory equipment category heading icon",
+    "consumable": "Inventory consumable category tab icon",
+    "quest": "Inventory quest category tab icon",
+    "weapon": "Empty weapon equipment slot glyph",
+    "shield": "Empty shield equipment slot glyph",
+    "armor": "Empty armor equipment slot glyph",
+    "helmet": "Empty helmet equipment slot glyph",
+    "shoe": "Empty shoe equipment slot glyph",
+    "accessory": "Empty accessory equipment slot glyph",
+    "locked": "Inactive accessory placeholder",
+    "active_skill": "Active-skill selector/slot glyph",
+    "equip": "Equip selected item action",
+    "unequip": "Unequip selected item action",
+    "use": "Use selected consumable action",
+    "assign": "Assign active skill action",
+    "buy": "Shop purchase action",
+    "sell": "Shop sale action",
+}
+
+
 def _intended_usage(record: dict) -> str:
-    if record.get("category") == "inventory":
-        return "Inventory heading icon"
-    if record.get("category") == "actions":
-        return "Inventory action control"
+    if record["id"] in INTENDED_USAGE:
+        return INTENDED_USAGE[record["id"]]
     return f"{record['family']} UI artwork"
 
 

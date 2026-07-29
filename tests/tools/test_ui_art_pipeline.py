@@ -361,9 +361,35 @@ def test_manifest_emits_full_record_provenance_and_sirius_statement(tmp_path: Pa
         "generated specifically for Sirius", "not sourced from a third-party art pack",
         "general-source.png", "general-alpha.png", "a" * 64, "b" * 64,
         "1254x1254", "[0, 0, 1254, 1254]", "OpenAI image_gen", "2026-07-29",
-        "inventory-actions", "Inventory heading icon", "inventory-actions.md",
+        "inventory-actions", "Inventory general category heading icon", "inventory-actions.md",
     ):
         assert expected in manifest
+
+
+def test_inventory_action_manifest_roles_are_exact_and_id_aware():
+    expected = {
+        "general": "Inventory general category heading icon",
+        "equipment": "Inventory equipment category heading icon",
+        "consumable": "Inventory consumable category tab icon",
+        "quest": "Inventory quest category tab icon",
+        "weapon": "Empty weapon equipment slot glyph",
+        "shield": "Empty shield equipment slot glyph",
+        "armor": "Empty armor equipment slot glyph",
+        "helmet": "Empty helmet equipment slot glyph",
+        "shoe": "Empty shoe equipment slot glyph",
+        "accessory": "Empty accessory equipment slot glyph",
+        "locked": "Inactive accessory placeholder",
+        "active_skill": "Active-skill selector/slot glyph",
+        "equip": "Equip selected item action",
+        "unequip": "Unequip selected item action",
+        "use": "Use selected consumable action",
+        "assign": "Assign active skill action",
+        "buy": "Shop purchase action",
+        "sell": "Shop sale action",
+    }
+    for asset_id, role in expected.items():
+        category = "actions" if asset_id in {"equip", "unequip", "use", "assign", "buy", "sell"} else "inventory"
+        assert pipeline._intended_usage({"id": asset_id, "category": category, "family": "inventory-actions"}) == role
 
 
 def test_profiled_source_exports_straight_rgba_without_profile(tmp_path: Path):

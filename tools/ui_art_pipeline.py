@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from datetime import date
 import hashlib
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -12,9 +13,12 @@ import shutil
 import tempfile
 from typing import Iterable
 
-from PIL import Image
+from PIL import Image, ImageCms, ImageDraw, ImageFont
 
-from tools.ui_art_spec import EFFECT_SIZES, ICON_FAMILIES, ICON_GROUPS, ORNAMENT_SIZES
+try:
+    from tools.ui_art_spec import EFFECT_SIZES, ICON_FAMILIES, ICON_GROUPS, ORNAMENT_SIZES
+except ModuleNotFoundError:  # Direct ``python tools/ui_art_pipeline.py`` invocation.
+    from ui_art_spec import EFFECT_SIZES, ICON_FAMILIES, ICON_GROUPS, ORNAMENT_SIZES
 
 MAP_RELATIVE_PATH = Path("docs/ui/hpa-374/sources/extraction-map.json")
 SHEETS_RELATIVE_PATH = Path("docs/ui/hpa-374/contact-sheets")
@@ -87,28 +91,134 @@ def _source_path(record: dict, project_root: Path) -> Path:
     return source if source.is_absolute() else project_root / source
 
 
-def export_record(record: dict, project_root: Path, allow_replace: bool = False) -> list[Path]:
+def _normalize_srgb(image: Image.Image) -> Image.Image:
+    """Convert embedded profiles to sRGB and discard all profile metadata."""
+    profile = image.info.get("icc_profile")
+    if profile:
+        try:
+            source_profile = ImageCms.ImageCmsProfile(BytesIO(profile))
+            image = ImageCms.profileToProfile(
+                image, source_profile, ImageCms.createProfile("sRGB"), outputMode="RGBA"
+            )
+        except (ImageCms.PyCMSError, OSError, ValueError):
+            image = image.convert("RGBA")
+    else:
+        image = image.convert("RGBA")
+    image.info.pop("icc_profile", None)
+    image.info.pop("srgb", None)
+    return image
+
+
+def _strict_record(record: dict) -> bool:
+    # Small direct-export fixtures remain useful for core scaling behavior.
+    # Registered records always carry a family and must satisfy release checks.
+    return "family" in record
+
+
+def _validate_alpha_source(record: dict, image: Image.Image) -> None:
+    if not _strict_record(record):
+        return
+    rgba = image.convert("RGBA")
+    alpha = rgba.getchannel("A")
+    visible = alpha.getbbox()
+    if visible is None or alpha.getextrema()[0] != 0:
+        raise ValueError(f"Missing transparent alpha for {record['id']}")
+    pixels = rgba.getdata()
+    if any(alpha_value and green > 160 and green > red * 1.3 and green > blue * 1.3
+           for red, green, blue, alpha_value in pixels):
+        raise ValueError(f"Chroma contamination for {record['id']}")
+
+
+def _validate_final_asset(record: dict, image: Image.Image) -> None:
+    if not _strict_record(record):
+        return
+    alpha = image.getchannel("A")
+    visible = alpha.getbbox()
+    if visible is None or alpha.getextrema()[0] != 0:
+        raise ValueError(f"Missing transparent alpha for {record['id']}")
+    left, top, right, bottom = visible
+    is_callout_frame = record["id"] == "callout_frame"
+    touches_horizontal = record["id"] == "calibration_ticks"
+    if (not is_callout_frame and
+            (top < 1 or bottom > image.height - 1 or (not touches_horizontal and (left < 1 or right > image.width - 1)))):
+        raise ValueError(f"Final safety inset violated for {record['id']}")
+    if record["kind"] == "icon" and image.size == (16, 16):
+        core = alpha.point(lambda value: 255 if value >= 128 else 0).getbbox()
+        if core is None:
+            raise ValueError(f"Unreadable 16px silhouette for {record['id']}")
+        core_width, core_height = core[2] - core[0], core[3] - core[1]
+        if core_width < 0.30 * 16 or core_height < 0.30 * 16 or max(core_width, core_height) < 0.50 * 16:
+            raise ValueError(f"Unreadable 16px silhouette for {record['id']}")
+    if is_callout_frame:
+        if alpha.crop((32, 32, image.width - 32, image.height - 32)).getextrema()[1] != 0:
+            raise ValueError("Callout frame center must remain transparent")
+        bands = ((0, 0, image.width, 32), (0, image.height - 32, image.width, image.height),
+                 (0, 0, 32, image.height), (image.width - 32, 0, image.width, image.height))
+        if any(alpha.crop(band).getbbox() is None for band in bands):
+            raise ValueError("Callout frame border must remain visible")
+
+
+def _apply_alpha_contract(record: dict, image: Image.Image) -> Image.Image:
+    """Apply the recorded chroma-helper alpha thresholds after filtering."""
+    postprocess = {**POSTPROCESS, **record.get("postprocess", {})}
+    transparent = postprocess["transparent_threshold"]
+    opaque = postprocess["opaque_threshold"]
+    cleaned = image.convert("RGBA").copy()
+    cleaned.putalpha(cleaned.getchannel("A").point(
+        lambda value: 0 if value < transparent else 255 if value >= opaque else value
+    ))
+    return cleaned
+
+
+def _validate_export_request(record: dict, source: Path, image: Image.Image) -> tuple[int, int, int, int]:
+    crop = record.get("crop")
+    if not isinstance(crop, (list, tuple)) or len(crop) != 4:
+        raise ValueError(f"Invalid crop for {record['id']}")
+    x, y, width, height = crop
+    if not all(isinstance(value, int) for value in crop) or x < 0 or y < 0 or width <= 0 or height <= 0:
+        raise ValueError(f"Invalid crop for {record['id']}")
+    if x + width > image.width or y + height > image.height:
+        raise ValueError(f"Crop exceeds source bounds for {record['id']}")
+    targets = record.get("target_sizes")
+    if not isinstance(targets, list) or not targets:
+        raise ValueError(f"Invalid target sizes for {record['id']}")
+    for target in targets:
+        if not isinstance(target, (list, tuple)) or len(target) != 2:
+            raise ValueError(f"Invalid target sizes for {record['id']}")
+        target_width, target_height = target
+        if not isinstance(target_width, int) or not isinstance(target_height, int) or target_width <= 0 or target_height <= 0:
+            raise ValueError(f"Invalid target sizes for {record['id']}")
+        if width < target_width * 2 or height < target_height * 2:
+            raise ValueError(f"Source is smaller than 2x its target: {record['id']}")
+        if width * target_height != height * target_width:
+            raise ValueError(f"Nonuniform scaling rejected for {record['id']}")
+    return x, y, width, height
+
+
+def export_record(record: dict, project_root: Path) -> list[Path]:
     project_root = Path(project_root)
     source = _source_path(record, project_root)
     expected_hash = record.get("alpha_sha256", record["source_sha256"])
     if sha256_file(source) != expected_hash:
         raise SourceHashMismatch(source)
-    x, y, width, height = record["crop"]
-    if width <= 0 or height <= 0:
-        raise ValueError(f"Invalid crop for {record['id']}")
     with Image.open(source) as opened:
-        image = opened.convert("RGBA").crop((x, y, x + width, y + height))
+        normalized = _normalize_srgb(opened)
+    x, y, width, height = _validate_export_request(record, source, normalized)
+    image = normalized.crop((x, y, x + width, y + height))
+    _validate_alpha_source(record, image)
     outputs = [runtime_path(record, project_root, width, height) for width, height in record["target_sizes"]]
     existing = next((output for output in outputs if output.exists()), None)
-    if existing is not None and not allow_replace:
+    if existing is not None:
         raise TargetExistsError(existing)
-    for (target_width, target_height), output in zip(record["target_sizes"], outputs):
-        if width * target_height != height * target_width:
-            raise ValueError(f"Nonuniform scaling rejected for {record['id']}")
-        output.parent.mkdir(parents=True, exist_ok=True)
-        resized = premultiplied_resize(image, (target_width, target_height))
+    derivatives = []
+    for target_width, target_height in record["target_sizes"]:
+        resized = _apply_alpha_contract(record, premultiplied_resize(image, (target_width, target_height)))
         if record["id"] == "calibration_ticks":
             resized = enforce_horizontal_seam(resized)
+        _validate_final_asset(record, resized)
+        derivatives.append(resized)
+    for output, resized in zip(outputs, derivatives):
+        output.parent.mkdir(parents=True, exist_ok=True)
         resized.save(output, format="PNG", icc_profile=None, optimize=True)
     return outputs
 
@@ -256,13 +366,30 @@ def extract_family(family: str, map_path: Path, project_root: Path) -> list[Path
             staged_record["alpha_source"] = str(_source_path(record, project_root))
             staged.extend(export_record(staged_record, staged_project))
         _verify_records(records, staged_project)
-        promoted = []
-        for staged_path in staged:
-            destination = project_root / staged_path.relative_to(staged_project)
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            os.replace(staged_path, destination)
-            promoted.append(destination)
-        return promoted
+        promoted: list[tuple[Path, Path]] = []
+        try:
+            for staged_path in staged:
+                destination = project_root / staged_path.relative_to(staged_project)
+                # The initial target scan prevents normal replacement. Check
+                # again inside the transaction to preserve a concurrently
+                # created canonical asset rather than silently replacing it.
+                if destination.exists():
+                    raise TargetExistsError(destination)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(staged_path, destination)
+                promoted.append((staged_path, destination))
+        except Exception:
+            for staged_path, destination in reversed(promoted):
+                if not destination.exists():
+                    continue
+                try:
+                    os.replace(destination, staged_path)
+                except OSError:
+                    # A staged derivative is disposable: its immutable master
+                    # remains registered. Never leave partial canonical art.
+                    destination.unlink(missing_ok=True)
+            raise
+        return [destination for _, destination in promoted]
     finally:
         shutil.rmtree(temporary_root, ignore_errors=True)
 
@@ -284,11 +411,58 @@ def _sheet(output: Path, images: list[Image.Image], cell: int = 64, columns: int
     return output
 
 
+def _icon_state_preview(image: Image.Image, state: str) -> Image.Image:
+    cell = 64
+    preview = Image.new("RGBA", (cell, cell), (9, 17, 30, 255))
+    art = image.convert("RGBA").copy()
+    art.thumbnail((48, 48), Image.Resampling.LANCZOS)
+    if state == "disabled":
+        art.putalpha(art.getchannel("A").point(lambda alpha: alpha * 115 // 255))
+    preview.alpha_composite(art, ((cell - art.width) // 2, (cell - art.height) // 2))
+    draw = ImageDraw.Draw(preview)
+    if state == "focused":
+        draw.rectangle((2, 2, cell - 3, cell - 3), outline=(0, 255, 255, 255), width=2)
+    elif state == "selected":
+        draw.rectangle((2, 2, cell - 3, cell - 3), outline=(255, 204, 64, 255), width=2)
+    return preview
+
+
+def _state_sheet(output: Path, entries: list[tuple[str, Image.Image, str]]) -> Path:
+    cell, label_height, columns = 64, 18, 4
+    rows = max(1, (len(entries) + columns - 1) // columns)
+    sheet = Image.new("RGBA", (columns * cell, rows * (cell + label_height)), (9, 17, 30, 255))
+    draw = ImageDraw.Draw(sheet)
+    font = ImageFont.load_default()
+    for index, (category, image, state) in enumerate(entries):
+        x = (index % columns) * cell
+        y = (index // columns) * (cell + label_height)
+        sheet.alpha_composite(_icon_state_preview(image, state), (x, y))
+        # Labels deliberately live below the art so the rendered asset remains
+        # unmodified while review sheets retain category/state context.
+        draw.text((x + 1, y + cell), f"{category} {state}", fill=(230, 235, 255, 255), font=font)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(output, format="PNG", icc_profile=None, optimize=True)
+    return output
+
+
+def _nine_patch_guide(image: Image.Image) -> Image.Image:
+    guided = image.convert("RGBA").copy()
+    draw = ImageDraw.Draw(guided)
+    width, height = guided.size
+    guide = (0, 255, 255, 255)
+    draw.line((32, 0, 32, height - 1), fill=guide, width=16)
+    draw.line((width - 33, 0, width - 33, height - 1), fill=guide, width=16)
+    draw.line((0, 32, width - 1, 32), fill=guide, width=16)
+    draw.line((0, height - 33, width - 1, height - 33), fill=guide, width=16)
+    return guided
+
+
 def build_contact_sheets(project_root: Path) -> list[Path]:
     """Build review sheets from registered-and-extracted records only."""
     project_root = Path(project_root)
     icons = {size: [] for size in (16, 24, 32)}
-    ornaments, effects, states = [], [], []
+    ornaments, effects = [], []
+    states: list[tuple[str, Image.Image, str]] = []
     for record in _load_map(project_root / MAP_RELATIVE_PATH):
         if record["kind"] == "icon":
             copies = []
@@ -303,11 +477,7 @@ def build_contact_sheets(project_root: Path) -> list[Path]:
             if not copies:
                 continue
             copy = copies[-1]
-            for opacity in (255, 255, 255, 115):
-                state = copy.copy()
-                if opacity != 255:
-                    state.putalpha(state.getchannel("A").point(lambda alpha: alpha * opacity // 255))
-                states.append(state)
+            states.extend((record["category"], copy, state) for state in ("normal", "focused", "selected", "disabled"))
         else:
             width, height = record["target_sizes"][-1]
             path = runtime_path(record, project_root, width, height)
@@ -316,13 +486,18 @@ def build_contact_sheets(project_root: Path) -> list[Path]:
             with Image.open(path) as image:
                 copy = image.convert("RGBA").copy()
         if record["kind"] == "ornament":
-            ornaments.extend([copy] * 3 if record["id"] == "calibration_ticks" else [copy] * 9 if record["id"] == "callout_frame" else [copy])
+            if record["id"] == "calibration_ticks":
+                ornaments.extend([copy] * 3)
+            elif record["id"] == "callout_frame":
+                ornaments.append(_nine_patch_guide(copy))
+            else:
+                ornaments.append(copy)
         else:
             if record["kind"] == "effect":
                 effects.append(copy)
     root = project_root / SHEETS_RELATIVE_PATH
     return ([_sheet(root / f"icons-{size}.png", images, cell=size) for size, images in icons.items()] +
-            [_sheet(root / "icon-states.png", states), _sheet(root / "ornaments.png", ornaments), _sheet(root / "effects.png", effects)])
+            [_state_sheet(root / "icon-states.png", states), _sheet(root / "ornaments.png", ornaments), _sheet(root / "effects.png", effects)])
 
 
 def write_manifest(map_path: Path, project_root: Path) -> Path:

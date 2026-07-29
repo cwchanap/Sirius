@@ -1670,12 +1670,13 @@ public void ReopenMenu_ReReadsChangedToggleInventoryBinding()
 Run:
 
 ```bash
-rtk dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~InputHintPresenterTest|FullyQualifiedName~InventoryMenuControllerTest"
+rtk dotnet test Sirius.sln --settings task2.local.runsettings --no-build --filter "Name~Resolve_ReReadsKeyboardBindingOnEveryCall|Name~Observe_SwitchesBetweenMouseJoypadButtonAndJoypadAxis|Name~Resolve_UnboundActionReturnsReadableFallback|Name~Resolve_MapsMousePrimaryComponent|Name~Resolve_MapsFaceButtonAndStickAxisComponents|Name~Observe_IgnoresJoypadMotionBelowDeadzone|Name~OpenMenu_UsesCurrentToggleInventoryBindingInCloseLabel|Name~ReopenMenu_ReReadsChangedToggleInventoryBinding"
+rtk uv run --with-requirements requirements-dev.txt python3 -m pytest tests/tools/test_ui_art_pipeline.py tests/tools/test_ui_asset_coverage.py -q
 rtk dotnet build Sirius.sln
 rtk git diff --check
 ```
 
-Expected: keyboard, mouse, joypad-button, joypad-axis, remap refresh, readable fallback, and Inventory compact-label tests pass with no persisted binding changes.
+Expected: exactly eight named real-Godot tests pass (the six presenter cases and two compact-label Inventory cases), then Python coverage remains green even if Godot has generated ignored local icon `.png.import` caches. Coverage rejects tracked icon sidecars; effects remain the only permitted tracked sidecar family.
 
 Commit:
 

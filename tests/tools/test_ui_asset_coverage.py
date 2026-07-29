@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import subprocess
 
 from PIL import Image
 
@@ -53,7 +54,6 @@ def test_input_glyph_records_and_runtime_pngs_preserve_alpha_safety():
     for record in records:
         for size, _ in record["target_sizes"]:
             path = runtime_path(record, PROJECT_ROOT, size, size)
-            assert not path.with_suffix(".png.import").exists()
             with Image.open(path) as image:
                 assert image.mode == "RGBA"
                 assert "icc_profile" not in image.info
@@ -83,8 +83,42 @@ def test_input_glyph_map_hashes_and_manifest_agree_when_local_masters_exist():
             record["source_sha256"], record["alpha_sha256"], str(record["source_size"]),
             str(record["alpha_size"]), str(record["crop"]), str(record["target_sizes"]),
             json.dumps(record["postprocess"], sort_keys=True), record["generator"], record["generated_on"],
+            record["intended_usage"],
         ):
             assert expected in manifest
+
+
+def test_input_glyph_records_have_exact_non_generic_intended_usage():
+    expected_roles = {
+        "keyboard": "Keyboard device-context glyph",
+        "keycap_blank": "Localized keyboard binding label frame",
+        "mouse": "Mouse device-context glyph",
+        "mouse_primary": "Primary mouse-button binding glyph",
+        "mouse_secondary": "Secondary mouse-button binding glyph",
+        "mouse_wheel": "Mouse-wheel binding glyph",
+        "gamepad": "Gamepad device-context glyph",
+        "gamepad_face_blank": "Localized gamepad face-button binding frame",
+        "gamepad_dpad": "Gamepad D-pad direction binding glyph",
+        "gamepad_stick": "Gamepad analog-stick direction binding glyph",
+        "gamepad_shoulder": "Gamepad shoulder/trigger binding glyph",
+    }
+    records = _input_glyph_records()
+    assert {record["id"] for record in records} == set(expected_roles)
+    manifest = (PROJECT_ROOT / "docs/ui/hpa-374/sources/SOURCE_MANIFEST.md").read_text()
+    assert "Intended usage: input-glyphs UI artwork" not in manifest
+    for record in records:
+        role = expected_roles[record["id"]]
+        assert record["intended_usage"] == role
+        assert _intended_usage(record) == role
+        assert f"- Intended usage: {role}" in manifest
+
+
+def test_icon_import_sidecars_are_never_tracked():
+    """Godot may generate ignored local caches, but icon sources never commit them."""
+    tracked = subprocess.check_output(
+        ["git", "ls-files", "*.png.import"], cwd=PROJECT_ROOT, text=True
+    ).splitlines()
+    assert not [path for path in tracked if path.startswith("assets/sprites/ui/icons/")]
 
 
 def test_inventory_action_family_has_all_true_size_runtime_derivatives():
@@ -109,7 +143,6 @@ def test_inventory_action_runtime_pngs_preserve_real_alpha_safety_and_srgb_contr
     for record in records:
         for size, _ in record["target_sizes"]:
             path = runtime_path(record, PROJECT_ROOT, size, size)
-            assert not path.with_suffix(".png.import").exists()
             with Image.open(path) as image:
                 assert image.mode == "RGBA"
                 assert "icc_profile" not in image.info
@@ -172,7 +205,6 @@ def test_stats_status_runtime_pngs_preserve_real_alpha_safety_and_srgb_contracts
     for record in records:
         for size, _ in record["target_sizes"]:
             path = runtime_path(record, PROJECT_ROOT, size, size)
-            assert not path.with_suffix(".png.import").exists()
             with Image.open(path) as image:
                 assert image.mode == "RGBA"
                 assert "icc_profile" not in image.info
@@ -303,7 +335,6 @@ def test_flow_semantic_runtime_pngs_preserve_real_alpha_safety_and_srgb_contract
     for record in records:
         for size, _ in record["target_sizes"]:
             path = runtime_path(record, PROJECT_ROOT, size, size)
-            assert not path.with_suffix(".png.import").exists()
             with Image.open(path) as image:
                 assert image.mode == "RGBA"
                 assert "icc_profile" not in image.info

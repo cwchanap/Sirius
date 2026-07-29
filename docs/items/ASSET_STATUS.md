@@ -16,7 +16,7 @@ generation prompts.
 | **Sprite sheets** | Auto-built by `tools/sprite_sheet_merger.py` from `frames/frame1-4.png` | Same dir as `frames/` |
 | **Item icons** | `AssetPath` field in item catalog factories | `assets/sprites/items/{category-or-slot}/{id}.png` |
 | **UI backgrounds** | Hard-coded paths in `MainMenu.cs:27` and `BattleManager.cs:180` | `assets/sprites/ui/*.png` |
-| **Effects/Icons** | Currently no code loads these; reserved for future use | `assets/sprites/effects/*.png`, `assets/sprites/ui/icon_*.png` |
+| **Catalog UI art** | `UiArtCatalog` owns typed optional loading; Inventory currently consumes its icons | `assets/sprites/ui/icons/{category}/{size}/{id}.png`, `assets/sprites/ui/ornaments/{id}.png`, `assets/sprites/effects/ui/{id}.png` |
 
 ---
 
@@ -248,37 +248,17 @@ Originals of the above are preserved under `assets/sprites/items/original/` as r
 | ✅ exists | `assets/sprites/ui/ui_main_menu_background.png` | 1920×1080 | `MainMenu.cs:27` |
 | ✅ exists | `assets/sprites/ui/ui_battle_background.png` | 1280×720 | `BattleManager.cs:180` |
 
-### Battle Buttons
+### HPA-374 catalog art
 
-| Status | Asset Path | Size |
-|--------|-----------|------|
-| ❌ missing | `assets/sprites/ui/ui_button_attack.png` | 64×32 |
-| ❌ missing | `assets/sprites/ui/ui_button_defend.png` | 64×32 |
-| ❌ missing | `assets/sprites/ui/ui_button_run.png` | 64×32 |
+| Status | Runtime inventory | Canonical paths | Current consumer |
+|--------|-------------------|-----------------|------------------|
+| ✅ exists and validated | 62 logical icons / 186 PNGs | `assets/sprites/ui/icons/{category}/{16|24|32}/{id}.png` | Inventory headings, empty equipment/accessory slots, inactive accessory locks, and binding-aware close hint |
+| ✅ exists and validated | 13 ornaments | `assets/sprites/ui/ornaments/{id}.png` | Catalog only; composition deferred |
+| ✅ exists and validated | 4 effects / 256×256, mipmapped | `assets/sprites/effects/ui/{encounter_burst,hit_impact,status_pulse,reward_level_up}.png` | Catalog only; placement/playback deferred |
 
-### Status Icons
-
-| Status | Asset Path | Size |
-|--------|-----------|------|
-| ❌ missing | `assets/sprites/ui/icon_health.png` | 16×16 |
-| ❌ missing | `assets/sprites/ui/icon_experience.png` | 16×16 |
-| ❌ missing | `assets/sprites/ui/icon_level.png` | 16×16 |
-
-**AI prompts** for all UI assets are in `docs/ASSET_REQUIREMENTS.md §Priority 3`.
-
----
-
-## 6. Effect Sprites
-
-No code currently loads these; reserved for future battle animations.
-
-| Status | Asset Path | Size |
-|--------|-----------|------|
-| ❌ missing | `assets/sprites/effects/effect_hit_impact.png` | 96×96 |
-| ❌ missing | `assets/sprites/effects/effect_magic_sparkles.png` | 96×96 |
-| ❌ missing | `assets/sprites/effects/effect_level_up.png` | 96×96 |
-
-**AI prompts** for all effects are in `docs/ASSET_REQUIREMENTS.md §Priority 4`.
+The full generated-art provenance, hashes, paths, and review boards are in
+[`docs/ui/hpa-374/`](../ui/hpa-374/README.md). `status_pulse` is a new
+status-specific effect; it is not a rename of a former sparkle asset.
 
 ---
 
@@ -293,9 +273,8 @@ No code currently loads these; reserved for future battle animations.
 | Item icons — consumables | 14 | 0 | 0 |
 | Item icons — monster parts | 11 | 0 | 0 |
 | UI backgrounds | 2 | 0 | 0 |
-| UI buttons & icons | 0 | 6 | 0 |
-| Effects | 0 | 3 | 0 |
-| **Total** | **65** | **32** | **1** |
+| HPA-374 catalog UI art | 203 | 0 | 0 |
+| **Total** | **268** | **23** | **1** |
 
 ---
 
@@ -306,3 +285,5 @@ No code currently loads these; reserved for future battle animations.
 - When a new NPC is added to `NpcCatalog.cs`, add a row to the NPC Sprites table.
 - When an asset file is generated and placed, change ❌ to ✅.
 - Keep the Summary counts in sync.
+- For typed UI art, update the HPA-374 manifest and coverage gate instead of
+  adding root-level UI/effect placeholders to this document.

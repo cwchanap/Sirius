@@ -777,8 +777,68 @@ def write_manifest(map_path: Path, project_root: Path) -> Path:
             "The rejected ignored masters remain at `save-rejected-source.png` (`6a8191228b9c7aa4bfeafa440dfb3d6cf8e01818fa4c2cbc1e5a93e9c1b22c0d`) and `save-rejected-alpha.png` (`4ab5516e2095d3e772424af012408bd41f496f12e06355e6a512f3f128d43ec7`).",
             "One targeted built-in regeneration produced the accepted ignored masters `save-replacement-source.png` (`436e0ee4cefe5671c9dfa0c558847b6fcf44e1844445b281118657374561d6ae`) and `save-replacement-alpha.png` (`12f7ad549ac3ca9c000ece0616a47a616adc73ce4ca3e950de9f44305c8d964b`), which were copied into the registered `save` source names before extraction. The unmodified extractor then accepted the complete family.",
         ])
+    if any(record["id"] == "encounter_burst" and record["family"] == "effects"
+           for record in _load_map(Path(map_path))):
+        lines.extend([
+            "", "## Encounter burst extraction history", "",
+            "The first built-in `image_gen` source was retained as `encounter_burst-initial-chroma-source.png` (`31d22c0b9b617c73c9f6d273654e7a5b53af468e6930c59e49a1c162b64c62da`). Its initial chroma extraction alpha was retained as `encounter_burst-initial-alpha.png` (`fe1fdbc4f8aa68d2ec0d5634becbdd662d99eda5af6bcb0edde0d79d64bffe3c`). The existing extraction helper was retried once with the permitted `edge_contract: 1`; the selected alpha is `encounter_burst-edge-contract-alpha.png` (`3c2a4a755bf8d32e7a8c1b1d5766395125744fdc421da969a2abb034e002a778`) and is registered as the current alpha source.",
+            "",
+            "After explicit user authorization, one built-in native-transparency fallback was attempted (`exec-576dda6c-368d-4dea-bba9-0fe58ee450a5.png`, SHA-256 `cf1514a6e5c260be059181c23a309e00bc423ddeb592a9300bf5af6794702b3a`). It was rejected before promotion because its alpha extrema were `(255, 255)`: the apparent checkerboard was baked into a fully opaque image.",
+            "",
+            "The selected edge-contract output had two remaining high-alpha green-key residues after resize. Only the registered `encounter_burst` record therefore opts into `high_alpha_chroma_despill`; it preserves alpha, red, and blue and clamps only the excessive green component of pixels already matching the chroma-contamination predicate. The final derivative SHA-256 is `9d450d80042643b693443661d9d48a56b65d084bdb793def7352c99af3146c7f`.",
+        ])
+    if any(record["id"] == "callout_frame" and record.get("repair")
+           for record in _load_map(Path(map_path))):
+        lines.extend([
+            "", "## Callout frame crop repair history", "",
+            "Task 11's final gate found that the originally selected, hash-bound `callout_frame` masters were sound, but their first exact 2:1 crop `[70, 35, 1634, 817]` clipped the authored side border to the runtime image edges. The selected source remains `callout_frame-source.png` (`a6f4cf435ef7bf8b74f022e975c96edd06be771e4ce1a863bb1bc3d22d490035`) and the selected alpha remains `callout_frame-alpha.png` (`a68c89f514a22b6c43867ac4eb90641522ba7d75167df1ef989cac9948dd8a5d`); no source was regenerated or replaced.",
+            "",
+            "The deterministic repair records the narrowest wider centered exact 2:1 crop that retains a transparent 32px content center, all four nonempty 32px border bands, and at least one transparent output pixel on every edge: `[47, 23, 1680, 840]`. It was atomically re-extracted only for `callout_frame`; the repaired runtime derivative SHA-256 is `312efefb954ac036b1b54a93fc4669f1b826443bf512495595506a83af17e7d6`.",
+        ])
     output = Path(project_root) / "docs/ui/hpa-374/sources/SOURCE_MANIFEST.md"
     output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return output
+
+
+def write_asset_manifest(map_path: Path, project_root: Path) -> Path:
+    """Append the filesystem-derived runtime-art index to the hand-maintained font record."""
+    output = Path(project_root) / "docs/ui/hpa-374/ASSET_MANIFEST.md"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    marker = "\n## Generated HPA-374 artwork\n"
+    existing = output.read_text(encoding="utf-8") if output.exists() else "# HPA-374 UI Asset Manifest\n"
+    prefix = existing.split(marker, 1)[0].rstrip()
+    lines = [
+        prefix,
+        "",
+        "## Generated HPA-374 artwork",
+        "",
+        "The UI artwork listed in this manifest was generated specifically for Sirius",
+        "with OpenAI image_gen and was not sourced from a third-party art pack.",
+        "",
+        "This index is derived from `sources/extraction-map.json`; the detailed source",
+        "record, including replacements and rejected masters, is in",
+        "[`sources/SOURCE_MANIFEST.md`](sources/SOURCE_MANIFEST.md).",
+        "",
+        "| ID | Kind | Runtime path(s) | Family prompt | Source and SHA-256 | Alpha and SHA-256 | Generator/date | Crop | Post-processing | Intended usage |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for record in _load_map(Path(map_path)):
+        paths = [
+            runtime_path(record, Path(project_root), width, height)
+            .relative_to(project_root).as_posix()
+            for width, height in record["target_sizes"]
+        ]
+        runtime_paths = "<br>".join(f"`{path}`" for path in paths)
+        source = f"`{Path(record['source']).name}`<br>`{record['source_sha256']}`"
+        alpha = f"`{Path(record['alpha_source']).name}`<br>`{record['alpha_sha256']}`"
+        prompt = f"[`{record['family']}.md`](sources/prompts/{record['family']}.md)"
+        postprocess = "`" + json.dumps(record["postprocess"], sort_keys=True) + "`"
+        lines.append(
+            f"| `{record['id']}` | {record['kind']} | {runtime_paths} | {prompt} | "
+            f"{source} | {alpha} | {record['generator']} / {record['generated_on']} | "
+            f"`{record['crop']}` | {postprocess} | {_intended_usage(record)} |"
+        )
     output.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return output
 
@@ -818,6 +878,7 @@ def main() -> int:
         build_contact_sheets(root)
     else:
         write_manifest(map_path, root)
+        write_asset_manifest(map_path, root)
     return 0
 
 

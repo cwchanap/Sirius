@@ -245,6 +245,55 @@ def test_verify_rejects_final_ornament_chroma_contamination(tmp_path: Path):
         pipeline._verify_records([record], project)
 
 
+def test_verify_rejects_callout_frame_without_final_horizontal_inset(tmp_path: Path):
+    """Callout geometry supplements, never replaces, the normal inset contract."""
+    project = tmp_path / "project"
+    record = {
+        "id": "callout_frame", "family": "ornaments", "kind": "ornament",
+        "target_sizes": [[512, 256]],
+    }
+    output = runtime_path(record, project, 512, 256)
+    output.parent.mkdir(parents=True)
+    image = Image.new("RGBA", (512, 256), (0, 0, 0, 0))
+    image.paste((98, 220, 255, 255), (0, 8, 512, 24))
+    image.paste((98, 220, 255, 255), (0, 232, 512, 248))
+    image.paste((98, 220, 255, 255), (0, 24, 24, 232))
+    image.paste((98, 220, 255, 255), (488, 24, 512, 232))
+    image.save(output)
+
+    with pytest.raises(ValueError, match="Final safety inset"):
+        pipeline._verify_records([record], project)
+
+
+def test_live_ornaments_preserve_strict_final_contract():
+    """The committed runtime assets enforce the release geometry, not fixtures alone."""
+    project = Path(__file__).resolve().parents[2]
+    for asset_id, expected_size in ORNAMENT_SIZES.items():
+        path = project / "assets/sprites/ui/ornaments" / f"{asset_id}.png"
+        with Image.open(path) as opened:
+            assert opened.size == expected_size and opened.mode == "RGBA", path
+            assert "icc_profile" not in opened.info and "srgb" not in opened.info, path
+            image = opened.convert("RGBA")
+            assert not any(pipeline._is_chroma_contamination(*pixel) for pixel in image.getdata()), path
+            alpha = image.getchannel("A")
+            assert alpha.getextrema()[0] == 0, path
+            left, top, right, bottom = alpha.getbbox()
+            if asset_id == "calibration_ticks":
+                assert left == 0 and right == image.width, path
+                assert top >= 1 and bottom <= image.height - 1, path
+                assert alpha.crop((0, 0, 1, image.height)).tobytes() == alpha.crop(
+                    (image.width - 1, 0, image.width, image.height)
+                ).tobytes(), path
+            else:
+                assert left >= 1 and top >= 1, path
+                assert right <= image.width - 1 and bottom <= image.height - 1, path
+            if asset_id == "callout_frame":
+                assert alpha.crop((32, 32, 480, 224)).getextrema()[1] == 0, path
+                bands = ((0, 0, 512, 32), (0, 224, 512, 256),
+                         (0, 0, 32, 256), (480, 0, 512, 256))
+                assert all(alpha.crop(band).getbbox() is not None for band in bands), path
+
+
 def test_scoped_ornament_repair_replaces_only_requested_derivative(tmp_path: Path):
     """The repair path is explicit and never becomes a family-wide overwrite escape hatch."""
     project = tmp_path / "project"
@@ -381,10 +430,12 @@ def test_contact_sheets_annotate_categories_states_and_nine_patch(tmp_path: Path
             image.save(source)
         else:
             image = Image.open(source)
-            image.paste((98, 220, 255, 255), (0, 0, 1024, 60))
-            image.paste((98, 220, 255, 255), (0, 452, 1024, 512))
-            image.paste((98, 220, 255, 255), (0, 0, 60, 512))
-            image.paste((98, 220, 255, 255), (964, 0, 1024, 512))
+            # The callout's center and bands are supplementary checks; it
+            # still must honor the ordinary one-pixel outer inset.
+            image.paste((98, 220, 255, 255), (4, 4, 1020, 60))
+            image.paste((98, 220, 255, 255), (4, 452, 1020, 508))
+            image.paste((98, 220, 255, 255), (4, 60, 60, 452))
+            image.paste((98, 220, 255, 255), (964, 60, 1020, 452))
             image.save(source)
         record["source_sha256"] = record["alpha_sha256"] = sha256_file(source)
         export_record(record, project)

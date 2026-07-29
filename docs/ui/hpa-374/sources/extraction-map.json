@@ -2371,10 +2371,10 @@
     ],
     "alpha_source": "art_source/ui/hpa-374/boards/ornaments/callout_frame-alpha.png",
     "crop": [
-      70,
-      35,
-      1634,
-      817
+      47,
+      23,
+      1680,
+      840
     ],
     "family": "ornaments",
     "generated_on": "2026-07-29",
@@ -2389,6 +2389,16 @@
       "opaque_threshold": 220,
       "soft_matte": true,
       "transparent_threshold": 12
+    },
+    "repair": {
+      "previous_crop": [
+        70,
+        35,
+        1634,
+        817
+      ],
+      "reason": "Task 11 final gate found the previous centered crop clipped the authored side border to the output edges; this is the narrowest wider centered exact 2:1 crop that preserves the selected hash-bound source, transparent callout center, visible four bands, and a transparent output inset on every edge.",
+      "repaired_on": "2026-07-29"
     },
     "source": "art_source/ui/hpa-374/boards/ornaments/callout_frame-source.png",
     "source_sha256": "a6f4cf435ef7bf8b74f022e975c96edd06be771e4ce1a863bb1bc3d22d490035",

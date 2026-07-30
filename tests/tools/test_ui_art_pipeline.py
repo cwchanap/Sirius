@@ -396,6 +396,53 @@ def test_registration_writes_complete_provenance_and_preserves_date(tmp_path: Pa
     assert {record["generated_on"] for record in json.loads(map_path.read_text())} == {"2026-07-29"}
 
 
+def test_re_registration_preserves_repaired_crop(tmp_path: Path):
+    """Re-registering an unchanged family must not overwrite a deliberately repaired crop.
+
+    callout_frame's committed crop was repaired from the centred default because the
+    centred crop clipped the side border. Re-running ``register --family ornaments``
+    with unchanged masters must preserve that repaired crop, not regenerate the
+    defective centred default while retaining the repair note.
+    """
+    project = tmp_path / "project"
+    source_dir = project / "art_source/ui/hpa-374/boards/ornaments"
+    source_dir.mkdir(parents=True)
+
+    # Source/alpha at a size that produces a non-trivial centred crop.
+    alpha = Image.new("RGBA", (300, 100), (0, 0, 0, 0))
+    alpha.paste((98, 220, 255, 255), (40, 10, 260, 90))
+    source_path = source_dir / "callout_frame-source.png"
+    alpha_path = source_dir / "callout_frame-alpha.png"
+    alpha.save(source_path)
+    alpha.save(alpha_path)
+
+    # First registration — produces the centred crop.
+    record = pipeline._registered_record(
+        "ornaments", "callout_frame", "ornament", None,
+        ((64, 32),), source_dir, project, old=None)
+    centered_crop = list(record["crop"])
+
+    # Simulate a deliberate repair: the centred crop clipped content, so a
+    # different crop was validated and committed.
+    repaired_crop = [centered_crop[0] - 20, centered_crop[1], centered_crop[2], centered_crop[3]]
+    record["crop"] = list(repaired_crop)
+    record["repair"] = {
+        "previous_crop": list(centered_crop),
+        "reason": "Centred crop clipped the side border.",
+        "repaired_on": "2026-07-29",
+    }
+
+    # Re-register with unchanged masters (hashes match).
+    re_registered = pipeline._registered_record(
+        "ornaments", "callout_frame", "ornament", None,
+        ((64, 32),), source_dir, project, old=record)
+
+    assert re_registered["crop"] == repaired_crop, (
+        "Re-registration must preserve the repaired crop, not regenerate the centred default")
+    assert re_registered["repair"] == record["repair"]
+    assert re_registered["crop"] != centered_crop
+
+
 def test_extract_rolls_back_when_canonical_promotion_fails(tmp_path: Path, monkeypatch):
     project = tmp_path / "project"
     source = project / "art_source/source.png"

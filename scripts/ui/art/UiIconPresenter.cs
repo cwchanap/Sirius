@@ -14,18 +14,25 @@ public static class UiIconPresenter
 	public static bool Apply(TextureButton target, UiIconId id, UiIconSize size)
 	{
 		var texture = UiArtCatalog.LoadIcon(id, size);
-		ApplyTexture(target, texture);
+		ApplyGlyphTexture(target, texture);
 		return texture != null;
 	}
 
-	internal static void ApplyTexture(TextureButton target, Texture2D? texture)
+	internal static void ApplyTexture(TextureButton target, Texture2D? texture) =>
+		SetSlotTextures(target, texture, TextureButton.StretchModeEnum.KeepAspectCentered);
+
+	internal static void ApplyGlyphTexture(TextureButton target, Texture2D? texture) =>
+		SetSlotTextures(target, texture, TextureButton.StretchModeEnum.KeepCentered);
+
+	private static void SetSlotTextures(TextureButton target, Texture2D? texture,
+		TextureButton.StretchModeEnum stretchMode)
 	{
 		target.TextureNormal = texture;
 		target.TextureHover = texture;
 		target.TexturePressed = texture;
 		target.TextureDisabled = texture;
 		target.TextureFocused = texture;
-		target.StretchMode = TextureButton.StretchModeEnum.KeepAspectCentered;
+		target.StretchMode = stretchMode;
 		target.IgnoreTextureSize = true;
 	}
 

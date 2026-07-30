@@ -6,6 +6,7 @@ using System.Text;
 public partial class InventoryMenuController : Control
 {
 	private static readonly StringName ToggleInventoryAction = "toggle_inventory";
+	private static readonly StringName UiCancelAction = "ui_cancel";
 	private readonly InputHintPresenter _inputHintPresenter = new();
 	private GameManager _gameManager;
 	private Button _closeButton = null!;
@@ -216,7 +217,10 @@ public partial class InventoryMenuController : Control
 
 	private void RefreshCloseHint()
 	{
-		_inputHintPresenter.ApplyCompactButton(_closeButton, "Close", ToggleInventoryAction);
+		// The menu closes on both toggle_inventory and ui_cancel. Resolve the
+		// hint across both so a gamepad user sees the ui_cancel gamepad binding
+		// rather than the keyboard-only toggle_inventory fallback.
+		_inputHintPresenter.ApplyCompactButton(_closeButton, "Close", ToggleInventoryAction, UiCancelAction);
 	}
 
 	public void CloseMenu()

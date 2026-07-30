@@ -268,6 +268,26 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
+    public void EmptySlotGlyphsUseKeepCenteredWhileItemArtUsesKeepAspectCentered()
+    {
+        // Empty/locked slots display 32px generated glyphs at native size (KeepCentered),
+        // not enlarged to the 96px button. Populated slots scale item art to fit (KeepAspectCentered).
+        AssertThat(_gameManager.Player.Unequip(EquipmentSlotType.Weapon)).IsNotNull();
+        _inventoryMenu.OpenMenu();
+
+        var emptyWeapon = GetSlotButton("%WeaponSlot");
+        var lockedAccessory = GetSlotButton("%AccessorySlot5");
+        AssertThat(emptyWeapon.StretchMode).IsEqual(TextureButton.StretchModeEnum.KeepCentered);
+        AssertThat(lockedAccessory.StretchMode).IsEqual(TextureButton.StretchModeEnum.KeepCentered);
+
+        var sword = EquipmentCatalog.CreateWoodenSword();
+        AssertThat(_gameManager.Player.TryEquip(sword, out _)).IsTrue();
+        _inventoryMenu.OpenMenu();
+        var populatedWeapon = GetSlotButton("%WeaponSlot");
+        AssertThat(populatedWeapon.StretchMode).IsEqual(TextureButton.StretchModeEnum.KeepAspectCentered);
+    }
+
+    [TestCase]
     public void ActiveEmptyEquipmentAndAccessorySlots_RenderTypeGlyphsWhenDisabled()
     {
         AssertThat(_gameManager.Player.Unequip(EquipmentSlotType.Weapon)).IsNotNull();
@@ -371,6 +391,46 @@ public partial class InventoryMenuControllerTest : Node
             InputMap.ActionEraseEvents("toggle_inventory");
             foreach (var inputEvent in original)
                 InputMap.ActionAddEvent("toggle_inventory", inputEvent);
+        }
+    }
+
+    [TestCase]
+    public void CloseHint_ShowsGamepadBindingWhenGamepadIsActive()
+    {
+        // Real-world config: toggle_inventory has only a keyboard binding.
+        // ui_cancel provides the gamepad binding. A gamepad user closing the
+        // menu via ui_cancel must see a gamepad keycap, not the keyboard I.
+        var cancelExisted = InputMap.HasAction("ui_cancel");
+        var cancelOriginal = new System.Collections.Generic.List<InputEvent>();
+        if (cancelExisted)
+            foreach (var e in InputMap.ActionGetEvents("ui_cancel"))
+                cancelOriginal.Add((InputEvent)e.Duplicate());
+        try
+        {
+            if (!cancelExisted)
+                InputMap.AddAction("ui_cancel", 0.5f);
+            InputMap.ActionEraseEvents("ui_cancel");
+            InputMap.ActionAddEvent("ui_cancel", new InputEventKey { PhysicalKeycode = Key.Escape });
+            InputMap.ActionAddEvent("ui_cancel", new InputEventJoypadButton { ButtonIndex = JoyButton.B });
+
+            _inventoryMenu.OpenMenu();
+            // Simulate gamepad input to switch the active device.
+            _inventoryMenu._Input(new InputEventJoypadButton
+            {
+                ButtonIndex = JoyButton.A,
+                Pressed = true
+            });
+
+            AssertThat(_inventoryMenu.GetNode<Button>("%CloseButton").Text).IsEqual("Close [B]");
+        }
+        finally
+        {
+            if (_inventoryMenu.Visible)
+                _inventoryMenu.CloseMenu();
+            InputMap.ActionEraseEvents("ui_cancel");
+            if (cancelExisted)
+                foreach (var e in cancelOriginal)
+                    InputMap.ActionAddEvent("ui_cancel", e);
         }
     }
 

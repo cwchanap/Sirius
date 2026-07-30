@@ -345,6 +345,12 @@ def _registered_record(family: str, asset_id: str, kind: str, category: str | No
             # the defective previous_crop while retaining the repair note,
             # leaving the provenance record inconsistent.
             record["crop"] = list(old["crop"])
+        # Preserve the data-driven replacement/repair narrative so
+        # write_manifest can regenerate the history section. History is tied
+        # to a specific master's provenance, so it only carries forward when
+        # the source and alpha hashes match (the same gate as `repair`).
+        if old.get("history"):
+            record["history"] = list(old["history"])
     return record
 
 

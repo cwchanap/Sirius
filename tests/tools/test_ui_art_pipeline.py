@@ -443,6 +443,54 @@ def test_re_registration_preserves_repaired_crop(tmp_path: Path):
     assert re_registered["crop"] != centered_crop
 
 
+def test_re_registration_preserves_history_for_manifest(tmp_path: Path):
+    """Re-registering an unchanged family must carry `history` forward so
+    write_manifest can regenerate the replacement/repair narrative section.
+
+    write_manifest treats each record's `history` field as the single source
+    of truth for the provenance sections. _registered_record rebuilds records
+    from scratch, so without explicit preservation a `register --family ...`
+    run on an unchanged family silently drops the history introduced for
+    encounter_burst, weapon, weaken, save, and callout_frame, and the next
+    manifest write omits those sections entirely.
+    """
+    project = tmp_path / "project"
+    source_dir = project / "art_source/ui/hpa-374/boards/ornaments"
+    source_dir.mkdir(parents=True)
+
+    alpha = Image.new("RGBA", (300, 100), (0, 0, 0, 0))
+    alpha.paste((98, 220, 255, 255), (40, 10, 260, 90))
+    source_path = source_dir / "callout_frame-source.png"
+    alpha_path = source_dir / "callout_frame-alpha.png"
+    alpha.save(source_path)
+    alpha.save(alpha_path)
+
+    record = pipeline._registered_record(
+        "ornaments", "callout_frame", "ornament", None,
+        ((64, 32),), source_dir, project, old=None)
+    history = [
+        "", "## `callout_frame` replacement", "",
+        "- Replaced master 2026-07-29: centred crop clipped the side border.",
+    ]
+    record["history"] = list(history)
+
+    # Re-register with unchanged masters (hashes match).
+    re_registered = pipeline._registered_record(
+        "ornaments", "callout_frame", "ornament", None,
+        ((64, 32),), source_dir, project, old=record)
+
+    assert re_registered.get("history") == history, (
+        "Re-registration must preserve the data-driven history narrative")
+
+    # The preserved history must surface in the generated manifest.
+    map_path = project / pipeline.MAP_RELATIVE_PATH
+    map_path.parent.mkdir(parents=True)
+    map_path.write_text(json.dumps([re_registered]))
+    manifest = write_manifest(map_path, project).read_text()
+    assert "## `callout_frame` replacement" in manifest
+    assert "Replaced master 2026-07-29" in manifest
+
+
 def test_extract_rolls_back_when_canonical_promotion_fails(tmp_path: Path, monkeypatch):
     project = tmp_path / "project"
     source = project / "art_source/source.png"

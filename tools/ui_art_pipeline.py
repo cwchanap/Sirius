@@ -110,9 +110,12 @@ def centered_aspect_crop(source_size: tuple[int, int], target_size: tuple[int, i
     if source_width * target_height > source_height * target_width:
         crop_height = source_height
         crop_width = source_height * target_width // target_height
+        # Re-trim the unshrunk dimension so crop_width * target_height == crop_height * target_width exactly.
+        crop_height = crop_width * target_height // target_width
     else:
         crop_width = source_width
         crop_height = source_width * target_height // target_width
+        crop_width = crop_height * target_width // target_height
     return ((source_width - crop_width) // 2, (source_height - crop_height) // 2, crop_width, crop_height)
 
 
@@ -260,7 +263,7 @@ def export_record(record: dict, project_root: Path) -> list[Path]:
         )
         _validate_final_asset(record, resized)
         derivatives.append(resized)
-    for output, resized in zip(outputs, derivatives):
+    for output, resized in zip(outputs, derivatives, strict=True):
         output.parent.mkdir(parents=True, exist_ok=True)
         resized.save(output, format="PNG", icc_profile=None, optimize=True)
     return outputs
@@ -330,6 +333,12 @@ def _registered_record(family: str, asset_id: str, kind: str, category: str | No
         record["intended_usage"] = old["intended_usage"]
     if old and old.get("source_sha256") == source_hash and old.get("alpha_sha256") == alpha_hash:
         record["generated_on"] = old["generated_on"]
+        # Preserve per-record postprocess overrides (e.g. encounter_burst's
+        # high_alpha_chroma_despill) and repair metadata so re-registration
+        # does not drop validated per-record config.
+        record["postprocess"] = {**record["postprocess"], **old.get("postprocess", {})}
+        if "repair" in old:
+            record["repair"] = old["repair"]
     return record
 
 
@@ -485,9 +494,23 @@ def repair_ornament_derivatives(asset_ids: tuple[str, ...], map_path: Path, proj
                 if backup.exists():
                     os.replace(backup, destination)
             raise
+        _record_ornament_repair(map_path, requested)
         return targets
     finally:
         shutil.rmtree(temporary_root, ignore_errors=True)
+
+
+def _record_ornament_repair(map_path: Path, asset_ids: tuple[str, ...]) -> None:
+    """Persist repair metadata on repaired ornament records so write_manifest can regenerate the repair history section."""
+    existing = _load_map(map_path)
+    today = date.today().isoformat()
+    repaired_ids = set(asset_ids)
+    for record in existing:
+        if record.get("family") == "ornaments" and record["id"] in repaired_ids:
+            repair = dict(record.get("repair", {}))
+            repair["repaired_on"] = today
+            record["repair"] = repair
+    _write_map(map_path, existing)
 
 
 def verify_family(family: str, project_root: Path) -> list[Path]:
@@ -555,7 +578,7 @@ def _labelled_icon_sheet(output: Path, entries: list[tuple[str, str, Image.Image
     layout = icon_sheet_layout(entries)
     sheet = Image.new("RGBA", layout["canvas"], (9, 17, 30, 255))
     draw = ImageDraw.Draw(sheet)
-    for entry, (_, _, image) in zip(layout["entries"], entries):
+    for entry, (_, _, image) in zip(layout["entries"], entries, strict=True):
         left, top, right, bottom = entry["art_box"]
         art = image.convert("RGBA")
         sheet.alpha_composite(art, (left + (right - left - art.width) // 2, top + (bottom - top - art.height) // 2))

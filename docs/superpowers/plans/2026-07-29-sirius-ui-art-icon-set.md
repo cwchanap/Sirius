@@ -15,6 +15,7 @@
 - Use the built-in `image_gen` tool, not an SVG substitute or a custom API runner. Make one built-in generation call per logical asset.
 - Every generation call references `docs/ui/hpa-373/reference/battle-preparation-reference.png`; background-sensitive review also references the retained main-menu or battle background as appropriate.
 - Generate on flat `#00FF00` chroma key and run the installed imagegen `remove_chroma_key.py` helper with `--auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill`.
+- **Path resolution:** Commands and JSON blocks below use `<repo-root>` for the Sirius checkout root and `<imagegen-skill>` for the installed imagegen skill directory (e.g. `~/.codex/skills/.system/imagegen`). Resolve both to absolute paths at invocation time before running any command.
 - If an effect still fails alpha/fringe validation after one `--edge-contract 1` retry, stop and ask before using the CLI/native-transparency fallback. Do not silently change models or require `OPENAI_API_KEY`.
 - Keep selected raw outputs under ignored `art_source/ui/hpa-374/boards/`; commit prompts, source filenames, SHA-256 values, crops, and post-processing metadata under `docs/ui/hpa-374/sources/`.
 - Never overwrite an existing canonical asset unless the source manifest records the replacement and the user has approved that replacement. HPA-374's new canonical paths are expected to be absent.
@@ -812,7 +813,7 @@ For every row below, make one built-in `image_gen` call using the shared prompt 
 ```json
 {
   "referenced_image_paths": [
-    "/Users/chanwaichan/workspace/sirius/docs/ui/hpa-373/reference/battle-preparation-reference.png"
+    "<repo-root>/docs/ui/hpa-373/reference/battle-preparation-reference.png"
   ]
 }
 ```
@@ -847,7 +848,7 @@ Run the installed helper once for each exact ID:
 ```bash
 for hpa374_id in general equipment consumable quest weapon shield armor helmet shoe accessory active_skill locked equip unequip use assign buy sell
 do
-  rtk python3.12 /Users/chanwaichan/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py --input "art_source/ui/hpa-374/boards/inventory-actions/${hpa374_id}-source.png" --out "art_source/ui/hpa-374/boards/inventory-actions/${hpa374_id}-alpha.png" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill
+  rtk python3.12 <imagegen-skill>/scripts/remove_chroma_key.py --input "art_source/ui/hpa-374/boards/inventory-actions/${hpa374_id}-source.png" --out "art_source/ui/hpa-374/boards/inventory-actions/${hpa374_id}-alpha.png" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill
 done
 ```
 
@@ -1115,7 +1116,7 @@ Make exactly 18 built-in `image_gen` calls, one for each table row. Every call u
 ```json
 {
   "referenced_image_paths": [
-    "/Users/chanwaichan/workspace/sirius/docs/ui/hpa-373/reference/battle-preparation-reference.png"
+    "<repo-root>/docs/ui/hpa-373/reference/battle-preparation-reference.png"
   ]
 }
 ```
@@ -1135,7 +1136,7 @@ Run:
 ```bash
 for hpa374_id in health mana experience level gold attack defense speed poison burn stun weaken slow blind regen haste strength fortify
 do
-  rtk python3.12 /Users/chanwaichan/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py --input "art_source/ui/hpa-374/boards/stats-status/${hpa374_id}-source.png" --out "art_source/ui/hpa-374/boards/stats-status/${hpa374_id}-alpha.png" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill
+  rtk python3.12 <imagegen-skill>/scripts/remove_chroma_key.py --input "art_source/ui/hpa-374/boards/stats-status/${hpa374_id}-source.png" --out "art_source/ui/hpa-374/boards/stats-status/${hpa374_id}-alpha.png" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill
 done
 ```
 
@@ -1209,7 +1210,7 @@ The standardized information, exclamation, check, and cross markings describe se
 
 - [ ] **Step 2: Generate and select one source per ID**
 
-Make exactly 15 built-in `image_gen` calls. Every call references `/Users/chanwaichan/workspace/sirius/docs/ui/hpa-373/reference/battle-preparation-reference.png`. Copy inspected results to:
+Make exactly 15 built-in `image_gen` calls. Every call references `<repo-root>/docs/ui/hpa-373/reference/battle-preparation-reference.png`. Copy inspected results to:
 
 ```text
 art_source/ui/hpa-374/boards/flow-semantic/<id>-source.png
@@ -1224,7 +1225,7 @@ Run the chroma-removal helper:
 ```bash
 for hpa374_id in pause resume settings save load dialogue shop heal puzzle reward info warning error confirm cancel_close
 do
-  rtk python3.12 /Users/chanwaichan/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py --input "art_source/ui/hpa-374/boards/flow-semantic/${hpa374_id}-source.png" --out "art_source/ui/hpa-374/boards/flow-semantic/${hpa374_id}-alpha.png" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill
+  rtk python3.12 <imagegen-skill>/scripts/remove_chroma_key.py --input "art_source/ui/hpa-374/boards/flow-semantic/${hpa374_id}-source.png" --out "art_source/ui/hpa-374/boards/flow-semantic/${hpa374_id}-alpha.png" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill
 done
 ```
 
@@ -1303,7 +1304,7 @@ Run:
 ```bash
 for hpa374_id in keyboard keycap_blank mouse mouse_primary mouse_secondary mouse_wheel gamepad gamepad_face_blank gamepad_dpad gamepad_stick gamepad_shoulder
 do
-  rtk python3.12 /Users/chanwaichan/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py --input "art_source/ui/hpa-374/boards/input-glyphs/${hpa374_id}-source.png" --out "art_source/ui/hpa-374/boards/input-glyphs/${hpa374_id}-alpha.png" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill
+  rtk python3.12 <imagegen-skill>/scripts/remove_chroma_key.py --input "art_source/ui/hpa-374/boards/input-glyphs/${hpa374_id}-source.png" --out "art_source/ui/hpa-374/boards/input-glyphs/${hpa374_id}-alpha.png" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill
 done
 ```
 
@@ -1670,7 +1671,7 @@ public void ReopenMenu_ReReadsChangedToggleInventoryBinding()
 Run:
 
 ```bash
-rtk dotnet test Sirius.sln --settings task2.local.runsettings --no-build --filter "Name~Resolve_ReReadsKeyboardBindingOnEveryCall|Name~Observe_SwitchesBetweenMouseJoypadButtonAndJoypadAxis|Name~Resolve_UnboundActionReturnsReadableFallback|Name~Resolve_MapsMousePrimaryComponent|Name~Resolve_MapsFaceButtonAndStickAxisComponents|Name~Observe_IgnoresJoypadMotionBelowDeadzone|Name~OpenMenu_UsesCurrentToggleInventoryBindingInCloseLabel|Name~ReopenMenu_ReReadsChangedToggleInventoryBinding"
+rtk dotnet test Sirius.sln --settings task2.local.runsettings --filter "Name~Resolve_ReReadsKeyboardBindingOnEveryCall|Name~Observe_SwitchesBetweenMouseJoypadButtonAndJoypadAxis|Name~Resolve_UnboundActionReturnsReadableFallback|Name~Resolve_MapsMousePrimaryComponent|Name~Resolve_MapsFaceButtonAndStickAxisComponents|Name~Observe_IgnoresJoypadMotionBelowDeadzone|Name~OpenMenu_UsesCurrentToggleInventoryBindingInCloseLabel|Name~ReopenMenu_ReReadsChangedToggleInventoryBinding"
 rtk uv run --with-requirements requirements-dev.txt python3 -m pytest tests/tools/test_ui_art_pipeline.py tests/tools/test_ui_asset_coverage.py -q
 rtk dotnet build Sirius.sln
 rtk git diff --check
@@ -1729,7 +1730,7 @@ Make exactly 13 built-in `image_gen` calls. Every call references:
 ```json
 {
   "referenced_image_paths": [
-    "/Users/chanwaichan/workspace/sirius/docs/ui/hpa-373/reference/battle-preparation-reference.png"
+    "<repo-root>/docs/ui/hpa-373/reference/battle-preparation-reference.png"
   ]
 }
 ```
@@ -1749,7 +1750,7 @@ Run:
 ```bash
 for hpa374_id in celestial_anchor orbit_arc trajectory_line calibration_ticks callout_frame callout_connector catalogue_rail_endcap ignition_seal constellation_corner constellation_divider partial_sigil focus_halo selection_halo
 do
-  rtk python3.12 /Users/chanwaichan/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py --input "art_source/ui/hpa-374/boards/ornaments/${hpa374_id}-source.png" --out "art_source/ui/hpa-374/boards/ornaments/${hpa374_id}-alpha.png" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill
+  rtk python3.12 <imagegen-skill>/scripts/remove_chroma_key.py --input "art_source/ui/hpa-374/boards/ornaments/${hpa374_id}-source.png" --out "art_source/ui/hpa-374/boards/ornaments/${hpa374_id}-alpha.png" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill
 done
 ```
 
@@ -1822,8 +1823,8 @@ Each prompt references both the HPA-373 battle-preparation artwork and retained 
 ```json
 {
   "referenced_image_paths": [
-    "/Users/chanwaichan/workspace/sirius/docs/ui/hpa-373/reference/battle-preparation-reference.png",
-    "/Users/chanwaichan/workspace/sirius/assets/sprites/ui/ui_battle_background.png"
+    "<repo-root>/docs/ui/hpa-373/reference/battle-preparation-reference.png",
+    "<repo-root>/assets/sprites/ui/ui_battle_background.png"
   ]
 }
 ```
@@ -1841,7 +1842,7 @@ Run:
 ```bash
 for hpa374_id in encounter_burst hit_impact status_pulse reward_level_up
 do
-  rtk python3.12 /Users/chanwaichan/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py --input "art_source/ui/hpa-374/boards/effects/${hpa374_id}-source.png" --out "art_source/ui/hpa-374/boards/effects/${hpa374_id}-alpha.png" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill
+  rtk python3.12 <imagegen-skill>/scripts/remove_chroma_key.py --input "art_source/ui/hpa-374/boards/effects/${hpa374_id}-source.png" --out "art_source/ui/hpa-374/boards/effects/${hpa374_id}-alpha.png" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill
 done
 ```
 

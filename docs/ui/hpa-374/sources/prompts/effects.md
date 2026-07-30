@@ -1,13 +1,13 @@
 Use case: stylized-concept
 Asset type: Sirius RPG reusable static battle UI effect master
 Input images: HPA-373 battle-preparation artwork and retained battle background, used only for Sirius palette, celestial line language, and anime-fantasy rendering.
-Referenced image paths:
+Referenced image paths (resolve `<repo-root>` to the Sirius checkout root before image generation):
 
 ```json
 {
   "referenced_image_paths": [
-    "/Users/chanwaichan/workspace/sirius/docs/ui/hpa-373/reference/battle-preparation-reference.png",
-    "/Users/chanwaichan/workspace/sirius/assets/sprites/ui/ui_battle_background.png"
+    "<repo-root>/docs/ui/hpa-373/reference/battle-preparation-reference.png",
+    "<repo-root>/assets/sprites/ui/ui_battle_background.png"
   ]
 }
 ```

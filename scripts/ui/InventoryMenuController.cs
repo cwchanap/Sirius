@@ -60,7 +60,7 @@ public partial class InventoryMenuController : Control
 		if (_inputHintPresenter.Observe(@event) && Visible)
 			RefreshCloseHint();
 
-		if (@event.IsActionPressed("ui_cancel") || @event.IsActionPressed("toggle_inventory"))
+		if (@event.IsActionPressed("ui_cancel") || @event.IsActionPressed(ToggleInventoryAction))
 		{
 			if (Visible)
 			{
@@ -634,11 +634,7 @@ public partial class InventoryMenuController : Control
 		{
 			GD.PushWarning($"Failed to load icon for '{item.DisplayName}' at '{item.AssetPath}'");
 		}
-		button.TextureNormal = texture;
-		button.TextureHover = texture;
-		button.TexturePressed = texture;
-		button.TextureDisabled = texture;
-		button.TextureFocused = texture;
+		UiIconPresenter.ApplyTexture(button, texture);
 	}
 
 	private void ClearButtonIcon(TextureButton button)
@@ -648,11 +644,7 @@ public partial class InventoryMenuController : Control
 			return;
 		}
 
-		button.TextureNormal = null;
-		button.TextureHover = null;
-		button.TexturePressed = null;
-		button.TextureDisabled = null;
-		button.TextureFocused = null;
+		UiIconPresenter.ApplyTexture(button, null);
 	}
 
 	private void ConfigureSlotButton(TextureButton button)

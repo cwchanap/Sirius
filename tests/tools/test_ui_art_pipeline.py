@@ -24,6 +24,20 @@ from tools.ui_art_pipeline import (
 from tools.ui_art_spec import EFFECT_SIZES, ICON_FAMILIES, ICON_GROUPS, ORNAMENT_SIZES
 
 
+def test_centered_aspect_crop_produces_exact_target_ratio():
+    """Floor division must not leave the unshrunk dimension at a non-exact ratio."""
+    for source_size, target_size in [
+        ((1774, 887), (256, 64)),
+        ((1774, 887), (512, 256)),
+        ((1254, 1254), (256, 256)),
+        ((1024, 512), (256, 64)),
+        ((512, 1024), (64, 256)),
+    ]:
+        _, _, crop_width, crop_height = pipeline.centered_aspect_crop(source_size, target_size)
+        assert crop_width * target_size[1] == crop_height * target_size[0], (source_size, target_size)
+        assert crop_width <= source_size[0] and crop_height <= source_size[1], (source_size, target_size)
+
+
 def test_inventory_has_exact_release_counts():
     assert sum(len(ids) for ids in ICON_GROUPS.values()) == 62
     assert len(ORNAMENT_SIZES) == 13

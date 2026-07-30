@@ -21,7 +21,7 @@ public partial class Hpa374RuntimeSmokeTest : Node
         var sceneTree = (SceneTree)Engine.GetMainLoop();
         _treeWasPaused = sceneTree.Paused;
         sceneTree.Paused = false;
-        ResetGameManagerSingleton();
+        TestHelpers.ResetGameManagerSingleton();
 
         _gameManager = new GameManager { AutoSaveEnabled = false };
         sceneTree.Root.AddChild(_gameManager);
@@ -66,17 +66,8 @@ public partial class Hpa374RuntimeSmokeTest : Node
         if (_gameManager is { } gameManager && IsInstanceValid(gameManager))
             gameManager.Free();
         await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
-        ResetGameManagerSingleton();
+        TestHelpers.ResetGameManagerSingleton();
         sceneTree.Paused = _treeWasPaused;
-    }
-
-    private static void ResetGameManagerSingleton()
-    {
-        var property = typeof(GameManager).GetProperty(
-            "Instance",
-            System.Reflection.BindingFlags.Public |
-            System.Reflection.BindingFlags.Static);
-        property!.GetSetMethod(true)!.Invoke(null, [null]);
     }
 
     [TestCase(640, 360)]

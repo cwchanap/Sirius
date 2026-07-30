@@ -252,7 +252,7 @@ Originals of the above are preserved under `assets/sprites/items/original/` as r
 
 | Status | Runtime inventory | Canonical paths | Current consumer |
 |--------|-------------------|-----------------|------------------|
-| ✅ exists and validated | 62 logical icons / 186 PNGs | `assets/sprites/ui/icons/{category}/{16|24|32}/{id}.png` | Inventory headings, empty equipment/accessory slots, inactive accessory locks, and binding-aware close hint |
+| ✅ exists and validated | 62 logical icons / 186 PNGs | `assets/sprites/ui/icons/{category}/{16\|24\|32}/{id}.png` | Inventory headings, empty equipment/accessory slots, inactive accessory locks, and binding-aware close hint |
 | ✅ exists and validated | 13 ornaments | `assets/sprites/ui/ornaments/{id}.png` | Catalog only; composition deferred |
 | ✅ exists and validated | 4 effects / 256×256, mipmapped | `assets/sprites/effects/ui/{encounter_burst,hit_impact,status_pulse,reward_level_up}.png` | Catalog only; placement/playback deferred |
 

@@ -13,35 +13,13 @@ public partial class InventoryMenuControllerTest : Node
     private InventoryMenuController _inventoryMenu = null!;
     private Variant _originalVerboseOrphans;
 
-    private static void ResetSingleton()
-    {
-        var property = typeof(GameManager).GetProperty("Instance",
-            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-        var setter = property?.GetSetMethod(true);
-        if (setter != null)
-        {
-            setter.Invoke(null, new object[] { null! });
-            return;
-        }
-
-        var field = typeof(GameManager).GetField("<Instance>k__BackingField",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        if (field != null)
-        {
-            field.SetValue(null, null);
-            return;
-        }
-
-        throw new InvalidOperationException("Failed to reset GameManager singleton for InventoryMenuController tests.");
-    }
-
     [BeforeTest]
     public async Task Setup()
     {
         _originalVerboseOrphans = ProjectSettings.GetSetting("gdunit4/report/verbose_orphans");
         ProjectSettings.SetSetting("gdunit4/report/verbose_orphans", false);
 
-        ResetSingleton();
+        TestHelpers.ResetGameManagerSingleton();
 
         var sceneTree = (SceneTree)Engine.GetMainLoop();
 
@@ -83,7 +61,7 @@ public partial class InventoryMenuControllerTest : Node
         _inventoryMenu = null!;
         _gameManager = null!;
 
-        ResetSingleton();
+        TestHelpers.ResetGameManagerSingleton();
         ProjectSettings.SetSetting("gdunit4/report/verbose_orphans", _originalVerboseOrphans);
     }
 

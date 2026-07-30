@@ -14,6 +14,12 @@ public static class UiIconPresenter
 	public static bool Apply(TextureButton target, UiIconId id, UiIconSize size)
 	{
 		var texture = UiArtCatalog.LoadIcon(id, size);
+		ApplyTexture(target, texture);
+		return texture != null;
+	}
+
+	internal static void ApplyTexture(TextureButton target, Texture2D? texture)
+	{
 		target.TextureNormal = texture;
 		target.TextureHover = texture;
 		target.TexturePressed = texture;
@@ -21,7 +27,6 @@ public static class UiIconPresenter
 		target.TextureFocused = texture;
 		target.StretchMode = TextureButton.StretchModeEnum.KeepAspectCentered;
 		target.IgnoreTextureSize = true;
-		return texture != null;
 	}
 
 	public static bool Apply(Button target, UiIconId id, UiIconSize size)

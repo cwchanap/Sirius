@@ -84,9 +84,9 @@ public static class UiArtCatalog
 
     public static bool TryForStatusEffect(StatusEffectType type, out UiIconId id)
     {
-        id = type switch
+        var mapped = type switch
         {
-            StatusEffectType.Poison => UiIconId.Poison,
+            StatusEffectType.Poison => (UiIconId?)UiIconId.Poison,
             StatusEffectType.Burn => UiIconId.Burn,
             StatusEffectType.Stun => UiIconId.Stun,
             StatusEffectType.Weaken => UiIconId.Weaken,
@@ -96,13 +96,10 @@ public static class UiArtCatalog
             StatusEffectType.Haste => UiIconId.Haste,
             StatusEffectType.Strength => UiIconId.Strength,
             StatusEffectType.Fortify => UiIconId.Fortify,
-            _ => default
+            _ => null
         };
-
-        return type is StatusEffectType.Poison or StatusEffectType.Burn or
-            StatusEffectType.Stun or StatusEffectType.Weaken or StatusEffectType.Slow or
-            StatusEffectType.Blind or StatusEffectType.Regen or StatusEffectType.Haste or
-            StatusEffectType.Strength or StatusEffectType.Fortify;
+        id = mapped ?? UiIconId.Info;
+        return mapped.HasValue;
     }
 
     public static UiIconId ForStatusEffect(StatusEffectType type) =>

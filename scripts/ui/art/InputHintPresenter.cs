@@ -40,20 +40,27 @@ public sealed class InputHintPresenter
         return changed;
     }
 
-    public UiInputHint Resolve(StringName action)
-    {
-        if (!InputMap.HasAction(action))
-            return UnboundHint(ActiveDevice);
+    public UiInputHint Resolve(StringName action) => ResolveActions(action);
 
-        var events = InputMap.ActionGetEvents(action);
-        var currentDeviceEvent = events.FirstOrDefault(MatchesActiveDevice);
-        var selected = currentDeviceEvent ?? events.FirstOrDefault();
-        return selected == null ? UnboundHint(ActiveDevice) : HintFor(selected);
+    public UiInputHint ResolveActions(params StringName[] actions)
+    {
+        InputEvent? firstFallback = null;
+        foreach (var action in actions)
+        {
+            if (!InputMap.HasAction(action))
+                continue;
+            var events = InputMap.ActionGetEvents(action);
+            var deviceMatch = events.FirstOrDefault(MatchesActiveDevice);
+            if (deviceMatch != null)
+                return HintFor(deviceMatch);
+            firstFallback ??= events.FirstOrDefault();
+        }
+        return firstFallback != null ? HintFor(firstFallback) : UnboundHint(ActiveDevice);
     }
 
-    public void ApplyCompactButton(Button button, string baseText, StringName action)
+    public void ApplyCompactButton(Button button, string baseText, params StringName[] actions)
     {
-        var hint = Resolve(action);
+        var hint = ResolveActions(actions);
         UiIconPresenter.Apply(button, hint.IconId, UiIconSize.Metadata);
         button.Text = $"{baseText} [{hint.BindingLabel}]";
         button.TooltipText = $"{baseText}: {hint.BindingLabel}";

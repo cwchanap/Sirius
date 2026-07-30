@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using System.Collections.Generic;
+using System.Linq;
 using static GdUnit4.Assertions;
 
 [TestSuite]
@@ -107,5 +108,54 @@ public partial class InputHintPresenterTest : Node
         var changed = presenter.Observe(new InputEventJoypadMotion { Axis = JoyAxis.LeftX, AxisValue = 0.49f });
         AssertThat(changed).IsFalse();
         AssertThat(presenter.ActiveDevice).IsEqual(UiInputDevice.Keyboard);
+    }
+
+    [TestCase]
+    public void ResolveActions_PicksGamepadBindingFromSecondActionWhenFirstLacksIt()
+    {
+        // Real configuration: toggle_inventory has only a keyboard binding,
+        // ui_cancel has both keyboard and gamepad bindings. A gamepad user
+        // closing the menu via ui_cancel must see a gamepad hint, not the
+        // keyboard fallback from toggle_inventory.
+        var toggleOriginal = InputMap.ActionGetEvents("toggle_inventory")
+            .Select(e => (InputEvent)e.Duplicate()).ToArray();
+        var cancelExisted = InputMap.HasAction("ui_cancel");
+        var cancelOriginal = cancelExisted
+            ? InputMap.ActionGetEvents("ui_cancel")
+                .Select(e => (InputEvent)e.Duplicate()).ToArray()
+            : System.Array.Empty<InputEvent>();
+        try
+        {
+            InputMap.ActionEraseEvents("toggle_inventory");
+            InputMap.ActionAddEvent("toggle_inventory", new InputEventKey { PhysicalKeycode = Key.I });
+
+            if (!cancelExisted)
+                InputMap.AddAction("ui_cancel", 0.5f);
+            InputMap.ActionEraseEvents("ui_cancel");
+            InputMap.ActionAddEvent("ui_cancel", new InputEventKey { PhysicalKeycode = Key.Escape });
+            InputMap.ActionAddEvent("ui_cancel", new InputEventJoypadButton { ButtonIndex = JoyButton.B });
+
+            var gamepadHint = new InputHintPresenter(UiInputDevice.Gamepad)
+                .ResolveActions("toggle_inventory", "ui_cancel");
+            AssertThat(gamepadHint.Device).IsEqual(UiInputDevice.Gamepad);
+            AssertThat(gamepadHint.BindingLabel).IsEqual("B");
+
+            var keyboardHint = new InputHintPresenter(UiInputDevice.Keyboard)
+                .ResolveActions("toggle_inventory", "ui_cancel");
+            AssertThat(keyboardHint.Device).IsEqual(UiInputDevice.Keyboard);
+            AssertThat(keyboardHint.BindingLabel).IsEqual("I");
+        }
+        finally
+        {
+            InputMap.ActionEraseEvents("toggle_inventory");
+            foreach (var e in toggleOriginal)
+                InputMap.ActionAddEvent("toggle_inventory", e);
+            if (cancelExisted)
+            {
+                InputMap.ActionEraseEvents("ui_cancel");
+                foreach (var e in cancelOriginal)
+                    InputMap.ActionAddEvent("ui_cancel", e);
+            }
+        }
     }
 }

@@ -339,6 +339,12 @@ def _registered_record(family: str, asset_id: str, kind: str, category: str | No
         record["postprocess"] = {**record["postprocess"], **old.get("postprocess", {})}
         if "repair" in old:
             record["repair"] = old["repair"]
+            # A repaired crop was deliberately adjusted away from the centred
+            # default (e.g. callout_frame's wider crop that preserves the side
+            # border). Re-running centered_aspect_crop would replace it with
+            # the defective previous_crop while retaining the repair note,
+            # leaving the provenance record inconsistent.
+            record["crop"] = list(old["crop"])
     return record
 
 

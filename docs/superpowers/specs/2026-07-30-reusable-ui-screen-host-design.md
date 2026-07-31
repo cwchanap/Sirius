@@ -33,7 +33,7 @@ HPA-378 delivers the reusable host, its pure stack/policy model, compatibility s
 
 1. Provide one reusable host implementation for both Main Menu and gameplay roots.
 2. Encode the HPA-376 modal-priority matrix as explicit stack and dispatch rules.
-3. Require every registered entry to declare pause, input, cursor, HUD, focus, cancel, and cleanup behaviour.
+3. Require every registered entry to declare visual layer, input priority, pause, input, cursor, HUD, focus, cancel, and cleanup behaviour.
 4. Derive effective presentation policy centrally from active entries.
 5. Support existing `Control`, `Window`, and `AcceptDialog` presentations without rewriting their domain controllers.
 6. Make duplicate requests, invalid nodes, repeated closes, and root teardown deterministic and harmless.
@@ -99,7 +99,7 @@ UIScreenHost
 
 ### 5.1 Why the model is separate
 
-`UIScreenStackModel` owns ordering, parent-child relationships, compatibility, duplicate detection, and effective policy inputs. It has no dependency on the live scene tree beyond opaque entry identities.
+`UIScreenStackModel` owns ordering, parent-child relationships, compatibility, duplicate detection, and effective-policy inputs. It has no dependency on the live scene tree beyond opaque entry identities.
 
 This separation provides three benefits:
 
@@ -134,7 +134,7 @@ UIScreenHost
 └── TransitionLayer
 ```
 
-The layer order is visual, not input priority. Toasts may render above modals while owning no cancel or gameplay input. Input priority comes from the active-entry model.
+The layer order is visual, not input priority. Toasts may render above modals while owning no cancel or gameplay input. Input priority is declared separately on each active entry.
 
 `Control` views are attached to the matching layer. Legacy `Window` and `AcceptDialog` views remain native windows and are registered logically with the host; their rendering is not forced into a `Control` layer. When the host owns their parentage, they are direct children of the host so teardown remains local.
 
@@ -153,9 +153,9 @@ Each active entry has:
 
 The generated token prevents a stale handle from closing a later instance of the same kind.
 
-Only one active entry of a kind is allowed by default. A duplicate open is rejected without changing focus, pause, cursor, HUD, node parentage, or stack order. HPA-378 does not add a generic multi-instance mode. Toast queueing or coalescing belongs to a downstream presenter that submits distinct host entries deliberately.
+Only one active entry of a kind is allowed. A duplicate open is rejected without changing focus, pause, cursor, HUD, node parentage, or stack order. HPA-378 does not add a generic multi-instance mode. A downstream toast presenter queues or coalesces payloads and presents at most one host entry for that toast kind at a time.
 
-### 7.2 Layer
+### 7.2 Visual layer
 
 ```csharp
 public enum UIScreenLayer
@@ -168,17 +168,41 @@ public enum UIScreenLayer
 }
 ```
 
-Layer determines visual placement and default visual ordering only.
+Layer determines visual placement and same-layer draw order only.
 
-### 7.3 Entry specification
+### 7.3 Input priority
 
-The implementation may adjust exact C# names, but every field below is part of the contract.
+```csharp
+public enum UIInputPriority
+{
+    Passive,
+    Screen,
+    Modal,
+    Blocking
+}
+```
+
+Input priority is independent from visual layer:
+
+- `Passive`: no generic cancel ownership, such as a toast or non-interactive transition;
+- `Screen`: a parent/full-screen flow;
+- `Modal`: an owning modal or interaction flow;
+- `Blocking`: a topmost error, confirmation, or required acknowledgement.
+
+An entry with `InputPriority.Passive` must use `Cancel.None`. It may still block gameplay during a non-interactive transition.
+
+Parent-child ancestry outranks this enum: an active child is considered before its parent even if both have the same input priority.
+
+### 7.4 Entry specification
+
+The implementation may adjust exact C# names, but every behaviour below is part of the contract.
 
 ```csharp
 public sealed record UIScreenEntrySpec
 {
     public required StringName Kind { get; init; }
     public required UIScreenLayer Layer { get; init; }
+    public required UIInputPriority InputPriority { get; init; }
 
     public UIScreenHandle? Parent { get; init; }
     public StringName ExclusiveGroup { get; init; }
@@ -204,7 +228,7 @@ public sealed record UIScreenEntrySpec
 
 Required collections use empty immutable values rather than `null`.
 
-### 7.4 Cursor and HUD policies
+### 7.5 Cursor and HUD policies
 
 Cursor and HUD policies are tri-state because some presentations preserve the current root state while others override it.
 
@@ -231,7 +255,7 @@ Examples:
 - Inventory from Pause uses visible cursor and hidden HUD;
 - a full-screen blocking reward may use visible cursor and hidden HUD.
 
-### 7.5 Lower-layer policy
+### 7.6 Lower-layer policy
 
 ```csharp
 public enum UILowerLayerPolicy
@@ -248,9 +272,11 @@ public enum UILowerLayerPolicy
 
 `Hidden` hides affected lower entries without removing them. Hidden parents remain active and can be restored when a child closes.
 
-The host never rewrites a screen's domain state when changing interactivity or visibility.
+For this policy, “lower” means an active `Control` entry in a visually lower layer, or an earlier active entry in the same visual layer. Native windows use their logical visual layer and presentation sequence for the same calculation. Higher visual layers, including passive toasts, are not hidden or disabled merely because a lower modal is active.
 
-### 7.6 Cancel policy
+The host records every visibility or interactivity change it applies and restores the exact prior host-managed value. It never rewrites a screen's domain state.
+
+### 7.7 Cancel policy
 
 ```csharp
 public enum UICancelPolicy
@@ -265,11 +291,11 @@ public enum UICancelPolicy
 - `None`: this entry is skipped while searching for a cancel owner.
 - `Close`: the host closes this entry with reason `Cancel`.
 - `Consume`: the host reserves and consumes Cancel but leaves the entry open.
-- `PassThrough`: the root must not run a lower-layer or gameplay fallback, but the event remains unhandled so the entry's native popup, key-capture logic, or dialog binding can process it.
+- `PassThrough`: the root must not run a lower-priority or gameplay fallback, but the event remains unhandled so the entry's native popup, key-capture logic, or dialog binding can process it.
 
 `PassThrough` is essential for existing `OptionButton`, keybinding capture, direct `ui_cancel` controllers, and `AcceptDialog`/`ui_close_dialog` behaviour.
 
-### 7.7 Node lifetime
+### 7.8 Node lifetime
 
 ```csharp
 public enum UINodeLifetime
@@ -286,7 +312,7 @@ public enum UINodeLifetime
 
 Hidden parent entries are not terminally closed and therefore do not apply `NodeLifetime` until their own handle closes.
 
-### 7.8 Effective state
+### 7.9 Effective state
 
 ```csharp
 public sealed record UIScreenEffectiveState(
@@ -305,6 +331,12 @@ The host exposes the current value and emits `EffectiveStateChanged` only when t
 Main Menu and gameplay use the same host class. Root-specific behaviour is supplied through configuration rather than subclasses.
 
 ```csharp
+public enum UIRootCancelResult
+{
+    Declined,
+    Consumed
+}
+
 public sealed record UIScreenHostOptions
 {
     public Control? HudRoot { get; init; }
@@ -316,7 +348,7 @@ public sealed record UIScreenHostOptions
 
 Expected configuration:
 
-- Main Menu provides its HUD/root content and no root cancel fallback.
+- Main Menu may provide no HUD root and no root cancel fallback.
 - Game provides its gameplay HUD and a fallback that opens Pause only when no UI entry owns or reserves Cancel.
 
 The host does not override `_Input()` as its primary contract. The owning root forwards candidate input to `TryHandleInput(InputEvent)`. This avoids scene-tree callback-order races between `Game`, the host, legacy controllers, and native windows.
@@ -345,6 +377,7 @@ public UIInputDispatchResult TryHandleInput(InputEvent inputEvent);
 - invalid or inactive parent;
 - node already registered by this host;
 - node owned by another host;
+- invalid parentage for a `Control` view;
 - malformed host scene;
 - invalid entry specification.
 
@@ -365,7 +398,7 @@ public enum UIScreenCloseReason
 }
 ```
 
-The reason is delivered to cleanup exactly once.
+The reason is delivered to cleanup at most once.
 
 ### 9.3 Input dispatch result
 
@@ -382,7 +415,7 @@ Root behaviour:
 
 - `Consumed`: call `GetViewport().SetInputAsHandled()` and stop.
 - `ReservedForTopEntry`: do not execute gameplay or parent fallback; leave the event unhandled for the native child/controller.
-- `NoOwner`: the root may continue with genuine gameplay input if the host's configured root fallback also declined the event.
+- `NoOwner`: the event was not a configured cancel candidate, or no UI entry/root fallback claimed it; the root may continue with genuine gameplay input.
 
 This result prevents the current failure mode where an event is intentionally left for a popup but accidentally opens Pause behind it.
 
@@ -392,12 +425,14 @@ This result prevents the current failure mode where an event is intentionally le
 
 Entries have two independent orderings:
 
-- visual order: layer rank, then presentation sequence;
-- logical priority: active parent-child path, modal priority, then presentation sequence.
+- visual order: visual layer rank, then presentation sequence;
+- logical input order: active child before ancestor, then `Blocking` before `Modal` before `Screen` before `Passive`, then newest presentation sequence.
 
-A child always outranks its parent for cancel and focus ownership even when both use the same layer.
+A child always outranks its parent for cancel and focus ownership even when both use the same input priority.
 
-Toasts with `Cancel.None` and `BlockGameplayInput == false` do not become input owners merely because they render above a modal.
+Passive entries do not become cancel owners merely because they render above a modal. A toast in `ToastLayer` therefore does not displace a modal's cancel ownership.
+
+Unrelated input-owning entries should normally be prevented by compatibility or exclusive groups. The explicit priority rule still makes behaviour deterministic if compatible entries coexist.
 
 ### 10.2 Parent-child relationships
 
@@ -423,7 +458,7 @@ Compatibility is symmetric at evaluation time even if only one side declares the
 
 ### 10.4 No implicit replacement
 
-The host never closes an active entry merely because a new incompatible entry was requested. The caller must close or replace the existing entry explicitly. This prevents duplicate requests from discarding staged edits or domain state.
+The host never closes an active entry merely because a new incompatible entry was requested. The caller must close the existing entry explicitly before presenting its replacement. This prevents duplicate requests from discarding staged edits or domain state.
 
 ## 11. Effective policy derivation
 
@@ -455,7 +490,7 @@ This distinction prevents the host from becoming a gameplay input manager.
 
 ### 11.3 Cursor
 
-The effective cursor policy is the highest-priority active entry whose cursor value is not `Inherit`.
+The effective cursor policy is the highest logical-priority active entry whose cursor value is not `Inherit`.
 
 When the first explicit cursor override becomes effective, the host captures the exact current mouse mode. When no active explicit override remains, it restores that captured mode exactly once.
 
@@ -463,35 +498,37 @@ Changing cursor mode must not release keyboard/gamepad focus.
 
 ### 11.4 HUD
 
-The effective HUD policy is the highest-priority active entry whose HUD value is not `Inherit`.
+The effective HUD policy is the highest logical-priority active entry whose HUD value is not `Inherit`.
 
 - `Visible` shows the configured HUD root.
 - `Hidden` hides it.
 - no explicit override restores the root's captured visibility.
 
-The host captures the HUD root's incoming visibility before applying the first override and restores it after the last override. It does not assume gameplay HUDs start visible.
+The host captures the HUD root's incoming visibility before applying the first override and restores it after the last override. It does not assume gameplay HUDs start visible. When `HudRoot` is `null`, a non-`Inherit` HUD policy is rejected as an invalid specification for that host.
 
 ### 11.5 Lower layers
 
-The topmost applicable entry controls lower-layer visibility and interactivity.
+The topmost active entry whose lower-layer policy differs from `VisibleInteractive` controls the visually lower entries described in section 7.6.
 
 For every affected lower entry, the host records whether it changed visibility or interactivity. Restoration returns the exact prior host-managed state rather than assuming visible and interactive defaults.
 
-An entry's `SetInteractive` adapter must be idempotent. It may enable or disable that view's direct input handling, but it must not mutate domain data.
+An entry's `SetInteractive` adapter must be idempotent. It may enable or disable that view's direct input handling, but it must not mutate domain data. When no adapter is supplied, the host still supplies pointer shielding and focus ownership; the entry must not contain independent global `_Input()` behaviour that can act while inert. HPA-379 must provide an adapter for legacy controllers that do.
 
 ## 12. Cancel and modal-priority algorithm
 
 The root forwards an event only once to the host. The host checks all configured cancel actions and treats one physical event as one cancel attempt even when the event matches multiple synchronized actions.
 
-The dispatcher executes:
+A non-matching event returns `NoOwner` without invoking the root cancel fallback.
+
+For a matching event, the dispatcher executes:
 
 1. prune invalid entries;
 2. if focus restoration is pending, consume as a no-op;
-3. inspect the logical stack from topmost to lowest;
+3. inspect active entries in logical input order;
 4. for each applicable entry, invoke `InterceptCancel` when present;
 5. apply the first resulting owner policy;
 6. if no entry owns or reserves Cancel, invoke the configured root fallback;
-7. otherwise return `NoOwner`.
+7. return `Consumed` when the fallback consumes, otherwise `NoOwner`.
 
 ### 12.1 Interception results
 
@@ -508,15 +545,13 @@ public enum UIInputInterception
 
 ### 12.2 HPA-376 priority representation
 
-The priority table maps as follows:
-
 | HPA-376 priority | Host representation |
 |---|---|
 | Child popup or key capture | top entry interceptor returns `PassThrough` or `Consume` |
-| Blocking error or confirmation | child entry with modal priority and parent handle |
+| Blocking error or confirmation | child entry with `InputPriority.Blocking` |
 | Deferred Pause restoration | host-level restoration barrier |
-| Owning modal or interaction | top applicable entry policy |
-| Parent screen | next applicable active ancestor |
+| Owning modal or interaction | entry with `InputPriority.Modal` |
+| Parent screen | entry with `InputPriority.Screen` |
 | Gameplay fallback | configured root cancel fallback |
 
 ### 12.3 Required examples
@@ -535,15 +570,15 @@ The entry uses `PassThrough`. The existing synchronized `ui_close_dialog` bindin
 
 #### Required reward acknowledgement
 
-The entry uses `Consume`. Generic Cancel does not close it and cannot reach the parent. An explicit Continue action closes it programmatically.
+The entry uses `InputPriority.Blocking` and `Cancel.Consume`. Generic Cancel does not close it and cannot reach the parent. An explicit Continue action closes it programmatically.
 
 #### Non-blocking toast
 
-The entry uses `Cancel.None`, does not pause, does not block gameplay, does not request focus, and does not alter cursor or HUD. The dispatcher skips it.
+The entry uses `InputPriority.Passive` and `Cancel.None`, does not pause, does not block gameplay, does not request focus, and does not alter cursor or HUD. The dispatcher skips it.
 
 #### Destructive confirmation
 
-The confirmation is a child of the invoking Pause or Save/Load entry. Generic Cancel closes only the confirmation and restores the parent. Only an explicit destructive action performs navigation.
+The confirmation is a blocking child of the invoking Pause or Save/Load entry. Generic Cancel closes only the confirmation and restores the parent. Only an explicit destructive action performs navigation.
 
 ## 13. Focus model
 
@@ -570,6 +605,8 @@ A candidate is valid only when it:
 - is not disabled by its control type;
 - belongs to an active and interactive entry.
 
+Passive entries must not request initial focus.
+
 ### 13.3 Restoration
 
 After an entry closes and its parent becomes visible and interactive, restoration is deferred. The host tries:
@@ -595,23 +632,30 @@ Showing the cursor does not call `ReleaseFocus()` and does not hide the focus in
 
 ## 14. Node lifecycle and cleanup
 
-### 14.1 Programmatic close
+### 14.1 Control attachment
+
+An unparented `Control` is attached to its declared host layer. A `Control` already under that same host layer may be registered without reparenting. A `Control` parented elsewhere is rejected; the host does not silently reparent an arbitrary live scene subtree.
+
+This keeps visual ownership explicit. HPA-379 must compose or instantiate migrated controls under the appropriate host layer.
+
+### 14.2 Programmatic close
 
 `TryClose` is idempotent. A second close for the same handle returns `AlreadyClosed` and performs no callback, policy mutation, or node operation.
 
-### 14.2 External node deletion
+### 14.3 External node deletion
 
 The host observes registered node exit. When a node leaves the tree or becomes invalid outside a host close:
 
 1. descendants are closed first;
 2. the entry is removed with reason `NodeFreed`;
-3. cleanup runs once if the object remains callable;
-4. effective policy is recomputed;
-5. focus is restored to the next valid owner.
+3. the managed cleanup delegate is invoked once;
+4. node lifetime operations that require a live object are skipped when invalid;
+5. effective policy is recomputed;
+6. focus is restored to the next valid owner.
 
-The host never dereferences a freed Godot object after validity fails.
+Integration cleanup delegates must validate any captured Godot objects before dereferencing them. Host bookkeeping cleanup always completes even when the view is already freed.
 
-### 14.3 Host teardown
+### 14.4 Host teardown
 
 On `_ExitTree()`:
 
@@ -623,7 +667,7 @@ On `_ExitTree()`:
 - node-exit subscriptions are removed;
 - externally owned views are not freed by the host.
 
-### 14.4 Re-entrancy
+### 14.5 Re-entrancy
 
 Cleanup callbacks and node signals may request another close. Stack mutations therefore run through a guarded mutation queue.
 
@@ -645,6 +689,7 @@ Expected caller errors return structured results rather than throwing:
 - invalid parent;
 - invalid node;
 - node already registered;
+- invalid Control parentage;
 - malformed specification.
 
 Programming and infrastructure faults produce one clear Godot error with the entry kind and host path, then leave the previous stack and global state unchanged where possible.
@@ -653,6 +698,7 @@ Debug-only stack diagnostics expose:
 
 - active handles in logical order;
 - parent relationships;
+- visual layer and input priority;
 - effective policy;
 - current focus owner;
 - pause/cursor/HUD snapshot ownership.
@@ -665,7 +711,7 @@ HPA-378 supports legacy views through registration; it does not infer domain sem
 
 ### 16.1 Control views
 
-The host can attach a newly instantiated `Control` to the requested layer or register an already attached descendant when explicitly allowed. The integration adapter supplies cleanup and interactivity delegates where the controller has direct `_Input()` behaviour.
+A migrated `Control` is instantiated under or composed into its requested host layer. The integration adapter supplies cleanup and interactivity delegates where the controller has direct `_Input()` behaviour.
 
 ### 16.2 Window and AcceptDialog views
 
@@ -732,7 +778,7 @@ Small result and enum types may be consolidated when that improves readability. 
 No Godot scene timing is required for:
 
 - push/pop ordering;
-- layer-independent logical priority;
+- visual-layer-independent input priority;
 - parent-child validation;
 - duplicate rejection;
 - symmetric incompatibility;
@@ -747,7 +793,7 @@ No Godot scene timing is required for:
 Runtime tests cover:
 
 - required layer structure;
-- Control attachment and removal;
+- Control attachment and invalid parentage rejection;
 - native Window registration;
 - exact pause snapshot and restoration from running and paused trees;
 - exact cursor snapshot and restoration;
@@ -779,6 +825,7 @@ Tests reproduce the HPA-376 matrix directly:
 | empty Main Menu host | root fallback declines; root remains |
 | toast above modal | modal remains cancel owner |
 | required acknowledgement | Cancel consumed without close |
+| unrelated modal and blocking entry | blocking entry wins despite visual layer |
 
 ### 18.4 Contract scenarios
 
@@ -787,7 +834,7 @@ The following policies require named tests:
 - Inventory child of Pause: tree paused, HUD hidden, cursor visible, Pause inert, close returns to Pause.
 - Root Pause: tree paused, gameplay HUD visible but inert, cursor visible, Resume focused, close restores gameplay once.
 - Destructive confirmation: safe action focused, generic Cancel returns to parent, no destructive callback.
-- Non-blocking reward toast: no pause, no focus, no cancel owner, cursor/HUD inherited.
+- Non-blocking reward toast: passive priority, no pause, no focus, no cancel owner, cursor/HUD inherited.
 - Blocking reward acknowledgement: parent inert, cursor visible, Continue focused, generic Cancel ignored.
 
 These tests use synthetic views and callbacks. They do not implement production Inventory, Pause, reward, or confirmation screens.
@@ -810,8 +857,8 @@ The full existing solution suite must remain green. HPA-378 must not increase th
 | HPA-378 acceptance criterion | Design mechanism |
 |---|---|
 | Implements HPA-376 lifecycle/state matrix | explicit six-level dispatcher and contract tests |
-| Entries declare pause, input, cursor, HUD, focus, cancel | required `UIScreenEntrySpec` fields |
-| Deterministic topmost cancel and nested modals | parent handles, logical priority, one dispatch result |
+| Entries declare pause, input, cursor, HUD, focus, cancel | required `UIScreenEntrySpec` behaviour fields |
+| Deterministic topmost cancel and nested modals | parent handles, input priority, one dispatch result |
 | Central effective pause/input state | policy resolver and snapshot ownership |
 | Valid focus restoration and fallback | focus coordinator and restoration chain |
 | No domain-manager duplication | explicit compatibility and domain boundary |
@@ -824,7 +871,7 @@ HPA-379 may begin only after this host contract and tests are merged.
 
 For each migrated flow, HPA-379 must:
 
-1. register one explicit host entry;
+1. register one explicit host entry with visual layer and input priority;
 2. remove or disable that flow's competing direct pause, cancel, cursor, and HUD authority;
 3. preserve the flow's existing terminal signals and domain cleanup;
 4. forward root cancel input exactly once;
@@ -839,14 +886,15 @@ HPA-379 must not introduce a second stack or root-specific fork of `UIScreenHost
 The following decisions are final for HPA-378:
 
 - The host is scene-local, never an autoload.
-- Visual layer order and input priority are independent.
+- Visual layer order and input priority are independent and explicitly declared.
 - Roots forward cancel candidates; the host does not depend on `_Input()` callback order.
-- One active entry per kind is the default and only generic duplicate policy.
+- One active entry per kind is the only generic duplicate policy.
 - Incompatible opens are rejected; the host does not implicitly replace active entries.
 - Pause, cursor, and HUD restore exact captured incoming values.
 - `PassThrough` reserves an event from parent/gameplay fallback without marking it handled.
 - Deferred focus restoration is a host-level input barrier.
 - Legacy dialogs keep their guarded terminal signals and native close bindings.
+- Arbitrarily parented Controls are rejected rather than silently reparented.
 - Domain managers retain all gameplay and persistence authority.
 - HPA-378 provides capability for reward and destructive-confirmation flows but does not build their production UI.
 

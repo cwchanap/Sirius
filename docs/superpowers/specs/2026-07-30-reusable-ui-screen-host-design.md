@@ -968,15 +968,15 @@ The temporary cancel barrier is implemented as a generation-tagged restoration l
 Invariant: every close path that acquires a restoration lease releases it exactly once.
 
 - A scheduled deferred restoration completes the lease in `finally`, even when no valid target exists.
-- If the target or host is freed before the callback, invalidation completes the lease synchronously.
-- A superseding close completes or replaces the previous lease by generation; stale callbacks cannot clear a newer lease.
-- Queue collapse and duplicate close paths cannot leak a lease.
-- Host teardown disables dispatch and completes every active lease before state disposal.
-- `IsFocusRestorationPending` is derived from an active lease, not independently mutated.
+- If the target is freed before the callback, the callback still executes against the live host, selects the next valid fallback or no target, and completes in `finally`.
+- If the host begins teardown before the callback, teardown cancels the scheduled callable, disables dispatch, and completes the lease synchronously.
+- A superseding close starts a newer generation; the prior generation is completed before the new lease becomes active, and stale callbacks cannot clear the newer lease.
+- Queue collapse and duplicate close paths cannot create a second lease for the same close transaction.
+- `IsFocusRestorationPending` is derived from the active lease record, not independently mutated.
 
 Matching Cancel is consumed only while a live lease exists.
 
-Named tests cover target deletion, host teardown, re-entrant close, and stale callback execution, and prove core Cancel works again after every path.
+Named tests cover target deletion, host teardown, re-entrant close, duplicate close, and stale callback execution, and prove core Cancel works again after every path.
 
 ## 17. Node lifecycle and re-entrancy
 

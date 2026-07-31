@@ -2,45 +2,45 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the reusable, scene-local `UIScreenHost` contract for HPA-378, including pure stack/policy logic, Godot Control and embedded-Window adapters, deterministic Cancel routing, exact pause/cursor/HUD/process restoration, focus restoration leases, diagnostics, and synthetic lifecycle coverage.
+**Goal:** Build the reusable, scene-local `UIScreenHost` for HPA-378 with pure stack/policy logic, Godot Control and embedded-Window adapters, deterministic Cancel routing, exact pause/process/cursor/HUD restoration, per-viewport focus restoration, lifecycle diagnostics, and synthetic contract coverage.
 
-**Architecture:** Keep `UIScreenStackModel` and `UIScreenPolicyResolver` free of live Godot objects. `UIScreenHost` owns `ProcessMode.Always`, scene attachment, adapter state, input dispatch, pause and presentation snapshots, focus coordination, and teardown. HPA-378 stops at the reusable host and synthetic contract tests; HPA-379 owns MainMenu/Game/floor integration, runtime GridMap process correction, and production-flow migration.
+**Architecture:** Keep `UIScreenStackModel` and `UIScreenPolicyResolver` free of live Godot objects. `UIScreenHost` owns `ProcessMode.Always`, scene attachment, adapters, input dispatch, state leases, focus coordination, mutation ordering, and teardown. HPA-378 stops at the reusable host and synthetic tests; HPA-379 owns MainMenu/Game/floor integration, runtime GridMap correction, embedded-subwindow project configuration, and production-flow migration.
 
-**Tech Stack:** Godot 4.6, C#/.NET 8, GdUnit4, existing `Sirius.sln`, `test.runsettings.local`.
+**Tech Stack:** Godot 4.6, C#/.NET 8, GdUnit4, `Sirius.sln`, `test.runsettings.local`.
 
 ## Global Constraints
 
 - Do not modify `scripts/game/Game.cs`, `scripts/ui/MainMenu.cs`, floor scenes, `project.godot`, or existing production screen controllers in HPA-378.
 - Do not introduce an autoload, global UI singleton, cross-scene navigation history, implicit replacement, or detached native-window support.
-- `UIScreenHost` must be scene-local and `ProcessMode.Always`; `HUDLayer` must be explicitly `Pausable`; active presentation layers must process while paused.
+- `UIScreenHost` is scene-local and `ProcessMode.Always`; `HUDLayer` is explicitly `Pausable`; active presentation layers process while paused.
 - Registered `Window` and `AcceptDialog` entries require embedded subwindows. Disabled embedding returns `UnsupportedSubwindowMode` without stack mutation.
-- The pure model may contain `StringName` and immutable value types, but no `Node`, `Control`, `Window`, `Viewport`, `Callable`, or delegates.
-- Concrete flow kinds are unique. Categories such as confirmations use normalized exclusive groups.
-- A passive entry cannot pause, block gameplay, own Cancel, declare entry-scoped actions, affect lower layers, or request focus.
-- One physical event yields one logical Cancel traversal. `ui_close_dialog` remains a native GUI pass-through surface.
-- Lower-layer effects compose from every active owner using `Hidden > VisibleInert > VisibleInteractive`.
-- Pause, process mode, cursor, HUD visibility, Control visibility/interactivity, Window flags, and focus state restore exact incoming values.
-- A generation-tagged restoration lease must clear on success, invalid target, re-entrant close, stale callback, and teardown.
+- The pure model may contain `StringName` and immutable values, but no `Node`, `Control`, `Window`, `Viewport`, `Callable`, or delegates.
+- Concrete flow kinds are unique. Confirmation/error categories use normalized exclusive groups.
+- Passive entries cannot pause, block gameplay, own Cancel, declare entry-scoped actions, affect lower layers, or request focus.
+- One physical event yields one logical Cancel traversal. `ui_close_dialog` remains embedded-GUI pass-through.
+- Lower-layer effects compose from all active owners using `Hidden > VisibleInert > VisibleInteractive`.
+- Pause, process mode, cursor, HUD visibility, Control visibility/interactivity, Window flags, and focus restore exact incoming values.
+- A generation-tagged restoration lease clears on success, invalid target, re-entrant close, stale callback, and teardown.
 - No new third-party dependencies.
-- Every task follows red-green-refactor and ends with focused verification plus a commit.
+- Every task follows red-green-refactor, runs focused verification, and ends with a commit.
 
 ## File Map
 
 ### Create
 
-- `scripts/ui/hosting/UIScreenKinds.cs` — canonical flow-specific kinds and exclusive-group constants.
+- `scripts/ui/hosting/UIScreenKinds.cs` — canonical kinds and exclusive groups.
 - `scripts/ui/hosting/UIScreenContracts.cs` — public enums, options, contexts, results, effective state, and diagnostics records.
 - `scripts/ui/hosting/UIScreenHandle.cs` — opaque instance identity.
 - `scripts/ui/hosting/UIScreenEntryPolicy.cs` — normalized pure-model policy.
 - `scripts/ui/hosting/UIScreenEntrySpec.cs` — Godot-facing registration specification and normalization.
-- `scripts/ui/hosting/UIScreenStackModel.cs` — pure entry ownership, compatibility, parent/child ordering, and close cascades.
-- `scripts/ui/hosting/UIScreenPolicyResolver.cs` — pure effective policy and lower-layer reduction.
-- `scripts/ui/hosting/UIScreenViewAdapter.cs` — live Control/embedded-Window snapshots and adapter operations.
-- `scripts/ui/hosting/UIScreenInputDispatcher.cs` — core and entry-scoped Cancel matching and precedence.
-- `scripts/ui/hosting/UIScreenFocusCoordinator.cs` — per-viewport focus records, sinks, and restoration leases.
-- `scripts/ui/hosting/UIScreenHost.cs` — scene-local orchestration, registration, lifecycle, pause/cursor/HUD ownership, mutation queue, and diagnostics.
-- `scenes/ui/UIScreenHost.tscn` — host scene, layers, shields, and root focus sink.
-- `tests/ui/hosting/UIScreenHostTestSupport.cs` — shared synthetic views, action setup, and cleanup helpers.
+- `scripts/ui/hosting/UIScreenStackModel.cs` — pure ownership, compatibility, ordering, and close cascades.
+- `scripts/ui/hosting/UIScreenPolicyResolver.cs` — pure effective and lower-layer policy reduction.
+- `scripts/ui/hosting/UIScreenViewAdapter.cs` — live Control/embedded-Window snapshots and operations.
+- `scripts/ui/hosting/UIScreenInputDispatcher.cs` — action matching and Cancel precedence.
+- `scripts/ui/hosting/UIScreenFocusCoordinator.cs` — focus records, sinks, and restoration leases.
+- `scripts/ui/hosting/UIScreenHost.cs` — orchestration, registration, state leases, mutation queue, lifecycle, and diagnostics.
+- `scenes/ui/UIScreenHost.tscn` — host scene, layers, shield, and root focus sink.
+- `tests/ui/hosting/UIScreenHostTestSupport.cs` — synthetic views, action setup, and cleanup helpers.
 - `tests/ui/hosting/UIScreenStackModelTest.cs`.
 - `tests/ui/hosting/UIScreenPolicyResolverTest.cs`.
 - `tests/ui/hosting/UIScreenHostProcessModeTest.cs`.
@@ -53,7 +53,7 @@
 
 ### Modify
 
-- No production file outside `scripts/ui/hosting/`, `scenes/ui/`, `tests/ui/hosting/`, and `docs/ui/hpa-378/` in this implementation.
+- `docs/superpowers/specs/2026-07-30-reusable-ui-screen-host-design.md` — mark approved only after implementation verification succeeds.
 
 ---
 
@@ -68,12 +68,12 @@
 - Test: `tests/ui/hosting/UIScreenStackModelTest.cs`
 
 **Interfaces:**
-- Consumes: Godot `StringName`, `Node.ProcessModeEnum`, `InputEvent`, `Control`, and `Viewport` only in adapter-facing contracts.
-- Produces: `UIScreenHandle`, `UIScreenEntryPolicy`, `UIScreenEntrySpec.Normalize()`, all public enums/status records, `UIScreenKinds`, and `UIScreenExclusiveGroups` used by every later task.
+- Consumes: Godot `StringName`, `InputEvent`, `Control`, and `Viewport` only in adapter-facing contracts.
+- Produces: `UIScreenHandle`, `UIScreenEntryPolicy`, `UIScreenEntrySpec.Normalize()`, public statuses, `UIScreenKinds`, and `UIScreenExclusiveGroups`.
 
-- [ ] **Step 1: Write failing normalization and validation tests**
+- [ ] **Step 1: Write failing normalization tests**
 
-Create `tests/ui/hosting/UIScreenStackModelTest.cs` with the contract-level cases first:
+Create `tests/ui/hosting/UIScreenStackModelTest.cs`:
 
 ```csharp
 using GdUnit4;
@@ -87,17 +87,17 @@ public partial class UIScreenStackModelTest
     [TestCase]
     public void Normalize_DefaultGroup_BecomesEmptyGroup()
     {
-        var spec = TestSpec(UIScreenKinds.Pause) with { ExclusiveGroup = default };
-        var result = spec.Normalize();
+        var result = Spec(UIScreenKinds.Pause) with { ExclusiveGroup = default };
+        var normalized = result.Normalize();
 
-        AssertThat(result.Status).IsEqual(UIScreenOpenStatus.Opened);
-        AssertThat(result.Policy!.ExclusiveGroup).IsEqual(UIScreenExclusiveGroups.None);
+        AssertThat(normalized.Status).IsEqual(UIScreenOpenStatus.Opened);
+        AssertThat(normalized.Policy!.ExclusiveGroup).IsEqual(UIScreenExclusiveGroups.None);
     }
 
     [TestCase]
     public void Normalize_PassiveBlockingPolicy_IsRejected()
     {
-        var spec = TestSpec(UIScreenKinds.RewardToast) with
+        var spec = Spec(UIScreenKinds.RewardToast) with
         {
             InputPriority = UIInputPriority.Passive,
             BlockGameplayInput = true
@@ -107,42 +107,40 @@ public partial class UIScreenStackModelTest
     }
 
     [TestCase]
-    public void Normalize_Collections_AreNeverNullInPolicy()
+    public void Normalize_Collections_AreNeverNull()
     {
-        var result = TestSpec(UIScreenKinds.Settings).Normalize();
+        var normalized = Spec(UIScreenKinds.Settings).Normalize();
 
-        AssertThat(result.Policy!.IncompatibleKinds).IsNotNull();
-        AssertThat(result.Policy.EntryCancelActions).IsNotNull();
+        AssertThat(normalized.Policy!.IncompatibleKinds).IsNotNull();
+        AssertThat(normalized.Policy.EntryCancelActions).IsNotNull();
     }
 
-    private static UIScreenEntrySpec TestSpec(StringName kind) => new()
+    private static UIScreenEntrySpec Spec(StringName kind) => new()
     {
         Kind = kind,
         Layer = UIScreenLayer.Screen,
         InputPriority = UIInputPriority.Screen,
         ProcessPolicy = UIProcessPolicy.InheritHost,
+        IncompatibleKinds = new HashSet<StringName>(),
         PauseTree = false,
         BlockGameplayInput = true,
         Cursor = UICursorPolicy.Visible,
         Hud = UIHudPolicy.Inherit,
         LowerLayers = UILowerLayerPolicy.VisibleInert,
         Cancel = UICancelPolicy.Close,
-        IncompatibleKinds = new HashSet<StringName>(),
         EntryCancelActions = new HashSet<StringName>()
     };
 }
 ```
 
-- [ ] **Step 2: Run the focused test and verify the compile failure**
-
-Run:
+- [ ] **Step 2: Run the test and verify the compile failure**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~UIScreenStackModelTest"
 ```
 
-Expected: FAIL because `UIScreenEntrySpec`, `UIScreenKinds`, and result types do not exist.
+Expected: FAIL because the contracts do not exist.
 
 - [ ] **Step 3: Add canonical kinds and exclusive groups**
 
@@ -178,9 +176,9 @@ public static class UIScreenExclusiveGroups
 }
 ```
 
-- [ ] **Step 4: Add public contract types with stable result codes**
+- [ ] **Step 4: Add stable public contract types**
 
-Create `UIScreenContracts.cs` containing exactly these names:
+Create `UIScreenContracts.cs` with these exact public names:
 
 ```csharp
 using Godot;
@@ -252,7 +250,7 @@ public sealed record UIScreenHostOptions
 }
 ```
 
-- [ ] **Step 5: Add handle, normalized policy, and spec normalization**
+- [ ] **Step 5: Add handle, normalized policy, and normalization result**
 
 Create `UIScreenHandle.cs`:
 
@@ -262,33 +260,39 @@ using Godot;
 public readonly record struct UIScreenHandle(long Token, StringName Kind);
 ```
 
-Create `UIScreenEntryPolicy.cs` with immutable, non-null collections. Create `UIScreenEntrySpec.Normalize()` returning an internal `UIScreenSpecNormalizationResult` with `Status` and `Policy`.
+Create `UIScreenEntryPolicy.cs` as a record containing every value field from the design, with non-null `IReadOnlySet<StringName>` collections.
 
-Normalization rules:
+Create `UIScreenEntrySpec.cs` with adapter delegates and:
+
+```csharp
+internal readonly record struct UIScreenSpecNormalizationResult(
+    UIScreenOpenStatus Status,
+    UIScreenEntryPolicy? Policy);
+```
+
+Normalization must:
+
+1. reject an empty `Kind`;
+2. normalize `ExclusiveGroup` null/default/empty to `UIScreenExclusiveGroups.None`;
+3. replace null collections with empty immutable sets;
+4. reject Passive entries unless every Passive constraint is satisfied;
+5. copy only value fields into `UIScreenEntryPolicy`;
+6. return `Opened` plus policy on success.
+
+Use this exact group normalization:
 
 ```csharp
 private static StringName NormalizeGroup(StringName? value) =>
-    value is null || value.Value.IsEmpty ? UIScreenExclusiveGroups.None : value.Value;
-
-private bool IsPassiveValid() =>
-    InputPriority != UIInputPriority.Passive ||
-    (!PauseTree &&
-     !BlockGameplayInput &&
-     Cancel == UICancelPolicy.None &&
-     EntryCancelActions.Count == 0 &&
-     LowerLayers == UILowerLayerPolicy.VisibleInteractive &&
-     InitialFocus is null);
+    value is null || value.Value.IsEmpty
+        ? UIScreenExclusiveGroups.None
+        : value.Value;
 ```
-
-Reject empty `Kind`, null collections after normalization failure, `WhenPaused` entries intended for an unpaused context only when the host later validates context, and invalid Passive combinations here.
 
 - [ ] **Step 6: Run normalization tests**
 
-Run the focused command from Step 2.
+Run Step 2 again. Expected: PASS.
 
-Expected: PASS for normalization cases.
-
-- [ ] **Step 7: Commit the public contract foundation**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add scripts/ui/hosting/UIScreenKinds.cs \
@@ -305,21 +309,22 @@ git commit -m "feat: define UIScreenHost contracts"
 ### Task 2: Implement the Pure Stack Model
 
 **Files:**
-- Modify: `scripts/ui/hosting/UIScreenContracts.cs`
 - Create: `scripts/ui/hosting/UIScreenStackModel.cs`
 - Modify: `tests/ui/hosting/UIScreenStackModelTest.cs`
 
 **Interfaces:**
-- Consumes: `UIScreenEntryPolicy`, `UIScreenHandle`, stable open/close statuses.
-- Produces: `UIScreenStackModel.Open`, `UIScreenStackModel.Close`, `InputOrder`, `Entries`, and close cascades used by resolver and host.
+- Consumes: `UIScreenEntryPolicy`, `UIScreenHandle`.
+- Produces:
+  - `UIScreenOpenResult Open(UIScreenEntryPolicy policy)`
+  - `UIScreenStackCloseMutation Close(UIScreenHandle handle)`
+  - `IReadOnlyList<UIScreenEntrySnapshot> Entries`
+  - `IReadOnlyList<UIScreenEntrySnapshot> InputOrder`
 
-- [ ] **Step 1: Add failing duplicate, compatibility, and parent tests**
-
-Add:
+- [ ] **Step 1: Add failing open/ordering tests**
 
 ```csharp
 [TestCase]
-public void Open_DuplicateConcreteKind_IsRejectedWithoutMutation()
+public void Open_DuplicateKind_IsRejectedWithoutMutation()
 {
     var model = new UIScreenStackModel();
     var first = model.Open(Policy(UIScreenKinds.Pause));
@@ -331,7 +336,7 @@ public void Open_DuplicateConcreteKind_IsRejectedWithoutMutation()
 }
 
 [TestCase]
-public void Open_DifferentConfirmationKinds_SameBlockingGroup_Conflict()
+public void Open_DifferentConfirmKinds_SameGroup_Conflict()
 {
     var model = new UIScreenStackModel();
     model.Open(Policy(UIScreenKinds.ConfirmOverwrite) with
@@ -350,26 +355,24 @@ public void Open_DifferentConfirmationKinds_SameBlockingGroup_Conflict()
 }
 
 [TestCase]
-public void Open_ChildOutranksParentInInputOrder()
+public void InputOrder_ChildPrecedesParent()
 {
     var model = new UIScreenStackModel();
     var pause = model.Open(Policy(UIScreenKinds.Pause)).Handle!.Value;
-    var child = model.Open(Policy(UIScreenKinds.Settings) with { Parent = pause }).Handle!.Value;
+    var settings = model.Open(Policy(UIScreenKinds.Settings) with { Parent = pause }).Handle!.Value;
 
-    AssertThat(model.InputOrder[0].Handle).IsEqual(child);
+    AssertThat(model.InputOrder[0].Handle).IsEqual(settings);
     AssertThat(model.InputOrder[1].Handle).IsEqual(pause);
 }
 ```
 
-- [ ] **Step 2: Run and confirm failures**
+- [ ] **Step 2: Run and verify failure**
 
-Run the Task 1 focused command.
-
-Expected: FAIL because `UIScreenStackModel` and helper snapshots are absent.
+Run the Task 1 filter. Expected: FAIL because the model is absent.
 
 - [ ] **Step 3: Implement entry storage and open validation**
 
-Create `UIScreenStackModel.cs` with:
+Create these exact internal records:
 
 ```csharp
 public sealed record UIScreenEntrySnapshot(
@@ -380,40 +383,25 @@ public sealed record UIScreenEntrySnapshot(
 internal sealed record UIScreenStackCloseMutation(
     UIScreenCloseStatus Status,
     IReadOnlyList<UIScreenEntrySnapshot> ClosedEntries);
-
-public sealed class UIScreenStackModel
-{
-    private readonly List<UIScreenEntrySnapshot> _entries = new();
-    private readonly HashSet<long> _closedTokens = new();
-    private long _nextToken = 1;
-    private long _nextSequence = 1;
-
-    public IReadOnlyList<UIScreenEntrySnapshot> Entries => _entries;
-    public IReadOnlyList<UIScreenEntrySnapshot> InputOrder => BuildInputOrder();
-
-    public UIScreenOpenResult Open(UIScreenEntryPolicy policy) { /* exact rules below */ }
-    internal UIScreenStackCloseMutation Close(UIScreenHandle handle) { /* exact rules below */ }
-}
 ```
 
-`Open` must validate in this order:
+Implement `Open` in this order:
 
-1. active duplicate kind;
-2. parent token exists and is active;
-3. symmetric incompatibility;
-4. equal non-empty exclusive group, except the requested parent/ancestor relation explicitly allows the child;
-5. assign token and sequence;
-6. append exactly once.
+1. reject an active duplicate concrete kind;
+2. reject an invalid/inactive parent;
+3. reject symmetric incompatibility if either entry names the other;
+4. reject equal non-empty exclusive groups unless the entries form the explicitly requested parent-child relation;
+5. allocate monotonically increasing token and sequence;
+6. append one snapshot;
+7. return `Opened` with the new handle.
 
-`BuildInputOrder` sorts by:
+Build `InputOrder` by sorting:
 
 1. descendants before ancestors;
-2. `Blocking > Modal > Screen > Passive`;
+2. `Blocking`, `Modal`, `Screen`, `Passive`;
 3. newest sequence first.
 
-Do not mutate `_entries` on rejection.
-
-- [ ] **Step 4: Add failing close-cascade tests**
+- [ ] **Step 4: Add failing close tests**
 
 ```csharp
 [TestCase]
@@ -424,9 +412,9 @@ public void Close_Parent_ClosesDescendantsTopmostFirst()
     var settings = model.Open(Policy(UIScreenKinds.Settings) with { Parent = pause }).Handle!.Value;
     var confirm = model.Open(Policy(UIScreenKinds.ConfirmQuitToMain) with { Parent = settings }).Handle!.Value;
 
-    var mutation = model.Close(pause);
+    var result = model.Close(pause);
 
-    AssertThat(mutation.ClosedEntries.Select(e => e.Handle).ToArray())
+    AssertThat(result.ClosedEntries.Select(e => e.Handle).ToArray())
         .ContainsExactly(confirm, settings, pause);
     AssertThat(model.Entries.Count).IsEqual(0);
 }
@@ -442,41 +430,41 @@ public void Close_SameHandleTwice_IsIdempotent()
 }
 ```
 
-- [ ] **Step 5: Implement close cascade and stale-handle distinction**
+- [ ] **Step 5: Implement close cascade**
 
 `Close` must:
 
-- return `AlreadyClosed` when token is in `_closedTokens`;
-- return `StaleHandle` when no active or previously closed token exists;
-- collect every descendant recursively;
-- sort descendants by depth descending, then sequence descending;
-- remove each entry and add its token to `_closedTokens`;
-- return each closed snapshot for host-side cleanup.
+- return `AlreadyClosed` for a token in the closed-token set;
+- return `StaleHandle` for an unknown token;
+- collect all descendants recursively;
+- order descendants deepest-first, then newest-first;
+- remove every closed entry;
+- remember every closed token;
+- return snapshots in cleanup order.
 
-- [ ] **Step 6: Run all stack-model tests**
+- [ ] **Step 6: Run the full stack suite**
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit the stack model**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add scripts/ui/hosting/UIScreenStackModel.cs \
-  scripts/ui/hosting/UIScreenContracts.cs \
   tests/ui/hosting/UIScreenStackModelTest.cs
 git commit -m "feat: add UIScreenHost stack model"
 ```
 
 ---
 
-### Task 3: Resolve Effective and Lower-Layer Policy Purely
+### Task 3: Resolve Effective and Lower-Layer Policy
 
 **Files:**
 - Create: `scripts/ui/hosting/UIScreenPolicyResolver.cs`
 - Create: `tests/ui/hosting/UIScreenPolicyResolverTest.cs`
 
 **Interfaces:**
-- Consumes: `IReadOnlyList<UIScreenEntrySnapshot>` from the stack model.
-- Produces: `UIScreenResolvedPolicy` and per-target `UILowerLayerPolicy` contributions used by `UIScreenHost`.
+- Consumes: `IReadOnlyList<UIScreenEntrySnapshot>`.
+- Produces: `UIScreenResolvedPolicy Resolve(IReadOnlyList<UIScreenEntrySnapshot> entries)`.
 
 - [ ] **Step 1: Write failing effective-policy tests**
 
@@ -487,11 +475,9 @@ public partial class UIScreenPolicyResolverTest
     [TestCase]
     public void Resolve_PauseAndBlock_AreOrReduced()
     {
-        var entries = Snapshots(
+        var result = UIScreenPolicyResolver.Resolve(Snapshots(
             Policy(UIScreenKinds.Pause) with { PauseTree = true, BlockGameplayInput = true },
-            Policy(UIScreenKinds.RewardToast) with { InputPriority = UIInputPriority.Passive });
-
-        var result = UIScreenPolicyResolver.Resolve(entries);
+            Policy(UIScreenKinds.RewardToast) with { InputPriority = UIInputPriority.Passive }));
 
         AssertThat(result.PauseTree).IsTrue();
         AssertThat(result.BlockGameplayInput).IsTrue();
@@ -504,13 +490,13 @@ public partial class UIScreenPolicyResolverTest
         {
             Cursor = UICursorPolicy.Visible,
             Hud = UIHudPolicy.Visible
-        }, sequence: 1);
+        }, 1);
         var inventory = Snapshot(Policy(UIScreenKinds.Inventory) with
         {
             Parent = pause.Handle,
             Cursor = UICursorPolicy.Visible,
             Hud = UIHudPolicy.Hidden
-        }, sequence: 2);
+        }, 2);
 
         var result = UIScreenPolicyResolver.Resolve(new[] { pause, inventory });
 
@@ -520,26 +506,22 @@ public partial class UIScreenPolicyResolverTest
 }
 ```
 
-- [ ] **Step 2: Add failing compositional lower-layer tests**
+- [ ] **Step 2: Add failing compositional-effect tests**
 
 ```csharp
 [TestCase]
-public void ResolveLowerLayers_ParentContributionSurvivesChildOpen()
+public void LowerLayers_ParentContributionSurvivesChildOpen()
 {
-    var gameplay = Snapshot(Policy("gameplay") with
-    {
-        Layer = UIScreenLayer.Hud,
-        InputPriority = UIInputPriority.Passive
-    }, sequence: 1);
+    var gameplay = Snapshot(Policy("gameplay") with { Layer = UIScreenLayer.Hud }, 1);
     var pause = Snapshot(Policy(UIScreenKinds.Pause) with
     {
         LowerLayers = UILowerLayerPolicy.VisibleInert
-    }, sequence: 2);
+    }, 2);
     var settings = Snapshot(Policy(UIScreenKinds.Settings) with
     {
         Parent = pause.Handle,
         LowerLayers = UILowerLayerPolicy.Hidden
-    }, sequence: 3);
+    }, 3);
 
     var result = UIScreenPolicyResolver.Resolve(new[] { gameplay, pause, settings });
 
@@ -548,7 +530,7 @@ public void ResolveLowerLayers_ParentContributionSurvivesChildOpen()
 }
 
 [TestCase]
-public void ResolveLowerLayers_AfterChildClose_ParentInertEffectRemains()
+public void LowerLayers_AfterChildClose_ParentEffectRemains()
 {
     var gameplay = Snapshot(Policy("gameplay") with { Layer = UIScreenLayer.Hud }, 1);
     var pause = Snapshot(Policy(UIScreenKinds.Pause) with
@@ -558,20 +540,19 @@ public void ResolveLowerLayers_AfterChildClose_ParentInertEffectRemains()
 
     var result = UIScreenPolicyResolver.Resolve(new[] { gameplay, pause });
 
-    AssertThat(result.LowerLayerEffects[gameplay.Handle]).IsEqual(UILowerLayerPolicy.VisibleInert);
+    AssertThat(result.LowerLayerEffects[gameplay.Handle])
+        .IsEqual(UILowerLayerPolicy.VisibleInert);
 }
 ```
 
-- [ ] **Step 3: Run and verify failures**
+- [ ] **Step 3: Run and verify failure**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~UIScreenPolicyResolverTest"
 ```
 
-Expected: FAIL because resolver types do not exist.
-
-- [ ] **Step 4: Implement the resolver**
+- [ ] **Step 4: Implement resolver records and algorithms**
 
 Create:
 
@@ -583,41 +564,19 @@ public sealed record UIScreenResolvedPolicy(
     UIHudPolicy Hud,
     UIScreenHandle? TopInputOwner,
     IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> LowerLayerEffects);
-
-public static class UIScreenPolicyResolver
-{
-    public static UIScreenResolvedPolicy Resolve(IReadOnlyList<UIScreenEntrySnapshot> entries)
-    {
-        var inputOrder = UIScreenOrdering.BuildInputOrder(entries);
-        var cursor = FirstExplicit(inputOrder, e => e.Policy.Cursor, UICursorPolicy.Inherit);
-        var hud = FirstExplicit(inputOrder, e => e.Policy.Hud, UIHudPolicy.Inherit);
-        var effects = ResolveLowerLayerEffects(entries);
-
-        return new(
-            entries.Any(e => e.Policy.PauseTree),
-            entries.Any(e => e.Policy.BlockGameplayInput),
-            cursor,
-            hud,
-            inputOrder.FirstOrDefault(e => e.Policy.InputPriority != UIInputPriority.Passive)?.Handle,
-            effects);
-    }
-}
 ```
 
-For each target, inspect every active owner above it by ancestry, logical priority, and presentation sequence. Reduce all applicable effects with numeric strength:
+Implementation rules:
 
-```csharp
-private static int Strength(UILowerLayerPolicy policy) => policy switch
-{
-    UILowerLayerPolicy.Hidden => 2,
-    UILowerLayerPolicy.VisibleInert => 1,
-    _ => 0
-};
-```
+- pause and gameplay block are OR reductions;
+- cursor/HUD use the first non-`Inherit` value in logical input order;
+- top input owner is the first non-Passive entry in logical order;
+- each target receives contributions from every active owner above it;
+- reduce contributions with `Hidden=2`, `VisibleInert=1`, `VisibleInteractive=0`;
+- return copied read-only collections;
+- never retain live Godot state.
 
-Do not retain snapshots or mutate Godot state in this class.
-
-- [ ] **Step 5: Run resolver and stack suites together**
+- [ ] **Step 5: Run stack and resolver suites together**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
@@ -626,7 +585,7 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit the pure policy layer**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add scripts/ui/hosting/UIScreenPolicyResolver.cs \
@@ -647,10 +606,13 @@ git commit -m "feat: resolve UIScreenHost policy"
 - Create: `tests/ui/hosting/UIScreenHostSubwindowTest.cs`
 
 **Interfaces:**
-- Consumes: normalized entry policy, view-facing delegates, stack model, policy resolver.
-- Produces: `UIScreenHost.TryPresent`, host scene layer paths, process-policy validation, and embedded-Window registration.
+- Consumes: normalized policy, adapter delegates, stack model, resolver.
+- Produces:
+  - `UIScreenOpenResult TryPresent(Node view, UIScreenEntrySpec spec)`
+  - `UIScreenCloseResult TryClose(UIScreenHandle handle, UIScreenCloseReason reason)`
+  - host layer node paths and adapter registry.
 
-- [ ] **Step 1: Write the failing host-scene structure test**
+- [ ] **Step 1: Write failing scene/process tests**
 
 ```csharp
 [TestSuite]
@@ -658,7 +620,7 @@ git commit -m "feat: resolve UIScreenHost policy"
 public partial class UIScreenHostProcessModeTest : Node
 {
     [TestCase]
-    public async Task HostScene_HasRequiredProcessModesAndVisibleFocusSink()
+    public async Task Scene_HasRequiredProcessModesAndVisibleSink()
     {
         var scene = GD.Load<PackedScene>("res://scenes/ui/UIScreenHost.tscn");
         var host = scene.Instantiate<UIScreenHost>();
@@ -677,33 +639,11 @@ public partial class UIScreenHostProcessModeTest : Node
 }
 ```
 
-- [ ] **Step 2: Write the failing paused-input test**
+Add a test that opens a pausing entry, asserts the host can process while paused, then closes it and restores the incoming pause state.
 
-```csharp
-[TestCase]
-public async Task HostInput_RemainsEnabledWhileTreePaused()
-{
-    using var fixture = await UIScreenHostTestSupport.CreateHost(this);
-    var tree = GetTree();
-    bool incoming = tree.Paused;
+- [ ] **Step 2: Write failing embedded-subwindow tests**
 
-    var view = new Control();
-    var opened = fixture.Host.TryPresent(view, UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
-    {
-        PauseTree = true,
-        Cancel = UICancelPolicy.Consume
-    });
-
-    AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
-    AssertThat(fixture.Host.CanProcess()).IsTrue();
-    AssertThat(tree.Paused).IsTrue();
-
-    fixture.Host.TryClose(opened.Handle!.Value, UIScreenCloseReason.Programmatic);
-    tree.Paused = incoming;
-}
-```
-
-- [ ] **Step 3: Write embedded-subwindow acceptance and rejection tests**
+Test both paths:
 
 ```csharp
 [TestCase]
@@ -714,7 +654,9 @@ public async Task Present_Window_WhenEmbeddingDisabled_IsRejectedWithoutMutation
     bool incoming = viewport.GuiEmbedSubwindows;
     viewport.GuiEmbedSubwindows = false;
 
-    var result = fixture.Host.TryPresent(new AcceptDialog(), UIScreenHostTestSupport.Spec(UIScreenKinds.SaveLoad));
+    var result = fixture.Host.TryPresent(
+        new AcceptDialog(),
+        UIScreenHostTestSupport.Spec(UIScreenKinds.SaveLoad));
 
     AssertThat(result.Status).IsEqual(UIScreenOpenStatus.UnsupportedSubwindowMode);
     AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
@@ -722,90 +664,66 @@ public async Task Present_Window_WhenEmbeddingDisabled_IsRejectedWithoutMutation
 }
 ```
 
-Also test enabled embedding returns `Opened` and stores the Window viewport as the focus viewport.
+With embedding enabled, assert `Opened` and the Window is its own focus viewport.
 
-- [ ] **Step 4: Run the new suites and verify failures**
+- [ ] **Step 3: Run and verify failure**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~UIScreenHostProcessModeTest|FullyQualifiedName~UIScreenHostSubwindowTest"
 ```
 
-Expected: FAIL because scene, host, and adapters are absent.
-
-- [ ] **Step 5: Create the host scene**
+- [ ] **Step 4: Create the host scene**
 
 `UIScreenHost.tscn` must contain:
 
 ```text
-UIScreenHost (Control, ProcessMode=Always, full rect)
-├── HUDLayer (Control, ProcessMode=Pausable, full rect)
-├── ScreenLayer (Control, ProcessMode=Always, full rect)
-├── ModalLayer (Control, ProcessMode=Always, full rect)
-├── ToastLayer (Control, ProcessMode=Always, full rect)
-├── TransitionLayer (Control, ProcessMode=Always, full rect)
+UIScreenHost (Control, Always, full rect)
+├── HUDLayer (Control, Pausable, full rect)
+├── ScreenLayer (Control, Always, full rect)
+├── ModalLayer (Control, Always, full rect)
+├── ToastLayer (Control, Always, full rect)
+├── TransitionLayer (Control, Always, full rect)
 ├── InputShield (Control, hidden, full rect, MouseFilter=Stop)
 └── FocusSink (Control, visible, transparent, 1x1, MouseFilter=Ignore, FocusMode=All)
 ```
 
-Attach `UIScreenHost.cs` to the root.
+- [ ] **Step 5: Implement adapter creation and process-policy validation**
 
-- [ ] **Step 6: Implement view adapter snapshots**
-
-`UIScreenViewAdapter` stores:
-
-```csharp
-internal sealed class UIScreenViewAdapter
-{
-    public required Node View { get; init; }
-    public required Func<bool> IsPresented { get; init; }
-    public required Action<bool> SetPresented { get; init; }
-    public required Action<bool> SetInteractive { get; init; }
-    public required Func<Viewport> FocusViewport { get; init; }
-    public required Node.ProcessModeEnum IncomingProcessMode { get; init; }
-    public bool? IncomingControlVisible { get; init; }
-    public bool? IncomingWindowGuiDisabled { get; init; }
-    public bool? IncomingWindowUnfocusable { get; init; }
-    public Func<Control?>? InitialFocus { get; init; }
-    public Func<Control?>? RestoreFocus { get; init; }
-    public Func<UIInputContext, UIInputInterception>? InterceptCancel { get; init; }
-    public Action<UIScreenCloseReason>? Cleanup { get; init; }
-    public UINodeLifetime NodeLifetime { get; init; }
-}
-```
+`UIScreenViewAdapter` stores the live view, normalized delegates, incoming process mode, incoming presentation/interactivity values, focus delegates, cleanup, and node lifetime.
 
 Factory rules:
 
-- unparented `Control`: attach to declared Control layer;
-- Control already under that exact layer: accept;
-- Control parented elsewhere: `InvalidControlParentage`;
-- embedded `Window`: require `GetViewport().GuiEmbedSubwindows == true`, parent beneath host, focus viewport is Window;
-- detached mode: `UnsupportedSubwindowMode`;
-- apply `UIProcessPolicy` and snapshot incoming mode before any change;
-- if process policy cannot meet the entry's paused/unpaused requirements, return `InvalidProcessPolicy` before stack mutation.
+1. unparented Control attaches to the declared Control layer;
+2. Control already beneath that exact layer is accepted;
+3. Control parented elsewhere returns `InvalidControlParentage`;
+4. embedded Window requires `GuiEmbedSubwindows=true`, parents beneath host, and uses itself as focus viewport;
+5. disabled embedding returns `UnsupportedSubwindowMode`;
+6. `UIProcessPolicy` snapshots before any change and restores on failure/close;
+7. an unusable process policy returns `InvalidProcessPolicy` before model mutation.
 
-- [ ] **Step 7: Implement minimal host registration**
+- [ ] **Step 6: Implement atomic registration**
 
-`UIScreenHost.TryPresent` order:
+`TryPresent` order:
 
-1. reject teardown/malformed scene;
+1. reject teardown or malformed scene;
 2. validate node instance;
 3. normalize spec;
-4. build adapter without mutating stack;
+4. create/validate adapter without stack mutation;
 5. call model `Open`;
-6. attach/parent and apply process mode;
+6. attach/parent view and apply process mode;
 7. store adapter by handle token;
 8. subscribe to `TreeExiting`;
-9. recompute effective policy;
+9. recompute policy;
 10. return `Opened`.
 
-If steps 6–8 fail, roll back the model entry and restore the adapter snapshot before returning an error.
+If attachment/subscription fails after model open, close the model entry, restore adapter snapshots, and return a stable failure status.
 
-- [ ] **Step 8: Run process and subwindow tests**
+- [ ] **Step 7: Run process/subwindow tests**
 
 Expected: PASS.
 
-- [ ] **Step 9: Commit host scene and registration gate**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add scenes/ui/UIScreenHost.tscn \
@@ -827,130 +745,82 @@ git commit -m "feat: add UIScreenHost scene and adapters"
 - Create: `tests/ui/hosting/UIScreenHostInputTest.cs`
 
 **Interfaces:**
-- Consumes: model input order, adapter interceptors, `CoreCancelActions`, `EntryCancelActions`, effective state.
-- Produces: `TryHandleInput`, host `_Input`, one-event/one-result behavior, root fallback.
+- Consumes: model input order, adapter interceptors, options, effective state.
+- Produces: `UIInputDispatchResult TryHandleInput(InputEvent inputEvent)` and host `_Input`.
 
-- [ ] **Step 1: Write failing core-action deduplication tests**
+- [ ] **Step 1: Write failing one-event/one-attempt test**
 
 ```csharp
 [TestCase]
-public async Task Input_EventMatchingPauseAndUiCancel_TraversesOnce()
+public async Task Input_PauseAndUiCancelCoMatch_TraversesOnce()
 {
-    using var fixture = await UIScreenHostTestSupport.CreateHost(this,
-        coreActions: new[] { new StringName("pause_menu"), new StringName("ui_cancel") });
-    int interceptions = 0;
+    using var fixture = await UIScreenHostTestSupport.CreateHost(
+        this,
+        new[] { new StringName("pause_menu"), new StringName("ui_cancel") });
+    int calls = 0;
 
     fixture.Host.TryPresent(new Control(), UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
     {
         InterceptCancel = _ =>
         {
-            interceptions++;
+            calls++;
             return UIInputInterception.ConsumeHere;
         }
     });
 
-    var key = UIScreenHostTestSupport.KeyPress(Key.Escape);
-    UIScreenHostTestSupport.BindSameEvent(key, "pause_menu", "ui_cancel");
-
-    var result = fixture.Host.TryHandleInput(key);
+    var input = UIScreenHostTestSupport.EscapeBoundTo("pause_menu", "ui_cancel");
+    var result = fixture.Host.TryHandleInput(input);
 
     AssertThat(result).IsEqual(UIInputDispatchResult.Consumed);
-    AssertThat(interceptions).IsEqual(1);
+    AssertThat(calls).IsEqual(1);
 }
 ```
 
-- [ ] **Step 2: Add entry-scoped toggle tests**
+- [ ] **Step 2: Write failing entry-action and precedence tests**
 
-```csharp
-[TestCase]
-public async Task Input_InventoryToggle_OnlyAppliesToActiveInventoryEntry()
-{
-    using var fixture = await UIScreenHostTestSupport.CreateHost(this);
-    var settings = fixture.Host.TryPresent(new Control(), UIScreenHostTestSupport.Spec(UIScreenKinds.Settings));
-    var toggle = UIScreenHostTestSupport.ActionPress("toggle_inventory");
+Cover these exact cases:
 
-    AssertThat(fixture.Host.TryHandleInput(toggle)).IsEqual(UIInputDispatchResult.NoOwner);
-    AssertThat(fixture.Host.IsActive(settings.Handle!.Value)).IsTrue();
-}
-
-[TestCase]
-public async Task Input_InventoryToggle_ClosesActiveInventory()
-{
-    using var fixture = await UIScreenHostTestSupport.CreateHost(this);
-    var inventory = fixture.Host.TryPresent(new Control(), UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
-    {
-        EntryCancelActions = new HashSet<StringName> { "toggle_inventory" },
-        Cancel = UICancelPolicy.Close
-    });
-
-    AssertThat(fixture.Host.TryHandleInput(UIScreenHostTestSupport.ActionPress("toggle_inventory")))
-        .IsEqual(UIInputDispatchResult.Consumed);
-    AssertThat(fixture.Host.IsActive(inventory.Handle!.Value)).IsFalse();
-}
-```
-
-- [ ] **Step 3: Add dynamic/static precedence and pass-through tests**
-
-Test these exact outcomes:
-
-- `ConsumeHere` consumes without close;
+- active Inventory closes on `toggle_inventory`;
+- Settings top plus `toggle_inventory` returns `NoOwner` and remains open;
+- entry-scoped actions never invoke root fallback;
+- `ConsumeHere` consumes without closing;
 - `ReserveForNativeHandler` returns `ReservedForTopEntry`;
-- `DeferToPolicy` then `Close` closes;
+- `DeferToPolicy` then static `Close` closes;
 - static `None` continues to parent;
-- OptionButton-style reservation leaves parent active;
-- root fallback runs only for matched core action with no owner;
-- entry-scoped action never invokes root fallback.
+- root fallback runs only for matched core actions with no owner;
+- a pass-through event matching native `ui_close_dialog` produces one host traversal.
 
-- [ ] **Step 4: Run and verify failures**
+- [ ] **Step 3: Run and verify failure**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~UIScreenHostInputTest"
 ```
 
-- [ ] **Step 5: Implement dispatcher matching and precedence**
+- [ ] **Step 4: Implement dispatcher algorithm**
 
-Create `UIScreenInputDispatcher.Dispatch`:
+For each event:
 
-```csharp
-internal UIInputDispatchResult Dispatch(InputEvent inputEvent)
-{
-    var matchedCore = Match(inputEvent, _options.CoreCancelActions);
-    _pruneInvalidEntries();
+1. match all core actions once into a set;
+2. prune invalid entries;
+3. consume when a live restoration lease matches core or top-entry action;
+4. traverse model `InputOrder`;
+5. match each candidate's entry-scoped actions;
+6. skip candidates with no core or entry match;
+7. invoke dynamic interceptor;
+8. resolve `ConsumeHere`, `ReserveForNativeHandler`, or static policy;
+9. stop at first owner/reservation/close;
+10. invoke root fallback only for unmatched core ownership;
+11. return `NoOwner` otherwise.
 
-    if (_focus.IsRestorationPending && MatchesBarrier(inputEvent, matchedCore))
-        return UIInputDispatchResult.Consumed;
+Static policy mapping:
 
-    foreach (var entry in _model.InputOrder)
-    {
-        var matchedEntry = Match(inputEvent, entry.Policy.EntryCancelActions);
-        if (matchedCore.Count == 0 && matchedEntry.Count == 0)
-            continue;
+- `None` → continue;
+- `Close` → host close with `Cancel`, return `Consumed`;
+- `Consume` → `Consumed`;
+- `PassThrough` → `ReservedForTopEntry`.
 
-        var context = new UIInputContext(inputEvent, matchedCore, matchedEntry, entry.Handle, _effectiveState());
-        var dynamicResult = _adapters[entry.Handle.Token].InterceptCancel?.Invoke(context)
-            ?? UIInputInterception.DeferToPolicy;
-
-        var result = Resolve(dynamicResult, entry.Policy.Cancel, entry.Handle);
-        if (result != UIInputDispatchResult.NoOwner)
-            return result;
-    }
-
-    if (matchedCore.Count > 0 && _options.RootCancelFallback is not null)
-    {
-        return _options.RootCancelFallback(new(inputEvent, matchedCore, _effectiveState()))
-            == UIRootCancelResult.Consumed
-            ? UIInputDispatchResult.Consumed
-            : UIInputDispatchResult.NoOwner;
-    }
-
-    return UIInputDispatchResult.NoOwner;
-}
-```
-
-`Match` returns a set and never triggers more than one traversal. Do not add `ui_close_dialog` to core actions.
-
-- [ ] **Step 6: Wire host `_Input`**
+- [ ] **Step 5: Wire host `_Input`**
 
 ```csharp
 public override void _Input(InputEvent inputEvent)
@@ -963,13 +833,13 @@ public override void _Input(InputEvent inputEvent)
 }
 ```
 
-Do nothing for `ReservedForTopEntry` and `NoOwner`.
+Leave `ReservedForTopEntry` and `NoOwner` unhandled.
 
-- [ ] **Step 7: Run input, stack, and resolver tests**
+- [ ] **Step 6: Run input plus pure suites**
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit Cancel dispatch**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add scripts/ui/hosting/UIScreenInputDispatcher.cs \
@@ -992,89 +862,75 @@ git commit -m "feat: dispatch UIScreenHost cancel input"
 - Consumes: `UIScreenResolvedPolicy`.
 - Produces: exact state leases, `CurrentState`, `EffectiveStateChanged`, drift diagnostics, and teardown restoration.
 
-- [ ] **Step 1: Write failing exact pause-restoration tests**
+- [ ] **Step 1: Write failing exact-restoration tests**
+
+Add tests proving:
+
+- incoming `SceneTree.Paused=true` restores true;
+- incoming false restores false after the last pausing entry;
+- non-pausing children do not replace the parent's pause baseline;
+- first cursor override captures exact `Input.MouseMode`, last override restores it;
+- first HUD override captures exact `HudRoot.Visible`, last override restores it;
+- explicit HUD policy with null `HudRoot` rejects before mutation;
+- block callback fires only on an effective boolean transition.
+
+Use this pause-parent case:
 
 ```csharp
 [TestCase]
-public async Task PauseLease_FromIncomingPaused_RestoresPaused()
-{
-    using var fixture = await UIScreenHostTestSupport.CreateHost(this);
-    GetTree().Paused = true;
-
-    var opened = fixture.Host.TryPresent(new Control(), UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
-    {
-        PauseTree = true
-    });
-    fixture.Host.TryClose(opened.Handle!.Value, UIScreenCloseReason.Programmatic);
-
-    AssertThat(GetTree().Paused).IsTrue();
-}
-
-[TestCase]
-public async Task PauseLease_LastOwnerClose_RestoresExactlyOnce()
+public async Task PauseLease_ChildClose_DoesNotResumeParent()
 {
     using var fixture = await UIScreenHostTestSupport.CreateHost(this);
     GetTree().Paused = false;
-    var parent = fixture.Host.TryPresent(new Control(), UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+
+    var pause = fixture.Host.TryPresent(new Control(), UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
     {
         PauseTree = true
     });
-    var child = fixture.Host.TryPresent(new Control(), UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+    var settings = fixture.Host.TryPresent(new Control(), UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
     {
-        Parent = parent.Handle,
+        Parent = pause.Handle,
         PauseTree = false
     });
 
-    fixture.Host.TryClose(child.Handle!.Value, UIScreenCloseReason.Programmatic);
+    fixture.Host.TryClose(settings.Handle!.Value, UIScreenCloseReason.Programmatic);
     AssertThat(GetTree().Paused).IsTrue();
-    fixture.Host.TryClose(parent.Handle!.Value, UIScreenCloseReason.Programmatic);
+
+    fixture.Host.TryClose(pause.Handle!.Value, UIScreenCloseReason.Programmatic);
     AssertThat(GetTree().Paused).IsFalse();
 }
 ```
 
-- [ ] **Step 2: Add pause drift and exact cursor/HUD tests**
+- [ ] **Step 2: Write failing pause-drift test**
 
-Test:
+Open a pausing entry, force `GetTree().Paused=false`, advance one process frame, and assert:
 
-- external `GetTree().Paused = false` during active lease increments drift count and is reasserted;
-- final close restores original incoming value, not the drift value;
-- first cursor override snapshots exact `Input.MouseMode` and last override restores it;
-- first HUD override snapshots exact `HudRoot.Visible` and last override restores it;
-- `HudRoot == null` plus explicit HUD policy rejects registration before mutation;
-- block callback fires only when effective block changes.
+- tree pause is reasserted true;
+- drift count increments once;
+- final close restores the original incoming baseline.
 
-- [ ] **Step 3: Run lifecycle tests and verify failures**
+- [ ] **Step 3: Run and verify failure**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~UIScreenHostLifecycleTest|FullyQualifiedName~UIScreenHostProcessModeTest"
 ```
 
-- [ ] **Step 4: Implement state lease records**
+- [ ] **Step 4: Implement exact state leases**
 
-Inside `UIScreenHost`, maintain dedicated records:
+Maintain separate host records:
 
 ```csharp
 private sealed record PauseLease(bool IncomingPaused);
 private sealed record CursorLease(Input.MouseModeEnum IncomingMode);
 private sealed record HudLease(bool IncomingVisible);
-
-private PauseLease? _pauseLease;
-private CursorLease? _cursorLease;
-private HudLease? _hudLease;
-private int _pauseOwnershipDriftCount;
 ```
 
-Apply transitions only on effective boundary changes:
-
-- no pause owners → first pause owner: capture and set true;
-- pause owners remain: do not replace baseline;
-- last pause owner closes: restore baseline and clear lease;
-- explicit cursor/HUD override begins/ends using the same pattern.
+Apply only on effective boundary transitions. Never replace an active baseline when another owner joins.
 
 - [ ] **Step 5: Implement drift detection**
 
-In an Always-processing notification or `_Process`, while `_pauseLease != null`:
+While a pause lease exists, an Always-processing check must:
 
 ```csharp
 if (!GetTree().Paused)
@@ -1085,9 +941,9 @@ if (!GetTree().Paused)
 }
 ```
 
-Do not change `_pauseLease.IncomingPaused`.
+Keep the original incoming baseline for final restoration.
 
-- [ ] **Step 6: Publish effective state after consistent mutations**
+- [ ] **Step 6: Publish consistent effective state**
 
 Expose:
 
@@ -1098,11 +954,9 @@ public UIScreenEffectiveState CurrentState { get; private set; } =
 public event Action<UIScreenEffectiveState>? EffectiveStateChanged;
 ```
 
-Update state after adapter/lower-layer changes finish. Invoke `GameplayInputBlockChanged` only on boolean transition.
+Publish only after adapter effects complete. Invoke `GameplayInputBlockChanged` only when the block component changes.
 
-- [ ] **Step 7: Verify and commit state ownership**
-
-Run Task 6 suites, then:
+- [ ] **Step 7: Run and commit**
 
 ```bash
 git add scripts/ui/hosting/UIScreenHost.cs \
@@ -1114,7 +968,7 @@ git commit -m "feat: own UIScreenHost effective state"
 
 ---
 
-### Task 7: Apply Compositional Control and Window Effects
+### Task 7: Apply Compositional Control and Embedded-Window Effects
 
 **Files:**
 - Modify: `scripts/ui/hosting/UIScreenViewAdapter.cs`
@@ -1124,83 +978,66 @@ git commit -m "feat: own UIScreenHost effective state"
 
 **Interfaces:**
 - Consumes: resolver `LowerLayerEffects`.
-- Produces: exact Control/Window baseline snapshots, hidden/inert application, and weakening/restoration behavior.
+- Produces: exact baseline snapshots and effect weakening/restoration.
 
-- [ ] **Step 1: Add failing nested-effect tests**
+- [ ] **Step 1: Write failing nested-effect test**
 
-```csharp
-[TestCase]
-public async Task LowerLayerEffects_ChildClose_RestoresParentButKeepsGameplayInert()
-{
-    using var fixture = await UIScreenHostTestSupport.CreateHost(this);
-    var gameplay = new Control { Visible = true };
-    var pause = new Control { Visible = true };
-    var settings = new Control { Visible = true };
+Build gameplay, Pause, and Settings synthetic Controls. Assert:
 
-    fixture.Host.TryPresent(gameplay, UIScreenHostTestSupport.Spec("gameplay") with
-    {
-        Layer = UIScreenLayer.Hud,
-        InputPriority = UIInputPriority.Passive
-    });
-    var pauseOpen = fixture.Host.TryPresent(pause, UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
-    {
-        LowerLayers = UILowerLayerPolicy.VisibleInert
-    });
-    var settingsOpen = fixture.Host.TryPresent(settings, UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
-    {
-        Parent = pauseOpen.Handle,
-        LowerLayers = UILowerLayerPolicy.Hidden
-    });
+1. Pause makes gameplay inert;
+2. Settings hides Pause;
+3. Pause's gameplay-inert contribution remains while Settings is open;
+4. closing Settings shows Pause but keeps gameplay inert;
+5. closing Pause restores gameplay exactly.
 
-    AssertThat(pause.Visible).IsFalse();
-    fixture.Host.TryClose(settingsOpen.Handle!.Value, UIScreenCloseReason.Programmatic);
+- [ ] **Step 2: Write failing embedded-Window restoration tests**
 
-    AssertThat(pause.Visible).IsTrue();
-    AssertThat(fixture.Host.Diagnostics.LowerLayerEffects[gameplay.GetInstanceId()])
-        .IsEqual(UILowerLayerPolicy.VisibleInert);
-}
-```
+For an embedded `AcceptDialog`:
 
-- [ ] **Step 2: Add exact embedded-Window restoration tests**
+- start with `GuiDisableInput=true` and `Unfocusable=false`;
+- apply Hidden and VisibleInert from different owners;
+- remove the stronger owner;
+- assert the weaker effect remains;
+- remove the final owner;
+- assert exact incoming values return;
+- verify supplied `SetPresented(true)` is used when plain `Show()` is insufficient.
 
-For an embedded `AcceptDialog`, set incoming `GuiDisableInput=true` or `Unfocusable=true`, apply and remove another effect, and assert exact incoming values return. Also test hidden restoration uses supplied `SetPresented(true)` callback rather than plain `Show()` when provided.
+- [ ] **Step 3: Run and verify failure**
 
-- [ ] **Step 3: Run and verify failures**
+Run lifecycle and subwindow filters.
 
-Run lifecycle and subwindow suites.
+- [ ] **Step 4: Implement per-target effect baselines**
 
-- [ ] **Step 4: Implement per-target effect leases**
-
-Maintain one adapter-side baseline while any owner affects the target:
+Use one baseline while any owner contributes:
 
 ```csharp
 internal sealed record UIControlEffectBaseline(bool Visible, bool ProcessInputEnabled);
 internal sealed record UIWindowEffectBaseline(bool Visible, bool GuiDisableInput, bool Unfocusable);
 ```
 
-When reduction changes:
+Transition rules:
 
-- interactive → inert/hidden: capture baseline once;
-- hidden → inert: show/restore presentation first, keep baseline, then apply inert;
-- inert → hidden: keep baseline and hide;
-- effect → interactive: restore baseline and clear lease.
+- interactive → inert/hidden: capture once;
+- hidden → inert: restore presentation, retain baseline, then apply inert;
+- inert → hidden: retain baseline and hide;
+- any effect → interactive: restore exact baseline and clear it.
 
-Do not overwrite baselines when a second owner contributes.
+- [ ] **Step 5: Implement Control and Window mechanisms**
 
-- [ ] **Step 5: Implement Control shield and interactivity callback**
+Control:
 
-Use `InputShield` only for Control-layer pointer blocking. For lower Controls with direct `_Input`, invoke their `SetInteractive(false)` before publishing the effective state. Restore exact callback state when the reduction ends.
+- Hidden changes `Visible`;
+- VisibleInert uses `InputShield` and `SetInteractive(false)` for direct `_Input` handlers;
+- apply lower-handler disablement before publishing state.
 
-- [ ] **Step 6: Implement embedded-Window effects**
+Embedded Window:
 
-For Window targets:
+- Hidden calls the presentation adapter;
+- VisibleInert sets `GuiDisableInput=true` and `Unfocusable=true`;
+- never rely on the Control shield for Window input;
+- reject an owner open when required effect adapters are unavailable.
 
-- `Hidden`: call registered presentation adapter;
-- `VisibleInert`: set `GuiDisableInput=true` and `Unfocusable=true`;
-- never claim the Control shield covers Window input;
-- reject owner open before stack mutation when a required Window effect cannot be safely represented.
-
-- [ ] **Step 7: Verify and commit lower-layer adapters**
+- [ ] **Step 6: Run and commit**
 
 ```bash
 git add scripts/ui/hosting/UIScreenViewAdapter.cs \
@@ -1212,7 +1049,7 @@ git commit -m "feat: apply UIScreenHost layer effects"
 
 ---
 
-### Task 8: Implement Focus Coordination and Guaranteed Restoration Leases
+### Task 8: Implement Focus Coordination and Restoration Leases
 
 **Files:**
 - Create: `scripts/ui/hosting/UIScreenFocusCoordinator.cs`
@@ -1220,14 +1057,14 @@ git commit -m "feat: apply UIScreenHost layer effects"
 - Create: `tests/ui/hosting/UIScreenHostFocusTest.cs`
 
 **Interfaces:**
-- Consumes: view adapters, host `FocusSink`, handle tokens, close transactions.
-- Produces: initial focus, root and per-Window sinks, focus records, generation-tagged restoration lease, and barrier status.
+- Consumes: adapters, root sink, handle tokens, close transactions.
+- Produces: initial focus, per-Window sinks, focus records, generation-tagged lease, and barrier state.
 
-- [ ] **Step 1: Write failing initial-focus and sink tests**
+- [ ] **Step 1: Write failing sink tests**
 
 ```csharp
 [TestCase]
-public async Task BlockingControlWithoutFocusableChild_UsesVisibleRootSink()
+public async Task BlockingControlWithoutFocusableChild_UsesRootSink()
 {
     using var fixture = await UIScreenHostTestSupport.CreateHost(this);
     fixture.Host.TryPresent(new Control(), UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
@@ -1243,24 +1080,24 @@ public async Task BlockingControlWithoutFocusableChild_UsesVisibleRootSink()
 }
 ```
 
-Add a native Window case that verifies a transparent-but-visible, `MouseFilter.Ignore`, `FocusMode.All` sink is created inside the Window viewport.
+Add an embedded-Window test asserting its dynamically created sink is visible, transparent/non-drawing, 1×1 or layout-neutral, `MouseFilter.Ignore`, and `FocusMode.All`.
 
-- [ ] **Step 2: Write failing restoration-order tests**
+- [ ] **Step 2: Write failing focus-order tests**
 
-Test this order:
+Verify restoration order:
 
 1. explicit restore target;
-2. captured parent focus owner in captured viewport;
+2. captured parent focus in captured viewport;
 3. parent initial target;
 4. first focusable descendant;
-5. sink;
+5. correct viewport sink;
 6. release focus.
 
-Also verify initial-focus deferral has no Cancel barrier and stale initial-focus callbacks no-op after close.
+Verify initial-focus deferral has no Cancel barrier and a stale initial callback cannot focus a closed entry.
 
 - [ ] **Step 3: Write failing lease-release tests**
 
-Named tests:
+Named cases:
 
 - valid target completes lease;
 - target freed before callback completes lease;
@@ -1270,14 +1107,14 @@ Named tests:
 - duplicate close creates one lease;
 - next core Cancel works after every invalidation path.
 
-- [ ] **Step 4: Run and verify failures**
+- [ ] **Step 4: Run and verify failure**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~UIScreenHostFocusTest"
 ```
 
-- [ ] **Step 5: Implement focus records and initial acquisition**
+- [ ] **Step 5: Implement focus records and sinks**
 
 Create:
 
@@ -1292,15 +1129,11 @@ internal sealed record UIFocusRestorationLease(
     UIScreenHandle ClosedHandle);
 ```
 
-On open:
+On open, capture the active parent's registered viewport/focus before child effects. Defer initial target selection and token-check the callback.
 
-- capture active parent's registered viewport and current focus owner before applying child visibility;
-- after view is ready/presented/interactable, defer `InitialFocus`, first focusable descendant, then appropriate sink;
-- deferred callback checks handle token is still active.
+- [ ] **Step 6: Implement guaranteed lease release**
 
-- [ ] **Step 6: Implement guaranteed-release restoration**
-
-`BeginRestoration` increments generation and stores a lease. The deferred callable must use `try/finally`:
+Use generation checks and `try/finally`:
 
 ```csharp
 private void CompleteRestoration(long generation, UIScreenHandle closedHandle)
@@ -1320,17 +1153,13 @@ private void CompleteRestoration(long generation, UIScreenHandle closedHandle)
 }
 ```
 
-Before a superseding lease starts, complete or invalidate the older lease without allowing its callback to clear the new generation. On teardown, disable dispatch, clear scheduled callbacks, and clear the active lease synchronously.
+Before starting a newer lease, complete/invalidate the older generation. Teardown disables dispatch, cancels scheduled callbacks, and clears the live lease synchronously.
 
-- [ ] **Step 7: Wire barrier state into effective state and dispatcher**
+- [ ] **Step 7: Wire lease state into effective state and input dispatcher**
 
-`CurrentState.IsFocusRestorationPending` derives from coordinator lease presence. The input dispatcher consumes matching core/top-entry actions only while a live lease exists.
+`CurrentState.IsFocusRestorationPending` derives from coordinator lease presence. Dispatcher consumes matching actions only while a live lease exists.
 
-- [ ] **Step 8: Run focus and input suites together**
-
-Expected: PASS.
-
-- [ ] **Step 9: Commit focus lifecycle**
+- [ ] **Step 8: Run and commit**
 
 ```bash
 git add scripts/ui/hosting/UIScreenFocusCoordinator.cs \
@@ -1349,25 +1178,28 @@ git commit -m "feat: coordinate UIScreenHost focus"
 - Modify: `tests/ui/hosting/UIScreenHostLifecycleTest.cs`
 
 **Interfaces:**
-- Consumes: stack close mutations, adapter registry, focus coordinator, effective state leases.
-- Produces: guarded mutation queue, exact once-only cleanup, invalid-node pruning, teardown behavior, and read-only diagnostics.
+- Consumes: stack close mutations, adapters, coordinator, state leases.
+- Produces: mutation queue, once-only cleanup, pruning, teardown, and immutable diagnostics.
 
-- [ ] **Step 1: Add failing external-deletion tests**
+- [ ] **Step 1: Add failing deletion/re-entrancy tests**
 
 Test:
 
 - externally freed parent closes descendants first;
-- cleanup callback runs at most once;
+- cleanup runs at most once;
 - invalid Godot object is never dereferenced;
-- policy and pause restore after pruning;
-- focus lease completes even with no target;
-- stale handle returns `AlreadyClosed` after prune.
+- pause/lower layers/focus restore after pruning;
+- stale handle returns `AlreadyClosed` after prune;
+- cleanup callback can request another close without corrupting current mutation;
+- duplicate queued closes collapse;
+- opens during teardown return `HostTearingDown`;
+- effective state emits after the complete transaction only.
 
-- [ ] **Step 2: Add failing re-entrant mutation tests**
+Use this re-entrant case:
 
 ```csharp
 [TestCase]
-public async Task CleanupCallback_ReentrantClose_IsQueuedAfterCurrentMutation()
+public async Task Cleanup_ReentrantClose_IsQueuedAfterCurrentMutation()
 {
     using var fixture = await UIScreenHostTestSupport.CreateHost(this);
     UIScreenHandle second = default;
@@ -1384,28 +1216,21 @@ public async Task CleanupCallback_ReentrantClose_IsQueuedAfterCurrentMutation()
 }
 ```
 
-Also test opens during teardown return `HostTearingDown`, duplicate queued closes collapse, and effective state emits only after the complete transaction.
+- [ ] **Step 2: Add failing diagnostics tests**
 
-- [ ] **Step 3: Add diagnostics tests**
+Require immutable snapshots for:
 
-Diagnostics must expose read-only snapshots for:
-
-- active handles/order;
-- kind/parent/layer/priority/process policy;
-- normalized group and incompatibilities;
+- handles/order/kind/parent/layer/priority/process policy;
+- normalized groups and incompatibilities;
 - effective state;
-- lower-layer contributors/effect;
-- core and entry action ownership;
+- lower-layer contributors/effects;
+- action ownership;
 - focus viewport/control/sink/lease generation;
-- process and embedded-subwindow validation;
+- process/subwindow validation;
 - active state leases;
 - pause drift count.
 
-Mutation of returned collections must be impossible by type or must not affect host internals.
-
-- [ ] **Step 4: Implement the mutation queue**
-
-Use one queue of operations and one `_isMutating` guard:
+- [ ] **Step 3: Implement guarded mutation queue**
 
 ```csharp
 private void EnqueueMutation(Action mutation)
@@ -1427,37 +1252,37 @@ private void EnqueueMutation(Action mutation)
 }
 ```
 
-Mark handles closing before callbacks. Collapse duplicate close tokens. Publish policy only after each complete operation.
+Mark handles closing before callbacks. Deduplicate close tokens. Publish policy after each complete operation.
 
-- [ ] **Step 5: Implement node-exit pruning and teardown**
+- [ ] **Step 4: Implement node-exit pruning and teardown**
 
 On registered `TreeExiting`:
 
-- ignore exits initiated by an already-running host close;
-- close descendants and model entry with `NodeFreed`;
-- skip live-object operations after validity fails;
-- invoke managed cleanup once;
-- recalculate lower layers/effective state;
-- begin or complete focus restoration.
+1. ignore exits already owned by a host close;
+2. close descendants and model entry with `NodeFreed`;
+3. skip live-object operations after invalidity;
+4. invoke managed cleanup once;
+5. recompute lower/effective policy;
+6. complete focus restoration with fallback or no target.
 
 On host `_ExitTree`:
 
-- set `_tearingDown=true` and disable input;
-- close topmost-first with `HostTeardown`;
-- reject callback-driven opens;
-- complete restoration lease;
-- restore all global/adapter snapshots once;
-- unsubscribe node events and remove dynamic sinks.
+1. set tearing-down and disable input;
+2. close topmost-first with `HostTeardown`;
+3. reject callback-driven opens;
+4. complete restoration lease;
+5. restore all state/adapter snapshots once;
+6. unsubscribe node events and remove dynamic sinks.
 
-- [ ] **Step 6: Add immutable diagnostics record**
+- [ ] **Step 5: Add immutable diagnostics record**
 
-Define `UIScreenHostDiagnostics` in contracts, returning arrays or read-only dictionaries copied from internal state. Do not expose adapters, delegates, or mutable model lists.
+Define `UIScreenHostDiagnostics` in `UIScreenContracts.cs`. Return arrays/read-only dictionaries copied from internals. Never expose adapter delegates or mutable model lists.
 
-- [ ] **Step 7: Run lifecycle, focus, input, process, and subwindow suites**
+- [ ] **Step 6: Run lifecycle, focus, input, process, and subwindow suites**
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit lifecycle hardening**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add scripts/ui/hosting/UIScreenContracts.cs \
@@ -1468,76 +1293,63 @@ git commit -m "feat: harden UIScreenHost lifecycle"
 
 ---
 
-### Task 10: Prove HPA-376 Contract Scenarios and Publish the Integration Contract
+### Task 10: Prove Contract Scenarios and Publish Integration Docs
 
 **Files:**
 - Create: `tests/ui/hosting/UIScreenHostContractScenarioTest.cs`
 - Create: `docs/ui/hpa-378/uiscreenhost-contract.md`
-- Modify: `docs/superpowers/specs/2026-07-30-reusable-ui-screen-host-design.md` only to change `Status` from `Proposed design` to `Approved design` after all focused and full verification succeeds.
+- Modify: `docs/superpowers/specs/2026-07-30-reusable-ui-screen-host-design.md`
 
 **Interfaces:**
-- Consumes: complete host public surface.
-- Produces: named synthetic evidence for HPA-376/HPA-378 acceptance and the HPA-379 adapter contract.
+- Consumes: complete host API.
+- Produces: acceptance evidence and HPA-379 integration contract.
 
-- [ ] **Step 1: Add the synthetic contract scenario suite**
+- [ ] **Step 1: Implement named synthetic scenario tests**
 
-Create named tests for:
+Create complete tests for this matrix:
 
-```csharp
-[TestCase]
-public async Task InventoryChildOfPause_PausesWorldHidesHudAndReturnsToPause() { }
+| Test name | Setup | Required assertions |
+|---|---|---|
+| `InventoryChildOfPause_PausesWorldHidesHudAndReturnsToPause` | Pause parent plus Inventory child | tree paused; HUD hidden; Pause contribution retained; child close returns to Pause; parent close restores tree/HUD |
+| `SettingsChildOfPause_PreservesPauseGameplayInertContribution` | gameplay + Pause + Settings | Settings hides Pause; gameplay remains blocked by Pause; closing Settings restores Pause only |
+| `DestructiveConfirmation_CancelReturnsWithoutDestructiveCallback` | flow-specific confirmation child | safe focus; Cancel closes child; destructive callback count stays zero |
+| `RewardToast_IsPassiveAndNeverBecomesInputOwner` | modal plus toast | modal remains top input owner; no pause/block/focus/lower-layer change from toast |
+| `RequiredAcknowledgement_ConsumesCancelUntilContinue` | blocking acknowledgement | Cancel consumed without close; explicit Continue callback closes |
+| `BattlePresentation_RemainsTopmostAfterDomainFlagClears` | synthetic Battle entry plus false domain flag | Battle still blocks and owns/reserves core Cancel until view termination |
+| `EitherPresentationOrDomainBlock_SuppressesComposedGameplayPredicate` | toggle each source independently | OR predicate is true for either source and false only when both are false |
 
-[TestCase]
-public async Task SettingsChildOfPause_PreservesPauseGameplayInertContribution() { }
+Each test must instantiate synthetic Controls/embedded AcceptDialogs and explicit callbacks. Do not instantiate production Game, Inventory, Pause, or Battle scenes.
 
-[TestCase]
-public async Task DestructiveConfirmation_CancelReturnsWithoutDestructiveCallback() { }
-
-[TestCase]
-public async Task RewardToast_IsPassiveAndNeverBecomesInputOwner() { }
-
-[TestCase]
-public async Task RequiredRewardAcknowledgement_ConsumesCancelUntilContinue() { }
-
-[TestCase]
-public async Task BattlePresentation_RemainsTopmostAfterSyntheticDomainFlagClears() { }
-
-[TestCase]
-public async Task DomainBlockAndPresentationBlock_EitherSourceSuppressesGameplayPredicate() { }
-```
-
-Use synthetic Controls/AcceptDialogs and callbacks. Do not instantiate production Inventory, Pause, Battle, or Game scenes in HPA-378.
-
-- [ ] **Step 2: Run the scenario suite and fix only host-contract defects**
+- [ ] **Step 2: Run scenario suite**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~UIScreenHostContractScenarioTest"
 ```
 
-Expected: PASS. Any failure requiring `Game.cs`, floor, or production-screen edits is an HPA-379 concern; document the dependency rather than expanding HPA-378 scope.
+Expected: PASS. A failure requiring production-flow edits is documented for HPA-379 instead of expanding this task.
 
-- [ ] **Step 3: Write the public integration contract**
+- [ ] **Step 3: Write public contract documentation**
 
-`docs/ui/hpa-378/uiscreenhost-contract.md` must include:
+`docs/ui/hpa-378/uiscreenhost-contract.md` must document:
 
-1. scene composition and exact node paths;
-2. `TryPresent`, `TryClose`, `TryHandleInput`, `CurrentState`, diagnostics, and events;
-3. every public enum/status with meaning;
-4. Control adapter defaults;
-5. embedded Window adapter defaults and embedding precondition;
+1. scene node paths and process modes;
+2. `TryPresent`, `TryClose`, `TryHandleInput`, `CurrentState`, events, and diagnostics;
+3. every public enum/status;
+4. Control defaults;
+5. embedded-Window defaults and embedding precondition;
 6. process-policy matrix;
-7. core versus entry-scoped action examples;
+7. core versus entry-scoped actions;
 8. dynamic interception precedence;
-9. parent-child and exclusive-group examples;
+9. parent/child and exclusive-group examples;
 10. lower-layer reduction examples;
-11. pause/cursor/HUD/process restoration guarantees;
-12. focus and restoration-lease guarantees;
-13. teardown and invalid-node behavior;
-14. HPA-379 checklist, including GridMap/HUD process audit and composed gameplay-block predicate;
+11. exact state restoration guarantees;
+12. focus/sink/restoration-lease guarantees;
+13. teardown/invalid-node behavior;
+14. HPA-379 prerequisites: GridMap audit/correction, Pausable HUD, explicit embedding, composed gameplay block;
 15. explicit out-of-scope items.
 
-Include compilable registration examples for Pause, Inventory, Settings, embedded Save/Load, Battle lifetime, reward toast, and required acknowledgement using synthetic callbacks—not production integration code.
+Include compilable synthetic registration examples for Pause, Inventory, Settings, embedded Save/Load, Battle lifetime, reward toast, and required acknowledgement.
 
 - [ ] **Step 4: Run every focused host suite**
 
@@ -1546,9 +1358,9 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~UIScreen"
 ```
 
-Expected: all host tests pass with zero failures and zero skips.
+Expected: zero failures and zero skips.
 
-- [ ] **Step 5: Run build and full solution verification**
+- [ ] **Step 5: Run build and full suite**
 
 ```bash
 dotnet build Sirius.sln --no-restore
@@ -1559,22 +1371,22 @@ Expected:
 
 - build exit code 0;
 - full test exit code 0;
-- no new orphan-warning signature relative to the current branch baseline.
+- no new orphan-warning signature relative to the branch baseline.
 
-Capture the exact pass count and orphan signature in the implementation PR body; do not copy an older count.
+Record fresh counts; do not copy older PR counts.
 
-- [ ] **Step 6: Perform plan/spec completion review**
+- [ ] **Step 6: Perform completion review**
 
-Verify line by line:
+Verify:
 
-- no production flow was partially migrated;
-- no `Game.cs`, MainMenu, floor, or `project.godot` diff exists;
-- no placeholder text or unimplemented method remains;
-- public signatures match this plan and the design;
-- passive validation, group normalization, embedded-window rejection, pause drift, lower-layer composition, focus lease release, and teardown all have named tests;
-- documentation matches actual names and status codes.
+- no `Game.cs`, MainMenu, floor, or `project.godot` diff;
+- no production flow partially migrated;
+- public signatures match design and docs;
+- Passive validation, group normalization, embedded-window rejection, pause drift, lower-layer composition, focus lease release, and teardown have named tests;
+- no placeholder text or empty implementation remains;
+- docs use actual names/status codes.
 
-- [ ] **Step 7: Mark the design approved and commit final contract evidence**
+- [ ] **Step 7: Mark design approved and commit final evidence**
 
 Only after Step 5 succeeds, change the design header to:
 
@@ -1591,12 +1403,6 @@ git add tests/ui/hosting/UIScreenHostContractScenarioTest.cs \
 git commit -m "test: verify UIScreenHost contract"
 ```
 
-- [ ] **Step 8: Update PR validation evidence**
+- [ ] **Step 8: Update implementation PR evidence**
 
-Update the implementation PR with:
-
-- exact focused and full test counts;
-- build result;
-- orphan-warning comparison;
-- confirmation that no production flow was integrated;
-- explicit HPA-379 prerequisites: embedded subwindow pinning, GridMap runtime process correction, Pausable HUD composition, and unified gameplay-block predicate.
+Report exact focused/full test counts, build result, orphan comparison, and confirmation that production integration remains HPA-379. Call out the HPA-379 prerequisites: embedded-subwindow pinning, runtime GridMap correction, Pausable HUD composition, and unified gameplay-block predicate.

@@ -286,6 +286,7 @@ internal sealed class UIScreenFocusCoordinator
     private void ApplyInitialFocus(UIScreenHandle handle)
     {
         if (_host == null || !_host.IsInsideTree() || !_host.IsActive(handle) ||
+            _host.CurrentState.TopInputOwner != handle ||
             !_entries.TryGetValue(handle, out var entry))
         {
             return;

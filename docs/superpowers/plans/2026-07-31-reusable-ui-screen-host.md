@@ -690,6 +690,7 @@ git commit -m "feat: apply UIScreenHost layer effects"
 **Files:**
 - Create: `scripts/ui/hosting/UIScreenFocusCoordinator.cs`
 - Modify: `scripts/ui/hosting/UIScreenHost.cs`
+- Modify: `scripts/ui/hosting/UIScreenContracts.cs`
 - Modify: `scripts/ui/hosting/UIScreenViewAdapter.cs`
 - Create: `tests/ui/hosting/UIScreenHostFocusTest.cs`
 - Modify: `tests/ui/hosting/UIScreenHostLifecycleTest.cs`
@@ -697,7 +698,7 @@ git commit -m "feat: apply UIScreenHost layer effects"
 - Modify: `docs/superpowers/specs/2026-07-30-reusable-ui-screen-host-design.md`
 
 **Interfaces:**
-- Produces per-viewport focus records, visible sinks, generation-tagged lease, mutation queue, pruning, mandatory scene-owner `PrepareForTeardown()`, and diagnostics.
+- Produces per-viewport focus records, visible sinks, generation-tagged lease, mutation queue, pruning, mandatory scene-owner `PrepareForTeardown()` completion status, and diagnostics.
 
 - [ ] **Step 1: Write failing focus/sink tests**
 
@@ -705,7 +706,7 @@ A blocking Control with no focusable child uses root sink. A blocking Window cre
 
 - [ ] **Step 2: Write focus-order and lease tests**
 
-Restoration order: explicit target → captured parent focus → parent initial target → first descendant → correct sink → release. Test valid target, synchronously disposed target, teardown, re-entrant supersession, stale callback, duplicate close, and next Cancel after invalidation. Prove passive entries neither acquire focus nor create a restoration barrier.
+Restoration order: explicit target → captured parent focus → parent initial target → first descendant → correct sink → release. Test valid target, synchronously disposed target, teardown, re-entrant supersession, stale callback, duplicate close, and next Cancel after invalidation. Prove passive entries neither acquire focus nor create a restoration barrier. Prove a lower entry's deferred acquisition no-ops when a higher current owner opened re-entrantly from `_Ready()`.
 
 - [ ] **Step 3: Implement records**
 
@@ -742,7 +743,7 @@ private void CompleteRestoration(long generation, UIScreenHandle closedHandle)
 
 - [ ] **Step 4: Implement mutation/lifecycle rules**
 
-Use one guarded queue. Mark handles closing before callbacks. Deduplicate closes. Commit focus bookkeeping before invoking any publication callback. On `TreeExiting`, close descendants, prune model, run cleanup once, recompute, and complete restoration. Expose idempotent `PrepareForTeardown()`; every HPA-379 scene owner must call it synchronously before deleting the containing scene. It disables input, rejects opens, closes topmost-first, completes leases, restores snapshots, unsubscribes, detaches external Controls/Windows, and removes sinks. Typed host deletion calls it automatically; `_ExitTree()` remains a defensive fallback, not the external-Window preservation boundary.
+Use one guarded queue. Mark handles closing before callbacks. Deduplicate closes. Commit focus bookkeeping before invoking any publication callback. On `TreeExiting`, close descendants, prune model, run cleanup once, recompute, and complete restoration. Expose idempotent `PrepareForTeardown()` returning `Complete` or `Deferred`; every HPA-379 scene owner may delete the containing scene only after `Complete`, and must defer/retry outside the active mutation after `Deferred`. Completed preparation disables input, rejects opens, closes topmost-first, completes leases, restores snapshots, unsubscribes, detaches external Controls/Windows, and removes sinks. Typed host deletion queues only after `Complete`; `_ExitTree()` remains a defensive fallback, not the external-Window preservation boundary.
 
 - [ ] **Step 5: Implement immutable diagnostics**
 
@@ -756,8 +757,12 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
 
 git add scripts/ui/hosting/UIScreenFocusCoordinator.cs \
   scripts/ui/hosting/UIScreenHost.cs \
+  scripts/ui/hosting/UIScreenContracts.cs \
+  scripts/ui/hosting/UIScreenViewAdapter.cs \
   tests/ui/hosting/UIScreenHostFocusTest.cs \
-  tests/ui/hosting/UIScreenHostLifecycleTest.cs
+  tests/ui/hosting/UIScreenHostLifecycleTest.cs \
+  tests/ui/hosting/UIScreenHostProcessModeTest.cs \
+  docs/superpowers/specs/2026-07-30-reusable-ui-screen-host-design.md
 git commit -m "feat: harden UIScreenHost lifecycle"
 ```
 

@@ -404,12 +404,13 @@ public partial class UIScreenHostInputTest : Node
     }
 
     [TestCase]
-    public async Task EscapeBoundTo_RestoresExactExistingActionAndBindings()
+    public async Task EscapeBoundTo_RestoresOriginalInputEventInstanceAfterQueuedTeardown()
     {
         var action = new StringName($"ui_host_escape_restore_{GetInstanceId()}");
         var originalBinding = new InputEventKey { PhysicalKeycode = Key.P };
         InputMap.AddAction(action, 0.37f);
         InputMap.ActionAddEvent(action, originalBinding);
+        var originalBindingInstanceId = InputMap.ActionGetEvents(action)[0].GetInstanceId();
         HostFixture? fixture = null;
         try
         {
@@ -421,10 +422,13 @@ public partial class UIScreenHostInputTest : Node
 
             fixture.Dispose();
             fixture = null;
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
 
             AssertThat(InputMap.HasAction(action)).IsTrue();
             AssertThat(InputMap.ActionGetDeadzone(action)).IsEqual(0.37f);
             AssertThat(InputMap.ActionGetEvents(action).Count).IsEqual(1);
+            AssertThat(InputMap.ActionGetEvents(action)[0].GetInstanceId())
+                .IsEqual(originalBindingInstanceId);
             AssertThat(new InputEventKey
             {
                 PhysicalKeycode = Key.P,

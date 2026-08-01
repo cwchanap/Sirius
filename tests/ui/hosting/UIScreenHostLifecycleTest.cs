@@ -376,6 +376,49 @@ public partial class UIScreenHostLifecycleTest : Node
         }
     }
 
+    [TestCase]
+    public async Task FixtureDispose_RestoresGlobalsAfterActiveLeaseTeardownCompletes()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var incomingPaused = tree.Paused;
+        var externalHud = new Control { Visible = true };
+        HostFixture? fixture = null;
+        try
+        {
+            tree.Paused = true;
+            fixture = await UIScreenHostTestSupport.CreateHost(
+                this,
+                options: new UIScreenHostOptions { HudRoot = externalHud });
+            var view = fixture.Track(new Control());
+            tree.Paused = false;
+            externalHud.Visible = false;
+            var opened = fixture.Host.TryPresent(
+                view,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    PauseTree = true,
+                    Hud = UIHudPolicy.Visible
+                });
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(tree.Paused).IsTrue();
+            AssertThat(externalHud.Visible).IsTrue();
+
+            fixture.Dispose();
+            fixture = null;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(tree.Paused).IsTrue();
+            AssertThat(externalHud.Visible).IsTrue();
+        }
+        finally
+        {
+            fixture?.Dispose();
+            tree.Paused = incomingPaused;
+            externalHud.QueueFree();
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
     private async Task DisposeFixture(HostFixture fixture)
     {
         fixture.Dispose();

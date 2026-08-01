@@ -170,7 +170,9 @@ Each `UIScreenEntrySpec` declares one concrete presentation:
 
 Passive entries are visual/lifetime records only. They must not pause, block
 gameplay, own Cancel/actions, change lower layers, request initial focus, or
-change cursor/HUD policy.
+intercept Cancel. Visual-only reward toasts and transitions should use
+`Cursor = UICursorPolicy.Inherit` and `Hud = UIHudPolicy.Inherit` unless that
+presentation intentionally authors an explicit visual policy.
 
 ## View, parentage, embedding, and lifetime defaults
 
@@ -416,7 +418,7 @@ public sealed class SyntheticUIScreenRegistrations
             PauseTree = true,
             BlockGameplayInput = true,
             Cursor = UICursorPolicy.Visible,
-            Hud = UIHudPolicy.Visible,
+            Hud = UIHudPolicy.Hidden,
             LowerLayers = UILowerLayerPolicy.VisibleInert,
             Cancel = UICancelPolicy.Close,
             InitialFocus = () => resumeButton,
@@ -473,6 +475,28 @@ public sealed class SyntheticUIScreenRegistrations
                 null);
         }
 
+        UIScreenHandle? handle = null;
+        var nativeDismissalHandled = false;
+        void DisconnectNativeDismissal()
+        {
+            saveLoad.Canceled -= CloseFromNativeDismissal;
+            saveLoad.CloseRequested -= CloseFromNativeDismissal;
+        }
+
+        void CloseFromNativeDismissal()
+        {
+            // AcceptDialog can emit both Canceled and CloseRequested for one
+            // dismissal. Commit the guard before closing so the host sees one
+            // terminal request even if signal delivery is re-entrant.
+            if (nativeDismissalHandled || !handle.HasValue)
+                return;
+
+            nativeDismissalHandled = true;
+            _host.TryClose(handle.Value, UIScreenCloseReason.Cancel);
+        }
+
+        saveLoad.Canceled += CloseFromNativeDismissal;
+        saveLoad.CloseRequested += CloseFromNativeDismissal;
         var result = _host.TryPresent(saveLoad, new UIScreenEntrySpec
         {
             Kind = UIScreenKinds.SaveLoad,
@@ -487,11 +511,18 @@ public sealed class SyntheticUIScreenRegistrations
             InitialFocus = () => cancelButton,
             InterceptCancel = _ =>
                 UIInputInterception.ReserveForNativeHandler,
+            Cleanup = _ => DisconnectNativeDismissal(),
             NodeLifetime = UINodeLifetime.External
         });
+        handle = result.Handle;
 
-        if (result.Status == UIScreenOpenStatus.Opened)
-            saveLoad.Show();
+        if (result.Status != UIScreenOpenStatus.Opened)
+        {
+            DisconnectNativeDismissal();
+            return result;
+        }
+
+        saveLoad.Show();
         return result;
     }
 

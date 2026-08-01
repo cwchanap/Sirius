@@ -9,6 +9,182 @@ using static GdUnit4.Assertions;
 public partial class UIScreenHostLifecycleTest : Node
 {
     [TestCase]
+    public async Task LowerLayerEffects_NestedOwnersWeakenWithoutReplacingControlBaseline()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var gameplay = fixture.Track(new Control { Visible = true });
+        var pauseView = fixture.Track(new Control { Visible = true });
+        var settingsView = fixture.Track(new Control { Visible = true });
+        var interactivityChanges = new List<bool>();
+        var pausePublicationSawCompleteEffects = false;
+        try
+        {
+            tree.Paused = false;
+            var gameplayResult = fixture.Host.TryPresent(
+                gameplay,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = enabled =>
+                    {
+                        interactivityChanges.Add(enabled);
+                        gameplay.SetProcessInput(enabled);
+                    }
+                });
+            AssertThat(gameplayResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            gameplay.SetProcessInput(true);
+            var shield = fixture.Host.GetNode<Control>("InputShield");
+
+            fixture.Host.EffectiveStateChanged += state =>
+            {
+                if (!state.IsTreePauseOwned)
+                    return;
+
+                pausePublicationSawCompleteEffects =
+                    !gameplay.IsProcessingInput() &&
+                    shield.Visible;
+            };
+
+            var pause = fixture.Host.TryPresent(
+                pauseView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    PauseTree = true,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                }).Handle!.Value;
+
+            AssertThat(tree.Paused).IsTrue();
+            AssertThat(gameplay.Visible).IsTrue();
+            AssertThat(gameplay.IsProcessingInput()).IsFalse();
+            AssertThat(shield.Visible).IsTrue();
+            AssertThat(shield.GetParent()).IsEqual(gameplay.GetParent());
+            AssertThat(shield.GetIndex()).IsEqual(gameplay.GetIndex() + 1);
+            AssertThat(shield.ProcessMode).IsEqual(ProcessModeEnum.Always);
+            AssertThat(pausePublicationSawCompleteEffects).IsTrue();
+
+            var settings = fixture.Host.TryPresent(
+                settingsView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = pause,
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.Hidden
+                }).Handle!.Value;
+
+            AssertThat(tree.Paused).IsTrue();
+            AssertThat(gameplay.Visible).IsFalse();
+            AssertThat(gameplay.IsProcessingInput()).IsFalse();
+            AssertThat(pauseView.Visible).IsFalse();
+            AssertThat(shield.Visible).IsFalse();
+            AssertThat(shield.GetParent()).IsEqual(fixture.Host);
+            AssertThat(shield.ProcessMode).IsEqual(ProcessModeEnum.Inherit);
+
+            fixture.Host.TryClose(settings, UIScreenCloseReason.Programmatic);
+
+            AssertThat(tree.Paused).IsTrue();
+            AssertThat(gameplay.Visible).IsTrue();
+            AssertThat(gameplay.IsProcessingInput()).IsFalse();
+            AssertThat(pauseView.Visible).IsTrue();
+            AssertThat(shield.Visible).IsTrue();
+            AssertThat(shield.GetParent()).IsEqual(gameplay.GetParent());
+            AssertThat(shield.GetIndex()).IsEqual(gameplay.GetIndex() + 1);
+            AssertThat(shield.ProcessMode).IsEqual(ProcessModeEnum.Always);
+
+            fixture.Host.TryClose(pause, UIScreenCloseReason.Programmatic);
+
+            AssertThat(tree.Paused).IsFalse();
+            AssertThat(gameplay.Visible).IsTrue();
+            AssertThat(gameplay.IsProcessingInput()).IsTrue();
+            AssertThat(shield.Visible).IsFalse();
+            AssertThat(shield.GetParent()).IsEqual(fixture.Host);
+            AssertThat(shield.ProcessMode).IsEqual(ProcessModeEnum.Inherit);
+            AssertThat(interactivityChanges.ToArray())
+                .ContainsExactly(false, true);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task LowerLayerEffects_InertOwnerWithoutRequiredControlAdapterIsRejectedAtomically()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var gameplay = fixture.Track(new Control { Visible = true });
+        var pauseView = fixture.Track(new Control());
+        try
+        {
+            var gameplayResult = fixture.Host.TryPresent(
+                gameplay,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud
+                });
+            AssertThat(gameplayResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            gameplay.SetProcessInput(true);
+
+            var result = fixture.Host.TryPresent(
+                pauseView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+
+            AssertThat(result.Status).IsEqual(UIScreenOpenStatus.MissingRequiredAdapter);
+            AssertThat(result.Handle).IsNull();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(pauseView.GetParent()).IsNull();
+            AssertThat(gameplay.Visible).IsTrue();
+            AssertThat(gameplay.IsProcessingInput()).IsTrue();
+            AssertThat(fixture.Host.GetNode<Control>("InputShield").Visible).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task LowerLayerEffects_UnattachedControlBelowExistingOwnerRequiresAdapterBeforeReady()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var hiddenOwner = fixture.Track(new Control());
+        var candidate = fixture.Track(new EnablesInputOnReadyControl());
+        try
+        {
+            var owner = fixture.Host.TryPresent(
+                hiddenOwner,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.Hidden
+                });
+            AssertThat(owner.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            var result = fixture.Host.TryPresent(
+                candidate,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud
+                });
+
+            AssertThat(result.Status).IsEqual(UIScreenOpenStatus.MissingRequiredAdapter);
+            AssertThat(result.Handle).IsNull();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(candidate.GetParent()).IsNull();
+            AssertThat(candidate.WasReady).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task PauseLease_RestoresIncomingFalse()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
@@ -423,5 +599,16 @@ public partial class UIScreenHostLifecycleTest : Node
     {
         fixture.Dispose();
         await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+    }
+
+    private sealed partial class EnablesInputOnReadyControl : Control
+    {
+        public bool WasReady { get; private set; }
+
+        public override void _Ready()
+        {
+            WasReady = true;
+            SetProcessInput(true);
+        }
     }
 }

@@ -24,6 +24,8 @@ internal sealed class UIScreenViewAdapter
         IsPresented = spec.IsPresented ?? DefaultIsPresented(view);
         SetPresented = spec.SetPresented ?? DefaultSetPresented(view);
         SetInteractive = spec.SetInteractive ?? (_ => { });
+        HasRequiredPresentationAdapter = spec.IsPresented == null || spec.SetPresented != null;
+        HasInteractiveAdapter = spec.SetInteractive != null;
         FocusViewport = spec.FocusViewport ?? DefaultFocusViewport(view);
         InitialFocus = spec.InitialFocus;
         RestoreFocus = spec.RestoreFocus;
@@ -36,6 +38,8 @@ internal sealed class UIScreenViewAdapter
     public Func<bool> IsPresented { get; }
     public Action<bool> SetPresented { get; }
     public Action<bool> SetInteractive { get; }
+    public bool HasRequiredPresentationAdapter { get; }
+    public bool HasInteractiveAdapter { get; }
     public Func<Viewport> FocusViewport { get; }
     public Func<Control?>? InitialFocus { get; }
     public Func<Control?>? RestoreFocus { get; }
@@ -43,6 +47,28 @@ internal sealed class UIScreenViewAdapter
     public Action<UIScreenCloseReason>? Cleanup { get; }
     public UINodeLifetime NodeLifetime { get; }
     public Action? TreeExitingHandler { get; set; }
+
+    public bool CanApply(
+        UILowerLayerPolicy effect,
+        bool requireControlInteractivityAdapter = false) => effect switch
+    {
+        UILowerLayerPolicy.VisibleInteractive => true,
+        UILowerLayerPolicy.Hidden => HasRequiredPresentationAdapter &&
+                                     CanDisableControlInput(
+                                         requireControlInteractivityAdapter),
+        UILowerLayerPolicy.VisibleInert => View switch
+        {
+            Window => true,
+            Control => CanDisableControlInput(requireControlInteractivityAdapter),
+            _ => false
+        },
+        _ => false
+    };
+
+    private bool CanDisableControlInput(bool requireAdapter) =>
+        View is not Control control ||
+        HasInteractiveAdapter ||
+        (!requireAdapter && !control.IsProcessingInput());
 
     public static UIScreenOpenStatus TryCreate(
         UIScreenHost host,

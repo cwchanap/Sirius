@@ -31,7 +31,7 @@ public sealed record UIScreenEntrySpec
 
     internal UIScreenSpecNormalizationResult Normalize()
     {
-        if (string.IsNullOrEmpty(Kind.ToString()))
+        if (Kind == default || string.IsNullOrEmpty(Kind.ToString()))
             return new(UIScreenOpenStatus.InvalidSpecification, null);
 
         var incompatibleKinds = NormalizeSet(IncompatibleKinds);

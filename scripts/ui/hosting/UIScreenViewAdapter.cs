@@ -47,6 +47,8 @@ internal sealed class UIScreenViewAdapter
     public Action<UIScreenCloseReason>? Cleanup { get; }
     public UINodeLifetime NodeLifetime { get; }
     public Action? TreeExitingHandler { get; set; }
+    public Node.ProcessModeEnum IncomingProcessMode => _incomingProcessMode;
+    public Node.ProcessModeEnum RegisteredProcessMode => _registeredProcessMode;
 
     public bool CanApply(
         UILowerLayerPolicy effect,
@@ -181,8 +183,16 @@ internal sealed class UIScreenViewAdapter
             return;
         }
 
-        if (_attachedByHost && View.GetParent() == _attachmentParent)
+        if (NodeLifetime == UINodeLifetime.External &&
+            View is Window &&
+            View.GetParent() == _attachmentParent)
+        {
             _attachmentParent.RemoveChild(View);
+        }
+        else if (_attachedByHost && View.GetParent() == _attachmentParent)
+        {
+            _attachmentParent.RemoveChild(View);
+        }
     }
 
     private static UIScreenOpenStatus ResolveProcessMode(

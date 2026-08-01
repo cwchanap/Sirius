@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Godot;
 
 public partial class UIScreenHost : Control
@@ -9,17 +10,22 @@ public partial class UIScreenHost : Control
 
     private readonly UIScreenStackModel _model = new();
     private readonly UIScreenInputDispatcher _inputDispatcher = new();
+    private readonly UIScreenFocusCoordinator _focusCoordinator = new();
     private readonly Dictionary<UIScreenHandle, UIScreenViewAdapter> _adapters = new();
     private readonly Dictionary<UIScreenLayer, Control> _layers = new();
     private readonly Dictionary<UIScreenHandle, UIControlEffectBaseline> _controlEffectBaselines = new();
     private readonly Dictionary<UIScreenHandle, UIWindowEffectBaseline> _windowEffectBaselines = new();
     private readonly Dictionary<UIScreenHandle, UILowerLayerPolicy> _appliedLowerLayerEffects = new();
+    private readonly Queue<CloseRequest> _closeQueue = new();
+    private readonly HashSet<UIScreenHandle> _queuedCloseHandles = new();
+    private readonly HashSet<UIScreenHandle> _closingHandles = new();
     private UIScreenHostOptions _options = new();
     private UIScreenEffectiveState _currentState = EmptyEffectiveState;
     private PauseLease? _pauseLease;
     private CursorLease? _cursorLease;
     private HudLease? _hudLease;
     private int _pauseOwnershipDriftCount;
+    private string? _lastPauseOwnershipViolation;
     private Control? _inputShield;
     private Node? _inputShieldParent;
     private int _inputShieldIndex;
@@ -27,12 +33,12 @@ public partial class UIScreenHost : Control
     private bool _ready;
     private bool _malformed = true;
     private bool _tearingDown;
+    private bool _teardownFinalized;
+    private bool _drainingCloseQueue;
 
     public IReadOnlyList<UIScreenEntrySnapshot> ActiveEntries => _model.Entries;
     public UIScreenEffectiveState CurrentState => _currentState;
-    public UIScreenHostDiagnostics Diagnostics => new(
-        _currentState,
-        _pauseOwnershipDriftCount);
+    public UIScreenHostDiagnostics Diagnostics => CreateDiagnostics();
 
     public event Action<UIScreenEffectiveState>? EffectiveStateChanged;
 
@@ -78,6 +84,14 @@ public partial class UIScreenHost : Control
     {
         if (!_tearingDown)
             EnsurePauseLeaseInvariant();
+    }
+
+    // Godot queues an entire child subtree before this node receives _ExitTree().
+    // Start typed host deletion synchronously so external views can be detached first.
+    public new void QueueFree()
+    {
+        BeginTeardown();
+        base.QueueFree();
     }
 
     public UIInputDispatchResult TryHandleInput(InputEvent inputEvent)
@@ -135,9 +149,19 @@ public partial class UIScreenHost : Control
         if (effectStatus != UIScreenOpenStatus.Opened)
             return new(effectStatus, null);
 
+        var focusStatus = _focusCoordinator.TryPrepare(
+            adapter,
+            normalized.Policy,
+            out var focusPreparation);
+        if (focusStatus != UIScreenOpenStatus.Opened)
+            return new(focusStatus, null);
+
         var opened = _model.Open(normalized.Policy);
         if (opened.Status != UIScreenOpenStatus.Opened || !opened.Handle.HasValue)
+        {
+            _focusCoordinator.DiscardPreparation(focusPreparation);
             return opened;
+        }
 
         var handle = opened.Handle.Value;
         _adapters.Add(handle, adapter);
@@ -149,6 +173,7 @@ public partial class UIScreenHost : Control
             _model.Close(handle);
             adapter.RollbackRegistration();
             ReleaseOwnership(view);
+            _focusCoordinator.DiscardPreparation(focusPreparation);
             return new(applyStatus, null);
         }
 
@@ -156,6 +181,7 @@ public partial class UIScreenHost : Control
         adapter.TreeExitingHandler = treeExiting;
         view.TreeExiting += treeExiting;
         Recompute();
+        _focusCoordinator.Register(handle, adapter, normalized.Policy, focusPreparation);
         return opened;
     }
 
@@ -166,15 +192,22 @@ public partial class UIScreenHost : Control
         if (_tearingDown && reason != UIScreenCloseReason.HostTeardown)
             return new(UIScreenCloseStatus.HostTearingDown);
 
-        var mutation = _model.Close(handle);
-        if (mutation.Status != UIScreenCloseStatus.Closed)
-            return new(mutation.Status);
+        if (_closingHandles.Contains(handle) || _queuedCloseHandles.Contains(handle))
+            return new(UIScreenCloseStatus.AlreadyClosed);
 
-        foreach (var closed in mutation.ClosedEntries)
-            CloseAdapter(closed.Handle, reason);
+        if (_drainingCloseQueue)
+        {
+            if (!IsActive(handle))
+                return new(_model.Close(handle).Status);
 
-        Recompute();
-        return new(UIScreenCloseStatus.Closed);
+            _closeQueue.Enqueue(new CloseRequest(handle, reason));
+            _queuedCloseHandles.Add(handle);
+            return new(UIScreenCloseStatus.Closed);
+        }
+
+        _closeQueue.Enqueue(new CloseRequest(handle, reason));
+        _queuedCloseHandles.Add(handle);
+        return DrainCloseQueue();
     }
 
     public bool IsActive(UIScreenHandle handle)
@@ -230,13 +263,33 @@ public partial class UIScreenHost : Control
 
     public override void _ExitTree()
     {
+        BeginTeardown();
+    }
+
+    private void BeginTeardown()
+    {
+        if (_tearingDown)
+            return;
+
         _tearingDown = true;
-        while (_model.Entries.Count != 0)
+        if (!_drainingCloseQueue && _model.Entries.Count != 0)
         {
             var top = _model.InputOrder[0].Handle;
             TryClose(top, UIScreenCloseReason.HostTeardown);
         }
+
+        FinalizeTeardown();
+    }
+
+    private void FinalizeTeardown()
+    {
+        if (_teardownFinalized || _drainingCloseQueue || _model.Entries.Count != 0)
+            return;
+
+        _teardownFinalized = true;
+        _focusCoordinator.CompleteActiveRestoration();
         RestoreStateLeases();
+        _focusCoordinator.Teardown();
         _inputShield = null;
         _inputShieldParent = null;
         _layers.Clear();
@@ -270,6 +323,7 @@ public partial class UIScreenHost : Control
         _inputShieldParent = shield.GetParent();
         _inputShieldIndex = shield.GetIndex();
         _inputShieldProcessMode = shield.ProcessMode;
+        _focusCoordinator.Bind(this, sink);
         return true;
     }
 
@@ -315,10 +369,86 @@ public partial class UIScreenHost : Control
         return true;
     }
 
-    private void CloseAdapter(UIScreenHandle handle, UIScreenCloseReason reason)
+    private UIScreenCloseResult DrainCloseQueue()
     {
+        var firstStatus = UIScreenCloseStatus.StaleHandle;
+        var first = true;
+        _drainingCloseQueue = true;
+        try
+        {
+            while (_closeQueue.Count != 0 ||
+                   (_tearingDown && _model.Entries.Count != 0))
+            {
+                if (_closeQueue.Count == 0)
+                {
+                    var top = _model.InputOrder[0].Handle;
+                    _closeQueue.Enqueue(new CloseRequest(
+                        top,
+                        UIScreenCloseReason.HostTeardown));
+                    _queuedCloseHandles.Add(top);
+                }
+
+                var request = _closeQueue.Dequeue();
+                _queuedCloseHandles.Remove(request.Handle);
+                var status = ProcessClose(request);
+                if (first)
+                {
+                    firstStatus = status;
+                    first = false;
+                }
+            }
+        }
+        finally
+        {
+            _drainingCloseQueue = false;
+            _queuedCloseHandles.Clear();
+            _closingHandles.Clear();
+        }
+
+        if (_tearingDown)
+            FinalizeTeardown();
+
+        return new UIScreenCloseResult(firstStatus);
+    }
+
+    private UIScreenCloseStatus ProcessClose(CloseRequest request)
+    {
+        var mutation = _model.Close(request.Handle);
+        if (mutation.Status != UIScreenCloseStatus.Closed)
+            return mutation.Status;
+
+        foreach (var closed in mutation.ClosedEntries)
+            _closingHandles.Add(closed.Handle);
+
+        UIFocusCloseState? requestedFocusState = null;
+        foreach (var closed in mutation.ClosedEntries)
+        {
+            var closeReason = closed.Handle == request.Handle
+                ? request.Reason
+                : UIScreenCloseReason.ParentClosed;
+            var focusState = CloseAdapter(closed.Handle, closeReason);
+            if (closed.Handle == request.Handle)
+                requestedFocusState = focusState;
+        }
+
+        requestedFocusState ??= new UIFocusCloseState(
+            request.Handle,
+            null,
+            null,
+            null);
+        _focusCoordinator.BeginRestoration(requestedFocusState);
+        Recompute();
+
+        foreach (var closed in mutation.ClosedEntries)
+            _closingHandles.Remove(closed.Handle);
+        return UIScreenCloseStatus.Closed;
+    }
+
+    private UIFocusCloseState CloseAdapter(UIScreenHandle handle, UIScreenCloseReason reason)
+    {
+        var focusState = _focusCoordinator.CloseEntry(handle);
         if (!_adapters.Remove(handle, out var adapter))
-            return;
+            return focusState;
 
         RestoreLowerLayerEffect(handle, adapter);
 
@@ -341,10 +471,17 @@ public partial class UIScreenHost : Control
         {
             adapter.Close();
         }
+        return focusState;
     }
 
     private void OnViewTreeExiting(UIScreenHandle handle)
     {
+        if (!_tearingDown && (IsQueuedForDeletion() || !IsInsideTree()))
+        {
+            BeginTeardown();
+            return;
+        }
+
         if (!_tearingDown && IsActive(handle))
             TryClose(handle, UIScreenCloseReason.NodeFreed);
     }
@@ -390,7 +527,7 @@ public partial class UIScreenHost : Control
             resolved.Cursor,
             resolved.Hud,
             resolved.TopInputOwner,
-            false);
+            _focusCoordinator.IsRestorationPending);
         _currentState = nextState;
 
         if (previousState.IsPresentationGameplayBlocked !=
@@ -697,9 +834,95 @@ public partial class UIScreenHost : Control
             return;
 
         _pauseOwnershipDriftCount++;
+        _lastPauseOwnershipViolation = "TreeUnpausedWhilePauseLeaseActive";
         GD.PushError(
             "UIScreenHost pause ownership drift detected; reasserting the active pause lease.");
         GetTree().Paused = true;
+    }
+
+    private UIScreenHostDiagnostics CreateDiagnostics()
+    {
+        var inputOrder = new List<UIScreenEntrySnapshot>(_model.InputOrder).AsReadOnly();
+        var resolved = UIScreenPolicyResolver.Resolve(inputOrder);
+        var lowerEffects = new List<UIScreenLowerLayerEffectDiagnostics>(inputOrder.Count);
+        var entryActions = new Dictionary<UIScreenHandle, IReadOnlySet<StringName>>(
+            inputOrder.Count);
+        var processStates = new List<UIScreenProcessStateDiagnostics>(inputOrder.Count);
+
+        foreach (var target in inputOrder)
+        {
+            var contributors = new List<UIScreenHandle>();
+            foreach (var owner in inputOrder)
+            {
+                if (owner.Policy.LowerLayers != UILowerLayerPolicy.VisibleInteractive &&
+                    IsVisuallyAbove(owner, target))
+                {
+                    contributors.Add(owner.Handle);
+                }
+            }
+
+            lowerEffects.Add(new UIScreenLowerLayerEffectDiagnostics(
+                target.Handle,
+                resolved.LowerLayerEffects[target.Handle],
+                contributors.AsReadOnly()));
+            entryActions.Add(
+                target.Handle,
+                target.Policy.EntryCancelActions.ToFrozenSet());
+
+            if (_adapters.TryGetValue(target.Handle, out var adapter))
+            {
+                processStates.Add(new UIScreenProcessStateDiagnostics(
+                    target.Handle,
+                    adapter.IncomingProcessMode,
+                    adapter.RegisteredProcessMode,
+                    GodotObject.IsInstanceValid(adapter.View)
+                        ? adapter.View.ProcessMode
+                        : null,
+                    adapter.View is Window));
+            }
+        }
+
+        var controlEffects = new Dictionary<UIScreenHandle, UIControlEffectLeaseDiagnostics>(
+            _controlEffectBaselines.Count);
+        foreach (var (handle, baseline) in _controlEffectBaselines)
+        {
+            controlEffects.Add(handle, new UIControlEffectLeaseDiagnostics(
+                baseline.Visible,
+                baseline.ProcessInputEnabled));
+        }
+
+        var windowEffects = new Dictionary<UIScreenHandle, UIWindowEffectLeaseDiagnostics>(
+            _windowEffectBaselines.Count);
+        foreach (var (handle, baseline) in _windowEffectBaselines)
+        {
+            windowEffects.Add(handle, new UIWindowEffectLeaseDiagnostics(
+                baseline.Visible,
+                baseline.GuiDisableInput,
+                baseline.Unfocusable));
+        }
+
+        return new UIScreenHostDiagnostics(
+            inputOrder,
+            _currentState,
+            lowerEffects.AsReadOnly(),
+            new UIScreenActionOwnershipDiagnostics(
+                _options.CoreCancelActions.ToFrozenSet(),
+                new ReadOnlyDictionary<UIScreenHandle, IReadOnlySet<StringName>>(entryActions),
+                _currentState.TopInputOwner),
+            _focusCoordinator.SnapshotDiagnostics(inputOrder),
+            _focusCoordinator.RestorationLease,
+            processStates.AsReadOnly(),
+            IsInsideTree() && GetViewport().GuiEmbedSubwindows,
+            new UIScreenStateLeaseDiagnostics(
+                _pauseLease?.IncomingPaused,
+                _cursorLease?.IncomingMode,
+                _hudLease?.IncomingVisible,
+                new ReadOnlyDictionary<UIScreenHandle, UIControlEffectLeaseDiagnostics>(
+                    controlEffects),
+                new ReadOnlyDictionary<UIScreenHandle, UIWindowEffectLeaseDiagnostics>(
+                    windowEffects)),
+            _pauseOwnershipDriftCount,
+            _lastPauseOwnershipViolation);
     }
 
     private void RestoreStateLeases()
@@ -727,6 +950,18 @@ public partial class UIScreenHost : Control
     private sealed record PauseLease(bool IncomingPaused);
     private sealed record CursorLease(Input.MouseModeEnum IncomingMode);
     private sealed record HudLease(bool IncomingVisible);
+    private sealed record CloseRequest(
+        UIScreenHandle Handle,
+        UIScreenCloseReason Reason);
+
+    internal IReadOnlyList<UIScreenEntrySnapshot> FocusInputOrder() =>
+        _model.InputOrder;
+
+    internal void OnFocusRestorationCompleted()
+    {
+        if (_ready)
+            Recompute();
+    }
 }
 
 internal sealed record UIControlEffectBaseline(bool Visible, bool ProcessInputEnabled);

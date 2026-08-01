@@ -11,12 +11,19 @@ public partial class UIScreenHost : Control
     private readonly UIScreenInputDispatcher _inputDispatcher = new();
     private readonly Dictionary<UIScreenHandle, UIScreenViewAdapter> _adapters = new();
     private readonly Dictionary<UIScreenLayer, Control> _layers = new();
+    private readonly Dictionary<UIScreenHandle, UIControlEffectBaseline> _controlEffectBaselines = new();
+    private readonly Dictionary<UIScreenHandle, UIWindowEffectBaseline> _windowEffectBaselines = new();
+    private readonly Dictionary<UIScreenHandle, UILowerLayerPolicy> _appliedLowerLayerEffects = new();
     private UIScreenHostOptions _options = new();
     private UIScreenEffectiveState _currentState = EmptyEffectiveState;
     private PauseLease? _pauseLease;
     private CursorLease? _cursorLease;
     private HudLease? _hudLease;
     private int _pauseOwnershipDriftCount;
+    private Control? _inputShield;
+    private Node? _inputShieldParent;
+    private int _inputShieldIndex;
+    private ProcessModeEnum _inputShieldProcessMode;
     private bool _ready;
     private bool _malformed = true;
     private bool _tearingDown;
@@ -124,6 +131,10 @@ public partial class UIScreenHost : Control
         if (adapterStatus != UIScreenOpenStatus.Opened || adapter == null)
             return new(adapterStatus, null);
 
+        var effectStatus = ValidateEffectAdaptersForOpen(normalized.Policy, adapter);
+        if (effectStatus != UIScreenOpenStatus.Opened)
+            return new(effectStatus, null);
+
         var opened = _model.Open(normalized.Policy);
         if (opened.Status != UIScreenOpenStatus.Opened || !opened.Handle.HasValue)
             return opened;
@@ -225,6 +236,8 @@ public partial class UIScreenHost : Control
             TryClose(top, UIScreenCloseReason.HostTeardown);
         }
         RestoreStateLeases();
+        _inputShield = null;
+        _inputShieldParent = null;
         _layers.Clear();
         _ready = false;
     }
@@ -244,10 +257,19 @@ public partial class UIScreenHost : Control
 
         var shield = GetNodeOrNull<Control>("InputShield");
         var sink = GetNodeOrNull<Control>("FocusSink");
-        return shield != null && shield.GetParent() == this &&
-               IsInputShieldValid(shield) &&
-               sink != null && sink.GetParent() == this &&
-               IsFocusSinkValid(sink);
+        if (shield == null || shield.GetParent() != this ||
+            !IsInputShieldValid(shield) ||
+            sink == null || sink.GetParent() != this ||
+            !IsFocusSinkValid(sink))
+        {
+            return false;
+        }
+
+        _inputShield = shield;
+        _inputShieldParent = shield.GetParent();
+        _inputShieldIndex = shield.GetIndex();
+        _inputShieldProcessMode = shield.ProcessMode;
+        return true;
     }
 
     private static bool IsInputShieldValid(Control shield) =>
@@ -296,6 +318,8 @@ public partial class UIScreenHost : Control
     {
         if (!_adapters.Remove(handle, out var adapter))
             return;
+
+        RestoreLowerLayerEffect(handle, adapter);
 
         if (GodotObject.IsInstanceValid(adapter.View))
         {
@@ -356,6 +380,7 @@ public partial class UIScreenHost : Control
         ApplyPausePolicy(resolved.PauseTree);
         ApplyCursorPolicy(resolved.Cursor);
         ApplyHudPolicy(resolved.Hud);
+        ApplyLowerLayerEffects(resolved.LowerLayerEffects);
 
         var previousState = _currentState;
         var nextState = new UIScreenEffectiveState(
@@ -439,6 +464,232 @@ public partial class UIScreenHost : Control
         GodotObject.IsInstanceValid(_options.HudRoot) &&
         !_options.HudRoot.IsQueuedForDeletion();
 
+    private UIScreenOpenStatus ValidateEffectAdaptersForOpen(
+        UIScreenEntryPolicy candidatePolicy,
+        UIScreenViewAdapter candidateAdapter)
+    {
+        foreach (var target in _model.Entries)
+        {
+            if (IsCandidateVisuallyAbove(candidatePolicy, target.Policy) &&
+                _adapters.TryGetValue(target.Handle, out var targetAdapter) &&
+                !targetAdapter.CanApply(candidatePolicy.LowerLayers))
+            {
+                return UIScreenOpenStatus.MissingRequiredAdapter;
+            }
+        }
+
+        foreach (var owner in _model.Entries)
+        {
+            if (owner.Policy.Layer > candidatePolicy.Layer &&
+                !candidateAdapter.CanApply(
+                    owner.Policy.LowerLayers,
+                    requireControlInteractivityAdapter: true))
+            {
+                return UIScreenOpenStatus.MissingRequiredAdapter;
+            }
+        }
+
+        return UIScreenOpenStatus.Opened;
+    }
+
+    private static bool IsCandidateVisuallyAbove(
+        UIScreenEntryPolicy candidate,
+        UIScreenEntryPolicy target) =>
+        candidate.Layer >= target.Layer;
+
+    private void ApplyLowerLayerEffects(
+        IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> effects)
+    {
+        foreach (var (handle, effect) in effects)
+        {
+            if (!_adapters.TryGetValue(handle, out var adapter) ||
+                !GodotObject.IsInstanceValid(adapter.View))
+            {
+                continue;
+            }
+
+            if (_appliedLowerLayerEffects.TryGetValue(handle, out var applied) &&
+                applied == effect)
+            {
+                continue;
+            }
+
+            switch (adapter.View)
+            {
+                case Control control:
+                    ApplyControlEffect(handle, adapter, control, effect);
+                    break;
+                case Window window:
+                    ApplyWindowEffect(handle, adapter, window, effect);
+                    break;
+            }
+        }
+
+        PlaceInputShield(FindTopmostInertControl(effects));
+    }
+
+    private Control? FindTopmostInertControl(
+        IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> effects)
+    {
+        UIScreenEntrySnapshot? topmost = null;
+        Control? target = null;
+        foreach (var entry in _model.Entries)
+        {
+            if (!effects.TryGetValue(entry.Handle, out var effect) ||
+                effect != UILowerLayerPolicy.VisibleInert ||
+                !_adapters.TryGetValue(entry.Handle, out var adapter) ||
+                adapter.View is not Control control)
+            {
+                continue;
+            }
+
+            if (topmost == null || IsVisuallyAbove(entry, topmost))
+            {
+                topmost = entry;
+                target = control;
+            }
+        }
+
+        return target;
+    }
+
+    private static bool IsVisuallyAbove(
+        UIScreenEntrySnapshot candidate,
+        UIScreenEntrySnapshot target) =>
+        candidate.Policy.Layer > target.Policy.Layer ||
+        (candidate.Policy.Layer == target.Policy.Layer &&
+         candidate.Sequence > target.Sequence);
+
+    private void PlaceInputShield(Control? target)
+    {
+        if (_inputShield == null || _inputShieldParent == null)
+            return;
+
+        _inputShield.Visible = false;
+        if (target?.GetParent() is Node targetParent)
+        {
+            if (_inputShield.GetParent() != targetParent)
+                _inputShield.Reparent(targetParent, false);
+            targetParent.MoveChild(_inputShield, target.GetIndex() + 1);
+            _inputShield.ProcessMode = ProcessModeEnum.Always;
+            _inputShield.Visible = true;
+            return;
+        }
+
+        if (_inputShield.GetParent() != _inputShieldParent)
+            _inputShield.Reparent(_inputShieldParent, false);
+        _inputShieldParent.MoveChild(_inputShield, _inputShieldIndex);
+        _inputShield.ProcessMode = _inputShieldProcessMode;
+    }
+
+    private void ApplyControlEffect(
+        UIScreenHandle handle,
+        UIScreenViewAdapter adapter,
+        Control control,
+        UILowerLayerPolicy effect)
+    {
+        if (effect == UILowerLayerPolicy.VisibleInteractive)
+        {
+            RestoreLowerLayerEffect(handle, adapter);
+            return;
+        }
+
+        if (!_controlEffectBaselines.TryGetValue(handle, out var baseline))
+        {
+            baseline = new UIControlEffectBaseline(
+                control.Visible,
+                control.IsProcessingInput());
+            _controlEffectBaselines.Add(handle, baseline);
+            adapter.SetInteractive(false);
+        }
+
+        if (effect == UILowerLayerPolicy.Hidden)
+        {
+            control.Visible = false;
+        }
+        else
+        {
+            if (_appliedLowerLayerEffects.TryGetValue(handle, out var applied) &&
+                applied == UILowerLayerPolicy.Hidden)
+            {
+                control.Visible = baseline.Visible;
+            }
+        }
+
+        _appliedLowerLayerEffects[handle] = effect;
+    }
+
+    private void ApplyWindowEffect(
+        UIScreenHandle handle,
+        UIScreenViewAdapter adapter,
+        Window window,
+        UILowerLayerPolicy effect)
+    {
+        if (effect == UILowerLayerPolicy.VisibleInteractive)
+        {
+            RestoreLowerLayerEffect(handle, adapter);
+            return;
+        }
+
+        if (!_windowEffectBaselines.TryGetValue(handle, out var baseline))
+        {
+            baseline = new UIWindowEffectBaseline(
+                adapter.IsPresented(),
+                window.GuiDisableInput,
+                window.Unfocusable);
+            _windowEffectBaselines.Add(handle, baseline);
+        }
+
+        if (effect == UILowerLayerPolicy.Hidden)
+        {
+            window.GuiDisableInput = baseline.GuiDisableInput;
+            window.Unfocusable = baseline.Unfocusable;
+            adapter.SetPresented(false);
+        }
+        else
+        {
+            if (_appliedLowerLayerEffects.TryGetValue(handle, out var applied) &&
+                applied == UILowerLayerPolicy.Hidden)
+            {
+                adapter.SetPresented(baseline.Visible);
+            }
+            window.GuiDisableInput = true;
+            window.Unfocusable = true;
+        }
+
+        _appliedLowerLayerEffects[handle] = effect;
+    }
+
+    private void RestoreLowerLayerEffect(
+        UIScreenHandle handle,
+        UIScreenViewAdapter adapter)
+    {
+        _appliedLowerLayerEffects.TryGetValue(handle, out var applied);
+        _appliedLowerLayerEffects.Remove(handle);
+        if (!GodotObject.IsInstanceValid(adapter.View))
+        {
+            _controlEffectBaselines.Remove(handle);
+            _windowEffectBaselines.Remove(handle);
+            return;
+        }
+
+        if (adapter.View is Control control &&
+            _controlEffectBaselines.Remove(handle, out var controlBaseline))
+        {
+            if (applied == UILowerLayerPolicy.Hidden)
+                control.Visible = controlBaseline.Visible;
+            adapter.SetInteractive(controlBaseline.ProcessInputEnabled);
+        }
+        else if (adapter.View is Window window &&
+                 _windowEffectBaselines.Remove(handle, out var windowBaseline))
+        {
+            if (applied == UILowerLayerPolicy.Hidden)
+                adapter.SetPresented(windowBaseline.Visible);
+            window.GuiDisableInput = windowBaseline.GuiDisableInput;
+            window.Unfocusable = windowBaseline.Unfocusable;
+        }
+    }
+
     private void EnsurePauseLeaseInvariant()
     {
         if (_pauseLease == null || GetTree().Paused)
@@ -476,3 +727,6 @@ public partial class UIScreenHost : Control
     private sealed record CursorLease(Input.MouseModeEnum IncomingMode);
     private sealed record HudLease(bool IncomingVisible);
 }
+
+internal sealed record UIControlEffectBaseline(bool Visible, bool ProcessInputEnabled);
+internal sealed record UIWindowEffectBaseline(bool Visible, bool GuiDisableInput, bool Unfocusable);

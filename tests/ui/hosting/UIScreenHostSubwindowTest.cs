@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using GdUnit4;
 using Godot;
@@ -7,6 +8,122 @@ using static GdUnit4.Assertions;
 [RequireGodotRuntime]
 public partial class UIScreenHostSubwindowTest : Node
 {
+    [TestCase]
+    public async Task LowerLayerEffects_WindowStrongestOwnerWeakensAndRestoresExactBaseline()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var dialog = fixture.Track(new AcceptDialog
+        {
+            GuiDisableInput = true,
+            Unfocusable = false
+        });
+        var inertOwner = fixture.Track(new Control());
+        var hiddenOwner = fixture.Track(new Control());
+        var presentationChanges = new List<bool>();
+        fixture.Viewport.GuiEmbedSubwindows = true;
+        try
+        {
+            var target = fixture.Host.TryPresent(
+                dialog,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Dialogue) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetPresented = presented =>
+                    {
+                        presentationChanges.Add(presented);
+                        if (presented) dialog.Show(); else dialog.Hide();
+                    }
+                });
+            AssertThat(target.Status).IsEqual(UIScreenOpenStatus.Opened);
+            dialog.Show();
+
+            var inert = fixture.Host.TryPresent(
+                inertOwner,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                }).Handle!.Value;
+
+            AssertThat(dialog.Visible).IsTrue();
+            AssertThat(dialog.GuiDisableInput).IsTrue();
+            AssertThat(dialog.Unfocusable).IsTrue();
+
+            var hidden = fixture.Host.TryPresent(
+                hiddenOwner,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = inert,
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.Hidden
+                }).Handle!.Value;
+
+            AssertThat(dialog.Visible).IsFalse();
+            AssertThat(dialog.GuiDisableInput).IsTrue();
+            AssertThat(dialog.Unfocusable).IsFalse();
+
+            fixture.Host.TryClose(hidden, UIScreenCloseReason.Programmatic);
+
+            AssertThat(dialog.Visible).IsTrue();
+            AssertThat(dialog.GuiDisableInput).IsTrue();
+            AssertThat(dialog.Unfocusable).IsTrue();
+
+            fixture.Host.TryClose(inert, UIScreenCloseReason.Programmatic);
+
+            AssertThat(dialog.Visible).IsTrue();
+            AssertThat(dialog.GuiDisableInput).IsTrue();
+            AssertThat(dialog.Unfocusable).IsFalse();
+            AssertThat(presentationChanges.ToArray()).ContainsExactly(false, true);
+        }
+        finally
+        {
+            fixture.Dispose();
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    [TestCase]
+    public async Task LowerLayerEffects_HiddenOwnerWithoutRequiredWindowAdapterIsRejectedAtomically()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var dialog = fixture.Track(new AcceptDialog());
+        var hiddenOwner = fixture.Track(new Control());
+        fixture.Viewport.GuiEmbedSubwindows = true;
+        try
+        {
+            var target = fixture.Host.TryPresent(
+                dialog,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Dialogue) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    IsPresented = () => dialog.Visible
+                });
+            AssertThat(target.Status).IsEqual(UIScreenOpenStatus.Opened);
+            dialog.Show();
+
+            var result = fixture.Host.TryPresent(
+                hiddenOwner,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.Hidden
+                });
+
+            AssertThat(result.Status).IsEqual(UIScreenOpenStatus.MissingRequiredAdapter);
+            AssertThat(result.Handle).IsNull();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(hiddenOwner.GetParent()).IsNull();
+            AssertThat(dialog.Visible).IsTrue();
+            AssertThat(dialog.GuiDisableInput).IsFalse();
+            AssertThat(dialog.Unfocusable).IsFalse();
+        }
+        finally
+        {
+            fixture.Dispose();
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
     [TestCase]
     public async Task Present_WindowWithoutEmbedding_IsRejectedWithoutMutation()
     {

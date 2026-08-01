@@ -42,7 +42,7 @@ public sealed record UIScreenEntrySpec
             (PauseTree || BlockGameplayInput || Cancel != UICancelPolicy.None ||
              entryCancelActions.Count != 0 ||
              LowerLayers != UILowerLayerPolicy.VisibleInteractive ||
-             InitialFocus != null))
+             InitialFocus != null || InterceptCancel != null))
         {
             return new(UIScreenOpenStatus.InvalidSpecification, null);
         }

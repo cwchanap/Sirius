@@ -81,6 +81,131 @@ public partial class UIScreenHostFocusTest : Node
     }
 
     [TestCase]
+    public async Task TryPresentCallback_CloseSeesFocusStateAndLeavesNoWindowSink()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        fixture.Viewport.GuiEmbedSubwindows = true;
+        var window = fixture.Track(new Window { Visible = true });
+        var callbackEntered = false;
+        var focusStateCountDuringCallback = -1;
+        UIScreenCloseStatus? closeStatus = null;
+        fixture.Host.EffectiveStateChanged += state =>
+        {
+            if (callbackEntered || !state.TopInputOwner.HasValue)
+                return;
+
+            callbackEntered = true;
+            focusStateCountDuringCallback = fixture.Host.Diagnostics.FocusStates.Count;
+            closeStatus = fixture.Host.TryClose(
+                state.TopInputOwner.Value,
+                UIScreenCloseReason.Programmatic).Status;
+        };
+        try
+        {
+            var opened = fixture.Host.TryPresent(
+                window,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking
+                });
+
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(closeStatus).IsEqual(UIScreenCloseStatus.Closed);
+            AssertThat(focusStateCountDuringCallback).IsEqual(1);
+            AssertThat(fixture.Host.IsActive(opened.Handle!.Value)).IsFalse();
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(0);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(window.GetNodeOrNull<Control>("__UIScreenFocusSink")).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task PassiveEntry_WithFocusableDescendantDoesNotStealFocus()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var existingOwner = fixture.Track(new Button
+        {
+            FocusMode = Control.FocusModeEnum.All
+        });
+        tree.Root.AddChild(existingOwner);
+        var toast = fixture.Track(new Control());
+        var toastButton = new Button { FocusMode = Control.FocusModeEnum.All };
+        toast.AddChild(toastButton);
+        try
+        {
+            existingOwner.GrabFocus();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(existingOwner);
+
+            var opened = fixture.Host.TryPresent(
+                toast,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+                {
+                    Layer = UIScreenLayer.Toast,
+                    InputPriority = UIInputPriority.Passive
+                });
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(existingOwner);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task ClosingPassiveEntry_DoesNotCreateBarrierBeforeNextCancel()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(
+            this,
+            new[] { UiCancelAction });
+        var parentView = fixture.Track(new Control());
+        var toast = fixture.Track(new Control());
+        try
+        {
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Cancel = UICancelPolicy.Close
+                }).Handle!.Value;
+            var passive = fixture.Host.TryPresent(
+                toast,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+                {
+                    Layer = UIScreenLayer.Toast,
+                    InputPriority = UIInputPriority.Passive
+                }).Handle!.Value;
+
+            fixture.Host.TryClose(passive, UIScreenCloseReason.Programmatic);
+
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+            AssertThat(fixture.Host.CurrentState.IsFocusRestorationPending).IsFalse();
+
+            var cancel = fixture.Host.TryHandleInput(
+                UIScreenHostTestSupport.ActionPress(UiCancelAction));
+
+            AssertThat(cancel).IsEqual(UIInputDispatchResult.Consumed);
+            AssertThat(fixture.Host.IsActive(parent)).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task InitialFocus_IsDeferredWithoutBarrierAndClosedTokenCannotStealFocus()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
@@ -229,6 +354,58 @@ public partial class UIScreenHostFocusTest : Node
     }
 
     [TestCase]
+    public async Task DisposedExplicitTarget_IsValidatedBeforeFallbackDereference()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control());
+        var captured = new Button { FocusMode = Control.FocusModeEnum.All };
+        parentView.AddChild(captured);
+        var childView = fixture.Track(new Control());
+        var childTarget = new Button { FocusMode = Control.FocusModeEnum.All };
+        childView.AddChild(childTarget);
+        var disposedTarget = fixture.Track(new Button
+        {
+            FocusMode = Control.FocusModeEnum.All
+        });
+        tree.Root.AddChild(disposedTarget);
+        try
+        {
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    InitialFocus = () => captured
+                }).Handle!.Value;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            var child = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = parent,
+                    InitialFocus = () => childTarget,
+                    RestoreFocus = () => disposedTarget
+                }).Handle!.Value;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(childTarget);
+
+            disposedTarget.Free();
+            AssertThat(GodotObject.IsInstanceValid(disposedTarget)).IsFalse();
+            fixture.Host.TryClose(child, UIScreenCloseReason.Programmatic);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(captured);
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task InvalidCapturedFocus_FallsBackThroughParentInitialThenDescendantThenSink()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
@@ -276,6 +453,125 @@ public partial class UIScreenHostFocusTest : Node
 
             AssertThat(fixture.Viewport.GuiGetFocusOwner())
                 .IsEqual(fixture.Host.GetNode<Control>("FocusSink"));
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task InvalidCapturedFocus_RestoresParentInitialTarget()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control());
+        var parentInitial = new Button { FocusMode = Control.FocusModeEnum.All };
+        var captured = new Button { FocusMode = Control.FocusModeEnum.All };
+        parentView.AddChild(parentInitial);
+        parentView.AddChild(captured);
+        var childView = fixture.Track(new Control());
+        var childTarget = new Button { FocusMode = Control.FocusModeEnum.All };
+        childView.AddChild(childTarget);
+        try
+        {
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    InitialFocus = () => parentInitial
+                }).Handle!.Value;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            captured.GrabFocus();
+
+            var child = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = parent,
+                    InitialFocus = () => childTarget
+                }).Handle!.Value;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            captured.Free();
+
+            fixture.Host.TryClose(child, UIScreenCloseReason.Programmatic);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(parentInitial);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task ClosingFinalOwner_ReleasesViewportFocus()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var view = fixture.Track(new Control());
+        var target = new Button { FocusMode = Control.FocusModeEnum.All };
+        view.AddChild(target);
+        try
+        {
+            var handle = fixture.Host.TryPresent(
+                view,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    InitialFocus = () => target
+                }).Handle!.Value;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(target);
+
+            fixture.Host.TryClose(handle, UIScreenCloseReason.Programmatic);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsNull();
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task ClosingChildWindow_RestoresParentWindowSink()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        fixture.Viewport.GuiEmbedSubwindows = true;
+        var parentWindow = fixture.Track(new Window { Visible = true });
+        var childWindow = fixture.Track(new Window { Visible = true });
+        try
+        {
+            var parent = fixture.Host.TryPresent(
+                parentWindow,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveLoad) with
+                {
+                    InputPriority = UIInputPriority.Blocking
+                }).Handle!.Value;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            var parentSink = parentWindow.GetNode<Control>("__UIScreenFocusSink");
+            AssertThat(parentWindow.GuiGetFocusOwner()).IsEqual(parentSink);
+            parentSink.ReleaseFocus();
+            AssertThat(parentWindow.GuiGetFocusOwner()).IsNull();
+
+            var child = fixture.Host.TryPresent(
+                childWindow,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                {
+                    Parent = parent,
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking
+                }).Handle!.Value;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            fixture.Host.TryClose(child, UIScreenCloseReason.Programmatic);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(parentWindow.GuiGetFocusOwner()).IsEqual(parentSink);
         }
         finally
         {

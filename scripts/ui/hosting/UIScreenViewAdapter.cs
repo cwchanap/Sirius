@@ -184,7 +184,6 @@ internal sealed class UIScreenViewAdapter
         }
 
         if (NodeLifetime == UINodeLifetime.External &&
-            View is Window &&
             View.GetParent() == _attachmentParent)
         {
             _attachmentParent.RemoveChild(View);

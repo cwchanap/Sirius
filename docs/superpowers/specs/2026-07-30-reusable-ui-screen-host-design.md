@@ -389,13 +389,18 @@ public enum UIProcessPolicy
 }
 ```
 
-- `PreserveAndValidate`: keep the view's current `ProcessMode`; reject registration if it cannot process in every state required by the entry.
+- `PreserveAndValidate`: keep the view's current `ProcessMode`; reject registration if it cannot process in the effective post-open pause context reduced from every active entry plus the candidate.
 - `InheritHost`: set or require `ProcessMode.Inherit`; active UI layers make the view Always.
 - `Pausable`: process only while the tree is unpaused.
 - `WhenPaused`: process only while the tree is paused; valid only for a pause-only view that is never used in an unpaused context.
 - `Always`: explicitly process in both states.
 
 The adapter snapshots any process mode it changes and restores the exact value on unregister or teardown.
+
+The candidate's effective pause context includes an active ancestor/global host
+pause lease, not only its own `PauseTree` declaration. Thus a Pausable child of
+Pause is rejected while a WhenPaused child is accepted, and a pause-owning
+candidate is validated as paused even with no prior pause owner.
 
 Reusable Settings, Save/Load, confirmation, and dialog views normally use `InheritHost` or `Always` because they can appear under both Main Menu and Pause. `HUDLayer` is a separate explicitly Pausable subtree.
 
@@ -496,7 +501,8 @@ public enum UIScreenOpenStatus
     UnsupportedSubwindowMode,
     InvalidProcessPolicy,
     InvalidSpecification,
-    MalformedHost
+    MalformedHost,
+    HostMutating
 }
 
 public readonly record struct UIScreenOpenResult(
@@ -504,7 +510,13 @@ public readonly record struct UIScreenOpenResult(
     UIScreenHandle? Handle);
 ```
 
-Only `Opened` contains a handle. Every rejection is a strict no-op. Tests assert stable status codes, not error strings.
+Only `Opened` contains a handle. Every rejection is a strict no-op. `HostMutating`
+means `TryPresent` ran during an active close/cleanup drain; the host does not
+queue the open, and the owner may explicitly retry only after that transaction
+returns. Tests assert stable status codes, not error strings. Model acceptance
+occurs before a blocking Window's dynamic focus sink is created, so a rejected
+already-in-tree Window retains its exact synchronous child identity/order and
+receives no lifecycle callback.
 
 ### 9.2 Close result
 
@@ -981,7 +993,7 @@ Invariant: every close path that acquires a restoration lease releases it exactl
 - A scheduled deferred restoration completes the lease in `finally`, even when no valid target exists.
 - If the target is freed before the callback, the callback still executes against the live host, selects the next valid fallback or no target, and completes in `finally`.
 - If the host begins teardown before the callback, teardown cancels the scheduled callable, disables dispatch, and completes the lease synchronously.
-- A superseding close starts a newer generation; the prior generation is completed before the new lease becomes active, and stale callbacks cannot clear the newer lease.
+- A superseding close completes the prior generation without publishing an intermediate false barrier, installs the newer generation, and publishes once through the enclosing close; stale callbacks cannot clear the newer lease.
 - Queue collapse and duplicate close paths cannot create a second lease for the same close transaction.
 - `IsFocusRestorationPending` is derived from the active lease record, not independently mutated.
 
@@ -1054,6 +1066,11 @@ Prepared teardown:
 - subscriptions and dynamic sinks are removed;
 - externally owned views are not freed.
 
+User `InitialFocus` and `RestoreFocus` providers are part of the prepared
+teardown transaction. If either throws there, the exception propagates, the
+lease remains retryable, and `Complete` is not published. Ordinary deferred
+runtime focus paths may retain safe catch-and-fallback behavior.
+
 The method is idempotent. `Complete` means the model is empty, all adapters are
 closed, external views are detached, leases and snapshots are restored, and
 host bindings are finalized. After preparation begins, opens are rejected and
@@ -1069,6 +1086,8 @@ step. If a callback throws, the exception propagates, the active guard resets,
 ### 17.6 Mutation queue
 
 - current mutation completes before queued mutation;
+- `TryPresent` during an active close/cleanup drain returns `HostMutating`
+  synchronously and is never queued;
 - closing handle is immediately ineligible for input;
 - duplicate queued closes collapse;
 - teardown rejects opens;
@@ -1464,6 +1483,8 @@ For each migrated flow it must:
 11. compose host presentation block with domain flags through one root predicate;
 12. pin embedded-subwindow configuration explicitly;
 13. keep all HPA-376 regressions passing.
+14. handle `HostMutating` with an explicit owner retry after the close
+    transaction; managed cleanup must not assume a rejected open was deferred.
 
 HPA-379 must not introduce a second stack, root-specific host fork, residual Battle cancel ladder, or scattered gameplay-block combinations.
 

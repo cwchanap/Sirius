@@ -295,6 +295,100 @@ public partial class UIScreenHostProcessModeTest : Node
     }
 
     [TestCase]
+    public async Task PreserveAndValidate_UsesEffectiveParentPauseContext()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control());
+        var pausableChild = fixture.Track(new Control
+        {
+            ProcessMode = ProcessModeEnum.Pausable
+        });
+        var whenPausedChild = fixture.Track(new Control
+        {
+            ProcessMode = ProcessModeEnum.WhenPaused
+        });
+        try
+        {
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    PauseTree = true
+                }).Handle!.Value;
+
+            var rejected = fixture.Host.TryPresent(
+                pausableChild,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Parent = parent,
+                    ProcessPolicy = UIProcessPolicy.PreserveAndValidate
+                });
+            var accepted = fixture.Host.TryPresent(
+                whenPausedChild,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = parent,
+                    ProcessPolicy = UIProcessPolicy.PreserveAndValidate
+                });
+
+            AssertThat(rejected.Status).IsEqual(UIScreenOpenStatus.InvalidProcessPolicy);
+            AssertThat(rejected.Handle).IsNull();
+            AssertThat(pausableChild.GetParent()).IsNull();
+            AssertThat(pausableChild.ProcessMode).IsEqual(ProcessModeEnum.Pausable);
+            AssertThat(accepted.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(whenPausedChild.ProcessMode).IsEqual(ProcessModeEnum.WhenPaused);
+        }
+        finally
+        {
+            fixture.Dispose();
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    [TestCase]
+    public async Task PreserveAndValidate_PauseOnlyCandidateUsesPostOpenContext()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var pausable = fixture.Track(new Control
+        {
+            ProcessMode = ProcessModeEnum.Pausable
+        });
+        var whenPaused = fixture.Track(new Control
+        {
+            ProcessMode = ProcessModeEnum.WhenPaused
+        });
+        try
+        {
+            var rejected = fixture.Host.TryPresent(
+                pausable,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    PauseTree = true,
+                    ProcessPolicy = UIProcessPolicy.PreserveAndValidate
+                });
+            var accepted = fixture.Host.TryPresent(
+                whenPaused,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    PauseTree = true,
+                    ProcessPolicy = UIProcessPolicy.PreserveAndValidate
+                });
+
+            AssertThat(rejected.Status).IsEqual(UIScreenOpenStatus.InvalidProcessPolicy);
+            AssertThat(rejected.Handle).IsNull();
+            AssertThat(pausable.GetParent()).IsNull();
+            AssertThat(pausable.ProcessMode).IsEqual(ProcessModeEnum.Pausable);
+            AssertThat(accepted.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(whenPaused.ProcessMode).IsEqual(ProcessModeEnum.WhenPaused);
+        }
+        finally
+        {
+            fixture.Dispose();
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    [TestCase]
     public async Task Present_DuplicateKindAndRegisteredNode_DoNotMutateRejectedView()
     {
         var fixture = await UIScreenHostTestSupport.CreateHost(this);

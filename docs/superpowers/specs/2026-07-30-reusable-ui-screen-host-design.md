@@ -1059,12 +1059,20 @@ closed, external views are detached, leases and snapshots are restored, and
 host bindings are finalized. After preparation begins, opens are rejected and
 subsequent typed deletion or `_ExitTree()` performs no second cleanup.
 
+A distinct active-finalization guard spans focus-restoration completion, state
+lease restoration, focus teardown, sink/binding cleanup, and readiness reset.
+User focus/state callbacks may re-enter during those steps; every such call
+returns `Deferred`. The finalized flag is published only as the last successful
+step. If a callback throws, the exception propagates, the active guard resets,
+`Complete` remains unpublished, and a later owner retry resumes finalization.
+
 ### 17.6 Mutation queue
 
 - current mutation completes before queued mutation;
 - closing handle is immediately ineligible for input;
 - duplicate queued closes collapse;
 - teardown rejects opens;
+- active finalization is non-reentrant and publishes completion last;
 - restoration leases are generation-tagged;
 - effective state publishes only after consistent completion.
 - focus bookkeeping is committed before any effective-state or gameplay-block

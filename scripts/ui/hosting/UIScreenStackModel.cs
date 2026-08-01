@@ -173,10 +173,11 @@ internal sealed class UIScreenStackModel
 
     private bool InputPrecedes(UIScreenEntrySnapshot first, UIScreenEntrySnapshot second)
     {
-        var firstDepth = GetDepth(first);
-        var secondDepth = GetDepth(second);
-        if (firstDepth != secondDepth)
-            return firstDepth > secondDepth;
+        if (IsDescendantOrSelf(first, second.Handle))
+            return true;
+
+        if (IsDescendantOrSelf(second, first.Handle))
+            return false;
 
         if (first.Policy.InputPriority != second.Policy.InputPriority)
             return first.Policy.InputPriority > second.Policy.InputPriority;

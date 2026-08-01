@@ -140,17 +140,18 @@ public partial class UIScreenHost : Control
             return opened;
 
         var handle = opened.Handle.Value;
+        _adapters.Add(handle, adapter);
         view.SetMeta(ViewOwnerMeta, GetInstanceId());
         var applyStatus = adapter.Apply();
         if (applyStatus != UIScreenOpenStatus.Opened)
         {
+            _adapters.Remove(handle);
             _model.Close(handle);
             adapter.RollbackRegistration();
             ReleaseOwnership(view);
             return new(applyStatus, null);
         }
 
-        _adapters.Add(handle, adapter);
         Action treeExiting = () => OnViewTreeExiting(handle);
         adapter.TreeExitingHandler = treeExiting;
         view.TreeExiting += treeExiting;

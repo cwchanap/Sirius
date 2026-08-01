@@ -185,6 +185,82 @@ public partial class UIScreenHostLifecycleTest : Node
     }
 
     [TestCase]
+    public async Task LowerLayerEffects_OwnerOpenedFromTargetReadyPublishesCompleteEffects()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var ownerView = fixture.Track(new Control());
+        var target = fixture.Track(new OpensOwnerOnReadyControl
+        {
+            Host = fixture.Host,
+            OwnerView = ownerView
+        });
+        var ownerPublicationSawCompleteEffects = false;
+        var shield = fixture.Host.GetNode<Control>("InputShield");
+        fixture.Host.EffectiveStateChanged += state =>
+        {
+            if (state.TopInputOwner?.Kind != UIScreenKinds.Pause)
+                return;
+
+            ownerPublicationSawCompleteEffects =
+                !target.IsProcessingInput() && shield.Visible;
+        };
+        try
+        {
+            var result = fixture.Host.TryPresent(
+                target,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = target.SetProcessInput
+                });
+
+            AssertThat(result.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(target.OwnerResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(2);
+            AssertThat(target.IsProcessingInput()).IsFalse();
+            AssertThat(shield.Visible).IsTrue();
+            AssertThat(ownerPublicationSawCompleteEffects).IsTrue();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task LowerLayerEffects_OwnerOpenedFromTargetReadyRejectsMissingAdapterAtomically()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var ownerView = fixture.Track(new Control());
+        var target = fixture.Track(new OpensOwnerOnReadyControl
+        {
+            Host = fixture.Host,
+            OwnerView = ownerView
+        });
+        try
+        {
+            var result = fixture.Host.TryPresent(
+                target,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud
+                });
+
+            AssertThat(result.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(target.OwnerResult.Status)
+                .IsEqual(UIScreenOpenStatus.MissingRequiredAdapter);
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(ownerView.GetParent()).IsNull();
+            AssertThat(target.IsProcessingInput()).IsTrue();
+            AssertThat(fixture.Host.GetNode<Control>("InputShield").Visible).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task PauseLease_RestoresIncomingFalse()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
@@ -609,6 +685,25 @@ public partial class UIScreenHostLifecycleTest : Node
         {
             WasReady = true;
             SetProcessInput(true);
+        }
+    }
+
+    private sealed partial class OpensOwnerOnReadyControl : Control
+    {
+        public UIScreenHost Host { get; init; } = null!;
+        public Control OwnerView { get; init; } = null!;
+        public UIScreenOpenResult OwnerResult { get; private set; }
+
+        public override void _Ready()
+        {
+            SetProcessInput(true);
+            OwnerResult = Host.TryPresent(
+                OwnerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
         }
     }
 }

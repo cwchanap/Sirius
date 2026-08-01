@@ -219,15 +219,18 @@ or teardown.
 
 | Policy | Registered mode and validity |
 |---|---|
-| `PreserveAndValidate` | preserves the incoming mode only when it can run in the effective post-open pause context |
+| `PreserveAndValidate` | preserves the incoming mode only when it satisfies both immediate aggregate pause and lifetime-bounded pause requirements |
 | `InheritHost` | sets `Inherit`; invalid when the effective paused context would inherit from a Pausable attachment parent |
 | `Pausable` | sets `Pausable`; invalid when the effective post-open context is paused |
-| `WhenPaused` | sets `WhenPaused`; valid only when the effective post-open context is paused |
+| `WhenPaused` | sets `WhenPaused`; valid only when the candidate owns pause or descends from an active pausing ancestor |
 | `Always` | sets `Always` |
 
-The effective post-open pause context is the reduction of every active entry
-plus the candidate. A non-pausing child beneath an active Pause therefore
-validates as paused: `Pausable` is rejected and `WhenPaused` is accepted. A
+Pausable modes use the immediate post-open pause reduction of every active
+entry plus the candidate, because they must be able to process as soon as they
+open. WhenPaused modes require a stronger lifetime bound: the candidate must
+own pause or have a direct/transitive logical ancestor that owns pause. Closing
+that ancestor also closes the candidate, so it cannot outlive its process
+context. An unrelated root cannot borrow another root's temporary pause. A
 pause-owning candidate is evaluated as paused even when no prior pause lease
 exists.
 

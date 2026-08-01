@@ -529,16 +529,18 @@ Rules:
 3. Control parented elsewhere returns `InvalidControlParentage`;
 4. embedded Window requires embedding and parents beneath host;
 5. disabled embedding returns `UnsupportedSubwindowMode`;
-6. process policy snapshots/restores exact mode and validates against the
-   effective post-open pause reduction (active entries plus candidate);
+6. process policy snapshots/restores exact mode; Pausable modes validate
+   against the immediate post-open pause reduction, while WhenPaused modes
+   require candidate-owned pause or a direct/transitive pausing ancestor;
 7. an unusable policy returns `InvalidProcessPolicy` before model mutation.
 
 - [ ] **Step 6: Implement atomic registration and close skeleton**
 
 `TryPresent` sequence: reject an active close drain with `HostMutating` →
-validate host/node → normalize → build adapter against the effective post-open
-pause context → model open → prepare focus/sink → attach/apply process → store
-adapter → subscribe `TreeExiting` → recompute. Focus/sink preparation occurs
+validate host/node → normalize → build adapter against immediate aggregate
+pause and lifetime-bounded ancestor pause contexts → model open → prepare
+focus/sink → attach/apply process → store adapter → subscribe `TreeExiting` →
+recompute. Focus/sink preparation occurs
 only after pure-model acceptance so every rejected open is a synchronous atomic
 no-op. Roll back model and adapter snapshot if post-open setup fails.
 

@@ -346,6 +346,133 @@ public partial class UIScreenHostProcessModeTest : Node
     }
 
     [TestCase]
+    public async Task PreserveAndValidate_UnrelatedWhenPausedCannotBorrowTemporaryPause()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var pauseView = fixture.Track(new Control());
+        var unrelated = fixture.Track(new Control
+        {
+            ProcessMode = ProcessModeEnum.WhenPaused
+        });
+        try
+        {
+            var pause = fixture.Host.TryPresent(
+                pauseView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    PauseTree = true
+                });
+            AssertThat(pause.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            var rejected = fixture.Host.TryPresent(
+                unrelated,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = null,
+                    PauseTree = false,
+                    ProcessPolicy = UIProcessPolicy.PreserveAndValidate
+                });
+
+            AssertThat(rejected.Status).IsEqual(UIScreenOpenStatus.InvalidProcessPolicy);
+            AssertThat(rejected.Handle).IsNull();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(unrelated.GetParent()).IsNull();
+            AssertThat(unrelated.ProcessMode).IsEqual(ProcessModeEnum.WhenPaused);
+        }
+        finally
+        {
+            fixture.Dispose();
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    [TestCase]
+    public async Task PreserveAndValidate_UnrelatedPausableRejectsImmediateAggregatePause()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var pauseView = fixture.Track(new Control());
+        var unrelated = fixture.Track(new Control
+        {
+            ProcessMode = ProcessModeEnum.Pausable
+        });
+        try
+        {
+            var pause = fixture.Host.TryPresent(
+                pauseView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    PauseTree = true
+                });
+            AssertThat(pause.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            var rejected = fixture.Host.TryPresent(
+                unrelated,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = null,
+                    PauseTree = false,
+                    ProcessPolicy = UIProcessPolicy.PreserveAndValidate
+                });
+
+            AssertThat(rejected.Status).IsEqual(UIScreenOpenStatus.InvalidProcessPolicy);
+            AssertThat(rejected.Handle).IsNull();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(unrelated.GetParent()).IsNull();
+            AssertThat(unrelated.ProcessMode).IsEqual(ProcessModeEnum.Pausable);
+        }
+        finally
+        {
+            fixture.Dispose();
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    [TestCase]
+    public async Task PreserveAndValidate_TransitivePausingAncestorBoundsWhenPausedLifetime()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var pauseView = fixture.Track(new Control());
+        var intermediateView = fixture.Track(new Control());
+        var descendant = fixture.Track(new Control
+        {
+            ProcessMode = ProcessModeEnum.WhenPaused
+        });
+        try
+        {
+            var pause = fixture.Host.TryPresent(
+                pauseView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    PauseTree = true
+                }).Handle!.Value;
+            var intermediate = fixture.Host.TryPresent(
+                intermediateView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Parent = pause,
+                    PauseTree = false
+                }).Handle!.Value;
+
+            var opened = fixture.Host.TryPresent(
+                descendant,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = intermediate,
+                    PauseTree = false,
+                    ProcessPolicy = UIProcessPolicy.PreserveAndValidate
+                });
+
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(descendant.ProcessMode).IsEqual(ProcessModeEnum.WhenPaused);
+        }
+        finally
+        {
+            fixture.Dispose();
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    [TestCase]
     public async Task PreserveAndValidate_PauseOnlyCandidateUsesPostOpenContext()
     {
         var fixture = await UIScreenHostTestSupport.CreateHost(this);

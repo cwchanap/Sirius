@@ -13,18 +13,23 @@ public static class UIScreenHostTestSupport
         var scene = GD.Load<PackedScene>("res://scenes/ui/UIScreenHost.tscn")
             ?? throw new InvalidOperationException("Failed to load UIScreenHost.tscn.");
         var host = scene.Instantiate<UIScreenHost>();
+        var sceneHudRoot = host.GetNode<Control>("HUDLayer");
         var configuredCoreActions = coreActions == null
             ? new HashSet<StringName>()
             : new HashSet<StringName>(coreActions);
-        host.Configure(options ?? new UIScreenHostOptions
+        var configuredOptions = options ?? new UIScreenHostOptions
         {
-            HudRoot = host.GetNode<Control>("HUDLayer"),
+            HudRoot = sceneHudRoot,
             CoreCancelActions = configuredCoreActions
-        });
+        };
+        host.Configure(configuredOptions);
         var tree = (SceneTree)Engine.GetMainLoop();
         var hostParent = owner.IsInsideTree() ? owner : tree.Root;
         hostParent.AddChild(host);
-        var fixture = new HostFixture(host, coreActions);
+        var fixture = new HostFixture(
+            host,
+            configuredOptions.HudRoot ?? sceneHudRoot,
+            coreActions);
         await owner.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
         return fixture;
     }
@@ -91,13 +96,17 @@ public sealed class HostFixture : IDisposable
     private readonly Dictionary<StringName, InputActionSnapshot> _inputActions = new();
     private readonly List<Node> _trackedViews = new();
     private bool _disposed;
+    private bool _environmentRestored;
 
-    internal HostFixture(UIScreenHost host, IEnumerable<StringName>? coreActions)
+    internal HostFixture(
+        UIScreenHost host,
+        Control hudRoot,
+        IEnumerable<StringName>? coreActions)
     {
         Host = host;
         _tree = host.GetTree();
         _viewport = host.GetViewport();
-        HudRoot = host.GetNode<Control>("HUDLayer");
+        HudRoot = hudRoot;
         _incomingPaused = _tree.Paused;
         _incomingMouseMode = Input.MouseMode;
         _incomingEmbedSubwindows = _viewport.GuiEmbedSubwindows;
@@ -134,7 +143,7 @@ public sealed class HostFixture : IDisposable
         if (!InputMap.HasAction(action))
             InputMap.AddAction(action);
 
-        InputMap.ActionAddEvent(action, (InputEvent)inputEvent.Duplicate());
+        _inputActions[action].Inject(action, inputEvent);
     }
 
     public void Dispose()
@@ -143,7 +152,6 @@ public sealed class HostFixture : IDisposable
             return;
 
         _disposed = true;
-        _tree.Paused = false;
 
         foreach (var view in _trackedViews)
         {
@@ -151,9 +159,25 @@ public sealed class HostFixture : IDisposable
                 view.QueueFree();
         }
 
+        if (GodotObject.IsInstanceValid(Host) && Host.IsInsideTree())
+        {
+            Host.TreeExited += RestoreEnvironment;
+            if (!Host.IsQueuedForDeletion())
+                Host.QueueFree();
+            return;
+        }
+
         if (GodotObject.IsInstanceValid(Host) && !Host.IsQueuedForDeletion())
             Host.QueueFree();
+        RestoreEnvironment();
+    }
 
+    private void RestoreEnvironment()
+    {
+        if (_environmentRestored)
+            return;
+
+        _environmentRestored = true;
         foreach (var (action, snapshot) in _inputActions)
             snapshot.Restore(action);
 
@@ -166,42 +190,52 @@ public sealed class HostFixture : IDisposable
         _tree.Paused = _incomingPaused;
     }
 
-    private sealed record InputActionSnapshot(
-        bool Existed,
-        float Deadzone,
-        IReadOnlyList<InputEvent> Events)
+    private sealed class InputActionSnapshot
     {
-        public static InputActionSnapshot Capture(StringName action)
-        {
-            var existed = InputMap.HasAction(action);
-            var events = new List<InputEvent>();
-            if (existed)
-            {
-                foreach (var inputEvent in InputMap.ActionGetEvents(action))
-                    events.Add((InputEvent)inputEvent.Duplicate());
-            }
+        private readonly bool _existed;
+        private readonly HashSet<ulong> _injectedEventInstanceIds = new();
 
-            return new InputActionSnapshot(
-                existed,
-                existed ? InputMap.ActionGetDeadzone(action) : 0.5f,
-                events.AsReadOnly());
+        private InputActionSnapshot(bool existed) => _existed = existed;
+
+        public static InputActionSnapshot Capture(StringName action)
+            => new(InputMap.HasAction(action));
+
+        public void Inject(StringName action, InputEvent inputEvent)
+        {
+            if (InputMap.ActionHasEvent(action, inputEvent))
+                return;
+
+            var injected = (InputEvent)inputEvent.Duplicate();
+            var instanceId = injected.GetInstanceId();
+            InputMap.ActionAddEvent(action, injected);
+            foreach (var currentEvent in InputMap.ActionGetEvents(action))
+            {
+                if (currentEvent.GetInstanceId() == instanceId)
+                {
+                    _injectedEventInstanceIds.Add(instanceId);
+                    break;
+                }
+            }
         }
 
         public void Restore(StringName action)
         {
-            if (!Existed)
+            if (!_existed)
             {
                 if (InputMap.HasAction(action))
                     InputMap.EraseAction(action);
                 return;
             }
 
-            if (!InputMap.HasAction(action))
-                InputMap.AddAction(action);
-            InputMap.ActionSetDeadzone(action, Deadzone);
-            InputMap.ActionEraseEvents(action);
-            foreach (var inputEvent in Events)
-                InputMap.ActionAddEvent(action, (InputEvent)inputEvent.Duplicate());
+            if (!InputMap.HasAction(action) || _injectedEventInstanceIds.Count == 0)
+                return;
+
+            foreach (var currentEvent in InputMap.ActionGetEvents(action))
+            {
+                if (_injectedEventInstanceIds.Contains(currentEvent.GetInstanceId()))
+                    InputMap.ActionEraseEvent(action, currentEvent);
+            }
+            _injectedEventInstanceIds.Clear();
         }
     }
 }

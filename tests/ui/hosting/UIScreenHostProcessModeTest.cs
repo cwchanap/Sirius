@@ -522,7 +522,11 @@ public partial class UIScreenHostProcessModeTest : Node
         AssertThat(InputMap.HasAction(action)).IsFalse();
         var incomingPaused = tree.Paused;
         var incomingMouseMode = Input.MouseMode;
-        var fixture = await UIScreenHostTestSupport.CreateHost(this, new[] { action });
+        var externalHud = new Control();
+        var fixture = await UIScreenHostTestSupport.CreateHost(
+            this,
+            new[] { action },
+            new UIScreenHostOptions { HudRoot = externalHud });
         var incomingEmbed = fixture.Viewport.GuiEmbedSubwindows;
         var incomingHud = fixture.HudRoot.Visible;
 
@@ -533,13 +537,14 @@ public partial class UIScreenHostProcessModeTest : Node
         fixture.Viewport.GuiEmbedSubwindows = !incomingEmbed;
         fixture.HudRoot.Visible = !incomingHud;
         fixture.Dispose();
+        await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
 
         AssertThat(tree.Paused).IsEqual(incomingPaused);
         AssertThat(Input.MouseMode).IsEqual(incomingMouseMode);
         AssertThat(fixture.Viewport.GuiEmbedSubwindows).IsEqual(incomingEmbed);
         AssertThat(fixture.HudRoot.Visible).IsEqual(incomingHud);
         AssertThat(InputMap.HasAction(action)).IsFalse();
-        await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+        externalHud.Free();
     }
 
     private sealed partial class QueueFreeOnEnterControl : Control

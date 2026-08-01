@@ -468,7 +468,9 @@ public enum UINodeLifetime
 }
 ```
 
-- `External`: caller owns disposal; host removes registration only.
+- `External`: caller owns disposal; terminal close removes registration and
+  detaches the view when it remains under the host attachment parent. Failed
+  registration rollback alone preserves caller-preparented parentage.
 - `Hide`: host hides the view on terminal close.
 - `QueueFree`: host queues the view after cleanup.
 
@@ -948,7 +950,11 @@ Passive entries cannot request focus. They register for lifetime and diagnostics
 but never schedule initial acquisition, steal an existing focus owner, or create a
 restoration lease when they close.
 
-Initial-focus deferral has no cancel barrier. The entry becomes logical owner synchronously. Deferred callbacks carry the handle token and no-op after close.
+Initial-focus deferral has no cancel barrier. The entry becomes logical owner
+synchronously. Deferred callbacks carry the handle token and no-op after close
+or after a higher entry becomes the current top input owner. A lower entry must
+never transiently steal focus from a higher owner opened re-entrantly during
+attachment or `_Ready()`.
 
 ### 16.4 Restoration
 
@@ -1015,17 +1021,27 @@ When a registered node exits or becomes invalid outside host close:
 `UIScreenHost` exposes this public lifecycle API:
 
 ```csharp
-public void PrepareForTeardown();
+public enum UIScreenTeardownPreparationStatus
+{
+    Deferred,
+    Complete
+}
+
+public UIScreenTeardownPreparationStatus PrepareForTeardown();
 ```
 
-Every containing scene owner **must** call `PrepareForTeardown()` synchronously
-before it queues or frees the containing scene or any ancestor of the host.
-HPA-379 integrations own this call at each scene-navigation/deletion boundary.
+Every containing scene owner **must** call `PrepareForTeardown()` before it
+queues or frees the containing scene or any ancestor of the host, and may
+proceed with deletion only after the call returns `Complete`. A re-entrant call
+from an active close/cleanup mutation returns `Deferred`; the owner must defer
+and retry after the current mutation finishes. HPA-379 integrations own this
+completion check and retry at each scene-navigation/deletion boundary.
 Godot recursively starts deleting children before the host receives
 `_ExitTree()`, so `_ExitTree()` is only a defensive idempotent fallback and
 cannot preserve an externally owned direct-child embedded Window by itself.
 The typed `UIScreenHost.QueueFree()` convenience calls `PrepareForTeardown()`
-before delegating to Godot, but it does not replace the scene-owner obligation.
+and queues deletion only for `Complete`; it does not replace the scene-owner
+obligation.
 
 Prepared teardown:
 
@@ -1038,8 +1054,10 @@ Prepared teardown:
 - subscriptions and dynamic sinks are removed;
 - externally owned views are not freed.
 
-The method is idempotent. After it begins, opens are rejected and subsequent
-typed deletion or `_ExitTree()` performs no second cleanup.
+The method is idempotent. `Complete` means the model is empty, all adapters are
+closed, external views are detached, leases and snapshots are restored, and
+host bindings are finalized. After preparation begins, opens are rejected and
+subsequent typed deletion or `_ExitTree()` performs no second cleanup.
 
 ### 17.6 Mutation queue
 
@@ -1110,11 +1128,11 @@ Host-owned root Pause changes runtime behavior: current Pause does not pause `Sc
 | Embedded Window assumption | host misses events in detached OS window | explicit embed setting, runtime validation, rejection test |
 | Dropped restoration callback | Cancel swallowed permanently | restoration lease with guaranteed completion |
 | Mixed legacy/host cancel ownership | duplicate terminal outcomes | one-owner migration rule and physical-input tests |
-| Scene deletion bypasses prepared teardown | external embedded Window is recursively freed before host cleanup | every scene owner calls `PrepareForTeardown()` synchronously before deleting its containing scene |
+| Scene deletion bypasses completed teardown preparation | external embedded Window is recursively freed before host cleanup | every scene owner deletes only after `PrepareForTeardown()` returns `Complete`; `Deferred` schedules a later retry outside the active mutation |
 
 ### 19.2 HPA-379 first-migration sequence
 
-1. Wire each scene owner to call `UIScreenHost.PrepareForTeardown()` before every containing-scene deletion or navigation handoff.
+1. Wire each scene owner to call `UIScreenHost.PrepareForTeardown()` before every containing-scene deletion or navigation handoff, proceed only on `Complete`, and defer/retry on `Deferred`.
 2. Inventory and characterize every explicit/effective Always node in Game and floor scenes.
 3. Normalize runtime GridMap to Inherit/Pausable while retaining editor-only preview behavior.
 4. Make `HUDLayer` explicitly Pausable and verify HUD rendering versus processing under pause.

@@ -1119,6 +1119,58 @@ public partial class UIScreenHostLifecycleTest : Node
     }
 
     [TestCase]
+    public async Task PrepareForTeardown_ReentrantCleanupReportsDeferredThenCompleteBeforeOwnerDeletion()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var sceneOwner = new Node();
+        tree.Root.AddChild(sceneOwner);
+        var fixture = await UIScreenHostTestSupport.CreateHost(sceneOwner);
+        fixture.Viewport.GuiEmbedSubwindows = true;
+        var window = fixture.Track(new Window { Visible = true });
+        var childView = fixture.Track(new Control());
+        UIScreenTeardownPreparationStatus? duringCleanup = null;
+        try
+        {
+            var parent = fixture.Host.TryPresent(
+                window,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveLoad)).Handle!.Value;
+            var child = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = parent,
+                    Cleanup = _ =>
+                        duringCleanup = fixture.Host.PrepareForTeardown()
+                }).Handle!.Value;
+
+            var closeResult = fixture.Host.TryClose(
+                child,
+                UIScreenCloseReason.Programmatic);
+
+            AssertThat(closeResult.Status).IsEqual(UIScreenCloseStatus.Closed);
+            AssertThat(duringCleanup).IsEqual(
+                UIScreenTeardownPreparationStatus.Deferred);
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
+            AssertThat(fixture.Host.PrepareForTeardown()).IsEqual(
+                UIScreenTeardownPreparationStatus.Complete);
+            AssertThat(window.GetParent()).IsNull();
+
+            sceneOwner.QueueFree();
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(GodotObject.IsInstanceValid(window)).IsTrue();
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(fixture.Host))
+                fixture.Host.PrepareForTeardown();
+            if (GodotObject.IsInstanceValid(sceneOwner) && !sceneOwner.IsQueuedForDeletion())
+                sceneOwner.QueueFree();
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task HostTeardown_DetachesPreParentedExternalWindowBeforeDeletion()
     {
         var tree = (SceneTree)Engine.GetMainLoop();

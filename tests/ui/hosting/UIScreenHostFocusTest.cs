@@ -245,6 +245,53 @@ public partial class UIScreenHostFocusTest : Node
     }
 
     [TestCase]
+    public async Task DeferredInitialFocus_LowerReadyReentrantOpenCannotStealFromTopOwner()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var focusEvents = new List<string>();
+        var higherView = fixture.Track(new Control());
+        var higherTarget = new Button { FocusMode = Control.FocusModeEnum.All };
+        higherTarget.FocusEntered += () => focusEvents.Add("higher");
+        higherView.AddChild(higherTarget);
+        var lowerView = fixture.Track(new OpensHigherOwnerOnReadyControl
+        {
+            Host = fixture.Host,
+            HigherView = higherView,
+            HigherInitialFocus = () => higherTarget
+        });
+        var lowerTarget = new Button { FocusMode = Control.FocusModeEnum.All };
+        lowerTarget.FocusEntered += () => focusEvents.Add("lower");
+        lowerView.AddChild(lowerTarget);
+        try
+        {
+            var lowerResult = fixture.Host.TryPresent(
+                lowerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    InputPriority = UIInputPriority.Screen,
+                    InitialFocus = () => lowerTarget
+                });
+
+            AssertThat(lowerResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(lowerView.HigherResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.CurrentState.TopInputOwner).IsEqual(
+                lowerView.HigherResult.Handle);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(focusEvents.ToArray()).ContainsExactly("higher");
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(higherTarget);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task CloseChild_RestoresExplicitTargetBeforeCapturedParentFocus()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
@@ -707,6 +754,27 @@ public partial class UIScreenHostFocusTest : Node
         finally
         {
             await DisposeFixture(fixture);
+        }
+    }
+
+    private sealed partial class OpensHigherOwnerOnReadyControl : Control
+    {
+        public UIScreenHost Host { get; init; } = null!;
+        public Control HigherView { get; init; } = null!;
+        public System.Func<Control?> HigherInitialFocus { get; init; } = null!;
+        public UIScreenOpenResult HigherResult { get; private set; }
+
+        public override void _Ready()
+        {
+            HigherResult = Host.TryPresent(
+                HigherView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking,
+                    LowerLayers = UILowerLayerPolicy.VisibleInteractive,
+                    InitialFocus = HigherInitialFocus
+                });
         }
     }
 

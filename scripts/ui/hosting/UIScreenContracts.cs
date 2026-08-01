@@ -15,6 +15,7 @@ public enum UIInputDispatchResult { NoOwner, Consumed, ReservedForTopEntry }
 public enum UIRootCancelResult { Declined, Consumed }
 public enum UINodeLifetime { External, Hide, QueueFree }
 public enum UIScreenCloseReason { Cancel, ExplicitAction, Programmatic, NodeFreed, ParentClosed, HostTeardown }
+public enum UIScreenTeardownPreparationStatus { Deferred, Complete }
 
 public enum UIScreenOpenStatus
 {

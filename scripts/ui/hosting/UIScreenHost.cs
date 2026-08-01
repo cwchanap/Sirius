@@ -87,19 +87,30 @@ public partial class UIScreenHost : Control
     }
 
     // Godot queues an entire child subtree before this node receives _ExitTree().
-    // Start typed host deletion synchronously so external views can be detached first.
+    // Prepare before typed deletion; a re-entrant caller must retry after Deferred.
     public new void QueueFree()
     {
-        PrepareForTeardown();
+        if (PrepareForTeardown() != UIScreenTeardownPreparationStatus.Complete)
+            return;
+
         base.QueueFree();
     }
 
     /// <summary>
     /// Closes every hosted entry and restores host-owned state before a containing
-    /// scene is deleted. A scene owner must call this synchronously before it
-    /// queues or frees any ancestor of this host.
+    /// scene is deleted. A scene owner may queue or free an ancestor only after
+    /// this returns <see cref="UIScreenTeardownPreparationStatus.Complete"/>.
+    /// A re-entrant call from an active close callback returns
+    /// <see cref="UIScreenTeardownPreparationStatus.Deferred"/>; retry after the
+    /// current mutation finishes.
     /// </summary>
-    public void PrepareForTeardown() => BeginTeardown();
+    public UIScreenTeardownPreparationStatus PrepareForTeardown()
+    {
+        BeginTeardown();
+        return _teardownFinalized
+            ? UIScreenTeardownPreparationStatus.Complete
+            : UIScreenTeardownPreparationStatus.Deferred;
+    }
 
     public UIInputDispatchResult TryHandleInput(InputEvent inputEvent)
     {

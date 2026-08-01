@@ -8,7 +8,7 @@ internal sealed class UIScreenViewAdapter
     private readonly Node.ProcessModeEnum _incomingProcessMode;
     private readonly Node.ProcessModeEnum _registeredProcessMode;
     private bool _attachedByHost;
-    private bool _restored;
+    private bool _finished;
 
     private UIScreenViewAdapter(
         Node view,
@@ -102,7 +102,7 @@ internal sealed class UIScreenViewAdapter
 
             if (View.IsQueuedForDeletion() || View.GetParent() != _attachmentParent)
             {
-                Restore();
+                RollbackRegistration();
                 return UIScreenOpenStatus.InvalidNode;
             }
 
@@ -112,17 +112,32 @@ internal sealed class UIScreenViewAdapter
         catch (Exception exception)
         {
             GD.PushError($"UIScreenHost could not attach '{View.Name}': {exception.Message}");
-            Restore();
+            RollbackRegistration();
             return UIScreenOpenStatus.InvalidNode;
         }
     }
 
-    public void Restore()
+    public void RollbackRegistration()
     {
-        if (_restored)
+        if (_finished)
             return;
 
-        _restored = true;
+        _finished = true;
+        if (!GodotObject.IsInstanceValid(View))
+            return;
+
+        View.ProcessMode = _incomingProcessMode;
+
+        if (_attachedByHost && View.GetParent() == _attachmentParent)
+            _attachmentParent.RemoveChild(View);
+    }
+
+    public void Close()
+    {
+        if (_finished)
+            return;
+
+        _finished = true;
         if (!GodotObject.IsInstanceValid(View))
             return;
 

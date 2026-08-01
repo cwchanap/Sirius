@@ -107,6 +107,78 @@ public partial class UIScreenHostProcessModeTest : Node
         }
     }
 
+    [TestCase("shield_visible")]
+    [TestCase("shield_mouse")]
+    [TestCase("shield_focus")]
+    [TestCase("shield_layout")]
+    [TestCase("sink_hidden")]
+    [TestCase("sink_mouse")]
+    [TestCase("sink_focus")]
+    [TestCase("sink_size")]
+    [TestCase("sink_layout")]
+    public async Task Present_MalformedSafetyNodeProperty_IsRejectedWithoutMutation(
+        string malformedProperty)
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var scene = GD.Load<PackedScene>("res://scenes/ui/UIScreenHost.tscn")!;
+        var host = scene.Instantiate<UIScreenHost>();
+        var shield = host.GetNode<Control>("InputShield");
+        var sink = host.GetNode<Control>("FocusSink");
+        switch (malformedProperty)
+        {
+            case "shield_visible":
+                shield.Visible = true;
+                break;
+            case "shield_mouse":
+                shield.MouseFilter = Control.MouseFilterEnum.Ignore;
+                break;
+            case "shield_focus":
+                shield.FocusMode = Control.FocusModeEnum.All;
+                break;
+            case "shield_layout":
+                shield.AnchorRight = 0.5f;
+                break;
+            case "sink_hidden":
+                sink.Visible = false;
+                break;
+            case "sink_mouse":
+                sink.MouseFilter = Control.MouseFilterEnum.Stop;
+                break;
+            case "sink_focus":
+                sink.FocusMode = Control.FocusModeEnum.None;
+                break;
+            case "sink_size":
+                sink.CustomMinimumSize = Vector2.Zero;
+                sink.Size = new Vector2(2, 2);
+                break;
+            case "sink_layout":
+                sink.Position = new Vector2(2, 0);
+                break;
+        }
+
+        var view = new Control { ProcessMode = ProcessModeEnum.WhenPaused };
+        tree.Root.AddChild(host);
+        await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+        try
+        {
+            var result = host.TryPresent(
+                view,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause));
+
+            AssertThat(result.Status).IsEqual(UIScreenOpenStatus.MalformedHost);
+            AssertThat(result.Handle).IsNull();
+            AssertThat(host.ActiveEntries.Count).IsEqual(0);
+            AssertThat(view.GetParent()).IsNull();
+            AssertThat(view.ProcessMode).IsEqual(ProcessModeEnum.WhenPaused);
+        }
+        finally
+        {
+            view.Free();
+            host.Free();
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
     [TestCase]
     public async Task Present_InvalidNodeAndParentage_AreAtomicNoOps()
     {
@@ -322,6 +394,85 @@ public partial class UIScreenHostProcessModeTest : Node
     }
 
     [TestCase]
+    public async Task Present_AttachRejected_DoesNotApplyHideOrQueueFreeLifetime()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var hideView = fixture.Track(new DetachOnReadyControl
+        {
+            ProcessMode = ProcessModeEnum.WhenPaused,
+            Visible = true
+        });
+        var queueFreeView = fixture.Track(new DetachOnReadyControl
+        {
+            ProcessMode = ProcessModeEnum.Pausable,
+            Visible = true
+        });
+        try
+        {
+            var hideResult = fixture.Host.TryPresent(
+                hideView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    ProcessPolicy = UIProcessPolicy.Always,
+                    NodeLifetime = UINodeLifetime.Hide
+                });
+            var queueFreeResult = fixture.Host.TryPresent(
+                queueFreeView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    ProcessPolicy = UIProcessPolicy.Always,
+                    NodeLifetime = UINodeLifetime.QueueFree
+                });
+
+            AssertThat(hideResult.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(queueFreeResult.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
+            AssertThat(hideView.GetParent()).IsNull();
+            AssertThat(queueFreeView.GetParent()).IsNull();
+            AssertThat(hideView.ProcessMode).IsEqual(ProcessModeEnum.WhenPaused);
+            AssertThat(queueFreeView.ProcessMode).IsEqual(ProcessModeEnum.Pausable);
+            AssertThat(hideView.Visible).IsTrue();
+            AssertThat(queueFreeView.Visible).IsTrue();
+            AssertThat(hideView.IsQueuedForDeletion()).IsFalse();
+            AssertThat(queueFreeView.IsQueuedForDeletion()).IsFalse();
+        }
+        finally
+        {
+            fixture.Dispose();
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    [TestCase]
+    public async Task Present_ViewReentersDuringReady_IsAlreadyReservedByHost()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var view = fixture.Track(new ReentrantOnReadyControl
+        {
+            Host = fixture.Host
+        });
+        try
+        {
+            var outerResult = fixture.Host.TryPresent(
+                view,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause));
+
+            AssertThat(outerResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(view.ReentrantResult.Status)
+                .IsEqual(UIScreenOpenStatus.NodeAlreadyRegistered);
+            AssertThat(view.ReentrantResult.Handle).IsNull();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(fixture.Host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+            AssertThat(fixture.Host.IsKindActive(UIScreenKinds.Settings)).IsFalse();
+        }
+        finally
+        {
+            fixture.Dispose();
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    [TestCase]
     public async Task Close_Parent_CleansDescendantsInModelOrderAndRestoresViews()
     {
         var fixture = await UIScreenHostTestSupport.CreateHost(this);
@@ -394,5 +545,23 @@ public partial class UIScreenHostProcessModeTest : Node
     private sealed partial class QueueFreeOnEnterControl : Control
     {
         public override void _EnterTree() => QueueFree();
+    }
+
+    private sealed partial class DetachOnReadyControl : Control
+    {
+        public override void _Ready() => GetParent()?.RemoveChild(this);
+    }
+
+    private sealed partial class ReentrantOnReadyControl : Control
+    {
+        public UIScreenHost Host { get; init; } = null!;
+        public UIScreenOpenResult ReentrantResult { get; private set; }
+
+        public override void _Ready()
+        {
+            ReentrantResult = Host.TryPresent(
+                this,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings));
+        }
     }
 }

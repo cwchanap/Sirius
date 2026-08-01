@@ -7,11 +7,20 @@ public static class UIScreenHostTestSupport
 {
     public static async Task<HostFixture> CreateHost(
         Node owner,
-        IEnumerable<StringName>? coreActions = null)
+        IEnumerable<StringName>? coreActions = null,
+        UIScreenHostOptions? options = null)
     {
         var scene = GD.Load<PackedScene>("res://scenes/ui/UIScreenHost.tscn")
             ?? throw new InvalidOperationException("Failed to load UIScreenHost.tscn.");
         var host = scene.Instantiate<UIScreenHost>();
+        var configuredCoreActions = coreActions == null
+            ? new HashSet<StringName>()
+            : new HashSet<StringName>(coreActions);
+        host.Configure(options ?? new UIScreenHostOptions
+        {
+            HudRoot = host.GetNode<Control>("HUDLayer"),
+            CoreCancelActions = configuredCoreActions
+        });
         var tree = (SceneTree)Engine.GetMainLoop();
         var hostParent = owner.IsInsideTree() ? owner : tree.Root;
         hostParent.AddChild(host);
@@ -48,6 +57,27 @@ public static class UIScreenHostTestSupport
 
     public static IReadOnlyList<UIScreenEntrySnapshot> Snapshots(
         params UIScreenEntrySnapshot[] entries) => entries;
+
+    public static InputEventAction ActionPress(StringName action) => new()
+    {
+        Action = action,
+        Pressed = true
+    };
+
+    public static InputEventKey EscapeBoundTo(
+        HostFixture fixture,
+        params StringName[] actions)
+    {
+        var binding = new InputEventKey { PhysicalKeycode = Key.Escape };
+        foreach (var action in actions)
+            fixture.BindAction(action, binding);
+
+        return new InputEventKey
+        {
+            PhysicalKeycode = Key.Escape,
+            Pressed = true
+        };
+    }
 }
 
 public sealed class HostFixture : IDisposable
@@ -95,6 +125,16 @@ public sealed class HostFixture : IDisposable
     {
         _trackedViews.Add(view);
         return view;
+    }
+
+    internal void BindAction(StringName action, InputEvent inputEvent)
+    {
+        if (!_inputActions.ContainsKey(action))
+            _inputActions[action] = InputActionSnapshot.Capture(action);
+        if (!InputMap.HasAction(action))
+            InputMap.AddAction(action);
+
+        InputMap.ActionAddEvent(action, (InputEvent)inputEvent.Duplicate());
     }
 
     public void Dispose()

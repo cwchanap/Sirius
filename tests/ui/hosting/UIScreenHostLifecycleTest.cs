@@ -588,6 +588,73 @@ public partial class UIScreenHostLifecycleTest : Node
     }
 
     [TestCase]
+    public async Task SceneOwnerPrepareForTeardown_PreservesExternalWindowAcrossSceneDeletion()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var sceneOwner = new Node();
+        tree.Root.AddChild(sceneOwner);
+        var fixture = await UIScreenHostTestSupport.CreateHost(sceneOwner);
+        fixture.Viewport.GuiEmbedSubwindows = true;
+        var window = fixture.Track(new Window { Visible = true });
+        var cleanupReasons = new List<UIScreenCloseReason>();
+        try
+        {
+            var opened = fixture.Host.TryPresent(
+                window,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveLoad) with
+                {
+                    Cleanup = cleanupReasons.Add
+                });
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            fixture.Host.PrepareForTeardown();
+
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
+            AssertThat(cleanupReasons.ToArray()).ContainsExactly(
+                UIScreenCloseReason.HostTeardown);
+            AssertThat(window.GetParent()).IsNull();
+
+            sceneOwner.QueueFree();
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(GodotObject.IsInstanceValid(window)).IsTrue();
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(fixture.Host))
+                fixture.Host.PrepareForTeardown();
+            if (GodotObject.IsInstanceValid(sceneOwner) && !sceneOwner.IsQueuedForDeletion())
+                sceneOwner.QueueFree();
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task PrepareForTeardown_DetachesPreParentedExternalControl()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var control = fixture.Track(new Control { Visible = true });
+        var screenLayer = fixture.Host.GetNode<Control>("ScreenLayer");
+        screenLayer.AddChild(control);
+        try
+        {
+            var opened = fixture.Host.TryPresent(
+                control,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory));
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            fixture.Host.PrepareForTeardown();
+
+            AssertThat(GodotObject.IsInstanceValid(control)).IsTrue();
+            AssertThat(control.GetParent()).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task HostTeardown_RestoresAllActiveLeaseBaselines()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
@@ -965,6 +1032,9 @@ public partial class UIScreenHostLifecycleTest : Node
             AssertThat(windowResult.Status).IsEqual(UIScreenOpenStatus.Opened);
             window.Show();
             var shield = fixture.Host.GetNode<Control>("InputShield");
+            var shieldParent = shield.GetParent();
+            var shieldIndex = shield.GetIndex();
+            var shieldProcessMode = shield.ProcessMode;
             var ownerResult = fixture.Host.TryPresent(
                 owner,
                 UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
@@ -978,6 +1048,13 @@ public partial class UIScreenHostLifecycleTest : Node
             AssertThat(shield.Visible).IsTrue();
             AssertThat(window.GuiDisableInput).IsTrue();
             AssertThat(window.Unfocusable).IsTrue();
+
+            fixture.Host.PrepareForTeardown();
+
+            AssertThat(shield.Visible).IsFalse();
+            AssertThat(shield.GetParent()).IsEqual(shieldParent);
+            AssertThat(shield.GetIndex()).IsEqual(shieldIndex);
+            AssertThat(shield.ProcessMode).IsEqual(shieldProcessMode);
 
             fixture.Host.QueueFree();
             await ToSignal(tree, SceneTree.SignalName.ProcessFrame);

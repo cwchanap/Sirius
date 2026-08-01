@@ -90,9 +90,16 @@ public partial class UIScreenHost : Control
     // Start typed host deletion synchronously so external views can be detached first.
     public new void QueueFree()
     {
-        BeginTeardown();
+        PrepareForTeardown();
         base.QueueFree();
     }
+
+    /// <summary>
+    /// Closes every hosted entry and restores host-owned state before a containing
+    /// scene is deleted. A scene owner must call this synchronously before it
+    /// queues or frees any ancestor of this host.
+    /// </summary>
+    public void PrepareForTeardown() => BeginTeardown();
 
     public UIInputDispatchResult TryHandleInput(InputEvent inputEvent)
     {
@@ -180,8 +187,8 @@ public partial class UIScreenHost : Control
         Action treeExiting = () => OnViewTreeExiting(handle);
         adapter.TreeExitingHandler = treeExiting;
         view.TreeExiting += treeExiting;
-        Recompute();
         _focusCoordinator.Register(handle, adapter, normalized.Policy, focusPreparation);
+        Recompute();
         return opened;
     }
 
@@ -263,7 +270,7 @@ public partial class UIScreenHost : Control
 
     public override void _ExitTree()
     {
-        BeginTeardown();
+        PrepareForTeardown();
     }
 
     private void BeginTeardown()
@@ -435,7 +442,8 @@ public partial class UIScreenHost : Control
             request.Handle,
             null,
             null,
-            null);
+            null,
+            false);
         _focusCoordinator.BeginRestoration(requestedFocusState);
         Recompute();
 

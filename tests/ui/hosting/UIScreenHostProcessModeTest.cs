@@ -216,7 +216,7 @@ public partial class UIScreenHostProcessModeTest : Node
     }
 
     [TestCase]
-    public async Task Present_ControlAlreadyUnderExactLayer_IsAcceptedWithoutDetachingOnClose()
+    public async Task Present_ControlAlreadyUnderExactLayer_IsAcceptedAndDetachedOnClose()
     {
         var fixture = await UIScreenHostTestSupport.CreateHost(this);
         var layer = fixture.Host.GetNode<Control>("ScreenLayer");
@@ -236,7 +236,7 @@ public partial class UIScreenHostProcessModeTest : Node
 
             AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
             AssertThat(closed.Status).IsEqual(UIScreenCloseStatus.Closed);
-            AssertThat(view.GetParent()).IsEqual(layer);
+            AssertThat(view.GetParent()).IsNull();
             AssertThat(view.ProcessMode).IsEqual(ProcessModeEnum.Pausable);
         }
         finally

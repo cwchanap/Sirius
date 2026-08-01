@@ -690,11 +690,14 @@ git commit -m "feat: apply UIScreenHost layer effects"
 **Files:**
 - Create: `scripts/ui/hosting/UIScreenFocusCoordinator.cs`
 - Modify: `scripts/ui/hosting/UIScreenHost.cs`
+- Modify: `scripts/ui/hosting/UIScreenViewAdapter.cs`
 - Create: `tests/ui/hosting/UIScreenHostFocusTest.cs`
 - Modify: `tests/ui/hosting/UIScreenHostLifecycleTest.cs`
+- Modify: `tests/ui/hosting/UIScreenHostProcessModeTest.cs`
+- Modify: `docs/superpowers/specs/2026-07-30-reusable-ui-screen-host-design.md`
 
 **Interfaces:**
-- Produces per-viewport focus records, visible sinks, generation-tagged lease, mutation queue, pruning, teardown, and diagnostics.
+- Produces per-viewport focus records, visible sinks, generation-tagged lease, mutation queue, pruning, mandatory scene-owner `PrepareForTeardown()`, and diagnostics.
 
 - [ ] **Step 1: Write failing focus/sink tests**
 
@@ -702,7 +705,7 @@ A blocking Control with no focusable child uses root sink. A blocking Window cre
 
 - [ ] **Step 2: Write focus-order and lease tests**
 
-Restoration order: explicit target → captured parent focus → parent initial target → first descendant → correct sink → release. Test valid target, freed target, teardown, re-entrant supersession, stale callback, duplicate close, and next Cancel after invalidation.
+Restoration order: explicit target → captured parent focus → parent initial target → first descendant → correct sink → release. Test valid target, synchronously disposed target, teardown, re-entrant supersession, stale callback, duplicate close, and next Cancel after invalidation. Prove passive entries neither acquire focus nor create a restoration barrier.
 
 - [ ] **Step 3: Implement records**
 
@@ -739,7 +742,7 @@ private void CompleteRestoration(long generation, UIScreenHandle closedHandle)
 
 - [ ] **Step 4: Implement mutation/lifecycle rules**
 
-Use one guarded queue. Mark handles closing before callbacks. Deduplicate closes. On `TreeExiting`, close descendants, prune model, run cleanup once, recompute, and complete restoration. On `_ExitTree`, disable input, reject opens, close topmost-first, complete lease, restore snapshots, unsubscribe, and remove sinks.
+Use one guarded queue. Mark handles closing before callbacks. Deduplicate closes. Commit focus bookkeeping before invoking any publication callback. On `TreeExiting`, close descendants, prune model, run cleanup once, recompute, and complete restoration. Expose idempotent `PrepareForTeardown()`; every HPA-379 scene owner must call it synchronously before deleting the containing scene. It disables input, rejects opens, closes topmost-first, completes leases, restores snapshots, unsubscribes, detaches external Controls/Windows, and removes sinks. Typed host deletion calls it automatically; `_ExitTree()` remains a defensive fallback, not the external-Window preservation boundary.
 
 - [ ] **Step 5: Implement immutable diagnostics**
 

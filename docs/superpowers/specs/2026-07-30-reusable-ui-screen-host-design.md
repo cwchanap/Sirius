@@ -944,7 +944,9 @@ After a view is in-tree, presented, and interactive, acquisition is deferred:
 2. first valid focusable descendant;
 3. appropriate sink for a blocking entry.
 
-Passive entries cannot request focus.
+Passive entries cannot request focus. They register for lifetime and diagnostics,
+but never schedule initial acquisition, steal an existing focus owner, or create a
+restoration lease when they close.
 
 Initial-focus deferral has no cancel barrier. The entry becomes logical owner synchronously. Deferred callbacks carry the handle token and no-op after close.
 
@@ -960,6 +962,9 @@ After close and lower-layer restoration:
 6. release focus if no UI owner remains.
 
 Embedded parent presentation/interactivity restores before focus acquisition.
+Every declared or captured Godot target is checked with
+`GodotObject.IsInstanceValid()` before any member is dereferenced. An invalid
+target falls through to the next restoration candidate.
 
 ### 16.5 Restoration lease and guaranteed release
 
@@ -975,6 +980,7 @@ Invariant: every close path that acquires a restoration lease releases it exactl
 - `IsFocusRestorationPending` is derived from the active lease record, not independently mutated.
 
 Matching Cancel is consumed only while a live lease exists.
+Closing a passive entry never acquires or supersedes a restoration lease.
 
 Named tests cover target deletion, host teardown, re-entrant close, duplicate close, and stale callback execution, and prove core Cancel works again after every path.
 
@@ -982,7 +988,7 @@ Named tests cover target deletion, host teardown, re-entrant close, duplicate cl
 
 ### 17.1 Control attachment
 
-An unparented Control is attached to its declared host layer. A Control already under that layer may register without reparenting. A Control parented elsewhere is rejected.
+An unparented Control is attached to its declared host layer. A Control already under that layer may register without reparenting. A Control parented elsewhere is rejected. On terminal close or prepared teardown, every externally owned Control is detached from the layer even when the caller pre-parented it; failed-registration rollback alone preserves the original parentage.
 
 ### 17.2 Embedded Window registration
 
@@ -1004,9 +1010,24 @@ When a registered node exits or becomes invalid outside host close:
 6. restoration lease either restores focus or completes without target;
 7. next valid owner regains input.
 
-### 17.5 Teardown
+### 17.5 Mandatory scene-owner teardown
 
-On host `_ExitTree()`:
+`UIScreenHost` exposes this public lifecycle API:
+
+```csharp
+public void PrepareForTeardown();
+```
+
+Every containing scene owner **must** call `PrepareForTeardown()` synchronously
+before it queues or frees the containing scene or any ancestor of the host.
+HPA-379 integrations own this call at each scene-navigation/deletion boundary.
+Godot recursively starts deleting children before the host receives
+`_ExitTree()`, so `_ExitTree()` is only a defensive idempotent fallback and
+cannot preserve an externally owned direct-child embedded Window by itself.
+The typed `UIScreenHost.QueueFree()` convenience calls `PrepareForTeardown()`
+before delegating to Godot, but it does not replace the scene-owner obligation.
+
+Prepared teardown:
 
 - input dispatch is disabled;
 - entries close topmost-first with `HostTeardown`;
@@ -1017,6 +1038,9 @@ On host `_ExitTree()`:
 - subscriptions and dynamic sinks are removed;
 - externally owned views are not freed.
 
+The method is idempotent. After it begins, opens are rejected and subsequent
+typed deletion or `_ExitTree()` performs no second cleanup.
+
 ### 17.6 Mutation queue
 
 - current mutation completes before queued mutation;
@@ -1025,6 +1049,9 @@ On host `_ExitTree()`:
 - teardown rejects opens;
 - restoration leases are generation-tagged;
 - effective state publishes only after consistent completion.
+- focus bookkeeping is committed before any effective-state or gameplay-block
+  callback can re-enter; callbacks and diagnostics therefore observe one
+  complete transaction, and a re-entrant close cannot leave stale sinks.
 
 ## 18. Legacy compatibility and HPA-379 flow contract
 
@@ -1083,20 +1110,22 @@ Host-owned root Pause changes runtime behavior: current Pause does not pause `Sc
 | Embedded Window assumption | host misses events in detached OS window | explicit embed setting, runtime validation, rejection test |
 | Dropped restoration callback | Cancel swallowed permanently | restoration lease with guaranteed completion |
 | Mixed legacy/host cancel ownership | duplicate terminal outcomes | one-owner migration rule and physical-input tests |
+| Scene deletion bypasses prepared teardown | external embedded Window is recursively freed before host cleanup | every scene owner calls `PrepareForTeardown()` synchronously before deleting its containing scene |
 
 ### 19.2 HPA-379 first-migration sequence
 
-1. Inventory and characterize every explicit/effective Always node in Game and floor scenes.
-2. Normalize runtime GridMap to Inherit/Pausable while retaining editor-only preview behavior.
-3. Make `HUDLayer` explicitly Pausable and verify HUD rendering versus processing under pause.
-4. Introduce the composed root `IsGameplayInputBlocked` predicate and replace scattered input guards.
-5. Integrate the host with `PauseTree=false` for existing flows and prove cancel/focus/lifecycle parity.
-6. Remove direct Inventory pause ownership.
-7. Enable `PauseTree=true` for root Pause and gameplay-opened Inventory.
-8. Add child Settings/Save/Load/confirmation flows while the Pause parent retains the pause lease.
-9. Run real-scene physical-input and timing tests before removing remaining legacy ladders.
+1. Wire each scene owner to call `UIScreenHost.PrepareForTeardown()` before every containing-scene deletion or navigation handoff.
+2. Inventory and characterize every explicit/effective Always node in Game and floor scenes.
+3. Normalize runtime GridMap to Inherit/Pausable while retaining editor-only preview behavior.
+4. Make `HUDLayer` explicitly Pausable and verify HUD rendering versus processing under pause.
+5. Introduce the composed root `IsGameplayInputBlocked` predicate and replace scattered input guards.
+6. Integrate the host with `PauseTree=false` for existing flows and prove cancel/focus/lifecycle parity.
+7. Remove direct Inventory pause ownership.
+8. Enable `PauseTree=true` for root Pause and gameplay-opened Inventory.
+9. Add child Settings/Save/Load/confirmation flows while the Pause parent retains the pause lease.
+10. Run real-scene physical-input and timing tests before removing remaining legacy ladders.
 
-No root Pause migration may enable tree pause before steps 1–4 pass.
+No root Pause migration may enable tree pause before steps 1–5 pass.
 
 ## 20. Host option examples
 

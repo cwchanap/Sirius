@@ -19,7 +19,8 @@ internal sealed record UIFocusCloseState(
     UIScreenHandle Handle,
     UIScreenViewAdapter? Adapter,
     UIFocusRecord? ParentRecord,
-    Viewport? ClosedViewport);
+    Viewport? ClosedViewport,
+    bool RequiresRestoration);
 
 internal sealed class UIScreenFocusCoordinator
 {
@@ -116,7 +117,8 @@ internal sealed class UIScreenFocusCoordinator
             policy,
             preparation.DynamicSink,
             preparation.ParentRecord));
-        Callable.From(() => ApplyInitialFocus(handle)).CallDeferred();
+        if (policy.InputPriority != UIInputPriority.Passive)
+            Callable.From(() => ApplyInitialFocus(handle)).CallDeferred();
     }
 
     public void DiscardPreparation(UIFocusPreparation preparation) =>
@@ -125,7 +127,7 @@ internal sealed class UIScreenFocusCoordinator
     public UIFocusCloseState CloseEntry(UIScreenHandle handle)
     {
         if (!_entries.Remove(handle, out var entry))
-            return new UIFocusCloseState(handle, null, null, null);
+            return new UIFocusCloseState(handle, null, null, null, false);
 
         var viewport = SafeFocusViewport(entry.Adapter);
         RemoveSink(entry.DynamicSink);
@@ -133,11 +135,15 @@ internal sealed class UIScreenFocusCoordinator
             handle,
             entry.Adapter,
             entry.ParentRecord,
-            viewport);
+            viewport,
+            entry.Policy.InputPriority != UIInputPriority.Passive);
     }
 
     public void BeginRestoration(UIFocusCloseState closeState)
     {
+        if (!closeState.RequiresRestoration)
+            return;
+
         if (_activeLease != null)
             CompleteRestoration(_activeLease.Generation, _activeLease.ClosedHandle);
 
@@ -331,7 +337,10 @@ internal sealed class UIScreenFocusCoordinator
 
         try
         {
-            return target();
+            var control = target();
+            return control != null && GodotObject.IsInstanceValid(control)
+                ? control
+                : null;
         }
         catch (Exception exception)
         {

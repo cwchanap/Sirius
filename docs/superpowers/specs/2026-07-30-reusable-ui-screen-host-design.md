@@ -389,7 +389,7 @@ public enum UIProcessPolicy
 }
 ```
 
-- `PreserveAndValidate`: keep the view's current `ProcessMode`; reject registration if it cannot process in the effective post-open pause context reduced from every active entry plus the candidate.
+- `PreserveAndValidate`: keep the view's current `ProcessMode`; Pausable modes must satisfy the immediate post-open pause reduction, while WhenPaused modes require candidate-owned pause or a direct/transitive pausing ancestor that bounds their lifetime.
 - `InheritHost`: set or require `ProcessMode.Inherit`; active UI layers make the view Always.
 - `Pausable`: process only while the tree is unpaused.
 - `WhenPaused`: process only while the tree is paused; valid only for a pause-only view that is never used in an unpaused context.
@@ -397,10 +397,13 @@ public enum UIProcessPolicy
 
 The adapter snapshots any process mode it changes and restores the exact value on unregister or teardown.
 
-The candidate's effective pause context includes an active ancestor/global host
-pause lease, not only its own `PauseTree` declaration. Thus a Pausable child of
-Pause is rejected while a WhenPaused child is accepted, and a pause-owning
-candidate is validated as paused even with no prior pause owner.
+The candidate's immediate pause context includes every active pause owner, not
+only its own `PauseTree` declaration, so a Pausable entry is rejected whenever
+the tree will be paused as it opens. WhenPaused requires the stronger logical
+lifetime bound: the candidate owns pause or descends, possibly transitively,
+from an active pausing ancestor whose close cascades to the candidate. A
+WhenPaused child of Pause is accepted, an unrelated root cannot borrow Pause's
+temporary context, and a pause-owning candidate is valid with no prior owner.
 
 Reusable Settings, Save/Load, confirmation, and dialog views normally use `InheritHost` or `Always` because they can appear under both Main Menu and Pause. `HUDLayer` is a separate explicitly Pausable subtree.
 

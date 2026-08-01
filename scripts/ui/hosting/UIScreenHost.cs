@@ -158,25 +158,27 @@ public partial class UIScreenHost : Control
             return new(UIScreenOpenStatus.InvalidSpecification, null);
 
         var layer = _layers[normalized.Policy.Layer];
-        var postOpenPauseTree = normalized.Policy.PauseTree;
-        if (!postOpenPauseTree)
+        var isPausedAfterOpen = normalized.Policy.PauseTree;
+        if (!isPausedAfterOpen)
         {
             foreach (var active in _model.Entries)
             {
                 if (active.Policy.PauseTree)
                 {
-                    postOpenPauseTree = true;
+                    isPausedAfterOpen = true;
                     break;
                 }
             }
         }
+        var hasPauseBoundedLifetime = HasPauseBoundedLifetime(normalized.Policy);
         var adapterStatus = UIScreenViewAdapter.TryCreate(
             this,
             layer,
             view,
             spec,
             normalized.Policy,
-            postOpenPauseTree,
+            isPausedAfterOpen,
+            hasPauseBoundedLifetime,
             out var adapter);
         if (adapterStatus != UIScreenOpenStatus.Opened || adapter == null)
             return new(adapterStatus, null);
@@ -219,6 +221,35 @@ public partial class UIScreenHost : Control
         _focusCoordinator.Register(handle, adapter, normalized.Policy, focusPreparation);
         Recompute();
         return opened;
+    }
+
+    private bool HasPauseBoundedLifetime(UIScreenEntryPolicy candidate)
+    {
+        if (candidate.PauseTree)
+            return true;
+
+        var parent = candidate.Parent;
+        while (parent.HasValue)
+        {
+            UIScreenEntryPolicy? parentPolicy = null;
+            foreach (var active in _model.Entries)
+            {
+                if (active.Handle == parent.Value)
+                {
+                    parentPolicy = active.Policy;
+                    break;
+                }
+            }
+
+            if (parentPolicy == null)
+                return false;
+            if (parentPolicy.PauseTree)
+                return true;
+
+            parent = parentPolicy.Parent;
+        }
+
+        return false;
     }
 
     public UIScreenCloseResult TryClose(

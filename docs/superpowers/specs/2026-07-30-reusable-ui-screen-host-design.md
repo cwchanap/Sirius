@@ -1,6 +1,6 @@
 # HPA-378 Reusable UI Screen Host Design
 
-**Status:** Proposed design  
+**Status:** Approved design
 **Date:** 2026-07-30  
 **Issue:** HPA-378  
 **Repository:** `cwchanap/Sirius`  

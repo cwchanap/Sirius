@@ -33,6 +33,7 @@ public partial class UIScreenHost : Control
     private bool _ready;
     private bool _malformed = true;
     private bool _tearingDown;
+    private bool _finalizingTeardown;
     private bool _teardownFinalized;
     private bool _drainingCloseQueue;
 
@@ -100,9 +101,11 @@ public partial class UIScreenHost : Control
     /// Closes every hosted entry and restores host-owned state before a containing
     /// scene is deleted. A scene owner may queue or free an ancestor only after
     /// this returns <see cref="UIScreenTeardownPreparationStatus.Complete"/>.
-    /// A re-entrant call from an active close callback returns
+    /// A re-entrant call from an active close or finalization callback returns
     /// <see cref="UIScreenTeardownPreparationStatus.Deferred"/>; retry after the
-    /// current mutation finishes.
+    /// current operation finishes. If a finalization callback throws, the
+    /// exception propagates without publishing completion and a later call may
+    /// retry finalization.
     /// </summary>
     public UIScreenTeardownPreparationStatus PrepareForTeardown()
     {
@@ -287,7 +290,10 @@ public partial class UIScreenHost : Control
     private void BeginTeardown()
     {
         if (_tearingDown)
+        {
+            FinalizeTeardown();
             return;
+        }
 
         _tearingDown = true;
         if (!_drainingCloseQueue && _model.Entries.Count != 0)
@@ -301,17 +307,28 @@ public partial class UIScreenHost : Control
 
     private void FinalizeTeardown()
     {
-        if (_teardownFinalized || _drainingCloseQueue || _model.Entries.Count != 0)
+        if (_teardownFinalized || _finalizingTeardown ||
+            _drainingCloseQueue || _model.Entries.Count != 0)
+        {
             return;
+        }
 
-        _teardownFinalized = true;
-        _focusCoordinator.CompleteActiveRestoration();
-        RestoreStateLeases();
-        _focusCoordinator.Teardown();
-        _inputShield = null;
-        _inputShieldParent = null;
-        _layers.Clear();
-        _ready = false;
+        _finalizingTeardown = true;
+        try
+        {
+            _focusCoordinator.CompleteActiveRestoration();
+            RestoreStateLeases();
+            _focusCoordinator.Teardown();
+            _inputShield = null;
+            _inputShieldParent = null;
+            _layers.Clear();
+            _ready = false;
+            _teardownFinalized = true;
+        }
+        finally
+        {
+            _finalizingTeardown = false;
+        }
     }
 
     private bool TryBindRequiredNodes()

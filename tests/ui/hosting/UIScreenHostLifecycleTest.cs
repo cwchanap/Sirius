@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using GdUnit4;
@@ -1103,7 +1104,6 @@ public partial class UIScreenHostLifecycleTest : Node
                 }).Handle!.Value;
 
             var result = fixture.Host.TryClose(child, UIScreenCloseReason.Programmatic);
-            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
 
             AssertThat(result.Status).IsEqual(UIScreenCloseStatus.Closed);
             AssertThat(cleanup.ToArray()).ContainsExactly(
@@ -1111,6 +1111,16 @@ public partial class UIScreenHostLifecycleTest : Node
                 "parent:HostTeardown");
             AssertThat(parentView.GetParent()).IsNull();
             AssertThat(childView.GetParent()).IsNull();
+            AssertThat(GodotObject.IsInstanceValid(fixture.Host)).IsTrue();
+            AssertThat(fixture.Host.IsQueuedForDeletion()).IsFalse();
+            AssertThat(fixture.Host.PrepareForTeardown()).IsEqual(
+                UIScreenTeardownPreparationStatus.Complete);
+
+            fixture.Host.QueueFree();
+            AssertThat(fixture.Host.IsQueuedForDeletion()).IsTrue();
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(GodotObject.IsInstanceValid(fixture.Host)).IsFalse();
         }
         finally
         {
@@ -1167,6 +1177,70 @@ public partial class UIScreenHostLifecycleTest : Node
             if (GodotObject.IsInstanceValid(sceneOwner) && !sceneOwner.IsQueuedForDeletion())
                 sceneOwner.QueueFree();
             await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task PrepareForTeardown_FinalizationCallbackDefersAndFailedAttemptMustRetry()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var incomingPaused = tree.Paused;
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var view = fixture.Track(new Control());
+        UIScreenTeardownPreparationStatus? duringFinalization = null;
+        var sawPending = false;
+        var throwOnce = true;
+        string? thrownMessage = null;
+        try
+        {
+            tree.Paused = false;
+            var opened = fixture.Host.TryPresent(
+                view,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    PauseTree = true
+                });
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(tree.Paused).IsTrue();
+
+            fixture.Host.EffectiveStateChanged += state =>
+            {
+                if (state.IsFocusRestorationPending)
+                {
+                    sawPending = true;
+                    return;
+                }
+
+                if (!sawPending || !throwOnce)
+                    return;
+
+                throwOnce = false;
+                duringFinalization = fixture.Host.PrepareForTeardown();
+                throw new InvalidOperationException("expected finalization callback failure");
+            };
+
+            try
+            {
+                fixture.Host.PrepareForTeardown();
+            }
+            catch (InvalidOperationException exception)
+            {
+                thrownMessage = exception.Message;
+            }
+
+            AssertThat(sawPending).IsTrue();
+            AssertThat(thrownMessage).IsEqual("expected finalization callback failure");
+            AssertThat(duringFinalization).IsEqual(
+                UIScreenTeardownPreparationStatus.Deferred);
+
+            AssertThat(fixture.Host.PrepareForTeardown()).IsEqual(
+                UIScreenTeardownPreparationStatus.Complete);
+            AssertThat(tree.Paused).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+            tree.Paused = incomingPaused;
         }
     }
 

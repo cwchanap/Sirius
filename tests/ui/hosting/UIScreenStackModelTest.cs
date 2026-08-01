@@ -163,6 +163,24 @@ public partial class UIScreenStackModelTest : Node
     }
 
     [TestCase]
+    public void InputOrder_UnrelatedBlockingRootPrecedesScreenChild()
+    {
+        var model = new UIScreenStackModel();
+        var pause = model.Open(UIScreenHostTestSupport.Policy(UIScreenKinds.Pause)).Handle!.Value;
+        var settings = model.Open(UIScreenHostTestSupport.Policy(UIScreenKinds.Settings) with
+        {
+            Parent = pause
+        }).Handle!.Value;
+        var transition = model.Open(UIScreenHostTestSupport.Policy(UIScreenKinds.Transition) with
+        {
+            InputPriority = UIInputPriority.Blocking
+        }).Handle!.Value;
+
+        AssertThat(model.InputOrder.Select(entry => entry.Handle).ToArray())
+            .ContainsExactly(transition, settings, pause);
+    }
+
+    [TestCase]
     public void InputOrder_UsesPriorityBeforePresentationSequence()
     {
         var model = new UIScreenStackModel();

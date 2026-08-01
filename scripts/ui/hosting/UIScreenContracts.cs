@@ -32,7 +32,8 @@ public enum UIScreenOpenStatus
     UnsupportedSubwindowMode,
     InvalidProcessPolicy,
     InvalidSpecification,
-    MalformedHost
+    MalformedHost,
+    HostMutating
 }
 
 public enum UIScreenCloseStatus { Closed, AlreadyClosed, StaleHandle, HostTearingDown }

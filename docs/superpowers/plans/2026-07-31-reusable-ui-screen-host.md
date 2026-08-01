@@ -204,7 +204,8 @@ public enum UIScreenOpenStatus
     UnsupportedSubwindowMode,
     InvalidProcessPolicy,
     InvalidSpecification,
-    MalformedHost
+    MalformedHost,
+    HostMutating
 }
 ```
 
@@ -528,12 +529,18 @@ Rules:
 3. Control parented elsewhere returns `InvalidControlParentage`;
 4. embedded Window requires embedding and parents beneath host;
 5. disabled embedding returns `UnsupportedSubwindowMode`;
-6. process policy snapshots/restores exact mode;
+6. process policy snapshots/restores exact mode and validates against the
+   effective post-open pause reduction (active entries plus candidate);
 7. an unusable policy returns `InvalidProcessPolicy` before model mutation.
 
 - [ ] **Step 6: Implement atomic registration and close skeleton**
 
-`TryPresent` sequence: validate host/node → normalize → build adapter → model open → attach/apply process → store adapter → subscribe `TreeExiting` → recompute. Roll back model and adapter snapshot if post-open setup fails.
+`TryPresent` sequence: reject an active close drain with `HostMutating` →
+validate host/node → normalize → build adapter against the effective post-open
+pause context → model open → prepare focus/sink → attach/apply process → store
+adapter → subscribe `TreeExiting` → recompute. Focus/sink preparation occurs
+only after pure-model acceptance so every rejected open is a synchronous atomic
+no-op. Roll back model and adapter snapshot if post-open setup fails.
 
 `TryClose` obtains model close cascade and cleans each returned snapshot in order, but later tasks fill state/focus/lifecycle details.
 
@@ -706,7 +713,7 @@ A blocking Control with no focusable child uses root sink. A blocking Window cre
 
 - [ ] **Step 2: Write focus-order and lease tests**
 
-Restoration order: explicit target → captured parent focus → parent initial target → first descendant → correct sink → release. Test valid target, synchronously disposed target, teardown, re-entrant supersession, stale callback, duplicate close, and next Cancel after invalidation. Prove passive entries neither acquire focus nor create a restoration barrier. Prove a lower entry's deferred acquisition no-ops when a higher current owner opened re-entrantly from `_Ready()`.
+Restoration order: explicit target → captured parent focus → parent initial target → first descendant → correct sink → release. Test valid target, synchronously disposed target, teardown, re-entrant supersession without an intermediate false barrier publication, stale callback, duplicate close, and next Cancel after invalidation. Prove passive entries neither acquire focus nor create a restoration barrier. Prove a lower entry's deferred acquisition no-ops when a higher current owner opened re-entrantly from `_Ready()`.
 
 - [ ] **Step 3: Implement records**
 
@@ -743,7 +750,22 @@ private void CompleteRestoration(long generation, UIScreenHandle closedHandle)
 
 - [ ] **Step 4: Implement mutation/lifecycle rules**
 
-Use one guarded queue. Mark handles closing before callbacks. Deduplicate closes. Commit focus bookkeeping before invoking any publication callback. On `TreeExiting`, close descendants, prune model, run cleanup once, recompute, and complete restoration. Expose idempotent `PrepareForTeardown()` returning `Complete` or `Deferred`; every HPA-379 scene owner may delete the containing scene only after `Complete`, and must defer/retry outside the active mutation after `Deferred`. A distinct finalization guard must cover focus/state callbacks and all binding cleanup, with `Complete` published only as the last successful step; exceptions leave completion unpublished and allow a later retry. Completed preparation disables input, rejects opens, closes topmost-first, completes leases, restores snapshots, unsubscribes, detaches external Controls/Windows, and removes sinks. Typed host deletion queues only after `Complete`; `_ExitTree()` remains a defensive fallback, not the external-Window preservation boundary.
+Use one guarded queue. Mark handles closing before callbacks. Deduplicate closes.
+Reject `TryPresent` during the active close drain with `HostMutating`; do not
+defer it implicitly, and allow an owner retry only after the transaction
+returns. Commit focus bookkeeping before invoking any publication callback. On
+`TreeExiting`, close descendants, prune model, run cleanup once, recompute, and
+complete restoration. Expose idempotent `PrepareForTeardown()` returning
+`Complete` or `Deferred`; every HPA-379 scene owner may delete the containing
+scene only after `Complete`, and must defer/retry outside the active mutation
+after `Deferred`. A distinct finalization guard must cover focus/state callbacks
+and all binding cleanup, with `Complete` published only as the last successful
+step; exceptions, including user focus-provider exceptions, propagate, preserve
+retryable lease state, and leave completion unpublished. Completed preparation
+disables input, rejects opens, closes topmost-first, completes leases, restores
+snapshots, unsubscribes, detaches external Controls/Windows, and removes sinks.
+Typed host deletion queues only after `Complete`; `_ExitTree()` remains a
+defensive fallback, not the external-Window preservation boundary.
 
 - [ ] **Step 5: Implement immutable diagnostics**
 

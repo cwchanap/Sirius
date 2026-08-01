@@ -184,6 +184,50 @@ public partial class UIScreenHostSubwindowTest : Node
     }
 
     [TestCase]
+    public async Task Present_RejectedPreParentedBlockingWindow_IsSynchronousAtomicNoOp()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        fixture.Viewport.GuiEmbedSubwindows = true;
+        var activeView = fixture.Track(new Control());
+        var rejectedWindow = fixture.Track(new Window { Visible = true });
+        fixture.Host.AddChild(rejectedWindow);
+        var cleanupCount = 0;
+        try
+        {
+            var active = fixture.Host.TryPresent(
+                activeView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError));
+            AssertThat(active.Status).IsEqual(UIScreenOpenStatus.Opened);
+            var childrenBefore = fixture.Host.GetChildren();
+
+            var rejected = fixture.Host.TryPresent(
+                rejectedWindow,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking,
+                    Cleanup = _ => cleanupCount++
+                });
+
+            AssertThat(rejected.Status).IsEqual(UIScreenOpenStatus.DuplicateKind);
+            AssertThat(rejected.Handle).IsNull();
+            AssertThat(fixture.Host.GetChildren().Count).IsEqual(childrenBefore.Count);
+            for (var index = 0; index < childrenBefore.Count; index++)
+            {
+                AssertThat(fixture.Host.GetChild(index)).IsEqual(childrenBefore[index]);
+            }
+            AssertThat(rejectedWindow.GetChildCount()).IsEqual(0);
+            AssertThat(rejectedWindow.GetParent()).IsEqual(fixture.Host);
+            AssertThat(cleanupCount).IsEqual(0);
+        }
+        finally
+        {
+            fixture.Dispose();
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    [TestCase]
     public async Task PresentAndClose_EmbeddedWindowUsesHostProcessContextAndRestoresExactMode()
     {
         var fixture = await UIScreenHostTestSupport.CreateHost(this);

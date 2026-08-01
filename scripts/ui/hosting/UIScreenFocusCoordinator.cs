@@ -139,25 +139,40 @@ internal sealed class UIScreenFocusCoordinator
             entry.Policy.InputPriority != UIInputPriority.Passive);
     }
 
-    public void BeginRestoration(UIFocusCloseState closeState)
+    public void BeginRestoration(
+        UIFocusCloseState closeState,
+        bool scheduleDeferred = true)
     {
         if (!closeState.RequiresRestoration)
             return;
 
         if (_activeLease != null)
-            CompleteRestoration(_activeLease.Generation, _activeLease.ClosedHandle);
+        {
+            CompleteRestoration(
+                _activeLease.Generation,
+                _activeLease.ClosedHandle,
+                notifyHost: false);
+        }
 
         var generation = ++_nextGeneration;
         _activeLease = new UIFocusRestorationLease(generation, closeState.Handle);
         _activeCloseState = closeState;
-        Callable.From(() => CompleteRestoration(generation, closeState.Handle))
-            .CallDeferred();
+        if (scheduleDeferred)
+        {
+            Callable.From(() => CompleteRestoration(generation, closeState.Handle))
+                .CallDeferred();
+        }
     }
 
-    public void CompleteActiveRestoration()
+    public void CompleteActiveRestoration(bool propagateProviderExceptions = false)
     {
         if (_activeLease != null)
-            CompleteRestoration(_activeLease.Generation, _activeLease.ClosedHandle);
+        {
+            CompleteRestoration(
+                _activeLease.Generation,
+                _activeLease.ClosedHandle,
+                propagateProviderExceptions: propagateProviderExceptions);
+        }
     }
 
     public void Teardown()
@@ -171,33 +186,44 @@ internal sealed class UIScreenFocusCoordinator
         _host = null;
     }
 
-    private void CompleteRestoration(long generation, UIScreenHandle closedHandle)
+    private void CompleteRestoration(
+        long generation,
+        UIScreenHandle closedHandle,
+        bool notifyHost = true,
+        bool propagateProviderExceptions = false)
     {
+        var completed = false;
         try
         {
             if (_activeLease?.Generation != generation)
                 return;
 
-            RestoreBestAvailableTarget(closedHandle);
+            RestoreBestAvailableTarget(closedHandle, propagateProviderExceptions);
+            completed = true;
         }
         finally
         {
-            if (_activeLease?.Generation == generation)
+            if (completed && _activeLease?.Generation == generation)
             {
                 _activeLease = null;
                 _activeCloseState = null;
-                _host?.OnFocusRestorationCompleted();
+                if (notifyHost)
+                    _host?.OnFocusRestorationCompleted();
             }
         }
     }
 
-    private void RestoreBestAvailableTarget(UIScreenHandle closedHandle)
+    private void RestoreBestAvailableTarget(
+        UIScreenHandle closedHandle,
+        bool propagateProviderExceptions)
     {
         if (_activeCloseState?.Handle != closedHandle)
             return;
 
         var closeState = _activeCloseState;
-        var explicitTarget = SafeTarget(closeState.Adapter?.RestoreFocus);
+        var explicitTarget = SafeTarget(
+            closeState.Adapter?.RestoreFocus,
+            propagateProviderExceptions);
         if (TryFocus(explicitTarget, explicitTarget?.GetViewport()))
             return;
 
@@ -213,7 +239,9 @@ internal sealed class UIScreenFocusCoordinator
             _entries.TryGetValue(parentRecord.ParentHandle, out var parentEntry))
         {
             var parentViewport = SafeFocusViewport(parentEntry.Adapter);
-            var parentInitial = SafeTarget(parentEntry.Adapter.InitialFocus);
+            var parentInitial = SafeTarget(
+                parentEntry.Adapter.InitialFocus,
+                propagateProviderExceptions);
             if (parentViewport != null && TryFocus(parentInitial, parentViewport))
                 return;
         }
@@ -331,10 +359,20 @@ internal sealed class UIScreenFocusCoordinator
         }
     }
 
-    private static Control? SafeTarget(Func<Control?>? target)
+    private static Control? SafeTarget(
+        Func<Control?>? target,
+        bool propagateProviderExceptions = false)
     {
         if (target == null)
             return null;
+
+        if (propagateProviderExceptions)
+        {
+            var control = target();
+            return control != null && GodotObject.IsInstanceValid(control)
+                ? control
+                : null;
+        }
 
         try
         {

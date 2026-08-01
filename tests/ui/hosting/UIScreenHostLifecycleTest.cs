@@ -1129,6 +1129,57 @@ public partial class UIScreenHostLifecycleTest : Node
     }
 
     [TestCase]
+    public async Task Close_CleanupReentrantPresentRejectsHostMutatingUntilRetry()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var closingView = fixture.Track(new Control());
+        var candidateView = fixture.Track(new Control());
+        UIScreenOpenResult reentrant = default;
+        var publicationDuringCleanup = false;
+        var inCleanup = false;
+        fixture.Host.EffectiveStateChanged += _ =>
+        {
+            if (inCleanup)
+                publicationDuringCleanup = true;
+        };
+        try
+        {
+            var opened = fixture.Host.TryPresent(
+                closingView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Cleanup = _ =>
+                    {
+                        inCleanup = true;
+                        reentrant = fixture.Host.TryPresent(
+                            candidateView,
+                            UIScreenHostTestSupport.Spec(UIScreenKinds.Settings));
+                        inCleanup = false;
+                    }
+                }).Handle!.Value;
+
+            var closed = fixture.Host.TryClose(opened, UIScreenCloseReason.Programmatic);
+
+            AssertThat(closed.Status).IsEqual(UIScreenCloseStatus.Closed);
+            AssertThat(reentrant.Status).IsEqual(UIScreenOpenStatus.HostMutating);
+            AssertThat(reentrant.Handle).IsNull();
+            AssertThat(publicationDuringCleanup).IsFalse();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
+            AssertThat(candidateView.GetParent()).IsNull();
+
+            var retry = fixture.Host.TryPresent(
+                candidateView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings));
+            AssertThat(retry.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task PrepareForTeardown_ReentrantCleanupReportsDeferredThenCompleteBeforeOwnerDeletion()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
@@ -1322,7 +1373,7 @@ public partial class UIScreenHostLifecycleTest : Node
             AssertThat(cleanup.ToArray()).ContainsExactly(
                 "child:HostTeardown",
                 "parent:HostTeardown");
-            AssertThat(reopenStatus).IsEqual(UIScreenOpenStatus.MalformedHost);
+            AssertThat(reopenStatus).IsEqual(UIScreenOpenStatus.HostMutating);
             AssertThat(parentView.ProcessMode).IsEqual(ProcessModeEnum.Pausable);
             AssertThat(childWindow.ProcessMode).IsEqual(ProcessModeEnum.WhenPaused);
             AssertThat(parentView.GetParent()).IsNull();

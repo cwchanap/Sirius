@@ -78,6 +78,7 @@ internal sealed class UIScreenViewAdapter
         Node view,
         UIScreenEntrySpec spec,
         UIScreenEntryPolicy policy,
+        bool postOpenPauseTree,
         out UIScreenViewAdapter? adapter)
     {
         adapter = null;
@@ -106,6 +107,7 @@ internal sealed class UIScreenViewAdapter
             view.ProcessMode,
             attachmentParent.ProcessMode,
             policy,
+            postOpenPauseTree,
             out var registeredProcessMode);
         if (processStatus != UIScreenOpenStatus.Opened)
             return processStatus;
@@ -198,6 +200,7 @@ internal sealed class UIScreenViewAdapter
         Node.ProcessModeEnum incoming,
         Node.ProcessModeEnum parentMode,
         UIScreenEntryPolicy policy,
+        bool postOpenPauseTree,
         out Node.ProcessModeEnum registered)
     {
         registered = incoming;
@@ -205,9 +208,9 @@ internal sealed class UIScreenViewAdapter
         {
             case UIProcessPolicy.PreserveAndValidate:
                 if (incoming == Node.ProcessModeEnum.Disabled ||
-                    (policy.PauseTree && incoming == Node.ProcessModeEnum.Pausable) ||
-                    (!policy.PauseTree && incoming == Node.ProcessModeEnum.WhenPaused) ||
-                    (policy.PauseTree && incoming == Node.ProcessModeEnum.Inherit &&
+                    (postOpenPauseTree && incoming == Node.ProcessModeEnum.Pausable) ||
+                    (!postOpenPauseTree && incoming == Node.ProcessModeEnum.WhenPaused) ||
+                    (postOpenPauseTree && incoming == Node.ProcessModeEnum.Inherit &&
                      parentMode == Node.ProcessModeEnum.Pausable))
                 {
                     return UIScreenOpenStatus.InvalidProcessPolicy;
@@ -215,19 +218,19 @@ internal sealed class UIScreenViewAdapter
                 return UIScreenOpenStatus.Opened;
 
             case UIProcessPolicy.InheritHost:
-                if (policy.PauseTree && parentMode == Node.ProcessModeEnum.Pausable)
+                if (postOpenPauseTree && parentMode == Node.ProcessModeEnum.Pausable)
                     return UIScreenOpenStatus.InvalidProcessPolicy;
                 registered = Node.ProcessModeEnum.Inherit;
                 return UIScreenOpenStatus.Opened;
 
             case UIProcessPolicy.Pausable:
-                if (policy.PauseTree)
+                if (postOpenPauseTree)
                     return UIScreenOpenStatus.InvalidProcessPolicy;
                 registered = Node.ProcessModeEnum.Pausable;
                 return UIScreenOpenStatus.Opened;
 
             case UIProcessPolicy.WhenPaused:
-                if (!policy.PauseTree)
+                if (!postOpenPauseTree)
                     return UIScreenOpenStatus.InvalidProcessPolicy;
                 registered = Node.ProcessModeEnum.WhenPaused;
                 return UIScreenOpenStatus.Opened;

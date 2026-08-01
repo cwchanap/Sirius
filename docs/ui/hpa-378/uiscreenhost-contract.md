@@ -118,7 +118,15 @@ atomic no-op.
 | `UnsupportedSubwindowMode` | a Window was requested without embedded subwindows |
 | `InvalidProcessPolicy` | requested process policy cannot satisfy its pause context |
 | `InvalidSpecification` | normalized entry values violate the contract |
+| `HostMutating` | an open was attempted during an active close/cleanup transaction; retry after that transaction returns |
 | `MalformedHost` | required scene children are missing/wrong, host is not ready, or teardown began |
+
+`HostMutating` is an explicit synchronous rejection, never an implicit deferred
+open. The host does not queue the view or spec. In particular, cleanup code may
+request a later open only by returning from cleanup and retrying from its owner.
+Model acceptance precedes creation of any per-Window focus sink, so duplicate,
+compatibility, group, and parent rejection leave an already-in-tree Window's
+exact child list and lifecycle untouched.
 
 Close statuses are `Closed`, `AlreadyClosed`, `StaleHandle`, and
 `HostTearingDown`. Cleanup receives exactly one of `Cancel`, `ExplicitAction`,
@@ -211,11 +219,17 @@ or teardown.
 
 | Policy | Registered mode and validity |
 |---|---|
-| `PreserveAndValidate` | preserves the incoming mode only when it can run in the declared pause context |
-| `InheritHost` | sets `Inherit`; invalid only if a pausing entry would inherit from a Pausable attachment parent |
-| `Pausable` | sets `Pausable`; invalid when the entry itself requests `PauseTree` |
-| `WhenPaused` | sets `WhenPaused`; valid only when the entry requests `PauseTree` |
+| `PreserveAndValidate` | preserves the incoming mode only when it can run in the effective post-open pause context |
+| `InheritHost` | sets `Inherit`; invalid when the effective paused context would inherit from a Pausable attachment parent |
+| `Pausable` | sets `Pausable`; invalid when the effective post-open context is paused |
+| `WhenPaused` | sets `WhenPaused`; valid only when the effective post-open context is paused |
 | `Always` | sets `Always` |
+
+The effective post-open pause context is the reduction of every active entry
+plus the candidate. A non-pausing child beneath an active Pause therefore
+validates as paused: `Pausable` is rejected and `WhenPaused` is accepted. A
+pause-owning candidate is evaluated as paused even when no prior pause lease
+exists.
 
 Reusable Settings, Save/Load, and dialogs generally use `InheritHost` or
 `Always` because they can appear under both Main Menu and Pause. The host is the
@@ -326,10 +340,14 @@ Closing captures a generation-tagged restoration lease. Restoration order is:
 5. that entry's correct viewport sink when Blocking;
 6. release focus when no UI owner remains.
 
-Every Godot target is instance-validity checked before dereference. Each lease
-releases exactly once in `finally`; stale generations cannot clear newer work,
-duplicate closes cannot create another lease, teardown completes pending work,
-and no-target restoration still removes the temporary Cancel barrier.
+Every Godot target is instance-validity checked before dereference. Each
+ordinary runtime lease releases exactly once; stale generations cannot clear
+newer work, duplicate closes cannot create another lease, teardown completes
+pending work, and no-target restoration still removes the temporary Cancel
+barrier. Superseding restoration completes the prior generation without an
+intermediate state publication, installs the newer lease, then publishes once
+through the enclosing close transaction. Core Cancel therefore observes one
+continuous barrier across generations.
 
 ## Lifecycle and mandatory scene-owner teardown
 
@@ -366,7 +384,11 @@ Preparation disables input and rejects opens, closes entries topmost-first with
 Window state, removes subscriptions/sinks, and detaches externally owned views.
 `Complete` is published only after finalization succeeds. Re-entry from close,
 cleanup, state, or focus callbacks returns `Deferred`. If a finalization callback
-throws, completion remains unpublished and a later call retries.
+throws, completion remains unpublished and a later call retries. During this
+prepared-teardown boundary, exceptions from user `InitialFocus` or
+`RestoreFocus` providers propagate and retain the restoration lease for the
+retry; ordinary deferred runtime focus acquisition/restoration may log and use
+the safe fallback chain.
 
 HPA-379 must call this boundary before every navigation handoff or deletion of
 the containing scene/ancestor, proceed only after `Complete`, and schedule the
@@ -390,12 +412,18 @@ inspection. It includes:
 
 Diagnostics do not expose mutable internal collections or live Godot object
 references. Stable status codes—not log text—are the integration/test contract.
+A `HostMutating` rejection leaves the diagnostic snapshot unchanged; mutation
+phase is communicated by that synchronous result rather than a second mutable
+diagnostic flag.
 
 ## Compilable synthetic flow registrations
 
 The following class uses only synthetic Controls and embedded AcceptDialogs and
 compiles against the HPA-378 API. Production adapters may add flow-specific
 presentation, cleanup, and focus behaviour without changing the host contract.
+Callers must inspect each result. If it is `HostMutating`, they retain the
+unmodified view/spec and retry from the owning flow only after the current
+`TryClose` call has returned; they never retry inline from `Cleanup`.
 
 ```csharp
 using System.Collections.Generic;
@@ -636,6 +664,8 @@ or removing legacy authorities:
    domain battle flag clears; close it only when the view terminates.
 8. Run real-scene physical-input and timing regressions while keeping all
    HPA-376/HPA-378 synthetic contract tests green.
+9. Treat `HostMutating` as an explicit retry signal: never open from a managed
+   cleanup callback and never assume the host deferred a rejected open.
 
 HPA-378 intentionally performs no `Game.cs`, `MainMenu.cs`, floor,
 `project.godot`, or existing production screen-controller migration.

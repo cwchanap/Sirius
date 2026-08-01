@@ -133,6 +133,8 @@ public partial class UIScreenHost : Control
 
     public UIScreenOpenResult TryPresent(Node view, UIScreenEntrySpec spec)
     {
+        if (_drainingCloseQueue)
+            return new(UIScreenOpenStatus.HostMutating, null);
         if (!_ready || _tearingDown)
             return new(UIScreenOpenStatus.MalformedHost, null);
         if (_malformed)
@@ -156,12 +158,25 @@ public partial class UIScreenHost : Control
             return new(UIScreenOpenStatus.InvalidSpecification, null);
 
         var layer = _layers[normalized.Policy.Layer];
+        var postOpenPauseTree = normalized.Policy.PauseTree;
+        if (!postOpenPauseTree)
+        {
+            foreach (var active in _model.Entries)
+            {
+                if (active.Policy.PauseTree)
+                {
+                    postOpenPauseTree = true;
+                    break;
+                }
+            }
+        }
         var adapterStatus = UIScreenViewAdapter.TryCreate(
             this,
             layer,
             view,
             spec,
             normalized.Policy,
+            postOpenPauseTree,
             out var adapter);
         if (adapterStatus != UIScreenOpenStatus.Opened || adapter == null)
             return new(adapterStatus, null);
@@ -170,21 +185,21 @@ public partial class UIScreenHost : Control
         if (effectStatus != UIScreenOpenStatus.Opened)
             return new(effectStatus, null);
 
+        var opened = _model.Open(normalized.Policy);
+        if (opened.Status != UIScreenOpenStatus.Opened || !opened.Handle.HasValue)
+            return opened;
+
+        var handle = opened.Handle.Value;
         var focusStatus = _focusCoordinator.TryPrepare(
             adapter,
             normalized.Policy,
             out var focusPreparation);
         if (focusStatus != UIScreenOpenStatus.Opened)
-            return new(focusStatus, null);
-
-        var opened = _model.Open(normalized.Policy);
-        if (opened.Status != UIScreenOpenStatus.Opened || !opened.Handle.HasValue)
         {
-            _focusCoordinator.DiscardPreparation(focusPreparation);
-            return opened;
+            _model.Close(handle);
+            return new(focusStatus, null);
         }
 
-        var handle = opened.Handle.Value;
         _adapters.Add(handle, adapter);
         view.SetMeta(ViewOwnerMeta, GetInstanceId());
         var applyStatus = adapter.Apply();
@@ -316,7 +331,8 @@ public partial class UIScreenHost : Control
         _finalizingTeardown = true;
         try
         {
-            _focusCoordinator.CompleteActiveRestoration();
+            _focusCoordinator.CompleteActiveRestoration(
+                propagateProviderExceptions: true);
             RestoreStateLeases();
             _focusCoordinator.Teardown();
             _inputShield = null;
@@ -472,7 +488,9 @@ public partial class UIScreenHost : Control
             null,
             null,
             false);
-        _focusCoordinator.BeginRestoration(requestedFocusState);
+        _focusCoordinator.BeginRestoration(
+            requestedFocusState,
+            scheduleDeferred: !_tearingDown);
         Recompute();
 
         foreach (var closed in mutation.ClosedEntries)

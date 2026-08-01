@@ -676,6 +676,96 @@ public partial class UIScreenHostFocusTest : Node
     }
 
     [TestCase]
+    public async Task SupersedingClose_PublishesBarrierOnceAndCoreCancelCannotCrossIt()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this, new[] { UiCancelAction });
+        var parentView = fixture.Track(new Control());
+        var childView = fixture.Track(new Control());
+        var pendingStates = new List<bool>();
+        UIInputDispatchResult? callbackCancel = null;
+        var observeSupersession = false;
+        try
+        {
+            fixture.Host.EffectiveStateChanged += state =>
+            {
+                if (!observeSupersession)
+                    return;
+
+                pendingStates.Add(state.IsFocusRestorationPending);
+                callbackCancel ??= fixture.Host.TryHandleInput(
+                    UIScreenHostTestSupport.ActionPress(UiCancelAction));
+            };
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause)).Handle!.Value;
+            var child = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = parent
+                }).Handle!.Value;
+
+            fixture.Host.TryClose(child, UIScreenCloseReason.Programmatic);
+            var oldGeneration = fixture.Host.Diagnostics.RestorationLease!.Generation;
+            observeSupersession = true;
+            fixture.Host.TryClose(parent, UIScreenCloseReason.Programmatic);
+
+            AssertThat(pendingStates.ToArray()).ContainsExactly(true);
+            AssertThat(callbackCancel).IsEqual(UIInputDispatchResult.Consumed);
+            AssertThat(fixture.Host.CurrentState.IsFocusRestorationPending).IsTrue();
+            AssertThat(fixture.Host.Diagnostics.RestorationLease!.Generation)
+                .IsGreater(oldGeneration);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(fixture.Host.CurrentState.IsFocusRestorationPending).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task PrepareForTeardown_ThrowOnceRestoreFocusPropagatesAndRetryCompletes()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var view = fixture.Track(new Control());
+        var restoreAttempts = 0;
+        try
+        {
+            fixture.Host.TryPresent(
+                view,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    RestoreFocus = () =>
+                    {
+                        restoreAttempts++;
+                        if (restoreAttempts == 1)
+                            throw new System.InvalidOperationException("retry focus");
+                        return null;
+                    }
+                });
+
+            AssertThrown(() => fixture.Host.PrepareForTeardown())
+                .IsInstanceOf<System.InvalidOperationException>()
+                .HasMessage("retry focus");
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNotNull();
+            AssertThat(fixture.Host.CurrentState.IsFocusRestorationPending).IsTrue();
+
+            AssertThat(fixture.Host.PrepareForTeardown()).IsEqual(
+                UIScreenTeardownPreparationStatus.Complete);
+            AssertThat(restoreAttempts).IsEqual(2);
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+            AssertThat(fixture.Host.CurrentState.IsFocusRestorationPending).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task ReentrantParentClose_IsQueuedAndSupersedesChildLease()
     {
         var tree = (SceneTree)Engine.GetMainLoop();

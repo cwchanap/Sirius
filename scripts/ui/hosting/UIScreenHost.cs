@@ -59,16 +59,17 @@ public partial class UIScreenHost : Control
             return opened;
 
         var handle = opened.Handle.Value;
+        view.SetMeta(ViewOwnerMeta, GetInstanceId());
         var applyStatus = adapter.Apply();
         if (applyStatus != UIScreenOpenStatus.Opened)
         {
             _model.Close(handle);
-            adapter.Restore();
+            adapter.RollbackRegistration();
+            ReleaseOwnership(view);
             return new(applyStatus, null);
         }
 
         _adapters.Add(handle, adapter);
-        view.SetMeta(ViewOwnerMeta, GetInstanceId());
         Action treeExiting = () => OnViewTreeExiting(handle);
         adapter.TreeExitingHandler = treeExiting;
         view.TreeExiting += treeExiting;
@@ -121,6 +122,15 @@ public partial class UIScreenHost : Control
         return UIScreenOpenStatus.Opened;
     }
 
+    private void ReleaseOwnership(Node view)
+    {
+        if (GodotObject.IsInstanceValid(view) && view.HasMeta(ViewOwnerMeta) &&
+            view.GetMeta(ViewOwnerMeta).AsUInt64() == GetInstanceId())
+        {
+            view.RemoveMeta(ViewOwnerMeta);
+        }
+    }
+
     public bool IsKindActive(StringName kind)
     {
         foreach (var entry in _model.Entries)
@@ -164,8 +174,40 @@ public partial class UIScreenHost : Control
         var shield = GetNodeOrNull<Control>("InputShield");
         var sink = GetNodeOrNull<Control>("FocusSink");
         return shield != null && shield.GetParent() == this &&
-               sink != null && sink.GetParent() == this;
+               IsInputShieldValid(shield) &&
+               sink != null && sink.GetParent() == this &&
+               IsFocusSinkValid(sink);
     }
+
+    private static bool IsInputShieldValid(Control shield) =>
+        !shield.Visible &&
+        shield.MouseFilter == MouseFilterEnum.Stop &&
+        shield.FocusMode == FocusModeEnum.None &&
+        IsFullRect(shield);
+
+    private static bool IsFocusSinkValid(Control sink) =>
+        sink.Visible &&
+        sink.MouseFilter == MouseFilterEnum.Ignore &&
+        sink.FocusMode == FocusModeEnum.All &&
+        sink.CustomMinimumSize == Vector2.One &&
+        sink.Position == Vector2.Zero &&
+        sink.Size == Vector2.One &&
+        sink.AnchorLeft == 0 &&
+        sink.AnchorTop == 0 &&
+        sink.AnchorRight == 0 &&
+        sink.AnchorBottom == 0;
+
+    private static bool IsFullRect(Control control) =>
+        control.AnchorLeft == 0 &&
+        control.AnchorTop == 0 &&
+        control.AnchorRight == 1 &&
+        control.AnchorBottom == 1 &&
+        control.OffsetLeft == 0 &&
+        control.OffsetTop == 0 &&
+        control.OffsetRight == 0 &&
+        control.OffsetBottom == 0 &&
+        control.GrowHorizontal == GrowDirection.Both &&
+        control.GrowVertical == GrowDirection.Both;
 
     private bool TryAddLayer(
         UIScreenLayer layer,
@@ -188,11 +230,7 @@ public partial class UIScreenHost : Control
         {
             if (adapter.TreeExitingHandler != null)
                 adapter.View.TreeExiting -= adapter.TreeExitingHandler;
-            if (adapter.View.HasMeta(ViewOwnerMeta) &&
-                adapter.View.GetMeta(ViewOwnerMeta).AsUInt64() == GetInstanceId())
-            {
-                adapter.View.RemoveMeta(ViewOwnerMeta);
-            }
+            ReleaseOwnership(adapter.View);
         }
 
         try
@@ -205,7 +243,7 @@ public partial class UIScreenHost : Control
         }
         finally
         {
-            adapter.Restore();
+            adapter.Close();
         }
     }
 

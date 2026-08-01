@@ -70,9 +70,62 @@ public sealed record UIScreenHostOptions
     public Action<bool>? GameplayInputBlockChanged { get; init; }
 }
 
+public sealed record UIScreenFocusRestorationDiagnostics(
+    long Generation,
+    UIScreenHandle ClosedHandle);
+
+public sealed record UIScreenLowerLayerEffectDiagnostics(
+    UIScreenHandle Target,
+    UILowerLayerPolicy ReducedEffect,
+    IReadOnlyList<UIScreenHandle> Contributors);
+
+public sealed record UIScreenActionOwnershipDiagnostics(
+    IReadOnlySet<StringName> CoreActions,
+    IReadOnlyDictionary<UIScreenHandle, IReadOnlySet<StringName>> EntryActions,
+    UIScreenHandle? TopInputOwner);
+
+public sealed record UIScreenFocusStateDiagnostics(
+    UIScreenHandle Handle,
+    ulong ViewportInstanceId,
+    ulong? FocusOwnerInstanceId,
+    ulong? SinkInstanceId,
+    bool IsSinkFocused);
+
+public sealed record UIScreenProcessStateDiagnostics(
+    UIScreenHandle Handle,
+    Node.ProcessModeEnum IncomingMode,
+    Node.ProcessModeEnum RegisteredMode,
+    Node.ProcessModeEnum? CurrentMode,
+    bool IsEmbeddedSubwindow);
+
+public sealed record UIControlEffectLeaseDiagnostics(
+    bool Visible,
+    bool ProcessInputEnabled);
+
+public sealed record UIWindowEffectLeaseDiagnostics(
+    bool Visible,
+    bool GuiDisableInput,
+    bool Unfocusable);
+
+public sealed record UIScreenStateLeaseDiagnostics(
+    bool? IncomingPaused,
+    Input.MouseModeEnum? IncomingCursorMode,
+    bool? IncomingHudVisible,
+    IReadOnlyDictionary<UIScreenHandle, UIControlEffectLeaseDiagnostics> ControlEffects,
+    IReadOnlyDictionary<UIScreenHandle, UIWindowEffectLeaseDiagnostics> WindowEffects);
+
 public sealed record UIScreenHostDiagnostics(
+    IReadOnlyList<UIScreenEntrySnapshot> ActiveEntries,
     UIScreenEffectiveState EffectiveState,
-    int PauseOwnershipDriftCount);
+    IReadOnlyList<UIScreenLowerLayerEffectDiagnostics> LowerLayerEffects,
+    UIScreenActionOwnershipDiagnostics ActionOwnership,
+    IReadOnlyList<UIScreenFocusStateDiagnostics> FocusStates,
+    UIScreenFocusRestorationDiagnostics? RestorationLease,
+    IReadOnlyList<UIScreenProcessStateDiagnostics> ProcessStates,
+    bool SubwindowEmbeddingEnabled,
+    UIScreenStateLeaseDiagnostics StateLeases,
+    int PauseOwnershipDriftCount,
+    string? LastPauseOwnershipViolation);
 
 internal static class EmptyStringNameSet
 {

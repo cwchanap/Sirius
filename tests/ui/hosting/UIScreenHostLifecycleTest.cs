@@ -2302,6 +2302,85 @@ public partial class UIScreenHostLifecycleTest : Node
         }
     }
 
+    [TestCase]
+    public async Task TryPresent_ChildParentFocusViewportClosesParent_ReturnsInvalidNodeAndLeavesNoOrphan()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control { Visible = true });
+        var childView = fixture.Track(new Control { Visible = true });
+        UIScreenHandle? parentHandle = null;
+        var closeParentOnNextFocusViewport = false;
+        var parentClosedFromDelegate = false;
+        try
+        {
+            // Parent entry with a custom FocusViewport. The focus coordinator
+            // invokes this delegate during a child's TryPrepare()
+            // (CaptureParentFocus) BEFORE the child adapter is registered. The
+            // delegate synchronously closes the parent; closing the parent
+            // cascades through the model and removes the not-yet-registered
+            // child. Without a liveness check after TryPrepare, TryPresent
+            // would register an orphan adapter/ownership/focus record for the
+            // cascade-removed child handle.
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    FocusViewport = () =>
+                    {
+                        if (closeParentOnNextFocusViewport && parentHandle.HasValue)
+                        {
+                            closeParentOnNextFocusViewport = false;
+                            parentClosedFromDelegate = true;
+                            fixture.Host.TryClose(
+                                parentHandle.Value,
+                                UIScreenCloseReason.Programmatic);
+                        }
+                        return parentView.GetViewport();
+                    }
+                }).Handle!.Value;
+            parentHandle = parent;
+
+            // Arm the delegate so the next FocusViewport invocation (the
+            // child's CaptureParentFocus) closes the parent, then present the
+            // child synchronously before the parent's deferred ApplyInitialFocus
+            // runs (so the delegate closes from the child path only). The
+            // delegate is also re-invoked from CloseEntry's SafeFocusViewport
+            // during the parent's cascade-close; the close-once guard (via the
+            // flag) makes that re-invocation a no-op.
+            closeParentOnNextFocusViewport = true;
+            var childResult = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = parent
+                });
+            closeParentOnNextFocusViewport = false;
+
+            AssertThat(childResult.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(childResult.Handle).IsNull();
+            AssertThat(parentClosedFromDelegate).IsTrue();
+            // Both parent and cascade-removed child are gone from the model.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
+            AssertThat(fixture.Host.IsActive(parent)).IsFalse();
+            // No orphan focus registration, ownership metadata, or adapter.
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(0);
+            // The child view was never attached (we bailed before Apply()).
+            AssertThat(childView.GetParent()).IsNull();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // The parent's deferred restoration completes; no lease or focus
+            // state remains.
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(0);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private async Task DisposeFixture(HostFixture fixture)
     {
         fixture.Dispose();

@@ -50,8 +50,18 @@ internal sealed class UIScreenFocusCoordinator
             if (!_entries.TryGetValue(snapshot.Handle, out var entry))
                 continue;
 
-            var viewport = SafeFocusViewport(entry.Adapter);
-            if (viewport == null)
+            // Use the viewport committed at registration time. Diagnostics are
+            // documented as read-only, so a diagnostic getter must not invoke
+            // the caller-provided FocusViewport delegate, which can
+            // synchronously open/close entries, run cleanup, change pause and
+            // lower-layer effects, and return a snapshot based on the
+            // now-stale inputOrder. The rest of this coordinator correctly
+            // treats FocusViewport as callback-capable and re-entrant; a
+            // diagnostic read cannot safely cross that boundary without a
+            // transaction. GuiGetFocusOwner is a Godot API query, not user
+            // code, so it is safe to call on the committed viewport.
+            var viewport = entry.CommittedViewport;
+            if (viewport == null || !GodotObject.IsInstanceValid(viewport))
                 continue;
 
             var focusOwner = viewport.GuiGetFocusOwner();
@@ -89,6 +99,18 @@ internal sealed class UIScreenFocusCoordinator
             return UIScreenOpenStatus.Opened;
         }
 
+        // Capture a stable diagnostic name before sink attachment. The
+        // parent's FocusViewport delegate (invoked above by CaptureParentFocus)
+        // is caller-controlled and may have freed the candidate Window — or
+        // otherwise mutated the host — before sink attachment runs. Without a
+        // pre-captured name, the catch below dereferences adapter.View.Name on
+        // the freed Godot object and throws a second exception while handling
+        // the AddChild failure, bypassing the MissingRequiredAdapter fallback
+        // and stranding the surrounding rollback or restoration logic.
+        var view = adapter.View;
+        var diagnosticName = GodotObject.IsInstanceValid(view)
+            ? (string)view.Name
+            : "<freed>";
         try
         {
             dynamicSink = CreateSink();
@@ -99,7 +121,7 @@ internal sealed class UIScreenFocusCoordinator
         catch (Exception exception)
         {
             GD.PushError(
-                $"UIScreenHost could not create a focus sink for '{adapter.View.Name}': {exception.Message}");
+                $"UIScreenHost could not create a focus sink for '{diagnosticName}': {exception.Message}");
             RemoveSink(dynamicSink);
             preparation = new UIFocusPreparation(null, parentRecord);
             return UIScreenOpenStatus.MissingRequiredAdapter;
@@ -112,11 +134,19 @@ internal sealed class UIScreenFocusCoordinator
         UIScreenEntryPolicy policy,
         UIFocusPreparation preparation)
     {
+        // Resolve the focus viewport once, at registration (a mutation point),
+        // and commit it on the focus entry. SnapshotDiagnostics uses this
+        // committed value instead of re-invoking the caller-provided
+        // FocusViewport delegate, so a diagnostic read cannot synchronously
+        // mutate the host. SafeFocusViewport captures a stable diagnostic
+        // name and tolerates a delegate that frees its view or throws.
+        var committedViewport = SafeFocusViewport(adapter);
         _entries.Add(handle, new FocusEntry(
             adapter,
             policy,
             preparation.DynamicSink,
-            preparation.ParentRecord));
+            preparation.ParentRecord,
+            committedViewport));
         if (policy.InputPriority != UIInputPriority.Passive)
             Callable.From(() => ApplyInitialFocus(handle)).CallDeferred();
     }
@@ -372,23 +402,22 @@ internal sealed class UIScreenFocusCoordinator
         var leaseGeneration = _activeLease?.Generation ?? -1;
 
         // --- Explicit RestoreFocus path (callback-capable) ---
-        var topOwnerBefore = _host?.CurrentState.TopInputOwner;
         var explicitTarget = SafeTarget(
             closeState.Adapter?.RestoreFocus,
             propagateProviderExceptions);
         // RestoreFocus is caller-controlled and can synchronously mutate the
         // host: close another entry (installing a newer restoration lease) or
         // open a new Blocking owner. Revalidate that this restoration is still
-        // active, the target is still interactive, and no newly opened owner
-        // outranks an unowned target before focusing. Without these checks, the
-        // old restoration focuses a target that belongs to a superseded
-        // transaction or lands outside a newly opened top owner until a later
+        // active, the target is still interactive, and the target belongs to
+        // the current top owner's subtree before focusing. Without these
+        // checks, the old restoration focuses a target that belongs to a
+        // superseded transaction or lands outside the top owner until a later
         // deferred initial-focus callback corrects it — a transient state
         // observable via FocusEntered side effects.
         if (explicitTarget != null &&
             IsRestorationStillActive(leaseGeneration, closedHandle) &&
             IsControlEffectivelyInteractive(explicitTarget) &&
-            !TargetOutsideNewTopOwner(explicitTarget, topOwnerBefore) &&
+            !TargetOutsideNewTopOwner(explicitTarget) &&
             TryFocus(explicitTarget, explicitTarget.GetViewport()))
         {
             return;
@@ -401,16 +430,16 @@ internal sealed class UIScreenFocusCoordinator
             return;
 
         // --- Parent focus-owner path (no delegate, no supersession risk) ---
-        // The top owner may have changed during the explicit RestoreFocus
-        // delegate above (e.g. it opened a new Blocking owner but returned a
-        // target that failed IsControlEffectivelyInteractive or TryFocus).
-        // Without a TargetOutsideNewTopOwner check, this path focuses the
-        // parent's previously-captured FocusOwner beneath the new top owner.
+        // A top owner may be present either because one opened during the
+        // explicit RestoreFocus delegate above, or because one opened after
+        // TryClose returned but before this deferred callback began. Without a
+        // TargetOutsideNewTopOwner check, this path focuses the parent's
+        // previously-captured FocusOwner beneath the current top owner.
         var parentRecord = closeState.ParentRecord;
         if (parentRecord != null &&
             _entries.ContainsKey(parentRecord.ParentHandle) &&
             IsHandleEffectivelyInteractive(parentRecord.ParentHandle) &&
-            !TargetOutsideNewTopOwner(parentRecord.FocusOwner, topOwnerBefore) &&
+            !TargetOutsideNewTopOwner(parentRecord.FocusOwner) &&
             TryFocus(parentRecord.FocusOwner, parentRecord.Viewport))
         {
             return;
@@ -448,7 +477,7 @@ internal sealed class UIScreenFocusCoordinator
                 if (IsRestorationStillActive(leaseGeneration, closedHandle) &&
                     _entries.ContainsKey(parentRecord.ParentHandle) &&
                     IsHandleEffectivelyInteractive(parentRecord.ParentHandle) &&
-                    !TargetOutsideNewTopOwner(parentInitial, topOwnerBefore) &&
+                    !TargetOutsideNewTopOwner(parentInitial) &&
                     TryFocus(parentInitial, parentViewport))
                 {
                     return;
@@ -491,13 +520,27 @@ internal sealed class UIScreenFocusCoordinator
                 // a transient state observable via FocusEntered side effects
                 // and keyboard/controller input until the new owner's deferred
                 // initial-focus callback corrects it.
-                if (!TargetOutsideNewTopOwner(descendant, topOwnerBefore) &&
+                if (!TargetOutsideNewTopOwner(descendant) &&
                     TryFocus(descendant, viewport))
                     return;
 
+                // The sink (DynamicSink for Window entries, _rootSink for
+                // Blocking Control entries) is the top entry's own focus
+                // mechanism, not a view descendant. _rootSink is outside
+                // every entry's view subtree by definition, so
+                // TargetOutsideNewTopOwner would always reject it when any
+                // top owner exists — breaking the sink fallback for Blocking
+                // Control top entries. Only reject the sink when a NEW top
+                // owner appeared that outranks the selected top entry (i.e.
+                // the top entry is no longer the current top owner). When the
+                // top entry IS the top owner, its sink is always a legitimate
+                // focus target.
+                var sink = topEntry.DynamicSink ?? _rootSink;
+                var topEntryIsTopOwner =
+                    _host?.CurrentState.TopInputOwner == topHandle;
                 if (topEntry.Policy.InputPriority == UIInputPriority.Blocking &&
-                    !TargetOutsideNewTopOwner(topEntry.DynamicSink ?? _rootSink, topOwnerBefore) &&
-                    TryFocus(topEntry.DynamicSink ?? _rootSink, viewport))
+                    (topEntryIsTopOwner || !TargetOutsideNewTopOwner(sink)) &&
+                    TryFocus(sink, viewport))
                 {
                     return;
                 }
@@ -532,29 +575,45 @@ internal sealed class UIScreenFocusCoordinator
         _activeCloseState?.Handle == expectedClosedHandle;
 
     /// <summary>
-    /// True when <paramref name="target"/> is a control that a newly opened
-    /// top input owner (one that appeared after
-    /// <paramref name="topOwnerBefore"/>) now outranks — i.e. the target is
-    /// outside the new owner's subtree. A caller-provided RestoreFocus,
-    /// FocusViewport, or InitialFocus delegate can open a new Blocking owner
-    /// and return (or select) a target beneath a lower entry that remains
-    /// interactive (VisibleInteractive); <see cref="IsControlEffectivelyInteractive"/>
+    /// True when <paramref name="target"/> is a control that the current top
+    /// input owner outranks — i.e. the target is outside the current top
+    /// owner's subtree. A caller-provided RestoreFocus, FocusViewport, or
+    /// InitialFocus delegate can open a new Blocking owner and return (or
+    /// select) a target beneath a lower entry that remains interactive
+    /// (VisibleInteractive); <see cref="IsControlEffectivelyInteractive"/>
     /// permits owned controls whose owner is interactive, so without this
-    /// check the old restoration focuses beneath the new top owner until a
-    /// later deferred initial-focus callback corrects it — a transient state
+    /// check the old restoration focuses beneath the top owner until a later
+    /// deferred initial-focus callback corrects it — a transient state
     /// observable via FocusEntered side effects and keyboard/controller input.
-    /// The rule applies to owned and unowned targets alike: when top ownership
-    /// changes, the target must belong to the current top owner's subtree.
+    /// The rule applies to owned and unowned targets alike: whenever a top
+    /// input owner exists, the target must belong to that owner's subtree.
+    /// <para>
+    /// The check is NOT gated on the top owner having changed during the
+    /// restoration callback. A Blocking owner may appear AFTER TryClose
+    /// returned but BEFORE the deferred restoration callback begins — in that
+    /// case the owner is already current when the callback starts, so a
+    /// change-detection comparison against the owner captured at callback
+    /// start would miss it and let restoration focus a parent beneath the new
+    /// owner. Requiring the target to belong to the current top owner
+    /// whenever one exists covers both the during-callback and before-callback
+    /// cases.
+    /// </para>
     /// </summary>
-    private bool TargetOutsideNewTopOwner(
-        Control? target,
-        UIScreenHandle? topOwnerBefore)
+    private bool TargetOutsideNewTopOwner(Control? target)
     {
         if (target == null || _host == null)
             return false;
+        // A freed/invalid target cannot be focused anyway (CanFocus rejects
+        // it), so treat it as "not outside" and let the caller's TryFocus
+        // fail and fall through. IsSameOrAncestor would dereference
+        // target.GetParent() on the freed Godot object and throw, propagating
+        // out of restoration. The old change-detection gate short-circuited
+        // before reaching IsSameOrAncestor; the stricter always-check gate
+        // must replicate that safety for invalid targets.
+        if (!GodotObject.IsInstanceValid(target))
+            return false;
         var topOwnerNow = _host.CurrentState.TopInputOwner;
-        // Only revalidate when the top input owner changed during a delegate.
-        if (topOwnerNow == null || topOwnerNow == topOwnerBefore)
+        if (topOwnerNow == null)
             return false;
         if (!_entries.TryGetValue(topOwnerNow.Value, out var ownerEntry))
             return false;
@@ -848,5 +907,6 @@ internal sealed class UIScreenFocusCoordinator
         UIScreenViewAdapter Adapter,
         UIScreenEntryPolicy Policy,
         Control? DynamicSink,
-        UIFocusRecord? ParentRecord);
+        UIFocusRecord? ParentRecord,
+        Viewport? CommittedViewport);
 }

@@ -222,8 +222,27 @@ public partial class UIScreenHost : Control
             out var focusPreparation);
         if (focusStatus != UIScreenOpenStatus.Opened)
         {
-            _model.Close(handle);
-            return new(focusStatus, null);
+            // TryPrepare invoked the parent's caller-controlled FocusViewport
+            // delegate (CaptureParentFocus) before sink attachment. That
+            // delegate may have mutated the model — opened a committed
+            // descendant beneath the candidate, freed the candidate view, or
+            // closed an ancestor — and then sink attachment failed. A direct
+            // _model.Close(handle) would cascade-remove a committed descendant
+            // from the pure model but ignore its ClosedEntries, orphaning the
+            // descendant's adapter, focus record, ownership metadata,
+            // tree-exit handler, and applied effects; it would also skip the
+            // Recompute that restores pause/cursor/HUD/input-ownership and
+            // lower-layer effects to the state without the rejected candidate.
+            // Route through RollbackPendingOpen for the same cascade-cleanup
+            // and effect-restore reasons as the generation-change path below.
+            // Distinguish cascade-removed (InvalidNode) from a non-cascade
+            // sink-attachment failure (the original focusStatus).
+            var cascadeRemoved = RollbackPendingOpen(handle, focusPreparation);
+            return new(
+                cascadeRemoved
+                    ? UIScreenOpenStatus.InvalidNode
+                    : focusStatus,
+                null);
         }
 
         if (_model.MutationGeneration != generationBeforePrepare)
@@ -512,6 +531,24 @@ public partial class UIScreenHost : Control
     {
         if (_tearingDown)
         {
+            // A previous teardown was begun but deferred — most commonly
+            // because rollback cleanup (RollbackPendingOpen) re-entered
+            // PrepareForTeardown() while _drainingCloseQueue was held, so the
+            // initial BeginTeardown() could not close entries and
+            // FinalizeTeardown() returned early. RollbackPendingOpen's finally
+            // clears _drainingCloseQueue but does not itself resume teardown.
+            // Without closing remaining entries here, a later retry re-enters
+            // this branch and only calls FinalizeTeardown(), which returns
+            // early whenever an unrelated entry or parent remains active —
+            // leaving teardown Deferred forever. Now that the mutation guard
+            // has been released, resume the standard teardown drain (close the
+            // top remaining entry, which loops through DrainCloseQueue until
+            // all entries are gone) before finalizing.
+            if (!_drainingCloseQueue && _model.Entries.Count != 0)
+            {
+                var top = _model.InputOrder[0].Handle;
+                TryClose(top, UIScreenCloseReason.HostTeardown);
+            }
             FinalizeTeardown();
             return;
         }

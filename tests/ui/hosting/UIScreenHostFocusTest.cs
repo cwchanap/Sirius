@@ -1866,6 +1866,186 @@ public partial class UIScreenHostFocusTest : Node
         }
     }
 
+    [TestCase]
+    public async Task FocusRestoration_BlockingOwnerOpenedBeforeDeferredCallback_DoesNotFocusParentBeneathNewOwner()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control { Visible = true });
+        var parentButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false,
+            Visible = true
+        };
+        parentView.AddChild(parentButton);
+        var childView = fixture.Track(new Control { Visible = true });
+        var childButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false,
+            Visible = true
+        };
+        childView.AddChild(childButton);
+        var blockingView = fixture.Track(new Control { Visible = true });
+        var parentFocusEnteredDuringRestoration = false;
+        try
+        {
+            // Parent P (Screen) with a focusable Button. P's deferred
+            // ApplyInitialFocus focuses parentButton on the next frame.
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    InputPriority = UIInputPriority.Screen
+                });
+            AssertThat(parent.Status).IsEqual(UIScreenOpenStatus.Opened);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(parentButton.HasFocus()).IsTrue();
+
+            // Child C (child of P) with a focusable Button. C's
+            // CaptureParentFocus records parentButton as P's FocusOwner in C's
+            // parent record. C's deferred ApplyInitialFocus focuses childButton.
+            var child = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Parent = parent.Handle
+                });
+            AssertThat(child.Status).IsEqual(UIScreenOpenStatus.Opened);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(childButton.HasFocus()).IsTrue();
+
+            // Arm a FocusEntered observer on parentButton so the test can
+            // detect the transient focus that the buggy restoration would
+            // place on it beneath the new top owner. Reset it after the
+            // initial-focus phase so only restoration-period focus is recorded.
+            parentButton.FocusEntered += () =>
+                parentFocusEnteredDuringRestoration = true;
+            parentFocusEnteredDuringRestoration = false;
+
+            // Close C. ProcessClose detaches C's view (childButton loses focus)
+            // and schedules a DEFERRED restoration that targets C's parent
+            // record (parentButton). TryClose returns Closed before the
+            // deferred callback runs.
+            AssertThat(fixture.Host.TryClose(
+                child.Handle!.Value,
+                UIScreenCloseReason.Programmatic).Status).IsEqual(UIScreenCloseStatus.Closed);
+            AssertThat(childButton.IsInsideTree()).IsFalse();
+
+            // SYNCHRONOUSLY open a Blocking Modal owner U with
+            // LowerLayers.VisibleInteractive AFTER TryClose returned but BEFORE
+            // the deferred restoration frame. U becomes TopInputOwner; P remains
+            // VisibleInteractive. When the deferred restoration callback begins,
+            // topOwnerBefore is already U (the owner appeared before the
+            // callback, not during it). Without the fix,
+            // TargetOutsideNewTopOwner only rejects when the top owner CHANGED
+            // during the callback, so topOwnerNow == topOwnerBefore == U means
+            // no rejection — the parent-focus path focuses parentButton beneath
+            // U until U's deferred ApplyInitialFocus corrects it. That transient
+            // focus is observable via FocusEntered and keyboard/controller
+            // ownership.
+            var blocking = fixture.Host.TryPresent(
+                blockingView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking,
+                    LowerLayers = UILowerLayerPolicy.VisibleInteractive
+                });
+            AssertThat(blocking.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.CurrentState.TopInputOwner)
+                .IsEqual(blocking.Handle);
+
+            // Run the deferred restoration and U's deferred ApplyInitialFocus.
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // With the fix, restoration never focuses parentButton beneath U:
+            // TargetOutsideNewTopOwner rejects any target outside the current
+            // top owner, so the parent-focus path is skipped and focus lands
+            // inside U's subtree (U's sink via the top-entry path, then U's
+            // ApplyInitialFocus). Without the fix, parentButton.GrabFocus()
+            // fired during restoration, setting the flag.
+            AssertThat(parentFocusEnteredDuringRestoration).IsFalse();
+            AssertThat(parentButton.HasFocus()).IsFalse();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner() == parentButton).IsFalse();
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task Diagnostics_FocusStatesDoesNotInvokeFocusViewportDelegate()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var view = fixture.Track(new Control { Visible = true });
+        var focusViewportInvocations = 0;
+        try
+        {
+            // Entry with a custom FocusViewport delegate that counts every
+            // invocation. The delegate is legitimately invoked at registration
+            // (to commit the viewport for diagnostics) and during deferred
+            // ApplyInitialFocus. After those settle, reading
+            // host.Diagnostics.FocusStates must NOT re-invoke the delegate —
+            // diagnostics are documented as read-only. Without the fix,
+            // SnapshotDiagnostics calls SafeFocusViewport per entry, so each
+            // diagnostics read invokes the caller-controlled delegate, which
+            // can synchronously open/close entries, run cleanup, change pause
+            // and lower-layer effects, and return a snapshot based on the
+            // now-stale inputOrder.
+            var opened = fixture.Host.TryPresent(
+                view,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    FocusViewport = () =>
+                    {
+                        focusViewportInvocations++;
+                        return view.GetViewport();
+                    }
+                });
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // Let the deferred ApplyInitialFocus (which invokes FocusViewport)
+            // settle so the only later delegate invocations would come from
+            // diagnostics reads.
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            var settledInvocations = focusViewportInvocations;
+            AssertThat(settledInvocations).IsGreater(0);
+
+            // Reading diagnostics multiple times must not invoke the
+            // FocusViewport delegate. SnapshotDiagnostics must use the viewport
+            // committed at registration, not re-query user code.
+            for (var i = 0; i < 3; i++)
+            {
+                var states = fixture.Host.Diagnostics.FocusStates;
+                AssertThat(states.Count).IsEqual(1);
+                AssertThat(states[0].Handle).IsEqual(opened.Handle!.Value);
+            }
+
+            AssertThat(focusViewportInvocations).IsEqual(settledInvocations);
+
+            // Closing the entry invokes FocusViewport via CloseEntry's
+            // SafeFocusViewport (a mutation, not a read), which is allowed.
+            // This confirms the delegate is still wired and the earlier
+            // non-increment was specifically because diagnostics used the
+            // committed viewport.
+            var beforeClose = focusViewportInvocations;
+            fixture.Host.TryClose(opened.Handle!.Value, UIScreenCloseReason.Programmatic);
+            // CloseEntry invokes SafeFocusViewport; the count must increase.
+            AssertThat(focusViewportInvocations).IsGreater(beforeClose);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private async Task DisposeFixture(HostFixture fixture)
     {
         fixture.Dispose();

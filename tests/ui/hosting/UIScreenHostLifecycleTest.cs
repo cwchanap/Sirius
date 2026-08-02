@@ -1580,6 +1580,222 @@ public partial class UIScreenHostLifecycleTest : Node
             AssertThat(final.TopInputOwner).IsEqual(gameplayResult.Handle);
             AssertThat(final.TopInputOwner?.Kind == UIScreenKinds.Pause)
                 .IsEqual(false);
+
+            // No observation the later subscriber received may name the closed
+            // modal as top input owner. An earlier subscriber closing the modal
+            // during the same multicast must abort the remaining invocation list
+            // so later subscribers never see a stale state.
+            foreach (var observation in observations)
+            {
+                AssertThat(observation.TopInputOwner?.Kind == UIScreenKinds.Pause)
+                    .IsEqual(false);
+            }
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task Recompute_GameplayInputBlockChangedClosingTopOwner_AbortsBeforeEffectiveStateChanged()
+    {
+        Action<bool>? blockCallback = null;
+        var fixture = await UIScreenHostTestSupport.CreateHost(this, options:
+            new UIScreenHostOptions
+            {
+                GameplayInputBlockChanged = blocked => blockCallback?.Invoke(blocked)
+            });
+        var gameplay = fixture.Track(new Control { Visible = true });
+        var modalView = fixture.Track(new Control { Visible = true });
+        var publishedStates = new List<UIScreenEffectiveState>();
+        fixture.Host.EffectiveStateChanged += state => publishedStates.Add(state);
+        var blockCallbackClosed = false;
+
+        blockCallback = _ =>
+        {
+            if (blockCallbackClosed)
+                return;
+            foreach (var entry in fixture.Host.ActiveEntries)
+            {
+                if (entry.Policy.Kind == UIScreenKinds.Pause)
+                {
+                    blockCallbackClosed = true;
+                    fixture.Host.TryClose(
+                        entry.Handle,
+                        UIScreenCloseReason.Programmatic);
+                    break;
+                }
+            }
+        };
+        try
+        {
+            var gameplayResult = fixture.Host.TryPresent(
+                gameplay,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = gameplay.SetProcessInput
+                });
+            AssertThat(gameplayResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            gameplay.SetProcessInput(true);
+
+            var modalResult = fixture.Host.TryPresent(
+                modalView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert,
+                    BlockGameplayInput = true
+                });
+            AssertThat(modalResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            var modal = modalResult.Handle!.Value;
+
+            // The re-entrant close from GameplayInputBlockChanged must have
+            // closed the modal during its own open.
+            AssertThat(fixture.Host.IsActive(modal)).IsFalse();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+
+            // No published EffectiveStateChanged observation may name the
+            // closed modal as top input owner. The generation check after
+            // GameplayInputBlockChanged must abort before EffectiveStateChanged
+            // subscribers receive a stale snapshot.
+            foreach (var state in publishedStates)
+            {
+                AssertThat(state.TopInputOwner?.Kind == UIScreenKinds.Pause)
+                    .IsEqual(false);
+            }
+
+            AssertThat(fixture.Host.CurrentState.TopInputOwner)
+                .IsEqual(gameplayResult.Handle);
+            AssertThat(fixture.Host.CurrentState.IsPresentationGameplayBlocked)
+                .IsEqual(false);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task ApplyControlEffect_SetInteractiveClosesOwnTargetUnderHiddenOwner_BaselineRestored()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var lowerView = fixture.Track(new Control { Visible = true });
+        var upperView = fixture.Track(new Control { Visible = true });
+        UIScreenHandle? lowerHandle = null;
+        try
+        {
+            var lowerResult = fixture.Host.TryPresent(
+                lowerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = enabled =>
+                    {
+                        lowerView.SetProcessInput(enabled);
+                        if (enabled || !lowerHandle.HasValue)
+                            return;
+                        // Re-entrant close of self from the SetInteractive(false)
+                        // callback while ApplyControlEffect is applying Hidden.
+                        fixture.Host.TryClose(
+                            lowerHandle.Value,
+                            UIScreenCloseReason.Programmatic);
+                    }
+                });
+            AssertThat(lowerResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            lowerHandle = lowerResult.Handle;
+            lowerView.SetProcessInput(true);
+
+            var upperResult = fixture.Host.TryPresent(
+                upperView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.Hidden
+                });
+            AssertThat(upperResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // The lower entry must have been closed by the re-entrant callback.
+            AssertThat(fixture.Host.IsActive(lowerHandle!.Value)).IsFalse();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+
+            // The lower view's baseline visibility and interactivity must be
+            // restored. ApplyControlEffect must have aborted before setting
+            // control.Visible = false or re-adding the stale effect.
+            AssertThat(lowerView.Visible).IsTrue();
+            AssertThat(lowerView.IsProcessingInput()).IsTrue();
+
+            // No stale effect bookkeeping should remain for the closed handle.
+            var diagnostics = fixture.Host.Diagnostics;
+            AssertThat(diagnostics.StateLeases.ControlEffects.ContainsKey(lowerHandle.Value))
+                .IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task ApplyWindowEffect_SetPresentedClosesOwnWindowUnderHiddenOwner_BaselineRestored()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        fixture.Viewport.GuiEmbedSubwindows = true;
+        var lowerWindow = fixture.Track(new Window
+        {
+            Visible = true,
+            GuiDisableInput = false,
+            Unfocusable = false
+        });
+        var upperView = fixture.Track(new Control { Visible = true });
+        UIScreenHandle? lowerHandle = null;
+        try
+        {
+            var lowerResult = fixture.Host.TryPresent(
+                lowerWindow,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetPresented = presented =>
+                    {
+                        lowerWindow.Visible = presented;
+                        if (presented || !lowerHandle.HasValue)
+                            return;
+                        // Re-entrant close of self from the SetPresented(false)
+                        // callback while ApplyWindowEffect is applying Hidden.
+                        fixture.Host.TryClose(
+                            lowerHandle.Value,
+                            UIScreenCloseReason.Programmatic);
+                    }
+                });
+            AssertThat(lowerResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            lowerHandle = lowerResult.Handle;
+
+            var upperResult = fixture.Host.TryPresent(
+                upperView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.Hidden
+                });
+            AssertThat(upperResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // The lower entry must have been closed by the re-entrant callback.
+            AssertThat(fixture.Host.IsActive(lowerHandle!.Value)).IsFalse();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+
+            // The lower window's baseline visibility and input properties must
+            // be restored. ApplyWindowEffect must have aborted before re-adding
+            // the stale effect.
+            AssertThat(lowerWindow.Visible).IsTrue();
+            AssertThat(lowerWindow.GuiDisableInput).IsFalse();
+            AssertThat(lowerWindow.Unfocusable).IsFalse();
+
+            // No stale effect bookkeeping should remain for the closed handle.
+            var diagnostics = fixture.Host.Diagnostics;
+            AssertThat(diagnostics.StateLeases.WindowEffects.ContainsKey(lowerHandle.Value))
+                .IsFalse();
         }
         finally
         {

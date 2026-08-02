@@ -901,6 +901,67 @@ public partial class UIScreenHostFocusTest : Node
         }
     }
 
+    [TestCase]
+    public async Task VisibleInert_BlockingLowerEntry_RedirectsAwayFromInertSubtree()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var lowerView = fixture.Track(new Control { Visible = true });
+        var lowerButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        lowerView.AddChild(lowerButton);
+        var upperView = fixture.Track(new Control { Visible = true });
+        var upperButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        upperView.AddChild(upperButton);
+        try
+        {
+            // Lower entry: Blocking priority in the HUD layer. A Blocking entry
+            // is first in logical input order regardless of visual layer.
+            var lower = fixture.Host.TryPresent(
+                lowerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    InputPriority = UIInputPriority.Blocking
+                });
+            AssertThat(lower.Status).IsEqual(UIScreenOpenStatus.Opened);
+            lowerButton.GrabFocus();
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(lowerButton);
+
+            // Upper entry: Screen priority, VisibleInert lower layers. The upper
+            // entry visually inerts the lower Blocking entry, but the lower
+            // entry remains first in logical input order. RevokeFocusWithin must
+            // not redirect focus back into the inert lower subtree.
+            var upper = fixture.Host.TryPresent(
+                upperView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+            AssertThat(upper.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // The lower Button must no longer own focus. The redirect target
+            // must be selected from interactive entries only (the upper entry),
+            // not from the inert lower Blocking entry that is first in input
+            // order.
+            AssertThat(lowerButton.HasFocus()).IsFalse();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(upperButton);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private sealed partial class OpensHigherOwnerOnReadyControl : Control
     {
         public UIScreenHost Host { get; init; } = null!;

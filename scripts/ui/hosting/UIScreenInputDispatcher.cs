@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Frozen;
 using System.Collections.Generic;
 using Godot;
 
@@ -22,11 +21,8 @@ internal sealed class UIScreenInputDispatcher
         var currentState = effectiveState();
 
         var entries = inputOrder();
-        var topInputOwner = FindTopInputOwner(entries);
-        var matchedTopEntryActions = MatchTopEntryActions(
-            inputEvent,
-            entries,
-            topInputOwner);
+        var (topInputOwner, matchedTopEntryActions) =
+            FindTopInputOwnerAndMatchActions(inputEvent, entries);
         if (currentState.IsFocusRestorationPending &&
             (matchedCoreActions.Count != 0 || matchedTopEntryActions.Count != 0))
         {
@@ -100,35 +96,24 @@ internal sealed class UIScreenInputDispatcher
 
         return matched.Count == 0
             ? EmptyStringNameSet.Value
-            : matched.ToFrozenSet();
+            : matched;
     }
 
-    private static UIScreenHandle? FindTopInputOwner(
-        IReadOnlyList<UIScreenEntrySnapshot> entries)
+    private static (UIScreenHandle? TopInputOwner, IReadOnlySet<StringName> MatchedActions)
+        FindTopInputOwnerAndMatchActions(
+            InputEvent inputEvent,
+            IReadOnlyList<UIScreenEntrySnapshot> entries)
     {
         foreach (var entry in entries)
         {
-            if (entry.Policy.InputPriority != UIInputPriority.Passive)
-                return entry.Handle;
+            if (entry.Policy.InputPriority == UIInputPriority.Passive)
+                continue;
+
+            return (
+                entry.Handle,
+                MatchActions(inputEvent, entry.Policy.EntryCancelActions));
         }
 
-        return null;
-    }
-
-    private static IReadOnlySet<StringName> MatchTopEntryActions(
-        InputEvent inputEvent,
-        IReadOnlyList<UIScreenEntrySnapshot> entries,
-        UIScreenHandle? topInputOwner)
-    {
-        if (!topInputOwner.HasValue)
-            return EmptyStringNameSet.Value;
-
-        foreach (var entry in entries)
-        {
-            if (entry.Handle == topInputOwner.Value)
-                return MatchActions(inputEvent, entry.Policy.EntryCancelActions);
-        }
-
-        return EmptyStringNameSet.Value;
+        return (null, EmptyStringNameSet.Value);
     }
 }

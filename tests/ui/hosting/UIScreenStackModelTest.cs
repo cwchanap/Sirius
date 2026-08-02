@@ -396,4 +396,60 @@ public partial class UIScreenStackModelTest : Node
 
         AssertThat(spec.Normalize().Status).IsEqual(UIScreenOpenStatus.InvalidSpecification);
     }
+
+    [TestCase]
+    public void Normalize_PassiveRestoreFocus_IsRejected()
+    {
+        var spec = UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+        {
+            InputPriority = UIInputPriority.Passive,
+            RestoreFocus = () => null
+        };
+
+        AssertThat(spec.Normalize().Status).IsEqual(UIScreenOpenStatus.InvalidSpecification);
+    }
+
+    [TestCase]
+    public void Open_CopiesPolicyCollectionsBeforeStoring()
+    {
+        var model = new UIScreenStackModel();
+        var incompatibleKinds = new HashSet<StringName> { UIScreenKinds.Settings };
+        var entryCancelActions = new HashSet<StringName> { "toggle_inventory" };
+        var policy = UIScreenHostTestSupport.Policy(UIScreenKinds.Pause) with
+        {
+            IncompatibleKinds = incompatibleKinds,
+            EntryCancelActions = entryCancelActions
+        };
+
+        model.Open(policy);
+        incompatibleKinds.Add(UIScreenKinds.Inventory);
+        entryCancelActions.Add("ui_cancel");
+
+        var stored = model.Entries[0].Policy;
+        AssertThat(stored.IncompatibleKinds.Contains(UIScreenKinds.Settings)).IsTrue();
+        AssertThat(stored.EntryCancelActions.Contains("toggle_inventory")).IsTrue();
+        AssertThat(stored.IncompatibleKinds.Contains(UIScreenKinds.Inventory)).IsFalse();
+        AssertThat(stored.EntryCancelActions.Contains("ui_cancel")).IsFalse();
+    }
+
+    [TestCase]
+    public void InputOrder_ChildInheritsBlockingAncestorBeforeLaterModalRoot()
+    {
+        var model = new UIScreenStackModel();
+        var pause = model.Open(UIScreenHostTestSupport.Policy(UIScreenKinds.Pause) with
+        {
+            InputPriority = UIInputPriority.Blocking
+        }).Handle!.Value;
+        var settings = model.Open(UIScreenHostTestSupport.Policy(UIScreenKinds.Settings) with
+        {
+            Parent = pause
+        }).Handle!.Value;
+        var modal = model.Open(UIScreenHostTestSupport.Policy(UIScreenKinds.ConfirmQuitToMain) with
+        {
+            InputPriority = UIInputPriority.Modal
+        }).Handle!.Value;
+
+        AssertThat(model.InputOrder.Select(entry => entry.Handle).ToArray())
+            .ContainsExactly(settings, pause, modal);
+    }
 }

@@ -33,6 +33,7 @@ public partial class UIScreenHost : Control
     private bool _ready;
     private bool _malformed = true;
     private bool _tearingDown;
+    private bool _inTreeExiting;
     private bool _finalizingTeardown;
     private bool _teardownFinalized;
     private bool _drainingCloseQueue;
@@ -92,7 +93,12 @@ public partial class UIScreenHost : Control
     public new void QueueFree()
     {
         if (PrepareForTeardown() != UIScreenTeardownPreparationStatus.Complete)
+        {
+            GD.PushWarning(
+                "UIScreenHost teardown is deferred; QueueFree was skipped. " +
+                "Retry after PrepareForTeardown() returns Complete.");
             return;
+        }
 
         base.QueueFree();
     }
@@ -461,6 +467,7 @@ public partial class UIScreenHost : Control
             while (_closeQueue.Count != 0 ||
                    (_tearingDown && _model.Entries.Count != 0))
             {
+                var countBeforeRequest = _model.Entries.Count;
                 if (_closeQueue.Count == 0)
                 {
                     var top = _model.InputOrder[0].Handle;
@@ -478,6 +485,9 @@ public partial class UIScreenHost : Control
                     firstStatus = status;
                     first = false;
                 }
+
+                if (_model.Entries.Count == countBeforeRequest)
+                    break;
             }
         }
         finally
@@ -568,7 +578,17 @@ public partial class UIScreenHost : Control
         }
 
         if (!_tearingDown && IsActive(handle))
-            TryClose(handle, UIScreenCloseReason.NodeFreed);
+        {
+            _inTreeExiting = true;
+            try
+            {
+                TryClose(handle, UIScreenCloseReason.NodeFreed);
+            }
+            finally
+            {
+                _inTreeExiting = false;
+            }
+        }
     }
 
     private Func<UIInputContext, UIInputInterception>? InterceptorFor(
@@ -631,8 +651,8 @@ public partial class UIScreenHost : Control
         var tree = GetTree();
         if (pauseTree)
         {
-            _pauseLease ??= new PauseLease(tree.Paused);
-            if (!tree.Paused)
+            _pauseLease ??= new PauseLease(tree?.Paused ?? false);
+            if (tree != null && !tree.Paused)
                 tree.Paused = true;
             return;
         }
@@ -640,7 +660,8 @@ public partial class UIScreenHost : Control
         if (_pauseLease == null)
             return;
 
-        tree.Paused = _pauseLease.IncomingPaused;
+        if (tree != null)
+            tree.Paused = _pauseLease.IncomingPaused;
         _pauseLease = null;
     }
 
@@ -787,6 +808,18 @@ public partial class UIScreenHost : Control
     {
         if (_inputShield == null || _inputShieldParent == null)
             return;
+
+        if (target != null &&
+            (!GodotObject.IsInstanceValid(target) || target.IsQueuedForDeletion()))
+        {
+            target = null;
+        }
+
+        if (_inTreeExiting || !IsInsideTree())
+        {
+            Callable.From(() => PlaceInputShield(target)).CallDeferred();
+            return;
+        }
 
         _inputShield.Visible = false;
         if (target?.GetParent() is Node targetParent)
@@ -1014,7 +1047,9 @@ public partial class UIScreenHost : Control
     {
         if (_pauseLease != null)
         {
-            GetTree().Paused = _pauseLease.IncomingPaused;
+            var tree = GetTree();
+            if (tree != null)
+                tree.Paused = _pauseLease.IncomingPaused;
             _pauseLease = null;
         }
 

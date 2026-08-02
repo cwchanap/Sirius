@@ -236,11 +236,12 @@ public partial class UIScreenHostContractScenarioTest : Node
         try
         {
             UIScreenHandle? acknowledgement = null;
+            UIScreenCloseResult? continueCloseResult = null;
             continueButton.Pressed += () =>
             {
                 if (acknowledgement.HasValue)
                 {
-                    fixture.Host.TryClose(
+                    continueCloseResult = fixture.Host.TryClose(
                         acknowledgement.Value,
                         UIScreenCloseReason.ExplicitAction);
                 }
@@ -264,6 +265,7 @@ public partial class UIScreenHostContractScenarioTest : Node
 
             continueButton.EmitSignal(BaseButton.SignalName.Pressed);
 
+            AssertThat(continueCloseResult?.Status).IsEqual(UIScreenCloseStatus.Closed);
             AssertThat(fixture.Host.IsActive(acknowledgement.Value)).IsFalse();
         }
         finally

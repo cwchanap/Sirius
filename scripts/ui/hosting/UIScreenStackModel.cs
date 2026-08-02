@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Collections.Generic;
 
 public sealed record UIScreenEntrySnapshot(
@@ -30,28 +31,40 @@ internal sealed class UIScreenStackModel
 
     public UIScreenOpenResult Open(UIScreenEntryPolicy policy)
     {
-        if (ContainsKind(policy.Kind))
+        var copiedPolicy = CopyPolicy(policy);
+
+        if (ContainsKind(copiedPolicy.Kind))
             return new(UIScreenOpenStatus.DuplicateKind, null);
 
-        if (policy.Parent.HasValue && FindActive(policy.Parent.Value) is null)
+        if (copiedPolicy.Parent.HasValue && FindActive(copiedPolicy.Parent.Value) is null)
             return new(UIScreenOpenStatus.InvalidParent, null);
 
         foreach (var entry in _entries)
         {
-            if (entry.Policy.IncompatibleKinds.Contains(policy.Kind) ||
-                policy.IncompatibleKinds.Contains(entry.Policy.Kind))
+            if (entry.Policy.IncompatibleKinds.Contains(copiedPolicy.Kind) ||
+                copiedPolicy.IncompatibleKinds.Contains(entry.Policy.Kind))
             {
                 return new(UIScreenOpenStatus.IncompatibleEntry, null);
             }
 
-            if (HasConflictingExclusiveGroup(entry, policy))
+            if (HasConflictingExclusiveGroup(entry, copiedPolicy))
                 return new(UIScreenOpenStatus.ExclusiveGroupConflict, null);
         }
 
-        var handle = new UIScreenHandle(++_nextToken, policy.Kind);
-        _entries.Add(new UIScreenEntrySnapshot(handle, policy, ++_nextSequence));
+        var handle = new UIScreenHandle(++_nextToken, copiedPolicy.Kind);
+        _entries.Add(new UIScreenEntrySnapshot(handle, copiedPolicy, ++_nextSequence));
         return new(UIScreenOpenStatus.Opened, handle);
     }
+
+    private static UIScreenEntryPolicy CopyPolicy(UIScreenEntryPolicy policy) => policy with
+    {
+        IncompatibleKinds = policy.IncompatibleKinds is { Count: > 0 }
+            ? policy.IncompatibleKinds.ToFrozenSet()
+            : EmptyStringNameSet.Value,
+        EntryCancelActions = policy.EntryCancelActions is { Count: > 0 }
+            ? policy.EntryCancelActions.ToFrozenSet()
+            : EmptyStringNameSet.Value
+    };
 
     public UIScreenStackCloseMutation Close(UIScreenHandle handle)
     {
@@ -173,16 +186,36 @@ internal sealed class UIScreenStackModel
 
     private bool InputPrecedes(UIScreenEntrySnapshot first, UIScreenEntrySnapshot second)
     {
+        var firstPriority = EffectiveInputPriority(first);
+        var secondPriority = EffectiveInputPriority(second);
+        if (firstPriority != secondPriority)
+            return firstPriority > secondPriority;
+
         if (IsDescendantOrSelf(first, second.Handle))
             return true;
 
         if (IsDescendantOrSelf(second, first.Handle))
             return false;
 
-        if (first.Policy.InputPriority != second.Policy.InputPriority)
-            return first.Policy.InputPriority > second.Policy.InputPriority;
-
         return first.Sequence > second.Sequence;
+    }
+
+    private UIInputPriority EffectiveInputPriority(UIScreenEntrySnapshot entry)
+    {
+        var priority = entry.Policy.InputPriority;
+        var current = entry;
+        while (current.Policy.Parent.HasValue)
+        {
+            var parent = FindActive(current.Policy.Parent.Value);
+            if (parent is null)
+                break;
+
+            if (parent.Policy.InputPriority > priority)
+                priority = parent.Policy.InputPriority;
+            current = parent;
+        }
+
+        return priority;
     }
 
     private void SortCloseOrder(List<UIScreenEntrySnapshot> entries)

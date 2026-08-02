@@ -239,9 +239,23 @@ public partial class UIScreenHost : Control
 
         if (_model.MutationGeneration != generationBeforePrepare)
         {
-            _focusCoordinator.DiscardPreparation(focusPreparation);
-            var cascadeRemoved = !IsActive(handle);
-            _model.Close(handle);
+            // The nested operation may already have completed a Recompute()
+            // while the pending candidate was still present in _model. That
+            // re-computation can apply or publish the pending candidate's
+            // pause ownership, gameplay-input block, cursor/HUD policy,
+            // top-input ownership, and lower-layer effects. A simple
+            // _model.Close(handle) without Recompute leaves these effects
+            // applied after the rejected candidate is gone. Worse, the
+            // callback can inspect ActiveEntries, obtain the pending
+            // candidate's handle, and open a logical child beneath it;
+            // _model.Close(handle) cascade-removes both from the pure model
+            // but its ClosedEntries are ignored, orphaning the nested
+            // child's adapter, attached view, ownership metadata, focus
+            // record, and tree-exit subscription. RollbackPendingOpen
+            // cleans every cascade-removed adapter and focus entry, restores
+            // applied effects via Recompute, and does not create a normal
+            // restoration lease for a presentation that never committed.
+            var cascadeRemoved = RollbackPendingOpen(handle, focusPreparation);
             return new(
                 cascadeRemoved
                     ? UIScreenOpenStatus.InvalidNode
@@ -627,6 +641,54 @@ public partial class UIScreenHost : Control
             FinalizeTeardown();
 
         return new UIScreenCloseResult(firstStatus);
+    }
+
+    /// <summary>
+    /// Rolls back a pending open whose TryPrepare callback mutated the model.
+    /// Unlike <see cref="ProcessClose"/>, this does NOT start a focus
+    /// restoration lease — the presentation never committed (no adapter, focus
+    /// record, or view attachment for the candidate), so there is nothing to
+    /// restore to. Cascade-removed descendants (e.g. a re-entrant child opened
+    /// beneath the candidate during TryPrepare) ARE fully cleaned: adapter,
+    /// focus entry, ownership metadata, tree-exit handler, and lower-layer
+    /// effects. <see cref="Recompute"/> is called afterward so applied effects
+    /// (pause, cursor, HUD, input ownership, lower-layer inerting) are restored
+    /// to the state without the rejected candidate and its descendants.
+    /// Returns true when the candidate was already cascade-removed by the
+    /// re-entrant mutation (distinguished from a non-cascade mutation so the
+    /// caller returns InvalidNode vs HostMutating).
+    /// </summary>
+    private bool RollbackPendingOpen(
+        UIScreenHandle handle,
+        UIFocusPreparation focusPreparation)
+    {
+        _focusCoordinator.DiscardPreparation(focusPreparation);
+        // Check whether the candidate was already cascade-removed by the
+        // re-entrant mutation BEFORE closing — after Close the candidate is
+        // always gone and the distinction is lost.
+        var cascadeRemoved = !IsActive(handle);
+        var mutation = _model.Close(handle);
+        if (mutation.Status == UIScreenCloseStatus.Closed)
+        {
+            foreach (var closed in mutation.ClosedEntries)
+            {
+                var reason = closed.Handle == handle
+                    ? UIScreenCloseReason.Programmatic
+                    : UIScreenCloseReason.ParentClosed;
+                var focusState = CloseAdapter(closed.Handle, reason);
+                // Release focus on cascade-removed descendants without starting
+                // a restoration lease — the presentation never committed.
+                _focusCoordinator.ReleaseFocusWithoutRestoration(focusState);
+            }
+        }
+        // Recompute so applied effects (pause ownership, gameplay-input block,
+        // cursor/HUD policy, top-input ownership, lower-layer effects) are
+        // restored to the state without the rejected candidate and its
+        // descendants. Without this, a re-entrant Recompute that ran while the
+        // pending candidate was still in _model can leave its effects applied
+        // after the candidate is gone.
+        Recompute();
+        return cascadeRemoved;
     }
 
     private UIScreenCloseStatus ProcessClose(CloseRequest request)

@@ -412,7 +412,22 @@ public partial class UIScreenHost : Control
         Action treeExiting = () => OnViewTreeExiting(handle);
         adapter.TreeExitingHandler = treeExiting;
         view.TreeExiting += treeExiting;
-        _focusCoordinator.Register(handle, adapter, normalized.Policy, focusPreparation);
+        // Register() invokes the candidate's own FocusViewport delegate, which
+        // may synchronously re-enter the host and close the candidate, close an
+        // ancestor (cascade-removing the candidate), or start teardown. In any
+        // of those cases, the re-entrant close already ran the full
+        // CloseAdapter path (removing the adapter, ownership metadata,
+        // tree-exit handler, and restoring lower-layer effects) and called
+        // Recompute() inside ProcessClose. Register() detects the liveness
+        // failure, removes the DynamicSink, and returns false without adding
+        // an orphan focus entry or scheduling initial focus. Without this
+        // check, TryPresent() would call Recompute() again (harmless but
+        // redundant) and return the original Opened result for a handle that
+        // is no longer active — a stale handle the caller could try to close
+        // or present a child beneath.
+        if (!_focusCoordinator.Register(
+                handle, adapter, normalized.Policy, focusPreparation))
+            return new(UIScreenOpenStatus.InvalidNode, null);
         Recompute();
         return opened;
     }

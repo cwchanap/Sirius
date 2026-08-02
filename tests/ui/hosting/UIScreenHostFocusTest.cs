@@ -2046,6 +2046,234 @@ public partial class UIScreenHostFocusTest : Node
         }
     }
 
+    [TestCase]
+    public async Task TryPresent_CandidateFocusViewportClosesSelf_ReturnsInvalidNodeAndLeavesNoOrphan()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var view = fixture.Track(new Control { Visible = true });
+        var closedFromDelegate = false;
+        try
+        {
+            // The candidate's own FocusViewport delegate is invoked during
+            // Register() (after the model entry, adapter, ownership metadata,
+            // and tree-exit handler are committed). The delegate finds the
+            // candidate through ActiveEntries and closes it synchronously.
+            // Without the liveness check in Register(), CloseEntry finds no
+            // focus entry (Register() hasn't added it yet) and returns a
+            // no-op, so Register() adds an orphan focus entry and TryPresent
+            // returns the original Opened result for a handle that is no
+            // longer active. With the fix, Register() detects the liveness
+            // failure, removes the DynamicSink, and returns false; TryPresent
+            // returns InvalidNode.
+            var opened = fixture.Host.TryPresent(
+                view,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    InputPriority = UIInputPriority.Blocking,
+                    FocusViewport = () =>
+                    {
+                        foreach (var entry in fixture.Host.ActiveEntries)
+                        {
+                            if (entry.Policy.Kind == UIScreenKinds.Pause)
+                            {
+                                closedFromDelegate = true;
+                                fixture.Host.TryClose(
+                                    entry.Handle,
+                                    UIScreenCloseReason.Programmatic);
+                                break;
+                            }
+                        }
+                        return view.GetViewport();
+                    }
+                });
+
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(opened.Handle).IsNull();
+            AssertThat(closedFromDelegate).IsTrue();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(0);
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(0);
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task FocusRestoration_SupersededLeaseDoesNotFocusUnderStaleTopOwner()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control { Visible = true });
+        var parentButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false,
+            Visible = true
+        };
+        parentView.AddChild(parentButton);
+        var childView = fixture.Track(new Control { Visible = true });
+        var u1View = fixture.Track(new Control { Visible = true });
+        var u2View = fixture.Track(new Control { Visible = true });
+        try
+        {
+            // P (Screen, with a focusable Button) is opened and its Button
+            // receives focus. Child C (Parent = P) captures P's Button as the
+            // parent focus owner. C is closed, starting a deferred restoration
+            // lease targeting P's Button. Before that deferred restoration
+            // runs, two unrelated Blocking owners U1 and U2 are opened (U2 on
+            // top). Closing U2 calls BeginRestoration, which synchronously
+            // completes C's still-pending lease BEFORE Recompute updates
+            // CurrentState. Without the fix, TargetOutsideNewTopOwner reads
+            // the stale CurrentState.TopInputOwner (U2), doesn't find U2 in
+            // _entries, and returns false — so P's Button is focused beneath
+            // U1. With the fix, the top owner is computed from the live model
+            // input order (U1), P's Button is outside U1's subtree, and the
+            // parent-focus path is rejected.
+            fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause));
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            parentButton.GrabFocus();
+
+            var child = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = fixture.Host.ActiveEntries[0].Handle
+                }).Handle!.Value;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // Close C — its deferred restoration is scheduled but has not run.
+            fixture.Host.TryClose(child, UIScreenCloseReason.Programmatic);
+
+            // Open U1 and U2 synchronously before C's deferred restoration
+            // runs. Both are Blocking Modal so they outrank P in input order.
+            // U2 (opened second) is the top input owner.
+            fixture.Host.TryPresent(
+                u1View,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking
+                });
+            fixture.Host.TryPresent(
+                u2View,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.ConfirmQuitToMain) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking
+                });
+
+            // Close U2 synchronously. ProcessClose calls BeginRestoration
+            // (which completes C's lease synchronously) BEFORE Recompute.
+            // Check P's Button focus immediately — before the next frame
+            // corrects it via U2's deferred restoration.
+            fixture.Host.TryClose(
+                fixture.Host.ActiveEntries[0].Handle,
+                UIScreenCloseReason.Programmatic);
+
+            // With the fix: P's Button must NOT have focus — it is outside
+            // the real top owner U1. Without the fix, the stale
+            // CurrentState.TopInputOwner (U2) caused TargetOutsideNewTopOwner
+            // to return false and P's Button was focused beneath U1.
+            AssertThat(parentButton.HasFocus()).IsFalse();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(parentButton.HasFocus()).IsFalse();
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task FocusRestoration_BlockingControlRootSink_NotRejectedAsOutsideTopOwner()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control());
+        var childView = fixture.Track(new Control());
+        var focusViewportCallCount = 0;
+        var closeParentOnNextFocusViewport = false;
+        UIScreenHandle? parentHandle = null;
+        try
+        {
+            // Parent P is a Blocking Control with no focusable descendants.
+            // Initial focus lands on _rootSink (the host's FocusSink). When
+            // child C opens, CaptureParentFocus records _rootSink as P's
+            // FocusOwner. When C closes, the parent-focus restoration path
+            // must accept _rootSink as P's designated sink (not reject it as
+            // outside P's view subtree). Without the fix, the valid captured
+            // sink is rejected and restoration falls through to the parent
+            // initial-focus path, which invokes P's FocusViewport — if that
+            // delegate closes P, P is unexpectedly closed. With the fix,
+            // _rootSink is accepted and focused directly; FocusViewport is
+            // not invoked during restoration.
+            parentHandle = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    InputPriority = UIInputPriority.Blocking,
+                    FocusViewport = () =>
+                    {
+                        focusViewportCallCount++;
+                        if (closeParentOnNextFocusViewport && parentHandle.HasValue)
+                        {
+                            closeParentOnNextFocusViewport = false;
+                            fixture.Host.TryClose(
+                                parentHandle.Value,
+                                UIScreenCloseReason.Programmatic);
+                        }
+                        return parentView.GetViewport();
+                    }
+                }).Handle;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // P's initial focus landed on _rootSink.
+            var sink = fixture.Host.GetNode<Control>("FocusSink");
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(sink);
+
+            var child = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = parentHandle!.Value
+                }).Handle!.Value;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // Arm FocusViewport to close P on the next invocation. If the
+            // parent-focus path rejects _rootSink and falls through to the
+            // parent initial-focus path, FocusViewport will be invoked and
+            // P will be closed.
+            closeParentOnNextFocusViewport = true;
+            var focusViewportCountBeforeClose = focusViewportCallCount;
+            fixture.Host.TryClose(child, UIScreenCloseReason.Programmatic);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // With the fix: the parent-focus path accepted _rootSink as P's
+            // designated sink and focused it directly. FocusViewport was NOT
+            // invoked during restoration, so P is still active.
+            AssertThat(fixture.Host.IsActive(parentHandle!.Value)).IsTrue();
+            AssertThat(focusViewportCallCount).IsEqual(focusViewportCountBeforeClose);
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(sink);
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private async Task DisposeFixture(HostFixture fixture)
     {
         fixture.Dispose();

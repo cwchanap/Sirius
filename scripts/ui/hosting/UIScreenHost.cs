@@ -178,18 +178,7 @@ public partial class UIScreenHost : Control
             return new(UIScreenOpenStatus.InvalidSpecification, null);
 
         var layer = _layers[normalized.Policy.Layer];
-        var isPausedAfterOpen = normalized.Policy.PauseTree;
-        if (!isPausedAfterOpen)
-        {
-            foreach (var active in _model.Entries)
-            {
-                if (active.Policy.PauseTree)
-                {
-                    isPausedAfterOpen = true;
-                    break;
-                }
-            }
-        }
+        var isPausedAfterOpen = ComputeIsPausedAfterOpen(normalized.Policy);
         var hasPauseBoundedLifetime = HasPauseBoundedLifetime(normalized.Policy);
         var adapterStatus = UIScreenViewAdapter.TryCreate(
             this,
@@ -313,20 +302,74 @@ public partial class UIScreenHost : Control
             _focusCoordinator.DiscardPreparation(focusPreparation);
             throw;
         }
+        // Snapshot the model generation before Apply(). Apply() runs
+        // AddChild() which synchronously invokes the view's _EnterTree() and
+        // _Ready(). Those lifecycle callbacks can re-enter the host: open
+        // another entry or close an ancestor. Unlike the TryPrepare guard
+        // (where the candidate is NOT in _adapters and re-entrant validation
+        // skips it), here the candidate IS in _adapters — but a re-entrant
+        // open's ValidateEffectAdaptersForOpen does NOT revalidate the
+        // candidate's own process mode, and a re-entrant close can cascade
+        // through the candidate while a re-entrant Recompute applies its
+        // effects. The candidate's process-mode and effect validation ran
+        // against the pre-Apply snapshot (pause state, inerting owners) which
+        // is now stale. Detect any model mutation during Apply() and reject
+        // the open instead of committing a candidate whose validation was
+        // bypassed, using the same RollbackPendingOpen routine that cleans
+        // cascade descendants and restores applied effects.
+        var generationBeforeApply = _model.MutationGeneration;
         var applyStatus = adapter.Apply();
         if (applyStatus != UIScreenOpenStatus.Opened)
         {
-            _adapters.Remove(handle);
-            _model.Close(handle);
-            adapter.RollbackRegistration();
-            ReleaseOwnership(view);
-            _focusCoordinator.DiscardPreparation(focusPreparation);
-            return new(applyStatus, null);
+            // Attachment failed. The adapter has already been rolled back
+            // inside Apply() (RollbackRegistration set _finished, restored
+            // the view's process mode, and detached it if it was attached).
+            // Use RollbackPendingOpen to close the model entry, clean any
+            // cascade-removed descendants (a _Ready() that opened a logical
+            // child beneath the candidate before failing), and Recompute to
+            // restore applied effects — rather than a direct _model.Close
+            // that ignores ClosedEntries and leaves cascade descendants'
+            // adapters, focus records, ownership metadata, and effects
+            // orphaned. Distinguish cascade-removed (InvalidNode) from a
+            // non-cascade failure (the original applyStatus).
+            var cascadeRemoved = RollbackPendingOpen(handle, focusPreparation);
+            return new(
+                cascadeRemoved
+                    ? UIScreenOpenStatus.InvalidNode
+                    : applyStatus,
+                null);
+        }
+
+        if (_model.MutationGeneration != generationBeforeApply)
+        {
+            // Apply()'s synchronous lifecycle callbacks (_EnterTree, _Ready)
+            // mutated the model. The candidate's process-mode and effect
+            // validation ran against the pre-Apply snapshot (pause state,
+            // inerting owners) which is now potentially stale. Revalidate
+            // the candidate's process mode and effect adapters against the
+            // current state instead of committing a candidate whose
+            // validation was bypassed. If revalidation passes, proceed; if
+            // it fails, roll back the committed adapter and any cascade
+            // descendants, and restore applied effects via Recompute.
+            var revalidateStatus = RevalidateAfterApply(
+                normalized.Policy, adapter);
+            if (revalidateStatus != UIScreenOpenStatus.Opened)
+            {
+                var cascadeRemoved = RollbackPendingOpen(handle, focusPreparation);
+                return new(
+                    cascadeRemoved
+                        ? UIScreenOpenStatus.InvalidNode
+                        : revalidateStatus,
+                    null);
+            }
         }
 
         // A re-entrant close from the view's _Ready() (synchronously invoked
         // during adapter.Apply() via AddChild) may have closed this handle and
-        // removed its adapter registration even though Apply() returned Opened.
+        // removed its adapter registration even though Apply() returned Opened
+        // and the generation did not change (a defensive guard —
+        // UIScreenStackModel.Close always bumps MutationGeneration, so the
+        // generation check above subsumes this case in normal operation).
         // Validate that the handle is still active and still maps to the same
         // adapter before registering focus or returning Opened. Without this,
         // TryPresent installs a tree-exit handler and focus record for a
@@ -339,11 +382,11 @@ public partial class UIScreenHost : Control
             !_adapters.TryGetValue(handle, out var activeAdapter) ||
             !ReferenceEquals(activeAdapter, adapter))
         {
-            _adapters.Remove(handle);
-            _model.Close(handle);
-            adapter.RollbackRegistration();
-            ReleaseOwnership(view);
-            _focusCoordinator.DiscardPreparation(focusPreparation);
+            // Use RollbackPendingOpen for the same cascade-cleanup reasons
+            // as the generation-change path above: a direct _model.Close
+            // would ignore ClosedEntries and leave cascade descendants
+            // orphaned.
+            RollbackPendingOpen(handle, focusPreparation);
             return new(UIScreenOpenStatus.InvalidNode, null);
         }
 
@@ -667,27 +710,47 @@ public partial class UIScreenHost : Control
         // re-entrant mutation BEFORE closing — after Close the candidate is
         // always gone and the distinction is lost.
         var cascadeRemoved = !IsActive(handle);
-        var mutation = _model.Close(handle);
-        if (mutation.Status == UIScreenCloseStatus.Closed)
+        // Run rollback under the same mutation/finalization guard as normal
+        // close draining. CloseAdapter() invokes caller-provided Cleanup,
+        // lower-effect restoration callbacks (SetInteractive, SetPresented),
+        // and node lifecycle operations. Without _drainingCloseQueue, a
+        // cleanup callback can synchronously re-enter TryPresent() (which
+        // only checks _drainingCloseQueue) and open another entry instead of
+        // receiving HostMutating, or call PrepareForTeardown() whose
+        // FinalizeTeardown() would finalize and return Complete from inside
+        // rollback cleanup — violating both guarantees: managed cleanup
+        // cannot reopen during an active host transaction, and Complete means
+        // no host work or publication remains afterward.
+        _drainingCloseQueue = true;
+        try
         {
-            foreach (var closed in mutation.ClosedEntries)
+            var mutation = _model.Close(handle);
+            if (mutation.Status == UIScreenCloseStatus.Closed)
             {
-                var reason = closed.Handle == handle
-                    ? UIScreenCloseReason.Programmatic
-                    : UIScreenCloseReason.ParentClosed;
-                var focusState = CloseAdapter(closed.Handle, reason);
-                // Release focus on cascade-removed descendants without starting
-                // a restoration lease — the presentation never committed.
-                _focusCoordinator.ReleaseFocusWithoutRestoration(focusState);
+                foreach (var closed in mutation.ClosedEntries)
+                {
+                    var reason = closed.Handle == handle
+                        ? UIScreenCloseReason.Programmatic
+                        : UIScreenCloseReason.ParentClosed;
+                    var focusState = CloseAdapter(closed.Handle, reason);
+                    // Release focus on cascade-removed descendants without starting
+                    // a restoration lease — the presentation never committed.
+                    _focusCoordinator.ReleaseFocusWithoutRestoration(focusState);
+                }
             }
+            // Recompute so applied effects (pause ownership, gameplay-input
+            // block, cursor/HUD policy, top-input ownership, lower-layer
+            // effects) are restored to the state without the rejected
+            // candidate and its descendants. Without this, a re-entrant
+            // Recompute that ran while the pending candidate was still in
+            // _model can leave its effects applied after the candidate is
+            // gone.
+            Recompute();
         }
-        // Recompute so applied effects (pause ownership, gameplay-input block,
-        // cursor/HUD policy, top-input ownership, lower-layer effects) are
-        // restored to the state without the rejected candidate and its
-        // descendants. Without this, a re-entrant Recompute that ran while the
-        // pending candidate was still in _model can leave its effects applied
-        // after the candidate is gone.
-        Recompute();
+        finally
+        {
+            _drainingCloseQueue = false;
+        }
         return cascadeRemoved;
     }
 
@@ -1004,6 +1067,48 @@ public partial class UIScreenHost : Control
         }
 
         return UIScreenOpenStatus.Opened;
+    }
+
+    /// <summary>
+    /// Revalidates the candidate's process mode and effect adapters against
+    /// the current model state after adapter.Apply()'s synchronous lifecycle
+    /// callbacks (_EnterTree, _Ready) mutated the host. The process mode was
+    /// selected before attachment in TryCreate but assigned on the view only
+    /// after _Ready() returns; if _Ready() opened a PauseTree owner, the
+    /// candidate's Pausable mode may now be invalid. Similarly, a new owner
+    /// may have appeared on a higher layer with inerting lower-layer effects
+    /// that the candidate's adapters cannot satisfy. Returns Opened when both
+    /// revalidations pass (updating the registered process mode if it
+    /// changed), or the failing status otherwise.
+    /// </summary>
+    private UIScreenOpenStatus RevalidateAfterApply(
+        UIScreenEntryPolicy candidatePolicy,
+        UIScreenViewAdapter candidateAdapter)
+    {
+        // Recompute isPausedAfterOpen against the current model state — a
+        // _Ready() callback may have opened a PauseTree owner.
+        var isPausedAfterOpen = ComputeIsPausedAfterOpen(candidatePolicy);
+        var hasPauseBoundedLifetime = HasPauseBoundedLifetime(candidatePolicy);
+
+        var processStatus = candidateAdapter.RevalidateProcessMode(
+            isPausedAfterOpen,
+            hasPauseBoundedLifetime);
+        if (processStatus != UIScreenOpenStatus.Opened)
+            return processStatus;
+
+        return ValidateEffectAdaptersForOpen(candidatePolicy, candidateAdapter);
+    }
+
+    private bool ComputeIsPausedAfterOpen(UIScreenEntryPolicy candidatePolicy)
+    {
+        if (candidatePolicy.PauseTree)
+            return true;
+        foreach (var active in _model.Entries)
+        {
+            if (active.Policy.PauseTree)
+                return true;
+        }
+        return false;
     }
 
     private static bool IsCandidateVisuallyAbove(

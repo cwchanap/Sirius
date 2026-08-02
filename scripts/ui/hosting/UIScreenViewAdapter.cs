@@ -6,7 +6,8 @@ internal sealed class UIScreenViewAdapter
     private readonly Node _attachmentParent;
     private readonly bool _needsAttachment;
     private readonly Node.ProcessModeEnum _incomingProcessMode;
-    private readonly Node.ProcessModeEnum _registeredProcessMode;
+    private readonly UIProcessPolicy _processPolicy;
+    private Node.ProcessModeEnum _registeredProcessMode;
     private bool _attachedByHost;
     private bool _finished;
 
@@ -14,6 +15,7 @@ internal sealed class UIScreenViewAdapter
         Node view,
         Node attachmentParent,
         Node.ProcessModeEnum registeredProcessMode,
+        UIProcessPolicy processPolicy,
         UIScreenEntrySpec spec)
     {
         View = view;
@@ -21,6 +23,7 @@ internal sealed class UIScreenViewAdapter
         _needsAttachment = view.GetParent() == null;
         _incomingProcessMode = view.ProcessMode;
         _registeredProcessMode = registeredProcessMode;
+        _processPolicy = processPolicy;
         IsPresented = spec.IsPresented ?? DefaultIsPresented(view);
         SetPresented = spec.SetPresented ?? DefaultSetPresented(view);
         SetInteractive = spec.SetInteractive ?? (_ => { });
@@ -107,7 +110,7 @@ internal sealed class UIScreenViewAdapter
         var processStatus = ResolveProcessMode(
             view.ProcessMode,
             attachmentParent.ProcessMode,
-            policy,
+            policy.ProcessPolicy,
             isPausedAfterOpen,
             hasPauseBoundedLifetime,
             out var registeredProcessMode);
@@ -118,6 +121,7 @@ internal sealed class UIScreenViewAdapter
             view,
             attachmentParent,
             registeredProcessMode,
+            policy.ProcessPolicy,
             spec);
         return UIScreenOpenStatus.Opened;
     }
@@ -178,6 +182,41 @@ internal sealed class UIScreenViewAdapter
         }
     }
 
+    /// <summary>
+    /// Revalidates the registered process mode against the current pause
+    /// state after Apply()'s synchronous lifecycle callbacks (_EnterTree,
+    /// _Ready) may have mutated the host (e.g. opened a PauseTree owner).
+    /// The process mode was selected before attachment in TryCreate but
+    /// assigned on the view only after _Ready() returns (in Apply()). If
+    /// the pause state changed during _Ready(), the originally-selected
+    /// mode may now be invalid (e.g. Pausable while the tree is now paused).
+    /// Re-runs ResolveProcessMode with the current isPausedAfterOpen and
+    /// hasPauseBoundedLifetime; on success, updates the registered mode and
+    /// the view's ProcessMode if they differ. Returns InvalidProcessPolicy
+    /// when the current state rejects the candidate's process policy.
+    /// </summary>
+    public UIScreenOpenStatus RevalidateProcessMode(
+        bool isPausedAfterOpen,
+        bool hasPauseBoundedLifetime)
+    {
+        var status = ResolveProcessMode(
+            _incomingProcessMode,
+            _attachmentParent.ProcessMode,
+            _processPolicy,
+            isPausedAfterOpen,
+            hasPauseBoundedLifetime,
+            out var newRegisteredMode);
+        if (status != UIScreenOpenStatus.Opened)
+            return status;
+        if (newRegisteredMode != _registeredProcessMode)
+        {
+            _registeredProcessMode = newRegisteredMode;
+            if (GodotObject.IsInstanceValid(View) && !_finished)
+                View.ProcessMode = newRegisteredMode;
+        }
+        return status;
+    }
+
     public void RollbackRegistration()
     {
         if (_finished)
@@ -230,13 +269,13 @@ internal sealed class UIScreenViewAdapter
     private static UIScreenOpenStatus ResolveProcessMode(
         Node.ProcessModeEnum incoming,
         Node.ProcessModeEnum parentMode,
-        UIScreenEntryPolicy policy,
+        UIProcessPolicy processPolicy,
         bool isPausedAfterOpen,
         bool hasPauseBoundedLifetime,
         out Node.ProcessModeEnum registered)
     {
         registered = incoming;
-        switch (policy.ProcessPolicy)
+        switch (processPolicy)
         {
             case UIProcessPolicy.PreserveAndValidate:
                 if (incoming == Node.ProcessModeEnum.Disabled ||

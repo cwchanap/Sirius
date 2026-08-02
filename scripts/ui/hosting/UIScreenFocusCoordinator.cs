@@ -401,10 +401,16 @@ internal sealed class UIScreenFocusCoordinator
             return;
 
         // --- Parent focus-owner path (no delegate, no supersession risk) ---
+        // The top owner may have changed during the explicit RestoreFocus
+        // delegate above (e.g. it opened a new Blocking owner but returned a
+        // target that failed IsControlEffectivelyInteractive or TryFocus).
+        // Without a TargetOutsideNewTopOwner check, this path focuses the
+        // parent's previously-captured FocusOwner beneath the new top owner.
         var parentRecord = closeState.ParentRecord;
         if (parentRecord != null &&
             _entries.ContainsKey(parentRecord.ParentHandle) &&
             IsHandleEffectivelyInteractive(parentRecord.ParentHandle) &&
+            !TargetOutsideNewTopOwner(parentRecord.FocusOwner, topOwnerBefore) &&
             TryFocus(parentRecord.FocusOwner, parentRecord.Viewport))
         {
             return;
@@ -434,6 +440,7 @@ internal sealed class UIScreenFocusCoordinator
                 IsRestorationStillActive(leaseGeneration, closedHandle) &&
                 _entries.ContainsKey(parentRecord.ParentHandle) &&
                 IsHandleEffectivelyInteractive(parentRecord.ParentHandle) &&
+                !TargetOutsideNewTopOwner(parentInitial, topOwnerBefore) &&
                 TryFocus(parentInitial, parentViewport))
             {
                 return;
@@ -468,10 +475,19 @@ internal sealed class UIScreenFocusCoordinator
                     topEntry.Adapter.View,
                     viewport,
                     topEntry.DynamicSink);
-                if (TryFocus(descendant, viewport))
+                // SafeFocusViewport may have opened a new top owner that
+                // outranks the selected top entry. Without this check,
+                // restoration focuses a descendant of the now-outranked top
+                // entry (or its DynamicSink) beneath the new top owner —
+                // a transient state observable via FocusEntered side effects
+                // and keyboard/controller input until the new owner's deferred
+                // initial-focus callback corrects it.
+                if (!TargetOutsideNewTopOwner(descendant, topOwnerBefore) &&
+                    TryFocus(descendant, viewport))
                     return;
 
                 if (topEntry.Policy.InputPriority == UIInputPriority.Blocking &&
+                    !TargetOutsideNewTopOwner(topEntry.DynamicSink ?? _rootSink, topOwnerBefore) &&
                     TryFocus(topEntry.DynamicSink ?? _rootSink, viewport))
                 {
                     return;
@@ -507,28 +523,29 @@ internal sealed class UIScreenFocusCoordinator
         _activeCloseState?.Handle == expectedClosedHandle;
 
     /// <summary>
-    /// True when <paramref name="target"/> is an unowned control that a newly
-    /// opened top input owner (one that appeared after
+    /// True when <paramref name="target"/> is a control that a newly opened
+    /// top input owner (one that appeared after
     /// <paramref name="topOwnerBefore"/>) now outranks — i.e. the target is
-    /// outside the new owner's subtree. A caller-provided RestoreFocus
-    /// delegate can open a new Blocking owner and return an unowned external
-    /// target; <see cref="IsControlEffectivelyInteractive"/> permits unowned
-    /// controls, so without this check the old restoration focuses outside
-    /// the new top owner until a later deferred initial-focus callback
-    /// corrects it.
+    /// outside the new owner's subtree. A caller-provided RestoreFocus,
+    /// FocusViewport, or InitialFocus delegate can open a new Blocking owner
+    /// and return (or select) a target beneath a lower entry that remains
+    /// interactive (VisibleInteractive); <see cref="IsControlEffectivelyInteractive"/>
+    /// permits owned controls whose owner is interactive, so without this
+    /// check the old restoration focuses beneath the new top owner until a
+    /// later deferred initial-focus callback corrects it — a transient state
+    /// observable via FocusEntered side effects and keyboard/controller input.
+    /// The rule applies to owned and unowned targets alike: when top ownership
+    /// changes, the target must belong to the current top owner's subtree.
     /// </summary>
     private bool TargetOutsideNewTopOwner(
-        Control target,
+        Control? target,
         UIScreenHandle? topOwnerBefore)
     {
-        if (_host == null)
+        if (target == null || _host == null)
             return false;
         var topOwnerNow = _host.CurrentState.TopInputOwner;
-        // Only revalidate when the top input owner changed during the delegate.
+        // Only revalidate when the top input owner changed during a delegate.
         if (topOwnerNow == null || topOwnerNow == topOwnerBefore)
-            return false;
-        // An owned target is already gated by IsControlEffectivelyInteractive.
-        if (HandleForControl(target) != null)
             return false;
         if (!_entries.TryGetValue(topOwnerNow.Value, out var ownerEntry))
             return false;

@@ -1671,6 +1671,96 @@ public partial class UIScreenHostFocusTest : Node
         }
     }
 
+    [TestCase]
+    public async Task FocusRestoration_RestoreFocusOpensBlockingOwnerAndReturnsOwnedTarget_DoesNotFocusBeneathNewOwner()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control { Visible = true });
+        var parentButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false,
+            Visible = true
+        };
+        parentView.AddChild(parentButton);
+        var childView = fixture.Track(new Control { Visible = true });
+        var blockingView = fixture.Track(new Control { Visible = true });
+        var armed = false;
+        UIScreenOpenResult? blockingResult = null;
+        try
+        {
+            // Parent P with a focusable Button inside its view.
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    InputPriority = UIInputPriority.Screen
+                });
+            AssertThat(parent.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // Child C (child of P) with a RestoreFocus that, when armed,
+            // opens a new Blocking Modal owner U with LowerLayers.VisibleInteractive
+            // and returns P's Button. P remains interactive (VisibleInteractive),
+            // so IsControlEffectivelyInteractive permits P's Button. But P's
+            // Button is owned by P, which is NOT in U's subtree. Without the
+            // fix, TargetOutsideNewTopOwner exempts owned targets, so the old
+            // restoration focuses P's Button beneath U — a transient state
+            // observable via FocusEntered side effects and keyboard/controller
+            // input until U's deferred initial-focus callback corrects it.
+            var child = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Parent = parent.Handle,
+                    RestoreFocus = () =>
+                    {
+                        if (armed)
+                        {
+                            blockingResult = fixture.Host.TryPresent(
+                                blockingView,
+                                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                                {
+                                    Layer = UIScreenLayer.Modal,
+                                    InputPriority = UIInputPriority.Blocking,
+                                    LowerLayers = UILowerLayerPolicy.VisibleInteractive
+                                });
+                            return parentButton;
+                        }
+                        return null;
+                    }
+                });
+            AssertThat(child.Status).IsEqual(UIScreenOpenStatus.Opened);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // Arm the delegate so the next RestoreFocus invocation (during the
+            // child's deferred restoration) opens the Blocking owner and
+            // returns P's Button.
+            armed = true;
+            AssertThat(fixture.Host.TryClose(
+                child.Handle!.Value,
+                UIScreenCloseReason.Programmatic).Status).IsEqual(UIScreenCloseStatus.Closed);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            armed = false;
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(blockingResult!.Value.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.IsActive(blockingResult.Value.Handle!.Value)).IsTrue();
+            // P's Button must not have focus — it is owned by P, which is
+            // outside the new Blocking top owner U's subtree. Focus should
+            // have landed inside U's subtree instead.
+            AssertThat(parentButton.HasFocus()).IsFalse();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner() == parentButton).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private sealed partial class OpensHigherOwnerOnReadyControl : Control
     {
         public UIScreenHost Host { get; init; } = null!;

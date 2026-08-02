@@ -769,6 +769,58 @@ public partial class UIScreenHostProcessModeTest : Node
     }
 
     [TestCase]
+    public async Task TryPresent_ReadyOpensPauseOwnerAfterPausableCandidate_RevalidatesAndRejectsStaleProcessMode()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var ownerView = fixture.Track(new Control());
+        var candidateView = fixture.Track(new OpensPauseOwnerOnReadyControl
+        {
+            Host = fixture.Host,
+            OwnerView = ownerView
+        });
+        try
+        {
+            // Candidate with ProcessPolicy.Pausable is validated while no
+            // pause owner exists (isPausedAfterOpen = false → Pausable is
+            // accepted). The candidate's _Ready() (synchronously invoked
+            // during adapter.Apply() via AddChild) opens a PauseTree owner.
+            // After _Ready(), isPausedAfterOpen is true, making the
+            // candidate's Pausable mode invalid (a Pausable entry cannot
+            // process when the tree is paused). Without revalidation after
+            // Apply(), TryPresent would commit the candidate with a stale
+            // Pausable mode — the entry would be silently non-functional.
+            // With revalidation, TryPresent detects the stale process mode
+            // and returns InvalidProcessPolicy.
+            var result = fixture.Host.TryPresent(
+                candidateView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    ProcessPolicy = UIProcessPolicy.Pausable
+                });
+
+            AssertThat(result.Status).IsEqual(UIScreenOpenStatus.InvalidProcessPolicy);
+            AssertThat(result.Handle).IsNull();
+            // The candidate was rejected — not active.
+            AssertThat(fixture.Host.IsKindActive(UIScreenKinds.Battle)).IsFalse();
+            // The PauseTree owner opened from _Ready() remains committed.
+            AssertThat(candidateView.OwnerResult.Status)
+                .IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.IsActive(candidateView.OwnerResult.Handle!.Value))
+                .IsTrue();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            // No orphan focus state for the rejected candidate.
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(1);
+            // The candidate view was detached during rollback.
+            AssertThat(candidateView.GetParent()).IsNull();
+        }
+        finally
+        {
+            fixture.Dispose();
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    [TestCase]
     public async Task Close_Parent_CleansDescendantsInModelOrderAndRestoresViews()
     {
         var fixture = await UIScreenHostTestSupport.CreateHost(this);
@@ -899,6 +951,23 @@ public partial class UIScreenHostProcessModeTest : Node
                     break;
                 }
             }
+        }
+    }
+
+    private sealed partial class OpensPauseOwnerOnReadyControl : Control
+    {
+        public UIScreenHost Host { get; init; } = null!;
+        public Control OwnerView { get; init; } = null!;
+        public UIScreenOpenResult OwnerResult { get; private set; }
+
+        public override void _Ready()
+        {
+            OwnerResult = Host.TryPresent(
+                OwnerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    PauseTree = true
+                });
         }
     }
 }

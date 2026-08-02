@@ -2471,6 +2471,117 @@ public partial class UIScreenHostLifecycleTest : Node
     }
 
     [TestCase]
+    public async Task TryPresent_RollbackPendingOpenCleanupReentersTryPresent_ReturnsHostMutating()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control { Visible = true });
+        var childView = fixture.Track(new Control { Visible = true });
+        var grandchildView = fixture.Track(new Control { Visible = true });
+        var cleanupReentrantView = fixture.Track(new Control());
+        UIScreenHandle? parentHandle = null;
+        var openOnNextFocusViewport = false;
+        UIScreenOpenResult? cleanupReentrantResult = null;
+        try
+        {
+            // Parent entry with a custom FocusViewport. The focus coordinator
+            // invokes this delegate during a child's TryPrepare()
+            // (CaptureParentFocus). The delegate synchronously opens a
+            // GRANDCHILD beneath the child candidate (Parent = child's handle,
+            // found via ActiveEntries). The grandchild has a Cleanup callback
+            // that tries to re-enter TryPresent. The child's TryPrepare
+            // generation guard detects the mutation and calls
+            // RollbackPendingOpen, which cascade-removes the grandchild and
+            // invokes its Cleanup. Without _drainingCloseQueue during
+            // rollback, the Cleanup's TryPresent would proceed instead of
+            // returning HostMutating — violating the guarantee that managed
+            // cleanup cannot reopen during an active host transaction.
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    FocusViewport = () =>
+                    {
+                        if (openOnNextFocusViewport)
+                        {
+                            openOnNextFocusViewport = false;
+                            // Find the child candidate's handle from
+                            // ActiveEntries (it's in _model but not yet
+                            // committed).
+                            UIScreenHandle? childHandle = null;
+                            foreach (var entry in fixture.Host.ActiveEntries)
+                            {
+                                if (entry.Policy.Kind == UIScreenKinds.Inventory)
+                                {
+                                    childHandle = entry.Handle;
+                                    break;
+                                }
+                            }
+                            if (childHandle.HasValue)
+                            {
+                                fixture.Host.TryPresent(
+                                    grandchildView,
+                                    UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                                    {
+                                        Parent = childHandle,
+                                        Cleanup = _ =>
+                                        {
+                                            cleanupReentrantResult =
+                                                fixture.Host.TryPresent(
+                                                    cleanupReentrantView,
+                                                    UIScreenHostTestSupport.Spec(
+                                                        UIScreenKinds.Battle));
+                                        }
+                                    });
+                            }
+                        }
+                        return parentView.GetViewport();
+                    }
+                }).Handle!.Value;
+            parentHandle = parent;
+
+            // Arm the delegate so the next FocusViewport invocation (the
+            // child's CaptureParentFocus) opens the grandchild beneath the
+            // child, then present the child.
+            openOnNextFocusViewport = true;
+            var childResult = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Parent = parent
+                });
+            openOnNextFocusViewport = false;
+
+            // The re-entrant open mutated the model during TryPrepare.
+            // The child's validation snapshot is stale, so TryPresent must
+            // reject the open as HostMutating.
+            AssertThat(childResult.Status).IsEqual(UIScreenOpenStatus.HostMutating);
+            AssertThat(childResult.Handle).IsNull();
+            // The parent is still active.
+            AssertThat(fixture.Host.IsActive(parent)).IsTrue();
+            // The child and grandchild were both rolled back.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(1);
+            // The grandchild's Cleanup callback tried to re-enter TryPresent
+            // during rollback. Without _drainingCloseQueue, it would have
+            // proceeded; with the fix, it must return HostMutating.
+            AssertThat(cleanupReentrantResult).IsNotNull();
+            AssertThat(cleanupReentrantResult!.Value.Status)
+                .IsEqual(UIScreenOpenStatus.HostMutating);
+            // The grandchild view was detached during rollback.
+            AssertThat(grandchildView.GetParent()).IsNull();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task TryPresent_ChildParentFocusViewportFreesChildView_ReturnsInvalidNodeAndLeavesNoOrphan()
     {
         var tree = (SceneTree)Engine.GetMainLoop();

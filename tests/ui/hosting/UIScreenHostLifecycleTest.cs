@@ -2381,6 +2381,173 @@ public partial class UIScreenHostLifecycleTest : Node
         }
     }
 
+    [TestCase]
+    public async Task TryPresent_ChildParentFocusViewportOpensAnotherEntry_ReturnsHostMutatingAndLeavesNoOrphan()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control { Visible = true });
+        var childView = fixture.Track(new Control { Visible = true });
+        var upperView = fixture.Track(new Control { Visible = true });
+        UIScreenHandle? parentHandle = null;
+        var openOnNextFocusViewport = false;
+        UIScreenOpenResult? upperResult = null;
+        try
+        {
+            // Parent entry with a custom FocusViewport. The focus coordinator
+            // invokes this delegate during a child's TryPrepare()
+            // (CaptureParentFocus) BEFORE the child adapter is registered. The
+            // delegate synchronously opens ANOTHER entry (an upper owner that
+            // inerts the parent) re-entrantly through TryPresent. At that
+            // moment the child is in _model but not in _adapters, so the upper
+            // owner's ValidateEffectAdaptersForOpen and process-policy
+            // validation skip the child — the child's own earlier validation
+            // ran against a snapshot (unpaused tree, no inerting owner) that is
+            // now stale. Without a generation snapshot around TryPrepare,
+            // TryPresent would commit the child against the stale validation.
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    FocusViewport = () =>
+                    {
+                        if (openOnNextFocusViewport)
+                        {
+                            openOnNextFocusViewport = false;
+                            upperResult = fixture.Host.TryPresent(
+                                upperView,
+                                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                                {
+                                    Layer = UIScreenLayer.Modal,
+                                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                                });
+                        }
+                        return parentView.GetViewport();
+                    }
+                }).Handle!.Value;
+            parentHandle = parent;
+
+            // Arm the delegate so the next FocusViewport invocation (the
+            // child's CaptureParentFocus) opens the upper owner, then present
+            // the child synchronously before the parent's deferred
+            // ApplyInitialFocus runs (so the delegate fires from the child
+            // path only).
+            openOnNextFocusViewport = true;
+            var childResult = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Parent = parent
+                });
+            openOnNextFocusViewport = false;
+
+            // The re-entrant open mutated the model during TryPrepare. The
+            // child's validation snapshot is stale, so TryPresent must reject
+            // the open as HostMutating rather than committing a candidate
+            // whose effect/process validation was bypassed.
+            AssertThat(childResult.Status).IsEqual(UIScreenOpenStatus.HostMutating);
+            AssertThat(childResult.Handle).IsNull();
+            // The re-entrant upper owner opened successfully.
+            AssertThat(upperResult!.Value.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.IsActive(upperResult.Value.Handle!.Value)).IsTrue();
+            // The parent is still active (now inerted by the upper owner).
+            AssertThat(fixture.Host.IsActive(parent)).IsTrue();
+            // The child was never committed: no orphan model entry, adapter,
+            // ownership metadata, or focus record.
+            AssertThat(fixture.Host.IsActive(childResult.Handle ?? default)).IsFalse();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(2);
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(2);
+            // The child view was never attached (we bailed before Apply()).
+            AssertThat(childView.GetParent()).IsNull();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task TryPresent_ChildParentFocusViewportFreesChildView_ReturnsInvalidNodeAndLeavesNoOrphan()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control { Visible = true });
+        var childView = fixture.Track(new Control { Visible = true });
+        UIScreenHandle? parentHandle = null;
+        var freeChildOnNextFocusViewport = false;
+        try
+        {
+            // Parent entry with a custom FocusViewport. The focus coordinator
+            // invokes this delegate during a child's TryPrepare()
+            // (CaptureParentFocus) BEFORE the child adapter is registered or
+            // the child view is attached (AddChild happens in adapter.Apply(),
+            // which runs after TryPrepare). The delegate synchronously frees
+            // the child view without closing the child's model handle. Freeing
+            // a detached node does not fire TreeExiting, so the model entry is
+            // not removed and the generation/IsActive guards do not catch it.
+            // Without re-validating the view's Godot-object validity after
+            // TryPrepare, TryPresent proceeds to view.SetMeta(), which
+            // dereferences the freed object and throws — stranding the model
+            // entry and the adapter already added to _adapters with no
+            // ownership metadata, focus record, or tree-exit handler.
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    FocusViewport = () =>
+                    {
+                        if (freeChildOnNextFocusViewport &&
+                            GodotObject.IsInstanceValid(childView))
+                        {
+                            freeChildOnNextFocusViewport = false;
+                            childView.Free();
+                        }
+                        return parentView.GetViewport();
+                    }
+                }).Handle!.Value;
+            parentHandle = parent;
+
+            // Arm the delegate so the next FocusViewport invocation (the
+            // child's CaptureParentFocus) frees the child view, then present
+            // the child synchronously before the parent's deferred
+            // ApplyInitialFocus runs (so the delegate fires from the child
+            // path only).
+            freeChildOnNextFocusViewport = true;
+            var childResult = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Parent = parent
+                });
+            freeChildOnNextFocusViewport = false;
+
+            // The freed view must be detected after TryPrepare and the open
+            // rejected as InvalidNode — mirroring the view-validity check at
+            // the top of TryPresent — instead of dereferencing the freed
+            // object in SetMeta and stranding the model/adapter pair.
+            AssertThat(childResult.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(childResult.Handle).IsNull();
+            AssertThat(fixture.Host.IsActive(parent)).IsTrue();
+            // No orphan model entry, adapter, ownership metadata, or focus
+            // record for the child.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(1);
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private async Task DisposeFixture(HostFixture fixture)
     {
         fixture.Dispose();

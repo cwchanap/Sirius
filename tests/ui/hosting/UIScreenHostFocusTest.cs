@@ -1336,6 +1336,103 @@ public partial class UIScreenHostFocusTest : Node
     }
 
     [TestCase]
+    public async Task FocusRestoration_InitialFocusProviderOpensInertingOwner_DoesNotFocusInertSubtree()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control { Visible = true });
+        // parentButton starts non-focusable so the parent's deferred
+        // ApplyInitialFocus does not focus it (the descendant scan skips it).
+        // The parent therefore has no focus owner when the child opens, so the
+        // captured parent record's FocusOwner is null and restoration falls
+        // through to the parent-initial path that invokes the InitialFocus
+        // provider.
+        var parentButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.None,
+            Disabled = false
+        };
+        parentView.AddChild(parentButton);
+        var upperView = fixture.Track(new Control { Visible = true });
+        var childView = fixture.Track(new Control { Visible = true });
+        var armed = false;
+        UIScreenOpenResult? upperResult = null;
+        try
+        {
+            // Parent (Screen, Screen priority — not Blocking so no sink focus)
+            // with an InitialFocus provider that, when armed, makes parentButton
+            // focusable, opens an upper Modal owner that inerts the parent
+            // (VisibleInert), and returns parentButton.
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    InputPriority = UIInputPriority.Screen,
+                    InitialFocus = () =>
+                    {
+                        if (armed)
+                        {
+                            parentButton.FocusMode = Control.FocusModeEnum.All;
+                            upperResult = fixture.Host.TryPresent(
+                                upperView,
+                                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                                {
+                                    Layer = UIScreenLayer.Modal,
+                                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                                });
+                        }
+                        return armed ? parentButton : null;
+                    }
+                });
+            AssertThat(parent.Status).IsEqual(UIScreenOpenStatus.Opened);
+            // Let the parent's deferred ApplyInitialFocus run (unarmed): it
+            // finds no focusable descendant and, not being Blocking, focuses no
+            // sink, so the parent has no focus owner.
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsNull();
+
+            // Child (Toast, above Modal so the upper owner does not inert it)
+            // opened with Parent = parent. Its open captures a parent record
+            // with a null FocusOwner.
+            var child = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Layer = UIScreenLayer.Toast,
+                    Parent = parent.Handle
+                });
+            AssertThat(child.Status).IsEqual(UIScreenOpenStatus.Opened);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // Arm the provider so the next InitialFocus invocation (during the
+            // child's deferred restoration) opens the inerting owner and
+            // returns parentButton, then close the child. Restoration must
+            // revalidate the parent's effect AFTER the provider callback and
+            // must NOT focus parentButton inside the now-inert subtree — the
+            // same invariant ApplyInitialFocus already enforces. Without the
+            // post-provider revalidation, focus lands on parentButton.
+            armed = true;
+            AssertThat(fixture.Host.TryClose(
+                child.Handle!.Value,
+                UIScreenCloseReason.Programmatic).Status).IsEqual(UIScreenCloseStatus.Closed);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(upperResult!.Value.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.IsActive(parent.Handle!.Value)).IsTrue();
+            AssertThat(fixture.Host.LowerLayerEffectFor(parent.Handle!.Value))
+                .IsEqual(UILowerLayerPolicy.VisibleInert);
+            AssertThat(parentButton.HasFocus()).IsFalse();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner() == parentButton).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task DeferredInitialFocus_FocusViewportClosesHandle_DoesNotFocusAndLeavesNoOrphan()
     {
         var tree = (SceneTree)Engine.GetMainLoop();

@@ -376,25 +376,49 @@ internal sealed class UIScreenFocusCoordinator
             var parentInitial = SafeTarget(
                 parentEntry.Adapter.InitialFocus,
                 propagateProviderExceptions);
-            if (parentViewport != null && TryFocus(parentInitial, parentViewport))
+            // SafeFocusViewport and SafeTarget invoked the caller-provided
+            // FocusViewport and InitialFocus delegates. Either may re-enter the
+            // host and open an upper owner that inerts (or closes) the parent
+            // while it remains the selected restoration candidate. Revalidate
+            // the parent's registration and reduced effect before focusing the
+            // provider-returned target; otherwise restoration focuses inside a
+            // now-inert subtree through a path that bypasses
+            // RevokeFocusWithin. Mirrors the post-delegate revalidation
+            // ApplyInitialFocus already performs.
+            if (parentViewport != null &&
+                _entries.ContainsKey(parentRecord.ParentHandle) &&
+                IsHandleEffectivelyInteractive(parentRecord.ParentHandle) &&
+                TryFocus(parentInitial, parentViewport))
+            {
                 return;
+            }
         }
 
         var top = FindTopEntry();
         if (top != null)
         {
-            var viewport = SafeFocusViewport(top.Adapter);
-            if (viewport != null)
+            var topHandle = top.Value.Handle;
+            var topEntry = top.Value.Entry;
+            var viewport = SafeFocusViewport(topEntry.Adapter);
+            // SafeFocusViewport invoked the caller-provided FocusViewport
+            // delegate, which may re-enter the host and inert or close the
+            // entry that FindTopEntry selected. Revalidate that the selected
+            // top is still registered and interactive before focusing into its
+            // subtree; otherwise restoration can land inside a subtree that
+            // was inerted by the delegate.
+            if (viewport != null &&
+                _entries.ContainsKey(topHandle) &&
+                IsHandleEffectivelyInteractive(topHandle))
             {
                 var descendant = FindFirstFocusableDescendant(
-                    top.Adapter.View,
+                    topEntry.Adapter.View,
                     viewport,
-                    top.DynamicSink);
+                    topEntry.DynamicSink);
                 if (TryFocus(descendant, viewport))
                     return;
 
-                if (top.Policy.InputPriority == UIInputPriority.Blocking &&
-                    TryFocus(top.DynamicSink ?? _rootSink, viewport))
+                if (topEntry.Policy.InputPriority == UIInputPriority.Blocking &&
+                    TryFocus(topEntry.DynamicSink ?? _rootSink, viewport))
                 {
                     return;
                 }
@@ -428,7 +452,7 @@ internal sealed class UIScreenFocusCoordinator
             ? value.GetInstanceId()
             : null;
 
-    private FocusEntry? FindTopEntry()
+    private (UIScreenHandle Handle, FocusEntry Entry)? FindTopEntry()
     {
         if (_host == null)
             return null;
@@ -444,7 +468,7 @@ internal sealed class UIScreenFocusCoordinator
                     UILowerLayerPolicy.VisibleInteractive &&
                 _entries.TryGetValue(snapshot.Handle, out var entry))
             {
-                return entry;
+                return (snapshot.Handle, entry);
             }
         }
 

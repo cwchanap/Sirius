@@ -212,6 +212,21 @@ public partial class UIScreenHost : Control
             return opened;
 
         var handle = opened.Handle.Value;
+        // Snapshot the model generation before TryPrepare. TryPrepare invokes
+        // caller-provided focus delegates for a child entry (CaptureParentFocus
+        // → the parent's FocusViewport). That delegate may synchronously
+        // re-enter the host: open another entry or close an ancestor. While the
+        // candidate sits in _model but not in _adapters, a re-entrant open's
+        // ValidateEffectAdaptersForOpen and process-policy validation skip the
+        // candidate (their _adapters.TryGetValue guard fails), so the
+        // candidate's own earlier validation — which ran against the
+        // pre-TryPrepare snapshot (pause state, inerting owners) — is now
+        // stale. Detect any model mutation during TryPrepare and reject the
+        // open instead of committing a candidate whose validation was
+        // bypassed. A cascade that removed the candidate is distinguished
+        // below (InvalidNode) from a re-entrant mutation that left it active
+        // (HostMutating, so the caller retries against the current state).
+        var generationBeforePrepare = _model.MutationGeneration;
         var focusStatus = _focusCoordinator.TryPrepare(
             adapter,
             normalized.Policy,
@@ -222,17 +237,26 @@ public partial class UIScreenHost : Control
             return new(focusStatus, null);
         }
 
-        // TryPrepare() invokes caller-provided focus delegates for a child
-        // entry (CaptureParentFocus → the parent's FocusViewport). That
-        // delegate may synchronously close the parent, and closing the parent
-        // cascades through the model (UIScreenStackModel.Close removes all
-        // descendants) — including this not-yet-registered child. The child
-        // adapter has not been added to _adapters yet, so the cascade's
-        // CloseAdapter cannot clean it up. Without a liveness check here, the
-        // code below would register an orphan adapter, ownership meta, focus
-        // record, and tree-exit handler for a handle that is no longer in the
-        // model; TryClose would later report AlreadyClosed and
-        // OnViewTreeExiting would skip cleanup because the handle is inactive.
+        if (_model.MutationGeneration != generationBeforePrepare)
+        {
+            _focusCoordinator.DiscardPreparation(focusPreparation);
+            var cascadeRemoved = !IsActive(handle);
+            _model.Close(handle);
+            return new(
+                cascadeRemoved
+                    ? UIScreenOpenStatus.InvalidNode
+                    : UIScreenOpenStatus.HostMutating,
+                null);
+        }
+
+        // A re-entrant close that cascades through the candidate without a
+        // generation change is not possible (UIScreenStackModel.Close always
+        // bumps MutationGeneration), so the generation check above subsumes
+        // the cascade case. The IsActive check is retained as a defensive
+        // guard for a candidate removed by a path that somehow did not bump
+        // the generation, and documents the same invariant: never register an
+        // orphan adapter/ownership/focus record/tree-exit handler for a handle
+        // that is no longer in the model.
         if (!IsActive(handle))
         {
             _model.Close(handle);
@@ -240,8 +264,41 @@ public partial class UIScreenHost : Control
             return new(UIScreenOpenStatus.InvalidNode, null);
         }
 
+        // TryPrepare's caller-provided delegates (the parent's FocusViewport)
+        // may have freed the candidate view or queued it for deletion without
+        // closing the model handle. Freeing a detached view (AddChild has not
+        // run yet — it happens in adapter.Apply() below) does not fire
+        // TreeExiting, so the generation and IsActive guards above do not
+        // catch it. Re-validate the view's Godot-object validity before
+        // touching it, mirroring the check at the top of TryPresent. Without
+        // this, view.SetMeta below dereferences a freed object and throws
+        // after the adapter has been added to _adapters — stranding the model
+        // entry and adapter with no ownership metadata, focus record, or
+        // tree-exit handler, and bypassing normal rollback.
+        if (!GodotObject.IsInstanceValid(view) || view.IsQueuedForDeletion())
+        {
+            _model.Close(handle);
+            _focusCoordinator.DiscardPreparation(focusPreparation);
+            return new(UIScreenOpenStatus.InvalidNode, null);
+        }
+
         _adapters.Add(handle, adapter);
-        view.SetMeta(ViewOwnerMeta, GetInstanceId());
+        // Transactional guard: SetMeta dereferences the view. If it throws
+        // (e.g. the view became invalid between the validity check above and
+        // this point), roll back the adapter insertion and model entry so an
+        // exception cannot strand a model/adapter pair with no ownership
+        // metadata, focus record, or tree-exit handler.
+        try
+        {
+            view.SetMeta(ViewOwnerMeta, GetInstanceId());
+        }
+        catch (Exception)
+        {
+            _adapters.Remove(handle);
+            _model.Close(handle);
+            _focusCoordinator.DiscardPreparation(focusPreparation);
+            throw;
+        }
         var applyStatus = adapter.Apply();
         if (applyStatus != UIScreenOpenStatus.Opened)
         {

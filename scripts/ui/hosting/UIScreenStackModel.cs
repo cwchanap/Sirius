@@ -17,6 +17,12 @@ internal sealed class UIScreenStackModel
     private long _nextToken;
     private long _nextSequence;
 
+    // Increments on every successful Open/Close so callers can detect that the
+    // active entry set changed while they were iterating a resolved snapshot
+    // (e.g. UIScreenHost.Recompute re-entrant callbacks). Read-only consumers
+    // compare the value before and after a potentially mutating operation.
+    public long MutationGeneration { get; private set; }
+
     public IReadOnlyList<UIScreenEntrySnapshot> Entries => _entries.AsReadOnly();
 
     public IReadOnlyList<UIScreenEntrySnapshot> InputOrder
@@ -53,6 +59,7 @@ internal sealed class UIScreenStackModel
 
         var handle = new UIScreenHandle(++_nextToken, copiedPolicy.Kind);
         _entries.Add(new UIScreenEntrySnapshot(handle, copiedPolicy, ++_nextSequence));
+        MutationGeneration++;
         return new(UIScreenOpenStatus.Opened, handle);
     }
 
@@ -90,6 +97,7 @@ internal sealed class UIScreenStackModel
             _closedTokens.Add(closed.Handle.Token);
         }
 
+        MutationGeneration++;
         return new(UIScreenCloseStatus.Closed, closedEntries.AsReadOnly());
     }
 

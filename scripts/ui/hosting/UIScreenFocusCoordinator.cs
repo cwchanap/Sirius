@@ -139,6 +139,69 @@ internal sealed class UIScreenFocusCoordinator
             entry.Policy.InputPriority != UIInputPriority.Passive);
     }
 
+    /// <summary>
+    /// Ensures no focused Control remains within <paramref name="inertControl"/>
+    /// after it becomes <see cref="UILowerLayerPolicy.VisibleInert"/>. The
+    /// InputShield only blocks pointer interaction; a focused descendant Button,
+    /// LineEdit, or other Control can still receive keyboard/joypad GUI events
+    /// (Godot routes those to the focus owner after the _Input phase). When the
+    /// inert subtree has no valid redirect target, focus is released outright.
+    /// </summary>
+    public void RevokeFocusWithin(Control inertControl)
+    {
+        if (_host == null || !GodotObject.IsInstanceValid(inertControl))
+            return;
+
+        var viewport = inertControl.GetViewport();
+        if (viewport == null)
+            return;
+
+        var focusOwner = viewport.GuiGetFocusOwner();
+        if (focusOwner == null || !GodotObject.IsInstanceValid(focusOwner))
+            return;
+
+        if (!IsSameOrAncestor(inertControl, focusOwner))
+            return;
+
+        // Redirect to the top non-passive entry's first focusable descendant or
+        // sink so the inert subtree cannot keep receiving keyboard/joypad GUI
+        // events that the InputShield (pointer-only) does not block.
+        var top = FindTopEntry();
+        if (top != null)
+        {
+            var topViewport = SafeFocusViewport(top.Adapter);
+            if (topViewport != null)
+            {
+                var descendant = FindFirstFocusableDescendant(
+                    top.Adapter.View, topViewport, top.DynamicSink);
+                if (TryFocus(descendant, topViewport))
+                    return;
+
+                if (top.Policy.InputPriority == UIInputPriority.Blocking &&
+                    TryFocus(top.DynamicSink ?? _rootSink, topViewport))
+                {
+                    return;
+                }
+            }
+        }
+
+        // No valid redirect target: release focus so the inert descendant can
+        // no longer be activated by ui_accept / joypad GUI events.
+        focusOwner.ReleaseFocus();
+    }
+
+    private static bool IsSameOrAncestor(Node ancestor, Node descendant)
+    {
+        var current = descendant;
+        while (current != null)
+        {
+            if (current == ancestor)
+                return true;
+            current = current.GetParent();
+        }
+        return false;
+    }
+
     public void BeginRestoration(
         UIFocusCloseState closeState,
         bool scheduleDeferred = true)

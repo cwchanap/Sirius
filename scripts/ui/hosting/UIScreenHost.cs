@@ -37,6 +37,8 @@ public partial class UIScreenHost : Control
     private bool _finalizingTeardown;
     private bool _teardownFinalized;
     private bool _drainingCloseQueue;
+    private int _recomputeDepth;
+    private bool _recomputePending;
 
     public IReadOnlyList<UIScreenEntrySnapshot> ActiveEntries => _model.Entries;
     public UIScreenEffectiveState CurrentState => _currentState;
@@ -467,8 +469,16 @@ public partial class UIScreenHost : Control
             while (_closeQueue.Count != 0 ||
                    (_tearingDown && _model.Entries.Count != 0))
             {
+                // A synthetic teardown retry is generated only when the queue is
+                // empty but entries remain during teardown. It is the only case
+                // allowed to break on no progress: without that, it would requeue
+                // the same top entry forever. An explicit request that makes no
+                // progress (e.g. a stale handle whose ancestor was already closed
+                // earlier in this same drain) must NOT break the loop, or later
+                // valid requests would strand behind it.
+                var syntheticTeardownRetry = _closeQueue.Count == 0;
                 var countBeforeRequest = _model.Entries.Count;
-                if (_closeQueue.Count == 0)
+                if (syntheticTeardownRetry)
                 {
                     var top = _model.InputOrder[0].Handle;
                     _closeQueue.Enqueue(new CloseRequest(
@@ -486,14 +496,20 @@ public partial class UIScreenHost : Control
                     first = false;
                 }
 
-                if (_model.Entries.Count == countBeforeRequest)
+                if (_model.Entries.Count == countBeforeRequest &&
+                    syntheticTeardownRetry)
                     break;
             }
         }
         finally
         {
             _drainingCloseQueue = false;
-            _queuedCloseHandles.Clear();
+            // Keep _queuedCloseHandles consistent with whatever remains in the
+            // queue. Clearing it unconditionally would let a still-queued handle
+            // be enqueued again as a duplicate on the next close attempt, and
+            // the original request's caller already received Closed.
+            if (_closeQueue.Count == 0)
+                _queuedCloseHandles.Clear();
             _closingHandles.Clear();
         }
 
@@ -619,31 +635,72 @@ public partial class UIScreenHost : Control
 
     private void Recompute()
     {
-        var resolved = UIScreenPolicyResolver.Resolve(_model.InputOrder);
-        ApplyPausePolicy(resolved.PauseTree);
-        ApplyCursorPolicy(resolved.Cursor);
-        ApplyHudPolicy(resolved.Hud);
-        ApplyLowerLayerEffects(resolved.LowerLayerEffects);
-
-        var previousState = _currentState;
-        var nextState = new UIScreenEffectiveState(
-            resolved.PauseTree,
-            resolved.BlockGameplayInput,
-            resolved.Cursor,
-            resolved.Hud,
-            resolved.TopInputOwner,
-            _focusCoordinator.IsRestorationPending);
-        _currentState = nextState;
-
-        if (previousState.IsPresentationGameplayBlocked !=
-            nextState.IsPresentationGameplayBlocked)
+        // Re-entrant guard: caller-controlled callbacks (SetInteractive,
+        // GameplayInputBlockChanged, EffectiveStateChanged) may synchronously
+        // call TryClose/TryPresent, which re-enters Recompute. A nested call
+        // must not run its own pass against a snapshot the outer pass is still
+        // consuming; it instead marks the pass dirty so the outer pass restarts
+        // from the current model state once its callbacks return.
+        if (_recomputeDepth > 0)
         {
-            _options.GameplayInputBlockChanged?.Invoke(
-                nextState.IsPresentationGameplayBlocked);
+            _recomputePending = true;
+            return;
         }
 
-        if (previousState != nextState)
-            EffectiveStateChanged?.Invoke(nextState);
+        _recomputeDepth++;
+        try
+        {
+            while (true)
+            {
+                _recomputePending = false;
+                var generationBefore = _model.MutationGeneration;
+
+                var resolved = UIScreenPolicyResolver.Resolve(_model.InputOrder);
+                ApplyPausePolicy(resolved.PauseTree);
+                ApplyCursorPolicy(resolved.Cursor);
+                ApplyHudPolicy(resolved.Hud);
+                ApplyLowerLayerEffects(resolved.LowerLayerEffects);
+
+                // A callback during policy application (e.g. SetInteractive
+                // closing the effect owner) may have mutated the model. The
+                // resolved snapshot is now stale; restart from the current
+                // model instead of publishing a state derived from it.
+                if (_model.MutationGeneration != generationBefore || _recomputePending)
+                    continue;
+
+                var previousState = _currentState;
+                var nextState = new UIScreenEffectiveState(
+                    resolved.PauseTree,
+                    resolved.BlockGameplayInput,
+                    resolved.Cursor,
+                    resolved.Hud,
+                    resolved.TopInputOwner,
+                    _focusCoordinator.IsRestorationPending);
+                _currentState = nextState;
+
+                if (previousState.IsPresentationGameplayBlocked !=
+                    nextState.IsPresentationGameplayBlocked)
+                {
+                    _options.GameplayInputBlockChanged?.Invoke(
+                        nextState.IsPresentationGameplayBlocked);
+                }
+
+                if (previousState != nextState)
+                    EffectiveStateChanged?.Invoke(nextState);
+
+                // A subscriber may have mutated the host during publication.
+                // Restart so the final published state agrees with the model
+                // rather than the snapshot taken before the subscribers ran.
+                if (_model.MutationGeneration != generationBefore || _recomputePending)
+                    continue;
+
+                break;
+            }
+        }
+        finally
+        {
+            _recomputeDepth--;
+        }
     }
 
     private void ApplyPausePolicy(bool pauseTree)
@@ -857,6 +914,10 @@ public partial class UIScreenHost : Control
                 control.IsProcessingInput());
             _controlEffectBaselines.Add(handle, baseline);
             adapter.SetInteractive(false);
+            // VisibleInert only disables pointer interaction via the InputShield;
+            // revoke keyboard/joypad focus from any focused descendant so it
+            // cannot be activated by ui_accept while inert.
+            _focusCoordinator.RevokeFocusWithin(control);
         }
 
         if (effect == UILowerLayerPolicy.Hidden)

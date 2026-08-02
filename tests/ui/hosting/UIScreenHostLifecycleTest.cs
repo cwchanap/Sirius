@@ -1439,6 +1439,225 @@ public partial class UIScreenHostLifecycleTest : Node
         }
     }
 
+    [TestCase]
+    public async Task Recompute_SetInteractiveClosesEffectOwner_RestartsAndLeavesConsistentState()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var gameplay = fixture.Track(new Control { Visible = true });
+        var modalView = fixture.Track(new Control { Visible = true });
+        var shield = fixture.Host.GetNode<Control>("InputShield");
+        var publishedStates = new List<UIScreenEffectiveState>();
+        fixture.Host.EffectiveStateChanged += state => publishedStates.Add(state);
+        try
+        {
+            var gameplayResult = fixture.Host.TryPresent(
+                gameplay,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = enabled =>
+                    {
+                        gameplay.SetProcessInput(enabled);
+                        if (enabled)
+                            return;
+
+                        // Re-entrant close of the modal that just inerted this
+                        // owner, fired from the SetInteractive callback while
+                        // Recompute is still applying lower-layer effects.
+                        foreach (var entry in fixture.Host.ActiveEntries)
+                        {
+                            if (entry.Policy.Kind == UIScreenKinds.Pause)
+                            {
+                                fixture.Host.TryClose(
+                                    entry.Handle,
+                                    UIScreenCloseReason.Programmatic);
+                                break;
+                            }
+                        }
+                    }
+                });
+            AssertThat(gameplayResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            gameplay.SetProcessInput(true);
+
+            var modalResult = fixture.Host.TryPresent(
+                modalView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+            AssertThat(modalResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            var modal = modalResult.Handle!.Value;
+
+            // The re-entrant close must have closed the modal during its own open.
+            AssertThat(fixture.Host.IsActive(modal)).IsFalse();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+
+            // The outer pass must have restarted from the current model: gameplay
+            // is the sole owner, restored to interactive, shield withdrawn.
+            AssertThat(gameplay.IsProcessingInput()).IsTrue();
+            AssertThat(shield.Visible).IsFalse();
+            AssertThat(shield.GetParent()).IsEqual(fixture.Host);
+            AssertThat(fixture.Host.CurrentState.TopInputOwner)
+                .IsEqual(gameplayResult.Handle);
+            AssertThat(fixture.Host.CurrentState.IsPresentationGameplayBlocked)
+                .IsEqual(false);
+
+            // No published state may name the closed modal as top input owner.
+            foreach (var state in publishedStates)
+                AssertThat(state.TopInputOwner?.Kind == UIScreenKinds.Pause)
+                    .IsEqual(false);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task Recompute_SubscriberClosingTopOwner_RestartsAndStaysConsistent()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var gameplay = fixture.Track(new Control { Visible = true });
+        var modalView = fixture.Track(new Control { Visible = true });
+        var shield = fixture.Host.GetNode<Control>("InputShield");
+        var observations = new List<UIScreenEffectiveState>();
+        var firstSubscriberClosed = false;
+
+        // Earlier subscriber: closes the modal the first time it is named the
+        // top input owner, mutating the host during publication.
+        fixture.Host.EffectiveStateChanged += _ =>
+        {
+            if (firstSubscriberClosed)
+                return;
+            foreach (var entry in fixture.Host.ActiveEntries)
+            {
+                if (entry.Policy.Kind == UIScreenKinds.Pause)
+                {
+                    firstSubscriberClosed = true;
+                    fixture.Host.TryClose(
+                        entry.Handle,
+                        UIScreenCloseReason.Programmatic);
+                    break;
+                }
+            }
+        };
+
+        // Later subscriber: records every state it observes.
+        fixture.Host.EffectiveStateChanged += state => observations.Add(state);
+        try
+        {
+            var gameplayResult = fixture.Host.TryPresent(
+                gameplay,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = gameplay.SetProcessInput
+                });
+            AssertThat(gameplayResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            gameplay.SetProcessInput(true);
+
+            var modalResult = fixture.Host.TryPresent(
+                modalView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+            AssertThat(modalResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            var modal = modalResult.Handle!.Value;
+
+            AssertThat(fixture.Host.IsActive(modal)).IsFalse();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(gameplay.IsProcessingInput()).IsTrue();
+            AssertThat(shield.Visible).IsFalse();
+            AssertThat(fixture.Host.CurrentState.TopInputOwner)
+                .IsEqual(gameplayResult.Handle);
+
+            // The later subscriber's final observation must agree with the model
+            // (gameplay as top owner), not the stale snapshot naming the modal.
+            var final = observations[observations.Count - 1];
+            AssertThat(final.TopInputOwner).IsEqual(gameplayResult.Handle);
+            AssertThat(final.TopInputOwner?.Kind == UIScreenKinds.Pause)
+                .IsEqual(false);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task CloseQueue_StaleQueuedAncestorCloseDoesNotStrandLaterUnrelatedClose()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var ancestorView = fixture.Track(new Control());
+        var descendantView = fixture.Track(new Control());
+        var unrelatedView = fixture.Track(new Control());
+        var triggerView = fixture.Track(new Control());
+        var cleanupLog = new List<string>();
+        try
+        {
+            var ancestor = fixture.Host.TryPresent(
+                ancestorView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen
+                }).Handle!.Value;
+            var descendant = fixture.Host.TryPresent(
+                descendantView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = ancestor,
+                    Layer = UIScreenLayer.Modal
+                }).Handle!.Value;
+            var unrelated = fixture.Host.TryPresent(
+                unrelatedView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Layer = UIScreenLayer.Toast
+                }).Handle!.Value;
+            var trigger = fixture.Host.TryPresent(
+                triggerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    Cleanup = _ =>
+                    {
+                        // While the drain is in progress, enqueue closes for an
+                        // ancestor, its descendant, and an unrelated entry.
+                        cleanupLog.Add("trigger");
+                        cleanupLog.Add(fixture.Host.TryClose(
+                            ancestor, UIScreenCloseReason.Programmatic)
+                            .Status.ToString());
+                        cleanupLog.Add(fixture.Host.TryClose(
+                            descendant, UIScreenCloseReason.Programmatic)
+                            .Status.ToString());
+                        cleanupLog.Add(fixture.Host.TryClose(
+                            unrelated, UIScreenCloseReason.Programmatic)
+                            .Status.ToString());
+                    }
+                }).Handle!.Value;
+
+            var result = fixture.Host.TryClose(trigger, UIScreenCloseReason.Programmatic);
+
+            AssertThat(result.Status).IsEqual(UIScreenCloseStatus.Closed);
+            // All three nested enqueues were accepted as Closed while draining.
+            AssertThat(cleanupLog.ToArray()).ContainsExactly(
+                "trigger", "Closed", "Closed", "Closed");
+            AssertThat(fixture.Host.IsActive(ancestor)).IsFalse();
+            AssertThat(fixture.Host.IsActive(descendant)).IsFalse();
+            // The unrelated entry must not strand behind the stale descendant
+            // request that made no progress after its ancestor was closed.
+            AssertThat(fixture.Host.IsActive(unrelated)).IsFalse();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private async Task DisposeFixture(HostFixture fixture)
     {
         fixture.Dispose();

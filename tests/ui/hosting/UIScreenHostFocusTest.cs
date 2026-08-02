@@ -847,6 +847,60 @@ public partial class UIScreenHostFocusTest : Node
         }
     }
 
+    [TestCase]
+    public async Task VisibleInert_RevokesFocusFromLowerFocusableDescendantSoUiAcceptCannotActivateIt()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var lowerView = fixture.Track(new Control { Visible = true });
+        var lowerButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        lowerView.AddChild(lowerButton);
+        var upperView = fixture.Track(new Control { Visible = true });
+        try
+        {
+            var lower = fixture.Host.TryPresent(
+                lowerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud
+                });
+            AssertThat(lower.Status).IsEqual(UIScreenOpenStatus.Opened);
+            lowerButton.GrabFocus();
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(lowerButton);
+
+            // Open a non-blocking owner with no focusable descendant that inerts
+            // the lower owner. VisibleInert must revoke lower-layer focus rather
+            // than relying on the pointer-only InputShield.
+            var upper = fixture.Host.TryPresent(
+                upperView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+            AssertThat(upper.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // The lower button must no longer hold focus. Godot routes ui_accept
+            // and joypad GUI events to the focus owner after the _Input phase;
+            // mouse_filter / the InputShield only govern pointer interaction. A
+            // focused descendant would otherwise stay activatable by ui_accept
+            // for as long as the upper (non-Blocking, no focusable descendant)
+            // entry is open. Revoking focus is what makes the lower button
+            // keyboard-inert under VisibleInert.
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsNull();
+            AssertThat(lowerButton.HasFocus()).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private sealed partial class OpensHigherOwnerOnReadyControl : Control
     {
         public UIScreenHost Host { get; init; } = null!;

@@ -19,9 +19,16 @@ public static class UIScreenHostTestSupport
             : new HashSet<StringName>(coreActions);
         var configuredOptions = options ?? new UIScreenHostOptions
         {
-            HudRoot = sceneHudRoot,
-            CoreCancelActions = configuredCoreActions
+            HudRoot = sceneHudRoot
         };
+        if (configuredOptions.CoreCancelActions is null ||
+            configuredOptions.CoreCancelActions.Count == 0)
+        {
+            configuredOptions = configuredOptions with
+            {
+                CoreCancelActions = configuredCoreActions
+            };
+        }
         host.Configure(configuredOptions);
         var tree = (SceneTree)Engine.GetMainLoop();
         var hostParent = owner.IsInsideTree() ? owner : tree.Root;
@@ -164,6 +171,11 @@ public sealed class HostFixture : IDisposable
             Host.TreeExited += RestoreEnvironment;
             if (!Host.IsQueuedForDeletion())
                 Host.QueueFree();
+            if (GodotObject.IsInstanceValid(Host) && !Host.IsQueuedForDeletion())
+            {
+                Host.TreeExited -= RestoreEnvironment;
+                RestoreEnvironment();
+            }
             return;
         }
 

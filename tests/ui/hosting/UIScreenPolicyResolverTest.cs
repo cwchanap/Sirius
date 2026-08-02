@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using GdUnit4;
 using Godot;
@@ -30,7 +31,7 @@ public partial class UIScreenPolicyResolverTest : Node
             {
                 InputPriority = UIInputPriority.Passive
             },
-            2);
+            3);
 
         var result = UIScreenPolicyResolver.Resolve(
             UIScreenHostTestSupport.Snapshots(pause, settings, toast));
@@ -136,6 +137,7 @@ public partial class UIScreenPolicyResolverTest : Node
             .IsEqual(UILowerLayerPolicy.VisibleInteractive);
         AssertThrown(() => effects.Add(
             new UIScreenHandle(2, UIScreenKinds.Settings),
-            UILowerLayerPolicy.Hidden));
+            UILowerLayerPolicy.Hidden))
+            .IsInstanceOf<NotSupportedException>();
     }
 }

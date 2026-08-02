@@ -8,6 +8,8 @@ public enum UIInputPriority { Passive, Screen, Modal, Blocking }
 public enum UIProcessPolicy { PreserveAndValidate, InheritHost, Pausable, WhenPaused, Always }
 public enum UICursorPolicy { Inherit, Visible, Hidden }
 public enum UIHudPolicy { Inherit, Visible, Hidden }
+// Members must remain ordered from weakest to strongest; UIScreenPolicyResolver.Strongest
+// compares their integer values using Math.Max.
 public enum UILowerLayerPolicy { VisibleInteractive, VisibleInert, Hidden }
 public enum UICancelPolicy { None, Close, Consume, PassThrough }
 public enum UIInputInterception { DeferToPolicy, ConsumeHere, ReserveForNativeHandler }

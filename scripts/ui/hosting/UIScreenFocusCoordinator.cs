@@ -425,7 +425,7 @@ internal sealed class UIScreenFocusCoordinator
             owner.ReleaseFocus();
     }
 
-    private static bool CanFocus(Control? control, Viewport viewport) =>
+    private static bool CanFocus(Control? control, Viewport? viewport) =>
         control != null &&
         GodotObject.IsInstanceValid(control) &&
         !control.IsQueuedForDeletion() &&

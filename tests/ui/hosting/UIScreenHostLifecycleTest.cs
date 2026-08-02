@@ -229,6 +229,50 @@ public partial class UIScreenHostLifecycleTest : Node
     }
 
     [TestCase]
+    public async Task LowerLayerEffects_FreeingShieldOwnerDefersShieldPlacementUntilAfterTreeExit()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var ownerView = fixture.Track(new Control { Visible = true });
+        var modalView = fixture.Track(new Control { Visible = true });
+        var shield = fixture.Host.GetNode<Control>("InputShield");
+        try
+        {
+            var owner = fixture.Host.TryPresent(
+                ownerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = ownerView.SetProcessInput
+                }).Handle!.Value;
+            var modal = fixture.Host.TryPresent(
+                modalView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    InputPriority = UIInputPriority.Blocking,
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                }).Handle!.Value;
+            ownerView.SetProcessInput(true);
+
+            AssertThat(shield.Visible).IsTrue();
+            AssertThat(shield.GetParent()).IsEqual(ownerView.GetParent());
+
+            ownerView.QueueFree();
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(fixture.Host.IsActive(owner)).IsFalse();
+            AssertThat(fixture.Host.IsActive(modal)).IsTrue();
+            AssertThat(shield.Visible).IsFalse();
+            AssertThat(shield.GetParent()).IsEqual(fixture.Host);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task LowerLayerEffects_OwnerOpenedFromTargetReadyRejectsMissingAdapterAtomically()
     {
         var fixture = await UIScreenHostTestSupport.CreateHost(this);
@@ -295,6 +339,7 @@ public partial class UIScreenHostLifecycleTest : Node
     public async Task PauseLease_RestoresIncomingTrue()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
+        var incomingPaused = tree.Paused;
         var fixture = await UIScreenHostTestSupport.CreateHost(this);
         var view = fixture.Track(new Control());
         try
@@ -317,6 +362,7 @@ public partial class UIScreenHostLifecycleTest : Node
         finally
         {
             await DisposeFixture(fixture);
+            tree.Paused = incomingPaused;
         }
     }
 
@@ -364,12 +410,12 @@ public partial class UIScreenHostLifecycleTest : Node
     public async Task CursorLease_RetainsBaselineAcrossNestedOverrideChanges()
     {
         var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var incomingMouseMode = Input.MouseMode;
         var parentView = fixture.Track(new Control());
         var childView = fixture.Track(new Control());
         try
         {
             Input.MouseMode = Input.MouseModeEnum.Captured;
-            var incomingMouseMode = Input.MouseMode;
             var parent = fixture.Host.TryPresent(
                 parentView,
                 UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
@@ -396,6 +442,7 @@ public partial class UIScreenHostLifecycleTest : Node
         finally
         {
             await DisposeFixture(fixture);
+            Input.MouseMode = incomingMouseMode;
         }
     }
 
@@ -514,6 +561,7 @@ public partial class UIScreenHostLifecycleTest : Node
         var view = fixture.Track(new Control());
         var publishedCount = 0;
         var publicationsWereConsistent = true;
+        var originalMouseMode = Input.MouseMode;
         Input.MouseMode = Input.MouseModeEnum.Captured;
         var incomingMouseMode = Input.MouseMode;
         fixture.Host.EffectiveStateChanged += state =>
@@ -551,6 +599,7 @@ public partial class UIScreenHostLifecycleTest : Node
         finally
         {
             await DisposeFixture(fixture);
+            Input.MouseMode = originalMouseMode;
         }
     }
 
@@ -668,6 +717,7 @@ public partial class UIScreenHostLifecycleTest : Node
                 GameplayInputBlockChanged = blocked => blockTransitions.Add(blocked)
             });
         var view = fixture.Track(new Control());
+        var originalMouseMode = Input.MouseMode;
         try
         {
             tree.Paused = false;
@@ -693,6 +743,7 @@ public partial class UIScreenHostLifecycleTest : Node
         finally
         {
             await DisposeFixture(fixture);
+            Input.MouseMode = originalMouseMode;
         }
     }
 

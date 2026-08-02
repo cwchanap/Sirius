@@ -13,7 +13,7 @@
 - Do not modify `scripts/game/Game.cs`, `scripts/ui/MainMenu.cs`, floor scenes, `project.godot`, or existing production screen controllers.
 - Do not add an autoload, global UI singleton, implicit replacement, cross-scene navigation history, or detached native-window support.
 - `UIScreenHost` is `ProcessMode.Always`; `HUDLayer` is explicitly `Pausable`; presentation layers process while paused.
-- `Window` and `AcceptDialog` registration requires embedded subwindows; otherwise return `UnsupportedSubwindowMode` without mutation.
+- `Window` and `AcceptDialog` registration requires subwindows to be embedded; otherwise return `UnsupportedSubwindowMode` without mutation.
 - The pure model contains no `Node`, `Control`, `Window`, `Viewport`, delegate, or `Callable`.
 - Concrete flow kinds are unique; categories use normalized exclusive groups.
 - Passive entries cannot pause, block gameplay, own Cancel, declare entry actions, affect lower layers, or request focus.

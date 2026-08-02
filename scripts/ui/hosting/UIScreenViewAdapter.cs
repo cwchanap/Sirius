@@ -124,6 +124,19 @@ internal sealed class UIScreenViewAdapter
 
     public UIScreenOpenStatus Apply()
     {
+        // Capture a safe diagnostic name before attachment so the catch block
+        // below never re-dereferences View to build its message. If AddChild
+        // ever throws with View in an invalid state, accessing View.Name inside
+        // the catch would throw a second time while handling the first
+        // exception, skipping RollbackRegistration and stranding the model
+        // entry and adapter registration. (Note: in Godot 4.6.2 a view that
+        // Free()s itself from _Ready() segfaults the engine inside add_child
+        // before returning to C#, and a thrown _Ready() exception is swallowed
+        // by the engine, so neither reaches this catch; the capture is a
+        // defensive hardening of the existing catch, not a fix for a reachable
+        // path.)
+        var viewName = GodotObject.IsInstanceValid(View) ? (string)View.Name : "<invalid>";
+
         try
         {
             if (_needsAttachment)
@@ -156,7 +169,10 @@ internal sealed class UIScreenViewAdapter
         }
         catch (Exception exception)
         {
-            GD.PushError($"UIScreenHost could not attach '{View.Name}': {exception.Message}");
+            // Use the pre-attachment name; View may be invalid here and
+            // dereferencing View.Name would re-throw inside the catch, leaving
+            // the model entry and adapter registration intact.
+            GD.PushError($"UIScreenHost could not attach '{viewName}': {exception.Message}");
             RollbackRegistration();
             return UIScreenOpenStatus.InvalidNode;
         }

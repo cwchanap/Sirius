@@ -1269,6 +1269,130 @@ public partial class UIScreenHostFocusTest : Node
         }
     }
 
+    [TestCase]
+    public async Task DeferredInitialFocus_InitialFocusProviderOpensInertingOwner_DoesNotFocusInertSubtree()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var lowerView = fixture.Track(new Control { Visible = true });
+        var lowerButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        lowerView.AddChild(lowerButton);
+        var upperView = fixture.Track(new Control { Visible = true });
+        UIScreenOpenResult? upperResult = null;
+        try
+        {
+            // Lower HUD entry: Blocking priority with a deferred InitialFocus
+            // whose provider opens an upper Screen owner that inerts the lower
+            // entry (VisibleInert), then returns the lower entry's button.
+            // Blocking keeps the lower entry first in logical input order
+            // (TopInputOwner) even after it is visually inerted.
+            var lower = fixture.Host.TryPresent(
+                lowerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    InputPriority = UIInputPriority.Blocking,
+                    InitialFocus = () =>
+                    {
+                        upperResult = fixture.Host.TryPresent(
+                            upperView,
+                            UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                            {
+                                Layer = UIScreenLayer.Screen,
+                                LowerLayers = UILowerLayerPolicy.VisibleInert
+                            });
+                        return lowerButton;
+                    }
+                });
+            AssertThat(lower.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // Let the deferred ApplyInitialFocus run. The provider opens the
+            // upper owner DURING the callback, inerting the lower entry while
+            // it remains TopInputOwner. ApplyInitialFocus must revalidate after
+            // the InitialFocus delegate and NOT focus lowerButton inside the
+            // now-inert subtree — the same invariant RevokeFocusWithin
+            // enforces for focus that existed before inerting. Without the
+            // post-delegate revalidation, focus would land on lowerButton.
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(upperResult!.Value.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.IsActive(lower.Handle!.Value)).IsTrue();
+            AssertThat(fixture.Host.IsActive(upperResult.Value.Handle!.Value)).IsTrue();
+            AssertThat(fixture.Host.CurrentState.TopInputOwner).IsEqual(lower.Handle);
+            AssertThat(fixture.Host.LowerLayerEffectFor(lower.Handle!.Value))
+                .IsEqual(UILowerLayerPolicy.VisibleInert);
+            AssertThat(lowerButton.HasFocus()).IsFalse();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner() == lowerButton).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task DeferredInitialFocus_FocusViewportClosesHandle_DoesNotFocusAndLeavesNoOrphan()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var view = fixture.Track(new Control { Visible = true });
+        var button = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        view.AddChild(button);
+        UIScreenHandle? handle = null;
+        var closedFromDelegate = false;
+        try
+        {
+            var opened = fixture.Host.TryPresent(
+                view,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    InputPriority = UIInputPriority.Blocking,
+                    NodeLifetime = UINodeLifetime.Hide,
+                    FocusViewport = () =>
+                    {
+                        // Close this handle from within the FocusViewport
+                        // delegate invoked by ApplyInitialFocus. Without
+                        // post-delegate revalidation, ApplyInitialFocus would
+                        // continue using the captured adapter/viewport and
+                        // focus into the closed subtree.
+                        if (handle.HasValue && fixture.Host.IsActive(handle.Value))
+                        {
+                            closedFromDelegate = true;
+                            fixture.Host.TryClose(
+                                handle.Value,
+                                UIScreenCloseReason.Programmatic);
+                        }
+                        return view.GetViewport();
+                    },
+                    InitialFocus = () => button
+                });
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
+            handle = opened.Handle;
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(closedFromDelegate).IsTrue();
+            AssertThat(fixture.Host.IsActive(handle!.Value)).IsFalse();
+            AssertThat(button.HasFocus()).IsFalse();
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(0);
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private sealed partial class OpensHigherOwnerOnReadyControl : Control
     {
         public UIScreenHost Host { get; init; } = null!;

@@ -222,6 +222,24 @@ public partial class UIScreenHost : Control
             return new(focusStatus, null);
         }
 
+        // TryPrepare() invokes caller-provided focus delegates for a child
+        // entry (CaptureParentFocus → the parent's FocusViewport). That
+        // delegate may synchronously close the parent, and closing the parent
+        // cascades through the model (UIScreenStackModel.Close removes all
+        // descendants) — including this not-yet-registered child. The child
+        // adapter has not been added to _adapters yet, so the cascade's
+        // CloseAdapter cannot clean it up. Without a liveness check here, the
+        // code below would register an orphan adapter, ownership meta, focus
+        // record, and tree-exit handler for a handle that is no longer in the
+        // model; TryClose would later report AlreadyClosed and
+        // OnViewTreeExiting would skip cleanup because the handle is inactive.
+        if (!IsActive(handle))
+        {
+            _model.Close(handle);
+            _focusCoordinator.DiscardPreparation(focusPreparation);
+            return new(UIScreenOpenStatus.InvalidNode, null);
+        }
+
         _adapters.Add(handle, adapter);
         view.SetMeta(ViewOwnerMeta, GetInstanceId());
         var applyStatus = adapter.Apply();
@@ -242,9 +260,15 @@ public partial class UIScreenHost : Control
         // adapter before registering focus or returning Opened. Without this,
         // TryPresent installs a tree-exit handler and focus record for a
         // closed handle, leaving orphan state and returning a stale handle.
-        if (!_adapters.TryGetValue(handle, out var activeAdapter) ||
+        // The IsActive check also covers a cascade that removed the handle
+        // from the model while leaving the adapter in _adapters (e.g. a
+        // callback during preparation that closed an ancestor after the
+        // adapter was registered but before this validation runs).
+        if (!IsActive(handle) ||
+            !_adapters.TryGetValue(handle, out var activeAdapter) ||
             !ReferenceEquals(activeAdapter, adapter))
         {
+            _adapters.Remove(handle);
             _model.Close(handle);
             adapter.RollbackRegistration();
             ReleaseOwnership(view);

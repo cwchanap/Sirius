@@ -496,27 +496,34 @@ internal sealed class UIScreenFocusCoordinator
 
     private void ApplyInitialFocus(UIScreenHandle handle)
     {
-        if (_host == null || !_host.IsInsideTree() || !_host.IsActive(handle) ||
-            _host.CurrentState.TopInputOwner != handle ||
-            !_entries.TryGetValue(handle, out var entry))
-        {
-            return;
-        }
-
-        // A deferred ApplyInitialFocus runs on a later frame than the open
-        // that scheduled it. By then another owner may have inerted this entry
-        // (VisibleInert/Hidden) while it remains the logical top input owner
-        // (e.g. a lower Blocking entry inerted by an upper Screen entry). Do
-        // not focus inside an inert/hidden subtree: require the entry's
-        // current reduced effect to be VisibleInteractive.
-        if (_host.LowerLayerEffectFor(handle) != UILowerLayerPolicy.VisibleInteractive)
+        if (!IsStillFocusEligible(handle, out var entry))
             return;
 
         var viewport = SafeFocusViewport(entry.Adapter);
         if (viewport == null)
             return;
 
+        // SafeFocusViewport invoked the caller-provided FocusViewport delegate,
+        // which may have synchronously opened or closed entries. Opening an
+        // upper owner with VisibleInert/Hidden inertes this entry while it
+        // remains the logical top input owner; closing this handle removes it
+        // from _entries. Revalidate before using the captured viewport or
+        // focusing — otherwise this method reintroduces keyboard/controller
+        // focus inside an inert subtree through a path that bypasses
+        // RevokeFocusWithin, or focuses into a closed/freed subtree.
+        if (!IsStillFocusEligible(handle, out entry))
+            return;
+
         var declared = SafeTarget(entry.Adapter.InitialFocus);
+
+        // SafeTarget invoked the caller-provided InitialFocus delegate, which
+        // can mutate the host the same way FocusViewport can. Revalidate again
+        // before focusing the returned target; a provider that opens an
+        // inerting owner and then returns a control inside this entry must not
+        // cause focus to land in the now-inert subtree.
+        if (!IsStillFocusEligible(handle, out entry))
+            return;
+
         if (TryFocus(declared, viewport))
             return;
 
@@ -532,6 +539,27 @@ internal sealed class UIScreenFocusCoordinator
 
         var sink = entry.DynamicSink ?? _rootSink;
         TryFocus(sink, viewport);
+    }
+
+    /// <summary>
+    /// Re-validates that <paramref name="handle"/> is still eligible to
+    /// acquire initial focus after a caller-provided delegate
+    /// (FocusViewport / InitialFocus) may have mutated the host. Mirrors the
+    /// entry gate of <see cref="ApplyInitialFocus"/> plus the reduced-effect
+    /// check, so a delegate that inertes or closes the handle aborts focusing
+    /// the same way a pre-callback state change would. Re-fetches the
+    /// <see cref="FocusEntry"/> in case the registry was mutated.
+    /// </summary>
+    private bool IsStillFocusEligible(UIScreenHandle handle, out FocusEntry entry)
+    {
+        entry = null!;
+        if (_host == null || !_host.IsInsideTree() || !_host.IsActive(handle))
+            return false;
+        if (_host.CurrentState.TopInputOwner != handle)
+            return false;
+        if (_host.LowerLayerEffectFor(handle) != UILowerLayerPolicy.VisibleInteractive)
+            return false;
+        return _entries.TryGetValue(handle, out entry!);
     }
 
     private static Viewport? SafeFocusViewport(UIScreenViewAdapter adapter)

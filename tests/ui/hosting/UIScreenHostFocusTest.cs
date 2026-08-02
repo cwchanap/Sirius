@@ -962,6 +962,230 @@ public partial class UIScreenHostFocusTest : Node
         }
     }
 
+    [TestCase]
+    public async Task VisibleInert_SetInteractiveClosesUnrelatedEntry_ReapplyRevokesFocus()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var lowerView = fixture.Track(new Control { Visible = true });
+        var lowerButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        lowerView.AddChild(lowerButton);
+        var unrelatedView = fixture.Track(new Control { Visible = true });
+        var upperView = fixture.Track(new Control { Visible = true });
+        UIScreenHandle? unrelatedHandle = null;
+        var closedUnrelated = false;
+        try
+        {
+            // Unrelated entry opened first so the SetInteractive callback can
+            // close it re-entrantly while ApplyControlEffect applies
+            // VisibleInert to the lower target. It sits at Modal with the
+            // default VisibleInteractive lower-layer policy so it does not
+            // contribute to the lower target's reduced effect.
+            var unrelatedResult = fixture.Host.TryPresent(
+                unrelatedView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Layer = UIScreenLayer.Modal
+                });
+            AssertThat(unrelatedResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            unrelatedHandle = unrelatedResult.Handle;
+
+            var lowerResult = fixture.Host.TryPresent(
+                lowerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = enabled =>
+                    {
+                        lowerView.SetProcessInput(enabled);
+                        if (enabled || !unrelatedHandle.HasValue || closedUnrelated)
+                            return;
+                        // Re-entrant close of an UNRELATED entry while
+                        // ApplyControlEffect applies VisibleInert to this
+                        // target. The target stays active; Recompute must
+                        // reapply the effect and revoke focus from the inert
+                        // subtree rather than skipping a committed-looking
+                        // provisional marker.
+                        closedUnrelated = true;
+                        fixture.Host.TryClose(
+                            unrelatedHandle.Value,
+                            UIScreenCloseReason.Programmatic);
+                    }
+                });
+            AssertThat(lowerResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            lowerView.SetProcessInput(true);
+            lowerButton.GrabFocus();
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(lowerButton);
+
+            var upperResult = fixture.Host.TryPresent(
+                upperView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+            AssertThat(upperResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            AssertThat(closedUnrelated).IsTrue();
+            AssertThat(fixture.Host.IsActive(unrelatedHandle!.Value)).IsFalse();
+            AssertThat(fixture.Host.IsActive(lowerResult.Handle!.Value)).IsTrue();
+
+            // The lower target's effective policy is VisibleInert. The
+            // re-entrant close must not strand a provisional marker: Recompute
+            // reapplies the effect, and RevokeFocusWithin must release the
+            // lower button's focus so ui_accept cannot activate it while the
+            // upper owner inerts the subtree.
+            AssertThat(lowerButton.HasFocus()).IsFalse();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task DeferredInitialFocus_SkippedWhenEntryBecomesInertBeforeCallbackRuns()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var lowerView = fixture.Track(new Control { Visible = true });
+        var lowerButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        lowerView.AddChild(lowerButton);
+        var upperView = fixture.Track(new Control { Visible = true });
+        try
+        {
+            // Lower HUD entry: Blocking priority with a deferred InitialFocus
+            // targeting its button. Blocking keeps it first in logical input
+            // order (TopInputOwner) even when visually inerted.
+            var lower = fixture.Host.TryPresent(
+                lowerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    InputPriority = UIInputPriority.Blocking,
+                    InitialFocus = () => lowerButton
+                });
+            AssertThat(lower.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // Before the deferred ApplyInitialFocus runs, present an upper
+            // Screen entry that inerts the lower entry. The lower entry remains
+            // TopInputOwner (Blocking) but is now VisibleInert.
+            var upper = fixture.Host.TryPresent(
+                upperView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+            AssertThat(upper.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.CurrentState.TopInputOwner).IsEqual(lower.Handle);
+
+            // Let the deferred ApplyInitialFocus run. It must not focus inside
+            // the inert subtree: the lower button must not hold focus.
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(lowerButton.HasFocus()).IsFalse();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner() == lowerButton).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task FocusRestoration_SkipsInertedParentWhenAnotherOwnerRemains()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control { Visible = true });
+        var parentButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        parentView.AddChild(parentButton);
+        var inertOwner = fixture.Track(new Control { Visible = true });
+        var childView = fixture.Track(new Control { Visible = true });
+        var childButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        childView.AddChild(childButton);
+        try
+        {
+            // Parent entry (Screen, Blocking) with a focusable button. Blocking
+            // keeps it first in logical input order even when visually inerted,
+            // so FindTopEntry() would return it without the effect gate.
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    InputPriority = UIInputPriority.Blocking
+                });
+            AssertThat(parent.Status).IsEqual(UIScreenOpenStatus.Opened);
+            parentButton.GrabFocus();
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(parentButton);
+
+            // Upper Modal owner that inerts the parent (VisibleInert) and
+            // remains active for the whole scenario. The parent stays
+            // TopInputOwner (Blocking) but is now visually inert.
+            var inert = fixture.Host.TryPresent(
+                inertOwner,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+            AssertThat(inert.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.CurrentState.TopInputOwner).IsEqual(parent.Handle);
+
+            // Child entry (Toast, above Modal so the inert owner does not inert
+            // it) opened with Parent = parent. Its open captures the parent's
+            // focused button as the restoration target.
+            var child = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Layer = UIScreenLayer.Toast,
+                    Parent = parent.Handle,
+                    InitialFocus = () => childButton
+                });
+            AssertThat(child.Status).IsEqual(UIScreenOpenStatus.Opened);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(childButton.HasFocus()).IsTrue();
+
+            // Close the child. Restoration must not return focus to the parent
+            // button, which lives in the inert (VisibleInert) subtree. The
+            // parent's reduced effect is still VisibleInert because the Modal
+            // inert owner remains active, and the parent remains first in input
+            // order (Blocking). FindTopEntry() must skip the inert parent.
+            AssertThat(fixture.Host.TryClose(
+                child.Handle!.Value,
+                UIScreenCloseReason.Programmatic).Status).IsEqual(UIScreenCloseStatus.Closed);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(parentButton.HasFocus()).IsFalse();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner() == parentButton).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private sealed partial class OpensHigherOwnerOnReadyControl : Control
     {
         public UIScreenHost Host { get; init; } = null!;

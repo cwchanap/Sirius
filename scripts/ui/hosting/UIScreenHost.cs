@@ -659,7 +659,7 @@ public partial class UIScreenHost : Control
                 ApplyPausePolicy(resolved.PauseTree);
                 ApplyCursorPolicy(resolved.Cursor);
                 ApplyHudPolicy(resolved.Hud);
-                ApplyLowerLayerEffects(resolved.LowerLayerEffects);
+                ApplyLowerLayerEffects(resolved.LowerLayerEffects, generationBefore);
 
                 // A callback during policy application (e.g. SetInteractive
                 // closing the effect owner) may have mutated the model. The
@@ -683,10 +683,22 @@ public partial class UIScreenHost : Control
                 {
                     _options.GameplayInputBlockChanged?.Invoke(
                         nextState.IsPresentationGameplayBlocked);
+                    // The callback may have mutated the host (e.g. a close on
+                    // block-state change). Don't publish the stale snapshot to
+                    // EffectiveStateChanged subscribers; restart instead.
+                    if (_model.MutationGeneration != generationBefore ||
+                        _recomputePending)
+                        continue;
                 }
 
                 if (previousState != nextState)
-                    EffectiveStateChanged?.Invoke(nextState);
+                {
+                    // Invoke subscribers individually so a mutation by an earlier
+                    // subscriber (e.g. TryClose during publication) aborts the
+                    // remaining invocation list. Without this, later subscribers
+                    // receive a stale state that names a now-closed entry.
+                    InvokeEffectiveStateChanged(nextState, generationBefore);
+                }
 
                 // A subscriber may have mutated the host during publication.
                 // Restart so the final published state agrees with the model
@@ -700,6 +712,30 @@ public partial class UIScreenHost : Control
         finally
         {
             _recomputeDepth--;
+        }
+    }
+
+    /// <summary>
+    /// Invokes <see cref="EffectiveStateChanged"/> subscribers one at a time,
+    /// aborting the remaining invocation list as soon as a subscriber mutates
+    /// the model (detected via <see cref="UIScreenStackModel.MutationGeneration"/>
+    /// or <c>_recomputePending</c>). The outer <see cref="Recompute"/> loop then
+    /// restarts from the current model so every subscriber eventually observes a
+    /// state consistent with the active entry set.
+    /// </summary>
+    private void InvokeEffectiveStateChanged(
+        UIScreenEffectiveState state,
+        long generationBefore)
+    {
+        if (EffectiveStateChanged == null)
+            return;
+
+        var handlers = EffectiveStateChanged.GetInvocationList();
+        foreach (var handler in handlers)
+        {
+            ((Action<UIScreenEffectiveState>)handler)(state);
+            if (_model.MutationGeneration != generationBefore || _recomputePending)
+                return;
         }
     }
 
@@ -799,7 +835,8 @@ public partial class UIScreenHost : Control
         candidate.Layer >= target.Layer;
 
     private void ApplyLowerLayerEffects(
-        IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> effects)
+        IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> effects,
+        long generationBefore)
     {
         foreach (var (handle, effect) in effects)
         {
@@ -818,12 +855,19 @@ public partial class UIScreenHost : Control
             switch (adapter.View)
             {
                 case Control control:
-                    ApplyControlEffect(handle, adapter, control, effect);
+                    ApplyControlEffect(handle, adapter, control, effect, generationBefore, effects);
                     break;
                 case Window window:
-                    ApplyWindowEffect(handle, adapter, window, effect);
+                    ApplyWindowEffect(handle, adapter, window, effect, generationBefore);
                     break;
             }
+
+            // A caller-provided callback during effect application (e.g.
+            // SetInteractive closing the effect owner) may have mutated the
+            // model. The resolved effects are now stale; abort so Recompute
+            // can restart from the current model state.
+            if (_model.MutationGeneration != generationBefore)
+                return;
         }
 
         PlaceInputShield(FindTopmostInertControl(effects));
@@ -899,7 +943,9 @@ public partial class UIScreenHost : Control
         UIScreenHandle handle,
         UIScreenViewAdapter adapter,
         Control control,
-        UILowerLayerPolicy effect)
+        UILowerLayerPolicy effect,
+        long generationBefore,
+        IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> effects)
     {
         if (effect == UILowerLayerPolicy.VisibleInteractive)
         {
@@ -913,11 +959,24 @@ public partial class UIScreenHost : Control
                 control.Visible,
                 control.IsProcessingInput());
             _controlEffectBaselines.Add(handle, baseline);
+            // Record the effect before the caller-provided callback so a
+            // re-entrant close (SetInteractive closing this entry) lets
+            // RestoreLowerLayerEffect see the correct applied value and
+            // restore visibility/interactivity properly.
+            _appliedLowerLayerEffects[handle] = effect;
             adapter.SetInteractive(false);
+            // A caller-provided SetInteractive callback may close this (or
+            // another) entry, mutating the model. Abort before applying any
+            // further properties or bookkeeping so CloseAdapter's restoration
+            // is not overwritten with a stale effect.
+            if (_model.MutationGeneration != generationBefore)
+                return;
             // VisibleInert only disables pointer interaction via the InputShield;
             // revoke keyboard/joypad focus from any focused descendant so it
-            // cannot be activated by ui_accept while inert.
-            _focusCoordinator.RevokeFocusWithin(control);
+            // cannot be activated by ui_accept while inert. Pass the resolved
+            // effects so the redirect target is selected from interactive
+            // entries only, never from the inert subtree itself.
+            _focusCoordinator.RevokeFocusWithin(control, effects);
         }
 
         if (effect == UILowerLayerPolicy.Hidden)
@@ -940,7 +999,8 @@ public partial class UIScreenHost : Control
         UIScreenHandle handle,
         UIScreenViewAdapter adapter,
         Window window,
-        UILowerLayerPolicy effect)
+        UILowerLayerPolicy effect,
+        long generationBefore)
     {
         if (effect == UILowerLayerPolicy.VisibleInteractive)
         {
@@ -961,14 +1021,28 @@ public partial class UIScreenHost : Control
         {
             window.GuiDisableInput = baseline.GuiDisableInput;
             window.Unfocusable = baseline.Unfocusable;
+            // Record the effect before the caller-provided callback so a
+            // re-entrant close (SetPresented closing this entry) lets
+            // RestoreLowerLayerEffect see the correct applied value and
+            // restore presentation properly.
+            _appliedLowerLayerEffects[handle] = effect;
             adapter.SetPresented(false);
+            // A caller-provided SetPresented callback may close this (or
+            // another) entry, mutating the model. Abort before applying any
+            // further bookkeeping so CloseAdapter's restoration is not
+            // overwritten with a stale effect.
+            if (_model.MutationGeneration != generationBefore)
+                return;
         }
         else
         {
             if (_appliedLowerLayerEffects.TryGetValue(handle, out var applied) &&
                 applied == UILowerLayerPolicy.Hidden)
             {
+                _appliedLowerLayerEffects[handle] = effect;
                 adapter.SetPresented(baseline.Visible);
+                if (_model.MutationGeneration != generationBefore)
+                    return;
             }
             window.GuiDisableInput = true;
             window.Unfocusable = true;

@@ -146,8 +146,18 @@ internal sealed class UIScreenFocusCoordinator
     /// LineEdit, or other Control can still receive keyboard/joypad GUI events
     /// (Godot routes those to the focus owner after the _Input phase). When the
     /// inert subtree has no valid redirect target, focus is released outright.
+    /// <para>
+    /// The redirect target is selected only from entries whose reduced
+    /// lower-layer effect is <see cref="UILowerLayerPolicy.VisibleInteractive"/>
+    /// and whose view is not inside <paramref name="inertControl"/>. This
+    /// prevents focus from being redirected back into the inert subtree when a
+    /// lower <see cref="UIInputPriority.Blocking"/> entry is visually inerted by
+    /// an upper entry but remains first in logical input order.
+    /// </para>
     /// </summary>
-    public void RevokeFocusWithin(Control inertControl)
+    public void RevokeFocusWithin(
+        Control inertControl,
+        IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> effects)
     {
         if (_host == null || !GodotObject.IsInstanceValid(inertControl))
             return;
@@ -163,10 +173,10 @@ internal sealed class UIScreenFocusCoordinator
         if (!IsSameOrAncestor(inertControl, focusOwner))
             return;
 
-        // Redirect to the top non-passive entry's first focusable descendant or
+        // Redirect to the top interactive entry's first focusable descendant or
         // sink so the inert subtree cannot keep receiving keyboard/joypad GUI
         // events that the InputShield (pointer-only) does not block.
-        var top = FindTopEntry();
+        var top = FindTopInteractiveEntry(effects, inertControl);
         if (top != null)
         {
             var topViewport = SafeFocusViewport(top.Adapter);
@@ -174,13 +184,28 @@ internal sealed class UIScreenFocusCoordinator
             {
                 var descendant = FindFirstFocusableDescendant(
                     top.Adapter.View, topViewport, top.DynamicSink);
-                if (TryFocus(descendant, topViewport))
-                    return;
-
-                if (top.Policy.InputPriority == UIInputPriority.Blocking &&
-                    TryFocus(top.DynamicSink ?? _rootSink, topViewport))
+                if (descendant != null && !IsSameOrAncestor(inertControl, descendant))
                 {
-                    return;
+                    if (TryFocus(descendant, topViewport))
+                    {
+                        if (topViewport != viewport)
+                            ReleaseFocus(viewport);
+                        return;
+                    }
+                }
+
+                if (top.Policy.InputPriority == UIInputPriority.Blocking)
+                {
+                    var sink = top.DynamicSink ?? _rootSink;
+                    if (sink != null && !IsSameOrAncestor(inertControl, sink))
+                    {
+                        if (TryFocus(sink, topViewport))
+                        {
+                            if (topViewport != viewport)
+                                ReleaseFocus(viewport);
+                            return;
+                        }
+                    }
                 }
             }
         }
@@ -188,6 +213,42 @@ internal sealed class UIScreenFocusCoordinator
         // No valid redirect target: release focus so the inert descendant can
         // no longer be activated by ui_accept / joypad GUI events.
         focusOwner.ReleaseFocus();
+    }
+
+    /// <summary>
+    /// Finds the top non-passive entry whose reduced lower-layer effect is
+    /// <see cref="UILowerLayerPolicy.VisibleInteractive"/> and whose view is
+    /// not inside <paramref name="inertControl"/>. Unlike
+    /// <see cref="FindTopEntry"/>, this respects visual/effect state rather
+    /// than logical input order alone, preventing a Blocking lower entry that
+    /// is visually inerted from being selected as a redirect target.
+    /// </summary>
+    private FocusEntry? FindTopInteractiveEntry(
+        IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> effects,
+        Control inertControl)
+    {
+        if (_host == null)
+            return null;
+
+        foreach (var snapshot in _host.FocusInputOrder())
+        {
+            if (snapshot.Policy.InputPriority == UIInputPriority.Passive)
+                continue;
+            if (!effects.TryGetValue(snapshot.Handle, out var effect) ||
+                effect != UILowerLayerPolicy.VisibleInteractive)
+                continue;
+            if (!_entries.TryGetValue(snapshot.Handle, out var entry))
+                continue;
+            // Skip entries whose view is inside the inert subtree. The effects
+            // check above already filters the inerted entry, but this also
+            // covers any descendant whose view is nested inside inertControl.
+            if (entry.Adapter.View is Control view &&
+                IsSameOrAncestor(inertControl, view))
+                continue;
+            return entry;
+        }
+
+        return null;
     }
 
     private static bool IsSameOrAncestor(Node ancestor, Node descendant)

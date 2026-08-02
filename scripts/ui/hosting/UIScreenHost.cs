@@ -16,6 +16,13 @@ public partial class UIScreenHost : Control
     private readonly Dictionary<UIScreenHandle, UIControlEffectBaseline> _controlEffectBaselines = new();
     private readonly Dictionary<UIScreenHandle, UIWindowEffectBaseline> _windowEffectBaselines = new();
     private readonly Dictionary<UIScreenHandle, UILowerLayerPolicy> _appliedLowerLayerEffects = new();
+    // The most recently committed resolved lower-layer effects, keyed by entry
+    // handle. Updated at the end of a stable Recompute pass so the focus
+    // coordinator can query a handle's reduced effect (VisibleInteractive vs
+    // VisibleInert/Hidden) when acquiring or restoring focus, rather than
+    // relying on logical input order alone.
+    private IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> _resolvedLowerLayerEffects =
+        EmptyLowerLayerEffects;
     private readonly Queue<CloseRequest> _closeQueue = new();
     private readonly HashSet<UIScreenHandle> _queuedCloseHandles = new();
     private readonly HashSet<UIScreenHandle> _closingHandles = new();
@@ -53,6 +60,11 @@ public partial class UIScreenHost : Control
         UIHudPolicy.Inherit,
         null,
         false);
+
+    private static IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy>
+        EmptyLowerLayerEffects { get; } =
+        new ReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy>(
+            new Dictionary<UIScreenHandle, UILowerLayerPolicy>(0));
 
     public void Configure(UIScreenHostOptions options)
     {
@@ -677,6 +689,11 @@ public partial class UIScreenHost : Control
                     resolved.TopInputOwner,
                     _focusCoordinator.IsRestorationPending);
                 _currentState = nextState;
+                // Commit the resolved lower-layer effects so the focus
+                // coordinator can query a handle's reduced effect when
+                // acquiring/restoring focus. This snapshot is consistent with
+                // the published state and the applied effects.
+                _resolvedLowerLayerEffects = resolved.LowerLayerEffects;
 
                 if (previousState.IsPresentationGameplayBlocked !=
                     nextState.IsPresentationGameplayBlocked)
@@ -962,22 +979,35 @@ public partial class UIScreenHost : Control
             // Record the effect before the caller-provided callback so a
             // re-entrant close (SetInteractive closing this entry) lets
             // RestoreLowerLayerEffect see the correct applied value and
-            // restore visibility/interactivity properly.
+            // restore visibility/interactivity properly. This is provisional:
+            // it is committed (re-recorded below) only after every operation
+            // succeeds.
             _appliedLowerLayerEffects[handle] = effect;
             adapter.SetInteractive(false);
             // A caller-provided SetInteractive callback may close this (or
-            // another) entry, mutating the model. Abort before applying any
-            // further properties or bookkeeping so CloseAdapter's restoration
-            // is not overwritten with a stale effect.
+            // another) entry, mutating the model. If the target itself was
+            // closed, the provisional marker stays for CloseAdapter's
+            // RestoreLowerLayerEffect (which removes it). If the target is
+            // still active (an unrelated entry mutated), drop the provisional
+            // marker so Recompute reapplies the effect from a clean state
+            // instead of skipping a committed-looking entry and leaving the
+            // target visible/interactive despite a Hidden/VisibleInert policy.
             if (_model.MutationGeneration != generationBefore)
+            {
+                if (_adapters.ContainsKey(handle))
+                    _appliedLowerLayerEffects.Remove(handle);
                 return;
-            // VisibleInert only disables pointer interaction via the InputShield;
-            // revoke keyboard/joypad focus from any focused descendant so it
-            // cannot be activated by ui_accept while inert. Pass the resolved
-            // effects so the redirect target is selected from interactive
-            // entries only, never from the inert subtree itself.
-            _focusCoordinator.RevokeFocusWithin(control, effects);
+            }
         }
+
+        // VisibleInert only disables pointer interaction via the InputShield;
+        // revoke keyboard/joypad focus from any focused descendant so it
+        // cannot be activated by ui_accept while inert. Pass the resolved
+        // effects so the redirect target is selected from interactive
+        // entries only, never from the inert subtree itself. Run on every
+        // application (including reapply after a re-entrant abort) so a
+        // previously-skipped revocation is not lost.
+        _focusCoordinator.RevokeFocusWithin(control, effects);
 
         if (effect == UILowerLayerPolicy.Hidden)
         {
@@ -992,6 +1022,7 @@ public partial class UIScreenHost : Control
             }
         }
 
+        // Commit: the effect is fully applied.
         _appliedLowerLayerEffects[handle] = effect;
     }
 
@@ -1010,8 +1041,15 @@ public partial class UIScreenHost : Control
 
         if (!_windowEffectBaselines.TryGetValue(handle, out var baseline))
         {
+            // IsPresented is a caller-provided callback that may re-enter the
+            // host (e.g. close an entry), mutating the model. Capture the
+            // baseline only if the target is still active afterwards; otherwise
+            // abort so CloseAdapter's restoration is not overwritten.
+            var presented = adapter.IsPresented();
+            if (_model.MutationGeneration != generationBefore)
+                return;
             baseline = new UIWindowEffectBaseline(
-                adapter.IsPresented(),
+                presented,
                 window.GuiDisableInput,
                 window.Unfocusable);
             _windowEffectBaselines.Add(handle, baseline);
@@ -1211,6 +1249,19 @@ public partial class UIScreenHost : Control
 
     internal IReadOnlyList<UIScreenEntrySnapshot> FocusInputOrder() =>
         _model.InputOrder;
+
+    /// <summary>
+    /// Returns the committed reduced lower-layer effect for an active entry,
+    /// or <see cref="UILowerLayerPolicy.VisibleInteractive"/> when the handle is
+    /// unknown (e.g. before the first Recompute or after teardown). The focus
+    /// coordinator uses this to avoid acquiring or restoring focus into a
+    /// subtree that is currently <see cref="UILowerLayerPolicy.VisibleInert"/>
+    /// or <see cref="UILowerLayerPolicy.Hidden"/>.
+    /// </summary>
+    internal UILowerLayerPolicy LowerLayerEffectFor(UIScreenHandle handle) =>
+        _resolvedLowerLayerEffects.TryGetValue(handle, out var effect)
+            ? effect
+            : UILowerLayerPolicy.VisibleInteractive;
 
     internal void OnFocusRestorationCompleted()
     {

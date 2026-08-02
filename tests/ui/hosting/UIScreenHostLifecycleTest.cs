@@ -1738,6 +1738,88 @@ public partial class UIScreenHostLifecycleTest : Node
     }
 
     [TestCase]
+    public async Task ApplyControlEffect_SetInteractiveClosesUnrelatedEntry_TargetStillHidden()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var lowerView = fixture.Track(new Control { Visible = true });
+        var unrelatedView = fixture.Track(new Control { Visible = true });
+        var upperView = fixture.Track(new Control { Visible = true });
+        UIScreenHandle? unrelatedHandle = null;
+        var closedUnrelated = false;
+        try
+        {
+            // Unrelated entry opened first so the SetInteractive callback can
+            // close it re-entrantly while ApplyControlEffect applies Hidden to
+            // the lower target. It sits at Modal with the default
+            // VisibleInteractive lower-layer policy so it does not contribute
+            // to the lower target's reduced effect.
+            var unrelatedResult = fixture.Host.TryPresent(
+                unrelatedView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Layer = UIScreenLayer.Modal
+                });
+            AssertThat(unrelatedResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            unrelatedHandle = unrelatedResult.Handle;
+
+            var lowerResult = fixture.Host.TryPresent(
+                lowerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = enabled =>
+                    {
+                        lowerView.SetProcessInput(enabled);
+                        if (enabled || !unrelatedHandle.HasValue || closedUnrelated)
+                            return;
+                        // Re-entrant close of an UNRELATED entry while
+                        // ApplyControlEffect is applying Hidden to this target.
+                        // The target itself stays active; only the generation
+                        // changes, so the provisional effect must not be
+                        // mistaken for a committed one on Recompute restart.
+                        closedUnrelated = true;
+                        fixture.Host.TryClose(
+                            unrelatedHandle.Value,
+                            UIScreenCloseReason.Programmatic);
+                    }
+                });
+            AssertThat(lowerResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            lowerView.SetProcessInput(true);
+
+            var upperResult = fixture.Host.TryPresent(
+                upperView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.Hidden
+                });
+            AssertThat(upperResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // The unrelated entry must have been closed by the re-entrant
+            // callback, and the lower target must remain active.
+            AssertThat(closedUnrelated).IsTrue();
+            AssertThat(fixture.Host.IsActive(unrelatedHandle!.Value)).IsFalse();
+            AssertThat(fixture.Host.IsActive(lowerResult.Handle!.Value)).IsTrue();
+
+            // The lower target's effective policy is Hidden (the upper modal
+            // still inerts it). Recompute must have reapplied the effect rather
+            // than skipping the provisional marker, so the view is hidden.
+            AssertThat(lowerView.Visible).IsFalse();
+            AssertThat(lowerView.IsProcessingInput()).IsFalse();
+
+            // The committed effect bookkeeping must reflect the applied Hidden
+            // effect for the still-active target.
+            var diagnostics = fixture.Host.Diagnostics;
+            AssertThat(diagnostics.StateLeases.ControlEffects.ContainsKey(lowerResult.Handle.Value))
+                .IsTrue();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task ApplyWindowEffect_SetPresentedClosesOwnWindowUnderHiddenOwner_BaselineRestored()
     {
         var fixture = await UIScreenHostTestSupport.CreateHost(this);
@@ -1795,6 +1877,80 @@ public partial class UIScreenHostLifecycleTest : Node
             // No stale effect bookkeeping should remain for the closed handle.
             var diagnostics = fixture.Host.Diagnostics;
             AssertThat(diagnostics.StateLeases.WindowEffects.ContainsKey(lowerHandle.Value))
+                .IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task ApplyWindowEffect_IsPresentedClosesTarget_AbortsBeforeBaselineCapture()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        fixture.Viewport.GuiEmbedSubwindows = true;
+        var window = fixture.Track(new Window
+        {
+            Visible = true,
+            GuiDisableInput = false,
+            Unfocusable = false
+        });
+        var upperView = fixture.Track(new Control { Visible = true });
+        UIScreenHandle? windowHandle = null;
+        var isPresentedEntered = false;
+        var closedSelf = false;
+        try
+        {
+            var windowResult = fixture.Host.TryPresent(
+                window,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    IsPresented = () =>
+                    {
+                        if (isPresentedEntered || !windowHandle.HasValue || closedSelf)
+                            return window.Visible;
+                        isPresentedEntered = true;
+                        // Re-entrant self-close: IsPresented closes the target
+                        // entry itself while ApplyWindowEffect captures the
+                        // baseline. The generation changes before the baseline
+                        // is captured. Without the guard, the baseline is
+                        // captured for a now-closed entry and leaks.
+                        closedSelf = true;
+                        fixture.Host.TryClose(
+                            windowHandle.Value,
+                            UIScreenCloseReason.Programmatic);
+                        return window.Visible;
+                    }
+                });
+            AssertThat(windowResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            windowHandle = windowResult.Handle;
+
+            // Present an upper Screen owner that inerts the window
+            // (VisibleInert). This triggers ApplyWindowEffect which calls
+            // IsPresented; the re-entrant self-close must abort before the
+            // baseline is captured.
+            var upperResult = fixture.Host.TryPresent(
+                upperView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+            AssertThat(upperResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            AssertThat(closedSelf).IsTrue();
+            AssertThat(fixture.Host.IsActive(windowHandle!.Value)).IsFalse();
+
+            // The IsPresented callback closed the target. ApplyWindowEffect must
+            // abort before capturing the baseline, so no window effect baseline
+            // is recorded for the closed handle. Without the guard, the baseline
+            // would be captured after the close (CloseAdapter's
+            // RestoreLowerLayerEffect already ran and found nothing to remove)
+            // and leak in _windowEffectBaselines.
+            var diagnostics = fixture.Host.Diagnostics;
+            AssertThat(diagnostics.StateLeases.WindowEffects.ContainsKey(windowHandle.Value))
                 .IsFalse();
         }
         finally

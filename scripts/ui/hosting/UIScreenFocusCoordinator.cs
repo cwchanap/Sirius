@@ -348,19 +348,29 @@ internal sealed class UIScreenFocusCoordinator
         var explicitTarget = SafeTarget(
             closeState.Adapter?.RestoreFocus,
             propagateProviderExceptions);
-        if (TryFocus(explicitTarget, explicitTarget?.GetViewport()))
+        // The explicit restore target may live in a still-active entry that
+        // another owner has since inerted. Do not focus into an inert/hidden
+        // subtree; fall through to the next restoration path. A target not
+        // owned by any active entry (e.g. a free-standing control) is allowed.
+        if (explicitTarget != null &&
+            IsControlEffectivelyInteractive(explicitTarget) &&
+            TryFocus(explicitTarget, explicitTarget.GetViewport()))
+        {
             return;
+        }
 
         var parentRecord = closeState.ParentRecord;
         if (parentRecord != null &&
             _entries.ContainsKey(parentRecord.ParentHandle) &&
+            IsHandleEffectivelyInteractive(parentRecord.ParentHandle) &&
             TryFocus(parentRecord.FocusOwner, parentRecord.Viewport))
         {
             return;
         }
 
         if (parentRecord != null &&
-            _entries.TryGetValue(parentRecord.ParentHandle, out var parentEntry))
+            _entries.TryGetValue(parentRecord.ParentHandle, out var parentEntry) &&
+            IsHandleEffectivelyInteractive(parentRecord.ParentHandle))
         {
             var parentViewport = SafeFocusViewport(parentEntry.Adapter);
             var parentInitial = SafeTarget(
@@ -426,6 +436,12 @@ internal sealed class UIScreenFocusCoordinator
         foreach (var snapshot in _host.FocusInputOrder())
         {
             if (snapshot.Policy.InputPriority != UIInputPriority.Passive &&
+                // A Blocking entry that is first in logical input order may be
+                // visually inerted by an upper owner. Skip it so focus
+                // restoration does not return to an inert subtree; the next
+                // interactive entry (or release) is a safer target.
+                _host.LowerLayerEffectFor(snapshot.Handle) ==
+                    UILowerLayerPolicy.VisibleInteractive &&
                 _entries.TryGetValue(snapshot.Handle, out var entry))
             {
                 return entry;
@@ -433,6 +449,42 @@ internal sealed class UIScreenFocusCoordinator
         }
 
         return null;
+    }
+
+    private bool IsHandleEffectivelyInteractive(UIScreenHandle handle) =>
+        _host != null &&
+        _host.LowerLayerEffectFor(handle) == UILowerLayerPolicy.VisibleInteractive;
+
+    /// <summary>
+    /// Returns the handle of the active entry whose view is (or is an ancestor
+    /// of) <paramref name="control"/>, or null when the control is not owned by
+    /// an active entry. Used to gate focus restoration targets on the owning
+    /// entry's reduced effect.
+    /// </summary>
+    private UIScreenHandle? HandleForControl(Control? control)
+    {
+        if (control == null)
+            return null;
+
+        foreach (var (handle, entry) in _entries)
+        {
+            if (entry.Adapter.View is Control view && IsSameOrAncestor(view, control))
+                return handle;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// True when <paramref name="control"/> is focusable with respect to its
+    /// owning entry's reduced effect: a control not owned by any active entry
+    /// is allowed, while a control inside an entry that is currently
+    /// VisibleInert/Hidden is not.
+    /// </summary>
+    private bool IsControlEffectivelyInteractive(Control control)
+    {
+        var ownerHandle = HandleForControl(control);
+        return !ownerHandle.HasValue || IsHandleEffectivelyInteractive(ownerHandle.Value);
     }
 
     private void ApplyInitialFocus(UIScreenHandle handle)
@@ -443,6 +495,15 @@ internal sealed class UIScreenFocusCoordinator
         {
             return;
         }
+
+        // A deferred ApplyInitialFocus runs on a later frame than the open
+        // that scheduled it. By then another owner may have inerted this entry
+        // (VisibleInert/Hidden) while it remains the logical top input owner
+        // (e.g. a lower Blocking entry inerted by an upper Screen entry). Do
+        // not focus inside an inert/hidden subtree: require the entry's
+        // current reduced effect to be VisibleInteractive.
+        if (_host.LowerLayerEffectFor(handle) != UILowerLayerPolicy.VisibleInteractive)
+            return;
 
         var viewport = SafeFocusViewport(entry.Adapter);
         if (viewport == null)

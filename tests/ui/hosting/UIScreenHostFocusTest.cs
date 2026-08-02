@@ -1491,6 +1491,90 @@ public partial class UIScreenHostFocusTest : Node
     }
 
     [TestCase]
+    public async Task FocusRestoration_ParentFocusViewportClosesParent_InitialFocusNotInvokedAfterStaleParent()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control());
+        var parentInitial = new Button { FocusMode = Control.FocusModeEnum.All };
+        parentView.AddChild(parentInitial);
+        var captured = new Button { FocusMode = Control.FocusModeEnum.All };
+        parentView.AddChild(captured);
+        var childView = fixture.Track(new Control());
+        var closeParentOnNextFocusViewport = false;
+        var initialFocusCallCount = 0;
+        UIScreenHandle? parentHandle = null;
+        try
+        {
+            // Parent P with FocusViewport and InitialFocus. FocusViewport
+            // closes P when a flag is set. When child C (Parent = P) is
+            // closed, deferred restoration takes the parent-initial path:
+            // SafeFocusViewport(P) invokes FocusViewport, which closes P,
+            // superseding the restoration. Without the fix, the stale
+            // parent's InitialFocus is still invoked after FocusViewport.
+            // With the fix, revalidation after FocusViewport detects the
+            // supersession and returns without invoking InitialFocus.
+            parentHandle = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    InitialFocus = () =>
+                    {
+                        initialFocusCallCount++;
+                        return parentInitial;
+                    },
+                    FocusViewport = () =>
+                    {
+                        var viewport = parentView.GetViewport();
+                        if (closeParentOnNextFocusViewport && parentHandle.HasValue)
+                        {
+                            closeParentOnNextFocusViewport = false;
+                            fixture.Host.TryClose(
+                                parentHandle.Value,
+                                UIScreenCloseReason.Programmatic);
+                        }
+                        return viewport;
+                    }
+                }).Handle;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            // P's ApplyInitialFocus called InitialFocus once.
+            AssertThat(initialFocusCallCount).IsEqual(1);
+            captured.GrabFocus();
+
+            var child = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = parentHandle!.Value
+                }).Handle!.Value;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            // Free the captured focus owner so the parent focus-owner path
+            // fails and restoration falls through to the parent-initial path.
+            captured.Free();
+
+            // Arm FocusViewport to close P on the next invocation (during
+            // deferred restoration). Reset the call count so we can detect
+            // any stale InitialFocus invocation during restoration.
+            closeParentOnNextFocusViewport = true;
+            initialFocusCallCount = 0;
+            fixture.Host.TryClose(child, UIScreenCloseReason.Programmatic);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // With the fix: FocusViewport closed P, superseding the
+            // restoration. The revalidation after FocusViewport detects
+            // the supersession and returns without invoking InitialFocus.
+            // Without the fix, InitialFocus is invoked on the stale parent.
+            AssertThat(initialFocusCallCount).IsEqual(0);
+            AssertThat(fixture.Host.IsActive(parentHandle!.Value)).IsFalse();
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task FocusRestoration_RestoreFocusClosesEntryAndReturnsTarget_OldRestorationDoesNotFocusAfterSupersession()
     {
         var tree = (SceneTree)Engine.GetMainLoop();

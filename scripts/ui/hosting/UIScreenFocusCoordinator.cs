@@ -422,28 +422,37 @@ internal sealed class UIScreenFocusCoordinator
             IsHandleEffectivelyInteractive(parentRecord.ParentHandle))
         {
             var parentViewport = SafeFocusViewport(parentEntry.Adapter);
-            var parentInitial = SafeTarget(
-                parentEntry.Adapter.InitialFocus,
-                propagateProviderExceptions);
-            // SafeFocusViewport and SafeTarget invoked the caller-provided
-            // FocusViewport and InitialFocus delegates. Either may re-enter the
-            // host and open an upper owner that inerts (or closes) the parent
-            // while it remains the selected restoration candidate, or close
-            // another entry that supersedes this restoration. Revalidate the
-            // restoration lease, the parent's registration, and reduced effect
-            // before focusing the provider-returned target; otherwise
-            // restoration focuses inside a now-inert subtree through a path
-            // that bypasses RevokeFocusWithin, or focuses after supersession.
-            // Mirrors the post-delegate revalidation ApplyInitialFocus
-            // already performs.
-            if (parentViewport != null &&
-                IsRestorationStillActive(leaseGeneration, closedHandle) &&
-                _entries.ContainsKey(parentRecord.ParentHandle) &&
-                IsHandleEffectivelyInteractive(parentRecord.ParentHandle) &&
-                !TargetOutsideNewTopOwner(parentInitial, topOwnerBefore) &&
-                TryFocus(parentInitial, parentViewport))
-            {
+            // SafeFocusViewport invoked the caller-provided FocusViewport
+            // delegate, which may re-enter the host and close the parent,
+            // open a new top owner that inerts it, or close another entry
+            // that supersedes this restoration. Revalidate the restoration
+            // lease, parent registration, and reduced effect before invoking
+            // InitialFocus; otherwise the stale callback may mutate domain/UI
+            // state, open another screen, dereference controls belonging to a
+            // closed view, or throw during teardown finalization. Mirrors the
+            // post-delegate revalidation ApplyInitialFocus performs between
+            // FocusViewport and InitialFocus.
+            if (!IsRestorationStillActive(leaseGeneration, closedHandle))
                 return;
+            if (parentViewport != null &&
+                _entries.TryGetValue(parentRecord.ParentHandle, out parentEntry) &&
+                IsHandleEffectivelyInteractive(parentRecord.ParentHandle))
+            {
+                var parentInitial = SafeTarget(
+                    parentEntry.Adapter.InitialFocus,
+                    propagateProviderExceptions);
+                // SafeTarget invoked the caller-provided InitialFocus
+                // delegate, which can mutate the host the same way
+                // FocusViewport can. Revalidate again before focusing the
+                // returned target.
+                if (IsRestorationStillActive(leaseGeneration, closedHandle) &&
+                    _entries.ContainsKey(parentRecord.ParentHandle) &&
+                    IsHandleEffectivelyInteractive(parentRecord.ParentHandle) &&
+                    !TargetOutsideNewTopOwner(parentInitial, topOwnerBefore) &&
+                    TryFocus(parentInitial, parentViewport))
+                {
+                    return;
+                }
             }
         }
 

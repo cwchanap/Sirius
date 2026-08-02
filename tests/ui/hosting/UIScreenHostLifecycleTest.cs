@@ -306,6 +306,103 @@ public partial class UIScreenHostLifecycleTest : Node
     }
 
     [TestCase]
+    public async Task TryPresent_ReadyOpensSameLayerInertingOwner_RevalidationRejectsCandidateWithoutAdapter()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var candidateView = fixture.Track(new OpensSameLayerInertingOwnerOnReadyControl());
+        var ownerView = fixture.Track(new Control());
+        candidateView.Host = fixture.Host;
+        candidateView.OwnerView = ownerView;
+        try
+        {
+            // Candidate C on Screen with no SetInteractive adapter. C's
+            // _Ready() disables input, opens owner U on the SAME layer
+            // (Screen) with VisibleInert, then re-enables input. U's initial
+            // validation passes because C is not processing input at that
+            // moment. After C's Apply() returns, the generation changed (U
+            // was opened), so RevalidateAfterApply runs. Without the fix,
+            // the second loop only checks owners with Layer > candidate.Layer,
+            // skipping same-layer U — C is falsely accepted even though U
+            // cannot inert C (no SetInteractive adapter). With the fix,
+            // sequence-aware IsVisuallyAbove detects U (same layer, higher
+            // sequence) and rejects C with MissingRequiredAdapter.
+            var result = fixture.Host.TryPresent(
+                candidateView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Screen
+                });
+
+            AssertThat(result.Status).IsEqual(UIScreenOpenStatus.MissingRequiredAdapter);
+            AssertThat(result.Handle).IsNull();
+            // U opened successfully from C's _Ready().
+            AssertThat(candidateView.OwnerResult.Status)
+                .IsEqual(UIScreenOpenStatus.Opened);
+            // C was rejected — not active, not attached.
+            AssertThat(fixture.Host.IsActive(result.Handle ?? default)).IsFalse();
+            AssertThat(candidateView.GetParent()).IsNull();
+            // U remains active.
+            AssertThat(fixture.Host.IsActive(candidateView.OwnerResult.Handle!.Value)).IsTrue();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task TryPresent_CandidateDeclaresVisibleInert_ReadyMutates_RevalidationDoesNotRejectSelf()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var candidateView = fixture.Track(new OpensHigherLayerEntryOnReadyControl());
+        var upperView = fixture.Track(new Control());
+        candidateView.Host = fixture.Host;
+        candidateView.UpperView = upperView;
+        try
+        {
+            // Candidate C on Screen declares LowerLayers = VisibleInert,
+            // has no SetInteractive adapter, and is processing input (default).
+            // C's _Ready() opens an entry on Modal with VisibleInteractive
+            // (no inerting), causing a generation change. RevalidateAfterApply
+            // runs. Without the fix, the first loop checks C against itself
+            // (IsCandidateVisuallyAbove uses >=, so C is "above" itself) and
+            // CanApply(VisibleInert) fails for C's own adapter (processing
+            // input, no adapter) — C is falsely rejected. With the fix, the
+            // candidate is skipped in the first loop, and the second loop
+            // passes (the Modal entry has VisibleInteractive). C opens
+            // successfully.
+            var result = fixture.Host.TryPresent(
+                candidateView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+
+            AssertThat(result.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(result.Handle).IsNotNull();
+            // The upper entry opened from _Ready().
+            AssertThat(candidateView.UpperResult.Status)
+                .IsEqual(UIScreenOpenStatus.Opened);
+            // Both C and the upper entry are active.
+            AssertThat(fixture.Host.IsActive(result.Handle!.Value)).IsTrue();
+            AssertThat(fixture.Host.IsActive(candidateView.UpperResult.Handle!.Value)).IsTrue();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(2);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task PauseLease_RestoresIncomingFalse()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
@@ -2582,6 +2679,157 @@ public partial class UIScreenHostLifecycleTest : Node
     }
 
     [TestCase]
+    public async Task TryPresent_RevalidationRejectsCandidate_DoesNotInvokeCleanupOrApplyNodeLifetime()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var candidateView = fixture.Track(new OpensSameLayerInertingOwnerOnReadyControl());
+        var ownerView = fixture.Track(new Control());
+        candidateView.Host = fixture.Host;
+        candidateView.OwnerView = ownerView;
+        var cleanupCalled = false;
+        try
+        {
+            // Candidate C on Screen with no SetInteractive adapter,
+            // NodeLifetime = QueueFree, and a Cleanup callback. C's _Ready()
+            // opens a same-layer owner with VisibleInert (triggering
+            // revalidation failure). Without the fix, RollbackPendingOpen
+            // calls CloseAdapter for the candidate, which invokes Cleanup
+            // and applies NodeLifetime (QueueFree). With the fix, the
+            // candidate is handled by RollbackPendingCandidate, which calls
+            // RollbackRegistration (detach only, no Cleanup, no NodeLifetime).
+            var result = fixture.Host.TryPresent(
+                candidateView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    NodeLifetime = UINodeLifetime.QueueFree,
+                    Cleanup = _ => cleanupCalled = true
+                });
+
+            AssertThat(result.Status).IsEqual(UIScreenOpenStatus.MissingRequiredAdapter);
+            // Cleanup must NOT be called — rejected opens are atomic no-ops.
+            AssertThat(cleanupCalled).IsFalse();
+            // NodeLifetime (QueueFree) must NOT be applied — the view is not
+            // queued for deletion. RollbackRegistration detaches without
+            // applying NodeLifetime.
+            AssertThat(candidateView.IsQueuedForDeletion()).IsFalse();
+            // The view was detached by RollbackRegistration.
+            AssertThat(candidateView.GetParent()).IsNull();
+            // The owner opened from _Ready() remains active.
+            AssertThat(fixture.Host.IsActive(candidateView.OwnerResult.Handle!.Value)).IsTrue();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task TryPresent_RollbackPendingOpenCleanupClosesUnrelated_EntryIsClosedWhenTryPresentReturns()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control { Visible = true });
+        var childView = fixture.Track(new Control { Visible = true });
+        var grandchildView = fixture.Track(new Control { Visible = true });
+        var unrelatedView = fixture.Track(new Control { Visible = true });
+        var openOnNextFocusViewport = false;
+        UIScreenHandle? unrelatedHandle = null;
+        UIScreenCloseResult? cleanupCloseResult = null;
+        try
+        {
+            // Parent with a FocusViewport that opens a grandchild beneath the
+            // child candidate during TryPrepare. The grandchild's Cleanup
+            // calls TryClose on an unrelated active entry. The child's
+            // TryPrepare generation guard detects the mutation and calls
+            // RollbackPendingOpen, which cascade-removes the grandchild and
+            // invokes its Cleanup. Under _drainingCloseQueue, TryClose queues
+            // the request and returns Closed. Without the drain fix, the
+            // unrelated entry remains active indefinitely. With the fix, the
+            // drain processes the queued close before RollbackPendingOpen
+            // returns.
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    FocusViewport = () =>
+                    {
+                        if (openOnNextFocusViewport)
+                        {
+                            openOnNextFocusViewport = false;
+                            UIScreenHandle? childHandle = null;
+                            foreach (var entry in fixture.Host.ActiveEntries)
+                            {
+                                if (entry.Policy.Kind == UIScreenKinds.Inventory)
+                                {
+                                    childHandle = entry.Handle;
+                                    break;
+                                }
+                            }
+                            if (childHandle.HasValue)
+                            {
+                                fixture.Host.TryPresent(
+                                    grandchildView,
+                                    UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                                    {
+                                        Parent = childHandle,
+                                        Cleanup = _ =>
+                                        {
+                                            if (unrelatedHandle.HasValue)
+                                                cleanupCloseResult = fixture.Host.TryClose(
+                                                    unrelatedHandle.Value,
+                                                    UIScreenCloseReason.Programmatic);
+                                        }
+                                    });
+                            }
+                        }
+                        return parentView.GetViewport();
+                    }
+                }).Handle!.Value;
+
+            // Open an unrelated entry that will be closed by the grandchild's
+            // Cleanup during rollback.
+            unrelatedHandle = fixture.Host.TryPresent(
+                unrelatedView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle)).Handle;
+
+            // Arm the delegate and present the child.
+            openOnNextFocusViewport = true;
+            var childResult = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Parent = parent
+                });
+            openOnNextFocusViewport = false;
+
+            // The child was rejected (generation changed during TryPrepare).
+            AssertThat(childResult.Status).IsEqual(UIScreenOpenStatus.HostMutating);
+            // The grandchild's Cleanup called TryClose on the unrelated entry.
+            AssertThat(cleanupCloseResult).IsNotNull();
+            AssertThat(cleanupCloseResult!.Value.Status)
+                .IsEqual(UIScreenCloseStatus.Closed);
+            // The unrelated entry was closed by the drain before
+            // RollbackPendingOpen returned.
+            AssertThat(fixture.Host.IsActive(unrelatedHandle!.Value)).IsFalse();
+            // Only the parent remains active.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task TryPresent_ChildParentFocusViewportFreesChildView_ReturnsInvalidNodeAndLeavesNoOrphan()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
@@ -3020,6 +3268,53 @@ public partial class UIScreenHostLifecycleTest : Node
                 {
                     Layer = UIScreenLayer.Screen,
                     LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+        }
+    }
+
+    // Opens a same-layer owner with VisibleInert from _Ready(), disabling
+    // input before the open (so the owner's initial validation passes) and
+    // re-enabling it after (so the candidate cannot actually be inerted
+    // without a SetInteractive adapter). Used to test post-Apply()
+    // revalidation of same-layer owners.
+    private sealed partial class OpensSameLayerInertingOwnerOnReadyControl : Control
+    {
+        public UIScreenHost Host { get; set; } = null!;
+        public Control OwnerView { get; set; } = null!;
+        public UIScreenOpenResult OwnerResult { get; private set; }
+
+        public override void _Ready()
+        {
+            SetProcessInput(false);
+            OwnerResult = Host.TryPresent(
+                OwnerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+            SetProcessInput(true);
+        }
+    }
+
+    // Opens a higher-layer entry with VisibleInteractive from _Ready(),
+    // causing a model mutation that triggers post-Apply() revalidation.
+    // Used to test that a candidate declaring VisibleInert is not falsely
+    // rejected by self-comparison during revalidation.
+    private sealed partial class OpensHigherLayerEntryOnReadyControl : Control
+    {
+        public UIScreenHost Host { get; set; } = null!;
+        public Control UpperView { get; set; } = null!;
+        public UIScreenOpenResult UpperResult { get; private set; }
+
+        public override void _Ready()
+        {
+            UpperResult = Host.TryPresent(
+                UpperView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.VisibleInteractive
                 });
         }
     }

@@ -352,7 +352,7 @@ public partial class UIScreenHost : Control
             // it fails, roll back the committed adapter and any cascade
             // descendants, and restore applied effects via Recompute.
             var revalidateStatus = RevalidateAfterApply(
-                normalized.Policy, adapter);
+                normalized.Policy, adapter, handle);
             if (revalidateStatus != UIScreenOpenStatus.Opened)
             {
                 var cascadeRemoved = RollbackPendingOpen(handle, focusPreparation);
@@ -729,13 +729,34 @@ public partial class UIScreenHost : Control
             {
                 foreach (var closed in mutation.ClosedEntries)
                 {
-                    var reason = closed.Handle == handle
-                        ? UIScreenCloseReason.Programmatic
-                        : UIScreenCloseReason.ParentClosed;
-                    var focusState = CloseAdapter(closed.Handle, reason);
-                    // Release focus on cascade-removed descendants without starting
-                    // a restoration lease — the presentation never committed.
-                    _focusCoordinator.ReleaseFocusWithoutRestoration(focusState);
+                    if (closed.Handle == handle)
+                    {
+                        // The pending candidate was never fully committed —
+                        // no tree-exit handler (registered after all rollback
+                        // paths) and no focus registration. The public
+                        // contract says rejected opens are atomic no-ops:
+                        // do NOT invoke Cleanup or apply NodeLifetime
+                        // (Hide/QueueFree/External detach). Remove the adapter
+                        // and ownership metadata, restore lower-layer
+                        // effects, and call RollbackRegistration (which
+                        // restores the process mode and detaches only if the
+                        // host attached the view, preserving a caller-
+                        // preparented view).
+                        RollbackPendingCandidate(closed.Handle);
+                    }
+                    else
+                    {
+                        // Cascade descendants were fully committed (complete
+                        // TryPresent flow): full terminal close with Cleanup,
+                        // NodeLifetime, and focus release.
+                        var focusState = CloseAdapter(
+                            closed.Handle,
+                            UIScreenCloseReason.ParentClosed);
+                        // Release focus on cascade-removed descendants
+                        // without starting a restoration lease — the
+                        // presentation never committed.
+                        _focusCoordinator.ReleaseFocusWithoutRestoration(focusState);
+                    }
                 }
             }
             // Recompute so applied effects (pause ownership, gameplay-input
@@ -746,12 +767,62 @@ public partial class UIScreenHost : Control
             // _model can leave its effects applied after the candidate is
             // gone.
             Recompute();
+            // Drain any close requests queued by cleanup callbacks during
+            // the rollback above. TryClose under _drainingCloseQueue queues
+            // and returns Closed, but without this drain the queued entry
+            // remains active indefinitely and a later TryClose for the same
+            // handle returns AlreadyClosed (it remains in
+            // _queuedCloseHandles). Process each queued request through the
+            // normal close transaction so the unrelated entry is fully
+            // closed before the outer rejected TryPresent returns.
+            while (_closeQueue.Count != 0)
+            {
+                var request = _closeQueue.Dequeue();
+                _queuedCloseHandles.Remove(request.Handle);
+                ProcessClose(request);
+            }
         }
         finally
         {
             _drainingCloseQueue = false;
+            // Keep _queuedCloseHandles consistent with whatever remains in
+            // the queue, mirroring DrainCloseQueue's finally. The drain loop
+            // above should have emptied the queue, but this is defensive.
+            if (_closeQueue.Count == 0)
+                _queuedCloseHandles.Clear();
+            _closingHandles.Clear();
         }
         return cascadeRemoved;
+    }
+
+    /// <summary>
+    /// Rolls back a pending candidate that was never fully committed (no
+    /// tree-exit handler, no focus registration). Removes the adapter and
+    /// ownership metadata, restores lower-layer effects, and calls
+    /// <see cref="UIScreenViewAdapter.RollbackRegistration"/> (which restores
+    /// the process mode and detaches only if the host attached the view,
+    /// preserving a caller-preparented view). Does NOT invoke Cleanup or
+    /// apply NodeLifetime — rejected opens are atomic no-ops per the public
+    /// contract.
+    /// </summary>
+    private void RollbackPendingCandidate(UIScreenHandle handle)
+    {
+        var focusState = _focusCoordinator.CloseEntry(handle);
+        _focusCoordinator.ReleaseFocusWithoutRestoration(focusState);
+
+        if (!_adapters.Remove(handle, out var adapter))
+            return;
+
+        RestoreLowerLayerEffect(handle, adapter);
+
+        if (GodotObject.IsInstanceValid(adapter.View))
+        {
+            if (adapter.TreeExitingHandler != null)
+                adapter.View.TreeExiting -= adapter.TreeExitingHandler;
+            ReleaseOwnership(adapter.View);
+        }
+
+        adapter.RollbackRegistration();
     }
 
     private UIScreenCloseStatus ProcessClose(CloseRequest request)
@@ -1043,11 +1114,44 @@ public partial class UIScreenHost : Control
 
     private UIScreenOpenStatus ValidateEffectAdaptersForOpen(
         UIScreenEntryPolicy candidatePolicy,
-        UIScreenViewAdapter candidateAdapter)
+        UIScreenViewAdapter candidateAdapter,
+        UIScreenHandle? candidateHandle = null)
     {
+        // During initial validation (candidateHandle is null), the candidate
+        // is NOT yet in _model, so the policy-only IsCandidateVisuallyAbove
+        // comparison is sufficient. During post-Apply() revalidation
+        // (candidateHandle is set), the candidate IS in _model with a
+        // sequence. Look up its snapshot so we can skip it (a screen does
+        // not apply its own LowerLayers policy to itself) and use
+        // sequence-aware IsVisuallyAbove comparisons that catch same-layer
+        // owners opened during _Ready() with a higher sequence.
+        UIScreenEntrySnapshot? candidateSnapshot = null;
+        if (candidateHandle.HasValue)
+        {
+            foreach (var entry in _model.Entries)
+            {
+                if (entry.Handle == candidateHandle.Value)
+                {
+                    candidateSnapshot = entry;
+                    break;
+                }
+            }
+        }
+
         foreach (var target in _model.Entries)
         {
-            if (IsCandidateVisuallyAbove(candidatePolicy, target.Policy) &&
+            // Skip the candidate itself during revalidation — a screen does
+            // not apply its own LowerLayers policy to itself. Without this,
+            // a candidate declaring VisibleInert is falsely rejected because
+            // CanApply checks the candidate's own adapter against its own
+            // policy.
+            if (candidateSnapshot != null && target.Handle == candidateHandle!.Value)
+                continue;
+
+            var isAbove = candidateSnapshot != null
+                ? IsVisuallyAbove(candidateSnapshot, target)
+                : IsCandidateVisuallyAbove(candidatePolicy, target.Policy);
+            if (isAbove &&
                 _adapters.TryGetValue(target.Handle, out var targetAdapter) &&
                 !targetAdapter.CanApply(candidatePolicy.LowerLayers))
             {
@@ -1057,7 +1161,19 @@ public partial class UIScreenHost : Control
 
         foreach (var owner in _model.Entries)
         {
-            if (owner.Policy.Layer > candidatePolicy.Layer &&
+            // Skip the candidate itself — it cannot be its own inerting owner.
+            if (candidateSnapshot != null && owner.Handle == candidateHandle!.Value)
+                continue;
+
+            // During revalidation, use sequence-aware comparison so same-layer
+            // owners opened during _Ready() with a higher sequence are
+            // detected. Without this, a same-layer owner with VisibleInert
+            // is silently skipped, and the candidate is falsely accepted even
+            // though it cannot be inerted.
+            var ownerIsAbove = candidateSnapshot != null
+                ? IsVisuallyAbove(owner, candidateSnapshot)
+                : owner.Policy.Layer > candidatePolicy.Layer;
+            if (ownerIsAbove &&
                 !candidateAdapter.CanApply(
                     owner.Policy.LowerLayers,
                     requireControlInteractivityAdapter: true))
@@ -1083,7 +1199,8 @@ public partial class UIScreenHost : Control
     /// </summary>
     private UIScreenOpenStatus RevalidateAfterApply(
         UIScreenEntryPolicy candidatePolicy,
-        UIScreenViewAdapter candidateAdapter)
+        UIScreenViewAdapter candidateAdapter,
+        UIScreenHandle candidateHandle)
     {
         // Recompute isPausedAfterOpen against the current model state — a
         // _Ready() callback may have opened a PauseTree owner.
@@ -1096,7 +1213,7 @@ public partial class UIScreenHost : Control
         if (processStatus != UIScreenOpenStatus.Opened)
             return processStatus;
 
-        return ValidateEffectAdaptersForOpen(candidatePolicy, candidateAdapter);
+        return ValidateEffectAdaptersForOpen(candidatePolicy, candidateAdapter, candidateHandle);
     }
 
     private bool ComputeIsPausedAfterOpen(UIScreenEntryPolicy candidatePolicy)

@@ -235,6 +235,23 @@ public partial class UIScreenHost : Control
             return new(applyStatus, null);
         }
 
+        // A re-entrant close from the view's _Ready() (synchronously invoked
+        // during adapter.Apply() via AddChild) may have closed this handle and
+        // removed its adapter registration even though Apply() returned Opened.
+        // Validate that the handle is still active and still maps to the same
+        // adapter before registering focus or returning Opened. Without this,
+        // TryPresent installs a tree-exit handler and focus record for a
+        // closed handle, leaving orphan state and returning a stale handle.
+        if (!_adapters.TryGetValue(handle, out var activeAdapter) ||
+            !ReferenceEquals(activeAdapter, adapter))
+        {
+            _model.Close(handle);
+            adapter.RollbackRegistration();
+            ReleaseOwnership(view);
+            _focusCoordinator.DiscardPreparation(focusPreparation);
+            return new(UIScreenOpenStatus.InvalidNode, null);
+        }
+
         Action treeExiting = () => OnViewTreeExiting(handle);
         adapter.TreeExitingHandler = treeExiting;
         view.TreeExiting += treeExiting;
@@ -1009,6 +1026,21 @@ public partial class UIScreenHost : Control
         // previously-skipped revocation is not lost.
         _focusCoordinator.RevokeFocusWithin(control, effects);
 
+        // RevokeFocusWithin calls GrabFocus/ReleaseFocus, which can
+        // synchronously invoke application-owned FocusEntered or FocusExited
+        // handlers. If such a handler closes this target (or another entry),
+        // the model mutates. Abort before modifying visibility or committing
+        // the effect. If the target was closed, CloseAdapter already restored
+        // it and removed the marker; just don't re-add it. If the target
+        // remains active, drop the provisional marker so Recompute reapplies
+        // from a clean state instead of skipping a committed-looking entry.
+        if (_model.MutationGeneration != generationBefore)
+        {
+            if (_adapters.ContainsKey(handle))
+                _appliedLowerLayerEffects.Remove(handle);
+            return;
+        }
+
         if (effect == UILowerLayerPolicy.Hidden)
         {
             control.Visible = false;
@@ -1077,10 +1109,29 @@ public partial class UIScreenHost : Control
             if (_appliedLowerLayerEffects.TryGetValue(handle, out var applied) &&
                 applied == UILowerLayerPolicy.Hidden)
             {
+                // Record the effect before the caller-provided callback so a
+                // re-entrant close (SetPresented closing this entry) lets
+                // RestoreLowerLayerEffect see the correct applied value and
+                // restore presentation properly. This is provisional: it is
+                // committed (re-recorded below) only after every operation
+                // succeeds.
                 _appliedLowerLayerEffects[handle] = effect;
                 adapter.SetPresented(baseline.Visible);
+                // A caller-provided SetPresented callback may close this (or
+                // another) entry, mutating the model. If the target itself was
+                // closed, the provisional marker stays for CloseAdapter's
+                // RestoreLowerLayerEffect (which removes it). If the target is
+                // still active (an unrelated entry mutated), drop the provisional
+                // marker so Recompute reapplies the effect from a clean state
+                // instead of skipping a committed-looking entry and leaving the
+                // Window visible but still accepting input (GuiDisableInput and
+                // Unfocusable not yet set).
                 if (_model.MutationGeneration != generationBefore)
+                {
+                    if (_adapters.ContainsKey(handle))
+                        _appliedLowerLayerEffects.Remove(handle);
                     return;
+                }
             }
             window.GuiDisableInput = true;
             window.Unfocusable = true;

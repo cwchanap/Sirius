@@ -1103,6 +1103,89 @@ public partial class UIScreenHostFocusTest : Node
     }
 
     [TestCase]
+    public async Task CloseChild_ExplicitRestoreTargetInsideInertWindow_NotFocused()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        fixture.Viewport.GuiEmbedSubwindows = true;
+        var parentWindow = fixture.Track(new Window { Visible = true });
+        var restoreTarget = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        parentWindow.AddChild(restoreTarget);
+        var inertOwner = fixture.Track(new Control { Visible = true });
+        var childView = fixture.Track(new Control { Visible = true });
+        var childButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        childView.AddChild(childButton);
+        try
+        {
+            // Parent entry is an embedded Window at Hud with Blocking input
+            // priority. Its focus viewport is the Window itself, and controls
+            // inside it are parented under the Window node — not under a
+            // Control adapter root.
+            var parent = fixture.Host.TryPresent(
+                parentWindow,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    InputPriority = UIInputPriority.Blocking
+                });
+            AssertThat(parent.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // Upper Screen owner inerts the parent Window (VisibleInert).
+            // The parent remains TopInputOwner (Blocking) but is visually
+            // inert.
+            var inert = fixture.Host.TryPresent(
+                inertOwner,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+            AssertThat(inert.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(parentWindow.GuiDisableInput).IsTrue();
+
+            // Child entry at Modal (above Screen so the inert owner does not
+            // inert it) with Parent = parent. RestoreFocus targets a control
+            // inside the inert parent Window.
+            var child = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    Parent = parent.Handle,
+                    InitialFocus = () => childButton,
+                    RestoreFocus = () => restoreTarget
+                });
+            AssertThat(child.Status).IsEqual(UIScreenOpenStatus.Opened);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(childButton.HasFocus()).IsTrue();
+
+            // Close the child. Restoration must not focus restoreTarget inside
+            // the inert parent Window. HandleForControl must match the Window
+            // adapter root (as a Node, not only Control roots) so
+            // IsControlEffectivelyInteractive gates the target on the parent's
+            // reduced effect (VisibleInert).
+            AssertThat(fixture.Host.TryClose(
+                child.Handle!.Value,
+                UIScreenCloseReason.Programmatic).Status).IsEqual(UIScreenCloseStatus.Closed);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(restoreTarget.HasFocus()).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task FocusRestoration_SkipsInertedParentWhenAnotherOwnerRemains()
     {
         var tree = (SceneTree)Engine.GetMainLoop();

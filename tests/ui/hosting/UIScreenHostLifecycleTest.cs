@@ -1820,6 +1820,278 @@ public partial class UIScreenHostLifecycleTest : Node
     }
 
     [TestCase]
+    public async Task ApplyControlEffect_FocusExitedClosesLowerTarget_AbortsBeforeCommit()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var lowerView = fixture.Track(new Control { Visible = true });
+        var lowerButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        lowerView.AddChild(lowerButton);
+        var upperView = fixture.Track(new Control { Visible = true });
+        UIScreenHandle? lowerHandle = null;
+        var focusExitedClosed = false;
+        try
+        {
+            var lowerResult = fixture.Host.TryPresent(
+                lowerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = lowerView.SetProcessInput,
+                    NodeLifetime = UINodeLifetime.External
+                });
+            AssertThat(lowerResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            lowerHandle = lowerResult.Handle;
+            lowerView.SetProcessInput(true);
+            lowerButton.GrabFocus();
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(lowerButton.HasFocus()).IsTrue();
+
+            // FocusExited on the lower button closes the lower target. This
+            // fires synchronously inside RevokeFocusWithin → ReleaseFocus
+            // while ApplyControlEffect is applying Hidden. Without the
+            // MutationGeneration check after RevokeFocusWithin, the stale
+            // outer pass hides the already-restored/detached external view and
+            // re-adds effect bookkeeping for the closed handle.
+            lowerButton.FocusExited += () =>
+            {
+                if (focusExitedClosed || !lowerHandle.HasValue)
+                    return;
+                focusExitedClosed = true;
+                fixture.Host.TryClose(
+                    lowerHandle.Value,
+                    UIScreenCloseReason.Programmatic);
+            };
+
+            var upperResult = fixture.Host.TryPresent(
+                upperView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.Hidden
+                });
+            AssertThat(upperResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            AssertThat(focusExitedClosed).IsTrue();
+            AssertThat(fixture.Host.IsActive(lowerHandle!.Value)).IsFalse();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+
+            // The lower view was restored by CloseAdapter's
+            // RestoreLowerLayerEffect (Visible = baseline true) and detached
+            // (External lifetime). The stale outer pass must not re-hide it.
+            AssertThat(lowerView.Visible).IsTrue();
+            AssertThat(lowerView.GetParent()).IsNull();
+
+            // No stale effect bookkeeping should remain for the closed handle.
+            var diagnostics = fixture.Host.Diagnostics;
+            AssertThat(diagnostics.StateLeases.ControlEffects.ContainsKey(lowerHandle.Value))
+                .IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task ApplyControlEffect_FocusEnteredClosesLowerTarget_AbortsBeforeCommit()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var lowerView = fixture.Track(new Control { Visible = true });
+        var lowerButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        lowerView.AddChild(lowerButton);
+        var upperView = fixture.Track(new Control { Visible = true });
+        var upperButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        upperView.AddChild(upperButton);
+        UIScreenHandle? lowerHandle = null;
+        var focusEnteredClosed = false;
+        try
+        {
+            var lowerResult = fixture.Host.TryPresent(
+                lowerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = lowerView.SetProcessInput,
+                    NodeLifetime = UINodeLifetime.External
+                });
+            AssertThat(lowerResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            lowerHandle = lowerResult.Handle;
+            lowerView.SetProcessInput(true);
+            lowerButton.GrabFocus();
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(lowerButton.HasFocus()).IsTrue();
+
+            // FocusEntered on the upper button closes the lower target. The
+            // upper owner is the top interactive entry (highest sequence,
+            // VisibleInteractive). RevokeFocusWithin redirects focus from
+            // lowerButton to upperButton via GrabFocus, which synchronously
+            // fires FocusEntered. Without the MutationGeneration check after
+            // RevokeFocusWithin, the stale outer pass commits the effect for
+            // the closed handle.
+            upperButton.FocusEntered += () =>
+            {
+                if (focusEnteredClosed || !lowerHandle.HasValue)
+                    return;
+                focusEnteredClosed = true;
+                fixture.Host.TryClose(
+                    lowerHandle.Value,
+                    UIScreenCloseReason.Programmatic);
+            };
+
+            var upperResult = fixture.Host.TryPresent(
+                upperView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+            AssertThat(upperResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            AssertThat(focusEnteredClosed).IsTrue();
+            AssertThat(fixture.Host.IsActive(lowerHandle!.Value)).IsFalse();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+
+            // The lower view was restored by CloseAdapter's
+            // RestoreLowerLayerEffect and detached (External lifetime). The
+            // stale outer pass must not re-hide it.
+            AssertThat(lowerView.Visible).IsTrue();
+            AssertThat(lowerView.GetParent()).IsNull();
+
+            var diagnostics = fixture.Host.Diagnostics;
+            AssertThat(diagnostics.StateLeases.ControlEffects.ContainsKey(lowerHandle.Value))
+                .IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task ApplyWindowEffect_SetPresentedClosesUnrelatedEntry_TargetStillInert()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        fixture.Viewport.GuiEmbedSubwindows = true;
+        var window = fixture.Track(new Window
+        {
+            Visible = true,
+            GuiDisableInput = false,
+            Unfocusable = false
+        });
+        var inertOwner = fixture.Track(new Control { Visible = true });
+        var hiddenOwner = fixture.Track(new Control { Visible = true });
+        var unrelatedView = fixture.Track(new Control { Visible = true });
+        UIScreenHandle? unrelatedHandle = null;
+        var closedUnrelated = false;
+        try
+        {
+            var windowResult = fixture.Host.TryPresent(
+                window,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetPresented = presented =>
+                    {
+                        window.Visible = presented;
+                        // The SetPresented(true) callback fires during the
+                        // Hidden → VisibleInert transition (the applied ==
+                        // Hidden branch). Close an UNRELATED entry so the
+                        // generation changes while the target stays active
+                        // and the inert owner continues contributing
+                        // VisibleInert. Without the provisional-marker
+                        // rollback, Recompute skips the target (applied ==
+                        // effect) and leaves the Window visible but still
+                        // accepting input.
+                        if (!presented || !unrelatedHandle.HasValue || closedUnrelated)
+                            return;
+                        closedUnrelated = true;
+                        fixture.Host.TryClose(
+                            unrelatedHandle.Value,
+                            UIScreenCloseReason.Programmatic);
+                    }
+                });
+            AssertThat(windowResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // Owner B: Screen layer, contributes VisibleInert to the window.
+            var inertResult = fixture.Host.TryPresent(
+                inertOwner,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+            AssertThat(inertResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(window.GuiDisableInput).IsTrue();
+            AssertThat(window.Unfocusable).IsTrue();
+
+            // Owner A: Modal layer, contributes Hidden (strongest). The
+            // window is hidden; GuiDisableInput/Unfocusable are restored to
+            // baseline (false) before SetPresented(false) fires.
+            var hiddenResult = fixture.Host.TryPresent(
+                hiddenOwner,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.Hidden
+                });
+            AssertThat(hiddenResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(window.Visible).IsFalse();
+
+            // Unrelated entry at Toast (above Modal) so it does not contribute
+            // to the window's reduced effect.
+            var unrelatedResult = fixture.Host.TryPresent(
+                unrelatedView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Layer = UIScreenLayer.Toast
+                });
+            AssertThat(unrelatedResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            unrelatedHandle = unrelatedResult.Handle;
+
+            // Close Owner A → window transitions Hidden → VisibleInert.
+            // SetPresented(true) fires and closes the unrelated entry.
+            AssertThat(fixture.Host.TryClose(
+                hiddenResult.Handle!.Value,
+                UIScreenCloseReason.Programmatic).Status).IsEqual(UIScreenCloseStatus.Closed);
+
+            AssertThat(closedUnrelated).IsTrue();
+            AssertThat(fixture.Host.IsActive(unrelatedHandle!.Value)).IsFalse();
+            AssertThat(fixture.Host.IsActive(windowResult.Handle!.Value)).IsTrue();
+            AssertThat(fixture.Host.IsActive(inertResult.Handle!.Value)).IsTrue();
+
+            // The window's reduced effect is still VisibleInert (Owner B
+            // remains active). Recompute must have reapplied the effect rather
+            // than skipping the provisional marker, so the window is visible
+            // but input-disabled.
+            AssertThat(window.Visible).IsTrue();
+            AssertThat(window.GuiDisableInput).IsTrue();
+            AssertThat(window.Unfocusable).IsTrue();
+
+            var diagnostics = fixture.Host.Diagnostics;
+            AssertThat(diagnostics.StateLeases.WindowEffects.ContainsKey(windowResult.Handle.Value))
+                .IsTrue();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task ApplyWindowEffect_SetPresentedClosesOwnWindowUnderHiddenOwner_BaselineRestored()
     {
         var fixture = await UIScreenHostTestSupport.CreateHost(this);

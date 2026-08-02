@@ -468,7 +468,14 @@ internal sealed class UIScreenFocusCoordinator
 
         foreach (var (handle, entry) in _entries)
         {
-            if (entry.Adapter.View is Control view && IsSameOrAncestor(view, control))
+            // Match against every adapter root as a Node, not only Control
+            // roots. Controls inside an active embedded Window or AcceptDialog
+            // are parented under the Window node; restricting the check to
+            // Control views would leave them unowned, causing
+            // IsControlEffectivelyInteractive to allow an explicit
+            // RestoreFocus target inside a Window that is VisibleInert or
+            // Hidden under another owner.
+            if (IsSameOrAncestor(entry.Adapter.View, control))
                 return handle;
         }
 

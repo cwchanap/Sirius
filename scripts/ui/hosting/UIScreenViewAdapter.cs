@@ -128,11 +128,24 @@ internal sealed class UIScreenViewAdapter
         {
             if (_needsAttachment)
             {
+                // Mark as host-attached BEFORE AddChild so a re-entrant Close()
+                // from the view's _Ready() (synchronously invoked during
+                // AddChild) can detach the view correctly. Without this,
+                // _attachedByHost is still false when Close() checks it, so
+                // the view is left parented and Apply() returns Opened for a
+                // closed entry — orphaning focus registration and leaving the
+                // view as an unmanaged child of the host.
+                _attachedByHost = true;
                 _attachmentParent.AddChild(View);
                 _attachedByHost = View.GetParent() == _attachmentParent;
             }
 
-            if (View.IsQueuedForDeletion() || View.GetParent() != _attachmentParent)
+            // _finished is set by a re-entrant Close() from _Ready(). Even if
+            // the view was detached (so GetParent() != _attachmentParent),
+            // _finished is the authoritative signal that the adapter is no
+            // longer open.
+            if (_finished || View.IsQueuedForDeletion() ||
+                View.GetParent() != _attachmentParent)
             {
                 RollbackRegistration();
                 return UIScreenOpenStatus.InvalidNode;

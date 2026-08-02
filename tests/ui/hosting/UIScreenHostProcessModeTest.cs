@@ -665,6 +665,81 @@ public partial class UIScreenHostProcessModeTest : Node
     }
 
     [TestCase]
+    public async Task TryPresent_ControlClosesOwnHandleFromReady_ReturnsInvalidNode()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var view = fixture.Track(new ClosesSelfByKindOnReadyControl
+        {
+            Host = fixture.Host,
+            Kind = UIScreenKinds.Pause
+        });
+        try
+        {
+            var result = fixture.Host.TryPresent(
+                view,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    NodeLifetime = UINodeLifetime.Hide
+                });
+
+            // _Ready() runs synchronously during AddChild inside
+            // adapter.Apply() and closes the candidate's own handle. Apply()
+            // must detect the re-entrant close (via _attachedByHost set before
+            // AddChild and the _finished check after) and return InvalidNode.
+            // TryPresent must not return Opened for a closed handle.
+            AssertThat(result.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(result.Handle).IsNull();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
+            AssertThat(fixture.Host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+
+            // No orphan focus registration remains.
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(0);
+
+            // The view is not left as an unmanaged child of the host.
+            AssertThat(view.GetParent()).IsNull();
+        }
+        finally
+        {
+            fixture.Dispose();
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    [TestCase]
+    public async Task TryPresent_WindowClosesOwnHandleFromReady_ReturnsInvalidNode()
+    {
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        fixture.Viewport.GuiEmbedSubwindows = true;
+        var window = fixture.Track(new ClosesSelfByKindOnReadyWindow
+        {
+            Host = fixture.Host,
+            Kind = UIScreenKinds.SaveError
+        });
+        try
+        {
+            var result = fixture.Host.TryPresent(
+                window,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    NodeLifetime = UINodeLifetime.Hide
+                });
+
+            AssertThat(result.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(result.Handle).IsNull();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
+            AssertThat(fixture.Host.IsKindActive(UIScreenKinds.SaveError)).IsFalse();
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(0);
+            AssertThat(window.GetParent()).IsNull();
+        }
+        finally
+        {
+            fixture.Dispose();
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    [TestCase]
     public async Task Present_ViewReentersDuringReady_IsAlreadyReservedByHost()
     {
         var fixture = await UIScreenHostTestSupport.CreateHost(this);
@@ -788,6 +863,42 @@ public partial class UIScreenHostProcessModeTest : Node
             ReentrantResult = Host.TryPresent(
                 this,
                 UIScreenHostTestSupport.Spec(UIScreenKinds.Settings));
+        }
+    }
+
+    private sealed partial class ClosesSelfByKindOnReadyControl : Control
+    {
+        public UIScreenHost Host { get; init; } = null!;
+        public StringName Kind { get; init; } = null!;
+
+        public override void _Ready()
+        {
+            foreach (var entry in Host.ActiveEntries)
+            {
+                if (entry.Policy.Kind == Kind)
+                {
+                    Host.TryClose(entry.Handle, UIScreenCloseReason.Programmatic);
+                    break;
+                }
+            }
+        }
+    }
+
+    private sealed partial class ClosesSelfByKindOnReadyWindow : Window
+    {
+        public UIScreenHost Host { get; init; } = null!;
+        public StringName Kind { get; init; } = null!;
+
+        public override void _Ready()
+        {
+            foreach (var entry in Host.ActiveEntries)
+            {
+                if (entry.Policy.Kind == Kind)
+                {
+                    Host.TryClose(entry.Handle, UIScreenCloseReason.Programmatic);
+                    break;
+                }
+            }
         }
     }
 }

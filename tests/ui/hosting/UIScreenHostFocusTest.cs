@@ -1490,6 +1490,187 @@ public partial class UIScreenHostFocusTest : Node
         }
     }
 
+    [TestCase]
+    public async Task FocusRestoration_RestoreFocusClosesEntryAndReturnsTarget_OldRestorationDoesNotFocusAfterSupersession()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var otherView = fixture.Track(new Control { Visible = true });
+        var ownerView = fixture.Track(new Control { Visible = true });
+        var externalButton = fixture.Track(new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false,
+            Visible = true
+        });
+        fixture.Host.GetParent().AddChild(externalButton);
+        var restoreCallCount = 0;
+        UIScreenHandle? otherHandle = null;
+        try
+        {
+            // Present "other" first so its handle is available for the
+            // owner's RestoreFocus delegate.
+            var other = fixture.Host.TryPresent(
+                otherView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking
+                });
+            AssertThat(other.Status).IsEqual(UIScreenOpenStatus.Opened);
+            otherHandle = other.Handle;
+
+            // Owner with a RestoreFocus that closes "other" on the first call
+            // and returns an external Button. The close installs a newer
+            // restoration lease, superseding the owner's. On the re-entrant
+            // second call (BeginRestoration completes the old lease first),
+            // the delegate returns null so the re-entrant restoration does not
+            // focus the Button — isolating the outer call's behavior.
+            var owner = fixture.Host.TryPresent(
+                ownerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking,
+                    RestoreFocus = () =>
+                    {
+                        restoreCallCount++;
+                        if (restoreCallCount == 1 && otherHandle.HasValue)
+                        {
+                            fixture.Host.TryClose(
+                                otherHandle.Value,
+                                UIScreenCloseReason.Programmatic);
+                            return externalButton;
+                        }
+                        return null;
+                    }
+                });
+            AssertThat(owner.Status).IsEqual(UIScreenOpenStatus.Opened);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // Close the owner. Its deferred restoration runs RestoreFocus,
+            // which closes "other" (installing a newer lease) and returns the
+            // external Button. The re-entrant completion of the old lease calls
+            // RestoreFocus again (returns null). Without the fix, the outer
+            // restoration still focuses the external Button after being
+            // superseded; with the fix, it detects the supersession and aborts.
+            restoreCallCount = 0;
+            AssertThat(fixture.Host.TryClose(
+                owner.Handle!.Value,
+                UIScreenCloseReason.Programmatic).Status).IsEqual(UIScreenCloseStatus.Closed);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // The external Button must not retain focus — the old restoration
+            // was superseded by "other"'s restoration lease.
+            AssertThat(externalButton.HasFocus()).IsFalse();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(externalButton) &&
+                externalButton.IsInsideTree())
+            {
+                externalButton.GetParent()?.RemoveChild(externalButton);
+            }
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task FocusRestoration_RestoreFocusOpensBlockingOwnerAndReturnsExternalTarget_DoesNotFocusOutsideNewOwner()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var ownerView = fixture.Track(new Control { Visible = true });
+        var blockingView = fixture.Track(new Control { Visible = true });
+        var blockingButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        blockingView.AddChild(blockingButton);
+        var externalButton = fixture.Track(new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false,
+            Visible = true
+        });
+        fixture.Host.GetParent().AddChild(externalButton);
+        var armed = false;
+        UIScreenOpenResult? blockingResult = null;
+        try
+        {
+            // Owner (Screen priority, non-Blocking) with a RestoreFocus that,
+            // when armed, opens a new Blocking Modal owner and returns an
+            // external Button outside the new owner's subtree.
+            var owner = fixture.Host.TryPresent(
+                ownerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    InputPriority = UIInputPriority.Screen,
+                    RestoreFocus = () =>
+                    {
+                        if (armed)
+                        {
+                            blockingResult = fixture.Host.TryPresent(
+                                blockingView,
+                                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                                {
+                                    Layer = UIScreenLayer.Modal,
+                                    InputPriority = UIInputPriority.Blocking,
+                                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                                });
+                            return externalButton;
+                        }
+                        return null;
+                    }
+                });
+            AssertThat(owner.Status).IsEqual(UIScreenOpenStatus.Opened);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // Arm the delegate so the next RestoreFocus invocation (during the
+            // owner's deferred restoration) opens the Blocking owner and
+            // returns the external Button. IsControlEffectivelyInteractive
+            // permits unowned controls, so without the fix the old restoration
+            // focuses outside the newly opened top owner until a later deferred
+            // initial-focus callback corrects it.
+            armed = true;
+            AssertThat(fixture.Host.TryClose(
+                owner.Handle!.Value,
+                UIScreenCloseReason.Programmatic).Status).IsEqual(UIScreenCloseStatus.Closed);
+
+            // The deferred CompleteRestoration runs on the next frame and
+            // invokes the armed RestoreFocus delegate. Keep armed until after
+            // that frame so the delegate opens the Blocking owner.
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            armed = false;
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(blockingResult!.Value.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.IsActive(blockingResult.Value.Handle!.Value)).IsTrue();
+            // The external Button must not have focus — it is outside the new
+            // Blocking top owner. Focus should have landed inside the new
+            // owner's subtree instead.
+            AssertThat(externalButton.HasFocus()).IsFalse();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner() == externalButton).IsFalse();
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(externalButton) &&
+                externalButton.IsInsideTree())
+            {
+                externalButton.GetParent()?.RemoveChild(externalButton);
+            }
+            await DisposeFixture(fixture);
+        }
+    }
+
     private sealed partial class OpensHigherOwnerOnReadyControl : Control
     {
         public UIScreenHost Host { get; init; } = null!;

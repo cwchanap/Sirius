@@ -2548,6 +2548,335 @@ public partial class UIScreenHostLifecycleTest : Node
         }
     }
 
+    [TestCase]
+    public async Task TryPresent_ParentFocusViewportFreesViewAndThrows_DoesNotDoubleThrowAndReturnsInvalidNode()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control { Visible = true });
+        var childView = fixture.Track(new Control { Visible = true });
+        var armed = false;
+        try
+        {
+            // Parent with a custom FocusViewport. When armed, the delegate
+            // frees the parent's own view (which is in the tree, so Free()
+            // fires TreeExiting synchronously and closes the parent) and then
+            // throws. SafeFocusViewport's catch must not dereference the freed
+            // adapter.View.Name, or a second exception propagates and bypasses
+            // the null fallback — stranding the child's TryPrepare with no
+            // graceful recovery.
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    FocusViewport = () =>
+                    {
+                        if (armed && GodotObject.IsInstanceValid(parentView))
+                        {
+                            parentView.Free();
+                            throw new InvalidOperationException("focus viewport boom");
+                        }
+                        return parentView.GetViewport();
+                    }
+                });
+            AssertThat(parent.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // Arm the delegate so the next FocusViewport invocation (the
+            // child's CaptureParentFocus) frees parentView and throws.
+            armed = true;
+            var childResult = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Parent = parent.Handle
+                });
+            armed = false;
+
+            // With the fix, SafeFocusViewport returns null (graceful fallback),
+            // CaptureParentFocus returns null, and TryPrepare succeeds. The
+            // generation check then detects the re-entrant close (TreeExiting
+            // closed the parent and cascaded the child) and returns
+            // InvalidNode. Without the fix, a second exception propagates out
+            // of TryPresent.
+            AssertThat(childResult.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(childResult.Handle).IsNull();
+            // No orphan entries — both parent (closed by TreeExiting) and
+            // child (rejected) are gone from the model.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // Host is still functional — no pending restoration for the
+            // never-committed child.
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task ApplyInitialFocus_FocusViewportFreesViewAndThrows_DoesNotDoubleThrowAndHostRemainsFunctional()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var entryView = fixture.Track(new Control { Visible = true });
+        var laterView = fixture.Track(new Control { Visible = true });
+        var armed = false;
+        try
+        {
+            // Entry with a custom FocusViewport. The deferred
+            // ApplyInitialFocus calls SafeFocusViewport(entry.Adapter) which
+            // invokes this delegate. When armed, it frees the entry's own view
+            // (firing TreeExiting → TryClose) and throws. The catch in
+            // SafeFocusViewport must not dereference the freed adapter.View.Name.
+            var entry = fixture.Host.TryPresent(
+                entryView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    FocusViewport = () =>
+                    {
+                        if (armed && GodotObject.IsInstanceValid(entryView))
+                        {
+                            entryView.Free();
+                            throw new InvalidOperationException("focus viewport boom");
+                        }
+                        return entryView.GetViewport();
+                    }
+                });
+            AssertThat(entry.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // Let the unarmed deferred ApplyInitialFocus run first.
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // Present a second entry, then arm the first entry's FocusViewport
+            // and re-trigger SafeFocusViewport via Diagnostics (which calls
+            // SnapshotDiagnostics → SafeFocusViewport for each entry).
+            var later = fixture.Host.TryPresent(
+                laterView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory));
+            AssertThat(later.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            armed = true;
+            // Accessing Diagnostics calls SafeFocusViewport for every active
+            // entry. When it reaches the first entry, the armed delegate frees
+            // entryView and throws. Without the fix, the catch dereferences
+            // the freed adapter.View.Name and throws a second exception,
+            // propagating out of the Diagnostics getter.
+            var diagnostics = fixture.Host.Diagnostics;
+            armed = false;
+
+            // With the fix, Diagnostics returns without throwing. The freed
+            // entry is closed via TreeExiting.
+            AssertThat(fixture.Host.IsActive(entry.Handle!.Value)).IsFalse();
+            AssertThat(fixture.Host.IsActive(later.Handle!.Value)).IsTrue();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // Host remains functional — can present another entry.
+            var thirdView = fixture.Track(new Control { Visible = true });
+            var third = fixture.Host.TryPresent(
+                thirdView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings));
+            AssertThat(third.Status).IsEqual(UIScreenOpenStatus.Opened);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task TryPresent_PendingPauseChildNestedToastOpen_RestoresPauseAndEffectiveStateAfterRollback()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control { Visible = true });
+        var childView = fixture.Track(new Control { Visible = true });
+        var toastView = fixture.Track(new Control { Visible = true });
+        var openToastOnNextFocusViewport = false;
+        UIScreenOpenResult? toastResult = null;
+        try
+        {
+            // Parent with a custom FocusViewport. When armed, the delegate
+            // opens a passive toast re-entrantly through TryPresent. The
+            // toast's TryPresent calls Recompute while the pending child
+            // (PauseTree=true) is still in _model but not in _adapters. That
+            // re-computation pauses the tree and publishes an effective state
+            // that names the pending child as the top-input owner. Without
+            // Recompute after the rollback, the host remains paused and its
+            // effective state can still name the rejected child.
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    FocusViewport = () =>
+                    {
+                        if (openToastOnNextFocusViewport)
+                        {
+                            openToastOnNextFocusViewport = false;
+                            toastResult = fixture.Host.TryPresent(
+                                toastView,
+                                UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+                                {
+                                    Layer = UIScreenLayer.Toast,
+                                    InputPriority = UIInputPriority.Passive
+                                });
+                        }
+                        return parentView.GetViewport();
+                    }
+                });
+            AssertThat(parent.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // Arm the delegate so the next FocusViewport invocation (the
+            // child's CaptureParentFocus) opens the toast, then present the
+            // child synchronously.
+            openToastOnNextFocusViewport = true;
+            var childResult = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Parent = parent.Handle,
+                    PauseTree = true
+                });
+            openToastOnNextFocusViewport = false;
+
+            // The re-entrant toast open mutated the model during TryPrepare.
+            // The child's validation snapshot is stale, so TryPresent rejects
+            // the open as HostMutating (the child was not cascade-removed).
+            AssertThat(childResult.Status).IsEqual(UIScreenOpenStatus.HostMutating);
+            AssertThat(childResult.Handle).IsNull();
+            // The toast opened successfully.
+            AssertThat(toastResult!.Value.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.IsActive(toastResult.Value.Handle!.Value)).IsTrue();
+
+            // The rejected child must NOT leave its effects applied. Without
+            // Recompute in the rollback, the tree would remain paused (the
+            // pending child's PauseTree was applied by the toast's Recompute).
+            AssertThat(fixture.Host.CurrentState.IsTreePauseOwned).IsFalse();
+            AssertThat(tree.Paused).IsFalse();
+            // The effective state must not name the rejected child as the
+            // top-input owner.
+            AssertThat(fixture.Host.CurrentState.TopInputOwner).IsNotEqual(childResult.Handle ?? default);
+            // No orphan model entry or focus record for the child.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(2);
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(2);
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task TryPresent_PendingChildCallbackOpensLogicalChild_RollbackCleansOrphanedDescendant()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control { Visible = true });
+        var childView = fixture.Track(new Control { Visible = true });
+        var grandchildView = fixture.Track(new Control { Visible = true });
+        var openGrandchildOnNextFocusViewport = false;
+        UIScreenOpenResult? grandchildResult = null;
+        try
+        {
+            // Parent with a custom FocusViewport. When armed, the delegate
+            // inspects ActiveEntries, obtains the pending candidate's handle,
+            // and opens a logical child beneath it re-entrantly through
+            // TryPresent. The grandchild's TryPresent completes fully —
+            // adapter registered, view attached, focus record, tree-exit
+            // handler — because the pending candidate is in _model (its
+            // handle is in ActiveEntries) even though its adapter is not yet
+            // registered. Without iterating ClosedEntries in the rollback,
+            // _model.Close(handle) cascade-removes both entries from the pure
+            // model but the grandchild's adapter, attached view, ownership
+            // metadata, focus record, and tree-exit subscription remain
+            // orphaned.
+            var parent = fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    FocusViewport = () =>
+                    {
+                        if (openGrandchildOnNextFocusViewport)
+                        {
+                            openGrandchildOnNextFocusViewport = false;
+                            // Inspect ActiveEntries to find the pending
+                            // candidate's handle — mirroring the reviewer's
+                            // reproduction.
+                            UIScreenHandle? candidateHandle = null;
+                            foreach (var entry in fixture.Host.ActiveEntries)
+                            {
+                                if (entry.Policy.Kind == UIScreenKinds.Inventory)
+                                {
+                                    candidateHandle = entry.Handle;
+                                    break;
+                                }
+                            }
+                            if (candidateHandle.HasValue)
+                            {
+                                grandchildResult = fixture.Host.TryPresent(
+                                    grandchildView,
+                                    UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                                    {
+                                        Parent = candidateHandle.Value,
+                                        Layer = UIScreenLayer.Modal,
+                                        InputPriority = UIInputPriority.Blocking
+                                    });
+                            }
+                        }
+                        return parentView.GetViewport();
+                    }
+                });
+            AssertThat(parent.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // Present the child. Its handle enters _model at the top of
+            // TryPresent (line 210). The armed FocusViewport delegate finds
+            // the pending candidate's handle in ActiveEntries and opens a
+            // grandchild beneath it.
+            openGrandchildOnNextFocusViewport = true;
+            var childResult = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Parent = parent.Handle
+                });
+            openGrandchildOnNextFocusViewport = false;
+
+            // The re-entrant grandchild open mutated the model during
+            // TryPrepare. The child's validation snapshot is stale, so
+            // TryPresent rejects the open as HostMutating.
+            AssertThat(childResult.Status).IsEqual(UIScreenOpenStatus.HostMutating);
+            AssertThat(childResult.Handle).IsNull();
+
+            // The grandchild was opened re-entrantly but must be fully cleaned
+            // by the rollback — no orphan adapter, focus record, ownership
+            // metadata, or tree-exit handler.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(1);
+            // The grandchild's view must be detached (CloseAdapter →
+            // adapter.Close removes it from its parent).
+            AssertThat(grandchildView.GetParent()).IsNull();
+            // No pending restoration lease for the never-committed child or
+            // its rolled-back grandchild.
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private async Task DisposeFixture(HostFixture fixture)
     {
         fixture.Dispose();

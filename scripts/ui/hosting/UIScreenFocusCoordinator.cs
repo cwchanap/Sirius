@@ -124,6 +124,22 @@ internal sealed class UIScreenFocusCoordinator
     public void DiscardPreparation(UIFocusPreparation preparation) =>
         RemoveSink(preparation.DynamicSink);
 
+    /// <summary>
+    /// Releases focus on the closed viewport (and its parent record's viewport)
+    /// without starting a restoration lease. Used during rollback of a pending
+    /// open that never committed — there is nothing to restore to, but focus
+    /// must not remain on a hidden/freed control inside a cascade-removed
+    /// descendant.
+    /// </summary>
+    public void ReleaseFocusWithoutRestoration(UIFocusCloseState? closeState)
+    {
+        if (closeState == null || !closeState.RequiresRestoration)
+            return;
+        ReleaseFocus(closeState.ClosedViewport);
+        if (closeState.ParentRecord?.Viewport != closeState.ClosedViewport)
+            ReleaseFocus(closeState.ParentRecord?.Viewport);
+    }
+
     public UIFocusCloseState CloseEntry(UIScreenHandle handle)
     {
         if (!_entries.Remove(handle, out var entry))
@@ -345,20 +361,46 @@ internal sealed class UIScreenFocusCoordinator
             return;
 
         var closeState = _activeCloseState;
+        // Snapshot the restoration lease generation so that every
+        // callback-capable stage can detect supersession. A caller-provided
+        // RestoreFocus / FocusViewport / InitialFocus delegate may
+        // synchronously close another entry, which installs a newer
+        // restoration lease (BeginRestoration completes this one first, then
+        // replaces _activeLease). Without a generation check after each
+        // delegate, the outer — now-stale — restoration continues focusing
+        // a target that belongs to a superseded transaction.
+        var leaseGeneration = _activeLease?.Generation ?? -1;
+
+        // --- Explicit RestoreFocus path (callback-capable) ---
+        var topOwnerBefore = _host?.CurrentState.TopInputOwner;
         var explicitTarget = SafeTarget(
             closeState.Adapter?.RestoreFocus,
             propagateProviderExceptions);
-        // The explicit restore target may live in a still-active entry that
-        // another owner has since inerted. Do not focus into an inert/hidden
-        // subtree; fall through to the next restoration path. A target not
-        // owned by any active entry (e.g. a free-standing control) is allowed.
+        // RestoreFocus is caller-controlled and can synchronously mutate the
+        // host: close another entry (installing a newer restoration lease) or
+        // open a new Blocking owner. Revalidate that this restoration is still
+        // active, the target is still interactive, and no newly opened owner
+        // outranks an unowned target before focusing. Without these checks, the
+        // old restoration focuses a target that belongs to a superseded
+        // transaction or lands outside a newly opened top owner until a later
+        // deferred initial-focus callback corrects it — a transient state
+        // observable via FocusEntered side effects.
         if (explicitTarget != null &&
+            IsRestorationStillActive(leaseGeneration, closedHandle) &&
             IsControlEffectivelyInteractive(explicitTarget) &&
+            !TargetOutsideNewTopOwner(explicitTarget, topOwnerBefore) &&
             TryFocus(explicitTarget, explicitTarget.GetViewport()))
         {
             return;
         }
 
+        // If the explicit delegate superseded this restoration, abort — the
+        // newer restoration handles focus. Do not release focus or run further
+        // paths; the newer lease's deferred completion owns the focus state.
+        if (!IsRestorationStillActive(leaseGeneration, closedHandle))
+            return;
+
+        // --- Parent focus-owner path (no delegate, no supersession risk) ---
         var parentRecord = closeState.ParentRecord;
         if (parentRecord != null &&
             _entries.ContainsKey(parentRecord.ParentHandle) &&
@@ -368,6 +410,7 @@ internal sealed class UIScreenFocusCoordinator
             return;
         }
 
+        // --- Parent initial-focus path (callback-capable) ---
         if (parentRecord != null &&
             _entries.TryGetValue(parentRecord.ParentHandle, out var parentEntry) &&
             IsHandleEffectivelyInteractive(parentRecord.ParentHandle))
@@ -379,13 +422,16 @@ internal sealed class UIScreenFocusCoordinator
             // SafeFocusViewport and SafeTarget invoked the caller-provided
             // FocusViewport and InitialFocus delegates. Either may re-enter the
             // host and open an upper owner that inerts (or closes) the parent
-            // while it remains the selected restoration candidate. Revalidate
-            // the parent's registration and reduced effect before focusing the
-            // provider-returned target; otherwise restoration focuses inside a
-            // now-inert subtree through a path that bypasses
-            // RevokeFocusWithin. Mirrors the post-delegate revalidation
-            // ApplyInitialFocus already performs.
+            // while it remains the selected restoration candidate, or close
+            // another entry that supersedes this restoration. Revalidate the
+            // restoration lease, the parent's registration, and reduced effect
+            // before focusing the provider-returned target; otherwise
+            // restoration focuses inside a now-inert subtree through a path
+            // that bypasses RevokeFocusWithin, or focuses after supersession.
+            // Mirrors the post-delegate revalidation ApplyInitialFocus
+            // already performs.
             if (parentViewport != null &&
+                IsRestorationStillActive(leaseGeneration, closedHandle) &&
                 _entries.ContainsKey(parentRecord.ParentHandle) &&
                 IsHandleEffectivelyInteractive(parentRecord.ParentHandle) &&
                 TryFocus(parentInitial, parentViewport))
@@ -394,6 +440,11 @@ internal sealed class UIScreenFocusCoordinator
             }
         }
 
+        // If the parent delegate superseded this restoration, abort.
+        if (!IsRestorationStillActive(leaseGeneration, closedHandle))
+            return;
+
+        // --- Generic top entry path (callback-capable) ---
         var top = FindTopEntry();
         if (top != null)
         {
@@ -402,11 +453,14 @@ internal sealed class UIScreenFocusCoordinator
             var viewport = SafeFocusViewport(topEntry.Adapter);
             // SafeFocusViewport invoked the caller-provided FocusViewport
             // delegate, which may re-enter the host and inert or close the
-            // entry that FindTopEntry selected. Revalidate that the selected
-            // top is still registered and interactive before focusing into its
-            // subtree; otherwise restoration can land inside a subtree that
-            // was inerted by the delegate.
+            // entry that FindTopEntry selected, or close another entry that
+            // supersedes this restoration. Revalidate the restoration lease,
+            // the selected top's registration, and reduced effect before
+            // focusing into its subtree; otherwise restoration can land inside
+            // a subtree that was inerted by the delegate, or focus after
+            // supersession.
             if (viewport != null &&
+                IsRestorationStillActive(leaseGeneration, closedHandle) &&
                 _entries.ContainsKey(topHandle) &&
                 IsHandleEffectivelyInteractive(topHandle))
             {
@@ -425,9 +479,60 @@ internal sealed class UIScreenFocusCoordinator
             }
         }
 
+        // If the top delegate superseded this restoration, abort before
+        // releasing focus — the newer restoration owns the focus state.
+        if (!IsRestorationStillActive(leaseGeneration, closedHandle))
+            return;
+
         ReleaseFocus(closeState.ClosedViewport);
         if (parentRecord?.Viewport != closeState.ClosedViewport)
             ReleaseFocus(parentRecord?.Viewport);
+    }
+
+    /// <summary>
+    /// True when the restoration transaction identified by
+    /// <paramref name="expectedGeneration"/> and
+    /// <paramref name="expectedClosedHandle"/> is still the active one — i.e.
+    /// no newer <see cref="BeginRestoration"/> has superseded it. A
+    /// caller-provided RestoreFocus / FocusViewport / InitialFocus delegate
+    /// may close another entry, which calls BeginRestoration; that completes
+    /// this lease first and then replaces <c>_activeLease</c> with a newer
+    /// generation. The older restoration must not focus a target after being
+    /// superseded.
+    /// </summary>
+    private bool IsRestorationStillActive(
+        long expectedGeneration,
+        UIScreenHandle expectedClosedHandle) =>
+        _activeLease?.Generation == expectedGeneration &&
+        _activeCloseState?.Handle == expectedClosedHandle;
+
+    /// <summary>
+    /// True when <paramref name="target"/> is an unowned control that a newly
+    /// opened top input owner (one that appeared after
+    /// <paramref name="topOwnerBefore"/>) now outranks — i.e. the target is
+    /// outside the new owner's subtree. A caller-provided RestoreFocus
+    /// delegate can open a new Blocking owner and return an unowned external
+    /// target; <see cref="IsControlEffectivelyInteractive"/> permits unowned
+    /// controls, so without this check the old restoration focuses outside
+    /// the new top owner until a later deferred initial-focus callback
+    /// corrects it.
+    /// </summary>
+    private bool TargetOutsideNewTopOwner(
+        Control target,
+        UIScreenHandle? topOwnerBefore)
+    {
+        if (_host == null)
+            return false;
+        var topOwnerNow = _host.CurrentState.TopInputOwner;
+        // Only revalidate when the top input owner changed during the delegate.
+        if (topOwnerNow == null || topOwnerNow == topOwnerBefore)
+            return false;
+        // An owned target is already gated by IsControlEffectivelyInteractive.
+        if (HandleForControl(target) != null)
+            return false;
+        if (!_entries.TryGetValue(topOwnerNow.Value, out var ownerEntry))
+            return false;
+        return !IsSameOrAncestor(ownerEntry.Adapter.View, target);
     }
 
     private UIFocusRecord? CaptureParentFocus(UIScreenHandle? parentHandle)
@@ -588,6 +693,17 @@ internal sealed class UIScreenFocusCoordinator
 
     private static Viewport? SafeFocusViewport(UIScreenViewAdapter adapter)
     {
+        // Capture a stable diagnostic name before invoking the caller-provided
+        // FocusViewport delegate. A custom FocusViewport can free its own
+        // registered view (adapter.View) and then throw; without a pre-captured
+        // name, the catch below dereferences adapter.View.Name on the freed
+        // Godot object and throws a second exception while handling the first,
+        // bypassing the null fallback and stranding the surrounding rollback or
+        // restoration completion logic.
+        var view = adapter.View;
+        var diagnosticName = GodotObject.IsInstanceValid(view)
+            ? (string)view.Name
+            : "<freed>";
         try
         {
             var viewport = adapter.FocusViewport();
@@ -598,7 +714,7 @@ internal sealed class UIScreenFocusCoordinator
         catch (Exception exception)
         {
             GD.PushError(
-                $"UIScreenHost focus viewport lookup failed for '{adapter.View.Name}': {exception.Message}");
+                $"UIScreenHost focus viewport lookup failed for '{diagnosticName}': {exception.Message}");
             return null;
         }
     }

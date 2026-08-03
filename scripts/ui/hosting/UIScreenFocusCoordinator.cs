@@ -158,7 +158,19 @@ internal sealed class UIScreenFocusCoordinator
         // Remove the sink that TryPrepare created (CloseEntry won't find a
         // focus entry to remove it from) and return false so the caller can
         // return InvalidNode without scheduling initial focus or recomputing.
-        if (_host != null && !_host.IsActive(handle))
+        //
+        // The guard must also treat a null or non-operational host as failure.
+        // If the delegate called PrepareForTeardown() and finalization
+        // completed, _focusCoordinator.Teardown() sets _host to null and
+        // clears _entries. The previous guard (`_host != null && !IsActive`)
+        // short-circuited to false on the null host, so Register() added an
+        // orphan focus entry after teardown, scheduled initial focus, and
+        // let TryPresent() return a stale Opened result. A teardown that
+        // started but has not finalized (_tearingDown true, _host non-null)
+        // is equally invalid: the host is going away and must not accept new
+        // focus state. IsHostOperational() covers both the finalized
+        // (null _host) and started-but-deferred teardown cases.
+        if (_host == null || !_host.IsHostOperational() || !_host.IsActive(handle))
         {
             RemoveSink(preparation.DynamicSink);
             return false;
@@ -668,8 +680,22 @@ internal sealed class UIScreenFocusCoordinator
         var topOwnerNow = CurrentTopInputOwner();
         if (topOwnerNow == null)
             return false;
+        // The live top input owner is model-visible but its focus entry is not
+        // yet committed — this happens during TryPresent's window between
+        // _model.Open (model-visible) and Register (focus entry committed). A
+        // close triggered from the candidate's own FocusViewport delegate
+        // (invoked during Register, before the entry is added) can
+        // synchronously complete an older restoration via BeginRestoration.
+        // Without committed focus state for the live top owner, the
+        // restoration must NOT focus a target beneath the visible pending
+        // candidate. Returning true (block) aborts the target; the pending
+        // candidate's own deferred ApplyInitialFocus claims focus once
+        // Register completes. The previous `return false` (allow) let the
+        // older restoration focus a lower control beneath the pending
+        // candidate — a transient state observable via FocusEntered side
+        // effects and keyboard/controller input.
         if (!_entries.TryGetValue(topOwnerNow.Value, out var ownerEntry))
-            return false;
+            return true;
         // The top owner's designated focus sink (DynamicSink for Window
         // entries, _rootSink for Blocking Control entries) is an owned focus
         // target of the top owner, not a view descendant. Accept it so the

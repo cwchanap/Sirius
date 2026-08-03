@@ -2274,6 +2274,269 @@ public partial class UIScreenHostFocusTest : Node
         }
     }
 
+    [TestCase]
+    public async Task TryPresent_CandidateFocusViewportTriggersTeardown_ReturnsInvalidNodeAndLeavesNoOrphan()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var view = fixture.Track(new Control { Visible = true });
+        var teardownStarted = false;
+        try
+        {
+            // The candidate's own FocusViewport delegate is invoked during
+            // Register() (after the model entry, adapter, ownership metadata,
+            // and tree-exit handler are committed). The delegate calls
+            // PrepareForTeardown(), which begins teardown, closes every entry
+            // (including the candidate via the full CloseAdapter path), and
+            // finalizes: _focusCoordinator.Teardown() sets _host to null and
+            // clears _entries. Without treating a null host as failure, the
+            // guard `_host != null && !_host.IsActive(handle)` short-circuits
+            // to false on the null host, Register() adds an orphan focus
+            // entry, schedules initial focus, and returns true; TryPresent
+            // then calls Recompute() and returns a stale Opened result for a
+            // handle whose host is finalized. With the fix, a null (or
+            // tearing-down) host is failure: Register() removes the sink and
+            // returns false, and TryPresent returns InvalidNode.
+            var opened = fixture.Host.TryPresent(
+                view,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    InputPriority = UIInputPriority.Blocking,
+                    FocusViewport = () =>
+                    {
+                        teardownStarted = true;
+                        fixture.Host.PrepareForTeardown();
+                        return view.GetViewport();
+                    }
+                });
+
+            AssertThat(teardownStarted).IsTrue();
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(opened.Handle).IsNull();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(0);
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(0);
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task TryPresent_CandidateFocusViewportOpensPauseTreeOwner_RollbackPausableCandidate()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var candidateView = fixture.Track(new Control
+        {
+            Visible = true,
+            ProcessMode = ProcessModeEnum.Inherit
+        });
+        var pauseOwnerView = fixture.Track(new Control { Visible = true });
+        try
+        {
+            // The candidate is Pausable. Its FocusViewport delegate (invoked
+            // during Register()) opens a PauseTree owner. The candidate's
+            // process mode was validated and assigned during Apply() against
+            // the pre-Register pause state (no PauseTree owner). After the
+            // callback, the candidate's Pausable mode is invalid under the
+            // now-paused tree. Without post-Register revalidation, TryPresent
+            // returns Opened for a candidate whose process-mode validation
+            // was bypassed. With the fix, a generation change after Register
+            // triggers the same transactional validation used after _Ready()
+            // (RevalidateAfterApply), which rejects the Pausable candidate
+            // (InvalidProcessPolicy) and rolls back the committed adapter,
+            // focus entry, and ownership metadata.
+            var opened = fixture.Host.TryPresent(
+                candidateView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    ProcessPolicy = UIProcessPolicy.Pausable,
+                    FocusViewport = () =>
+                    {
+                        fixture.Host.TryPresent(
+                            pauseOwnerView,
+                            UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                            {
+                                PauseTree = true
+                            });
+                        return candidateView.GetViewport();
+                    }
+                });
+
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.InvalidProcessPolicy);
+            AssertThat(opened.Handle).IsNull();
+            // The candidate was rolled back; only the pause owner remains.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(fixture.Host.ActiveEntries[0].Policy.Kind)
+                .IsEqual(UIScreenKinds.Settings);
+            // The candidate's focus entry was removed; only the pause owner's
+            // focus entry remains.
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(1);
+            // The candidate's view was detached (External lifetime rollback).
+            AssertThat(candidateView.GetParent()).IsNull();
+            // The candidate's process mode was restored to its incoming value.
+            AssertThat(candidateView.ProcessMode).IsEqual(ProcessModeEnum.Inherit);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task TryPresent_CandidateFocusViewportQueuesViewForDeletion_ReturnsInvalidNode()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var view = fixture.Track(new Control { Visible = true });
+        try
+        {
+            // The candidate's FocusViewport delegate (invoked during
+            // Register()) queues the candidate view for deletion without
+            // closing the model handle. QueueFree does not fire TreeExiting
+            // synchronously and does not bump MutationGeneration, so the
+            // generation guard and the tree-exit path do not catch it.
+            // Without a node-validity recheck after Register, TryPresent
+            // returns Opened for a view that is queued for deletion —
+            // inconsistent with the top-of-TryPresent check that rejects
+            // queued views. With the fix, the post-Register node-validity
+            // check detects IsQueuedForDeletion, rolls back the committed
+            // candidate, and returns InvalidNode.
+            var opened = fixture.Host.TryPresent(
+                view,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    InputPriority = UIInputPriority.Blocking,
+                    FocusViewport = () =>
+                    {
+                        view.QueueFree();
+                        return view.GetViewport();
+                    }
+                });
+
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(opened.Handle).IsNull();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(0);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
+            AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(0);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task FocusRestoration_PendingTopOwnerBlocksRestorationBeneathCandidate()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var parentView = fixture.Track(new Control { Visible = true });
+        var parentButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false,
+            Visible = true
+        };
+        parentView.AddChild(parentButton);
+        var siblingView = fixture.Track(new Control { Visible = true });
+        var childView = fixture.Track(new Control { Visible = true });
+        var candidateView = fixture.Track(new Control { Visible = true });
+        try
+        {
+            // P (Screen, focusable Button) is opened and its Button receives
+            // focus. Sibling S (Screen) is opened independently. Child C
+            // (Parent = P) captures P's Button as the parent focus owner.
+            // Closing C starts a deferred restoration lease R1 targeting P's
+            // Button. Before R1's deferred completion runs, a Blocking
+            // candidate B is opened. During B's Register() (which invokes B's
+            // FocusViewport), B's delegate closes S. Closing S calls
+            // BeginRestoration, which synchronously completes the
+            // still-pending R1. At that moment B is the live top input owner
+            // (model-visible) but its focus entry is not yet committed
+            // (Register has not added it to _entries). Without the fix,
+            // TargetOutsideNewTopOwner returns false when the top owner is
+            // absent from _entries, so R1 focuses P's Button beneath the
+            // visible pending candidate B. With the fix, the missing committed
+            // focus state for the live top owner blocks the target; R1 aborts
+            // (releases focus) and B's own deferred ApplyInitialFocus claims
+            // focus next frame.
+            fixture.Host.TryPresent(
+                parentView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause));
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            parentButton.GrabFocus();
+            var parentHandle = fixture.Host.ActiveEntries[0].Handle;
+
+            var siblingHandle = fixture.Host.TryPresent(
+                siblingView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory)).Handle!.Value;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            var child = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Parent = parentHandle
+                }).Handle!.Value;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // Close C — its deferred restoration R1 (targeting P's Button) is
+            // scheduled but has not run.
+            fixture.Host.TryClose(child, UIScreenCloseReason.Programmatic);
+
+            // Open B (Blocking Modal). Its FocusViewport delegate closes S
+            // during Register(), before B's focus entry is committed. Closing
+            // S synchronously completes R1 while B is the live top owner but
+            // absent from _entries.
+            var candidateOpened = fixture.Host.TryPresent(
+                candidateView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking,
+                    FocusViewport = () =>
+                    {
+                        fixture.Host.TryClose(
+                            siblingHandle,
+                            UIScreenCloseReason.Programmatic);
+                        return candidateView.GetViewport();
+                    }
+                });
+
+            AssertThat(candidateOpened.Status).IsEqual(UIScreenOpenStatus.Opened);
+            // R1 completed synchronously while B was pending. With the fix,
+            // R1 did NOT focus P's Button beneath B; the missing committed
+            // focus state for the live top owner blocked the target. B's
+            // deferred ApplyInitialFocus has not run yet (same frame), so the
+            // focus owner is NOT P's Button.
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsNotEqual(parentButton);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            // P and B remain (S and C closed). B's deferred ApplyInitialFocus
+            // claimed focus; no restoration lease is pending.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(2);
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private async Task DisposeFixture(HostFixture fixture)
     {
         fixture.Dispose();

@@ -425,9 +425,64 @@ public partial class UIScreenHost : Control
         // redundant) and return the original Opened result for a handle that
         // is no longer active — a stale handle the caller could try to close
         // or present a child beneath.
+        //
+        // Snapshot the model generation before Register. The FocusViewport
+        // delegate can also mutate the host WITHOUT closing the candidate:
+        // open a PauseTree owner (invalidating the candidate's Pausable
+        // process mode that was assigned during Apply()), or queue the
+        // candidate view for deletion (QueueFree does not fire TreeExiting
+        // synchronously and does not bump MutationGeneration). After Register
+        // returns true, revalidate node validity and liveness unconditionally,
+        // and revalidate process mode + effect adapters when the model was
+        // mutated — the same transactional validation used after _Ready()
+        // (RevalidateAfterApply). Without this, TryPresent returns Opened for
+        // a candidate whose process-mode or node-validity validation was
+        // bypassed by the callback.
+        var generationBeforeRegister = _model.MutationGeneration;
         if (!_focusCoordinator.Register(
                 handle, adapter, normalized.Policy, focusPreparation))
             return new(UIScreenOpenStatus.InvalidNode, null);
+
+        // Register() succeeded: the candidate now has a committed focus entry
+        // (in _entries) and a scheduled deferred ApplyInitialFocus, in addition
+        // to the adapter, ownership metadata, and tree-exit handler committed
+        // earlier. Revalidate the node validity and liveness unconditionally —
+        // a delegate that queued the view for deletion or closed the candidate
+        // without a generation change (QueueFree, or a close path that did not
+        // bump the generation) must be caught here. RollbackPendingOpen removes
+        // the focus entry (via CloseEntry), tree-exit handler, adapter, and
+        // ownership metadata, and restores lower-layer effects via Recompute.
+        if (!GodotObject.IsInstanceValid(view) || view.IsQueuedForDeletion() ||
+            !IsActive(handle) ||
+            !_adapters.TryGetValue(handle, out var registeredAdapter) ||
+            !ReferenceEquals(registeredAdapter, adapter))
+        {
+            RollbackPendingOpen(handle, focusPreparation);
+            return new(UIScreenOpenStatus.InvalidNode, null);
+        }
+
+        // When the delegate mutated the model (e.g. opened a PauseTree owner),
+        // the candidate's process mode and effect-adapter validation — which
+        // ran against the pre-Register snapshot during Apply() — are now stale.
+        // Revalidate against the current state, mirroring the post-Apply()
+        // generation-change path. If revalidation fails, roll back the
+        // committed candidate (focus entry, adapter, ownership, effects) and
+        // return the failing status.
+        if (_model.MutationGeneration != generationBeforeRegister)
+        {
+            var revalidateStatus = RevalidateAfterApply(
+                normalized.Policy, adapter, handle);
+            if (revalidateStatus != UIScreenOpenStatus.Opened)
+            {
+                var cascadeRemoved = RollbackPendingOpen(handle, focusPreparation);
+                return new(
+                    cascadeRemoved
+                        ? UIScreenOpenStatus.InvalidNode
+                        : revalidateStatus,
+                    null);
+            }
+        }
+
         Recompute();
         return opened;
     }
@@ -495,6 +550,20 @@ public partial class UIScreenHost : Control
         }
         return false;
     }
+
+    /// <summary>
+    /// True when the host is ready and not tearing down — i.e. it can still
+    /// accept new focus registrations. Used by the focus coordinator to reject
+    /// a <see cref="UIScreenFocusCoordinator.Register"/> call whose
+    /// caller-provided FocusViewport delegate synchronously started or
+    /// finalized teardown (via <see cref="PrepareForTeardown"/>). A finalized
+    /// teardown clears <c>_focusCoordinator._host</c> (null host); a
+    /// started-but-deferred teardown leaves <c>_host</c> non-null but sets
+    /// <c>_tearingDown</c>. Both must be treated as failure so Register() does
+    /// not add an orphan focus entry or let TryPresent() return a stale
+    /// Opened result for a host that is going away.
+    /// </summary>
+    internal bool IsHostOperational() => _ready && !_tearingDown;
 
     private UIScreenOpenStatus GetOwnershipStatus(Node view)
     {

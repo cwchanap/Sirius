@@ -1544,6 +1544,7 @@ public partial class UIScreenHostLifecycleTest : Node
         var modalView = fixture.Track(new Control { Visible = true });
         var shield = fixture.Host.GetNode<Control>("InputShield");
         var publishedStates = new List<UIScreenEffectiveState>();
+        UIScreenHandle? closedModalHandle = null;
         fixture.Host.EffectiveStateChanged += state => publishedStates.Add(state);
         try
         {
@@ -1565,6 +1566,7 @@ public partial class UIScreenHostLifecycleTest : Node
                         {
                             if (entry.Policy.Kind == UIScreenKinds.Pause)
                             {
+                                closedModalHandle = entry.Handle;
                                 fixture.Host.TryClose(
                                     entry.Handle,
                                     UIScreenCloseReason.Programmatic);
@@ -1583,11 +1585,15 @@ public partial class UIScreenHostLifecycleTest : Node
                     Layer = UIScreenLayer.Modal,
                     LowerLayers = UILowerLayerPolicy.VisibleInert
                 });
-            AssertThat(modalResult.Status).IsEqual(UIScreenOpenStatus.Opened);
-            var modal = modalResult.Handle!.Value;
+            // The SetInteractive callback closed the modal during its own
+            // final Recompute. The final commit check detects the candidate
+            // is no longer active and returns InvalidNode instead of a stale
+            // Opened handle.
+            AssertThat(modalResult.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(modalResult.Handle).IsNull();
 
             // The re-entrant close must have closed the modal during its own open.
-            AssertThat(fixture.Host.IsActive(modal)).IsFalse();
+            AssertThat(fixture.Host.IsActive(closedModalHandle!.Value)).IsFalse();
             AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
 
             // The outer pass must have restarted from the current model: gameplay
@@ -1620,6 +1626,7 @@ public partial class UIScreenHostLifecycleTest : Node
         var shield = fixture.Host.GetNode<Control>("InputShield");
         var observations = new List<UIScreenEffectiveState>();
         var firstSubscriberClosed = false;
+        UIScreenHandle? closedModalHandle = null;
 
         // Earlier subscriber: closes the modal the first time it is named the
         // top input owner, mutating the host during publication.
@@ -1632,6 +1639,7 @@ public partial class UIScreenHostLifecycleTest : Node
                 if (entry.Policy.Kind == UIScreenKinds.Pause)
                 {
                     firstSubscriberClosed = true;
+                    closedModalHandle = entry.Handle;
                     fixture.Host.TryClose(
                         entry.Handle,
                         UIScreenCloseReason.Programmatic);
@@ -1661,10 +1669,14 @@ public partial class UIScreenHostLifecycleTest : Node
                     Layer = UIScreenLayer.Modal,
                     LowerLayers = UILowerLayerPolicy.VisibleInert
                 });
-            AssertThat(modalResult.Status).IsEqual(UIScreenOpenStatus.Opened);
-            var modal = modalResult.Handle!.Value;
+            // The EffectiveStateChanged subscriber closed the modal during its
+            // own final Recompute. The final commit check detects the candidate
+            // is no longer active and returns InvalidNode instead of a stale
+            // Opened handle.
+            AssertThat(modalResult.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(modalResult.Handle).IsNull();
 
-            AssertThat(fixture.Host.IsActive(modal)).IsFalse();
+            AssertThat(fixture.Host.IsActive(closedModalHandle!.Value)).IsFalse();
             AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
             AssertThat(gameplay.IsProcessingInput()).IsTrue();
             AssertThat(shield.Visible).IsFalse();
@@ -1708,6 +1720,7 @@ public partial class UIScreenHostLifecycleTest : Node
         var publishedStates = new List<UIScreenEffectiveState>();
         fixture.Host.EffectiveStateChanged += state => publishedStates.Add(state);
         var blockCallbackClosed = false;
+        UIScreenHandle? closedModalHandle = null;
 
         blockCallback = _ =>
         {
@@ -1718,6 +1731,7 @@ public partial class UIScreenHostLifecycleTest : Node
                 if (entry.Policy.Kind == UIScreenKinds.Pause)
                 {
                     blockCallbackClosed = true;
+                    closedModalHandle = entry.Handle;
                     fixture.Host.TryClose(
                         entry.Handle,
                         UIScreenCloseReason.Programmatic);
@@ -1745,12 +1759,16 @@ public partial class UIScreenHostLifecycleTest : Node
                     LowerLayers = UILowerLayerPolicy.VisibleInert,
                     BlockGameplayInput = true
                 });
-            AssertThat(modalResult.Status).IsEqual(UIScreenOpenStatus.Opened);
-            var modal = modalResult.Handle!.Value;
+            // The GameplayInputBlockChanged callback closed the modal during
+            // its own final Recompute. The final commit check detects the
+            // candidate is no longer active and returns InvalidNode instead
+            // of a stale Opened handle.
+            AssertThat(modalResult.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(modalResult.Handle).IsNull();
 
             // The re-entrant close from GameplayInputBlockChanged must have
             // closed the modal during its own open.
-            AssertThat(fixture.Host.IsActive(modal)).IsFalse();
+            AssertThat(fixture.Host.IsActive(closedModalHandle!.Value)).IsFalse();
             AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
 
             // No published EffectiveStateChanged observation may name the

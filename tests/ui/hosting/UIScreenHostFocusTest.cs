@@ -972,6 +972,97 @@ public partial class UIScreenHostFocusTest : Node
     }
 
     [TestCase]
+    public async Task VisibleInert_FocusViewportMovesFocusOutsideInertSubtree_FallbackKeepsExternalFocus()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var lowerView = fixture.Track(new Control { Visible = true });
+        var lowerButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        lowerView.AddChild(lowerButton);
+        var upperView = fixture.Track(new Control { Visible = true });
+        // externalButton lives inside the upper view, so it is NOT a
+        // descendant of the inert lowerView. A FocusViewport side effect
+        // moves focus to it and returns no usable redirect viewport.
+        var externalButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        upperView.AddChild(externalButton);
+        var focusViewportInvoked = false;
+        var focusViewportCallCount = 0;
+        try
+        {
+            // Lower entry: Blocking priority in the HUD layer. Blocking keeps
+            // it first in logical input order even when visually inerted.
+            var lower = fixture.Host.TryPresent(
+                lowerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    InputPriority = UIInputPriority.Blocking
+                });
+            AssertThat(lower.Status).IsEqual(UIScreenOpenStatus.Opened);
+            lowerButton.GrabFocus();
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(lowerButton);
+
+            // Upper entry: Screen priority, VisibleInert lower layers. Its
+            // FocusViewport delegate is invoked twice during TryPresent:
+            //   1. Register() resolves the committed viewport BEFORE Recompute
+            //      applies VisibleInert and calls RevokeFocusWithin.
+            //   2. RevokeFocusWithin() resolves the redirect viewport AFTER
+            //      capturing the focus owner (lowerButton, inside the inert
+            //      subtree) and passing the IsSameOrAncestor guard.
+            // The delegate must NOT move focus on the first call (Register) so
+            // the guard in RevokeFocusWithin still sees lowerButton inside the
+            // inert subtree. On the second call (RevokeFocusWithin) it moves
+            // focus to externalButton (outside the inert lowerView subtree)
+            // and returns null (no usable redirect viewport). The fallback
+            // must re-query the current owner but release it only when it is
+            // still a descendant of the inert control. Releasing the
+            // externally-focused control would strand keyboard/controller
+            // navigation without an owner.
+            var upper = fixture.Host.TryPresent(
+                upperView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert,
+                    FocusViewport = () =>
+                    {
+                        focusViewportCallCount++;
+                        focusViewportInvoked = true;
+                        if (focusViewportCallCount == 2)
+                            externalButton.GrabFocus();
+                        return null;
+                    }
+                });
+            AssertThat(upper.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(focusViewportInvoked).IsTrue();
+            AssertThat(focusViewportCallCount).IsEqual(2);
+
+            // Assert immediately after TryPresent, before the deferred
+            // ApplyInitialFocus runs on the next frame and re-focuses
+            // externalButton (which would mask the fallback's erroneous
+            // release). The inert lowerButton must no longer own focus, and
+            // externalButton — moved outside the inert subtree by the
+            // FocusViewport side effect — must remain focused.
+            AssertThat(lowerButton.HasFocus()).IsFalse();
+            AssertThat(externalButton.HasFocus()).IsTrue();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(externalButton);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task VisibleInert_SetInteractiveClosesUnrelatedEntry_ReapplyRevokesFocus()
     {
         var tree = (SceneTree)Engine.GetMainLoop();

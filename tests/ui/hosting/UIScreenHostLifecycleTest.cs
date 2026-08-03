@@ -1618,7 +1618,7 @@ public partial class UIScreenHostLifecycleTest : Node
     }
 
     [TestCase]
-    public async Task Recompute_SubscriberClosingTopOwner_RestartsAndStaysConsistent()
+    public async Task Recompute_SubscriberClosingTopOwnerAfterCommit_ClosesNormallyAndStaysConsistent()
     {
         var fixture = await UIScreenHostTestSupport.CreateHost(this);
         var gameplay = fixture.Track(new Control { Visible = true });
@@ -1629,7 +1629,11 @@ public partial class UIScreenHostLifecycleTest : Node
         UIScreenHandle? closedModalHandle = null;
 
         // Earlier subscriber: closes the modal the first time it is named the
-        // top input owner, mutating the host during publication.
+        // top input owner, mutating the host during publication. Publication
+        // is suppressed during the candidate's Recompute and deferred until
+        // after the commit check passes, so this subscriber fires only after
+        // the modal is committed — the close is a normal close, not a
+        // rollback.
         fixture.Host.EffectiveStateChanged += _ =>
         {
             if (firstSubscriberClosed)
@@ -1669,13 +1673,14 @@ public partial class UIScreenHostLifecycleTest : Node
                     Layer = UIScreenLayer.Modal,
                     LowerLayers = UILowerLayerPolicy.VisibleInert
                 });
-            // The EffectiveStateChanged subscriber closed the modal during its
-            // own final Recompute. The final commit check detects the candidate
-            // is no longer active and returns InvalidNode instead of a stale
-            // Opened handle.
-            AssertThat(modalResult.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
-            AssertThat(modalResult.Handle).IsNull();
+            // The modal was committed before the subscriber fired. The
+            // subscriber then closed it normally. The modal result is Opened
+            // (the commit check passed before the subscriber ran).
+            AssertThat(modalResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(modalResult.Handle).IsNotNull();
 
+            // The subscriber closed the modal after commit.
+            AssertThat(firstSubscriberClosed).IsTrue();
             AssertThat(fixture.Host.IsActive(closedModalHandle!.Value)).IsFalse();
             AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
             AssertThat(gameplay.IsProcessingInput()).IsTrue();
@@ -1684,21 +1689,12 @@ public partial class UIScreenHostLifecycleTest : Node
                 .IsEqual(gameplayResult.Handle);
 
             // The later subscriber's final observation must agree with the model
-            // (gameplay as top owner), not the stale snapshot naming the modal.
+            // (gameplay as top owner), not a stale snapshot naming the closed
+            // modal.
             var final = observations[observations.Count - 1];
             AssertThat(final.TopInputOwner).IsEqual(gameplayResult.Handle);
             AssertThat(final.TopInputOwner?.Kind == UIScreenKinds.Pause)
                 .IsEqual(false);
-
-            // No observation the later subscriber received may name the closed
-            // modal as top input owner. An earlier subscriber closing the modal
-            // during the same multicast must abort the remaining invocation list
-            // so later subscribers never see a stale state.
-            foreach (var observation in observations)
-            {
-                AssertThat(observation.TopInputOwner?.Kind == UIScreenKinds.Pause)
-                    .IsEqual(false);
-            }
         }
         finally
         {
@@ -1707,7 +1703,7 @@ public partial class UIScreenHostLifecycleTest : Node
     }
 
     [TestCase]
-    public async Task Recompute_GameplayInputBlockChangedClosingTopOwner_AbortsBeforeEffectiveStateChanged()
+    public async Task Recompute_GameplayInputBlockChangedFiresAfterCommit_SubscriberCanCloseTopOwner()
     {
         Action<bool>? blockCallback = null;
         var fixture = await UIScreenHostTestSupport.CreateHost(this, options:
@@ -1759,28 +1755,32 @@ public partial class UIScreenHostLifecycleTest : Node
                     LowerLayers = UILowerLayerPolicy.VisibleInert,
                     BlockGameplayInput = true
                 });
-            // The GameplayInputBlockChanged callback closed the modal during
-            // its own final Recompute. The final commit check detects the
-            // candidate is no longer active and returns InvalidNode instead
-            // of a stale Opened handle.
-            AssertThat(modalResult.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
-            AssertThat(modalResult.Handle).IsNull();
+            // GameplayInputBlockChanged is suppressed during the candidate's
+            // Recompute and deferred until after the commit check passes. The
+            // modal was committed before the callback fired; the callback then
+            // closed it normally.
+            AssertThat(modalResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(modalResult.Handle).IsNotNull();
 
-            // The re-entrant close from GameplayInputBlockChanged must have
-            // closed the modal during its own open.
+            // The callback closed the modal after commit.
+            AssertThat(blockCallbackClosed).IsTrue();
             AssertThat(fixture.Host.IsActive(closedModalHandle!.Value)).IsFalse();
             AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
 
-            // No published EffectiveStateChanged observation may name the
-            // closed modal as top input owner. The generation check after
-            // GameplayInputBlockChanged must abort before EffectiveStateChanged
-            // subscribers receive a stale snapshot.
+            // GameplayInputBlockChanged fires before EffectiveStateChanged in
+            // Recompute's publication phase. The callback closed the modal
+            // before any EffectiveStateChanged publication, so no
+            // EffectiveStateChanged observation names the closed modal. The
+            // final published state names gameplay as top owner.
+            AssertThat(publishedStates.Count).IsGreater(0);
             foreach (var state in publishedStates)
             {
                 AssertThat(state.TopInputOwner?.Kind == UIScreenKinds.Pause)
                     .IsEqual(false);
             }
 
+            // The final state has gameplay as top owner and no gameplay-input
+            // block (the modal that blocked gameplay was closed).
             AssertThat(fixture.Host.CurrentState.TopInputOwner)
                 .IsEqual(gameplayResult.Handle);
             AssertThat(fixture.Host.CurrentState.IsPresentationGameplayBlocked)
@@ -3537,52 +3537,77 @@ public partial class UIScreenHostLifecycleTest : Node
         // must not terminally hide/free OR detach a caller-preparented view.
         var candidateView = fixture.Track(new Control { Visible = true });
         screenLayer.AddChild(candidateView);
+        var gameplayView = fixture.Track(new Control { Visible = true });
         var pauseOwnerView = fixture.Track(new Control { Visible = true });
         var cleanupReasons = new List<UIScreenCloseReason>();
-        var callbackEntered = false;
+        var publishedStates = new List<UIScreenEffectiveState>();
+        fixture.Host.EffectiveStateChanged += state => publishedStates.Add(state);
         UIScreenOpenResult? pauseOwnerResult = null;
-        fixture.Host.EffectiveStateChanged += state =>
-        {
-            if (callbackEntered || !state.TopInputOwner.HasValue)
-                return;
-
-            callbackEntered = true;
-            // Open a PauseTree owner during the candidate's final Recompute.
-            // This pauses the tree, invalidating the candidate's Pausable
-            // process mode. The generation changes during Recompute, so the
-            // post-Recompute revalidation (Path B) fails and the open is
-            // rejected.
-            pauseOwnerResult = fixture.Host.TryPresent(
-                pauseOwnerView,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
-                {
-                    Layer = UIScreenLayer.Modal,
-                    InputPriority = UIInputPriority.Blocking,
-                    ProcessPolicy = UIProcessPolicy.Always,
-                    PauseTree = true
-                });
-        };
+        var pauseOwnerOpened = false;
         try
         {
+            // Gameplay entry on Hud layer whose SetInteractive callback opens
+            // a PauseTree owner when inerted. SetInteractive is a per-entry
+            // effect callback that fires during ApplyLowerLayerEffects inside
+            // the suppressed Recompute — it is NOT suppressed (only
+            // EffectiveStateChanged / GameplayInputBlockChanged are). The
+            // PauseTree owner pauses the tree, invalidating the candidate's
+            // Pausable process mode. The post-Recompute revalidation detects
+            // the generation change, revalidates, fails, and rolls back via
+            // RollbackPendingOpen — without Cleanup, NodeLifetime, or a
+            // restoration lease.
+            var gameplayResult = fixture.Host.TryPresent(
+                gameplayView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = enabled =>
+                    {
+                        gameplayView.SetProcessInput(enabled);
+                        if (enabled || pauseOwnerOpened)
+                            return;
+                        pauseOwnerOpened = true;
+                        pauseOwnerResult = fixture.Host.TryPresent(
+                            pauseOwnerView,
+                            UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                            {
+                                Layer = UIScreenLayer.Modal,
+                                InputPriority = UIInputPriority.Blocking,
+                                ProcessPolicy = UIProcessPolicy.Always,
+                                PauseTree = true
+                            });
+                    }
+                });
+            AssertThat(gameplayResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            gameplayView.SetProcessInput(true);
+
             var opened = fixture.Host.TryPresent(
                 candidateView,
                 UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
                 {
                     Layer = UIScreenLayer.Screen,
                     ProcessPolicy = UIProcessPolicy.Pausable,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert,
                     NodeLifetime = UINodeLifetime.External,
                     Cleanup = cleanupReasons.Add
                 });
 
-            // The post-Recompute revalidation rejected the open.
+            // The SetInteractive callback opened a PauseTree owner during the
+            // candidate's suppressed Recompute, invalidating the candidate's
+            // Pausable process mode. The post-Recompute revalidation rejected
+            // the open.
             AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
             AssertThat(opened.Handle).IsNull();
-            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(pauseOwnerResult).IsNotNull();
             AssertThat(pauseOwnerResult!.Value.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.IsActive(pauseOwnerResult.Value.Handle!.Value)).IsTrue();
+            // The rejected candidate is no longer active; gameplay and the
+            // PauseTree owner remain.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(2);
 
             // Rejected opens are atomic no-ops: Cleanup must NOT be invoked
-            // (the previous terminal-close path reported the process-policy
-            // invalidation as NodeFreed to Cleanup).
+            // (RollbackPendingOpen removes the adapter/focus entry/ownership
+            // metadata without invoking Cleanup or applying NodeLifetime).
             AssertThat(cleanupReasons.Count).IsEqual(0);
 
             // NodeLifetime must NOT be applied. The caller-preparented
@@ -3599,6 +3624,14 @@ public partial class UIScreenHostLifecycleTest : Node
             AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
             AssertThat(fixture.Host.CurrentState.IsFocusRestorationPending)
                 .IsFalse();
+
+            // No published state may name the rejected candidate as top input
+            // owner. Publication was suppressed during the candidate's
+            // Recompute; only the post-rollback state (with the PauseTree
+            // owner as top input owner) was published.
+            foreach (var state in publishedStates)
+                AssertThat(state.TopInputOwner?.Kind == UIScreenKinds.Inventory)
+                    .IsEqual(false);
 
             await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
 

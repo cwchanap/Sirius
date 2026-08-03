@@ -441,181 +441,263 @@ internal sealed class UIScreenFocusCoordinator
         // a target that belongs to a superseded transaction.
         var leaseGeneration = _activeLease?.Generation ?? -1;
 
-        // Resolve lower-layer effects freshly from the current model for the
-        // entire restoration transaction and use that one snapshot for owner
-        // selection, entry selection, and target validation. ProcessClose
-        // calls BeginRestoration BEFORE Recompute, so the host's committed
-        // _resolvedLowerLayerEffects still reflects the pre-close state while
-        // the live model has already removed the closing owner. Reading the
-        // stale committed snapshot (LowerLayerEffectFor) would disagree with
-        // the model: a lower entry inerted by the removed owner stays marked
-        // VisibleInert/Hidden so owner/entry selection skips the newly
-        // interactive owner and focuses an external/lower target, and a
-        // pending lower candidate absent from the committed snapshot defaults
-        // to VisibleInteractive even when a higher owner would inert it. The
-        // snapshot is frozen for the transaction so every stage agrees; live
-        // revalidation (IsRestorationStillActive, _entries.ContainsKey) still
-        // guards against supersession and registration changes.
-        var effects = _host != null
-            ? _host.ResolveCurrentLowerLayerEffects()
-            : EmptyEffects;
+        // Restoration selection runs as a restart loop. Lower-layer effects
+        // are resolved from the current model at the top of each iteration
+        // and re-resolved after any provider callback that bumps the model
+        // generation (RestoreFocus, FocusViewport, InitialFocus). A provider
+        // that opens a visually higher owner — e.g. a Modal that inerts a
+        // lower Blocking entry — changes which entry FindTopEntry /
+        // CurrentTopInputOwner should select: the frozen pre-callback
+        // snapshot would still mark the now-inert Blocking entry
+        // VisibleInteractive while the live input order still ranks it first
+        // (Blocking outranks Modal), so selection would focus into the inert
+        // subtree beneath the new owner. Re-resolving effects keeps the
+        // snapshot coherent with the live input order, and the top-entry
+        // stage restarts (re-runs FindTopEntry) when its FocusViewport
+        // callback mutates the model so the new higher owner is selected
+        // instead of the now-inert entry. Provider delegates that have
+        // already run are NOT re-invoked on restart (RestoreFocus and the
+        // parent InitialFocus path run once); only the model-based selection
+        // (FindTopEntry / validation / focus) re-runs against the fresh
+        // snapshot. A restart cap bounds pathological providers that mutate
+        // on every call.
+        var restoreFocusAttempted = false;
+        var parentInitialPathAttempted = false;
+        const int MaxRestarts = 8;
+        var restarts = 0;
 
-        // --- Explicit RestoreFocus path (callback-capable) ---
-        var explicitTarget = SafeTarget(
-            closeState.Adapter?.RestoreFocus,
-            propagateProviderExceptions);
-        // RestoreFocus is caller-controlled and can synchronously mutate the
-        // host: close another entry (installing a newer restoration lease) or
-        // open a new Blocking owner. Revalidate that this restoration is still
-        // active, the target is still interactive, and the target belongs to
-        // the current top owner's subtree before focusing. Without these
-        // checks, the old restoration focuses a target that belongs to a
-        // superseded transaction or lands outside the top owner until a later
-        // deferred initial-focus callback corrects it — a transient state
-        // observable via FocusEntered side effects.
-        if (explicitTarget != null &&
-            IsRestorationStillActive(leaseGeneration, closedHandle) &&
-            IsControlEffectivelyInteractive(explicitTarget, effects) &&
-            !TargetOutsideNewTopOwner(explicitTarget, effects) &&
-            TryFocus(explicitTarget, explicitTarget.GetViewport()))
+        while (true)
         {
-            return;
-        }
-
-        // If the explicit delegate superseded this restoration, abort — the
-        // newer restoration handles focus. Do not release focus or run further
-        // paths; the newer lease's deferred completion owns the focus state.
-        if (!IsRestorationStillActive(leaseGeneration, closedHandle))
-            return;
-
-        // --- Parent focus-owner path (no delegate, no supersession risk) ---
-        // A top owner may be present either because one opened during the
-        // explicit RestoreFocus delegate above, or because one opened after
-        // TryClose returned but before this deferred callback began. Without a
-        // TargetOutsideNewTopOwner check, this path focuses the parent's
-        // previously-captured FocusOwner beneath the current top owner.
-        var parentRecord = closeState.ParentRecord;
-        if (parentRecord != null &&
-            _entries.ContainsKey(parentRecord.ParentHandle) &&
-            IsHandleEffectivelyInteractive(parentRecord.ParentHandle, effects) &&
-            !TargetOutsideNewTopOwner(parentRecord.FocusOwner, effects) &&
-            TryFocus(parentRecord.FocusOwner, parentRecord.Viewport))
-        {
-            return;
-        }
-
-        // --- Parent initial-focus path (callback-capable) ---
-        if (parentRecord != null &&
-            _entries.TryGetValue(parentRecord.ParentHandle, out var parentEntry) &&
-            IsHandleEffectivelyInteractive(parentRecord.ParentHandle, effects))
-        {
-            var parentViewport = SafeFocusViewport(parentEntry.Adapter);
-            // SafeFocusViewport invoked the caller-provided FocusViewport
-            // delegate, which may re-enter the host and close the parent,
-            // open a new top owner that inerts it, or close another entry
-            // that supersedes this restoration. Revalidate the restoration
-            // lease, parent registration, and reduced effect before invoking
-            // InitialFocus; otherwise the stale callback may mutate domain/UI
-            // state, open another screen, dereference controls belonging to a
-            // closed view, or throw during teardown finalization. Mirrors the
-            // post-delegate revalidation ApplyInitialFocus performs between
-            // FocusViewport and InitialFocus.
             if (!IsRestorationStillActive(leaseGeneration, closedHandle))
                 return;
-            if (parentViewport != null &&
-                _entries.TryGetValue(parentRecord.ParentHandle, out parentEntry) &&
+
+            // Resolve lower-layer effects freshly from the current model for
+            // this iteration. ProcessClose calls BeginRestoration BEFORE
+            // Recompute, so the host's committed _resolvedLowerLayerEffects
+            // still reflects the pre-close state while the live model has
+            // already removed the closing owner. Reading the stale committed
+            // snapshot (LowerLayerEffectFor) would disagree with the model.
+            // The snapshot is refreshed again after any provider callback
+            // that mutates the model; live revalidation
+            // (IsRestorationStillActive, _entries.ContainsKey) still guards
+            // against supersession and registration changes.
+            var effects = _host != null
+                ? _host.ResolveCurrentLowerLayerEffects()
+                : EmptyEffects;
+            var generation = _host?.MutationGeneration ?? -1;
+
+            // Re-resolve the effect snapshot when a provider callback bumped
+            // the model generation, so owner/entry selection and target
+            // validation use a view coherent with the live input order.
+            void RefreshEffectsIfStale()
+            {
+                if (_host == null)
+                    return;
+                var now = _host.MutationGeneration;
+                if (now == generation)
+                    return;
+                generation = now;
+                effects = _host.ResolveCurrentLowerLayerEffects();
+            }
+
+            // --- Explicit RestoreFocus path (callback-capable, runs once) ---
+            if (!restoreFocusAttempted)
+            {
+                restoreFocusAttempted = true;
+                var explicitTarget = SafeTarget(
+                    closeState.Adapter?.RestoreFocus,
+                    propagateProviderExceptions);
+                // RestoreFocus is caller-controlled and can synchronously
+                // mutate the host: close another entry (installing a newer
+                // restoration lease) or open a new higher owner that inerts a
+                // lower entry. Revalidate that this restoration is still
+                // active, refresh the effect snapshot, then validate the
+                // target is still interactive and belongs to the current top
+                // owner's subtree before focusing. Without these checks, the
+                // old restoration focuses a target that belongs to a
+                // superseded transaction or lands outside/beneath the top
+                // owner until a later deferred initial-focus callback
+                // corrects it — a transient state observable via FocusEntered
+                // side effects.
+                if (!IsRestorationStillActive(leaseGeneration, closedHandle))
+                    return;
+                RefreshEffectsIfStale();
+                if (explicitTarget != null &&
+                    IsControlEffectivelyInteractive(explicitTarget, effects) &&
+                    !TargetOutsideNewTopOwner(explicitTarget, effects) &&
+                    TryFocus(explicitTarget, explicitTarget.GetViewport()))
+                {
+                    return;
+                }
+                // If the explicit delegate superseded this restoration, abort
+                // — the newer restoration handles focus. Do not release focus
+                // or run further paths; the newer lease's deferred completion
+                // owns the focus state.
+                if (!IsRestorationStillActive(leaseGeneration, closedHandle))
+                    return;
+            }
+
+            // --- Parent focus-owner path (no delegate, no supersession risk) ---
+            // A top owner may be present either because one opened during the
+            // explicit RestoreFocus delegate above, or because one opened
+            // after TryClose returned but before this deferred callback began.
+            // Without a TargetOutsideNewTopOwner check, this path focuses the
+            // parent's previously-captured FocusOwner beneath the current top
+            // owner. Re-runs on restart with the fresh snapshot so a newly
+            // opened higher owner's inerting is respected.
+            var parentRecord = closeState.ParentRecord;
+            if (parentRecord != null &&
+                _entries.ContainsKey(parentRecord.ParentHandle) &&
+                IsHandleEffectivelyInteractive(parentRecord.ParentHandle, effects) &&
+                !TargetOutsideNewTopOwner(parentRecord.FocusOwner, effects) &&
+                TryFocus(parentRecord.FocusOwner, parentRecord.Viewport))
+            {
+                return;
+            }
+
+            // --- Parent initial-focus path (callback-capable, runs once) ---
+            if (!parentInitialPathAttempted &&
+                parentRecord != null &&
+                _entries.TryGetValue(parentRecord.ParentHandle, out var parentEntry) &&
                 IsHandleEffectivelyInteractive(parentRecord.ParentHandle, effects))
             {
-                var parentInitial = SafeTarget(
-                    parentEntry.Adapter.InitialFocus,
-                    propagateProviderExceptions);
-                // SafeTarget invoked the caller-provided InitialFocus
-                // delegate, which can mutate the host the same way
-                // FocusViewport can. Revalidate again before focusing the
-                // returned target.
-                if (IsRestorationStillActive(leaseGeneration, closedHandle) &&
-                    _entries.ContainsKey(parentRecord.ParentHandle) &&
-                    IsHandleEffectivelyInteractive(parentRecord.ParentHandle, effects) &&
-                    !TargetOutsideNewTopOwner(parentInitial, effects) &&
-                    TryFocus(parentInitial, parentViewport))
-                {
+                parentInitialPathAttempted = true;
+                if (!IsRestorationStillActive(leaseGeneration, closedHandle))
                     return;
+                var parentViewport = SafeFocusViewport(parentEntry.Adapter);
+                // SafeFocusViewport invoked the caller-provided FocusViewport
+                // delegate, which may re-enter the host and close the parent,
+                // open a new top owner that inerts it, or close another entry
+                // that supersedes this restoration. Revalidate the
+                // restoration lease and refresh the effect snapshot before
+                // invoking InitialFocus; otherwise the stale callback may
+                // mutate domain/UI state, open another screen, dereference
+                // controls belonging to a closed view, or throw during
+                // teardown finalization. Mirrors the post-delegate
+                // revalidation ApplyInitialFocus performs between
+                // FocusViewport and InitialFocus.
+                if (!IsRestorationStillActive(leaseGeneration, closedHandle))
+                    return;
+                RefreshEffectsIfStale();
+                if (parentViewport != null &&
+                    _entries.TryGetValue(parentRecord.ParentHandle, out parentEntry) &&
+                    IsHandleEffectivelyInteractive(parentRecord.ParentHandle, effects))
+                {
+                    var parentInitial = SafeTarget(
+                        parentEntry.Adapter.InitialFocus,
+                        propagateProviderExceptions);
+                    // SafeTarget invoked the caller-provided InitialFocus
+                    // delegate, which can mutate the host the same way
+                    // FocusViewport can. Revalidate again and refresh the
+                    // effect snapshot before focusing the returned target.
+                    if (!IsRestorationStillActive(leaseGeneration, closedHandle))
+                        return;
+                    RefreshEffectsIfStale();
+                    if (IsRestorationStillActive(leaseGeneration, closedHandle) &&
+                        _entries.ContainsKey(parentRecord.ParentHandle) &&
+                        IsHandleEffectivelyInteractive(parentRecord.ParentHandle, effects) &&
+                        !TargetOutsideNewTopOwner(parentInitial, effects) &&
+                        TryFocus(parentInitial, parentViewport))
+                    {
+                        return;
+                    }
                 }
+                // If the parent delegate superseded this restoration, abort.
+                if (!IsRestorationStillActive(leaseGeneration, closedHandle))
+                    return;
             }
-        }
 
-        // If the parent delegate superseded this restoration, abort.
-        if (!IsRestorationStillActive(leaseGeneration, closedHandle))
-            return;
-
-        // --- Generic top entry path (callback-capable) ---
-        var top = FindTopEntry(effects);
-        if (top != null)
-        {
-            var topHandle = top.Value.Handle;
-            var topEntry = top.Value.Entry;
-            var viewport = SafeFocusViewport(topEntry.Adapter);
-            // SafeFocusViewport invoked the caller-provided FocusViewport
-            // delegate, which may re-enter the host and inert or close the
-            // entry that FindTopEntry selected, or close another entry that
-            // supersedes this restoration. Revalidate the restoration lease,
-            // the selected top's registration, and reduced effect before
-            // focusing into its subtree; otherwise restoration can land inside
-            // a subtree that was inerted by the delegate, or focus after
-            // supersession.
-            if (viewport != null &&
-                IsRestorationStillActive(leaseGeneration, closedHandle) &&
-                _entries.ContainsKey(topHandle) &&
-                IsHandleEffectivelyInteractive(topHandle, effects))
+            // --- Generic top entry path (callback-capable, restartable) ---
+            var top = FindTopEntry(effects);
+            if (top != null)
             {
-                var descendant = FindFirstFocusableDescendant(
-                    topEntry.Adapter.View,
-                    viewport,
-                    topEntry.DynamicSink);
-                // SafeFocusViewport may have opened a new top owner that
-                // outranks the selected top entry. Without this check,
-                // restoration focuses a descendant of the now-outranked top
-                // entry (or its DynamicSink) beneath the new top owner —
-                // a transient state observable via FocusEntered side effects
-                // and keyboard/controller input until the new owner's deferred
-                // initial-focus callback corrects it.
-                if (!TargetOutsideNewTopOwner(descendant, effects) &&
-                    TryFocus(descendant, viewport))
+                var topHandle = top.Value.Handle;
+                var topEntry = top.Value.Entry;
+                var viewport = SafeFocusViewport(topEntry.Adapter);
+                // SafeFocusViewport invoked the caller-provided FocusViewport
+                // delegate, which may re-enter the host and inert or close
+                // the entry that FindTopEntry selected, open a new higher
+                // owner that inerts it, or close another entry that
+                // supersedes this restoration. Revalidate the restoration
+                // lease, then refresh the effect snapshot. If the model
+                // mutated, restart the selection loop so FindTopEntry re-runs
+                // against the fresh snapshot and the new higher owner is
+                // selected instead of the now-inert entry; otherwise
+                // restoration can land inside a subtree that was inerted by
+                // the delegate, or focus after supersession.
+                if (!IsRestorationStillActive(leaseGeneration, closedHandle))
                     return;
-
-                // The sink (DynamicSink for Window entries, _rootSink for
-                // Blocking Control entries) is the top entry's own focus
-                // mechanism, not a view descendant. _rootSink is outside
-                // every entry's view subtree by definition, so
-                // TargetOutsideNewTopOwner would always reject it when any
-                // top owner exists — breaking the sink fallback for Blocking
-                // Control top entries. Only reject the sink when a NEW top
-                // owner appeared that outranks the selected top entry (i.e.
-                // the top entry is no longer the current top owner). When the
-                // top entry IS the top owner, its sink is always a legitimate
-                // focus target. Use the fresh-snapshot CurrentTopInputOwner
-                // rather than CurrentState.TopInputOwner, which may be stale
-                // inside a pre-Recompute close transaction where a
-                // superseded restoration lease is completed synchronously.
-                var sink = topEntry.DynamicSink ?? _rootSink;
-                var topEntryIsTopOwner = CurrentTopInputOwner(effects) == topHandle;
-                if (topEntry.Policy.InputPriority == UIInputPriority.Blocking &&
-                    (topEntryIsTopOwner || !TargetOutsideNewTopOwner(sink, effects)) &&
-                    TryFocus(sink, viewport))
+                if (_host != null && _host.MutationGeneration != generation)
                 {
-                    return;
+                    RefreshEffectsIfStale();
+                    if (++restarts < MaxRestarts)
+                        continue;
+                    // Cap reached: a provider keeps mutating on every
+                    // callback. Release focus rather than risk focusing into
+                    // an inconsistent subtree after unbounded re-entrant
+                    // opens.
+                    if (!IsRestorationStillActive(leaseGeneration, closedHandle))
+                        return;
+                    break;
+                }
+                if (viewport != null &&
+                    IsRestorationStillActive(leaseGeneration, closedHandle) &&
+                    _entries.ContainsKey(topHandle) &&
+                    IsHandleEffectivelyInteractive(topHandle, effects))
+                {
+                    var descendant = FindFirstFocusableDescendant(
+                        topEntry.Adapter.View,
+                        viewport,
+                        topEntry.DynamicSink);
+                    // SafeFocusViewport may have opened a new top owner that
+                    // outranks the selected top entry. Without this check,
+                    // restoration focuses a descendant of the now-outranked
+                    // top entry (or its DynamicSink) beneath the new top
+                    // owner — a transient state observable via FocusEntered
+                    // side effects and keyboard/controller input until the
+                    // new owner's deferred initial-focus callback corrects
+                    // it.
+                    if (!TargetOutsideNewTopOwner(descendant, effects) &&
+                        TryFocus(descendant, viewport))
+                        return;
+
+                    // The sink (DynamicSink for Window entries, _rootSink for
+                    // Blocking Control entries) is the top entry's own focus
+                    // mechanism, not a view descendant. _rootSink is outside
+                    // every entry's view subtree by definition, so
+                    // TargetOutsideNewTopOwner would always reject it when
+                    // any top owner exists — breaking the sink fallback for
+                    // Blocking Control top entries. Only reject the sink when
+                    // a NEW top owner appeared that outranks the selected top
+                    // entry (i.e. the top entry is no longer the current top
+                    // owner). When the top entry IS the top owner, its sink
+                    // is always a legitimate focus target. Use the
+                    // fresh-snapshot CurrentTopInputOwner rather than
+                    // CurrentState.TopInputOwner, which may be stale inside a
+                    // pre-Recompute close transaction where a superseded
+                    // restoration lease is completed synchronously.
+                    var sink = topEntry.DynamicSink ?? _rootSink;
+                    var topEntryIsTopOwner = CurrentTopInputOwner(effects) == topHandle;
+                    if (topEntry.Policy.InputPriority == UIInputPriority.Blocking &&
+                        (topEntryIsTopOwner || !TargetOutsideNewTopOwner(sink, effects)) &&
+                        TryFocus(sink, viewport))
+                    {
+                        return;
+                    }
                 }
             }
-        }
 
-        // If the top delegate superseded this restoration, abort before
-        // releasing focus — the newer restoration owns the focus state.
-        if (!IsRestorationStillActive(leaseGeneration, closedHandle))
-            return;
+            // If the top delegate superseded this restoration, abort before
+            // releasing focus — the newer restoration owns the focus state.
+            if (!IsRestorationStillActive(leaseGeneration, closedHandle))
+                return;
+
+            break;
+        }
 
         ReleaseFocus(closeState.ClosedViewport);
-        if (parentRecord?.Viewport != closeState.ClosedViewport)
-            ReleaseFocus(parentRecord?.Viewport);
+        if (closeState.ParentRecord?.Viewport != closeState.ClosedViewport)
+            ReleaseFocus(closeState.ParentRecord?.Viewport);
     }
 
     /// <summary>

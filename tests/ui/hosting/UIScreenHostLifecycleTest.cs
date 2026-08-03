@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using GdUnit4;
 using Godot;
@@ -1785,6 +1786,207 @@ public partial class UIScreenHostLifecycleTest : Node
                 .IsEqual(gameplayResult.Handle);
             AssertThat(fixture.Host.CurrentState.IsPresentationGameplayBlocked)
                 .IsEqual(false);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task PublicationCallback_ClosingCandidateDuringPublication_ReturnsOpenedAndStaysConsistent()
+    {
+        var blockTransitions = new List<bool>();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this, options:
+            new UIScreenHostOptions
+            {
+                GameplayInputBlockChanged = blocked => blockTransitions.Add(blocked)
+            });
+        var gameplay = fixture.Track(new Control { Visible = true });
+        var modalView = fixture.Track(new Control { Visible = true });
+        var shield = fixture.Host.GetNode<Control>("InputShield");
+        var publishedStates = new List<UIScreenEffectiveState>();
+        var subscriberClosed = false;
+        UIScreenHandle? closedModalHandle = null;
+
+        // The EffectiveStateChanged subscriber fires during the publication
+        // Recompute (the second, unsupervised pass after the commit check).
+        // It closes the committed candidate the first time it sees the modal
+        // named as the top input owner. This is a post-commit mutation: the
+        // open succeeded, and the returned handle must remain Opened even
+        // though the entry is already closed by the time TryPresent returns.
+        fixture.Host.EffectiveStateChanged += state =>
+        {
+            publishedStates.Add(state);
+            if (subscriberClosed)
+                return;
+            foreach (var entry in fixture.Host.ActiveEntries)
+            {
+                if (entry.Policy.Kind == UIScreenKinds.Pause)
+                {
+                    subscriberClosed = true;
+                    closedModalHandle = entry.Handle;
+                    fixture.Host.TryClose(
+                        entry.Handle,
+                        UIScreenCloseReason.Programmatic);
+                    break;
+                }
+            }
+        };
+        try
+        {
+            var gameplayResult = fixture.Host.TryPresent(
+                gameplay,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = gameplay.SetProcessInput
+                });
+            AssertThat(gameplayResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            gameplay.SetProcessInput(true);
+
+            // Clear publications captured during the gameplay open so the
+            // remaining assertions isolate the modal's publication phase.
+            var gameplayPublications = publishedStates.Count;
+            var gameplayBlockTransitions = blockTransitions.Count;
+
+            var modalResult = fixture.Host.TryPresent(
+                modalView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert,
+                    BlockGameplayInput = true
+                });
+
+            // The modal was committed before the subscriber fired. The
+            // subscriber then closed it normally. The modal result is Opened
+            // (the commit check passed before the subscriber ran); mutations
+            // during the initial publication do not invalidate the result.
+            AssertThat(modalResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(modalResult.Handle).IsNotNull();
+
+            // The subscriber closed the modal after commit.
+            AssertThat(subscriberClosed).IsTrue();
+            AssertThat(fixture.Host.IsActive(closedModalHandle!.Value)).IsFalse();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+
+            // The gameplay-input block transitions for the modal's publication
+            // phase must be a matched pair: true when the modal was published,
+            // false when the subscriber's close was published. No unmatched
+            // notification may fire — the staged state was never published
+            // without a corresponding rollback publication.
+            var modalBlockTransitions = blockTransitions.Skip(gameplayBlockTransitions).ToList();
+            AssertThat(modalBlockTransitions.ToArray())
+                .ContainsExactly(true, false);
+
+            // No published state may name the closed modal as top input owner
+            // after the close. The final published state names gameplay.
+            var modalPublications = publishedStates.Skip(gameplayPublications).ToList();
+            AssertThat(modalPublications.Count).IsGreater(0);
+            var final = modalPublications[modalPublications.Count - 1];
+            AssertThat(final.TopInputOwner).IsEqual(gameplayResult.Handle);
+            AssertThat(final.IsPresentationGameplayBlocked).IsEqual(false);
+
+            // Host operational state is consistent: gameplay restored to
+            // interactive, shield withdrawn.
+            AssertThat(gameplay.IsProcessingInput()).IsTrue();
+            AssertThat(shield.Visible).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task RejectedGameplayBlockingCandidate_ProducesZeroExternalStateCallbacks()
+    {
+        var blockTransitions = new List<bool>();
+        var publishedStates = new List<UIScreenEffectiveState>();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this, options:
+            new UIScreenHostOptions
+            {
+                GameplayInputBlockChanged = blocked => blockTransitions.Add(blocked)
+            });
+        var gameplayView = fixture.Track(new Control { Visible = true });
+        // Caller-preparented External view: the contract says a rejected open
+        // must not terminally hide/free OR detach a caller-preparented view.
+        var modalLayer = fixture.Host.GetNode<Control>("ModalLayer");
+        var candidateView = fixture.Track(new Control { Visible = true });
+        modalLayer.AddChild(candidateView);
+        fixture.Host.EffectiveStateChanged += state => publishedStates.Add(state);
+        var candidateQueued = false;
+        try
+        {
+            var gameplayResult = fixture.Host.TryPresent(
+                gameplayView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = enabled =>
+                    {
+                        gameplayView.SetProcessInput(enabled);
+                        if (enabled || candidateQueued)
+                            return;
+                        // The candidate's suppressed Recompute inerts the
+                        // gameplay entry (SetInteractive(false)) via
+                        // ApplyLowerLayerEffects. Queue the candidate view for
+                        // deletion from this callback. QueueFree does not fire
+                        // TreeExiting synchronously and does not bump
+                        // MutationGeneration, so the suppressed Recompute
+                        // converges with the candidate still in the model and
+                        // _currentState set to the staged (block=true) state.
+                        // The post-Recompute commit check then detects
+                        // IsQueuedForDeletion and rejects the open.
+                        candidateQueued = true;
+                        candidateView.QueueFree();
+                    }
+                });
+            AssertThat(gameplayResult.Status).IsEqual(UIScreenOpenStatus.Opened);
+            gameplayView.SetProcessInput(true);
+
+            // Isolate callbacks emitted by the candidate's rejection. The
+            // gameplay open published its own state; capture the baseline.
+            var gameplayPublications = publishedStates.Count;
+            var gameplayBlockTransitions = blockTransitions.Count;
+
+            var opened = fixture.Host.TryPresent(
+                candidateView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert,
+                    BlockGameplayInput = true,
+                    NodeLifetime = UINodeLifetime.External,
+                    Cleanup = _ => { }
+                });
+
+            // The commit check detected the queued-for-deletion view and
+            // rejected the open.
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(opened.Handle).IsNull();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(fixture.Host.IsActive(gameplayResult.Handle!.Value)).IsTrue();
+
+            // The rejected candidate's suppressed Recompute set _currentState
+            // to the staged state (block=true) but must not have advanced
+            // _lastPublishedState. The rollback Recompute compares
+            // _lastPublishedState (pre-open, block=false) to the candidate-
+            // free resolved state (block=false) — no delta, no publication.
+            // Zero unmatched GameplayInputBlockChanged or EffectiveStateChanged
+            // callbacks may fire for the rejection.
+            var rejectionBlockTransitions = blockTransitions.Skip(gameplayBlockTransitions).ToList();
+            var rejectionPublications = publishedStates.Skip(gameplayPublications).ToList();
+            AssertThat(rejectionBlockTransitions.Count).IsEqual(0);
+            AssertThat(rejectionPublications.Count).IsEqual(0);
+
+            // The host's current state agrees with the pre-open state: no
+            // gameplay-input block, gameplay as top input owner.
+            AssertThat(fixture.Host.CurrentState.IsPresentationGameplayBlocked)
+                .IsEqual(false);
+            AssertThat(fixture.Host.CurrentState.TopInputOwner)
+                .IsEqual(gameplayResult.Handle);
         }
         finally
         {

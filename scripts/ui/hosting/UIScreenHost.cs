@@ -28,6 +28,15 @@ public partial class UIScreenHost : Control
     private readonly HashSet<UIScreenHandle> _closingHandles = new();
     private UIScreenHostOptions _options = new();
     private UIScreenEffectiveState _currentState = EmptyEffectiveState;
+    // The last state actually published to EffectiveStateChanged /
+    // GameplayInputBlockChanged subscribers. Recompute updates _currentState
+    // every pass (even when publication is suppressed) so internal host logic
+    // sees the current resolved state, but _lastPublishedState only advances
+    // when a pass actually publishes. This lets a suppressed-and-then-rejected
+    // candidate's rollback Recompute compare against the pre-suppression
+    // published state rather than the never-published staged state, so
+    // returning to the original state emits no unmatched notification.
+    private UIScreenEffectiveState _lastPublishedState = EmptyEffectiveState;
     private PauseLease? _pauseLease;
     private CursorLease? _cursorLease;
     private HudLease? _hudLease;
@@ -508,14 +517,18 @@ public partial class UIScreenHost : Control
         // Publication is suppressed during this Recompute so
         // EffectiveStateChanged / GameplayInputBlockChanged subscribers never
         // observe a transient state naming a candidate that may still be
-        // rejected by the commit check below. On commit, a second Recompute
-        // (with publication enabled) publishes the delta from the pre-open
-        // state. On rejection, RollbackPendingOpen's Recompute publishes the
-        // candidate-free state. This enforces the contract guarantee that
+        // rejected by the commit check below. The suppressed pass updates
+        // _currentState (so internal host logic sees the staged state) but
+        // does NOT advance _lastPublishedState. On commit, a second Recompute
+        // (with publication enabled) compares _lastPublishedState (still the
+        // pre-open state) to the current resolved state and publishes the
+        // delta. On rejection, RollbackPendingOpen's Recompute compares
+        // _lastPublishedState (pre-open) to the candidate-free resolved state;
+        // if the rollback returns to the original state there is no delta and
+        // no notification fires. This enforces the contract guarantee that
         // every rejected open is an atomic no-op: no external observer sees
         // the candidate's effects before the commit decision.
         var generationBeforeRecompute = _model.MutationGeneration;
-        var lastPublishedState = _currentState;
         _suppressPublication++;
         try
         {
@@ -588,18 +601,21 @@ public partial class UIScreenHost : Control
         }
 
         // The candidate is committed. Publish the state change that was
-        // suppressed during the final Recompute. Reset _currentState to the
-        // last published (pre-open) state so the second Recompute sees a delta
-        // and publishes through its normal path — GameplayInputBlockChanged
-        // first, then EffectiveStateChanged with per-subscriber mutation
-        // detection and convergence. Effects are already applied
-        // (ApplyLowerLayerEffects is idempotent via _appliedLowerLayerEffects),
-        // so SetInteractive callbacks do not re-fire. If a subscriber mutates
-        // during publication, Recompute restarts and re-publishes the
-        // converged state. This guarantees subscribers observe only the final
-        // committed state, never a transient state that named a candidate
-        // later rejected.
-        _currentState = lastPublishedState;
+        // suppressed during the final Recompute. _lastPublishedState still
+        // holds the pre-open state (the suppressed pass did not advance it),
+        // so this Recompute sees a delta and publishes through its normal
+        // path — GameplayInputBlockChanged first, then EffectiveStateChanged
+        // with per-subscriber mutation detection and convergence. Effects are
+        // already applied (ApplyLowerLayerEffects is idempotent via
+        // _appliedLowerLayerEffects), so SetInteractive callbacks do not
+        // re-fire. If a subscriber mutates during publication, Recompute
+        // restarts and re-publishes the converged state. This guarantees
+        // subscribers observe only the final committed state, never a
+        // transient state that named a candidate later rejected. A subscriber
+        // that closes the candidate during this publication is a post-commit
+        // mutation: the open succeeded and the returned handle is valid, even
+        // though the entry may already be closed by the time TryPresent
+        // returns.
         Recompute();
 
         return opened;
@@ -1213,7 +1229,18 @@ public partial class UIScreenHost : Control
                 if (_model.MutationGeneration != generationBefore || _recomputePending)
                     continue;
 
-                var previousState = _currentState;
+                // Compare the publication delta against the last actually-
+                // published state, not _currentState. A suppressed Recompute
+                // (TryPresent's candidate pass) updates _currentState to the
+                // staged state but must not advance _lastPublishedState —
+                // otherwise a subsequent unsuppressed rollback Recompute would
+                // see a delta from the never-published staged state and emit
+                // an unmatched GameplayInputBlockChanged / EffectiveStateChanged
+                // notification. _lastPublishedState is advanced below only when
+                // publication is not suppressed, before the callbacks fire, so
+                // a mutation during publication restarts from the state being
+                // published rather than the pre-publication state.
+                var previousPublishedState = _lastPublishedState;
                 var nextState = new UIScreenEffectiveState(
                     resolved.PauseTree,
                     resolved.BlockGameplayInput,
@@ -1228,8 +1255,11 @@ public partial class UIScreenHost : Control
                 // the published state and the applied effects.
                 _resolvedLowerLayerEffects = resolved.LowerLayerEffects;
 
+                if (_suppressPublication == 0)
+                    _lastPublishedState = nextState;
+
                 if (_suppressPublication == 0 &&
-                    previousState.IsPresentationGameplayBlocked !=
+                    previousPublishedState.IsPresentationGameplayBlocked !=
                     nextState.IsPresentationGameplayBlocked)
                 {
                     _options.GameplayInputBlockChanged?.Invoke(
@@ -1242,7 +1272,7 @@ public partial class UIScreenHost : Control
                         continue;
                 }
 
-                if (_suppressPublication == 0 && previousState != nextState)
+                if (_suppressPublication == 0 && previousPublishedState != nextState)
                 {
                     // Invoke subscribers individually so a mutation by an earlier
                     // subscriber (e.g. TryClose during publication) aborts the

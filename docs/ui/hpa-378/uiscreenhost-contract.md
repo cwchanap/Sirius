@@ -101,7 +101,16 @@ below.
 ### Stable statuses
 
 Only `UIScreenOpenStatus.Opened` returns a handle. Every rejected open is an
-atomic no-op.
+atomic no-op: no `EffectiveStateChanged` or `GameplayInputBlockChanged`
+publication names the candidate before the commit decision. Publication is
+suppressed during the candidate's final `Recompute` pass and deferred until
+after the post-`Recompute` commit check passes. On rejection,
+`RollbackPendingOpen`'s `Recompute` publishes the candidate-free state. On
+commit, a second `Recompute` publishes the delta from the pre-open state.
+Per-entry effect callbacks (`SetInteractive`) still fire during the suppressed
+`Recompute` — they are internal effect application, not external publication,
+and can still invalidate the candidate (the commit check detects the mutation
+and rejects).
 
 | Open status | Meaning |
 |---|---|
@@ -109,7 +118,7 @@ atomic no-op.
 | `DuplicateKind` | the same concrete kind is already active |
 | `IncompatibleEntry` | either active or requested policy declares the other kind incompatible |
 | `ExclusiveGroupConflict` | a non-parent/child entry already owns the requested non-empty group |
-| `InvalidNode` | view is invalid, deleting, the host itself, failed attachment, or the candidate was closed or invalidated by a callback during the final recompute pass |
+| `InvalidNode` | view is invalid, deleting, the host itself, failed attachment, or the candidate was closed or invalidated by a per-entry effect callback (e.g. `SetInteractive`) during the final recompute pass |
 | `InvalidParent` | requested parent handle is not active |
 | `NodeAlreadyRegistered` | view already belongs to this host |
 | `NodeOwnedByAnotherHost` | view belongs to another live host |

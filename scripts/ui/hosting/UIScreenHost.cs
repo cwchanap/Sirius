@@ -46,6 +46,15 @@ public partial class UIScreenHost : Control
     private bool _drainingCloseQueue;
     private int _recomputeDepth;
     private bool _recomputePending;
+    // When > 0, Recompute applies effects and updates _currentState but
+    // suppresses EffectiveStateChanged / GameplayInputBlockChanged
+    // publication. Used by TryPresent during the candidate's final Recompute
+    // so subscribers never observe a transient state naming a candidate that
+    // may still be rejected by the post-Recompute commit check. Publication
+    // is deferred until after the commit check passes (a second Recompute
+    // publishes the delta) or the rollback's Recompute publishes the
+    // candidate-free state on rejection.
+    private int _suppressPublication;
 
     public IReadOnlyList<UIScreenEntrySnapshot> ActiveEntries => _model.Entries;
     public UIScreenEffectiveState CurrentState => _currentState;
@@ -495,8 +504,27 @@ public partial class UIScreenHost : Control
         // for a candidate that is no longer active, whose view is queued for
         // deletion, whose host has torn down, or whose process-mode/effect
         // validation was bypassed by a callback mutation.
+        //
+        // Publication is suppressed during this Recompute so
+        // EffectiveStateChanged / GameplayInputBlockChanged subscribers never
+        // observe a transient state naming a candidate that may still be
+        // rejected by the commit check below. On commit, a second Recompute
+        // (with publication enabled) publishes the delta from the pre-open
+        // state. On rejection, RollbackPendingOpen's Recompute publishes the
+        // candidate-free state. This enforces the contract guarantee that
+        // every rejected open is an atomic no-op: no external observer sees
+        // the candidate's effects before the commit decision.
         var generationBeforeRecompute = _model.MutationGeneration;
-        Recompute();
+        var lastPublishedState = _currentState;
+        _suppressPublication++;
+        try
+        {
+            Recompute();
+        }
+        finally
+        {
+            _suppressPublication--;
+        }
 
         // Final commit check: revalidate node validity, liveness, host
         // operability, and adapter identity — the same checks performed after
@@ -558,6 +586,21 @@ public partial class UIScreenHost : Control
                 return new(UIScreenOpenStatus.InvalidNode, null);
             }
         }
+
+        // The candidate is committed. Publish the state change that was
+        // suppressed during the final Recompute. Reset _currentState to the
+        // last published (pre-open) state so the second Recompute sees a delta
+        // and publishes through its normal path — GameplayInputBlockChanged
+        // first, then EffectiveStateChanged with per-subscriber mutation
+        // detection and convergence. Effects are already applied
+        // (ApplyLowerLayerEffects is idempotent via _appliedLowerLayerEffects),
+        // so SetInteractive callbacks do not re-fire. If a subscriber mutates
+        // during publication, Recompute restarts and re-publishes the
+        // converged state. This guarantees subscribers observe only the final
+        // committed state, never a transient state that named a candidate
+        // later rejected.
+        _currentState = lastPublishedState;
+        Recompute();
 
         return opened;
     }
@@ -1185,7 +1228,8 @@ public partial class UIScreenHost : Control
                 // the published state and the applied effects.
                 _resolvedLowerLayerEffects = resolved.LowerLayerEffects;
 
-                if (previousState.IsPresentationGameplayBlocked !=
+                if (_suppressPublication == 0 &&
+                    previousState.IsPresentationGameplayBlocked !=
                     nextState.IsPresentationGameplayBlocked)
                 {
                     _options.GameplayInputBlockChanged?.Invoke(
@@ -1198,7 +1242,7 @@ public partial class UIScreenHost : Control
                         continue;
                 }
 
-                if (previousState != nextState)
+                if (_suppressPublication == 0 && previousState != nextState)
                 {
                     // Invoke subscribers individually so a mutation by an earlier
                     // subscriber (e.g. TryClose during publication) aborts the
@@ -1858,6 +1902,17 @@ public partial class UIScreenHost : Control
     private sealed record CloseRequest(
         UIScreenHandle Handle,
         UIScreenCloseReason Reason);
+
+    /// <summary>
+    /// The current model mutation generation. The focus coordinator snapshots
+    /// this at the start of each restoration iteration and after every provider
+    /// callback to detect that a RestoreFocus / FocusViewport / InitialFocus
+    /// delegate mutated the model (e.g. opened a higher owner that
+    /// inerts a lower entry), so it can re-resolve the lower-layer effect
+    /// snapshot and re-run selection against a coherent view instead of
+    /// focusing into a now-inert subtree beneath the new owner.
+    /// </summary>
+    internal long MutationGeneration => _model.MutationGeneration;
 
     internal IReadOnlyList<UIScreenEntrySnapshot> FocusInputOrder() =>
         _model.InputOrder;

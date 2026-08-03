@@ -184,17 +184,26 @@ public partial class UIScreenHost : Control
     {
         if (_drainingCloseQueue)
             return new(UIScreenOpenStatus.HostMutating, null);
-        // A TryPresent called while an unsuppressed Recompute is in progress
-        // (e.g. from an EffectiveStateChanged / GameplayInputBlockChanged
-        // callback or from an effect callback during a non-suppressed pass)
-        // cannot commit its own effects: its Recompute calls would only mark
-        // _recomputePending and return. Reject it with HostMutating so the
-        // caller retries once the recompute transaction completes. Suppressed
-        // Recompute callbacks (the candidate's own final Recompute) are still
-        // allowed to re-enter, because the outer TryPresent revalidates after
-        // the suppressed pass and can roll back if the re-entrant open changed
-        // the model.
-        if (_recomputeDepth > 0 && _suppressPublication == 0)
+        // A TryPresent called while ANY Recompute is in progress — whether
+        // suppressed (the candidate's own final pass) or unsuppressed (an
+        // EffectiveStateChanged / GameplayInputBlockChanged callback or an
+        // effect callback during a non-suppressed pass) — cannot commit its
+        // own effects: both of its Recompute calls (the suppressed candidate
+        // pass and the post-commit publication pass) hit the re-entrant guard
+        // and only mark _recomputePending, returning without applying pause,
+        // blocking, cursor/HUD, lower-layer effects, or advancing CurrentState.
+        // Yet TryPresent would return Opened with a handle whose effects are
+        // uncommitted at the nested return boundary. Sequential callback opens
+        // are worse: only the outermost candidate is revalidated after the
+        // suppressed pass, so an earlier Pausable entry opened by one
+        // SetInteractive callback is never revalidated when a later callback
+        // opens a PauseTree owner that invalidates its process mode. Reject
+        // every re-entrant open with HostMutating so the caller retries once
+        // the recompute transaction completes. Per-entry effect callbacks
+        // (SetInteractive) may still CLOSE during the suppressed pass — closes
+        // bump MutationGeneration and the post-Recompute commit check detects
+        // the mutation and rejects the candidate.
+        if (_recomputeDepth > 0)
             return new(UIScreenOpenStatus.HostMutating, null);
         if (!_ready || _tearingDown)
             return new(UIScreenOpenStatus.MalformedHost, null);

@@ -1008,6 +1008,22 @@ internal sealed class UIScreenFocusCoordinator
         if (!IsStillFocusEligible(handle, out entry))
             return;
 
+        // The InitialFocus delegate may return a control that lives inside a
+        // LOWER entry the top owner has already reduced to VisibleInert, or a
+        // control that is otherwise outside the current top owner's subtree.
+        // Validate the target against the resolved lower-layer effects and the
+        // current top owner, mirroring the checks restoration applies to
+        // explicit RestoreFocus / InitialFocus targets.
+        if (declared != null)
+        {
+            var effects = _host.ResolveCurrentLowerLayerEffects();
+            if (!IsControlEffectivelyInteractive(declared, effects) ||
+                TargetOutsideNewTopOwner(declared, effects))
+            {
+                declared = null;
+            }
+        }
+
         if (TryFocus(declared, viewport))
             return;
 

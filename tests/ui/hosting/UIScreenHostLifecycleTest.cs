@@ -3527,6 +3527,92 @@ public partial class UIScreenHostLifecycleTest : Node
         }
     }
 
+    [TestCase]
+    public async Task PostRecomputeRejection_RollsBackWithoutCleanupNodeLifetimeOrRestorationLease()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var screenLayer = fixture.Host.GetNode<Control>("ScreenLayer");
+        // Caller-preparented External view: the contract says a rejected open
+        // must not terminally hide/free OR detach a caller-preparented view.
+        var candidateView = fixture.Track(new Control { Visible = true });
+        screenLayer.AddChild(candidateView);
+        var pauseOwnerView = fixture.Track(new Control { Visible = true });
+        var cleanupReasons = new List<UIScreenCloseReason>();
+        var callbackEntered = false;
+        UIScreenOpenResult? pauseOwnerResult = null;
+        fixture.Host.EffectiveStateChanged += state =>
+        {
+            if (callbackEntered || !state.TopInputOwner.HasValue)
+                return;
+
+            callbackEntered = true;
+            // Open a PauseTree owner during the candidate's final Recompute.
+            // This pauses the tree, invalidating the candidate's Pausable
+            // process mode. The generation changes during Recompute, so the
+            // post-Recompute revalidation (Path B) fails and the open is
+            // rejected.
+            pauseOwnerResult = fixture.Host.TryPresent(
+                pauseOwnerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking,
+                    ProcessPolicy = UIProcessPolicy.Always,
+                    PauseTree = true
+                });
+        };
+        try
+        {
+            var opened = fixture.Host.TryPresent(
+                candidateView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    ProcessPolicy = UIProcessPolicy.Pausable,
+                    NodeLifetime = UINodeLifetime.External,
+                    Cleanup = cleanupReasons.Add
+                });
+
+            // The post-Recompute revalidation rejected the open.
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(opened.Handle).IsNull();
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(pauseOwnerResult!.Value.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // Rejected opens are atomic no-ops: Cleanup must NOT be invoked
+            // (the previous terminal-close path reported the process-policy
+            // invalidation as NodeFreed to Cleanup).
+            AssertThat(cleanupReasons.Count).IsEqual(0);
+
+            // NodeLifetime must NOT be applied. The caller-preparented
+            // External view must remain parented to the ScreenLayer (rollback
+            // only undoes attachment the host performed; it does not detach a
+            // caller-preparented view), must remain valid, and must not be
+            // queued for deletion (no QueueFree/Hide terminal ownership).
+            AssertThat(GodotObject.IsInstanceValid(candidateView)).IsTrue();
+            AssertThat(candidateView.IsQueuedForDeletion()).IsFalse();
+            AssertThat(candidateView.GetParent()).IsEqual(screenLayer);
+
+            // No focus-restoration lease may be started for a presentation
+            // that never committed.
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+            AssertThat(fixture.Host.CurrentState.IsFocusRestorationPending)
+                .IsFalse();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // The deferred restoration must not materialize a lease after a
+            // frame either.
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+            AssertThat(cleanupReasons.Count).IsEqual(0);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private async Task DisposeFixture(HostFixture fixture)
     {
         fixture.Dispose();

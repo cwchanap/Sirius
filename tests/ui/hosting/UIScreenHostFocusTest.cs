@@ -2709,6 +2709,105 @@ public partial class UIScreenHostFocusTest : Node
         }
     }
 
+    [TestCase]
+    public async Task CloseInertingOwner_RestorationUsesFreshLowerLayerEffectsBeforeRecompute()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var lowerView = fixture.Track(new Control { Visible = true });
+        var lowerButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false,
+            Visible = true
+        };
+        lowerView.AddChild(lowerButton);
+        var ownerAView = fixture.Track(new Control { Visible = true });
+        var ownerBView = fixture.Track(new Control { Visible = true });
+        try
+        {
+            // L (Screen, focusable Button) is opened and its Button receives
+            // focus. A then B are Blocking Modal owners that inert every lower
+            // entry (VisibleInert). B is opened above A, so B inerts both A
+            // and L; A inerts L. Focus rests on the shared root sink owned by
+            // the top Blocking entry.
+            fixture.Host.TryPresent(
+                lowerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Screen
+                });
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            lowerButton.GrabFocus();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(lowerButton);
+
+            var ownerAHandle = fixture.Host.TryPresent(
+                ownerAView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                }).Handle!.Value;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            var ownerBHandle = fixture.Host.TryPresent(
+                ownerBView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                }).Handle!.Value;
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // Close B (synchronous). ProcessClose starts a deferred
+            // restoration lease R_B for B, THEN Recomputes — so the committed
+            // _resolvedLowerLayerEffects now reflects {A: interactive,
+            // L: VisibleInert (inerted by A)}. R_B is pending (deferred).
+            fixture.Host.TryClose(ownerBHandle, UIScreenCloseReason.Programmatic);
+            // B was topmost; after closing it A is topmost again.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(2);
+
+            // Close A synchronously, in the SAME frame, before R_B's deferred
+            // completion runs. ProcessClose calls BeginRestoration, which
+            // finds R_B still active and SYNCHRONOUSLY completes it before
+            // A's Recompute. At that moment the live model has both A and B
+            // removed (L is the only entry, now interactive), but the host's
+            // committed _resolvedLowerLayerEffects still reflects the
+            // post-B-close state (L inerted by A). The restoration must
+            // resolve lower-layer effects FRESHLY from the current model for
+            // the whole transaction; otherwise FindTopEntry/CurrentTopInputOwner
+            // read the stale snapshot, skip L (still VisibleInert), and
+            // release focus instead of restoring it to L's Button.
+            fixture.Host.TryClose(ownerAHandle, UIScreenCloseReason.Programmatic);
+
+            // Synchronous window (before any deferred callback): with the
+            // fresh-snapshot fix, R_B restored focus to L's Button because L
+            // is interactive in the current model. Without the fix, R_B read
+            // the stale committed snapshot, skipped L, and released focus.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(fixture.Viewport.GuiGetFocusOwner())
+                .IsEqual(lowerButton);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            // After the deferred restoration for A completes, L remains the
+            // sole interactive owner and focus stays on its Button. No
+            // restoration lease lingers.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(fixture.Viewport.GuiGetFocusOwner())
+                .IsEqual(lowerButton);
+            AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
+            AssertThat(fixture.Host.CurrentState.IsFocusRestorationPending)
+                .IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private async Task DisposeFixture(HostFixture fixture)
     {
         fixture.Dispose();

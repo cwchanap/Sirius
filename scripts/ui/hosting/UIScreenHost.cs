@@ -517,8 +517,21 @@ public partial class UIScreenHost : Control
             !_adapters.TryGetValue(handle, out var committedAdapter) ||
             !ReferenceEquals(committedAdapter, adapter))
         {
+            // Rejected opens are atomic no-ops (contract §"Stable statuses"):
+            // do NOT run the terminal close path for a candidate that never
+            // returned Opened. TryClose would invoke Cleanup, apply NodeLifetime
+            // (Hide/QueueFree/External detach — including detaching a caller-
+            // preparented External view), and start a focus-restoration lease.
+            // Use the non-terminal pending-candidate rollback path instead: it
+            // removes the adapter/focus entry/tree-exit handler/ownership
+            // metadata and restores lower-layer effects via Recompute without
+            // invoking Cleanup, applying NodeLifetime, or starting a lease.
+            // Skip rollback when the host is tearing down (the teardown drain
+            // owns the candidate's cleanup) or the handle was already closed
+            // by a callback during Recompute (the close path already cleaned
+            // up the adapter, ownership, focus entry, and effects).
             if (IsHostOperational() && IsActive(handle))
-                TryClose(handle, UIScreenCloseReason.NodeFreed);
+                RollbackPendingOpen(handle, focusPreparation);
             return new(UIScreenOpenStatus.InvalidNode, null);
         }
 
@@ -527,15 +540,21 @@ public partial class UIScreenHost : Control
         // validation — which ran against the pre-Recompute snapshot — are now
         // stale. Revalidate against the current state, mirroring the
         // post-Apply() and post-Register() generation-change paths. If
-        // revalidation fails, close the committed candidate and return
-        // InvalidNode.
+        // revalidation fails, roll back the committed candidate (atomic no-op)
+        // and return InvalidNode.
         if (_model.MutationGeneration != generationBeforeRecompute)
         {
             var revalidateStatus = RevalidateAfterApply(
                 normalized.Policy, adapter, handle);
             if (revalidateStatus != UIScreenOpenStatus.Opened)
             {
-                TryClose(handle, UIScreenCloseReason.NodeFreed);
+                // Rejected opens are atomic no-ops. A process-policy or
+                // effect-adapter revalidation failure must not run the terminal
+                // close path: TryClose would invoke Cleanup, apply NodeLifetime,
+                // start a focus-restoration lease, and misreport the reason as
+                // NodeFreed even though the candidate was never freed. Use the
+                // non-terminal pending-candidate rollback path instead.
+                RollbackPendingOpen(handle, focusPreparation);
                 return new(UIScreenOpenStatus.InvalidNode, null);
             }
         }
@@ -1855,6 +1874,27 @@ public partial class UIScreenHost : Control
         _resolvedLowerLayerEffects.TryGetValue(handle, out var effect)
             ? effect
             : UILowerLayerPolicy.VisibleInteractive;
+
+    /// <summary>
+    /// Resolves a fresh reduced lower-layer effect snapshot from the current
+    /// model input order. Used by the focus coordinator at the start of a
+    /// restoration transaction: <see cref="ProcessClose"/> calls
+    /// <see cref="UIScreenFocusCoordinator.BeginRestoration"/> BEFORE
+    /// <see cref="Recompute"/>, so the committed
+    /// <c>_resolvedLowerLayerEffects</c> snapshot still reflects the pre-close
+    /// state while the live model has already removed the closing owner. Reading
+    /// the stale committed snapshot would disagree with the model — a lower
+    /// entry inerted by the removed owner stays marked VisibleInert/Hidden (so
+    /// owner/entry selection skips the newly interactive owner), and a pending
+    /// lower candidate absent from the committed snapshot defaults to
+    /// VisibleInteractive even when a higher owner would inert it. Computing
+    /// one fresh snapshot at restoration start and using it for owner
+    /// selection, entry selection, and target validation keeps the
+    /// transaction consistent with the post-close model.
+    /// </summary>
+    internal IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy>
+        ResolveCurrentLowerLayerEffects() =>
+        UIScreenPolicyResolver.Resolve(_model.InputOrder).LowerLayerEffects;
 
     internal void OnFocusRestorationCompleted()
     {

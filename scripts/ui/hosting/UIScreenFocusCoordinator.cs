@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Godot;
 
 internal sealed record UIFocusRecord(
@@ -25,6 +26,10 @@ internal sealed record UIFocusCloseState(
 internal sealed class UIScreenFocusCoordinator
 {
     private const string DynamicSinkName = "__UIScreenFocusSink";
+
+    private static readonly IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy>
+        EmptyEffects = new ReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy>(
+            new Dictionary<UIScreenHandle, UILowerLayerPolicy>(0));
 
     private readonly Dictionary<UIScreenHandle, FocusEntry> _entries = new();
     private UIScreenHost? _host;
@@ -436,6 +441,25 @@ internal sealed class UIScreenFocusCoordinator
         // a target that belongs to a superseded transaction.
         var leaseGeneration = _activeLease?.Generation ?? -1;
 
+        // Resolve lower-layer effects freshly from the current model for the
+        // entire restoration transaction and use that one snapshot for owner
+        // selection, entry selection, and target validation. ProcessClose
+        // calls BeginRestoration BEFORE Recompute, so the host's committed
+        // _resolvedLowerLayerEffects still reflects the pre-close state while
+        // the live model has already removed the closing owner. Reading the
+        // stale committed snapshot (LowerLayerEffectFor) would disagree with
+        // the model: a lower entry inerted by the removed owner stays marked
+        // VisibleInert/Hidden so owner/entry selection skips the newly
+        // interactive owner and focuses an external/lower target, and a
+        // pending lower candidate absent from the committed snapshot defaults
+        // to VisibleInteractive even when a higher owner would inert it. The
+        // snapshot is frozen for the transaction so every stage agrees; live
+        // revalidation (IsRestorationStillActive, _entries.ContainsKey) still
+        // guards against supersession and registration changes.
+        var effects = _host != null
+            ? _host.ResolveCurrentLowerLayerEffects()
+            : EmptyEffects;
+
         // --- Explicit RestoreFocus path (callback-capable) ---
         var explicitTarget = SafeTarget(
             closeState.Adapter?.RestoreFocus,
@@ -451,8 +475,8 @@ internal sealed class UIScreenFocusCoordinator
         // observable via FocusEntered side effects.
         if (explicitTarget != null &&
             IsRestorationStillActive(leaseGeneration, closedHandle) &&
-            IsControlEffectivelyInteractive(explicitTarget) &&
-            !TargetOutsideNewTopOwner(explicitTarget) &&
+            IsControlEffectivelyInteractive(explicitTarget, effects) &&
+            !TargetOutsideNewTopOwner(explicitTarget, effects) &&
             TryFocus(explicitTarget, explicitTarget.GetViewport()))
         {
             return;
@@ -473,8 +497,8 @@ internal sealed class UIScreenFocusCoordinator
         var parentRecord = closeState.ParentRecord;
         if (parentRecord != null &&
             _entries.ContainsKey(parentRecord.ParentHandle) &&
-            IsHandleEffectivelyInteractive(parentRecord.ParentHandle) &&
-            !TargetOutsideNewTopOwner(parentRecord.FocusOwner) &&
+            IsHandleEffectivelyInteractive(parentRecord.ParentHandle, effects) &&
+            !TargetOutsideNewTopOwner(parentRecord.FocusOwner, effects) &&
             TryFocus(parentRecord.FocusOwner, parentRecord.Viewport))
         {
             return;
@@ -483,7 +507,7 @@ internal sealed class UIScreenFocusCoordinator
         // --- Parent initial-focus path (callback-capable) ---
         if (parentRecord != null &&
             _entries.TryGetValue(parentRecord.ParentHandle, out var parentEntry) &&
-            IsHandleEffectivelyInteractive(parentRecord.ParentHandle))
+            IsHandleEffectivelyInteractive(parentRecord.ParentHandle, effects))
         {
             var parentViewport = SafeFocusViewport(parentEntry.Adapter);
             // SafeFocusViewport invoked the caller-provided FocusViewport
@@ -500,7 +524,7 @@ internal sealed class UIScreenFocusCoordinator
                 return;
             if (parentViewport != null &&
                 _entries.TryGetValue(parentRecord.ParentHandle, out parentEntry) &&
-                IsHandleEffectivelyInteractive(parentRecord.ParentHandle))
+                IsHandleEffectivelyInteractive(parentRecord.ParentHandle, effects))
             {
                 var parentInitial = SafeTarget(
                     parentEntry.Adapter.InitialFocus,
@@ -511,8 +535,8 @@ internal sealed class UIScreenFocusCoordinator
                 // returned target.
                 if (IsRestorationStillActive(leaseGeneration, closedHandle) &&
                     _entries.ContainsKey(parentRecord.ParentHandle) &&
-                    IsHandleEffectivelyInteractive(parentRecord.ParentHandle) &&
-                    !TargetOutsideNewTopOwner(parentInitial) &&
+                    IsHandleEffectivelyInteractive(parentRecord.ParentHandle, effects) &&
+                    !TargetOutsideNewTopOwner(parentInitial, effects) &&
                     TryFocus(parentInitial, parentViewport))
                 {
                     return;
@@ -525,7 +549,7 @@ internal sealed class UIScreenFocusCoordinator
             return;
 
         // --- Generic top entry path (callback-capable) ---
-        var top = FindTopEntry();
+        var top = FindTopEntry(effects);
         if (top != null)
         {
             var topHandle = top.Value.Handle;
@@ -542,7 +566,7 @@ internal sealed class UIScreenFocusCoordinator
             if (viewport != null &&
                 IsRestorationStillActive(leaseGeneration, closedHandle) &&
                 _entries.ContainsKey(topHandle) &&
-                IsHandleEffectivelyInteractive(topHandle))
+                IsHandleEffectivelyInteractive(topHandle, effects))
             {
                 var descendant = FindFirstFocusableDescendant(
                     topEntry.Adapter.View,
@@ -555,7 +579,7 @@ internal sealed class UIScreenFocusCoordinator
                 // a transient state observable via FocusEntered side effects
                 // and keyboard/controller input until the new owner's deferred
                 // initial-focus callback corrects it.
-                if (!TargetOutsideNewTopOwner(descendant) &&
+                if (!TargetOutsideNewTopOwner(descendant, effects) &&
                     TryFocus(descendant, viewport))
                     return;
 
@@ -569,14 +593,14 @@ internal sealed class UIScreenFocusCoordinator
                 // owner appeared that outranks the selected top entry (i.e.
                 // the top entry is no longer the current top owner). When the
                 // top entry IS the top owner, its sink is always a legitimate
-                // focus target. Use CurrentTopInputOwner() (live model state)
+                // focus target. Use the fresh-snapshot CurrentTopInputOwner
                 // rather than CurrentState.TopInputOwner, which may be stale
                 // inside a pre-Recompute close transaction where a
                 // superseded restoration lease is completed synchronously.
                 var sink = topEntry.DynamicSink ?? _rootSink;
-                var topEntryIsTopOwner = CurrentTopInputOwner() == topHandle;
+                var topEntryIsTopOwner = CurrentTopInputOwner(effects) == topHandle;
                 if (topEntry.Policy.InputPriority == UIInputPriority.Blocking &&
-                    (topEntryIsTopOwner || !TargetOutsideNewTopOwner(sink)) &&
+                    (topEntryIsTopOwner || !TargetOutsideNewTopOwner(sink, effects)) &&
                     TryFocus(sink, viewport))
                 {
                     return;
@@ -664,7 +688,9 @@ internal sealed class UIScreenFocusCoordinator
     /// precedes provider callbacks) is meant to avoid.
     /// </para>
     /// </summary>
-    private bool TargetOutsideNewTopOwner(Control? target)
+    private bool TargetOutsideNewTopOwner(
+        Control? target,
+        IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> effects)
     {
         if (target == null || _host == null)
             return false;
@@ -677,7 +703,7 @@ internal sealed class UIScreenFocusCoordinator
         // must replicate that safety for invalid targets.
         if (!GodotObject.IsInstanceValid(target))
             return false;
-        var topOwnerNow = CurrentTopInputOwner();
+        var topOwnerNow = CurrentTopInputOwner(effects);
         if (topOwnerNow == null)
             return false;
         // The live top input owner is model-visible but its focus entry is not
@@ -715,8 +741,8 @@ internal sealed class UIScreenFocusCoordinator
 
     /// <summary>
     /// Computes the current effectively interactive top input owner from the
-    /// model's live input order: the first non-Passive entry whose committed
-    /// reduced lower-layer effect is
+    /// model's live input order: the first non-Passive entry whose reduced
+    /// lower-layer effect in <paramref name="effects"/> is
     /// <see cref="UILowerLayerPolicy.VisibleInteractive"/>. This mirrors
     /// <see cref="FindTopEntry"/>'s effect filter so both select the same
     /// entry, preventing <see cref="TargetOutsideNewTopOwner"/> from using a
@@ -728,22 +754,33 @@ internal sealed class UIScreenFocusCoordinator
     /// inside the Modal as being "outside" the inert Blocking owner, and
     /// restoration releases focus.
     /// <para>
+    /// <paramref name="effects"/> is the fresh snapshot resolved once at the
+    /// start of the restoration transaction (see
+    /// <see cref="RestoreBestAvailableTarget"/>), NOT the host's committed
+    /// <c>_resolvedLowerLayerEffects</c>, which lags the live model during a
+    /// pre-Recompute close transaction.
+    /// </para>
+    /// <para>
     /// The pending-owner fail-closed in <see cref="TargetOutsideNewTopOwner"/>
     /// is preserved: a candidate that is model-visible but not yet in
     /// <c>_entries</c> (during TryPresent's window between _model.Open and
-    /// Register) defaults to <see cref="UILowerLayerPolicy.VisibleInteractive"/>
-    /// via <see cref="UIScreenHost.LowerLayerEffectFor"/>, so it is still
-    /// selected here and still triggers the <c>_entries.TryGetValue</c> block.
+    /// Register) is present in the fresh snapshot (resolved from the live
+    /// model) with its correctly-reduced effect, so it is still selected here
+    /// and still triggers the <c>_entries.TryGetValue</c> block. A handle not
+    /// present in the snapshot defaults to
+    /// <see cref="UILowerLayerPolicy.VisibleInteractive"/> via
+    /// <see cref="EffectFor"/>.
     /// </para>
     /// </summary>
-    private UIScreenHandle? CurrentTopInputOwner()
+    private UIScreenHandle? CurrentTopInputOwner(
+        IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> effects)
     {
         if (_host == null)
             return null;
         foreach (var snapshot in _host.FocusInputOrder())
         {
             if (snapshot.Policy.InputPriority != UIInputPriority.Passive &&
-                _host.LowerLayerEffectFor(snapshot.Handle) ==
+                EffectFor(snapshot.Handle, effects) ==
                     UILowerLayerPolicy.VisibleInteractive)
             {
                 return snapshot.Handle;
@@ -751,6 +788,20 @@ internal sealed class UIScreenFocusCoordinator
         }
         return null;
     }
+
+    /// <summary>
+    /// Returns the reduced lower-layer effect for <paramref name="handle"/>
+    /// from <paramref name="effects"/>, defaulting to
+    /// <see cref="UILowerLayerPolicy.VisibleInteractive"/> when the handle is
+    /// absent — mirroring <see cref="UIScreenHost.LowerLayerEffectFor"/>'s
+    /// fallback so the pending-owner fail-closed behaviour is preserved.
+    /// </summary>
+    private static UILowerLayerPolicy EffectFor(
+        UIScreenHandle handle,
+        IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> effects) =>
+        effects.TryGetValue(handle, out var effect)
+            ? effect
+            : UILowerLayerPolicy.VisibleInteractive;
 
     private UIFocusRecord? CaptureParentFocus(UIScreenHandle? parentHandle)
     {
@@ -774,7 +825,8 @@ internal sealed class UIScreenFocusCoordinator
             ? value.GetInstanceId()
             : null;
 
-    private (UIScreenHandle Handle, FocusEntry Entry)? FindTopEntry()
+    private (UIScreenHandle Handle, FocusEntry Entry)? FindTopEntry(
+        IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> effects)
     {
         if (_host == null)
             return null;
@@ -786,7 +838,7 @@ internal sealed class UIScreenFocusCoordinator
                 // visually inerted by an upper owner. Skip it so focus
                 // restoration does not return to an inert subtree; the next
                 // interactive entry (or release) is a safer target.
-                _host.LowerLayerEffectFor(snapshot.Handle) ==
+                EffectFor(snapshot.Handle, effects) ==
                     UILowerLayerPolicy.VisibleInteractive &&
                 _entries.TryGetValue(snapshot.Handle, out var entry))
             {
@@ -797,9 +849,10 @@ internal sealed class UIScreenFocusCoordinator
         return null;
     }
 
-    private bool IsHandleEffectivelyInteractive(UIScreenHandle handle) =>
-        _host != null &&
-        _host.LowerLayerEffectFor(handle) == UILowerLayerPolicy.VisibleInteractive;
+    private bool IsHandleEffectivelyInteractive(
+        UIScreenHandle handle,
+        IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> effects) =>
+        EffectFor(handle, effects) == UILowerLayerPolicy.VisibleInteractive;
 
     /// <summary>
     /// Returns the handle of the active entry whose view is (or is an ancestor
@@ -834,10 +887,13 @@ internal sealed class UIScreenFocusCoordinator
     /// is allowed, while a control inside an entry that is currently
     /// VisibleInert/Hidden is not.
     /// </summary>
-    private bool IsControlEffectivelyInteractive(Control control)
+    private bool IsControlEffectivelyInteractive(
+        Control control,
+        IReadOnlyDictionary<UIScreenHandle, UILowerLayerPolicy> effects)
     {
         var ownerHandle = HandleForControl(control);
-        return !ownerHandle.HasValue || IsHandleEffectivelyInteractive(ownerHandle.Value);
+        return !ownerHandle.HasValue ||
+            IsHandleEffectivelyInteractive(ownerHandle.Value, effects);
     }
 
     private void ApplyInitialFocus(UIScreenHandle handle)

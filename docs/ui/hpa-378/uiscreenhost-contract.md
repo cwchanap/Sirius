@@ -109,8 +109,10 @@ after the post-`Recompute` commit check passes. On rejection,
 commit, a second `Recompute` publishes the delta from the pre-open state.
 Per-entry effect callbacks (`SetInteractive`) still fire during the suppressed
 `Recompute` — they are internal effect application, not external publication,
-and can still invalidate the candidate (the commit check detects the mutation
-and rejects).
+and can still invalidate the candidate by closing an entry (the commit check
+detects the `MutationGeneration` bump and rejects). A `SetInteractive` callback
+that attempts to OPEN another presentation is rejected with `HostMutating`
+(see above); it must defer and retry after the Recompute transaction completes.
 
 | Open status | Meaning |
 |---|---|
@@ -127,12 +129,20 @@ and rejects).
 | `UnsupportedSubwindowMode` | a Window was requested without embedded subwindows |
 | `InvalidProcessPolicy` | requested process policy cannot satisfy its pause context |
 | `InvalidSpecification` | normalized entry values violate the contract |
-| `HostMutating` | an open was attempted during an active close/cleanup transaction; retry after that transaction returns |
+| `HostMutating` | an open was attempted during an active close/cleanup transaction or from within a Recompute callback (SetInteractive effect callback, EffectiveStateChanged / GameplayInputBlockChanged publication callback); retry after that transaction or callback returns |
 | `MalformedHost` | required scene children are missing/wrong, host is not ready, or teardown began |
 
 `HostMutating` is an explicit synchronous rejection, never an implicit deferred
 open. The host does not queue the view or spec. In particular, cleanup code may
 request a later open only by returning from cleanup and retrying from its owner.
+A `SetInteractive` effect callback, `EffectiveStateChanged` subscriber, or
+`GameplayInputBlockChanged` subscriber that needs to open another presentation
+must defer the open (e.g. via `Callable.From(...).CallDeferred()` or by returning
+and retrying from the owning flow) and retry once the Recompute transaction
+completes. A re-entrant open from any of these callbacks cannot commit its own
+effects — both of its internal `Recompute` calls are no-ops that only mark the
+pass dirty — so the host rejects it synchronously rather than returning a stale
+`Opened` handle with uncommitted effects.
 Model acceptance precedes creation of any per-Window focus sink, so duplicate,
 compatibility, group, and parent rejection leave an already-in-tree Window's
 exact child list and lifecycle untouched.
@@ -677,7 +687,8 @@ or removing legacy authorities:
 8. Run real-scene physical-input and timing regressions while keeping all
    HPA-376/HPA-378 synthetic contract tests green.
 9. Treat `HostMutating` as an explicit retry signal: never open from a managed
-   cleanup callback and never assume the host deferred a rejected open.
+   cleanup callback, `SetInteractive` effect callback, or state-publication
+   subscriber, and never assume the host deferred a rejected open.
 
 HPA-378 intentionally performs no `Game.cs`, `MainMenu.cs`, floor,
 `project.godot`, or existing production screen-controller migration.

@@ -3729,21 +3729,33 @@ public partial class UIScreenHostLifecycleTest : Node
         }
     }
 
+    // Regression for the re-entrant open gap during a suppressed Recompute
+    // pass: a SetInteractive callback fires during ApplyLowerLayerEffects
+    // inside the candidate's suppressed final Recompute (_recomputeDepth > 0,
+    // _suppressPublication > 0). The callback attempts to open a PauseTree
+    // owner. Before the fix, the guard only rejected opens when
+    // _suppressPublication == 0, so the re-entrant TryPresent proceeded — but
+    // both of its internal Recompute calls hit the re-entrant guard and only
+    // marked _recomputePending, returning without committing pause, blocking,
+    // cursor/HUD, lower-layer effects, or CurrentState. TryPresent returned
+    // Opened with a handle whose effects were uncommitted at the nested return
+    // boundary. With the fix, the guard rejects ALL opens while
+    // _recomputeDepth > 0, so the re-entrant open returns HostMutating, the
+    // PauseTree owner is never added to the model, and the candidate commits
+    // successfully (no PauseTree owner to invalidate its Pausable process mode).
     [TestCase]
-    public async Task PostRecomputeRejection_RollsBackWithoutCleanupNodeLifetimeOrRestorationLease()
+    public async Task SetInteractiveOpenDuringSuppressedRecompute_ReturnsHostMutatingAndCandidateCommits()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
         var fixture = await UIScreenHostTestSupport.CreateHost(this);
         var screenLayer = fixture.Host.GetNode<Control>("ScreenLayer");
-        // Caller-preparented External view: the contract says a rejected open
+        // Caller-preparented External view: the contract says a committed open
         // must not terminally hide/free OR detach a caller-preparented view.
         var candidateView = fixture.Track(new Control { Visible = true });
         screenLayer.AddChild(candidateView);
         var gameplayView = fixture.Track(new Control { Visible = true });
         var pauseOwnerView = fixture.Track(new Control { Visible = true });
         var cleanupReasons = new List<UIScreenCloseReason>();
-        var publishedStates = new List<UIScreenEffectiveState>();
-        fixture.Host.EffectiveStateChanged += state => publishedStates.Add(state);
         UIScreenOpenResult? pauseOwnerResult = null;
         var pauseOwnerOpened = false;
         try
@@ -3753,11 +3765,9 @@ public partial class UIScreenHostLifecycleTest : Node
             // effect callback that fires during ApplyLowerLayerEffects inside
             // the suppressed Recompute — it is NOT suppressed (only
             // EffectiveStateChanged / GameplayInputBlockChanged are). The
-            // PauseTree owner pauses the tree, invalidating the candidate's
-            // Pausable process mode. The post-Recompute revalidation detects
-            // the generation change, revalidates, fails, and rolls back via
-            // RollbackPendingOpen — without Cleanup, NodeLifetime, or a
-            // restoration lease.
+            // re-entrant TryPresent must be rejected with HostMutating so the
+            // caller defers and retries after the Recompute transaction
+            // completes.
             var gameplayResult = fixture.Host.TryPresent(
                 gameplayView,
                 UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
@@ -3794,56 +3804,210 @@ public partial class UIScreenHostLifecycleTest : Node
                     Cleanup = cleanupReasons.Add
                 });
 
-            // The SetInteractive callback opened a PauseTree owner during the
-            // candidate's suppressed Recompute, invalidating the candidate's
-            // Pausable process mode. The post-Recompute revalidation rejected
-            // the open.
-            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
-            AssertThat(opened.Handle).IsNull();
+            // The SetInteractive callback attempted a re-entrant open during
+            // the candidate's suppressed Recompute. The guard must reject it
+            // with HostMutating — the re-entrant TryPresent's Recompute calls
+            // would only mark _recomputePending and return without committing
+            // effects, so returning Opened would give the caller a stale handle
+            // with uncommitted effects.
+            AssertThat(pauseOwnerOpened).IsTrue();
             AssertThat(pauseOwnerResult).IsNotNull();
-            AssertThat(pauseOwnerResult!.Value.Status).IsEqual(UIScreenOpenStatus.Opened);
-            AssertThat(fixture.Host.IsActive(pauseOwnerResult.Value.Handle!.Value)).IsTrue();
-            // The rejected candidate is no longer active; gameplay and the
-            // PauseTree owner remain.
+            AssertThat(pauseOwnerResult!.Value.Status)
+                .IsEqual(UIScreenOpenStatus.HostMutating);
+            AssertThat(pauseOwnerResult.Value.Handle).IsNull();
+
+            // The PauseTree owner was never added to the model (the re-entrant
+            // TryPresent returned HostMutating before _model.Open, so there is
+            // no handle to check). Only gameplay and the candidate are active.
             AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(2);
 
-            // Rejected opens are atomic no-ops: Cleanup must NOT be invoked
-            // (RollbackPendingOpen removes the adapter/focus entry/ownership
-            // metadata without invoking Cleanup or applying NodeLifetime).
+            // The candidate committed successfully: no PauseTree owner was
+            // added to invalidate its Pausable process mode.
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(opened.Handle).IsNotNull();
+            AssertThat(fixture.Host.IsActive(opened.Handle!.Value)).IsTrue();
+
+            // The tree is NOT paused: the PauseTree owner was rejected, so no
+            // pause lease was acquired.
+            AssertThat(tree.Paused).IsFalse();
+
+            // Cleanup must NOT be invoked — the candidate committed, not
+            // rejected. Cleanup fires only on close.
             AssertThat(cleanupReasons.Count).IsEqual(0);
 
-            // NodeLifetime must NOT be applied. The caller-preparented
-            // External view must remain parented to the ScreenLayer (rollback
-            // only undoes attachment the host performed; it does not detach a
-            // caller-preparented view), must remain valid, and must not be
-            // queued for deletion (no QueueFree/Hide terminal ownership).
+            // The caller-preparented External view must remain parented to the
+            // ScreenLayer (the candidate committed; no rollback occurred),
+            // must remain valid, and must not be queued for deletion.
             AssertThat(GodotObject.IsInstanceValid(candidateView)).IsTrue();
             AssertThat(candidateView.IsQueuedForDeletion()).IsFalse();
             AssertThat(candidateView.GetParent()).IsEqual(screenLayer);
 
-            // No focus-restoration lease may be started for a presentation
-            // that never committed.
+            // No focus-restoration lease may be started for a committed open
+            // that was not followed by a close.
             AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
             AssertThat(fixture.Host.CurrentState.IsFocusRestorationPending)
                 .IsFalse();
 
-            // No published state may name the rejected candidate as top input
-            // owner. Publication was suppressed during the candidate's
-            // Recompute; only the post-rollback state (with the PauseTree
-            // owner as top input owner) was published.
-            foreach (var state in publishedStates)
-                AssertThat(state.TopInputOwner?.Kind == UIScreenKinds.Inventory)
-                    .IsEqual(false);
+            // The candidate's committed state must be published: the candidate
+            // is the top input owner (it is on Screen layer, higher than
+            // gameplay on Hud).
+            AssertThat(fixture.Host.CurrentState.TopInputOwner)
+                .IsEqual(opened.Handle);
 
             await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
 
-            // The deferred restoration must not materialize a lease after a
-            // frame either.
+            // No deferred restoration lease may materialize after a frame.
             AssertThat(fixture.Host.Diagnostics.RestorationLease).IsNull();
             AssertThat(cleanupReasons.Count).IsEqual(0);
         }
         finally
         {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    // Regression for the sequential nested-open gap during a suppressed
+    // Recompute pass: when a candidate inerts multiple lower entries, each
+    // entry's SetInteractive callback fires during ApplyLowerLayerEffects
+    // inside the suppressed Recompute. Before the fix, the guard only rejected
+    // opens when _suppressPublication == 0, so each callback's re-entrant
+    // TryPresent proceeded and returned Opened — but neither committed its
+    // effects (both Recompute calls were no-ops). An earlier callback could
+    // open a Pausable entry X, and a later callback could open a PauseTree
+    // owner Y that invalidates X's Pausable process mode. Only the outermost
+    // candidate was revalidated after the suppressed pass, so X was never
+    // revalidated and remained active with a stale Pausable process mode.
+    // With the fix, ALL opens while _recomputeDepth > 0 are rejected with
+    // HostMutating, so neither X nor Y is added to the model, no stale Pausable
+    // entry remains, and the candidate commits successfully.
+    [TestCase]
+    public async Task SequentialSetInteractiveOpensDuringSuppressedRecompute_AllReturnHostMutatingAndNoStalePausableEntry()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var gameplayAView = fixture.Track(new Control { Visible = true });
+        var gameplayBView = fixture.Track(new Control { Visible = true });
+        var pausableView = fixture.Track(new Control { Visible = true });
+        var pauseOwnerView = fixture.Track(new Control { Visible = true });
+        var candidateView = fixture.Track(new Control { Visible = true });
+
+        UIScreenOpenResult? pausableResult = null;
+        UIScreenOpenResult? pauseOwnerResult = null;
+        var pausableOpened = false;
+        var pauseOwnerOpened = false;
+        var pausableKind = new StringName("test_pausable");
+        var pauseOwnerKind = new StringName("test_pause_owner");
+
+        try
+        {
+            // Two gameplay entries on Hud layer. Entry A's SetInteractive
+            // opens a Pausable entry when inerted; entry B's SetInteractive
+            // opens a PauseTree owner when inerted. Both callbacks fire during
+            // the candidate's suppressed Recompute when the candidate inerts
+            // both lower entries.
+            var gameplayA = fixture.Host.TryPresent(
+                gameplayAView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = enabled =>
+                    {
+                        gameplayAView.SetProcessInput(enabled);
+                        if (enabled || pausableOpened)
+                            return;
+                        pausableOpened = true;
+                        pausableResult = fixture.Host.TryPresent(
+                            pausableView,
+                            UIScreenHostTestSupport.Spec(pausableKind) with
+                            {
+                                Layer = UIScreenLayer.Screen,
+                                InputPriority = UIInputPriority.Screen,
+                                ProcessPolicy = UIProcessPolicy.Pausable
+                            });
+                    }
+                });
+            AssertThat(gameplayA.Status).IsEqual(UIScreenOpenStatus.Opened);
+            gameplayAView.SetProcessInput(true);
+
+            var gameplayB = fixture.Host.TryPresent(
+                gameplayBView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = enabled =>
+                    {
+                        gameplayBView.SetProcessInput(enabled);
+                        if (enabled || pauseOwnerOpened)
+                            return;
+                        pauseOwnerOpened = true;
+                        pauseOwnerResult = fixture.Host.TryPresent(
+                            pauseOwnerView,
+                            UIScreenHostTestSupport.Spec(pauseOwnerKind) with
+                            {
+                                Layer = UIScreenLayer.Modal,
+                                InputPriority = UIInputPriority.Blocking,
+                                ProcessPolicy = UIProcessPolicy.Always,
+                                PauseTree = true
+                            });
+                    }
+                });
+            AssertThat(gameplayB.Status).IsEqual(UIScreenOpenStatus.Opened);
+            gameplayBView.SetProcessInput(true);
+
+            // Candidate on Modal with VisibleInert inerts both gameplay entries.
+            // Both SetInteractive callbacks fire during the suppressed Recompute.
+            var opened = fixture.Host.TryPresent(
+                candidateView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Modal,
+                    ProcessPolicy = UIProcessPolicy.InheritHost,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert,
+                    BlockGameplayInput = true
+                });
+
+            // Both re-entrant opens must be rejected with HostMutating. With
+            // the fix, the guard rejects ALL opens while _recomputeDepth > 0,
+            // so neither the Pausable entry nor the PauseTree owner is added.
+            AssertThat(pausableOpened).IsTrue();
+            AssertThat(pausableResult).IsNotNull();
+            AssertThat(pausableResult!.Value.Status)
+                .IsEqual(UIScreenOpenStatus.HostMutating);
+            AssertThat(pausableResult.Value.Handle).IsNull();
+
+            AssertThat(pauseOwnerOpened).IsTrue();
+            AssertThat(pauseOwnerResult).IsNotNull();
+            AssertThat(pauseOwnerResult!.Value.Status)
+                .IsEqual(UIScreenOpenStatus.HostMutating);
+            AssertThat(pauseOwnerResult.Value.Handle).IsNull();
+
+            // No stale Pausable entry remains: the Pausable entry was never
+            // added to the model. Only the two gameplay entries and the
+            // candidate are active.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(3);
+            AssertThat(fixture.Host.IsKindActive(pausableKind)).IsFalse();
+            AssertThat(fixture.Host.IsKindActive(pauseOwnerKind)).IsFalse();
+
+            // The candidate committed successfully: no PauseTree owner was
+            // added to invalidate any entry's process mode.
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(opened.Handle).IsNotNull();
+            AssertThat(fixture.Host.IsActive(opened.Handle!.Value)).IsTrue();
+
+            // The tree is NOT paused: the PauseTree owner was rejected.
+            AssertThat(tree.Paused).IsFalse();
+
+            // The candidate is the top input owner (Modal > Hud).
+            AssertThat(fixture.Host.CurrentState.TopInputOwner)
+                .IsEqual(opened.Handle);
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+        }
+        finally
+        {
+            pausableKind.Dispose();
+            pauseOwnerKind.Dispose();
             await DisposeFixture(fixture);
         }
     }

@@ -1643,7 +1643,22 @@ public partial class UIScreenHost : Control
 
         if (_inTreeExiting || !IsInsideTree())
         {
-            Callable.From(() => PlaceInputShield(target)).CallDeferred();
+            // Guard the deferred callback: the host may be freed (e.g. via
+            // QueueFree after FinalizeTeardown nulls the shields) before the
+            // deferred call runs. IsInstanceValid is a static check safe to
+            // call on a freed Godot object, unlike IsInsideTree / shield
+            // access which throw once the native instance is released. Re-check
+            // _inTreeExiting here too so a tree-exit that began between the
+            // outer guard and the deferred invocation short-circuits without
+            // re-entering PlaceInputShield. The inner IsInsideTree re-check
+            // inside PlaceInputShield remains, but is only reached when the
+            // host is still valid.
+            Callable.From(() =>
+            {
+                if (_inTreeExiting || !GodotObject.IsInstanceValid(this))
+                    return;
+                PlaceInputShield(target);
+            }).CallDeferred();
             return;
         }
 

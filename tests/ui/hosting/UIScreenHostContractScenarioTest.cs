@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using GdUnit4;
 using Godot;
 using static GdUnit4.Assertions;
+using static UIScreenHostTestSupport;
 
 [TestSuite]
 [RequireGodotRuntime]
@@ -366,12 +367,6 @@ public partial class UIScreenHostContractScenarioTest : Node
         {
             await DisposeFixture(fixture);
         }
-    }
-
-    private async Task DisposeFixture(HostFixture fixture)
-    {
-        fixture.Dispose();
-        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
     }
 
     private static UIScreenHandle Open(UIScreenOpenResult result)

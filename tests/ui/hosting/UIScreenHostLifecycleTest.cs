@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using GdUnit4;
 using Godot;
 using static GdUnit4.Assertions;
+using static UIScreenHostTestSupport;
 
 [TestSuite]
 [RequireGodotRuntime]
@@ -4022,11 +4023,6 @@ public partial class UIScreenHostLifecycleTest : Node
     // reject the re-entrant open with HostMutating (the same status returned
     // for a TryPresent during close draining) so the caller retries outside
     // the recompute transaction.
-    //
-    // NOTE: this pins the desired HostMutating behaviour. The existing test
-    // TryPresent_SubscriberOpensPauseTreeOwnerAfterCommit (which expects
-    // Opened from the same re-entrant path) is incompatible with this
-    // direction and must be updated/removed when the fix lands.
     [TestCase]
     public async Task ReentrantTryPresent_DuringEffectiveStateChangedPublication_ReturnsHostMutating()
     {
@@ -4220,12 +4216,6 @@ public partial class UIScreenHostLifecycleTest : Node
         {
             await DisposeFixture(fixture);
         }
-    }
-
-    private async Task DisposeFixture(HostFixture fixture)
-    {
-        fixture.Dispose();
-        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
     }
 
     private sealed partial class EnablesInputOnReadyControl : Control

@@ -90,6 +90,21 @@ public static class UIScreenHostTestSupport
             Pressed = true
         };
     }
+
+    /// <summary>
+    /// Disposes the fixture and awaits the next process frame so any deferred
+    /// QueueFree / TreeExited cleanup (including <see cref="HostFixture"/>'s
+    /// environment restore) completes before the caller proceeds. Shared by
+    /// every hosting test suite to avoid duplicating the dispose+await pair.
+    /// Uses the scene tree's root window as the awaiter since this static helper
+    /// has no <see cref="Node"/> instance of its own.
+    /// </summary>
+    public static async Task DisposeFixture(HostFixture fixture)
+    {
+        fixture.Dispose();
+        var tree = (SceneTree)Engine.GetMainLoop();
+        await tree.Root.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+    }
 }
 
 public sealed class HostFixture : IDisposable

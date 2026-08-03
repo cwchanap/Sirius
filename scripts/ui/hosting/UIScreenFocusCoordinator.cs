@@ -298,11 +298,20 @@ internal sealed class UIScreenFocusCoordinator
         }
 
         // No valid redirect target: release focus so the inert descendant can
-        // no longer be activated by ui_accept / joypad GUI events. Re-query via
-        // the helper rather than releasing the stale focusOwner captured above:
-        // SafeFocusViewport (or any redirect attempt) may have changed or freed
-        // the current owner, and the helper re-validates before releasing.
-        ReleaseFocus(viewport);
+        // no longer be activated by ui_accept / joypad GUI events. Re-query the
+        // current owner rather than reusing the stale focusOwner captured above
+        // (SafeFocusViewport or a redirect attempt may have moved or freed it),
+        // but release it only when it is still inside the inert subtree. A
+        // FocusViewport callback that moved focus to a valid control outside
+        // the inert subtree must keep that focus — releasing it would strand
+        // keyboard/controller navigation without an owner.
+        var currentOwner = viewport.GuiGetFocusOwner();
+        if (currentOwner != null &&
+            GodotObject.IsInstanceValid(currentOwner) &&
+            IsSameOrAncestor(inertControl, currentOwner))
+        {
+            currentOwner.ReleaseFocus();
+        }
     }
 
     /// <summary>

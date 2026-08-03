@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using GdUnit4;
 using Godot;
 using static GdUnit4.Assertions;
+using static UIScreenHostTestSupport;
 
 [TestSuite]
 [RequireGodotRuntime]
@@ -835,9 +836,17 @@ public partial class UIScreenHostFocusTest : Node
             fixture.Host.TryClose(child, UIScreenCloseReason.Programmatic);
             AssertThat(fixture.Host.CurrentState.IsFocusRestorationPending).IsTrue();
 
+            // QueueFree() internally calls PrepareForTeardown() and silently
+            // skips the free on Deferred. Assert Complete up front so the test
+            // actually exercises the finalized teardown path it claims to, then
+            // confirm the host is deleted after the queued free is processed.
+            AssertThat(fixture.Host.PrepareForTeardown()).IsEqual(
+                UIScreenTeardownPreparationStatus.Complete);
             fixture.Host.QueueFree();
+            AssertThat(fixture.Host.IsQueuedForDeletion()).IsTrue();
             await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
 
+            AssertThat(GodotObject.IsInstanceValid(fixture.Host)).IsFalse();
             AssertThat(pendingStates).Contains(true);
             AssertThat(pendingStates[^1]).IsFalse();
         }
@@ -2941,11 +2950,5 @@ public partial class UIScreenHostFocusTest : Node
         {
             await DisposeFixture(fixture);
         }
-    }
-
-    private async Task DisposeFixture(HostFixture fixture)
-    {
-        fixture.Dispose();
-        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
     }
 }

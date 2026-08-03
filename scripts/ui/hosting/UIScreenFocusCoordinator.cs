@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using Godot;
 
 internal sealed record UIFocusRecord(
@@ -297,8 +298,11 @@ internal sealed class UIScreenFocusCoordinator
         }
 
         // No valid redirect target: release focus so the inert descendant can
-        // no longer be activated by ui_accept / joypad GUI events.
-        focusOwner.ReleaseFocus();
+        // no longer be activated by ui_accept / joypad GUI events. Re-query via
+        // the helper rather than releasing the stale focusOwner captured above:
+        // SafeFocusViewport (or any redirect attempt) may have changed or freed
+        // the current owner, and the helper re-validates before releasing.
+        ReleaseFocus(viewport);
     }
 
     /// <summary>
@@ -327,9 +331,9 @@ internal sealed class UIScreenFocusCoordinator
                 continue;
             // Skip entries whose view is inside the inert subtree. The effects
             // check above already filters the inerted entry, but this also
-            // covers any descendant whose view is nested inside inertControl.
-            if (entry.Adapter.View is Control view &&
-                IsSameOrAncestor(inertControl, view))
+            // covers any descendant whose view is nested inside inertControl,
+            // including Window and AcceptDialog adapter roots (not just Control).
+            if (IsSameOrAncestor(inertControl, entry.Adapter.View))
                 continue;
             return entry;
         }
@@ -1050,6 +1054,7 @@ internal sealed class UIScreenFocusCoordinator
     /// the same way a pre-callback state change would. Re-fetches the
     /// <see cref="FocusEntry"/> in case the registry was mutated.
     /// </summary>
+    [MemberNotNullWhen(true, nameof(_host))]
     private bool IsStillFocusEligible(UIScreenHandle handle, out FocusEntry entry)
     {
         entry = null!;

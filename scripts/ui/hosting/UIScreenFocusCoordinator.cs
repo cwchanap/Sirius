@@ -714,12 +714,27 @@ internal sealed class UIScreenFocusCoordinator
     }
 
     /// <summary>
-    /// Computes the current top input owner from the model's live input order
-    /// (first non-Passive entry), mirroring
-    /// <see cref="UIScreenPolicyResolver.Resolve"/> without the full policy
-    /// pass. Used instead of <see cref="UIScreenHost.CurrentState"/>
-    /// .TopInputOwner inside pre-<see cref="UIScreenHost.Recompute"/>
-    /// transactions where the published state is stale.
+    /// Computes the current effectively interactive top input owner from the
+    /// model's live input order: the first non-Passive entry whose committed
+    /// reduced lower-layer effect is
+    /// <see cref="UILowerLayerPolicy.VisibleInteractive"/>. This mirrors
+    /// <see cref="FindTopEntry"/>'s effect filter so both select the same
+    /// entry, preventing <see cref="TargetOutsideNewTopOwner"/> from using a
+    /// lower <see cref="UIInputPriority.Blocking"/> entry that is visually
+    /// inerted by an upper owner as the ownership gate. Without the effect
+    /// filter, a lower Blocking entry remains the logical top owner while a
+    /// visually higher Modal inerts it; <see cref="FindTopEntry"/> selects the
+    /// Modal, but <see cref="TargetOutsideNewTopOwner"/> rejects every target
+    /// inside the Modal as being "outside" the inert Blocking owner, and
+    /// restoration releases focus.
+    /// <para>
+    /// The pending-owner fail-closed in <see cref="TargetOutsideNewTopOwner"/>
+    /// is preserved: a candidate that is model-visible but not yet in
+    /// <c>_entries</c> (during TryPresent's window between _model.Open and
+    /// Register) defaults to <see cref="UILowerLayerPolicy.VisibleInteractive"/>
+    /// via <see cref="UIScreenHost.LowerLayerEffectFor"/>, so it is still
+    /// selected here and still triggers the <c>_entries.TryGetValue</c> block.
+    /// </para>
     /// </summary>
     private UIScreenHandle? CurrentTopInputOwner()
     {
@@ -727,8 +742,12 @@ internal sealed class UIScreenFocusCoordinator
             return null;
         foreach (var snapshot in _host.FocusInputOrder())
         {
-            if (snapshot.Policy.InputPriority != UIInputPriority.Passive)
+            if (snapshot.Policy.InputPriority != UIInputPriority.Passive &&
+                _host.LowerLayerEffectFor(snapshot.Handle) ==
+                    UILowerLayerPolicy.VisibleInteractive)
+            {
                 return snapshot.Handle;
+            }
         }
         return null;
     }

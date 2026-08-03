@@ -109,7 +109,7 @@ atomic no-op.
 | `DuplicateKind` | the same concrete kind is already active |
 | `IncompatibleEntry` | either active or requested policy declares the other kind incompatible |
 | `ExclusiveGroupConflict` | a non-parent/child entry already owns the requested non-empty group |
-| `InvalidNode` | view is invalid, deleting, the host itself, or failed attachment |
+| `InvalidNode` | view is invalid, deleting, the host itself, failed attachment, or the candidate was closed or invalidated by a callback during the final recompute pass |
 | `InvalidParent` | requested parent handle is not active |
 | `NodeAlreadyRegistered` | view already belongs to this host |
 | `NodeOwnedByAnotherHost` | view belongs to another live host |

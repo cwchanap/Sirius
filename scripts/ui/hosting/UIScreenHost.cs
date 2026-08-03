@@ -483,7 +483,63 @@ public partial class UIScreenHost : Control
             }
         }
 
+        // Snapshot the model generation before the final Recompute. Recompute
+        // invokes caller-controlled effect (SetInteractive), gameplay-block,
+        // and effective-state callbacks. Those callbacks can close the
+        // candidate, queue its view for deletion, open a PauseTree owner
+        // (invalidating the candidate's Pausable process mode), or finalize
+        // teardown. Although Recompute restarts internally until its state
+        // converges, it performs no liveness, node, host-operational, or
+        // process/effect validation afterward. Without a final commit check,
+        // TryPresent returns the original Opened result — and a stale handle —
+        // for a candidate that is no longer active, whose view is queued for
+        // deletion, whose host has torn down, or whose process-mode/effect
+        // validation was bypassed by a callback mutation.
+        var generationBeforeRecompute = _model.MutationGeneration;
         Recompute();
+
+        // Final commit check: revalidate node validity, liveness, host
+        // operability, and adapter identity — the same checks performed after
+        // Register(). If the candidate was closed during Recompute, the close
+        // path already cleaned up the adapter, ownership, focus entry,
+        // tree-exit handler, and lower-layer effects; just return InvalidNode
+        // without re-closing. If the candidate is still active but its view
+        // was queued for deletion (QueueFree does not fire TreeExiting
+        // synchronously and does not bump MutationGeneration) or the host
+        // tore down without closing it, run the normal close path so the
+        // committed state is cleaned up. A non-operational host is tearing
+        // down and will finalize remaining entries through its own deferred
+        // path — do not attempt a close that TryClose would reject as
+        // HostTearingDown.
+        if (!IsHostOperational() ||
+            !GodotObject.IsInstanceValid(view) || view.IsQueuedForDeletion() ||
+            !IsActive(handle) ||
+            !_adapters.TryGetValue(handle, out var committedAdapter) ||
+            !ReferenceEquals(committedAdapter, adapter))
+        {
+            if (IsHostOperational() && IsActive(handle))
+                TryClose(handle, UIScreenCloseReason.NodeFreed);
+            return new(UIScreenOpenStatus.InvalidNode, null);
+        }
+
+        // When a callback mutated the model during Recompute (e.g. opened a
+        // PauseTree owner), the candidate's process mode and effect-adapter
+        // validation — which ran against the pre-Recompute snapshot — are now
+        // stale. Revalidate against the current state, mirroring the
+        // post-Apply() and post-Register() generation-change paths. If
+        // revalidation fails, close the committed candidate and return
+        // InvalidNode.
+        if (_model.MutationGeneration != generationBeforeRecompute)
+        {
+            var revalidateStatus = RevalidateAfterApply(
+                normalized.Policy, adapter, handle);
+            if (revalidateStatus != UIScreenOpenStatus.Opened)
+            {
+                TryClose(handle, UIScreenCloseReason.NodeFreed);
+                return new(UIScreenOpenStatus.InvalidNode, null);
+            }
+        }
+
         return opened;
     }
 

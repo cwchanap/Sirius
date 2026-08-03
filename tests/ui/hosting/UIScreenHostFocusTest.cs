@@ -81,7 +81,7 @@ public partial class UIScreenHostFocusTest : Node
     }
 
     [TestCase]
-    public async Task TryPresentCallback_CloseSeesFocusStateAndLeavesNoWindowSink()
+    public async Task TryPresentCallback_ClosesCandidate_ReturnsInvalidNodeAndLeavesNoWindowSink()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
         var fixture = await UIScreenHostTestSupport.CreateHost(this);
@@ -90,6 +90,7 @@ public partial class UIScreenHostFocusTest : Node
         var callbackEntered = false;
         var focusStateCountDuringCallback = -1;
         UIScreenCloseStatus? closeStatus = null;
+        UIScreenHandle? closedHandle = null;
         fixture.Host.EffectiveStateChanged += state =>
         {
             if (callbackEntered || !state.TopInputOwner.HasValue)
@@ -97,6 +98,7 @@ public partial class UIScreenHostFocusTest : Node
 
             callbackEntered = true;
             focusStateCountDuringCallback = fixture.Host.Diagnostics.FocusStates.Count;
+            closedHandle = state.TopInputOwner;
             closeStatus = fixture.Host.TryClose(
                 state.TopInputOwner.Value,
                 UIScreenCloseReason.Programmatic).Status;
@@ -111,15 +113,84 @@ public partial class UIScreenHostFocusTest : Node
                     InputPriority = UIInputPriority.Blocking
                 });
 
-            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
+            // The EffectiveStateChanged callback fires during the final
+            // Recompute and closes the candidate. The final commit check
+            // detects that the candidate is no longer active and returns
+            // InvalidNode instead of a stale Opened handle.
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(opened.Handle).IsNull();
             AssertThat(closeStatus).IsEqual(UIScreenCloseStatus.Closed);
             AssertThat(focusStateCountDuringCallback).IsEqual(1);
-            AssertThat(fixture.Host.IsActive(opened.Handle!.Value)).IsFalse();
+            AssertThat(fixture.Host.IsActive(closedHandle!.Value)).IsFalse();
             AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(0);
 
             await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
 
             AssertThat(window.GetNodeOrNull<Control>("__UIScreenFocusSink")).IsNull();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task TryPresentCallback_OpensPauseTreeOwner_ReturnsInvalidNodeWhenProcessModeInvalidated()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var candidateView = fixture.Track(new Control { Visible = true });
+        var pauseOwnerView = fixture.Track(new Control { Visible = true });
+        var callbackEntered = false;
+        UIScreenOpenResult? pauseOwnerResult = null;
+        fixture.Host.EffectiveStateChanged += state =>
+        {
+            if (callbackEntered || !state.TopInputOwner.HasValue)
+                return;
+
+            callbackEntered = true;
+            // Open a PauseTree owner during the candidate's final Recompute.
+            // This pauses the tree, invalidating the candidate's Pausable
+            // process mode (Pausable is invalid when the effective post-open
+            // context is paused). The generation changes during Recompute.
+            // The final commit check must detect the generation change,
+            // revalidate the candidate's process mode, and reject the open.
+            pauseOwnerResult = fixture.Host.TryPresent(
+                pauseOwnerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking,
+                    ProcessPolicy = UIProcessPolicy.Always,
+                    PauseTree = true
+                });
+        };
+        try
+        {
+            // Candidate with Pausable process policy. Valid when the tree is
+            // not paused, but invalid once the callback opens a PauseTree
+            // owner that pauses the tree.
+            var opened = fixture.Host.TryPresent(
+                candidateView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Layer = UIScreenLayer.Screen,
+                    ProcessPolicy = UIProcessPolicy.Pausable
+                });
+
+            // The final commit check revalidated the candidate's process mode
+            // against the now-paused tree and rejected the open.
+            AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
+            AssertThat(opened.Handle).IsNull();
+            // The PauseTree owner opened by the callback remains active.
+            AssertThat(pauseOwnerResult).IsNotNull();
+            AssertThat(pauseOwnerResult!.Value.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(fixture.Host.IsActive(pauseOwnerResult.Value.Handle!.Value)).IsTrue();
+            // The rejected candidate is no longer active.
+            AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(tree.Paused).IsTrue();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
         }
         finally
         {
@@ -1262,6 +1333,107 @@ public partial class UIScreenHostFocusTest : Node
 
             AssertThat(parentButton.HasFocus()).IsFalse();
             AssertThat(fixture.Viewport.GuiGetFocusOwner() == parentButton).IsFalse();
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task FocusRestoration_LowerBlockingInertedByHigherModal_FocusesModalTarget()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var lowerView = fixture.Track(new Control { Visible = true });
+        var lowerButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        lowerView.AddChild(lowerButton);
+        var modalView = fixture.Track(new Control { Visible = true });
+        var modalButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        modalView.AddChild(modalButton);
+        var childView = fixture.Track(new Control { Visible = true });
+        var childButton = new Button
+        {
+            FocusMode = Control.FocusModeEnum.All,
+            Disabled = false
+        };
+        childView.AddChild(childButton);
+        try
+        {
+            // Lower entry: Blocking priority in the HUD layer with a focusable
+            // button. A Blocking entry is first in logical input order
+            // regardless of visual layer, so CurrentTopInputOwner() would
+            // return it without the effect filter.
+            var lower = fixture.Host.TryPresent(
+                lowerView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    InputPriority = UIInputPriority.Blocking
+                });
+            AssertThat(lower.Status).IsEqual(UIScreenOpenStatus.Opened);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(lowerButton.HasFocus()).IsTrue();
+
+            // Upper Modal owner with a focusable button. VisibleInert lower
+            // layers inert the lower Blocking entry, but the lower Blocking
+            // remains first in logical input order (Blocking). RevokeFocusWithin
+            // redirects focus from the lower button to the Modal's button —
+            // the top interactive entry's first focusable descendant. The
+            // Modal is the effectively interactive top owner.
+            var modal = fixture.Host.TryPresent(
+                modalView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert
+                });
+            AssertThat(modal.Status).IsEqual(UIScreenOpenStatus.Opened);
+            AssertThat(modalButton.HasFocus()).IsTrue();
+
+            // Child entry (Toast, above Modal so the Modal does not inert it)
+            // opened with Parent = lower. The child inherits Blocking priority
+            // from its parent, so it is first in input order and is the
+            // TopInputOwner — its deferred ApplyInitialFocus fires. The child's
+            // open captures the modal's button as the parent-record focus
+            // target (same viewport).
+            var child = fixture.Host.TryPresent(
+                childView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Inventory) with
+                {
+                    Layer = UIScreenLayer.Toast,
+                    Parent = lower.Handle,
+                    InitialFocus = () => childButton
+                });
+            AssertThat(child.Status).IsEqual(UIScreenOpenStatus.Opened);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            AssertThat(childButton.HasFocus()).IsTrue();
+
+            // Close the child. Restoration must focus the Modal's button —
+            // the effectively interactive top owner's focusable descendant.
+            // Without the fix, CurrentTopInputOwner() returns the inert
+            // lower Blocking (first non-Passive in input order, no effect
+            // filter). TargetOutsideNewTopOwner rejects the Modal's button as
+            // being "outside" the inert Blocking's subtree, the sink fallback
+            // fails (Modal is not Blocking), and restoration releases focus.
+            // With the fix, CurrentTopInputOwner() filters on
+            // VisibleInteractive and returns the Modal, so the Modal's button
+            // is accepted and focused.
+            AssertThat(fixture.Host.TryClose(
+                child.Handle!.Value,
+                UIScreenCloseReason.Programmatic).Status).IsEqual(UIScreenCloseStatus.Closed);
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(modalButton.HasFocus()).IsTrue();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(modalButton);
         }
         finally
         {

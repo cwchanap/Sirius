@@ -3848,6 +3848,216 @@ public partial class UIScreenHostLifecycleTest : Node
         }
     }
 
+    // Regression for the re-entrant TryPresent gap: a TryPresent called from
+    // an EffectiveStateChanged (or other Recompute) callback runs while
+    // _recomputeDepth > 0. Its own suppressed/commit Recompute passes hit the
+    // re-entrant guard and only mark _recomputePending, so pause, blocking,
+    // cursor/HUD, lower-layer effects and CurrentState are NOT committed at
+    // the nested return boundary — yet TryPresent returns Opened. The caller
+    // receives a handle whose effects are uncommitted. The contract should
+    // reject the re-entrant open with HostMutating (the same status returned
+    // for a TryPresent during close draining) so the caller retries outside
+    // the recompute transaction.
+    //
+    // NOTE: this pins the desired HostMutating behaviour. The existing test
+    // TryPresent_SubscriberOpensPauseTreeOwnerAfterCommit (which expects
+    // Opened from the same re-entrant path) is incompatible with this
+    // direction and must be updated/removed when the fix lands.
+    [TestCase]
+    public async Task ReentrantTryPresent_DuringEffectiveStateChangedPublication_ReturnsHostMutating()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var gameplayView = fixture.Track(new Control { Visible = true });
+        var modalView = fixture.Track(new Control { Visible = true });
+        var reentrantView = fixture.Track(new Control { Visible = true });
+
+        UIScreenOpenResult? reentrantResult = null;
+        int? activeCountAtNestedReturn = null;
+        bool? treePausedAtNestedReturn = null;
+        var subscriberFired = false;
+
+        // The subscriber fires during the modal's commit publication Recompute
+        // (TryPresent's tail Recompute, _recomputeDepth > 0). It attempts a
+        // re-entrant open and captures the result plus the host state BEFORE
+        // the outer Recompute restarts and commits the re-entrant open's
+        // effects.
+        fixture.Host.EffectiveStateChanged += state =>
+        {
+            if (subscriberFired || state.TopInputOwner?.Kind != UIScreenKinds.Pause)
+                return;
+            subscriberFired = true;
+            reentrantResult = fixture.Host.TryPresent(
+                reentrantView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Settings) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking,
+                    ProcessPolicy = UIProcessPolicy.Always,
+                    PauseTree = true
+                });
+            activeCountAtNestedReturn = fixture.Host.ActiveEntries.Count;
+            treePausedAtNestedReturn = tree.Paused;
+        };
+        try
+        {
+            var gameplay = fixture.Host.TryPresent(
+                gameplayView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = gameplayView.SetProcessInput
+                });
+            AssertThat(gameplay.Status).IsEqual(UIScreenOpenStatus.Opened);
+            gameplayView.SetProcessInput(true);
+
+            var modal = fixture.Host.TryPresent(
+                modalView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert,
+                    BlockGameplayInput = true
+                });
+            AssertThat(modal.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // The subscriber fired during the modal's commit publication and
+            // attempted a re-entrant open. The re-entrant TryPresent must
+            // return HostMutating, not Opened: its recompute passes only mark
+            // _recomputePending, so the PauseTree owner's effects are not
+            // committed at the nested return boundary.
+            AssertThat(subscriberFired).IsTrue();
+            AssertThat(reentrantResult).IsNotNull();
+            AssertThat(reentrantResult!.Value.Status)
+                .IsEqual(UIScreenOpenStatus.HostMutating);
+
+            // A HostMutating result must not have committed the re-entrant
+            // entry: only gameplay + the modal remain, and the tree is not
+            // paused at the nested return. (Currently the re-entrant open
+            // returns Opened, commits the entry to the model, and leaves the
+            // tree un-paused at the nested return — the symptom that motivates
+            // rejecting the re-entrant open.)
+            AssertThat(activeCountAtNestedReturn!.Value).IsEqual(2);
+            AssertThat(treePausedAtNestedReturn!.Value).IsFalse();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
+    // Regression for the publication-cursor gap: _lastPublishedState is
+    // advanced (Recompute, UIScreenHost.cs) BEFORE the complete
+    // EffectiveStateChanged subscriber list is delivered. If an early
+    // subscriber performs an effective-state-neutral mutation — here, closing
+    // a Passive toast that contributes nothing to the resolved state —
+    // MutationGeneration bumps, InvokeEffectiveStateChanged aborts the
+    // remaining subscribers, and the restarted Recompute resolves an
+    // identical state. Because _lastPublishedState was already advanced to
+    // that state, previousPublishedState == nextState and no publication
+    // fires, so the aborted later subscribers are never retried. The fix must
+    // preserve an in-progress publication cursor and resume the remaining
+    // subscribers when the recomputed state is unchanged.
+    [TestCase]
+    public async Task EffectiveStateChanged_EarlySubscriberStateNeutralMutation_LaterSubscriberStillInvoked()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var fixture = await UIScreenHostTestSupport.CreateHost(this);
+        var gameplayView = fixture.Track(new Control { Visible = true });
+        var toastView = fixture.Track(new Control { Visible = true });
+        var modalView = fixture.Track(new Control { Visible = true });
+
+        var earlyFired = false;
+        var laterFired = false;
+        UIScreenEffectiveState? stateSeenByLater = null;
+
+        try
+        {
+            var gameplay = fixture.Host.TryPresent(
+                gameplayView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Battle) with
+                {
+                    Layer = UIScreenLayer.Hud,
+                    SetInteractive = gameplayView.SetProcessInput
+                });
+            AssertThat(gameplay.Status).IsEqual(UIScreenOpenStatus.Opened);
+            gameplayView.SetProcessInput(true);
+
+            // A Passive toast on ToastLayer. It is state-neutral: Passive
+            // priority is skipped by the resolver for TopInputOwner, it has no
+            // PauseTree/BlockGameplayInput, and its LowerLayers default to
+            // VisibleInteractive (no inerting). Opening it bumps
+            // MutationGeneration but does not change the resolved effective
+            // state, so its own open publishes nothing.
+            var toast = fixture.Host.TryPresent(
+                toastView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+                {
+                    Layer = UIScreenLayer.Toast,
+                    InputPriority = UIInputPriority.Passive
+                });
+            AssertThat(toast.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            // Two subscribers. The early one performs a state-neutral
+            // mutation (closing the Passive toast) on the first publication it
+            // sees; the later one records that it was invoked.
+            fixture.Host.EffectiveStateChanged += state =>
+            {
+                if (!earlyFired)
+                {
+                    earlyFired = true;
+                    // State-neutral mutation: closing the Passive toast bumps
+                    // MutationGeneration without changing the resolved
+                    // effective state.
+                    fixture.Host.TryClose(
+                        toast.Handle!.Value,
+                        UIScreenCloseReason.Programmatic);
+                    return;
+                }
+            };
+            fixture.Host.EffectiveStateChanged += state =>
+            {
+                if (laterFired)
+                    return;
+                laterFired = true;
+                stateSeenByLater = state;
+            };
+
+            // Opening the modal changes TopInputOwner (Blocking outranks
+            // Screen) and BlockGameplayInput, so a publication fires. The
+            // early subscriber runs first and closes the Passive toast
+            // (state-neutral). Currently the generation bump aborts the later
+            // subscriber and the restarted Recompute resolves an identical
+            // state, so the later subscriber is never invoked. The fix must
+            // resume the remaining subscribers when the recomputed state is
+            // unchanged.
+            var modal = fixture.Host.TryPresent(
+                modalView,
+                UIScreenHostTestSupport.Spec(UIScreenKinds.Pause) with
+                {
+                    Layer = UIScreenLayer.Modal,
+                    InputPriority = UIInputPriority.Blocking,
+                    LowerLayers = UILowerLayerPolicy.VisibleInert,
+                    BlockGameplayInput = true
+                });
+            AssertThat(modal.Status).IsEqual(UIScreenOpenStatus.Opened);
+
+            AssertThat(earlyFired).IsTrue();
+            AssertThat(laterFired).IsTrue();
+            AssertThat(stateSeenByLater).IsNotNull();
+            AssertThat(stateSeenByLater!.TopInputOwner).IsEqual(modal.Handle);
+            AssertThat(stateSeenByLater.IsPresentationGameplayBlocked).IsTrue();
+
+            await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+        }
+        finally
+        {
+            await DisposeFixture(fixture);
+        }
+    }
+
     private async Task DisposeFixture(HostFixture fixture)
     {
         fixture.Dispose();

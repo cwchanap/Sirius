@@ -65,6 +65,17 @@ public partial class UIScreenHost : Control
     // candidate-free state on rejection.
     private int _suppressPublication;
 
+    // In-progress EffectiveStateChanged publication cursor. When an earlier
+    // subscriber mutates the host and the recomputed state is unchanged, the
+    // remaining subscribers must still receive the same state rather than being
+    // skipped because _lastPublishedState was already advanced. _lastPublishedState
+    // is advanced to the new state at the start of a publication, but the
+    // handlers list and index are preserved so the Recompute can resume where it
+    // left off for a neutral mutation.
+    private UIScreenEffectiveState _pendingPublicationState = EmptyEffectiveState;
+    private Delegate[] _pendingEffectiveStateHandlers = Array.Empty<Delegate>();
+    private int _pendingEffectiveStateHandlerIndex;
+
     public IReadOnlyList<UIScreenEntrySnapshot> ActiveEntries => _model.Entries;
     public UIScreenEffectiveState CurrentState => _currentState;
     public UIScreenHostDiagnostics Diagnostics => CreateDiagnostics();
@@ -172,6 +183,18 @@ public partial class UIScreenHost : Control
     public UIScreenOpenResult TryPresent(Node view, UIScreenEntrySpec spec)
     {
         if (_drainingCloseQueue)
+            return new(UIScreenOpenStatus.HostMutating, null);
+        // A TryPresent called while an unsuppressed Recompute is in progress
+        // (e.g. from an EffectiveStateChanged / GameplayInputBlockChanged
+        // callback or from an effect callback during a non-suppressed pass)
+        // cannot commit its own effects: its Recompute calls would only mark
+        // _recomputePending and return. Reject it with HostMutating so the
+        // caller retries once the recompute transaction completes. Suppressed
+        // Recompute callbacks (the candidate's own final Recompute) are still
+        // allowed to re-enter, because the outer TryPresent revalidates after
+        // the suppressed pass and can roll back if the re-entrant open changed
+        // the model.
+        if (_recomputeDepth > 0 && _suppressPublication == 0)
             return new(UIScreenOpenStatus.HostMutating, null);
         if (!_ready || _tearingDown)
             return new(UIScreenOpenStatus.MalformedHost, null);
@@ -1256,29 +1279,52 @@ public partial class UIScreenHost : Control
                 _resolvedLowerLayerEffects = resolved.LowerLayerEffects;
 
                 if (_suppressPublication == 0)
-                    _lastPublishedState = nextState;
-
-                if (_suppressPublication == 0 &&
-                    previousPublishedState.IsPresentationGameplayBlocked !=
-                    nextState.IsPresentationGameplayBlocked)
                 {
-                    _options.GameplayInputBlockChanged?.Invoke(
-                        nextState.IsPresentationGameplayBlocked);
-                    // The callback may have mutated the host (e.g. a close on
-                    // block-state change). Don't publish the stale snapshot to
-                    // EffectiveStateChanged subscribers; restart instead.
-                    if (_model.MutationGeneration != generationBefore ||
-                        _recomputePending)
-                        continue;
-                }
+                    var stateChanged = previousPublishedState != nextState;
+                    var resumePending =
+                        _pendingPublicationState == nextState &&
+                        _pendingEffectiveStateHandlerIndex <
+                        _pendingEffectiveStateHandlers.Length;
 
-                if (_suppressPublication == 0 && previousPublishedState != nextState)
-                {
-                    // Invoke subscribers individually so a mutation by an earlier
-                    // subscriber (e.g. TryClose during publication) aborts the
-                    // remaining invocation list. Without this, later subscribers
-                    // receive a stale state that names a now-closed entry.
-                    InvokeEffectiveStateChanged(nextState, generationBefore);
+                    if (stateChanged || resumePending)
+                    {
+                        if (stateChanged)
+                        {
+                            // Advance _lastPublishedState to the state being
+                            // published so a mutation during publication
+                            // restarts from this state rather than the pre-
+                            // publication state, and capture the subscriber
+                            // list for resumable delivery.
+                            _lastPublishedState = nextState;
+                            _pendingPublicationState = nextState;
+                            _pendingEffectiveStateHandlers =
+                                EffectiveStateChanged?.GetInvocationList() ??
+                                Array.Empty<Delegate>();
+                            _pendingEffectiveStateHandlerIndex = 0;
+                        }
+
+                        if (previousPublishedState.IsPresentationGameplayBlocked !=
+                            nextState.IsPresentationGameplayBlocked)
+                        {
+                            _options.GameplayInputBlockChanged?.Invoke(
+                                nextState.IsPresentationGameplayBlocked);
+                            // The callback may have mutated the host (e.g. a
+                            // close on block-state change). Don't publish the
+                            // stale snapshot to EffectiveStateChanged
+                            // subscribers; restart instead.
+                            if (_model.MutationGeneration != generationBefore ||
+                                _recomputePending)
+                                continue;
+                        }
+
+                        // Invoke subscribers individually so a mutation by an
+                        // earlier subscriber (e.g. TryClose during publication)
+                        // aborts the remaining invocation list. For a neutral
+                        // mutation (the recomputed state is unchanged), resume
+                        // from the next uninvoked handler instead of restarting
+                        // from the beginning.
+                        InvokeEffectiveStateChanged(nextState, generationBefore);
+                    }
                 }
 
                 // A subscriber may have mutated the host during publication.
@@ -1297,24 +1343,25 @@ public partial class UIScreenHost : Control
     }
 
     /// <summary>
-    /// Invokes <see cref="EffectiveStateChanged"/> subscribers one at a time,
-    /// aborting the remaining invocation list as soon as a subscriber mutates
-    /// the model (detected via <see cref="UIScreenStackModel.MutationGeneration"/>
-    /// or <c>_recomputePending</c>). The outer <see cref="Recompute"/> loop then
-    /// restarts from the current model so every subscriber eventually observes a
-    /// state consistent with the active entry set.
+    /// Invokes the remaining <see cref="EffectiveStateChanged"/> subscribers
+    /// from the in-progress publication cursor, aborting as soon as a subscriber
+    /// mutates the model (detected via <see cref="UIScreenStackModel.MutationGeneration"/>
+    /// or <c>_recomputePending</c>). The index is advanced so the outer
+    /// <see cref="Recompute"/> loop can resume the same publication for a
+    /// state-neutral mutation, or start a new publication if the resolved state
+    /// changes.
     /// </summary>
     private void InvokeEffectiveStateChanged(
         UIScreenEffectiveState state,
         long generationBefore)
     {
-        if (EffectiveStateChanged == null)
-            return;
-
-        var handlers = EffectiveStateChanged.GetInvocationList();
-        foreach (var handler in handlers)
+        for (var i = _pendingEffectiveStateHandlerIndex;
+             i < _pendingEffectiveStateHandlers.Length;
+             i++)
         {
+            var handler = _pendingEffectiveStateHandlers[i];
             ((Action<UIScreenEffectiveState>)handler)(state);
+            _pendingEffectiveStateHandlerIndex = i + 1;
             if (_model.MutationGeneration != generationBefore || _recomputePending)
                 return;
         }

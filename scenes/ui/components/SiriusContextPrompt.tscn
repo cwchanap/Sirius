@@ -1,0 +1,24 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/components/SiriusContextPrompt.cs" id="1_context_prompt"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusInputHint.tscn" id="2_input_hint"]
+
+[node name="SiriusContextPrompt" type="HBoxContainer"]
+theme_override_constants/separation = 8
+script = ExtResource("1_context_prompt")
+
+[node name="SemanticIcon" type="TextureRect" parent="."]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PromptLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"SiriusBody"
+
+[node name="InputHint" parent="." instance=ExtResource("2_input_hint")]
+unique_name_in_owner = true
+layout_mode = 2

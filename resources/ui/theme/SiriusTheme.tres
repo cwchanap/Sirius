@@ -1,0 +1,72 @@
+[gd_resource type="Theme" load_steps=8 format=3]
+
+[ext_resource type="FontFile" path="res://assets/fonts/cinzel/Cinzel-Variable.ttf" id="1_cinzel"]
+[ext_resource type="FontFile" path="res://assets/fonts/noto_sans/NotoSans-Regular.ttf" id="2_noto_regular"]
+[ext_resource type="FontFile" path="res://assets/fonts/noto_sans/NotoSans-Medium.ttf" id="3_noto_medium"]
+[ext_resource type="FontFile" path="res://assets/fonts/noto_sans/NotoSans-SemiBold.ttf" id="4_noto_semibold"]
+[ext_resource type="FontFile" path="res://assets/fonts/noto_sans_mono/NotoSansMono-Medium.ttf" id="5_noto_mono"]
+
+[sub_resource type="FontVariation" id="FontVariation_display"]
+fallbacks = Array[Font]([ExtResource("2_noto_regular")])
+base_font = ExtResource("1_cinzel")
+variation_opentype = { "wght": 600 }
+
+[sub_resource type="FontVariation" id="FontVariation_telemetry"]
+base_font = ExtResource("5_noto_mono")
+spacing_glyph = 1
+
+[resource]
+SiriusDisplay/base_type = &"Label"
+SiriusDisplay/colors/font_color = Color(0.960784, 0.843137, 0.517647, 1)
+SiriusDisplay/font_sizes/font_size = 44
+SiriusDisplay/fonts/font = SubResource("FontVariation_display")
+SiriusDisplayCompact/base_type = &"Label"
+SiriusDisplayCompact/colors/font_color = Color(0.960784, 0.843137, 0.517647, 1)
+SiriusDisplayCompact/font_sizes/font_size = 30
+SiriusDisplayCompact/fonts/font = SubResource("FontVariation_display")
+SiriusTitle/base_type = &"Label"
+SiriusTitle/colors/font_color = Color(0.968627, 0.960784, 1, 1)
+SiriusTitle/font_sizes/font_size = 32
+SiriusTitle/fonts/font = ExtResource("4_noto_semibold")
+SiriusTitleCompact/base_type = &"Label"
+SiriusTitleCompact/colors/font_color = Color(0.968627, 0.960784, 1, 1)
+SiriusTitleCompact/font_sizes/font_size = 24
+SiriusTitleCompact/fonts/font = ExtResource("4_noto_semibold")
+SiriusSection/base_type = &"Label"
+SiriusSection/colors/font_color = Color(0.968627, 0.960784, 1, 1)
+SiriusSection/font_sizes/font_size = 20
+SiriusSection/fonts/font = ExtResource("4_noto_semibold")
+SiriusSectionCompact/base_type = &"Label"
+SiriusSectionCompact/colors/font_color = Color(0.968627, 0.960784, 1, 1)
+SiriusSectionCompact/font_sizes/font_size = 17
+SiriusSectionCompact/fonts/font = ExtResource("4_noto_semibold")
+SiriusBody/base_type = &"Label"
+SiriusBody/colors/font_color = Color(0.968627, 0.960784, 1, 1)
+SiriusBody/constants/line_spacing = 9
+SiriusBody/font_sizes/font_size = 16
+SiriusBody/fonts/font = ExtResource("2_noto_regular")
+SiriusBodyCompact/base_type = &"Label"
+SiriusBodyCompact/colors/font_color = Color(0.968627, 0.960784, 1, 1)
+SiriusBodyCompact/constants/line_spacing = 8
+SiriusBodyCompact/font_sizes/font_size = 14
+SiriusBodyCompact/fonts/font = ExtResource("3_noto_medium")
+SiriusMetadata/base_type = &"Label"
+SiriusMetadata/colors/font_color = Color(0.780392, 0.807843, 0.909804, 1)
+SiriusMetadata/font_sizes/font_size = 14
+SiriusMetadata/fonts/font = ExtResource("2_noto_regular")
+SiriusMetadataCompact/base_type = &"Label"
+SiriusMetadataCompact/colors/font_color = Color(0.780392, 0.807843, 0.909804, 1)
+SiriusMetadataCompact/font_sizes/font_size = 12
+SiriusMetadataCompact/fonts/font = ExtResource("2_noto_regular")
+SiriusNumeric/base_type = &"Label"
+SiriusNumeric/colors/font_color = Color(0.968627, 0.960784, 1, 1)
+SiriusNumeric/font_sizes/font_size = 16
+SiriusNumeric/fonts/font = ExtResource("5_noto_mono")
+SiriusNumericCompact/base_type = &"Label"
+SiriusNumericCompact/colors/font_color = Color(0.968627, 0.960784, 1, 1)
+SiriusNumericCompact/font_sizes/font_size = 14
+SiriusNumericCompact/fonts/font = ExtResource("5_noto_mono")
+SiriusTelemetry/base_type = &"Label"
+SiriusTelemetry/colors/font_color = Color(0.560784, 0.603922, 0.721569, 1)
+SiriusTelemetry/font_sizes/font_size = 12
+SiriusTelemetry/fonts/font = SubResource("FontVariation_telemetry")

@@ -1,0 +1,577 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/showcase/SiriusUiShowcase.cs" id="1_showcase"]
+[ext_resource type="Theme" path="res://resources/ui/theme/SiriusTheme.tres" id="2_theme"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusStatBar.tscn" id="3_stat_bar"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusInputHint.tscn" id="4_input_hint"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusContextPrompt.tscn" id="5_context_prompt"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusToastShell.tscn" id="6_toast_shell"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusModalShell.tscn" id="7_modal_shell"]
+
+[node name="SiriusUiShowcase" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_showcase")
+
+[node name="ShowcaseToolbar" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 48.0
+grow_horizontal = 2
+theme_override_constants/separation = 12
+
+[node name="ViewportSizeSelector" type="OptionButton" parent="ShowcaseToolbar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 40)
+layout_mode = 2
+tooltip_text = "Preview only: choose one approved verification viewport."
+
+[node name="ReducedMotionToggle" type="CheckBox" parent="ShowcaseToolbar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+text = "Reduced motion"
+tooltip_text = "Preview only: use opacity-only motion in the local demo."
+
+[node name="PreviewFrame" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 56.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PreviewContainer" type="SubViewportContainer" parent="PreviewFrame"]
+unique_name_in_owner = true
+layout_mode = 2
+stretch = false
+
+[node name="PreviewViewport" type="SubViewport" parent="PreviewFrame/PreviewContainer"]
+unique_name_in_owner = true
+handle_input_locally = true
+size = Vector2i(1280, 720)
+render_target_update_mode = 4
+
+[node name="PreviewRoot" type="Control" parent="PreviewFrame/PreviewContainer/PreviewViewport"]
+unique_name_in_owner = true
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+
+[node name="SafeFrame" type="MarginContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="ResponsiveScroll" type="ScrollContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ShowcaseContent" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(1232, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 24
+
+[node name="PaletteSection" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Heading" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection"]
+layout_mode = 2
+text = "Palette, surfaces, and scrims"
+theme_type_variation = &"SiriusSection"
+
+[node name="DarkSurfaceFixture" type="ColorRect" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 176)
+layout_mode = 2
+color = Color(0.019608, 0.027451, 0.078431, 1)
+
+[node name="SurfacePanels" type="HBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/DarkSurfaceFixture"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 8
+
+[node name="DarkContentPanel" type="PanelContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/DarkSurfaceFixture/SurfacePanels"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusContentPanel"
+
+[node name="Label" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/DarkSurfaceFixture/SurfacePanels/DarkContentPanel"]
+layout_mode = 2
+text = "Content"
+theme_type_variation = &"SiriusMetadata"
+
+[node name="DarkFeaturePanel" type="PanelContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/DarkSurfaceFixture/SurfacePanels"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusFeaturePanel"
+
+[node name="Label" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/DarkSurfaceFixture/SurfacePanels/DarkFeaturePanel"]
+layout_mode = 2
+text = "Feature"
+theme_type_variation = &"SiriusMetadata"
+
+[node name="DarkHudPlate" type="PanelContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/DarkSurfaceFixture/SurfacePanels"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusHudPlate"
+
+[node name="Label" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/DarkSurfaceFixture/SurfacePanels/DarkHudPlate"]
+layout_mode = 2
+text = "HUD plate"
+theme_type_variation = &"SiriusMetadata"
+
+[node name="DarkScrim" type="PanelContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/DarkSurfaceFixture"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"SiriusScrim"
+
+[node name="LightSurfaceFixture" type="ColorRect" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 176)
+layout_mode = 2
+color = Color(0.968627, 0.960784, 1, 1)
+
+[node name="SurfacePanels" type="HBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/LightSurfaceFixture"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 8
+
+[node name="LightContentPanel" type="PanelContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/LightSurfaceFixture/SurfacePanels"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusContentPanel"
+
+[node name="Label" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/LightSurfaceFixture/SurfacePanels/LightContentPanel"]
+layout_mode = 2
+text = "Content"
+theme_type_variation = &"SiriusMetadata"
+
+[node name="LightFeaturePanel" type="PanelContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/LightSurfaceFixture/SurfacePanels"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusFeaturePanel"
+
+[node name="Label" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/LightSurfaceFixture/SurfacePanels/LightFeaturePanel"]
+layout_mode = 2
+text = "Feature"
+theme_type_variation = &"SiriusMetadata"
+
+[node name="LightHudPlate" type="PanelContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/LightSurfaceFixture/SurfacePanels"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusHudPlate"
+
+[node name="Label" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/LightSurfaceFixture/SurfacePanels/LightHudPlate"]
+layout_mode = 2
+text = "HUD plate"
+theme_type_variation = &"SiriusMetadata"
+
+[node name="LightChildScrim" type="PanelContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/PaletteSection/LightSurfaceFixture"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"SiriusChildScrim"
+
+[node name="TypographySection" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="TypographyDisplay" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/TypographySection"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "SIRIUS OBSERVATORY"
+theme_type_variation = &"SiriusDisplay"
+
+[node name="TypographyTitle" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/TypographySection"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Typography and long text"
+theme_type_variation = &"SiriusTitle"
+
+[node name="TypographySectionLabel" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/TypographySection"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Section heading"
+theme_type_variation = &"SiriusSection"
+
+[node name="TypographyBody" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/TypographySection"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Standard and compact labels remain selected only by the viewport-owning preview."
+autowrap_mode = 2
+theme_type_variation = &"SiriusBody"
+
+[node name="StressMetadata" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/TypographySection"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "OBSERVATORY-CALIBRATION-IDENTIFIER-000000000000"
+tooltip_text = "OBSERVATORY-CALIBRATION-IDENTIFIER-000000000000"
+clip_text = true
+theme_type_variation = &"SiriusMetadata"
+
+[node name="ButtonSection" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Heading" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection"]
+layout_mode = 2
+text = "Stock button variations and states"
+theme_type_variation = &"SiriusSection"
+
+[node name="ButtonGrid" type="GridContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection"]
+layout_mode = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+columns = 2
+
+[node name="PrimaryButtonFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/ButtonGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Primary action"
+theme_type_variation = &"SiriusPrimaryButton"
+
+[node name="SecondaryButtonFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/ButtonGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Secondary action"
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="TertiaryButtonFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/ButtonGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Tertiary action"
+theme_type_variation = &"SiriusTertiaryButton"
+
+[node name="WarningButtonFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/ButtonGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Warning action"
+theme_type_variation = &"SiriusWarningButton"
+
+[node name="DestructiveButtonFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/ButtonGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Destructive action"
+theme_type_variation = &"SiriusDestructiveButton"
+
+[node name="LoadingFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/ButtonGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "Loading…"
+theme_type_variation = &"SiriusPrimaryButton"
+
+[node name="IgnitionRow" type="HBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="IgnitionStandardFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/IgnitionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Ignition standard target"
+text = "Ignite"
+theme_type_variation = &"SiriusIgnitionButton"
+
+[node name="IgnitionCompactFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/IgnitionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Ignition compact target"
+text = "Go"
+theme_type_variation = &"SiriusIgnitionButton"
+
+[node name="FocusControls" type="HBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="FocusFirstFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/FocusControls"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_next = NodePath("../SelectedFocusedFixture")
+focus_previous = NodePath("../FocusLastFixture")
+text = "Focus start"
+theme_type_variation = &"SiriusPrimaryButton"
+
+[node name="SelectedFocusedFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/FocusControls"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_next = NodePath("../FocusLastFixture")
+focus_previous = NodePath("../FocusFirstFixture")
+toggle_mode = true
+button_pressed = true
+text = "Selected + focused"
+theme_type_variation = &"SiriusPrimaryButton"
+
+[node name="FocusLastFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/FocusControls"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_next = NodePath("../FocusFirstFixture")
+focus_previous = NodePath("../SelectedFocusedFixture")
+text = "Focus loop"
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="TabsSection" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Heading" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/TabsSection"]
+layout_mode = 2
+text = "Native tabs and tooltips"
+theme_type_variation = &"SiriusSection"
+
+[node name="NativeTabs" type="TabContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/TabsSection"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 112)
+layout_mode = 2
+
+[node name="Overview" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/TabsSection/NativeTabs"]
+layout_mode = 2
+metadata/_tab_index = 0
+
+[node name="Label" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/TabsSection/NativeTabs/Overview"]
+layout_mode = 2
+text = "Overview tab"
+theme_type_variation = &"SiriusBody"
+
+[node name="Details" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/TabsSection/NativeTabs"]
+layout_mode = 2
+metadata/_tab_index = 1
+
+[node name="TooltipButton" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/TabsSection/NativeTabs/Details"]
+layout_mode = 2
+tooltip_text = "A themed native tooltip remains available to stock controls."
+text = "Hover for tooltip"
+theme_type_variation = &"SiriusTertiaryButton"
+
+[node name="StatBarSection" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Heading" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/StatBarSection"]
+layout_mode = 2
+text = "Stat bar edge cases"
+theme_type_variation = &"SiriusSection"
+
+[node name="HealthStat" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/StatBarSection" instance=ExtResource("3_stat_bar")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ManaStat" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/StatBarSection" instance=ExtResource("3_stat_bar")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ExperienceStat" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/StatBarSection" instance=ExtResource("3_stat_bar")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="InvalidStat" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/StatBarSection" instance=ExtResource("3_stat_bar")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="InputHintSection" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Heading" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/InputHintSection"]
+layout_mode = 2
+text = "Keyboard, mouse, gamepad, fallback, and unbound hints"
+theme_type_variation = &"SiriusSection"
+
+[node name="KeyboardHint" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/InputHintSection" instance=ExtResource("4_input_hint")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="MouseHint" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/InputHintSection" instance=ExtResource("4_input_hint")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="GamepadHint" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/InputHintSection" instance=ExtResource("4_input_hint")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="FallbackHint" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/InputHintSection" instance=ExtResource("4_input_hint")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="UnboundHint" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/InputHintSection" instance=ExtResource("4_input_hint")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ContextPromptSection" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Heading" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ContextPromptSection"]
+layout_mode = 2
+text = "Context prompt"
+theme_type_variation = &"SiriusSection"
+
+[node name="TalkPrompt" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ContextPromptSection" instance=ExtResource("5_context_prompt")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ToastSection" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Heading" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ToastSection"]
+layout_mode = 2
+text = "Static toast shells"
+theme_type_variation = &"SiriusSection"
+
+[node name="InfoToast" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ToastSection" instance=ExtResource("6_toast_shell")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+
+[node name="SuccessToast" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ToastSection" instance=ExtResource("6_toast_shell")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+
+[node name="WarningToast" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ToastSection" instance=ExtResource("6_toast_shell")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+
+[node name="ErrorToast" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ToastSection" instance=ExtResource("6_toast_shell")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+
+[node name="ModalSection" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Heading" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ModalSection"]
+layout_mode = 2
+text = "Static modal shells"
+theme_type_variation = &"SiriusSection"
+
+[node name="SmallModalFixture" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ModalSection" instance=ExtResource("7_modal_shell")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 168)
+layout_mode = 2
+
+[node name="MediumModalFixture" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ModalSection" instance=ExtResource("7_modal_shell")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 260)
+layout_mode = 2
+
+[node name="LargeModalFixture" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ModalSection" instance=ExtResource("7_modal_shell")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 168)
+layout_mode = 2
+
+[node name="MotionSection" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Heading" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/MotionSection"]
+layout_mode = 2
+text = "Local motion demonstration"
+theme_type_variation = &"SiriusSection"
+
+[node name="MotionPlayButton" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/MotionSection"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Play local motion demo"
+theme_type_variation = &"SiriusPrimaryButton"
+
+[node name="MotionStage" type="Control" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/MotionSection"]
+custom_minimum_size = Vector2(0, 388)
+layout_mode = 2
+
+[node name="MotionModalWrapper" type="Control" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/MotionSection/MotionStage"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 248.0
+grow_horizontal = 2
+
+[node name="MotionModal" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/MotionSection/MotionStage/MotionModalWrapper" instance=ExtResource("7_modal_shell")]
+unique_name_in_owner = true
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MotionToastWrapper" type="Control" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/MotionSection/MotionStage"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_top = 0.65
+anchor_right = 1.0
+anchor_bottom = 0.65
+offset_bottom = 112.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MotionToast" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/MotionSection/MotionStage/MotionToastWrapper" instance=ExtResource("6_toast_shell")]
+unique_name_in_owner = true
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2

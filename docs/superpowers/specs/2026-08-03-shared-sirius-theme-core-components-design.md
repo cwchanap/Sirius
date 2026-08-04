@@ -16,28 +16,30 @@
 HPA-377 delivers:
 
 1. one authored, opt-in `SiriusTheme.tres`;
-2. seven thin presentation components with named first consumers;
+2. five scene-authored presentation components with proven consumers;
 3. an isolated UI showcase;
 4. deterministic resource, component, and responsive-layout tests.
 
 Ownership remains split three ways:
 
 - **Theme:** fonts, colours, style boxes, native control states, scrims, spacing, and type variations;
-- **components:** small presentation APIs and scene composition;
-- **`UIScreenHost` and consuming flows:** stacking, queueing, pause, input, focus restoration, navigation, and lifetime.
+- **components:** only presentation behavior that stock Godot controls cannot express declaratively;
+- **`UIScreenHost` and consuming flows:** stacking, queueing, pause, input, focus restoration, navigation, dismissal, and lifetime.
 
 The Theme is not configured as `ProjectSettings.gui/theme/custom`. HPA-377 assigns it only to the showcase and test fixtures. Production roots and migrated screens opt in later.
 
-## 2. Complexity constraint
+## 2. YAGNI and complexity constraint
 
-HPA-378 demonstrated the cost of over-generalized foundation work through a concentrated hardening tail around re-entrant mutation, focus restoration, publication ordering, and deferred teardown. HPA-377 therefore follows these guardrails:
+HPA-378 demonstrated the cost of over-generalized foundation work through a concentrated hardening tail around re-entrant mutation, focus restoration, publication ordering, and deferred teardown. HPA-377 therefore follows these rules:
 
 - no autoload, registry, coordinator, pure state model, lifecycle service, or generic focus helper;
-- no reusable state machine without a current or named first consumer;
-- no component-owned domain operation, navigation, queue, or asynchronous task;
-- no runtime fallback for required committed Theme assets when a resource-contract test can fail the build;
+- no subclass whose only behavior is assigning `ThemeTypeVariation`;
+- no reusable state machine without a current consumer in HPA-377;
+- no component-owned navigation, queue, dismissal, asynchronous task, or animation lifetime;
+- no runtime fallback for required committed Theme assets when a resource test can fail the build;
 - no Godot control type is styled merely because the engine provides it;
-- no exhaustive lifecycle matrix for controls that own no lifecycle;
+- no C# constant is added only for a downstream ticket;
+- no configurable property is added when HPA-377 has one approved value;
 - each HPA-377 test file stays below 500 lines;
 - re-entrant or teardown combinatorics trigger a design revisit instead of a larger test matrix.
 
@@ -50,8 +52,6 @@ Implementation is grounded in HPA-373:
 - source blob: `9e1d1edb366a67a3fa6d0dd02f3641aa0bb42a7d`;
 - merged PR: **#17**;
 - merge commit: `bc82eadcab27e2321c69fcf56cc3c43e6917b5f5`.
-
-The stale “review candidate” header in that historical file is metadata debt. Linear completion and merged PR #17 are authoritative; the stale header does not block HPA-377.
 
 HPA-374 supplies:
 
@@ -66,19 +66,20 @@ HPA-378 supplies the scene-local `UIScreenHost`. HPA-377 components do not depen
 
 | Capability | First consumer | HPA-377 treatment |
 | --- | --- | --- |
-| Labelled actions | Existing menus; HPA-380; HPA-382 | Theme variations plus `SiriusActionButton` |
-| Content/HUD/modal surfaces | HPA-380; HPA-381; HPA-382 | Theme variations plus `SiriusPanel` and `SiriusModalShell` |
+| Labelled actions | Existing menus; HPA-380; HPA-382 | Stock `Button` plus Theme variations; no subclass |
+| Content/HUD surfaces | HPA-380; HPA-381 | Stock `PanelContainer` plus Theme variations; no subclass |
+| Modal composition | HPA-382 | `SiriusModalShell` visual composition only |
 | HP, MP, EXP bars | HPA-381; HPA-356 | `SiriusStatBar` with three public kinds |
 | Input hint | Existing inventory integration; HPA-380; HPA-381 | `SiriusInputHint` around `InputHintPresenter` |
-| Context prompt | HPA-381 and explicit HPA-377 scope | `SiriusContextPrompt` |
-| Toast visual shell | HPA-386 | `SiriusToastShell`; queueing remains HPA-386 work |
-| Ignition seal | HPA-356; HPA-386 | Stock square Button Theme variation |
-| Generic focus halo | No proven consumer | Deferred |
+| Context prompt | Explicit HPA-377 scope; HPA-381 | `SiriusContextPrompt` |
+| Toast visual shell | Explicit HPA-377 scope; HPA-386 | `SiriusToastShell`; queue/lifetime remains HPA-386 work |
+| Ignition seal | HPA-356; HPA-386 | Stock square `Button` Theme variation |
+| Focus/highlight helper | No control proves Theme focus insufficient | Deferred |
 | Automatic-action bar | HPA-356 only | Deferred to HPA-356 |
-| Telemetry callout/catalogue rail APIs | HPA-356/HPA-357 | Deferred to those tickets |
-| Persisted reduced motion | HPA-541 | Explicit component flags only in HPA-377 |
+| Telemetry callout/catalogue rail | HPA-356/HPA-357 | Deferred to those tickets |
+| Persisted reduced motion | HPA-541 | Shared motion policy only; production binding deferred |
 
-A deferred consumer extends the same central Theme or extracts a component in its ticket. It must not add a screen-local palette or duplicate a shared style.
+A deferred consumer extends the same central Theme or extracts a component in its own ticket. It must not add a screen-local palette or duplicate a shared style.
 
 ## 5. Scope and files
 
@@ -94,12 +95,19 @@ scripts/ui/theme/
 └── SiriusMotion.cs
 ```
 
+`SiriusUiTypes.cs` contains only:
+
+- `SiriusUiSeverity`;
+- `SiriusModalSizeClass`;
+- `SiriusStatBarKind`;
+- their exhaustive presentation mappings.
+
+Button and panel roles use `SiriusThemeTypes` constants directly. There is no `SiriusActionButtonVariant`, `SiriusPanelSurface`, `SiriusActionButton`, or `SiriusPanel`.
+
 ### 5.2 Components
 
 ```text
 scripts/ui/components/
-├── SiriusActionButton.cs
-├── SiriusPanel.cs
 ├── SiriusModalShell.cs
 ├── SiriusStatBar.cs
 ├── SiriusInputHint.cs
@@ -114,7 +122,7 @@ scenes/ui/components/
 └── SiriusToastShell.tscn
 ```
 
-Direct subclasses with one visual region remain code-first. Multi-node composites receive `.tscn` scenes.
+Every component is a multi-node composite. Stock controls remain stock controls.
 
 ### 5.3 Showcase, tests, and guide
 
@@ -191,10 +199,9 @@ A single compact scale is rejected because the approved reductions are non-unifo
 
 ### 6.3 Metrics
 
-`SiriusUiMetrics` exposes only HPA-377 needs:
+`SiriusUiMetrics` exposes only values consumed by HPA-377 code:
 
 ```text
-Space4 / Space8 / Space12 / Space16 / Space24 / Space32 / Space48
 Compact threshold: width < 800 or height < 450
 Standard safe margin: 24
 Compact safe margin: 12
@@ -205,91 +212,47 @@ Modal widths: 420 / 640 / 960
 Modal maximum: 90% of viewport
 Tooltip maximum: 360 standard / 280 compact
 Ignition preferred size: 96×96 standard / 80×80 compact
+Seven approved validation viewports
+Two focus-validation viewports: 640×360 and 1280×720
 ```
 
-Slot dimensions are not included; no slot component exists in HPA-377. HPA-357 owns slot metrics when it consumes them.
+Spacing values remain authored in the Theme and scenes. They are not duplicated as C# constants. Slot dimensions remain HPA-357 work.
 
-### 6.4 Interactive states
+### 6.4 Buttons
 
-| State | Contract |
-| --- | --- |
-| Normal | Indigo surface with 1 px muted border |
-| Hover | Brighter surface and restrained cyan edge light |
-| Pressed | Darker fill and 1 px depression |
-| Hover-pressed | Pressed geometry with hover emphasis |
-| Focus | Independent cyan outer ring; no layout shift |
-| Selected/toggled | Persistent gold treatment and non-colour marker |
-| Disabled | 45% opacity, no glow, readable reason where applicable |
-| Warning | Amber icon/border plus warning text |
-| Destructive | Rose icon/border; filled danger only at final confirmation |
-
-### 6.5 Buttons
-
-`SiriusActionButtonVariant` contains:
-
-```csharp
-Primary,
-Secondary,
-Tertiary,
-Warning,
-Destructive
-```
-
-Each maps to one Theme variation with `normal`, `hover`, `pressed`, `hover_pressed`, `focus`, and `disabled` resources.
-
-`SiriusActionButton` inspector API:
+Stock `Button` variations:
 
 ```text
-Variant : SiriusActionButtonVariant
-ShowIcon : bool
-IconId : UiIconId
-IconSize : UiIconSize = UiIconSize.Default
-DisabledReason : string
+SiriusPrimaryButton
+SiriusSecondaryButton
+SiriusTertiaryButton
+SiriusWarningButton
+SiriusDestructiveButton
+SiriusIgnitionButton
 ```
 
-Runtime convenience API:
+Each conventional variation defines `normal`, `hover`, `pressed`, `hover_pressed`, `focus`, and `disabled` resources. Callers use:
 
 ```csharp
-void SetIcon(UiIconId? icon)
+button.ThemeTypeVariation = SiriusThemeTypes.PrimaryButton;
+UiIconPresenter.Apply(button, UiIconId.Confirm, UiIconSize.Default);
+button.TooltipText = disabledReason;
 ```
 
-Godot exports regular enums but exported members must be Variant-compatible; nullable enums are not an inspector-safe contract. `ShowIcon` is therefore the authoritative presence flag, and `IconId` is inert when `ShowIcon == false`. `SetIcon()` changes both atomically for runtime callers.
+No wrapper class is required. The caller owns the disabled explanation because it owns the reason.
 
-`DisabledReason` behavior:
+Ignition remains a stock square Button:
 
-- `TooltipText` is populated only while `Disabled == true`;
-- enabled buttons do not advertise a disabled reason;
-- the component leaves `MouseFilter` non-Ignore so disabled mouse hover can resolve the tooltip;
-- tests assert `GetTooltip()` on a disabled button;
-- keyboard/gamepad flows that skip disabled controls must also expose the reason in their caller-owned visible detail surface.
-
-The component preserves stock Button selection, focus, disabled, and activation behavior. It owns no loading or task lifecycle.
-
-#### Ignition
-
-Ignition is a stock square `Button` using `SiriusIgnitionButton`:
-
-- required `ignition_seal.png` reused by native state `StyleBoxTexture` resources;
+- required `ignition_seal.png` reused by state `StyleBoxTexture` resources;
 - preferred size 96×96 standard and 80×80 compact;
 - label centered, at most two lines, 16 px inset;
 - focus uses required cyan `focus_halo.png`;
-- resource tests fail if either required asset is absent;
+- resource tests fail if either asset is absent;
 - there is no runtime fallback path.
 
-Localized text that does not fit uses a conventional Primary action.
+### 6.5 Surfaces and scrims
 
-### 6.6 Surfaces and scrims
-
-`SiriusPanelSurface` contains:
-
-```csharp
-Content,
-Feature,
-HudPlate,
-Modal
-```
-
-Theme variations:
+Stock `Panel`/`PanelContainer` variations:
 
 ```text
 SiriusContentPanel
@@ -302,11 +265,9 @@ SiriusScrim
 SiriusChildScrim
 ```
 
-Warning and Error panels are selected internally by modal/toast severity, not public panel-surface enum values.
+Scrims use `night-1000` at 58% and 72%. A host or caller creates them. Modal and Toast shells do not own a scrim.
 
-Scrims use `night-1000` at 58% and 72%. A host or caller creates them. `SiriusModalShell` and `SiriusToastShell` do not own a scrim.
-
-### 6.7 Bars
+### 6.6 Bars
 
 `SiriusStatBarKind` contains:
 
@@ -325,16 +286,18 @@ SiriusExpBar
 SiriusInvalidBar
 ```
 
-`SiriusInvalidBar` is an internal presentation variation for `Maximum <= 0`; it is not a public stat kind.
+`SiriusInvalidBar` is internal presentation for `Maximum <= 0`; it is not a public stat kind.
 
 - HP uses danger/rose;
 - MP uses cyan;
 - EXP uses gold;
+- the low threshold is fixed at `0.25` for HPA-377;
+- numeric values are always shown;
 - low, overflow, negative, and invalid states include text or markers.
 
-Automatic-action progress remains HPA-356 work.
+There is no `ShowNumericValue` or configurable `LowThreshold` until a consumer proves either need.
 
-### 6.8 Other native controls
+### 6.7 Other native controls
 
 HPA-377 styles only:
 
@@ -367,45 +330,23 @@ Algorithm:
 
 ## 8. Motion
 
-`SiriusMotion` contains the approved classes:
+`SiriusMotion` contains only the motion exercised by HPA-377:
 
-| Profile | Duration | First consumer |
-| --- | ---: | --- |
-| Control feedback | 120 ms | Current buttons; HPA-380/HPA-382 |
-| Callout entry | 220 ms | Modal/toast in HPA-377; later callouts |
-| Callout exit | 180 ms | Modal/toast in HPA-377; later callouts |
-| Screen transition | 280 ms | HPA-380/HPA-382 |
-| Orrery transformation maximum | 400 ms | HPA-356/HPA-357 |
-| Reduced-motion opacity maximum | 100 ms | HPA-377, persisted by HPA-541 |
+```text
+Entry: 220 ms, cubic out
+Exit: 180 ms, quadratic in
+Reduced-motion opacity: at most 100 ms, linear
+```
 
-The constants are retained because each has a current or named first consumer and prevents downstream tickets from redefining timing. HPA-377 components animate only modal/toast entry and exit.
+The showcase owns the demonstration Tween and applies it to wrapper Controls around the static Modal and Toast shells. The shells expose no `ReducedMotion`, `PlayEntry`, or `PlayExit` API and own no Tween lifetime.
 
-Reduced motion replaces transforms and pulses with static state or opacity no longer than 100 ms. Components receive it explicitly and never read `SettingsManager`.
+HPA-373 remains the source for control-feedback, screen-transition, and orrery timings. HPA-380, HPA-382, HPA-356, and HPA-357 add code constants only when they implement those motions.
+
+HPA-541 owns the persisted preference and production propagation.
 
 ## 9. Components
 
-### 9.1 `SiriusActionButton`
-
-Base: `Button`.
-
-Responsibilities:
-
-- map five variants;
-- apply optional icons through the inspector encoding or `SetIcon()`;
-- expose `DisabledReason` only when disabled;
-- preserve stock Button behavior.
-
-### 9.2 `SiriusPanel`
-
-Base: `PanelContainer`.
-
-```text
-Surface : SiriusPanelSurface
-```
-
-It maps four values and owns no layout or domain state.
-
-### 9.3 `SiriusModalShell`
+### 9.1 `SiriusModalShell`
 
 Scene-authored rectangular observatory plate:
 
@@ -414,30 +355,27 @@ Title : string
 Severity : SiriusUiSeverity
 SizeClass : SiriusModalSizeClass
 Compact : bool
-ReducedMotion : bool
-ShowCloseAffordance : bool
 BodyHost : Control
 ActionsHost : Control
-CloseRequested signal
+RefreshPresentation(Vector2 availableSize)
 ```
 
-It owns composition, responsive width, and visual-only entry/exit motion. It does not create a scrim, register with a host, choose focus, intercept Cancel, dismiss itself, or choose a domain action.
+It owns composition, severity presentation, and responsive width only. It does not create a scrim, animate, register with a host, choose focus, expose a close action, intercept Cancel, dismiss itself, or choose a domain action. HPA-382 owns production modal lifecycle and close behavior.
 
-### 9.4 `SiriusStatBar`
+### 9.2 `SiriusStatBar`
 
 ```text
 Kind : SiriusStatBarKind
 Current : double
 Maximum : double
 Label : string
-ShowNumericValue : bool
-LowThreshold : double = 0.25
 Compact : bool
+RefreshPresentation()
 ```
 
-Visual fill clamps to range; displayed values preserve caller data. Invalid maximum uses `SiriusInvalidBar`.
+Visual fill clamps to range; displayed values preserve caller data. Numeric text is always visible. The low threshold is fixed at 0.25. Invalid maximum uses `SiriusInvalidBar`.
 
-### 9.5 `SiriusInputHint`
+### 9.3 `SiriusInputHint`
 
 ```text
 Prompt : string
@@ -450,7 +388,7 @@ Refresh()
 
 It wraps `InputHintPresenter`, observes input only while visible, and introduces no global service.
 
-### 9.6 `SiriusContextPrompt`
+### 9.4 `SiriusContextPrompt`
 
 ```text
 ShowIcon : bool
@@ -461,30 +399,30 @@ Compact : bool
 Refresh()
 ```
 
-It composes an optional icon, readable prompt, and `SiriusInputHint`. It does not discover targets or invoke interactions. It remains in scope because HPA-377 explicitly names it and HPA-381 is its first consumer.
+It composes an optional icon, readable prompt, and `SiriusInputHint`. It does not discover targets or invoke interactions.
 
-### 9.7 `SiriusToastShell`
+### 9.5 `SiriusToastShell`
 
 ```text
 Severity : SiriusUiSeverity
 Title : string
 Message : string
 Compact : bool
-ReducedMotion : bool
+RefreshPresentation()
 ```
 
-It owns semantic visual presentation and entry/exit motion only. HPA-386 owns queueing, timeout, stacking, host registration, and lifecycle.
+It owns semantic visual presentation only. It has no Timer, Tween, queue, timeout, stacking, acknowledgement, host registration, or lifecycle behavior. HPA-386 owns those concerns.
 
 ## 10. Showcase
 
 `SiriusUiShowcase.tscn` remains outside production navigation.
 
-Deterministic backgrounds:
+The toolbar contains only:
 
-1. `night-1000` solid;
-2. `moon-50` solid;
-3. retained main-menu scenic background;
-4. retained battle scenic background.
+- approved viewport selector;
+- reduced-motion toggle for the local motion demonstration.
+
+There is no background selector or scenic-background loading. The palette section contains fixed dark and light fixtures, which satisfies HPA-377's representative-background requirement without another enum or controller path.
 
 Stress fixtures:
 
@@ -494,19 +432,18 @@ Stress fixtures:
 
 Required sections:
 
-1. palette, surfaces, and both scrims;
+1. palette, surfaces, and both scrims over fixed dark/light fixtures;
 2. standard/compact typography and long text;
-3. all five action variants and native states;
-4. standard/compact stock Ignition;
-5. selected-plus-focused stock toggle;
-6. disabled Primary labelled `Loading…`;
-7. tabs and tooltips;
-8. HP/MP/EXP edge cases;
-9. keyboard, mouse, gamepad, fallback, and unbound hints;
-10. context prompts;
-11. Info/Success/Warning/Error toasts;
-12. Small/Medium/Large modal shells;
-13. normal and reduced-motion modal/toast transitions.
+3. all six Button variations and native states;
+4. selected-plus-focused stock toggle;
+5. disabled Primary labelled `Loading…`;
+6. tabs and tooltips;
+7. HP/MP/EXP edge cases;
+8. keyboard, mouse, gamepad, fallback, and unbound hints;
+9. context prompts;
+10. Info/Success/Warning/Error toasts;
+11. Small/Medium/Large modal shells;
+12. normal and reduced-motion wrapper transitions.
 
 Loading is a static fixture, not a component API.
 
@@ -514,15 +451,7 @@ Loading is a static fixture, not a component API.
 
 ### 11.1 Runtime requirement
 
-Tests that construct `StringName`, Godot vectors, Resources, Nodes, Themes, or scenes use:
-
-```csharp
-[TestSuite]
-[RequireGodotRuntime]
-public partial class ExampleTest : Node
-```
-
-Only genuinely pure C# suites omit the runtime attribute and Node base.
+Tests that construct `StringName`, Godot vectors, Resources, Nodes, Themes, or scenes use `[RequireGodotRuntime]` and inherit `Node`.
 
 ### 11.2 Resource tests
 
@@ -531,7 +460,6 @@ Verify:
 - Theme loads and required variations exist;
 - fonts load at direct paths;
 - required ornament and icon files exist directly through `FileAccess.FileExists` and `ResourceLoader.Exists`;
-- icon existence is not inferred through `UiArtCatalog.LoadIcon` or `UiIconPresenter.Apply`, because the catalog may substitute the Info icon;
 - native Button states, Ignition textures, panels, bars including `SiriusInvalidBar`, tabs, tooltips, scrollbars, and scrims match the contract;
 - enum mappings are exhaustive.
 
@@ -539,20 +467,17 @@ Verify:
 
 Focused files cover:
 
-- ActionButton mapping, icon presence encoding, `SetIcon()`, and disabled-reason gating;
-- disabled Button `GetTooltip()` while `MouseFilter` is non-Ignore;
-- panel mapping;
-- modal composition, size/severity, no-scrim ownership, and reduced motion;
+- modal composition, size/severity, and no-scrim/no-lifecycle ownership;
 - stat edge cases and InvalidBar;
 - input hint device/binding changes;
 - context composition;
-- toast semantics without queue ownership.
+- toast semantics without queue, Timer, Tween, or scrim ownership.
 
-Do not duplicate native Button lifecycle tests.
+Stock Button and Panel behavior is covered by resource tests rather than wrapper-component tests.
 
 ### 11.4 Showcase tests
 
-Split into three files to preserve the 500-line guard:
+Split into three focused files:
 
 ```text
 SiriusUiShowcaseStructureTest.cs
@@ -560,9 +485,9 @@ SiriusUiShowcaseResponsiveTest.cs
 SiriusUiShowcaseFocusTest.cs
 ```
 
-- **Structure:** named sections, backgrounds, stress fixtures, component types, static Loading fixture, and required resources.
+- **Structure:** named sections, fixed light/dark fixtures, stress fixtures, component types, static Loading, and local motion demo controls.
 - **Responsive:** one fixture resized sequentially through all seven approved viewports; safe margins, compact authority, targets, reachability, and wrapping.
-- **Focus:** full keyboard/gamepad traversal at 640×360, 1280×720, 1024×768, and 2560×1080.
+- **Focus:** full traversal once in compact mode at 640×360 and once in standard mode at 1280×720. Other aspect ratios reuse the same focus tree and are covered by responsive reachability checks.
 
 No pixel equality is required.
 
@@ -571,7 +496,7 @@ No pixel equality is required.
 `docs/ui/hpa-377/README.md` is a concise integration guide containing only:
 
 - Theme path and opt-in example;
-- public variations and component APIs;
+- public type variations and five component APIs;
 - compact authority;
 - font/art paths;
 - HPA-541 and HPA-386 handoffs;
@@ -584,25 +509,31 @@ It links here for rationale.
 HPA-377 does not:
 
 - restyle production screens or globally activate the Theme;
+- add Button or Panel subclasses;
 - add inventory, battle, save, dialogue, shop, or puzzle domain components;
 - add a focus-tracking component;
+- add component-owned animation or dismissal behavior;
 - implement asynchronous button ownership or loading restoration;
 - implement toast/reward queueing or short confirmation seals;
 - add settings persistence;
 - style unused native controls;
 - make screenshots the primary correctness gate.
 
-HPA-541 owns persisted reduced motion. HPA-386 owns toast/reward queueing and short confirmations. HPA-356 owns automatic-action presentation. HPA-357 owns slot/component details.
+HPA-541 owns persisted reduced motion. HPA-386 owns toast/reward queueing and short confirmations. HPA-382 owns production modal lifecycle. HPA-356 owns automatic-action presentation. HPA-357 owns slot/component details.
 
 ## 14. Alternatives considered
 
+- **Button/Panel subclasses:** rejected because assigning a Theme variation is already native Godot behavior; the wrappers add files, APIs, and tests without new capability.
+- **Component-owned Tweens:** rejected because they duplicate lifetime logic and overlap the production owners in HPA-382/HPA-386.
+- **Future motion constants:** rejected until the downstream ticket implements that motion.
+- **Configurable stat display/threshold:** rejected because HPA-377 has one approved numeric display and threshold.
+- **Scenic background selector:** rejected because fixed light/dark fixtures satisfy the ticket with less code.
 - **Project-global Theme:** cheaper initially but causes an immediate legacy restyle.
 - **Runtime Theme builder/autoload:** adds initialization and lifecycle state to an authored-resource problem.
 - **Local styles per migration:** cheapest for one screen but recreates the duplication HPA-377 exists to remove.
-- **One generic dark Theme:** insufficient for semantic states, focus/selection, bars, and approved visual language.
+- **One generic dark Theme:** insufficient for semantic states, focus/selection, bars, and the approved visual language.
 - **Single compact scale:** cannot reproduce non-uniform role reductions.
 - **Full native-control coverage:** speculative; extend centrally when demand appears.
-- **Reusable loading/focus helpers:** deferred until a real consumer proves the API.
 - **Four Settings presets only:** insufficient for resizable 4:3, 16:10, and ultrawide shapes.
 - **Pixel-golden tests:** fragile across fonts, backends, and headless execution.
 
@@ -611,13 +542,14 @@ HPA-541 owns persisted reduced motion. HPA-386 owns toast/reward queueing and sh
 HPA-377 is complete when:
 
 - the canonical opt-in Theme loads with every required resource;
-- seven components exist with only the APIs above;
+- five components exist with only the APIs above;
+- stock Button and Panel variations cover the approved roles without wrapper classes;
 - `SiriusInvalidBar` is present as an internal invalid-state variation;
 - Ignition is a tested stock Button variation;
-- the showcase contains every required state including static Loading;
+- the showcase contains every required state including static Loading and fixed light/dark surfaces;
 - one responsive fixture covers all seven sizes;
-- focus traversal passes at four representative shapes;
+- focus traversal passes once for compact and once for standard mode;
 - all Godot-dependent tests declare runtime requirements;
-- no component depends on application singletons, `UIScreenHost`, or a new lifecycle service;
+- no component owns application lifecycle, animation lifetime, or a gameplay singleton dependency;
 - the concise guide is complete;
 - focused tests, build, and full repository tests pass.

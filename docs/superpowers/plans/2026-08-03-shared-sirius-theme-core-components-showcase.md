@@ -2,32 +2,31 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement HPA-377 as one opt-in Godot Theme resource, seven thin presentation components, an isolated showcase, and focused deterministic tests without introducing another lifecycle framework.
+**Goal:** Implement HPA-377 as one opt-in Godot Theme resource, five scene-authored presentation components, an isolated showcase, and focused deterministic tests without introducing wrapper controls or reusable lifecycle machinery.
 
-**Architecture:** `SiriusTheme.tres` is the single visual source of truth. Small C# contracts expose stable Theme names, closed enum mappings, responsive metrics, and motion constants; components only map presentation state and compose scene-authored controls. `UIScreenHost`, settings persistence, notification queueing, navigation, focus restoration, and production-screen migration remain outside this work.
+**Architecture:** `SiriusTheme.tres` is the visual source of truth. Stock `Button`, `Panel`, and `PanelContainer` controls consume stable Theme variations directly. Five composite components add only presentation behavior stock controls cannot express; motion is demonstrated locally by the showcase rather than owned by components.
 
 **Tech Stack:** Godot.NET SDK 4.6.2, Godot 4.6, C# 12, .NET 8, GdUnit4 5.0, `Sirius.sln`, `test.runsettings.local` locally and `test.runsettings` in CI.
 
 ## Global Constraints
 
-- The design is already approved. Do not change its status as an implementation task.
+- The design is approved; do not change its status during implementation.
 - Do not modify `project.godot`, set `gui/theme/custom`, or opt a production screen into the Theme.
 - Do not modify `MainMenu.tscn`, `Game.tscn`, `InventoryMenu.tscn`, `SettingsMenu.tscn`, `BattleScene.tscn`, or existing production controllers.
-- Do not add an autoload, registry, coordinator, pure state model, lifecycle service, generic focus helper, or reusable loading state machine.
-- Create exactly seven shared components: `SiriusActionButton`, `SiriusPanel`, `SiriusModalShell`, `SiriusStatBar`, `SiriusInputHint`, `SiriusContextPrompt`, and `SiriusToastShell`.
-- Keep Ignition as a stock square `Button` using `SiriusIgnitionButton`; do not add an Ignition component.
-- Shared stat kinds are only Health, Mana, and Experience. `SiriusInvalidBar` is an internal Theme variation, not a public stat kind.
-- Shared panel surfaces are only Content, Feature, HudPlate, and Modal.
-- `SiriusUiSeverity` is only Info, Success, Warning, and Error.
-- Required fonts, ornaments, and icons fail resource tests when absent. Do not rely on `UiArtCatalog.LoadIcon()` to prove existence because it can substitute the Info icon.
-- Only a `Viewport` or `SubViewport` owner computes compact mode. Controls in the same viewport inherit that decision.
+- Do not create `SiriusActionButton`, `SiriusPanel`, button/panel enums, an autoload, registry, coordinator, lifecycle service, generic focus helper, or reusable loading state machine.
+- Create exactly five components: `SiriusModalShell`, `SiriusStatBar`, `SiriusInputHint`, `SiriusContextPrompt`, and `SiriusToastShell`.
+- Stock Buttons and Panels select `SiriusThemeTypes` variations directly.
+- Shared stat kinds are only Health, Mana, and Experience. Numeric values are always visible and the low threshold is fixed at 0.25.
+- Required fonts, ornaments, and icons fail resource tests when absent. Do not use catalog fallback behavior to prove existence.
+- Only a `Viewport` or `SubViewport` owner computes compact mode.
 - Components never read `GameManager`, `SaveManager`, `SettingsManager`, `RecoveryChest`, or `UIScreenHost`.
-- Persisted reduced motion remains HPA-541 work. Toast/reward queueing and short confirmation seals remain HPA-386 work.
-- Loading is a static showcase fixture only: a disabled Primary button labelled `Loading…`.
-- Keep every HPA-377 test file below 500 lines. Split responsibility before the guard fails.
+- Components own no Tween, Timer, queue, dismissal, focus restoration, navigation, or asynchronous operation.
+- Persisted reduced motion remains HPA-541 work. Toast/reward queueing and short confirmation seals remain HPA-386 work. Production modal lifecycle remains HPA-382 work.
+- Loading is a static showcase fixture: a disabled stock Primary Button labelled `Loading…`.
+- Keep every HPA-377 test file below 500 lines.
 - Use structural/resource assertions rather than pixel equality.
 - Style only Label, Button, Panel/PanelContainer, ProgressBar, TabBar/TabContainer, TooltipPanel/TooltipLabel, ScrollContainer, HScrollBar, and VScrollBar.
-- Inline code below is implementation intent. Compile and run each red/green step instead of copying unverified snippets across task boundaries.
+- Inline code is implementation intent; compile and run every red/green step.
 
 ## File Map
 
@@ -43,8 +42,6 @@ scripts/ui/theme/
 └── SiriusMotion.cs
 
 scripts/ui/components/
-├── SiriusActionButton.cs
-├── SiriusPanel.cs
 ├── SiriusModalShell.cs
 ├── SiriusStatBar.cs
 ├── SiriusInputHint.cs
@@ -67,9 +64,6 @@ tests/ui/theme/
 └── SiriusThemeControlsTest.cs
 
 tests/ui/components/
-├── SiriusComponentTestSupport.cs
-├── SiriusActionButtonTest.cs
-├── SiriusPanelTest.cs
 ├── SiriusModalShellTest.cs
 ├── SiriusStatBarTest.cs
 ├── SiriusInputHintTest.cs
@@ -86,7 +80,7 @@ docs/ui/hpa-377/README.md
 
 ---
 
-### Task 1: Add Closed Contracts, Metrics, and Motion
+### Task 1: Add Theme Names, Closed Types, Metrics, and HPA-377 Motion
 
 **Files:**
 - Create: `scripts/ui/theme/SiriusThemeTypes.cs`
@@ -96,15 +90,15 @@ docs/ui/hpa-377/README.md
 - Create: `tests/ui/theme/SiriusUiContractsTest.cs`
 
 **Interfaces:**
-- `SiriusThemeTypes.ResourcePath` and stable `StringName` fields.
-- Closed enums: `SiriusActionButtonVariant`, `SiriusPanelSurface`, `SiriusUiSeverity`, `SiriusModalSizeClass`, `SiriusStatBarKind`.
-- Mappings: `ToThemeType()`, `ToIconId()`, `ToModalPanelThemeType()`, `ToToastPanelThemeType()`.
-- Metrics: `IsCompact(Vector2)`, `SafeMargin(bool)`, `MinimumTarget(bool)`, `IgnitionSize(bool)`, `ModalWidth(SiriusModalSizeClass)`, `VerificationViewports`, `FullInteractionViewports`.
-- Motion constants plus `EntrySeconds(bool)`, `ExitSeconds(bool)`, and `UseTransform(bool)`.
+- `SiriusThemeTypes.ResourcePath` and stable `StringName` fields for every Label, Button, Panel, bar, and scrim variation.
+- Closed enums: `SiriusUiSeverity`, `SiriusModalSizeClass`, `SiriusStatBarKind`.
+- Mappings: `ToIconId()`, `ToModalPanelThemeType()`, `ToToastPanelThemeType()`, and stat `ToThemeType()`/`ToIconId()`.
+- Metrics: `IsCompact(Vector2)`, `SafeMargin(bool)`, `MinimumTarget(bool)`, `IgnitionSize(bool)`, `TooltipMaximum(bool)`, `ModalWidth(SiriusModalSizeClass)`, `VerificationViewports`, and `FocusVerificationViewports`.
+- Motion: entry, exit, reduced-opacity durations and transition/ease constants used by the showcase.
 
 - [ ] **Step 1: Write the failing runtime-backed contract suite**
 
-Create `tests/ui/theme/SiriusUiContractsTest.cs` with the required runtime declaration:
+Create `tests/ui/theme/SiriusUiContractsTest.cs`:
 
 ```csharp
 using GdUnit4;
@@ -119,17 +113,6 @@ public partial class SiriusUiContractsTest : Node
     [TestCase]
     public void ClosedEnums_ContainOnlyApprovedValues()
     {
-        AssertThat(Enum.GetValues<SiriusActionButtonVariant>()).ContainsExactly(
-            SiriusActionButtonVariant.Primary,
-            SiriusActionButtonVariant.Secondary,
-            SiriusActionButtonVariant.Tertiary,
-            SiriusActionButtonVariant.Warning,
-            SiriusActionButtonVariant.Destructive);
-        AssertThat(Enum.GetValues<SiriusPanelSurface>()).ContainsExactly(
-            SiriusPanelSurface.Content,
-            SiriusPanelSurface.Feature,
-            SiriusPanelSurface.HudPlate,
-            SiriusPanelSurface.Modal);
         AssertThat(Enum.GetValues<SiriusUiSeverity>()).ContainsExactly(
             SiriusUiSeverity.Info,
             SiriusUiSeverity.Success,
@@ -148,16 +131,13 @@ public partial class SiriusUiContractsTest : Node
     [TestCase]
     public void Mappings_AreExactAndUnknownValuesThrow()
     {
-        AssertThat(SiriusActionButtonVariant.Primary.ToThemeType())
-            .IsEqual(SiriusThemeTypes.PrimaryButton);
-        AssertThat(SiriusPanelSurface.HudPlate.ToThemeType())
-            .IsEqual(SiriusThemeTypes.HudPlate);
         AssertThat(SiriusUiSeverity.Warning.ToModalPanelThemeType())
             .IsEqual(SiriusThemeTypes.WarningPanel);
+        AssertThat(SiriusUiSeverity.Success.ToIconId()).IsEqual(UiIconId.Confirm);
         AssertThat(SiriusStatBarKind.Experience.ToThemeType())
             .IsEqual(SiriusThemeTypes.ExpBar);
         AssertThat(SiriusStatBarKind.Health.ToIconId()).IsEqual(UiIconId.Health);
-        AssertThrown(() => ((SiriusActionButtonVariant)99).ToThemeType())
+        AssertThrown(() => ((SiriusUiSeverity)99).ToIconId())
             .IsInstanceOf<ArgumentOutOfRangeException>();
         AssertThrown(() => ((SiriusStatBarKind)99).ToThemeType())
             .IsInstanceOf<ArgumentOutOfRangeException>();
@@ -179,17 +159,17 @@ public partial class SiriusUiContractsTest : Node
             new Vector2I(1280, 720), new Vector2I(1440, 900),
             new Vector2I(1920, 1080), new Vector2I(2560, 1080),
             new Vector2I(2560, 1440));
+        AssertThat(SiriusUiMetrics.FocusVerificationViewports).ContainsExactly(
+            new Vector2I(640, 360), new Vector2I(1280, 720));
     }
 
     [TestCase]
-    public void Motion_MatchesApprovedDurations()
+    public void Motion_ContainsOnlyHpa377Durations()
     {
-        AssertThat(SiriusMotion.ControlFeedbackSeconds).IsEqualApprox(0.120);
-        AssertThat(SiriusMotion.CalloutEntrySeconds).IsEqualApprox(0.220);
-        AssertThat(SiriusMotion.CalloutExitSeconds).IsEqualApprox(0.180);
-        AssertThat(SiriusMotion.ScreenTransitionSeconds).IsEqualApprox(0.280);
-        AssertThat(SiriusMotion.OrreryMaximumSeconds).IsEqualApprox(0.400);
-        AssertThat(SiriusMotion.EntrySeconds(true)).IsLessEqual(0.100);
+        AssertThat(SiriusMotion.EntrySeconds).IsEqualApprox(0.220);
+        AssertThat(SiriusMotion.ExitSeconds).IsEqualApprox(0.180);
+        AssertThat(SiriusMotion.ReducedOpacitySeconds).IsEqualApprox(0.100);
+        AssertThat(SiriusMotion.Duration(true, true)).IsEqualApprox(0.100);
         AssertThat(SiriusMotion.UseTransform(true)).IsFalse();
     }
 }
@@ -202,9 +182,9 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~SiriusUiContractsTest"
 ```
 
-Expected: compile failure because the contracts do not exist—not a runtime-host error.
+Expected: compile failure because the contracts do not exist.
 
-- [ ] **Step 3: Implement stable names**
+- [ ] **Step 3: Implement stable Theme names**
 
 `SiriusThemeTypes.cs` defines:
 
@@ -252,9 +232,9 @@ public static class SiriusThemeTypes
 }
 ```
 
-- [ ] **Step 4: Implement closed enums and exhaustive mappings**
+- [ ] **Step 4: Implement three enums and exhaustive mappings**
 
-`SiriusUiTypes.cs` defines the five enums and extension methods using switch expressions whose default arm throws `ArgumentOutOfRangeException`. Use these severity icons exactly:
+Use these exact severity icons:
 
 ```text
 Info -> UiIconId.Info
@@ -263,9 +243,56 @@ Warning -> UiIconId.Warning
 Error -> UiIconId.Error
 ```
 
-- [ ] **Step 5: Implement metrics and motion**
+Use Modal panel mapping:
 
-Do not add slot metrics. Define spacing 4/8/12/16/24/32/48, margins 24/12, max width 1600, targets 44/40, modal widths 420/640/960, tooltips 360/280, Ignition 96/80, the seven viewports, and four interaction viewports.
+```text
+Info/Success -> SiriusModalPanel
+Warning -> SiriusWarningPanel
+Error -> SiriusErrorPanel
+```
+
+Use Toast panel mapping:
+
+```text
+Info -> SiriusContentPanel
+Success -> SiriusFeaturePanel
+Warning -> SiriusWarningPanel
+Error -> SiriusErrorPanel
+```
+
+Use stat mappings:
+
+```text
+Health -> SiriusHpBar / UiIconId.Health
+Mana -> SiriusMpBar / UiIconId.Mana
+Experience -> SiriusExpBar / UiIconId.Experience
+```
+
+Every switch default throws `ArgumentOutOfRangeException`.
+
+- [ ] **Step 5: Implement only consumed metrics and motion**
+
+Do not add spacing, slot, control-feedback, screen-transition, or orrery constants. Define the values in the Interfaces block exactly. `SiriusMotion`:
+
+```csharp
+using Godot;
+
+public static class SiriusMotion
+{
+    public const double EntrySeconds = 0.220;
+    public const double ExitSeconds = 0.180;
+    public const double ReducedOpacitySeconds = 0.100;
+    public const Tween.TransitionType EntryTransition = Tween.TransitionType.Cubic;
+    public const Tween.EaseType EntryEase = Tween.EaseType.Out;
+    public const Tween.TransitionType ExitTransition = Tween.TransitionType.Quad;
+    public const Tween.EaseType ExitEase = Tween.EaseType.In;
+
+    public static double Duration(bool reducedMotion, bool entering) =>
+        reducedMotion ? ReducedOpacitySeconds : entering ? EntrySeconds : ExitSeconds;
+
+    public static bool UseTransform(bool reducedMotion) => !reducedMotion;
+}
+```
 
 - [ ] **Step 6: Run and commit**
 
@@ -287,7 +314,7 @@ Expected: PASS.
 - Create: `tests/ui/theme/SiriusThemeTypographyTest.cs`
 
 **Interfaces:**
-- One Theme resource with direct references to the five approved fonts.
+- Direct references to the five approved fonts.
 - Six standard/compact Label pairs plus fixed Telemetry.
 
 - [ ] **Step 1: Write failing typography tests**
@@ -315,7 +342,7 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
 
 - [ ] **Step 3: Create the Theme resource**
 
-Start with these direct ext-resources:
+Use direct ext-resources:
 
 ```text
 res://assets/fonts/cinzel/Cinzel-Variable.ttf
@@ -325,7 +352,7 @@ res://assets/fonts/noto_sans/NotoSans-SemiBold.ttf
 res://assets/fonts/noto_sans_mono/NotoSansMono-Medium.ttf
 ```
 
-Configure each Label variation with `Theme.set_type_variation(<variation>, "Label")` semantics encoded in the `.tres`. Use Noto Sans fallback for the Cinzel FontVariation. Set tracked telemetry and the approved line spacing. Do not add Entity or HUD-specific duplicate roles.
+Configure each Label variation with base type `Label`. Use Noto Sans fallback for the Cinzel `FontVariation`. Set tracked Telemetry and approved line spacing. Do not add Entity or HUD-specific roles.
 
 - [ ] **Step 4: Run and commit**
 
@@ -340,29 +367,27 @@ Expected: PASS.
 
 ---
 
-### Task 3: Author Native States, Ignition, Surfaces, Bars, and Scrims
+### Task 3: Author Stock Control States, Surfaces, Bars, and Scrims
 
 **Files:**
 - Modify: `resources/ui/theme/SiriusTheme.tres`
 - Create: `tests/ui/theme/SiriusThemeControlsTest.cs`
 
 **Interfaces:**
-- Five conventional Button variations and stock Ignition.
-- Four public panel surfaces plus internal Warning/Error and two scrims.
+- Six stock Button variations.
+- Six panel surface variations plus two scrims.
 - HP, MP, EXP, and internal Invalid bar variations.
 - Tab, tooltip, and scrollbar base styling.
 
-- [ ] **Step 1: Write failing control-resource tests**
+- [ ] **Step 1: Write failing resource tests**
 
-Declare runtime support. Assert every button variation has:
+Declare runtime support. Assert every Button variation has:
 
 ```text
 normal hover pressed hover_pressed focus disabled
 ```
 
-Assert panel/bar/scrim variations and exact scrim alpha. Assert `SiriusInvalidBar` exists.
-
-Check required art and icon files directly:
+Assert all panel/bar/scrim variations and exact scrim alpha. Check required files directly:
 
 ```csharp
 string[] requiredResources =
@@ -384,8 +409,6 @@ foreach (var path in requiredResources)
 }
 ```
 
-Do not prove existence by calling `UiArtCatalog.LoadIcon()` or `UiIconPresenter.Apply()`.
-
 - [ ] **Step 2: Run and confirm failure**
 
 ```bash
@@ -393,13 +416,13 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~SiriusThemeControlsTest"
 ```
 
-- [ ] **Step 3: Add conventional controls**
+- [ ] **Step 3: Add conventional Button states**
 
-Use Theme-owned StyleBox resources for normal, hover, pressed, hover-pressed, focus, and disabled states. Disabled text/icon alpha is 45% and disabled styles have no glow. Focus is cyan and does not change content margins. Selection uses stock pressed/toggled state plus gold treatment.
+Use Theme-owned StyleBoxes for normal, hover, pressed, hover-pressed, focus, and disabled states. Disabled text/icon alpha is 45% and disabled styles have no glow. Focus is cyan and does not change content margins. Selection uses stock pressed/toggled state plus gold treatment.
 
 - [ ] **Step 4: Add stock Ignition**
 
-`SiriusIgnitionButton` is based on Button. Reuse `ignition_seal.png` for state StyleBoxTextures with state-specific modulation. Use `focus_halo.png` for focus. Preferred size remains a component/showcase metric, not embedded lifecycle logic.
+Base `SiriusIgnitionButton` on Button. Reuse `ignition_seal.png` for state StyleBoxTextures with state-specific modulation and `focus_halo.png` for focus. Do not create a script or runtime fallback.
 
 - [ ] **Step 5: Add panels, bars, scrims, tabs, tooltips, and scrollbars**
 
@@ -424,159 +447,7 @@ Expected: PASS.
 
 ---
 
-### Task 4: Implement ActionButton and Panel
-
-**Files:**
-- Create: `scripts/ui/components/SiriusActionButton.cs`
-- Create: `scripts/ui/components/SiriusPanel.cs`
-- Create: `tests/ui/components/SiriusActionButtonTest.cs`
-- Create: `tests/ui/components/SiriusPanelTest.cs`
-
-**Interfaces:**
-- `SiriusActionButton`: `Variant`, `ShowIcon`, `IconId`, `IconSize`, `DisabledReason`, `SetIcon(UiIconId?)`.
-- `SiriusPanel`: `Surface`.
-
-- [ ] **Step 1: Write failing ActionButton tests**
-
-Use `[RequireGodotRuntime]` and `Node`. Assert:
-
-```csharp
-var button = new SiriusActionButton
-{
-    Variant = SiriusActionButtonVariant.Warning,
-    DisabledReason = "Requires a valid target"
-};
-AddChild(button);
-AssertThat(button.ThemeTypeVariation).IsEqual(SiriusThemeTypes.WarningButton);
-AssertThat(button.GetTooltip()).IsEmpty();
-button.Disabled = true;
-AssertThat(button.GetTooltip()).IsEqual("Requires a valid target");
-AssertThat(button.MouseFilter).IsNotEqual(Control.MouseFilterEnum.Ignore);
-button.SetIcon(UiIconId.Warning);
-AssertThat(button.ShowIcon).IsTrue();
-AssertThat(button.IconId).IsEqual(UiIconId.Warning);
-AssertThat(button.Icon!.ResourcePath)
-    .IsEqual(UiArtCatalog.GetIconPath(UiIconId.Warning, UiIconSize.Default));
-button.SetIcon(null);
-AssertThat(button.ShowIcon).IsFalse();
-AssertThat(button.Icon).IsNull();
-```
-
-The enabled button must not expose the disabled reason. The test does not depend on property assignment order.
-
-- [ ] **Step 2: Write failing Panel tests and run**
-
-Assert all four surfaces map exactly and unknown enums throw.
-
-```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
-  --filter "FullyQualifiedName~SiriusActionButtonTest|FullyQualifiedName~SiriusPanelTest"
-```
-
-- [ ] **Step 3: Implement ActionButton**
-
-Use editor-safe exported fields and one runtime convenience method:
-
-```csharp
-using Godot;
-
-[Tool]
-public partial class SiriusActionButton : Button
-{
-    private SiriusActionButtonVariant _variant;
-    private bool _showIcon;
-    private UiIconId _iconId = UiIconId.Info;
-    private UiIconSize _iconSize = UiIconSize.Default;
-    private string _disabledReason = string.Empty;
-
-    [Export] public SiriusActionButtonVariant Variant
-    {
-        get => _variant;
-        set { _variant = value; RefreshPresentation(); }
-    }
-    [Export] public bool ShowIcon
-    {
-        get => _showIcon;
-        set { _showIcon = value; RefreshPresentation(); }
-    }
-    [Export] public UiIconId IconId
-    {
-        get => _iconId;
-        set { _iconId = value; RefreshPresentation(); }
-    }
-    [Export] public UiIconSize IconSize
-    {
-        get => _iconSize;
-        set { _iconSize = value; RefreshPresentation(); }
-    }
-    [Export] public string DisabledReason
-    {
-        get => _disabledReason;
-        set => _disabledReason = value ?? string.Empty;
-    }
-
-    public override void _Ready() => RefreshPresentation();
-
-    public void SetIcon(UiIconId? icon)
-    {
-        ShowIcon = icon.HasValue;
-        if (icon.HasValue)
-            IconId = icon.Value;
-        RefreshPresentation();
-    }
-
-    public override string _GetTooltip(Vector2 atPosition) =>
-        Disabled && !string.IsNullOrWhiteSpace(DisabledReason)
-            ? DisabledReason
-            : string.Empty;
-
-    private void RefreshPresentation()
-    {
-        ThemeTypeVariation = Variant.ToThemeType();
-        if (!IsNodeReady()) return;
-        if (ShowIcon)
-            UiIconPresenter.Apply(this, IconId, IconSize);
-        else
-            Icon = null;
-    }
-}
-```
-
-The nullable runtime method sets the two inspector properties atomically. `ShowIcon=false` makes `IconId` inert.
-
-- [ ] **Step 4: Implement Panel**
-
-```csharp
-using Godot;
-
-[Tool]
-public partial class SiriusPanel : PanelContainer
-{
-    private SiriusPanelSurface _surface;
-    [Export] public SiriusPanelSurface Surface
-    {
-        get => _surface;
-        set { _surface = value; ThemeTypeVariation = value.ToThemeType(); }
-    }
-    public override void _Ready() => ThemeTypeVariation = Surface.ToThemeType();
-}
-```
-
-- [ ] **Step 5: Run and commit**
-
-```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
-  --filter "FullyQualifiedName~SiriusActionButtonTest|FullyQualifiedName~SiriusPanelTest"
-git add scripts/ui/components/SiriusActionButton.cs scripts/ui/components/SiriusPanel.cs \
-  tests/ui/components/SiriusActionButtonTest.cs tests/ui/components/SiriusPanelTest.cs
-git commit -m "feat: add Sirius action and panel components"
-```
-
-Expected: PASS.
-
----
-
-### Task 5: Implement ModalShell
+### Task 4: Implement the Static Modal Shell
 
 **Files:**
 - Create: `scenes/ui/components/SiriusModalShell.tscn`
@@ -584,13 +455,13 @@ Expected: PASS.
 - Create: `tests/ui/components/SiriusModalShellTest.cs`
 
 **Interfaces:**
-- `Title`, `Severity`, `SizeClass`, `Compact`, `ReducedMotion`, `ShowCloseAffordance`.
-- `BodyHost`, `ActionsHost`, `CloseRequested`, `RefreshPresentation(Vector2)`, `PlayEntry()`, `PlayExit()`.
-- No scrim, host, focus, Cancel, dismissal, or domain ownership.
+- `Title`, `Severity`, `SizeClass`, `Compact`.
+- `BodyHost`, `ActionsHost`, `RefreshPresentation(Vector2 availableSize)`.
+- No scrim, close button/signal, Tween, host, focus, Cancel, dismissal, or domain ownership.
 
 - [ ] **Step 1: Write failing tests**
 
-Assert Error mapping, Small width, compact title variation, Error icon path, body/actions getters, and absence of `%Scrim`. Test normal motion starts with a 12 px offset; reduced motion starts without translation and uses at most 100 ms.
+Assert Error severity selects `SiriusErrorPanel` and Error icon; Small resolves to 420 at 1280×720; compact uses viewport minus 12 px on each side; title switches to compact variation; BodyHost and ActionsHost are exposed; `%Scrim`, `%CloseButton`, and Timer/Tween helper nodes are absent.
 
 - [ ] **Step 2: Run and confirm failure**
 
@@ -603,25 +474,31 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
 
 ```text
 SiriusModalShell : Control
-└── Panel : SiriusPanel [%Panel, Surface=Modal]
+└── Panel : PanelContainer [%Panel, ThemeTypeVariation=SiriusModalPanel]
     └── Margin : MarginContainer [24]
         └── RootLayout : VBoxContainer [separation=16]
-            ├── Header : HBoxContainer
+            ├── Header : HBoxContainer [separation=8]
             │   ├── SeverityIcon : TextureRect [%SeverityIcon, 24×24]
-            │   ├── TitleLabel : Label [%TitleLabel]
-            │   └── CloseButton : SiriusActionButton [%CloseButton, Tertiary]
+            │   └── TitleLabel : Label [%TitleLabel]
             ├── BodyScroll : ScrollContainer [%BodyScroll]
             │   └── BodyHost : VBoxContainer [%BodyHost]
             └── ActionsHost : HBoxContainer [%ActionsHost, separation=8]
 ```
 
-No scrim node.
+- [ ] **Step 4: Implement presentation**
 
-- [ ] **Step 4: Implement presentation and visual-only motion**
+```csharp
+panel.ThemeTypeVariation = Severity.ToModalPanelThemeType();
+title.Text = Title;
+title.ThemeTypeVariation = Compact ? SiriusThemeTypes.TitleCompact : SiriusThemeTypes.Title;
+UiIconPresenter.Apply(icon, Severity.ToIconId(), UiIconSize.Default);
+var width = Compact
+    ? availableSize.X - SiriusUiMetrics.SafeMargin(true) * 2
+    : Mathf.Min(SiriusUiMetrics.ModalWidth(SizeClass), availableSize.X * 0.90f);
+panel.CustomMinimumSize = new Vector2(Mathf.Max(0, width), 0);
+```
 
-Severity selects panel and icon. Compact switches nested label variations. Width is viewport-minus-12-px margins in compact mode; otherwise `min(size class, 90% viewport)`. Close emits `CloseRequested` only.
-
-Entry is alpha plus 12 px translation in normal mode; exit is alpha plus 8 px. Reduced motion uses alpha only and at most 100 ms. Kill only the shell's current Tween before starting another. Never queue-free from the component.
+Setters call `RefreshPresentation(GetViewportRect().Size)` only when `IsNodeReady()`; tests call the explicit method with deterministic sizes.
 
 - [ ] **Step 5: Run and commit**
 
@@ -630,14 +507,14 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~SiriusModalShellTest"
 git add scenes/ui/components/SiriusModalShell.tscn \
   scripts/ui/components/SiriusModalShell.cs tests/ui/components/SiriusModalShellTest.cs
-git commit -m "feat: add Sirius modal shell"
+git commit -m "feat: add static Sirius modal shell"
 ```
 
 Expected: PASS.
 
 ---
 
-### Task 6: Implement StatBar
+### Task 5: Implement the Fixed-Contract Stat Bar
 
 **Files:**
 - Create: `scenes/ui/components/SiriusStatBar.tscn`
@@ -645,17 +522,18 @@ Expected: PASS.
 - Create: `tests/ui/components/SiriusStatBarTest.cs`
 
 **Interfaces:**
-- `Kind`, `Current`, `Maximum`, `Label`, `ShowNumericValue`, `LowThreshold`, `Compact`, `RefreshPresentation()`.
+- `Kind`, `Current`, `Maximum`, `Label`, `Compact`, `RefreshPresentation()`.
+- Numeric value is always visible; low threshold is the internal constant `0.25`.
 
 - [ ] **Step 1: Write failing edge-case tests**
 
 Assert:
 
 ```text
-Health 20/100 -> SiriusHpBar, value 20, state Low, Health icon
+Health 20/100 -> SiriusHpBar, value 20, text "20 / 100", state Low, Health icon
 120/100 -> value 100, text "120 / 100", state Overflow
--5/100 -> value 0, state Invalid value
-10/0 -> SiriusInvalidBar, zero fill, state Invalid maximum
+-5/100 -> value 0, text "-5 / 100", state Invalid value
+10/0 -> SiriusInvalidBar, zero fill, text "10 / 0", state Invalid maximum
 ```
 
 - [ ] **Step 2: Run and confirm failure**
@@ -680,7 +558,7 @@ SiriusStatBar : VBoxContainer
 
 - [ ] **Step 4: Implement deterministic rules**
 
-For valid maximum, set `Bar.MaxValue=Maximum` and clamp only visual `Bar.Value`. Always preserve caller values in text. For `Maximum <= 0`, set range 0..1, zero fill, `SiriusInvalidBar`, and `Invalid maximum`. Set `Invalid value`, `Overflow`, or `Low` in that order. Use direct Kind-to-icon mapping and standard/compact nested label variations.
+Use `private const double LowThreshold = 0.25;`. For valid maximum set `Bar.MaxValue=Maximum` and clamp only visual `Bar.Value`. Always preserve caller values in text. For `Maximum <= 0`, use range 0..1, zero fill, `SiriusInvalidBar`, and `Invalid maximum`. Apply state priority: invalid maximum, negative current, overflow, low, normal. Apply Kind icon and standard/compact nested Label variations.
 
 - [ ] **Step 5: Run and commit**
 
@@ -696,7 +574,7 @@ Expected: PASS.
 
 ---
 
-### Task 7: Implement InputHint and ContextPrompt
+### Task 6: Implement Input Hint and Context Prompt
 
 **Files:**
 - Create: `scenes/ui/components/SiriusInputHint.tscn`
@@ -732,7 +610,7 @@ SiriusInputHint : HBoxContainer [separation=4]
 └── BindingLabel : Label [%BindingLabel]
 ```
 
-Wrap `InputHintPresenter`. `Refresh()` calls `ResolveActions(Actions)`, applies the icon with `UiIconPresenter.Apply(TextureRect, ...)`, sets labels, and switches Metadata variations. Process input only while visible; connect/disconnect `VisibilityChanged` safely.
+Wrap `InputHintPresenter`. `Refresh()` calls `ResolveActions(Actions)`, applies the icon with `UiIconPresenter.Apply(TextureRect, ...)`, sets labels, and switches Metadata variations. Process input only while visible; connect `VisibilityChanged` in `_Ready()` and disconnect in `_ExitTree()`.
 
 - [ ] **Step 4: Author ContextPrompt**
 
@@ -743,7 +621,7 @@ SiriusContextPrompt : HBoxContainer [separation=8]
 └── InputHint : SiriusInputHint [%InputHint]
 ```
 
-`ShowIcon` is the authoritative inspector presence flag. `Refresh()` applies/clears the icon, sets Body standard/compact prompt variation, and propagates actions/compact to the child. It never discovers or invokes an interaction.
+`ShowIcon` is the authoritative inspector presence flag. `Refresh()` applies or clears the icon, sets Body standard/compact prompt variation, and propagates Actions/Compact to the child. It never discovers or invokes an interaction.
 
 - [ ] **Step 5: Run and commit**
 
@@ -760,7 +638,7 @@ Expected: PASS.
 
 ---
 
-### Task 8: Implement ToastShell
+### Task 7: Implement the Static Toast Shell
 
 **Files:**
 - Create: `scenes/ui/components/SiriusToastShell.tscn`
@@ -768,12 +646,12 @@ Expected: PASS.
 - Create: `tests/ui/components/SiriusToastShellTest.cs`
 
 **Interfaces:**
-- `Severity`, `Title`, `Message`, `Compact`, `ReducedMotion`, `RefreshPresentation()`, `PlayEntry()`, `PlayExit()`.
-- No Timer, queue, deduplication, host registration, acknowledgement, or retention.
+- `Severity`, `Title`, `Message`, `Compact`, `RefreshPresentation()`.
+- No Timer, Tween, queue, deduplication, host registration, acknowledgement, or retention.
 
 - [ ] **Step 1: Write failing tests**
 
-Assert Warning mapping, icon/text, compact variations, no Timer, no scrim, normal translation, and reduced-motion opacity-only behavior.
+Assert Warning selects `SiriusWarningPanel` and Warning icon; title/message and compact variations update; no Timer, Tween helper, or scrim node exists.
 
 - [ ] **Step 2: Run and confirm failure**
 
@@ -786,7 +664,7 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
 
 ```text
 SiriusToastShell : Control
-└── Panel : SiriusPanel [%Panel, Surface=Feature]
+└── Panel : PanelContainer [%Panel, ThemeTypeVariation=SiriusContentPanel]
     └── Margin : MarginContainer [12]
         └── Row : HBoxContainer [separation=8]
             ├── SeverityIcon : TextureRect [%SeverityIcon, 24×24]
@@ -795,25 +673,32 @@ SiriusToastShell : Control
                 └── MessageLabel : Label [%MessageLabel]
 ```
 
-No Timer and no scrim.
+- [ ] **Step 4: Implement presentation**
 
-- [ ] **Step 4: Implement presentation/motion and commit**
+```csharp
+panel.ThemeTypeVariation = Severity.ToToastPanelThemeType();
+title.Text = Title;
+message.Text = Message;
+title.ThemeTypeVariation = Compact ? SiriusThemeTypes.SectionCompact : SiriusThemeTypes.Section;
+message.ThemeTypeVariation = Compact ? SiriusThemeTypes.BodyCompact : SiriusThemeTypes.Body;
+UiIconPresenter.Apply(icon, Severity.ToIconId(), UiIconSize.Default);
+```
 
-Severity selects panel/icon. Compact selects Section and Body variations. Motion mirrors ModalShell and owns only the current Tween.
+- [ ] **Step 5: Run and commit**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~SiriusToastShellTest"
 git add scenes/ui/components/SiriusToastShell.tscn scripts/ui/components/SiriusToastShell.cs \
   tests/ui/components/SiriusToastShellTest.cs
-git commit -m "feat: add Sirius toast shell"
+git commit -m "feat: add static Sirius toast shell"
 ```
 
 Expected: PASS.
 
 ---
 
-### Task 9: Build the Showcase with Split Structural, Responsive, and Focus Tests
+### Task 8: Build the Isolated Showcase and Local Motion Demo
 
 **Files:**
 - Create: `scenes/ui/showcase/SiriusUiShowcase.tscn`
@@ -823,42 +708,33 @@ Expected: PASS.
 - Create: `tests/ui/showcase/SiriusUiShowcaseFocusTest.cs`
 
 **Interfaces:**
-- `PreviewViewport`, `PreviewRoot`, `Compact`, `SetPreviewSize(Vector2I)`, `SetBackground(SiriusShowcaseBackground)`, `SetReducedMotion(bool)`.
+- `PreviewViewport`, `PreviewRoot`, `Compact`, `ReducedMotion`.
+- `SetPreviewSize(Vector2I)`, `SetReducedMotion(bool)`, `PlayMotionDemo()`.
+- No background enum/selector and no reusable animation component.
 
 - [ ] **Step 1: Write failing Structure tests**
 
-Assert named sections and fixtures:
+Assert named sections:
 
 ```text
 %PaletteSection %TypographySection %ButtonSection
+%DarkSurfaceFixture %LightSurfaceFixture
 %IgnitionStandardFixture %IgnitionCompactFixture
 %SelectedFocusedFixture %LoadingFixture %TabsSection
 %StatBarSection %InputHintSection %ContextPromptSection
 %ToastSection %ModalSection %MotionSection
+%MotionModalWrapper %MotionToastWrapper
 ```
 
-Assert four backgrounds, the exact stress strings, component node types, Loading as disabled Primary labelled `Loading…`, and required resources.
+Assert stock Button/Panel nodes use the required type variations; Loading is a disabled stock Primary Button labelled `Loading…`; the exact stress strings exist; no scenic-background selector or asset path is present.
 
 - [ ] **Step 2: Write failing Responsive tests**
 
-Create one fixture in `[BeforeTest]`, resize sequentially through all seven `VerificationViewports`, and at every size assert:
-
-```text
-viewport size
-single compact decision
-safe margins
-1600 maximum frame
-minimum target sizes
-reachable primary examples
-long body wraps/scrolls
-metadata exposes full tooltip
-```
+Create one fixture in `[BeforeTest]`, resize sequentially through all seven `VerificationViewports`, and at every size assert viewport size, single compact decision, safe margins, 1600 maximum frame, minimum target sizes, reachable primary examples, long-body wrapping/scrolling, and full metadata tooltip.
 
 - [ ] **Step 3: Write failing Focus tests**
 
-At 640×360, 1280×720, 1024×768, and 2560×1080, push `ui_focus_next` through the preview and assert the explicit chain remains inside `PreviewRoot`, includes the selected-plus-focused toggle, and loops to the first focusable control.
-
-Each file must remain below 500 lines from its first commit.
+At 640×360 and 1280×720, push `ui_focus_next` through the preview. Assert the chain remains inside `PreviewRoot`, includes the selected-plus-focused toggle, and loops to the first focusable control. Do not repeat the same focus-tree test at other standard aspect ratios.
 
 - [ ] **Step 4: Run and confirm failure**
 
@@ -873,45 +749,34 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
 SiriusUiShowcase : Control
 ├── ShowcaseToolbar : HBoxContainer
 │   ├── ViewportSizeSelector : OptionButton [%ViewportSizeSelector]
-│   ├── BackgroundSelector : OptionButton [%BackgroundSelector]
 │   └── ReducedMotionToggle : CheckBox [%ReducedMotionToggle]
 └── PreviewFrame : PanelContainer
     └── PreviewContainer : SubViewportContainer [%PreviewContainer]
         └── PreviewViewport : SubViewport [%PreviewViewport]
             └── PreviewRoot : Control [%PreviewRoot, Theme=SiriusTheme.tres]
-                ├── Background : TextureRect [%Background]
-                ├── SolidBackground : ColorRect [%SolidBackground]
                 └── SafeFrame : MarginContainer [%SafeFrame]
                     └── ResponsiveScroll : ScrollContainer
                         └── ShowcaseContent : VBoxContainer [%ShowcaseContent]
 ```
 
-Use real shared components, stock Ignition, stock selected toggle, TabContainer, tooltips, and both scrims.
-
-- [ ] **Step 6: Implement deterministic controls**
-
-```csharp
-public enum SiriusShowcaseBackground
-{
-    NightSolid,
-    MoonSolid,
-    MainMenuScenic,
-    BattleScenic
-}
-```
-
-Map exactly:
+In `%PaletteSection`, author both fixed fixtures:
 
 ```text
-NightSolid -> #050714
-MoonSolid -> #F7F5FF
-MainMenuScenic -> res://assets/sprites/ui/ui_main_menu_background.png
-BattleScenic -> res://assets/sprites/ui/ui_battle_background.png
+DarkSurfaceFixture: night-1000 ColorRect containing Content/Feature/HudPlate panels
+LightSurfaceFixture: moon-50 ColorRect containing the same three panel variations
 ```
 
-`SetPreviewSize()` updates the SubViewport, computes compact only from that owned viewport, and calls `ApplyCompactState()`. The compact method propagates component flags, free Label variations, safe margins, target sizes, and Ignition size. It does not inspect child rectangles to decide compact mode.
+Use stock Buttons for all six button variations, Ignition, selected toggle, and Loading. Use the five real shared components for their sections.
 
-- [ ] **Step 7: Add exact stress fixtures**
+- [ ] **Step 6: Implement compact propagation**
+
+`SetPreviewSize()` updates the owned SubViewport, computes compact only from that size, and calls `ApplyCompactState()`. The compact method sets safe margins, max content width, free Label variations, component Compact properties, ordinary Button minimum targets, and Ignition size. It never inspects child rectangles to decide compact mode.
+
+- [ ] **Step 7: Implement the local motion demonstration**
+
+`PlayMotionDemo()` kills only the showcase's current Tween, resets wrapper alpha/position, and animates `%MotionModalWrapper` and `%MotionToastWrapper` using `SiriusMotion`. In reduced mode, wrappers start at zero translation and animate alpha only for 100 ms. In normal mode, use 12 px entry translation, 8 px exit translation, and the entry/exit constants. The static Modal/Toast components expose no motion API.
+
+- [ ] **Step 8: Add exact stress fixtures and focus neighbours**
 
 ```text
 Action: Bestätigungsaktion mit ausführlicher Beschreibung
@@ -919,13 +784,9 @@ Body: The observatory records every celestial route before committing the next a
 Metadata: OBSERVATORY-CALIBRATION-IDENTIFIER-000000000000
 ```
 
-Body uses WordSmart wrapping. Metadata clipping is limited to its fixture and the full value is available through tooltip.
+Body uses WordSmart wrapping. Metadata clipping is limited to its fixture and exposes the full value through `TooltipText`. Set explicit next/previous focus paths; do not add a focus coordinator.
 
-- [ ] **Step 8: Add explicit focus neighbours**
-
-Set next/previous paths through action variants, toggle, tabs, hint fixtures, and modal actions. Loop to the first control. Do not add a focus coordinator.
-
-- [ ] **Step 9: Run tests, size guard, and commit**
+- [ ] **Step 9: Run, check size, and commit**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
@@ -940,13 +801,13 @@ Expected: PASS; every showcase test file below 500 lines.
 
 ---
 
-### Task 10: Add the Integration Guide and Run Final Verification
+### Task 9: Add the Concise Guide and Run Final Verification
 
 **Files:**
 - Create: `docs/ui/hpa-377/README.md`
-- Modify only when a verification failure identifies a concrete defect: files created in Tasks 1–9
+- Modify only when verification identifies a concrete defect: files created in Tasks 1–8
 
-- [ ] **Step 1: Write the concise guide**
+- [ ] **Step 1: Write the integration guide**
 
 Use these sections:
 
@@ -955,6 +816,7 @@ Use these sections:
 Design
 Opt in
 Compact authority
+Stock variations
 Components
 Handoffs
 Prohibited patterns
@@ -965,16 +827,20 @@ Include:
 ```csharp
 var theme = ResourceLoader.Load<Theme>(SiriusThemeTypes.ResourcePath);
 screenRoot.Theme = theme;
+button.ThemeTypeVariation = SiriusThemeTypes.PrimaryButton;
+panel.ThemeTypeVariation = SiriusThemeTypes.ContentPanel;
 ```
 
-State:
+State explicitly:
 
 ```text
 Do not set ProjectSettings.gui/theme/custom during an isolated migration.
+Do not create Button or Panel subclasses solely to assign a Theme variation.
 Only a Viewport/SubViewport owner calls SiriusUiMetrics.IsCompact().
 Ignition is SiriusIgnitionButton, not a component.
 HPA-541 owns persisted reduced motion.
 HPA-386 owns toast/reward queueing and short confirmation seals.
+HPA-382 owns production modal lifecycle and dismissal.
 Do not repeat shared StyleBoxFlat resources or palette values.
 ```
 
@@ -1026,7 +892,7 @@ docs/superpowers/specs/2026-08-03-shared-sirius-theme-core-components-design.md
 docs/superpowers/plans/2026-08-03-shared-sirius-theme-core-components-showcase.md
 ```
 
-Fail review if `project.godot` or a production screen/controller appears.
+Fail review if `project.godot`, a production screen/controller, `SiriusActionButton`, or `SiriusPanel` appears.
 
 - [ ] **Step 6: Check the test-file guard**
 

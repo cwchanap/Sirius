@@ -1,0 +1,163 @@
+using GdUnit4;
+using Godot;
+using System.Threading.Tasks;
+using static GdUnit4.Assertions;
+
+[TestSuite]
+[RequireGodotRuntime]
+public partial class SiriusUiShowcaseStructureTest : Node
+{
+    private const string ScenePath = "res://scenes/ui/showcase/SiriusUiShowcase.tscn";
+    private const string StressAction = "Bestätigungsaktion mit ausführlicher Beschreibung";
+    private const string StressBody = "The observatory records every celestial route before committing the next action. This representative paragraph is intentionally long enough to wrap across multiple lines at the minimum supported viewport while preserving readable body text, fixed modal actions, and vertical scrolling.";
+    private const string StressMetadata = "OBSERVATORY-CALIBRATION-IDENTIFIER-000000000000";
+
+    private SceneTree _sceneTree = null!;
+    private SiriusUiShowcase _showcase = null!;
+
+    [BeforeTest]
+    public async Task Setup()
+    {
+        _sceneTree = (SceneTree)Engine.GetMainLoop();
+        var scene = ResourceLoader.Load<PackedScene>(ScenePath);
+        AssertThat(scene).IsNotNull();
+        if (scene is null)
+            return;
+
+        _showcase = scene.Instantiate<SiriusUiShowcase>();
+        _sceneTree.Root.AddChild(_showcase);
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+    }
+
+    [AfterTest]
+    public async Task Cleanup()
+    {
+        if (GodotObject.IsInstanceValid(_showcase))
+            _showcase.QueueFree();
+
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+    }
+
+    [TestCase]
+    public void AuthoredShowcase_ContainsEveryRequiredSectionAndPreviewRoot()
+    {
+        string[] requiredNames =
+        {
+            "PaletteSection", "TypographySection", "ButtonSection",
+            "DarkSurfaceFixture", "LightSurfaceFixture",
+            "IgnitionStandardFixture", "IgnitionCompactFixture",
+            "SelectedFocusedFixture", "LoadingFixture", "TabsSection",
+            "StatBarSection", "InputHintSection", "ContextPromptSection",
+            "ToastSection", "ModalSection", "MotionSection",
+            "MotionModalWrapper", "MotionToastWrapper"
+        };
+
+        AssertThat(_showcase.PreviewViewport).IsNotNull();
+        AssertThat(_showcase.PreviewRoot).IsNotNull();
+        foreach (var requiredName in requiredNames)
+            AssertThat(_showcase.GetNodeOrNull<Control>($"%{requiredName}")).IsNotNull();
+    }
+
+    [TestCase]
+    public void PaletteFixtures_UseFixedColorRectsAndAllApprovedPanelVariations()
+    {
+        AssertThat(_showcase.GetNode<ColorRect>("%DarkSurfaceFixture")).IsNotNull();
+        AssertThat(_showcase.GetNode<ColorRect>("%LightSurfaceFixture")).IsNotNull();
+
+        AssertPanelVariation("DarkContentPanel", SiriusThemeTypes.ContentPanel);
+        AssertPanelVariation("DarkFeaturePanel", SiriusThemeTypes.FeaturePanel);
+        AssertPanelVariation("DarkHudPlate", SiriusThemeTypes.HudPlate);
+        AssertPanelVariation("LightContentPanel", SiriusThemeTypes.ContentPanel);
+        AssertPanelVariation("LightFeaturePanel", SiriusThemeTypes.FeaturePanel);
+        AssertPanelVariation("LightHudPlate", SiriusThemeTypes.HudPlate);
+
+        AssertThat(_showcase.GetNodeOrNull<Control>("%BackgroundSelector")).IsNull();
+        AssertThat(_showcase.FindChild("ScenicBackground", true, false)).IsNull();
+    }
+
+    [TestCase]
+    public void StockControls_UseThemeVariationsAndKeepLoadingStatic()
+    {
+        AssertButtonVariation("PrimaryButtonFixture", SiriusThemeTypes.PrimaryButton);
+        AssertButtonVariation("SecondaryButtonFixture", SiriusThemeTypes.SecondaryButton);
+        AssertButtonVariation("TertiaryButtonFixture", SiriusThemeTypes.TertiaryButton);
+        AssertButtonVariation("WarningButtonFixture", SiriusThemeTypes.WarningButton);
+        AssertButtonVariation("DestructiveButtonFixture", SiriusThemeTypes.DestructiveButton);
+        AssertButtonVariation("IgnitionStandardFixture", SiriusThemeTypes.IgnitionButton);
+        AssertButtonVariation("IgnitionCompactFixture", SiriusThemeTypes.IgnitionButton);
+
+        var selected = _showcase.GetNode<Button>("%SelectedFocusedFixture");
+        AssertThat(selected.ToggleMode).IsTrue();
+        AssertThat(selected.ButtonPressed).IsTrue();
+
+        var loading = _showcase.GetNode<Button>("%LoadingFixture");
+        AssertThat(loading.ThemeTypeVariation).IsEqual(SiriusThemeTypes.PrimaryButton);
+        AssertThat(loading.Text).IsEqual("Loading…");
+        AssertThat(loading.Disabled).IsTrue();
+    }
+
+    [TestCase]
+    public void Showcase_ComposesTheFiveSharedComponentsAndExactStressFixtures()
+    {
+        AssertThat(_showcase.GetNode<SiriusStatBar>("%HealthStat")).IsNotNull();
+        AssertThat(_showcase.GetNode<SiriusInputHint>("%KeyboardHint")).IsNotNull();
+        AssertThat(_showcase.GetNode<SiriusContextPrompt>("%TalkPrompt")).IsNotNull();
+        AssertThat(_showcase.GetNode<SiriusToastShell>("%InfoToast")).IsNotNull();
+        AssertThat(_showcase.GetNode<SiriusModalShell>("%MediumModalFixture")).IsNotNull();
+
+        var action = _showcase.GetNode<Button>("%StressAction");
+        var body = _showcase.GetNode<Label>("%StressBody");
+        var metadata = _showcase.GetNode<Label>("%StressMetadata");
+        AssertThat(action.Text).IsEqual(StressAction);
+        AssertThat(body.Text).IsEqual(StressBody);
+        AssertThat(body.AutowrapMode).IsEqual(TextServer.AutowrapMode.WordSmart);
+        AssertThat(metadata.Text).IsEqual(StressMetadata);
+        AssertThat(metadata.ClipText).IsTrue();
+        AssertThat(metadata.TooltipText).IsEqual(StressMetadata);
+    }
+
+    [TestCase]
+    public void LocalMotionDemo_OnlyUsesShowcaseWrappers()
+    {
+        var modalWrapper = _showcase.GetNode<Control>("%MotionModalWrapper");
+        var toastWrapper = _showcase.GetNode<Control>("%MotionToastWrapper");
+        var modalBasePosition = modalWrapper.Position;
+        var toastBasePosition = toastWrapper.Position;
+        _showcase.SetReducedMotion(true);
+        _showcase.PlayMotionDemo();
+
+        AssertThat(modalWrapper.Position).IsEqual(modalBasePosition);
+        AssertThat(toastWrapper.Position).IsEqual(toastBasePosition);
+        AssertThat(modalWrapper.Modulate.A).IsEqualApprox(0f, 0.001f);
+        AssertThat(toastWrapper.Modulate.A).IsEqualApprox(0f, 0.001f);
+        AssertThat(_showcase.FindChild("Tween", true, false)).IsNull();
+    }
+
+    [TestCase]
+    public void LocalMotionDemo_NormalModeStartsFromTheApprovedEntryTranslation()
+    {
+        var modalWrapper = _showcase.GetNode<Control>("%MotionModalWrapper");
+        var toastWrapper = _showcase.GetNode<Control>("%MotionToastWrapper");
+        var modalBasePosition = modalWrapper.Position;
+        var toastBasePosition = toastWrapper.Position;
+        _showcase.SetReducedMotion(false);
+        _showcase.PlayMotionDemo();
+
+        AssertThat(modalWrapper.Position).IsEqual(modalBasePosition + new Vector2(0, 12));
+        AssertThat(toastWrapper.Position).IsEqual(toastBasePosition + new Vector2(0, 12));
+        AssertThat(modalWrapper.Modulate.A).IsEqualApprox(0f, 0.001f);
+        AssertThat(toastWrapper.Modulate.A).IsEqualApprox(0f, 0.001f);
+    }
+
+    private void AssertButtonVariation(string uniqueName, StringName variation)
+    {
+        var button = _showcase.GetNode<Button>($"%{uniqueName}");
+        AssertThat(button.ThemeTypeVariation).IsEqual(variation);
+    }
+
+    private void AssertPanelVariation(string uniqueName, StringName variation)
+    {
+        var panel = _showcase.GetNode<PanelContainer>($"%{uniqueName}");
+        AssertThat(panel.ThemeTypeVariation).IsEqual(variation);
+    }
+}

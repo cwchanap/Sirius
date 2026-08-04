@@ -1,0 +1,47 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/components/SiriusToastShell.cs" id="1_toast_shell"]
+[ext_resource type="Theme" path="res://resources/ui/theme/SiriusTheme.tres" id="2_sirius_theme"]
+
+[node name="SiriusToastShell" type="Control"]
+layout_mode = 3
+theme = ExtResource("2_sirius_theme")
+script = ExtResource("1_toast_shell")
+
+[node name="Panel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"SiriusContentPanel"
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="Row" type="HBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SeverityIcon" type="TextureRect" parent="Panel/Margin/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TextColumn" type="VBoxContainer" parent="Panel/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="TitleLabel" type="Label" parent="Panel/Margin/Row/TextColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"SiriusSection"
+
+[node name="MessageLabel" type="Label" parent="Panel/Margin/Row/TextColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"SiriusBody"

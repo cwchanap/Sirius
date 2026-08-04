@@ -24,6 +24,7 @@ public partial class SiriusUiShowcase : Control
     private Label _titleLabel = null!;
     private Label _sectionLabel = null!;
     private Label _bodyLabel = null!;
+    private Control _metadataFixture = null!;
     private Label _metadataLabel = null!;
     private Label _stressBody = null!;
     private SiriusModalShell _mediumModal = null!;
@@ -59,6 +60,7 @@ public partial class SiriusUiShowcase : Control
         _titleLabel = GetNode<Label>("%TypographyTitle");
         _sectionLabel = GetNode<Label>("%TypographySectionLabel");
         _bodyLabel = GetNode<Label>("%TypographyBody");
+        _metadataFixture = GetNode<Control>("%MetadataFixture");
         _metadataLabel = GetNode<Label>("%StressMetadata");
         _stressBody = GetNode<Label>("%StressBody");
         _mediumModal = GetNode<SiriusModalShell>("%MediumModalFixture");
@@ -157,7 +159,7 @@ public partial class SiriusUiShowcase : Control
         _motionTween.SetParallel();
         AnimateEntry(_motionModalWrapper, _motionModalBasePosition);
         AnimateEntry(_motionToastWrapper, _motionToastBasePosition);
-        _motionTween.Chain().SetParallel();
+        _motionTween.Chain();
         AnimateExit(_motionModalWrapper, _motionModalBasePosition);
         AnimateExit(_motionToastWrapper, _motionToastBasePosition);
     }
@@ -195,9 +197,9 @@ public partial class SiriusUiShowcase : Control
         _metadataLabel.ThemeTypeVariation = Compact
             ? SiriusThemeTypes.MetadataCompact
             : SiriusThemeTypes.Metadata;
-        _metadataLabel.CustomMinimumSize = new Vector2(
+        _metadataFixture.CustomMinimumSize = new Vector2(
             SiriusUiMetrics.TooltipMaximum(Compact),
-            0);
+            24);
 
         foreach (var statBar in _statBars)
             statBar.Compact = Compact;
@@ -359,30 +361,38 @@ public partial class SiriusUiShowcase : Control
 
     private void AnimateEntry(Control wrapper, Vector2 basePosition)
     {
+        var transition = ReducedMotion
+            ? Tween.TransitionType.Linear
+            : SiriusMotion.EntryTransition;
+        var ease = ReducedMotion ? Tween.EaseType.InOut : SiriusMotion.EntryEase;
         _motionTween!.TweenProperty(
                 wrapper,
                 "modulate:a",
                 1f,
                 SiriusMotion.Duration(ReducedMotion, true))
-            .SetTrans(SiriusMotion.EntryTransition)
-            .SetEase(SiriusMotion.EntryEase);
+            .SetTrans(transition)
+            .SetEase(ease);
         if (SiriusMotion.UseTransform(ReducedMotion))
         {
             _motionTween.TweenProperty(wrapper, "position", basePosition, SiriusMotion.EntrySeconds)
-                .SetTrans(SiriusMotion.EntryTransition)
-                .SetEase(SiriusMotion.EntryEase);
+                .SetTrans(transition)
+                .SetEase(ease);
         }
     }
 
     private void AnimateExit(Control wrapper, Vector2 basePosition)
     {
+        var transition = ReducedMotion
+            ? Tween.TransitionType.Linear
+            : SiriusMotion.ExitTransition;
+        var ease = ReducedMotion ? Tween.EaseType.InOut : SiriusMotion.ExitEase;
         _motionTween!.TweenProperty(
                 wrapper,
                 "modulate:a",
                 0f,
                 SiriusMotion.Duration(ReducedMotion, false))
-            .SetTrans(SiriusMotion.ExitTransition)
-            .SetEase(SiriusMotion.ExitEase);
+            .SetTrans(transition)
+            .SetEase(ease);
         if (SiriusMotion.UseTransform(ReducedMotion))
         {
             _motionTween.TweenProperty(
@@ -390,8 +400,8 @@ public partial class SiriusUiShowcase : Control
                     "position",
                     basePosition + ExitTranslation,
                     SiriusMotion.ExitSeconds)
-                .SetTrans(SiriusMotion.ExitTransition)
-                .SetEase(SiriusMotion.ExitEase);
+                .SetTrans(transition)
+                .SetEase(ease);
         }
     }
 

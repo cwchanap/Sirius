@@ -12,6 +12,19 @@ Components do not own navigation, queueing, dismissal, focus restoration,
 asynchronous work, or animation lifetime. The consuming screen or its
 presentation owner owns those policies.
 
+The approved font resources are `res://assets/fonts/cinzel/Cinzel-Variable.ttf`,
+`res://assets/fonts/noto_sans/NotoSans-Regular.ttf`,
+`res://assets/fonts/noto_sans/NotoSans-Medium.ttf`,
+`res://assets/fonts/noto_sans/NotoSans-SemiBold.ttf`, and
+`res://assets/fonts/noto_sans_mono/NotoSansMono-Medium.ttf`. The Theme's
+approved ornamental resources are
+`res://assets/sprites/ui/ornaments/ignition_seal.png` and
+`res://assets/sprites/ui/ornaments/focus_halo.png`.
+
+For runtime icon, ornament, and effect lookups, use `UiArtCatalog` with its
+typed IDs (for example, `UiOrnamentId`); do not duplicate paths or create a
+second theme-token catalog.
+
 ## Opt in
 
 Load the Theme at the root of the screen being migrated. HPA-377 is deliberately

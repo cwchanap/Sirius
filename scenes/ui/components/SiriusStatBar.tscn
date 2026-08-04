@@ -1,0 +1,46 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/components/SiriusStatBar.cs" id="1_stat_bar"]
+[ext_resource type="Theme" path="res://resources/ui/theme/SiriusTheme.tres" id="2_sirius_theme"]
+
+[node name="SiriusStatBar" type="VBoxContainer"]
+layout_mode = 2
+theme = ExtResource("2_sirius_theme")
+script = ExtResource("1_stat_bar")
+
+[node name="Header" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Icon" type="TextureRect" parent="Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(16, 16)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NameLabel" type="Label" parent="Header"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"SiriusMetadata"
+
+[node name="Spacer" type="Control" parent="Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ValueLabel" type="Label" parent="Header"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"SiriusNumeric"
+
+[node name="Bar" type="ProgressBar" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+show_percentage = false
+theme_type_variation = &"SiriusHpBar"
+
+[node name="StateLabel" type="Label" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"SiriusMetadata"

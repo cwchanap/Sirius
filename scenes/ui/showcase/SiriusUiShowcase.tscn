@@ -278,36 +278,42 @@ columns = 2
 [node name="PrimaryButtonFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/ButtonGrid"]
 unique_name_in_owner = true
 layout_mode = 2
+focus_mode = 0
 text = "Primary action"
 theme_type_variation = &"SiriusPrimaryButton"
 
 [node name="SecondaryButtonFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/ButtonGrid"]
 unique_name_in_owner = true
 layout_mode = 2
+focus_mode = 0
 text = "Secondary action"
 theme_type_variation = &"SiriusSecondaryButton"
 
 [node name="TertiaryButtonFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/ButtonGrid"]
 unique_name_in_owner = true
 layout_mode = 2
+focus_mode = 0
 text = "Tertiary action"
 theme_type_variation = &"SiriusTertiaryButton"
 
 [node name="WarningButtonFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/ButtonGrid"]
 unique_name_in_owner = true
 layout_mode = 2
+focus_mode = 0
 text = "Warning action"
 theme_type_variation = &"SiriusWarningButton"
 
 [node name="DestructiveButtonFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/ButtonGrid"]
 unique_name_in_owner = true
 layout_mode = 2
+focus_mode = 0
 text = "Destructive action"
 theme_type_variation = &"SiriusDestructiveButton"
 
 [node name="LoadingFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/ButtonGrid"]
 unique_name_in_owner = true
 layout_mode = 2
+focus_mode = 0
 disabled = true
 text = "Loading…"
 theme_type_variation = &"SiriusPrimaryButton"
@@ -319,6 +325,7 @@ theme_override_constants/separation = 16
 [node name="IgnitionStandardFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/IgnitionRow"]
 unique_name_in_owner = true
 layout_mode = 2
+focus_mode = 0
 tooltip_text = "Ignition standard target"
 text = "Ignite"
 theme_type_variation = &"SiriusIgnitionButton"
@@ -326,6 +333,7 @@ theme_type_variation = &"SiriusIgnitionButton"
 [node name="IgnitionCompactFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/IgnitionRow"]
 unique_name_in_owner = true
 layout_mode = 2
+focus_mode = 0
 tooltip_text = "Ignition compact target"
 text = "Go"
 theme_type_variation = &"SiriusIgnitionButton"
@@ -337,6 +345,7 @@ theme_override_constants/separation = 8
 [node name="FocusFirstFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/FocusControls"]
 unique_name_in_owner = true
 layout_mode = 2
+focus_mode = 2
 focus_next = NodePath("../SelectedFocusedFixture")
 focus_previous = NodePath("../FocusLastFixture")
 text = "Focus start"
@@ -345,6 +354,7 @@ theme_type_variation = &"SiriusPrimaryButton"
 [node name="SelectedFocusedFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/FocusControls"]
 unique_name_in_owner = true
 layout_mode = 2
+focus_mode = 2
 focus_next = NodePath("../FocusLastFixture")
 focus_previous = NodePath("../FocusFirstFixture")
 toggle_mode = true
@@ -355,6 +365,7 @@ theme_type_variation = &"SiriusPrimaryButton"
 [node name="FocusLastFixture" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ButtonSection/FocusControls"]
 unique_name_in_owner = true
 layout_mode = 2
+focus_mode = 2
 focus_next = NodePath("../FocusFirstFixture")
 focus_previous = NodePath("../SelectedFocusedFixture")
 text = "Focus loop"
@@ -374,6 +385,7 @@ theme_type_variation = &"SiriusSection"
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 112)
 layout_mode = 2
+focus_mode = 0
 
 [node name="Overview" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/TabsSection/NativeTabs"]
 layout_mode = 2
@@ -390,6 +402,7 @@ metadata/_tab_index = 1
 
 [node name="TooltipButton" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/TabsSection/NativeTabs/Details"]
 layout_mode = 2
+focus_mode = 0
 tooltip_text = "A themed native tooltip remains available to stock controls."
 text = "Hover for tooltip"
 theme_type_variation = &"SiriusTertiaryButton"
@@ -514,6 +527,22 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 260)
 layout_mode = 2
 
+[node name="StressBody" type="Label" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ModalSection/MediumModalFixture/Panel/Margin/RootLayout/BodyScroll/BodyHost"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "The observatory records every celestial route before committing the next action. This representative paragraph is intentionally long enough to wrap across multiple lines at the minimum supported viewport while preserving readable body text, fixed modal actions, and vertical scrolling."
+autowrap_mode = 3
+theme_type_variation = &"SiriusBody"
+
+[node name="StressAction" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ModalSection/MediumModalFixture/Panel/Margin/RootLayout/ActionsHost"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Bestätigungsaktion mit ausführlicher Beschreibung"
+autowrap_mode = 3
+theme_type_variation = &"SiriusPrimaryButton"
+
 [node name="LargeModalFixture" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ModalSection" instance=ExtResource("7_modal_shell")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 168)
@@ -532,6 +561,7 @@ theme_type_variation = &"SiriusSection"
 [node name="MotionPlayButton" type="Button" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/MotionSection"]
 unique_name_in_owner = true
 layout_mode = 2
+focus_mode = 0
 text = "Play local motion demo"
 theme_type_variation = &"SiriusPrimaryButton"
 

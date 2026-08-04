@@ -55,6 +55,8 @@ public partial class SiriusUiShowcaseResponsiveTest : Node
             var ignition = _showcase.GetNode<Button>("%IgnitionStandardFixture");
             var body = _showcase.GetNode<Label>("%StressBody");
             var metadata = _showcase.GetNode<Label>("%StressMetadata");
+            var metadataFixture = _showcase.GetNode<Control>("%MetadataFixture");
+            var tooltipMaximum = SiriusUiMetrics.TooltipMaximum(compact);
 
             AssertThat(_showcase.PreviewViewport.Size).IsEqual(size);
             AssertThat(_showcase.Compact).IsEqual(compact);
@@ -70,6 +72,19 @@ public partial class SiriusUiShowcaseResponsiveTest : Node
             AssertThat(body.AutowrapMode).IsEqual(TextServer.AutowrapMode.WordSmart);
             AssertThat(metadata.ClipText).IsTrue();
             AssertThat(metadata.TooltipText).IsEqual(metadata.Text);
+            AssertThat(metadataFixture.Size.X).IsEqualApprox(tooltipMaximum, 0.001f);
+            AssertThat(metadata.Size.X).IsEqualApprox(tooltipMaximum, 0.001f);
+            var metadataFont = metadata.GetThemeFont("font");
+            AssertThat(metadataFont).IsNotNull();
+            if (metadataFont is not null)
+            {
+                var fullMetadataWidth = metadataFont.GetStringSize(
+                    metadata.Text,
+                    HorizontalAlignment.Left,
+                    -1,
+                    metadata.GetThemeFontSize("font_size")).X;
+                AssertThat(fullMetadataWidth).IsGreater(metadata.Size.X);
+            }
 
             scroll.ScrollVertical = 0;
             scroll.EnsureControlVisible(primary);

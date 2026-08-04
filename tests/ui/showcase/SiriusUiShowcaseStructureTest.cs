@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using System;
+using System.Reflection;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
 
@@ -149,7 +150,7 @@ public partial class SiriusUiShowcaseStructureTest : Node
     }
 
     [TestCase]
-    public void LocalMotionDemo_OnlyUsesShowcaseWrappers()
+    public void LocalMotionDemo_ReducedMotionStartsAtTheShowcaseWrapperBases()
     {
         var modalWrapper = _showcase.GetNode<Control>("%MotionModalWrapper");
         var toastWrapper = _showcase.GetNode<Control>("%MotionToastWrapper");
@@ -162,7 +163,6 @@ public partial class SiriusUiShowcaseStructureTest : Node
         AssertThat(toastWrapper.Position).IsEqual(toastBasePosition);
         AssertThat(modalWrapper.Modulate.A).IsEqualApprox(0f, 0.001f);
         AssertThat(toastWrapper.Modulate.A).IsEqualApprox(0f, 0.001f);
-        AssertThat(_showcase.FindChild("Tween", true, false)).IsNull();
     }
 
     [TestCase]
@@ -181,6 +181,64 @@ public partial class SiriusUiShowcaseStructureTest : Node
         AssertThat(toastWrapper.Modulate.A).IsEqualApprox(0f, 0.001f);
     }
 
+    [TestCase]
+    public void LocalMotionDemo_CompletesEntryBeforeStartingTheNormalExit()
+    {
+        var modalWrapper = _showcase.GetNode<Control>("%MotionModalWrapper");
+        var toastWrapper = _showcase.GetNode<Control>("%MotionToastWrapper");
+        var modalBasePosition = modalWrapper.Position;
+        var toastBasePosition = toastWrapper.Position;
+        _showcase.SetReducedMotion(false);
+        _showcase.PlayMotionDemo();
+
+        var motionTween = GetMotionTween();
+        motionTween.Pause();
+        motionTween.CustomStep(SiriusMotion.EntrySeconds);
+
+        AssertWrapperIsVisibleAtBase(modalWrapper, modalBasePosition);
+        AssertWrapperIsVisibleAtBase(toastWrapper, toastBasePosition);
+
+        motionTween.CustomStep(SiriusMotion.ExitSeconds / 2d);
+
+        AssertWrapperIsExiting(modalWrapper, modalBasePosition);
+        AssertWrapperIsExiting(toastWrapper, toastBasePosition);
+
+        motionTween.CustomStep(SiriusMotion.ExitSeconds / 2d);
+
+        AssertWrapperHasExited(modalWrapper, modalBasePosition);
+        AssertWrapperHasExited(toastWrapper, toastBasePosition);
+    }
+
+    [TestCase]
+    public void LocalMotionDemo_ReducedMotionUsesLinearHundredMillisecondOpacity()
+    {
+        var modalWrapper = _showcase.GetNode<Control>("%MotionModalWrapper");
+        var toastWrapper = _showcase.GetNode<Control>("%MotionToastWrapper");
+        var modalBasePosition = modalWrapper.Position;
+        var toastBasePosition = toastWrapper.Position;
+        _showcase.SetReducedMotion(true);
+        _showcase.PlayMotionDemo();
+
+        var motionTween = GetMotionTween();
+        motionTween.Pause();
+        motionTween.CustomStep(SiriusMotion.ReducedOpacitySeconds / 2d);
+
+        AssertThat(modalWrapper.Modulate.A).IsEqualApprox(0.5f, 0.001f);
+        AssertThat(toastWrapper.Modulate.A).IsEqualApprox(0.5f, 0.001f);
+        AssertThat(modalWrapper.Position).IsEqual(modalBasePosition);
+        AssertThat(toastWrapper.Position).IsEqual(toastBasePosition);
+
+        motionTween.CustomStep(SiriusMotion.ReducedOpacitySeconds / 2d);
+        AssertWrapperIsVisibleAtBase(modalWrapper, modalBasePosition);
+        AssertWrapperIsVisibleAtBase(toastWrapper, toastBasePosition);
+
+        motionTween.CustomStep(SiriusMotion.ReducedOpacitySeconds / 2d);
+        AssertThat(modalWrapper.Modulate.A).IsEqualApprox(0.5f, 0.001f);
+        AssertThat(toastWrapper.Modulate.A).IsEqualApprox(0.5f, 0.001f);
+        AssertThat(modalWrapper.Position).IsEqual(modalBasePosition);
+        AssertThat(toastWrapper.Position).IsEqual(toastBasePosition);
+    }
+
     private void AssertButtonVariation(string uniqueName, StringName variation)
     {
         var button = _showcase.GetNode<Button>($"%{uniqueName}");
@@ -191,5 +249,34 @@ public partial class SiriusUiShowcaseStructureTest : Node
     {
         var panel = _showcase.GetNode<PanelContainer>($"%{uniqueName}");
         AssertThat(panel.ThemeTypeVariation).IsEqual(variation);
+    }
+
+    private Tween GetMotionTween()
+    {
+        var tweenField = typeof(SiriusUiShowcase).GetField(
+            "_motionTween",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        AssertThat(tweenField).IsNotNull();
+        return (Tween)tweenField!.GetValue(_showcase)!;
+    }
+
+    private static void AssertWrapperIsVisibleAtBase(Control wrapper, Vector2 basePosition)
+    {
+        AssertThat(wrapper.Modulate.A).IsEqualApprox(1f, 0.001f);
+        AssertThat(wrapper.Position).IsEqual(basePosition);
+    }
+
+    private static void AssertWrapperIsExiting(Control wrapper, Vector2 basePosition)
+    {
+        AssertThat(wrapper.Modulate.A).IsGreater(0f);
+        AssertThat(wrapper.Modulate.A).IsLess(1f);
+        AssertThat(wrapper.Position.Y).IsLess(basePosition.Y);
+        AssertThat(wrapper.Position.Y).IsGreater(basePosition.Y - 8f);
+    }
+
+    private static void AssertWrapperHasExited(Control wrapper, Vector2 basePosition)
+    {
+        AssertThat(wrapper.Modulate.A).IsEqualApprox(0f, 0.001f);
+        AssertThat(wrapper.Position).IsEqual(basePosition + new Vector2(0, -8));
     }
 }

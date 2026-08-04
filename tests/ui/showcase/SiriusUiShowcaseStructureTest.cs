@@ -1,5 +1,6 @@
 using GdUnit4;
 using Godot;
+using System;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
 
@@ -59,7 +60,7 @@ public partial class SiriusUiShowcaseStructureTest : Node
     }
 
     [TestCase]
-    public void PaletteFixtures_UseFixedColorRectsAndAllApprovedPanelVariations()
+    public void PaletteFixtures_UseFixedColorRectsApprovedPanelsAndNoScenicResources()
     {
         AssertThat(_showcase.GetNode<ColorRect>("%DarkSurfaceFixture")).IsNotNull();
         AssertThat(_showcase.GetNode<ColorRect>("%LightSurfaceFixture")).IsNotNull();
@@ -73,6 +74,37 @@ public partial class SiriusUiShowcaseStructureTest : Node
 
         AssertThat(_showcase.GetNodeOrNull<Control>("%BackgroundSelector")).IsNull();
         AssertThat(_showcase.FindChild("ScenicBackground", true, false)).IsNull();
+
+        string[] allowedExternalResourcePaths =
+        {
+            "res://scripts/ui/showcase/SiriusUiShowcase.cs",
+            "res://resources/ui/theme/SiriusTheme.tres",
+            "res://scenes/ui/components/SiriusStatBar.tscn",
+            "res://scenes/ui/components/SiriusInputHint.tscn",
+            "res://scenes/ui/components/SiriusContextPrompt.tscn",
+            "res://scenes/ui/components/SiriusToastShell.tscn",
+            "res://scenes/ui/components/SiriusModalShell.tscn"
+        };
+        var sceneSource = FileAccess.GetFileAsString(ScenePath);
+        var hasScenicResourcePath = false;
+        var externalResourceCount = 0;
+        foreach (var line in sceneSource.Split('\n'))
+        {
+            if (!line.StartsWith("[ext_resource", StringComparison.Ordinal))
+                continue;
+
+            externalResourceCount++;
+            AssertThat(Array.Exists(
+                    allowedExternalResourcePaths,
+                    path => line.Contains($"path=\"{path}\"", StringComparison.Ordinal)))
+                .IsTrue();
+            hasScenicResourcePath |=
+                line.Contains("background", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("scenic", StringComparison.OrdinalIgnoreCase);
+        }
+
+        AssertThat(externalResourceCount).IsEqual(allowedExternalResourcePaths.Length);
+        AssertThat(hasScenicResourcePath).IsFalse();
     }
 
     [TestCase]

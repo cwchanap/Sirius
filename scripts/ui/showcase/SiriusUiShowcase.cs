@@ -19,9 +19,6 @@ public partial class SiriusUiShowcase : Control
     private MarginContainer _safeFrame = null!;
     private VBoxContainer _showcaseContent = null!;
     private Button _motionPlayButton = null!;
-    private Button _focusFirst = null!;
-    private Button _focusLast = null!;
-    private Button _selectedFocused = null!;
     private TabContainer _nativeTabs = null!;
     private Label _displayLabel = null!;
     private Label _titleLabel = null!;
@@ -29,7 +26,6 @@ public partial class SiriusUiShowcase : Control
     private Label _bodyLabel = null!;
     private Label _metadataLabel = null!;
     private Label _stressBody = null!;
-    private Button _stressAction = null!;
     private SiriusModalShell _mediumModal = null!;
     private ScrollContainer _mediumBodyScroll = null!;
     private Control _motionModalWrapper = null!;
@@ -58,15 +54,13 @@ public partial class SiriusUiShowcase : Control
         _safeFrame = GetNode<MarginContainer>("%SafeFrame");
         _showcaseContent = GetNode<VBoxContainer>("%ShowcaseContent");
         _motionPlayButton = GetNode<Button>("%MotionPlayButton");
-        _focusFirst = GetNode<Button>("%FocusFirstFixture");
-        _selectedFocused = GetNode<Button>("%SelectedFocusedFixture");
-        _focusLast = GetNode<Button>("%FocusLastFixture");
         _nativeTabs = GetNode<TabContainer>("%NativeTabs");
         _displayLabel = GetNode<Label>("%TypographyDisplay");
         _titleLabel = GetNode<Label>("%TypographyTitle");
         _sectionLabel = GetNode<Label>("%TypographySectionLabel");
         _bodyLabel = GetNode<Label>("%TypographyBody");
         _metadataLabel = GetNode<Label>("%StressMetadata");
+        _stressBody = GetNode<Label>("%StressBody");
         _mediumModal = GetNode<SiriusModalShell>("%MediumModalFixture");
         _mediumBodyScroll = _mediumModal.GetNode<ScrollContainer>("%BodyScroll");
         _motionModalWrapper = GetNode<Control>("%MotionModalWrapper");
@@ -107,10 +101,9 @@ public partial class SiriusUiShowcase : Control
         ];
 
         ConfigureComponentFixtures();
-        CreateStressModalFixtures();
         ConfigureHintFixtures();
         CollectButtons(PreviewRoot, _previewButtons);
-        ConfigureFocusLoop();
+        _nativeTabs.GetTabBar().FocusMode = FocusModeEnum.None;
         PopulateViewportSelector();
 
         _viewportSizeSelector.ItemSelected += OnViewportSizeSelected;
@@ -228,32 +221,6 @@ public partial class SiriusUiShowcase : Control
         }
     }
 
-    private void CreateStressModalFixtures()
-    {
-        _stressBody = new Label
-        {
-            Name = "StressBody",
-            Text = "The observatory records every celestial route before committing the next action. This representative paragraph is intentionally long enough to wrap across multiple lines at the minimum supported viewport while preserving readable body text, fixed modal actions, and vertical scrolling.",
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
-        };
-        _mediumModal.BodyHost.AddChild(_stressBody);
-        _stressBody.Owner = this;
-        _stressBody.UniqueNameInOwner = true;
-
-        _stressAction = new Button
-        {
-            Name = "StressAction",
-            Text = "Bestätigungsaktion mit ausführlicher Beschreibung",
-            ThemeTypeVariation = SiriusThemeTypes.PrimaryButton,
-            FocusMode = FocusModeEnum.None,
-            AutowrapMode = TextServer.AutowrapMode.WordSmart
-        };
-        _mediumModal.ActionsHost.AddChild(_stressAction);
-        _stressAction.Owner = this;
-        _stressAction.UniqueNameInOwner = true;
-    }
-
     private void ConfigureComponentFixtures()
     {
         ConfigureStat(_statBars[0], SiriusStatBarKind.Health, 20, 100, "Health");
@@ -369,22 +336,6 @@ public partial class SiriusUiShowcase : Control
         hint.Refresh();
     }
 
-    private void ConfigureFocusLoop()
-    {
-        DisableFocusWithin(PreviewRoot);
-        _nativeTabs.GetTabBar().FocusMode = FocusModeEnum.None;
-
-        _focusFirst.FocusMode = FocusModeEnum.All;
-        _selectedFocused.FocusMode = FocusModeEnum.All;
-        _focusLast.FocusMode = FocusModeEnum.All;
-        _focusFirst.FocusNext = _focusFirst.GetPathTo(_selectedFocused);
-        _focusFirst.FocusPrevious = _focusFirst.GetPathTo(_focusLast);
-        _selectedFocused.FocusNext = _selectedFocused.GetPathTo(_focusLast);
-        _selectedFocused.FocusPrevious = _selectedFocused.GetPathTo(_focusFirst);
-        _focusLast.FocusNext = _focusLast.GetPathTo(_focusFirst);
-        _focusLast.FocusPrevious = _focusLast.GetPathTo(_selectedFocused);
-    }
-
     private void PopulateViewportSelector()
     {
         _viewportSizeSelector.Clear();
@@ -453,12 +404,4 @@ public partial class SiriusUiShowcase : Control
             CollectButtons(child, buttons);
     }
 
-    private static void DisableFocusWithin(Node node)
-    {
-        if (node is Control control)
-            control.FocusMode = FocusModeEnum.None;
-
-        foreach (Node child in node.GetChildren())
-            DisableFocusWithin(child);
-    }
 }

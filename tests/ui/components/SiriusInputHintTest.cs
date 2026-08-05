@@ -46,7 +46,12 @@ public partial class SiriusInputHintTest : Node
             InputMap.ActionAddEvent(action, new InputEventKey { PhysicalKeycode = Key.K });
             _inputHint.Prompt = "Open";
             _inputHint.Actions = new[] { action };
-            _inputHint.Observe(new InputEventKey { PhysicalKeycode = Key.K, Pressed = true });
+            // The presenter defaults to Keyboard, so a keyboard observation is
+            // not a device change and Observe reports false.
+            var firstObservation = _inputHint.Observe(new InputEventKey { PhysicalKeycode = Key.K, Pressed = true });
+            AssertThat(firstObservation).IsFalse();
+            AssertThat(_inputHint.Observe(new InputEventKey { PhysicalKeycode = Key.K, Pressed = true }))
+                .IsFalse();
             _inputHint.Refresh();
 
             AssertThat(_inputHint.ActiveDevice).IsEqual(UiInputDevice.Keyboard);
@@ -64,11 +69,15 @@ public partial class SiriusInputHintTest : Node
         {
             InputMap.ActionAddEvent(action, new InputEventMouseButton { ButtonIndex = MouseButton.Left });
             _inputHint.Actions = new[] { action };
-            _inputHint.Observe(new InputEventMouseButton
+            // Mouse differs from the Keyboard default: the first observation is a
+            // device change (true); repeating the same event is not (false).
+            var mouseEvent = new InputEventMouseButton
             {
                 ButtonIndex = MouseButton.Left,
                 Pressed = true
-            });
+            };
+            AssertThat(_inputHint.Observe(mouseEvent)).IsTrue();
+            AssertThat(_inputHint.Observe(mouseEvent)).IsFalse();
             _inputHint.Refresh();
 
             AssertThat(_inputHint.ActiveDevice).IsEqual(UiInputDevice.Mouse);

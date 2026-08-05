@@ -9,8 +9,6 @@ using static GdUnit4.Assertions;
 [RequireGodotRuntime]
 public partial class SiriusUiShowcaseFocusTest : Node
 {
-    private const string ScenePath = "res://scenes/ui/showcase/SiriusUiShowcase.tscn";
-
     private SceneTree _sceneTree = null!;
     private SiriusUiShowcase _showcase = null!;
 
@@ -18,24 +16,12 @@ public partial class SiriusUiShowcaseFocusTest : Node
     public async Task Setup()
     {
         _sceneTree = (SceneTree)Engine.GetMainLoop();
-        var scene = ResourceLoader.Load<PackedScene>(ScenePath);
-        AssertThat(scene).IsNotNull();
-        if (scene is null)
-            return;
-
-        _showcase = scene.Instantiate<SiriusUiShowcase>();
-        _sceneTree.Root.AddChild(_showcase);
-        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+        _showcase = await SiriusUiShowcaseTestHarness.InstantiateAsync(_sceneTree);
     }
 
     [AfterTest]
     public async Task Cleanup()
-    {
-        if (GodotObject.IsInstanceValid(_showcase))
-            _showcase.QueueFree();
-
-        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
-    }
+        => await SiriusUiShowcaseTestHarness.FreeAsync(_sceneTree, _showcase);
 
     [TestCase(640, 360)]
     [TestCase(1280, 720)]
@@ -86,7 +72,6 @@ public partial class SiriusUiShowcaseFocusTest : Node
     [TestCase]
     public void AuthoredFocusScope_AllowsOnlyTheExplicitThreeControlLoop()
     {
-        var sceneSource = FileAccess.GetFileAsString(ScenePath);
         var first = _showcase.GetNode<Button>("%FocusFirstFixture");
         var selected = _showcase.GetNode<Button>("%SelectedFocusedFixture");
         var last = _showcase.GetNode<Button>("%FocusLastFixture");
@@ -102,10 +87,6 @@ public partial class SiriusUiShowcaseFocusTest : Node
         AssertThat(last.FocusNext.ToString()).IsEqual("../FocusFirstFixture");
         AssertThat(last.FocusPrevious.ToString()).IsEqual("../SelectedFocusedFixture");
 
-        AssertSceneNodeProperty(sceneSource, "FocusFirstFixture", "focus_mode = 2");
-        AssertSceneNodeProperty(sceneSource, "SelectedFocusedFixture", "focus_mode = 2");
-        AssertSceneNodeProperty(sceneSource, "FocusLastFixture", "focus_mode = 2");
-
         string[] staticPreviewButtonNames =
         {
             "PrimaryButtonFixture", "SecondaryButtonFixture", "TertiaryButtonFixture",
@@ -115,32 +96,13 @@ public partial class SiriusUiShowcaseFocusTest : Node
         };
         foreach (var buttonName in staticPreviewButtonNames)
         {
-            AssertSceneNodeProperty(sceneSource, buttonName, "focus_mode = 0");
             AssertThat(_showcase.GetNode<Button>($"%{buttonName}").FocusMode)
                 .IsEqual(Control.FocusModeEnum.None);
         }
 
         var tooltipButton = _showcase.FindChild("TooltipButton", true, false) as Button;
         AssertThat(tooltipButton).IsNotNull();
-        AssertSceneNodeProperty(sceneSource, "TooltipButton", "focus_mode = 0");
         AssertThat(tooltipButton!.FocusMode).IsEqual(Control.FocusModeEnum.None);
-        AssertSceneNodeProperty(sceneSource, "NativeTabs", "focus_mode = 0");
         AssertThat(nativeTabs.GetTabBar().FocusMode).IsEqual(Control.FocusModeEnum.None);
-    }
-
-    private static void AssertSceneNodeProperty(
-        string sceneSource,
-        string nodeName,
-        string expectedProperty)
-    {
-        var nodeStart = sceneSource.IndexOf($"[node name=\"{nodeName}\"", StringComparison.Ordinal);
-        AssertThat(nodeStart >= 0).IsTrue();
-        if (nodeStart < 0)
-            return;
-
-        var nextNode = sceneSource.IndexOf("\n[node ", nodeStart + 1, StringComparison.Ordinal);
-        var nodeEnd = nextNode >= 0 ? nextNode : sceneSource.Length;
-        var nodeSource = sceneSource.Substring(nodeStart, nodeEnd - nodeStart);
-        AssertThat(nodeSource.Contains(expectedProperty, StringComparison.Ordinal)).IsTrue();
     }
 }

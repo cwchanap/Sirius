@@ -36,13 +36,14 @@ public partial class SiriusToastShellTest : Node
     }
 
     [TestCase]
-    public void RefreshPresentation_AppliesWarningPanelIconAndText()
+    public async Task RefreshPresentation_AppliesWarningPanelIconAndText()
     {
         _shell.Severity = SiriusUiSeverity.Warning;
         _shell.Title = "Signal loss";
         _shell.Message = "The observatory link is unstable.";
         _shell.Compact = false;
         _shell.RefreshPresentation();
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
 
         var panel = _shell.GetNode<PanelContainer>("%Panel");
         var icon = _shell.GetNode<TextureRect>("%SeverityIcon");
@@ -50,6 +51,8 @@ public partial class SiriusToastShellTest : Node
         var message = _shell.GetNode<Label>("%MessageLabel");
 
         AssertThat(panel.ThemeTypeVariation).IsEqual(SiriusThemeTypes.WarningPanel);
+        AssertThat(panel.Size.X).IsGreater(0f);
+        AssertThat(panel.Size.Y).IsGreater(0f);
         AssertThat(icon.Texture).IsNotNull();
         if (icon.Texture is not null)
         {
@@ -63,12 +66,13 @@ public partial class SiriusToastShellTest : Node
     }
 
     [TestCase]
-    public void RefreshPresentation_UsesCompactTextVariations()
+    public async Task RefreshPresentation_UsesCompactTextVariations()
     {
         _shell.Title = "Compact status";
         _shell.Message = "Connection restored.";
         _shell.Compact = true;
         _shell.RefreshPresentation();
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
 
         var title = _shell.GetNode<Label>("%TitleLabel");
         var message = _shell.GetNode<Label>("%MessageLabel");

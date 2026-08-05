@@ -1,10 +1,12 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/components/SiriusContextPrompt.cs" id="1_context_prompt"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusInputHint.tscn" id="2_input_hint"]
+[ext_resource type="Theme" path="res://resources/ui/theme/SiriusTheme.tres" id="3_sirius_theme"]
 
 [node name="SiriusContextPrompt" type="HBoxContainer"]
 theme_override_constants/separation = 8
+theme = ExtResource("3_sirius_theme")
 script = ExtResource("1_context_prompt")
 
 [node name="SemanticIcon" type="TextureRect" parent="."]

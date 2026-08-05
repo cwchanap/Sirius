@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 public partial class SiriusUiShowcase : Control
@@ -13,6 +14,7 @@ public partial class SiriusUiShowcase : Control
 
     private readonly List<Button> _previewButtons = new();
     private readonly List<StringName> _createdInputActions = new();
+    private readonly List<(StringName action, InputEvent inputEvent)> _addedInputEvents = new();
 
     private OptionButton _viewportSizeSelector = null!;
     private CheckBox _reducedMotionToggle = null!;
@@ -105,6 +107,9 @@ public partial class SiriusUiShowcase : Control
         ConfigureComponentFixtures();
         ConfigureHintFixtures();
         CollectButtons(PreviewRoot, _previewButtons);
+        // The tab bar is excluded from keyboard/gamepad focus so the showcase's
+        // authored three-control focus loop (FocusFirst/SelectedFocused/Last)
+        // stays deterministic; the tab chrome remains reachable by pointer.
         _nativeTabs.GetTabBar().FocusMode = FocusModeEnum.None;
         PopulateViewportSelector();
 
@@ -113,13 +118,18 @@ public partial class SiriusUiShowcase : Control
         _motionPlayButton.Pressed += PlayMotionDemo;
 
         SetReducedMotion(false);
-        SetPreviewSize(new Vector2I(1280, 720));
     }
 
     public override void _ExitTree()
     {
         if (_motionTween is not null && _motionTween.IsValid())
             _motionTween.Kill();
+
+        foreach (var (action, inputEvent) in _addedInputEvents)
+        {
+            if (InputMap.HasAction(action))
+                InputMap.ActionEraseEvent(action, inputEvent);
+        }
 
         foreach (var action in _createdInputActions)
             InputMap.EraseAction(action);
@@ -323,7 +333,10 @@ public partial class SiriusUiShowcase : Control
         }
 
         if (inputEvent is not null)
+        {
             InputMap.ActionAddEvent(action, inputEvent);
+            _addedInputEvents.Add((action, inputEvent));
+        }
     }
 
     private static void ConfigureHint(
@@ -344,7 +357,17 @@ public partial class SiriusUiShowcase : Control
         foreach (var size in SiriusUiMetrics.VerificationViewports)
             _viewportSizeSelector.AddItem($"{size.X} × {size.Y}");
 
-        _viewportSizeSelector.Select(2);
+        SelectInitialViewport(new Vector2I(1280, 720));
+    }
+
+    private void SelectInitialViewport(Vector2I targetSize)
+    {
+        var index = Array.IndexOf(SiriusUiMetrics.VerificationViewports, targetSize);
+        if (index < 0)
+            index = 0;
+
+        _viewportSizeSelector.Select(index);
+        SetPreviewSize(SiriusUiMetrics.VerificationViewports[index]);
     }
 
     private void OnViewportSizeSelected(long index)

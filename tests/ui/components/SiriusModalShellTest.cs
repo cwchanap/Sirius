@@ -36,13 +36,14 @@ public partial class SiriusModalShellTest : Node
     }
 
     [TestCase]
-    public void RefreshPresentation_AppliesErrorPanelIconTitleAndSmallWidth()
+    public async Task RefreshPresentation_AppliesErrorPanelIconTitleAndSmallWidth()
     {
         _shell.Title = "Connection interrupted";
         _shell.Severity = SiriusUiSeverity.Error;
         _shell.SizeClass = SiriusModalSizeClass.Small;
         _shell.Compact = false;
         _shell.RefreshPresentation(new Vector2(1280, 720));
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
 
         var panel = _shell.GetNode<PanelContainer>("%Panel");
         var icon = _shell.GetNode<TextureRect>("%SeverityIcon");
@@ -50,6 +51,8 @@ public partial class SiriusModalShellTest : Node
 
         AssertThat(panel.ThemeTypeVariation).IsEqual(SiriusThemeTypes.ErrorPanel);
         AssertThat(panel.CustomMinimumSize.X).IsEqual(420f);
+        AssertThat(panel.Size.X).IsGreaterEqual(420f);
+        AssertThat(panel.Size.Y).IsGreater(0f);
         AssertThat(icon.Texture).IsNotNull();
         if (icon.Texture is not null)
         {
@@ -61,16 +64,19 @@ public partial class SiriusModalShellTest : Node
     }
 
     [TestCase]
-    public void RefreshPresentation_UsesCompactMarginsAndTitleVariation()
+    public async Task RefreshPresentation_UsesCompactMarginsAndTitleVariation()
     {
         _shell.Title = "Compact status";
         _shell.Compact = true;
         _shell.RefreshPresentation(new Vector2(640, 360));
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
 
         var panel = _shell.GetNode<PanelContainer>("%Panel");
         var title = _shell.GetNode<Label>("%TitleLabel");
 
         AssertThat(panel.CustomMinimumSize.X).IsEqual(616f);
+        AssertThat(panel.Size.X).IsGreaterEqual(616f);
+        AssertThat(panel.Size.Y).IsGreater(0f);
         AssertThat(title.Text).IsEqual("Compact status");
         AssertThat(title.ThemeTypeVariation).IsEqual(SiriusThemeTypes.TitleCompact);
     }

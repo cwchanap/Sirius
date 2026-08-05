@@ -1,9 +1,11 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/components/SiriusInputHint.cs" id="1_input_hint"]
+[ext_resource type="Theme" path="res://resources/ui/theme/SiriusTheme.tres" id="2_sirius_theme"]
 
 [node name="SiriusInputHint" type="HBoxContainer"]
 theme_override_constants/separation = 4
+theme = ExtResource("2_sirius_theme")
 script = ExtResource("1_input_hint")
 
 [node name="DeviceIcon" type="TextureRect" parent="."]

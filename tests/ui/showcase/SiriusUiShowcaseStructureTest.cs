@@ -9,7 +9,6 @@ using static GdUnit4.Assertions;
 [RequireGodotRuntime]
 public partial class SiriusUiShowcaseStructureTest : Node
 {
-    private const string ScenePath = "res://scenes/ui/showcase/SiriusUiShowcase.tscn";
     private const string StressAction = "Bestätigungsaktion mit ausführlicher Beschreibung";
     private const string StressBody = "The observatory records every celestial route before committing the next action. This representative paragraph is intentionally long enough to wrap across multiple lines at the minimum supported viewport while preserving readable body text, fixed modal actions, and vertical scrolling.";
     private const string StressMetadata = "OBSERVATORY-CALIBRATION-IDENTIFIER-000000000000";
@@ -21,24 +20,12 @@ public partial class SiriusUiShowcaseStructureTest : Node
     public async Task Setup()
     {
         _sceneTree = (SceneTree)Engine.GetMainLoop();
-        var scene = ResourceLoader.Load<PackedScene>(ScenePath);
-        AssertThat(scene).IsNotNull();
-        if (scene is null)
-            return;
-
-        _showcase = scene.Instantiate<SiriusUiShowcase>();
-        _sceneTree.Root.AddChild(_showcase);
-        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+        _showcase = await SiriusUiShowcaseTestHarness.InstantiateAsync(_sceneTree);
     }
 
     [AfterTest]
     public async Task Cleanup()
-    {
-        if (GodotObject.IsInstanceValid(_showcase))
-            _showcase.QueueFree();
-
-        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
-    }
+        => await SiriusUiShowcaseTestHarness.FreeAsync(_sceneTree, _showcase);
 
     [TestCase]
     public void AuthoredShowcase_ContainsEveryRequiredSectionAndPreviewRoot()
@@ -86,7 +73,7 @@ public partial class SiriusUiShowcaseStructureTest : Node
             "res://scenes/ui/components/SiriusToastShell.tscn",
             "res://scenes/ui/components/SiriusModalShell.tscn"
         };
-        var sceneSource = FileAccess.GetFileAsString(ScenePath);
+        var sceneSource = FileAccess.GetFileAsString(SiriusUiShowcaseTestHarness.ScenePath);
         var hasScenicResourcePath = false;
         var externalResourceCount = 0;
         foreach (var line in sceneSource.Split('\n'))
@@ -257,7 +244,9 @@ public partial class SiriusUiShowcaseStructureTest : Node
             "_motionTween",
             BindingFlags.Instance | BindingFlags.NonPublic);
         AssertThat(tweenField).IsNotNull();
-        return (Tween)tweenField!.GetValue(_showcase)!;
+        var tween = (Tween?)tweenField!.GetValue(_showcase);
+        AssertThat(tween).IsNotNull();
+        return tween!;
     }
 
     private static void AssertWrapperIsVisibleAtBase(Control wrapper, Vector2 basePosition)

@@ -6,6 +6,15 @@ public partial class SiriusStatBar : VBoxContainer
 {
     private const double LowThreshold = 0.25;
 
+    private enum StatBarState
+    {
+        Normal,
+        Low,
+        Overflow,
+        InvalidValue,
+        InvalidMaximum
+    }
+
     private SiriusStatBarKind _kind = SiriusStatBarKind.Health;
     private double _current;
     private double _maximum;
@@ -89,7 +98,7 @@ public partial class SiriusStatBar : VBoxContainer
         _nameLabel.ThemeTypeVariation = Compact
             ? SiriusThemeTypes.MetadataCompact
             : SiriusThemeTypes.Metadata;
-        _valueLabel.Text = $"{Current.ToString(CultureInfo.InvariantCulture)} / {Maximum.ToString(CultureInfo.InvariantCulture)}";
+        _valueLabel.Text = $"{Current.ToString("0.#", CultureInfo.InvariantCulture)} / {Maximum.ToString("0.#", CultureInfo.InvariantCulture)}";
         _valueLabel.ThemeTypeVariation = Compact
             ? SiriusThemeTypes.NumericCompact
             : SiriusThemeTypes.Numeric;
@@ -98,14 +107,14 @@ public partial class SiriusStatBar : VBoxContainer
             : SiriusThemeTypes.Metadata;
         UiIconPresenter.Apply(_icon, Kind.ToIconId(), UiIconSize.Metadata);
 
-        string state;
+        StatBarState state;
         if (Maximum <= 0)
         {
             _bar.MinValue = 0;
             _bar.MaxValue = 1;
             _bar.Value = 0;
             _bar.ThemeTypeVariation = SiriusThemeTypes.InvalidBar;
-            state = "Invalid maximum";
+            state = StatBarState.InvalidMaximum;
         }
         else
         {
@@ -114,16 +123,23 @@ public partial class SiriusStatBar : VBoxContainer
             _bar.Value = Math.Clamp(Current, 0, Maximum);
             _bar.ThemeTypeVariation = Kind.ToThemeType();
             state = Current < 0
-                ? "Invalid value"
+                ? StatBarState.InvalidValue
                 : Current > Maximum
-                    ? "Overflow"
+                    ? StatBarState.Overflow
                     : Current / Maximum <= LowThreshold
-                        ? "Low"
-                        : "Normal";
+                        ? StatBarState.Low
+                        : StatBarState.Normal;
         }
 
-        _stateLabel.Text = state;
-        _stateLabel.Visible = state != "Normal";
+        _stateLabel.Text = state switch
+        {
+            StatBarState.InvalidMaximum => "Invalid maximum",
+            StatBarState.InvalidValue => "Invalid value",
+            StatBarState.Overflow => "Overflow",
+            StatBarState.Low => "Low",
+            _ => "Normal"
+        };
+        _stateLabel.Visible = state != StatBarState.Normal;
     }
 
     private void RefreshIfReady()

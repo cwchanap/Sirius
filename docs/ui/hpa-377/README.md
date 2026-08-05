@@ -8,6 +8,14 @@ palette, `StyleBoxFlat` resources, spacing, native-control states, and stable
 type variations. Use stock Godot controls wherever the Theme is sufficient;
 use a component only for its documented composite presentation behavior.
 
+Component-local layout values inside a composite scene (for example,
+`SiriusModalShell`'s 24px content margins and 16px root separation, or
+`SiriusInputHint`'s 4px separation) are part of that component's authored
+presentation, not shared Theme tokens. Only `SiriusUiMetrics` exposes shared
+layout constants (compact breakpoint, safe margin, minimum target, modal width,
+tooltip maximum, Ignition size); do not duplicate those as per-component magic
+numbers.
+
 Components do not own navigation, queueing, dismissal, focus restoration,
 asynchronous work, or animation lifetime. The consuming screen or its
 presentation owner owns those policies.

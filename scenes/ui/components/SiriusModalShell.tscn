@@ -53,6 +53,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"SiriusTitle"
+autowrap_mode = 3
 
 [node name="BodyScroll" type="ScrollContainer" parent="Panel/Margin/RootLayout"]
 unique_name_in_owner = true

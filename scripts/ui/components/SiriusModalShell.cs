@@ -10,6 +10,7 @@ public partial class SiriusModalShell : Control
     private PanelContainer _panel = null!;
     private TextureRect _severityIcon = null!;
     private Label _titleLabel = null!;
+    private Vector2 _lastAvailableSize = Vector2.Zero;
 
     [Export]
     public string Title
@@ -70,6 +71,7 @@ public partial class SiriusModalShell : Control
 
     public void RefreshPresentation(Vector2 availableSize)
     {
+        _lastAvailableSize = availableSize;
         _panel.ThemeTypeVariation = Severity.ToModalPanelThemeType();
         _titleLabel.Text = Title;
         _titleLabel.ThemeTypeVariation = Compact
@@ -86,6 +88,8 @@ public partial class SiriusModalShell : Control
     private void RefreshIfReady()
     {
         if (IsNodeReady())
-            RefreshPresentation(GetViewportRect().Size);
+            RefreshPresentation(_lastAvailableSize != Vector2.Zero
+                ? _lastAvailableSize
+                : GetViewportRect().Size);
     }
 }

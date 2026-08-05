@@ -10,7 +10,12 @@ script = ExtResource("1_toast_shell")
 
 [node name="Panel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_type_variation = &"SiriusContentPanel"
 
 [node name="Margin" type="MarginContainer" parent="Panel"]
@@ -40,8 +45,10 @@ theme_override_constants/separation = 4
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"SiriusSection"
+autowrap_mode = 3
 
 [node name="MessageLabel" type="Label" parent="Panel/Margin/Row/TextColumn"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"SiriusBody"
+autowrap_mode = 3

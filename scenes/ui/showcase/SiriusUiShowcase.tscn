@@ -501,22 +501,18 @@ theme_type_variation = &"SiriusSection"
 
 [node name="InfoToast" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ToastSection" instance=ExtResource("6_toast_shell")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 
 [node name="SuccessToast" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ToastSection" instance=ExtResource("6_toast_shell")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 
 [node name="WarningToast" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ToastSection" instance=ExtResource("6_toast_shell")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 
 [node name="ErrorToast" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent/ToastSection" instance=ExtResource("6_toast_shell")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 
 [node name="ModalSection" type="VBoxContainer" parent="PreviewFrame/PreviewContainer/PreviewViewport/PreviewRoot/SafeFrame/ResponsiveScroll/ShowcaseContent"]

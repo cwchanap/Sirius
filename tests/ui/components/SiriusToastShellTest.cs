@@ -92,6 +92,99 @@ public partial class SiriusToastShellTest : Node
         AssertThat(ContainsTimer(_shell)).IsFalse();
     }
 
+    [TestCase]
+    public async Task MultipleUntouchedShellsInAVBoxContainer_ReceivePositiveNonOverlappingAllocations()
+    {
+        // A production toast queue instantiates the shell without the
+        // showcase's hard-coded custom_minimum_size override. The bare Control
+        // root must still propagate its nested panel's minimum so each entry
+        // gets a positive, non-overlapping rect inside a VBoxContainer.
+        var scene = ResourceLoader.Load<PackedScene>(ScenePath);
+        AssertThat(scene).IsNotNull();
+        if (scene is null)
+            return;
+
+        var vbox = new VBoxContainer
+        {
+            CustomMinimumSize = new Vector2(360, 0),
+            Theme = ResourceLoader.Load<Theme>("res://resources/ui/theme/SiriusTheme.tres")
+        };
+        _sceneTree.Root.AddChild(vbox);
+        try
+        {
+            var toasts = new SiriusToastShell[3];
+            for (var i = 0; i < toasts.Length; i++)
+            {
+                toasts[i] = scene.Instantiate<SiriusToastShell>();
+                toasts[i].Title = $"Toast {i}";
+                toasts[i].Message = "Status update for the observatory calibration sequence.";
+                vbox.AddChild(toasts[i]);
+            }
+
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+            var previousBottom = float.NegativeInfinity;
+            foreach (var toast in toasts)
+            {
+                AssertThat(toast.Size.X).IsGreater(0f);
+                AssertThat(toast.Size.Y).IsGreater(0f);
+                var rect = toast.GetGlobalRect();
+                AssertThat(rect.Size.Y).IsGreater(0f);
+                AssertThat(rect.Position.Y).IsGreaterEqual(previousBottom);
+                previousBottom = rect.End.Y;
+            }
+        }
+        finally
+        {
+            vbox.QueueFree();
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
+    [TestCase]
+    public async Task LongMessage_WrapsInsideTheBoundedHostWidth()
+    {
+        var scene = ResourceLoader.Load<PackedScene>(ScenePath);
+        AssertThat(scene).IsNotNull();
+        if (scene is null)
+            return;
+
+        var host = new VBoxContainer
+        {
+            CustomMinimumSize = new Vector2(240, 0),
+            Theme = ResourceLoader.Load<Theme>("res://resources/ui/theme/SiriusTheme.tres")
+        };
+        _sceneTree.Root.AddChild(host);
+        try
+        {
+            var toast = scene.Instantiate<SiriusToastShell>();
+            toast.SizeFlagsHorizontal = Control.SizeFlags.Expand | Control.SizeFlags.Fill;
+            toast.Title = "Calibration";
+            toast.Message =
+                "The observatory link is unstable and requires immediate " +
+                "recalibration before the next celestial route survey can proceed safely.";
+            host.AddChild(toast);
+
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+            var title = toast.GetNode<Label>("%TitleLabel");
+            var message = toast.GetNode<Label>("%MessageLabel");
+
+            AssertThat(title.AutowrapMode).IsEqual(TextServer.AutowrapMode.WordSmart);
+            AssertThat(message.AutowrapMode).IsEqual(TextServer.AutowrapMode.WordSmart);
+            AssertThat(toast.Size.X).IsLessEqual(host.Size.X + 0.5f);
+            AssertThat(toast.Size.Y).IsGreater(0f);
+            AssertThat(message.GetLineCount()).IsGreater(1);
+        }
+        finally
+        {
+            host.QueueFree();
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+        }
+    }
+
     private static bool ContainsTimer(Node node)
     {
         if (node is Timer)

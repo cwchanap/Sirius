@@ -65,6 +65,17 @@ public partial class SiriusToastShell : Control
         RefreshPresentation();
     }
 
+    public override Vector2 _GetMinimumSize()
+    {
+        // The scene root is a bare Control whose default internal minimum is
+        // zero. Propagate the nested PanelContainer's combined minimum so a
+        // parent container (e.g. a toast queue VBoxContainer) allocates each
+        // shell a positive, non-overlapping rect without a hard-coded override.
+        return IsNodeReady() && GodotObject.IsInstanceValid(_panel)
+            ? _panel.GetCombinedMinimumSize()
+            : base._GetMinimumSize();
+    }
+
     public void RefreshPresentation()
     {
         _panel.ThemeTypeVariation = Severity.ToToastPanelThemeType();

@@ -5,11 +5,15 @@ using System.Text;
 
 public partial class InventoryMenuController : Control
 {
+	[Signal] public delegate void CloseRequestedEventHandler();
+
 	private static readonly StringName ToggleInventoryAction = "toggle_inventory";
 	private static readonly StringName UiCancelAction = "ui_cancel";
 	private readonly InputHintPresenter _inputHintPresenter = new();
 	private GameManager _gameManager;
 	private Button _closeButton = null!;
+
+	public Control? InitialFocusTarget => _closeButton;
 
 	private readonly Dictionary<EquipmentSlotType, EquipmentSlotUI> _equipmentSlots = new();
 	private readonly List<AccessorySlotUI> _accessorySlots = new();
@@ -29,8 +33,6 @@ public partial class InventoryMenuController : Control
 	private StyleBoxFlat _basePanelStyle;
 	private StyleBoxFlat _equippedPanelStyle;
 	private StyleBoxFlat _lockedPanelStyle;
-	private bool _pauseSnapshotCaptured;
-	private bool _treeWasPausedBeforeOpen;
 
 	public override void _Ready()
 	{
@@ -60,15 +62,6 @@ public partial class InventoryMenuController : Control
 	{
 		if (_inputHintPresenter.Observe(@event) && Visible)
 			RefreshCloseHint();
-
-		if (@event.IsActionPressed("ui_cancel") || @event.IsActionPressed(ToggleInventoryAction))
-		{
-			if (Visible)
-			{
-				CloseMenu();
-				GetViewport().SetInputAsHandled();
-			}
-		}
 	}
 
 	private void CacheStyles()
@@ -203,45 +196,20 @@ public partial class InventoryMenuController : Control
 
 	public void OpenMenu()
 	{
-		if (!_pauseSnapshotCaptured)
-		{
-			_treeWasPausedBeforeOpen = GetTree().Paused;
-			_pauseSnapshotCaptured = true;
-		}
-
 		RefreshUI();
 		RefreshCloseHint();
 		Show();
-		GetTree().Paused = true;
 	}
 
 	private void RefreshCloseHint()
 	{
-		// The menu closes on both toggle_inventory and ui_cancel. Resolve the
-		// hint across both so a gamepad user sees the ui_cancel gamepad binding
-		// rather than the keyboard-only toggle_inventory fallback.
+		// The host owns terminal cancel handling. Resolve the hint across both
+		// actions so a gamepad user sees the ui_cancel gamepad binding rather
+		// than the keyboard-only toggle_inventory fallback.
 		_inputHintPresenter.ApplyCompactButton(_closeButton, "Close", ToggleInventoryAction, UiCancelAction);
 	}
 
-	public void CloseMenu()
-	{
-		Hide();
-		RestoreTreePause();
-	}
-
-	private void RestoreTreePause()
-	{
-		if (!_pauseSnapshotCaptured)
-			return;
-
-		GetTree().Paused = _treeWasPausedBeforeOpen;
-		_pauseSnapshotCaptured = false;
-	}
-
-	public override void _ExitTree()
-	{
-		RestoreTreePause();
-	}
+	public void CloseMenu() => Hide();
 
 	private void RefreshUI()
 	{
@@ -751,7 +719,7 @@ public partial class InventoryMenuController : Control
 
 	private void OnCloseButtonPressed()
 	{
-		CloseMenu();
+		EmitSignal(SignalName.CloseRequested);
 	}
 
 	private class EquipmentSlotUI

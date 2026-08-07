@@ -66,14 +66,14 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
-    public void OpenAndClose_FromRunningTree_RestoresRunningTree()
+    public void OpenAndClose_FromRunningTree_DoesNotChangeTreePauseState()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
         tree.Paused = false;
 
         _inventoryMenu.OpenMenu();
         AssertThat(_inventoryMenu.Visible).IsTrue();
-        AssertThat(tree.Paused).IsTrue();
+        AssertThat(tree.Paused).IsFalse();
 
         _inventoryMenu.CloseMenu();
         AssertThat(_inventoryMenu.Visible).IsFalse();
@@ -81,16 +81,19 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
-    public void OpenAndClose_FromPausedParent_RestoresPausedParent()
+    public void OpenAndClose_FromPausedTree_DoesNotChangeTreePauseState()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
         tree.Paused = true;
         try
         {
             _inventoryMenu.OpenMenu();
-            _inventoryMenu.OpenMenu();
+            AssertThat(_inventoryMenu.Visible).IsTrue();
+            AssertThat(tree.Paused).IsTrue();
+
             _inventoryMenu.CloseMenu();
 
+            AssertThat(_inventoryMenu.Visible).IsFalse();
             AssertThat(tree.Paused).IsTrue();
         }
         finally
@@ -100,39 +103,24 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
-    public void CloseMenu_CalledTwice_DoesNotOverwriteRestoredPauseState()
-    {
-        var tree = (SceneTree)Engine.GetMainLoop();
-        tree.Paused = true;
-        try
-        {
-            _inventoryMenu.OpenMenu();
-            _inventoryMenu.CloseMenu();
-            _inventoryMenu.CloseMenu();
-
-            AssertThat(tree.Paused).IsTrue();
-        }
-        finally
-        {
-            tree.Paused = false;
-        }
-    }
-
-    [TestCase]
-    public void ExitTree_WhileOpen_RestoresIncomingPauseState()
+    public void CloseButton_EmitsOneCloseRequestedAndLeavesPresentationToHost()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
         tree.Paused = false;
+        var closeRequests = 0;
+
+        _inventoryMenu.CloseRequested += () => closeRequests++;
+
         _inventoryMenu.OpenMenu();
+        _inventoryMenu.GetNode<Button>("%CloseButton").EmitSignal(Button.SignalName.Pressed);
 
-        _inventoryMenu.Free();
-
+        AssertThat(closeRequests).IsEqual(1);
+        AssertThat(_inventoryMenu.Visible).IsTrue();
         AssertThat(tree.Paused).IsFalse();
-        _inventoryMenu = null!;
     }
 
     [TestCase]
-    public void UiCancelWhileVisible_ClosesAndRestoresIncomingPauseState()
+    public void UiCancelWhileVisible_DoesNotCloseOrChangeTreePauseState()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
         tree.Paused = false;
@@ -144,12 +132,12 @@ public partial class InventoryMenuControllerTest : Node
             Pressed = true
         });
 
-        AssertThat(_inventoryMenu.Visible).IsFalse();
+        AssertThat(_inventoryMenu.Visible).IsTrue();
         AssertThat(tree.Paused).IsFalse();
     }
 
     [TestCase]
-    public void ToggleInventoryWhileVisible_ClosesAndRestoresIncomingPauseState()
+    public void ToggleInventoryWhileVisible_DoesNotCloseOrChangeTreePauseState()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
         tree.Paused = false;
@@ -161,7 +149,7 @@ public partial class InventoryMenuControllerTest : Node
             Pressed = true
         });
 
-        AssertThat(_inventoryMenu.Visible).IsFalse();
+        AssertThat(_inventoryMenu.Visible).IsTrue();
         AssertThat(tree.Paused).IsFalse();
     }
 

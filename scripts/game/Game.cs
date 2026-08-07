@@ -44,6 +44,7 @@ public partial class Game : Node2D
     private SceneTreeTimer? _defeatReturnTimer;
     private Action? _defeatReturnHandler;
     private UIScreenHost? _screenHost;
+    private UIScreenHandle? _inventoryHandle;
     private bool _presentationGameplayBlocked;
     private static readonly IReadOnlySet<StringName> GameplayCoreCancelActions =
         new HashSet<StringName> { "pause_menu", "ui_cancel" };
@@ -276,9 +277,78 @@ public partial class Game : Node2D
             return;
         }
 
-        GetNode("UI").AddChild(_inventoryMenu);
+        _inventoryMenu.CloseRequested += OnInventoryCloseRequested;
         _inventoryMenu.Hide();
     }
+
+    private bool TryOpenInventory(UIScreenHandle? parent)
+    {
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
+            _inventoryMenu == null || !GodotObject.IsInstanceValid(_inventoryMenu))
+        {
+            return false;
+        }
+
+        if (_inventoryHandle.HasValue)
+        {
+            if (_screenHost.IsActive(_inventoryHandle.Value))
+                return false;
+
+            ClearInventoryHandle();
+        }
+
+        var spec = new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.Inventory,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Modal,
+            ProcessPolicy = UIProcessPolicy.WhenPaused,
+            Parent = parent,
+            PauseTree = true,
+            BlockGameplayInput = true,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Inherit,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Close,
+            EntryCancelActions = new HashSet<StringName> { "toggle_inventory" },
+            InitialFocus = () => _inventoryMenu.InitialFocusTarget,
+            SetPresented = visible =>
+            {
+                if (visible) _inventoryMenu.OpenMenu();
+                else _inventoryMenu.CloseMenu();
+            },
+            Cleanup = _ => ClearInventoryHandle(),
+            NodeLifetime = UINodeLifetime.External
+        };
+
+        var result = _screenHost.TryPresent(_inventoryMenu, spec);
+        if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
+            return false;
+
+        _inventoryHandle = result.Handle.Value;
+        _inventoryMenu.OpenMenu();
+        return true;
+    }
+
+    private bool TryCloseInventory(UIScreenCloseReason reason)
+    {
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
+            !_inventoryHandle.HasValue)
+        {
+            return false;
+        }
+
+        var result = _screenHost.TryClose(_inventoryHandle.Value, reason);
+        if (result.Status == UIScreenCloseStatus.StaleHandle)
+            ClearInventoryHandle();
+
+        return result.Status == UIScreenCloseStatus.Closed;
+    }
+
+    private void OnInventoryCloseRequested() =>
+        TryCloseInventory(UIScreenCloseReason.ExplicitAction);
+
+    private void ClearInventoryHandle() => _inventoryHandle = null;
 
     public override void _Input(InputEvent @event)
     {
@@ -290,16 +360,14 @@ public partial class Game : Node2D
                 && (_saveLoadDialog == null || !GodotObject.IsInstanceValid(_saveLoadDialog))
                 && (_pauseMenuDialog == null || !GodotObject.IsInstanceValid(_pauseMenuDialog) || !_pauseMenuDialog.Visible))
             {
-                if (_inventoryMenu.Visible)
+                var changed = _inventoryHandle.HasValue
+                    ? TryCloseInventory(UIScreenCloseReason.ExplicitAction)
+                    : TryOpenInventory(parent: null);
+                if (changed)
                 {
-                    _inventoryMenu.CloseMenu();
+                    GetViewport().SetInputAsHandled();
+                    return;
                 }
-                else
-                {
-                    _inventoryMenu.OpenMenu();
-                }
-                GetViewport().SetInputAsHandled();
-                return;
             }
         }
 
@@ -322,10 +390,9 @@ public partial class Game : Node2D
             return;
         }
 
-        // Close inventory if open
-        if (_inventoryMenu != null && _inventoryMenu.Visible)
+        // Close hosted inventory if open.
+        if (TryCloseInventory(UIScreenCloseReason.Cancel))
         {
-            _inventoryMenu.CloseMenu();
             GetViewport().SetInputAsHandled();
             return;
         }
@@ -2026,5 +2093,15 @@ public partial class Game : Node2D
                 _settingsMenu.QueueFree();
             _settingsMenu = null;
         }
+
+        if (_inventoryMenu != null)
+        {
+            _inventoryMenu.CloseRequested -= OnInventoryCloseRequested;
+            if (GodotObject.IsInstanceValid(_inventoryMenu))
+                _inventoryMenu.QueueFree();
+            _inventoryMenu = null!;
+        }
+
+        ClearInventoryHandle();
     }
 }

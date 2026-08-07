@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading.Tasks;
 using GdUnit4;
 using Godot;
@@ -124,10 +125,84 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(grid.ProcessMode).IsNotEqual(Node.ProcessModeEnum.Always);
     }
 
+    [TestCase]
+    public async Task DirectInventory_HostsDetachesAndReusesTheExternalView()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var inventory = GetPrivateField<InventoryMenuController>(_game, "_inventoryMenu");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
+
+        AssertThat(inventory.GetParent()).IsNull();
+        AssertThat(tree.Paused).IsFalse();
+
+        _viewport!.PushInput(new InputEventAction
+        {
+            Action = "toggle_inventory",
+            Pressed = true
+        });
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Inventory)).IsTrue();
+        AssertThat(inventory.GetParent()).IsEqual(modalLayer);
+        AssertThat(inventory.Visible).IsTrue();
+        AssertThat(tree.Paused).IsTrue();
+        AssertThat(host.ActiveEntries.Count).IsEqual(1);
+
+        var entry = host.ActiveEntries[0];
+        AssertThat(entry.Policy.Parent).IsNull();
+        AssertThat(entry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.WhenPaused);
+        AssertThat(entry.Policy.PauseTree).IsTrue();
+        AssertThat(entry.Policy.BlockGameplayInput).IsTrue();
+        AssertThat(entry.Policy.Hud).IsEqual(UIHudPolicy.Inherit);
+
+        _viewport.PushInput(new InputEventAction
+        {
+            Action = "toggle_inventory",
+            Pressed = true
+        });
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Inventory)).IsFalse();
+        AssertThat(inventory.GetParent()).IsNull();
+        AssertThat(tree.Paused).IsFalse();
+
+        _viewport.PushInput(new InputEventAction
+        {
+            Action = "toggle_inventory",
+            Pressed = true
+        });
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Inventory)).IsTrue();
+        AssertThat(inventory.GetParent()).IsEqual(modalLayer);
+        AssertThat(inventory.Visible).IsTrue();
+
+        _viewport.PushInput(new InputEventAction
+        {
+            Action = "toggle_inventory",
+            Pressed = true
+        });
+        await AwaitFrames(2);
+
+        AssertThat(inventory.GetParent()).IsNull();
+    }
+
     private static async Task AwaitFrames(int frameCount)
     {
         var tree = (SceneTree)Engine.GetMainLoop();
         for (var index = 0; index < frameCount; index++)
             await tree.Root.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+    }
+
+    private static T GetPrivateField<T>(object instance, string fieldName)
+    {
+        var field = instance.GetType().GetField(
+            fieldName,
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        if (field == null)
+            throw new MissingFieldException(instance.GetType().FullName, fieldName);
+
+        return (T)field.GetValue(instance)!;
     }
 }

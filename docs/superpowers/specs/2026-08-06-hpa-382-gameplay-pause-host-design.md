@@ -103,13 +103,14 @@ The floor scene roots themselves are not the verified issue; the explicit `GridM
 
 Before root Pause acquires tree pause, tests must prove:
 
-1. the production Game scene can open/close host Pause with `PauseTree=false`;
-2. Cancel/focus/child-return semantics are correct;
-3. Inventory no longer writes `SceneTree.Paused` itself;
+1. every `Game` scene-change path that can run with hosted UI waits for `PrepareForTeardown() == Complete`;
+2. the explicit-`Always` gameplay audit/normalization is green;
+3. the gameplay HUD remains visually available while host-owned presentation blocking controls interaction;
 4. the composed gameplay-input predicate blocks movement/interactions under hosted UI;
-5. the normalized `GridMap` does not process gameplay work while the scene tree is paused.
+5. the production Game scene can open/close host Pause with `PauseTree=false` and preserve Cancel/focus/child-return behavior;
+6. Inventory no longer writes `SceneTree.Paused` itself.
 
-Only then does the production Pause policy change to `PauseTree=true`.
+Only then does the production Pause policy change to `PauseTree=true`; the final real-scene freeze test proves the normalized gameplay tree actually stops.
 
 ## Scene composition
 

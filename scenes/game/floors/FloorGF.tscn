@@ -25,7 +25,6 @@ Attack = 12
 [node name="FloorGF" type="Node2D" unique_id=693100708]
 
 [node name="GridMap" type="Node2D" parent="." unique_id=1415903575]
-process_mode = 3
 texture_filter = 1
 script = ExtResource("1_1dw4t")
 EnableDebugLogging = true

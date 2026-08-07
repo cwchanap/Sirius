@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 public partial class Game : Node2D
 {
@@ -42,11 +43,34 @@ public partial class Game : Node2D
     private bool _saveLoadFromPause;
     private SceneTreeTimer? _defeatReturnTimer;
     private Action? _defeatReturnHandler;
+    private UIScreenHost? _screenHost;
+    private bool _presentationGameplayBlocked;
+    private static readonly IReadOnlySet<StringName> GameplayCoreCancelActions =
+        new HashSet<StringName> { "pause_menu", "ui_cancel" };
+    private const string MainMenuScenePath = "res://scenes/ui/MainMenu.tscn";
+    private const string GameScenePath = "res://scenes/game/Game.tscn";
+    private string? _pendingScenePath;
+    private bool _sceneChangeCommitted;
+    private bool _sceneChangeRetryScheduled;
 
     protected virtual double DefeatReturnDelaySeconds => 2.0;
 
     public override void _EnterTree()
     {
+        _screenHost = GetNodeOrNull<UIScreenHost>("UI/UIScreenHost");
+        var gameUi = GetNodeOrNull<Control>("UI/GameUI");
+
+        if (_screenHost != null && gameUi != null)
+        {
+            _screenHost.Configure(new UIScreenHostOptions
+            {
+                HudRoot = gameUi,
+                CoreCancelActions = GameplayCoreCancelActions,
+                RootCancelFallback = HandleGameplayRootCancel,
+                GameplayInputBlockChanged = blocked => _presentationGameplayBlocked = blocked
+            });
+        }
+
         // Set SkipInitialFloorLoad early (parent _EnterTree runs before children's _Ready)
         // so FloorManager knows not to auto-load floor 0 when a save is pending.
         var fm = GetNodeOrNull<FloorManager>("FloorManager");
@@ -1408,11 +1432,41 @@ public partial class Game : Node2D
         _defeatReturnHandler = null;
     }
 
-    protected virtual void ReturnToMainMenu()
+    private UIRootCancelResult HandleGameplayRootCancel(UIRootCancelContext _) =>
+        UIRootCancelResult.Declined;
+
+    private void RequestSceneChange(string path)
     {
-        GD.Print("Returning to main menu");
-        GetTree().ChangeSceneToFile("res://scenes/ui/MainMenu.tscn");
+        if (_sceneChangeCommitted)
+            return;
+
+        _sceneChangeCommitted = true;
+        _pendingScenePath = path;
+        ContinueSceneChangeAfterUiTeardown();
     }
+
+    private void ContinueSceneChangeAfterUiTeardown()
+    {
+        _sceneChangeRetryScheduled = false;
+
+        if (_screenHost != null && IsInstanceValid(_screenHost) &&
+            _screenHost.PrepareForTeardown() == UIScreenTeardownPreparationStatus.Deferred)
+        {
+            if (!_sceneChangeRetryScheduled)
+            {
+                _sceneChangeRetryScheduled = true;
+                Callable.From(ContinueSceneChangeAfterUiTeardown).CallDeferred();
+            }
+            return;
+        }
+
+        var path = _pendingScenePath;
+        _pendingScenePath = null;
+        if (!string.IsNullOrEmpty(path))
+            GetTree().ChangeSceneToFile(path);
+    }
+
+    protected virtual void ReturnToMainMenu() => RequestSceneChange(MainMenuScenePath);
 
     /// <summary>
     /// Loads a floor from save data with a specific player position.
@@ -1711,7 +1765,7 @@ public partial class Game : Node2D
         SaveManager.Instance.PendingLoadData = saveData;
         _saveLoadFromPause = false;
         CleanupSaveDialog();
-        GetTree().ChangeSceneToFile("res://scenes/game/Game.tscn");
+        RequestSceneChange(GameScenePath);
     }
 
     private void ShowSaveError(string message, string title = "Save Failed")
@@ -1772,7 +1826,7 @@ public partial class Game : Node2D
             handled = true;
             if (IsInstanceValid(popup))
                 popup.QueueFree();
-            GetTree().ChangeSceneToFile("res://scenes/ui/MainMenu.tscn");
+            RequestSceneChange(MainMenuScenePath);
         };
 
         popup.Confirmed += cleanupAndReturn;

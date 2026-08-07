@@ -16,7 +16,6 @@
 [node name="Floor2F" type="Node2D" unique_id=324978434]
 
 [node name="GridMap" type="Node2D" parent="." unique_id=1193015535]
-process_mode = 3
 texture_filter = 1
 script = ExtResource("1_qu724")
 GridWidth = 60

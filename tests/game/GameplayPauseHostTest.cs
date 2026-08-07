@@ -116,6 +116,14 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(Input.MouseMode).IsEqual(incomingMouseMode);
     }
 
+    [TestCase]
+    public void RuntimeGridMapDoesNotRemainExplicitAlways()
+    {
+        var grid = _game!.GetNode<FloorManager>("FloorManager").CurrentGridMap;
+
+        AssertThat(grid.ProcessMode).IsNotEqual(Node.ProcessModeEnum.Always);
+    }
+
     private static async Task AwaitFrames(int frameCount)
     {
         var tree = (SceneTree)Engine.GetMainLoop();

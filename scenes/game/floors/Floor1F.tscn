@@ -20,7 +20,6 @@
 [node name="Floor1F" type="Node2D" unique_id=757427301]
 
 [node name="GridMap" type="Node2D" parent="." unique_id=699951421]
-process_mode = 3
 texture_filter = 1
 script = ExtResource("1_jw37u")
 GridWidth = 60

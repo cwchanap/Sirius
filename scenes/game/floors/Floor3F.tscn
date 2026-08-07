@@ -10,7 +10,6 @@
 [node name="Floor3F" type="Node2D" unique_id=1121544688]
 
 [node name="GridMap" type="Node2D" parent="." unique_id=1356323687]
-process_mode = 3
 texture_filter = 1
 script = ExtResource("1_ny76i")
 GridWidth = 24

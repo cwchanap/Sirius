@@ -1,3 +1,4 @@
+using System;
 using Godot;
 
 public partial class PlayerController : Node
@@ -9,6 +10,8 @@ public partial class PlayerController : Node
     private FloorManager _floorManager;
     private bool _isProcessingMove = false;
     private Vector2I _lastFacingDirection = Vector2I.Down;
+
+    public Func<bool>? GameplayInputSuppressedProvider { private get; set; }
     
     public override void _Ready()
     {
@@ -37,6 +40,9 @@ public partial class PlayerController : Node
     public override void _UnhandledInput(InputEvent @event)
     {
         if (_gameManager == null) return;
+
+        if (GameplayInputSuppressedProvider?.Invoke() == true)
+            return;
 
         // Debug output to help track the issue
         if (@event is InputEventKey keyEvent && keyEvent.Pressed)

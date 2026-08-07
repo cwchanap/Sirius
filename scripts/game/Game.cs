@@ -55,6 +55,12 @@ public partial class Game : Node2D
 
     protected virtual double DefeatReturnDelaySeconds => 2.0;
 
+    private bool IsGameplayInputSuppressed() =>
+        _presentationGameplayBlocked ||
+        _gameManager.IsInBattle ||
+        _gameManager.IsInNpcInteraction ||
+        _gameManager.IsInWorldInteraction;
+
     public override void _EnterTree()
     {
         _screenHost = GetNodeOrNull<UIScreenHost>("UI/UIScreenHost");
@@ -88,6 +94,7 @@ public partial class Game : Node2D
         _gameManager = GetNode<GameManager>("GameManager");
         _floorManager = GetNode<FloorManager>("FloorManager");
         _playerController = GetNode<PlayerController>("PlayerController");
+        _playerController.GameplayInputSuppressedProvider = IsGameplayInputSuppressed;
         _gameUI = GetNode<Control>("UI/GameUI");
         // Make sure the UI layer is visible at runtime
         var uiLayer = GetNodeOrNull<CanvasLayer>("UI");
@@ -1967,6 +1974,7 @@ public partial class Game : Node2D
 
         if (_playerController != null)
         {
+            _playerController.GameplayInputSuppressedProvider = null;
             _playerController.FacingChanged -= OnPlayerFacingChanged;
         }
 

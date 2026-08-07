@@ -102,8 +102,9 @@ public partial class GameInputLifecycleTest : Node
         sceneTree.Paused = _treeWasPaused;
     }
     [TestCase]
-    public async Task RootCancel_BattleResultClosesNativeDialogWithoutOpeningHostedPause()
+    public async Task ConfiguredKeyboardCancel_BattleResultClosesNativeDialogWithoutOpeningHostedPause()
     {
+        ConfigureCancelBindings(Key.P);
         await ReplaceWithHostedLifecycleFixture();
 
         var scene = GD.Load<PackedScene>("res://scenes/ui/BattleScene.tscn")
@@ -116,75 +117,114 @@ public partial class GameInputLifecycleTest : Node
         SetPrivateField(_game, "_battleManager", battle);
         AssertThat(_gameManager!.IsInBattle).IsFalse();
 
-        PushPauseEvent();
+        PushPhysicalKeyDown(Key.P);
         await AwaitFrames(1);
 
         var host = _game.GetNode<UIScreenHost>("UI/UIScreenHost");
-        AssertThat(_viewport!.IsInputHandled()).IsTrue();
-        AssertThat(GodotObject.IsInstanceValid(battle)).IsFalse();
-        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        try
+        {
+            AssertThat(_viewport!.IsInputHandled()).IsTrue();
+            AssertThat(GodotObject.IsInstanceValid(battle)).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        }
+        finally
+        {
+            ReleasePhysicalKey(Key.P);
+        }
     }
 
     [TestCase]
-    public async Task RootCancel_ErrorDismissesBeforeOpeningHostedPause()
+    public async Task ConfiguredKeyboardCancel_ErrorDismissesBeforeOpeningHostedPause()
     {
+        ConfigureCancelBindings(Key.P);
         await ReplaceWithHostedLifecycleFixture();
 
         var error = new AcceptDialog();
         SetPrivateField(_game!, "_activeErrorPopup", error);
 
-        PushPauseEvent();
+        PushPhysicalKeyDown(Key.P);
         await AwaitFrames(1);
 
         var host = _game.GetNode<UIScreenHost>("UI/UIScreenHost");
-        AssertThat(_viewport!.IsInputHandled()).IsTrue();
-        AssertThat(GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup")).IsNull();
-        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        try
+        {
+            AssertThat(_viewport!.IsInputHandled()).IsTrue();
+            AssertThat(GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup")).IsNull();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        }
+        finally
+        {
+            ReleasePhysicalKey(Key.P);
+        }
     }
 
     [TestCase]
-    public async Task RootCancel_BattleWithoutDialogEndsBattleWithoutOpeningHostedPause()
+    public async Task ConfiguredKeyboardCancel_BattleWithoutDialogEndsBattleWithoutOpeningHostedPause()
     {
+        ConfigureCancelBindings(Key.P);
         await ReplaceWithHostedLifecycleFixture();
         _gameManager!.StartBattle(Enemy.CreateGoblin());
 
-        PushPauseEvent();
+        PushPhysicalKeyDown(Key.P);
         await AwaitFrames(1);
 
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
-        AssertThat(_viewport!.IsInputHandled()).IsTrue();
-        AssertThat(_gameManager.IsInBattle).IsFalse();
-        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        try
+        {
+            AssertThat(_viewport!.IsInputHandled()).IsTrue();
+            AssertThat(_gameManager.IsInBattle).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        }
+        finally
+        {
+            ReleasePhysicalKey(Key.P);
+        }
     }
 
     [TestCase]
-    public async Task RootCancel_WorldInteractionConsumesWithoutOpeningHostedPause()
+    public async Task ConfiguredKeyboardCancel_WorldInteractionConsumesWithoutOpeningHostedPause()
     {
+        ConfigureCancelBindings(Key.P);
         await ReplaceWithHostedLifecycleFixture();
         _gameManager!.StartWorldInteraction();
 
-        PushPauseEvent();
+        PushPhysicalKeyDown(Key.P);
         await AwaitFrames(1);
 
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
-        AssertThat(_viewport!.IsInputHandled()).IsTrue();
-        AssertThat(_gameManager.IsInWorldInteraction).IsTrue();
-        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        try
+        {
+            AssertThat(_viewport!.IsInputHandled()).IsTrue();
+            AssertThat(_gameManager.IsInWorldInteraction).IsTrue();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        }
+        finally
+        {
+            ReleasePhysicalKey(Key.P);
+        }
     }
 
     [TestCase]
-    public async Task RootCancel_NpcInteractionDeclinesForNativeHandler()
+    public async Task ConfiguredKeyboardCancel_NpcInteractionDeclinesForNativeHandler()
     {
+        ConfigureCancelBindings(Key.P);
         await ReplaceWithHostedLifecycleFixture();
         _gameManager!.StartNpcInteraction();
 
-        PushPauseEvent();
+        PushPhysicalKeyDown(Key.P);
         await AwaitFrames(1);
 
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
-        AssertThat(_viewport!.IsInputHandled()).IsFalse();
-        AssertThat(_gameManager.IsInNpcInteraction).IsTrue();
-        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        try
+        {
+            AssertThat(_viewport!.IsInputHandled()).IsFalse();
+            AssertThat(_gameManager.IsInNpcInteraction).IsTrue();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        }
+        finally
+        {
+            ReleasePhysicalKey(Key.P);
+        }
     }
 
     [TestCase]
@@ -221,7 +261,7 @@ public partial class GameInputLifecycleTest : Node
     }
 
     [TestCase]
-    public async Task ConfiguredKeyboardPauseMenu_OpensHostedPauseWithoutPausingTree()
+    public async Task ConfiguredKeyboardPauseMenu_OpensHostedPauseThenResumesTreeOnSecondPhysicalAction()
     {
         ConfigureCancelBindings(Key.P);
         await ReplaceWithHostedLifecycleFixture();
@@ -236,31 +276,36 @@ public partial class GameInputLifecycleTest : Node
             Pressed = true
         };
         AssertThat(pressedEvent.IsActionPressed("pause_menu")).IsTrue();
+        _viewport!.PushInput(pressedEvent);
+        await AwaitFrames(1);
+
         try
         {
-            _viewport!.PushInput(pressedEvent);
-            await AwaitFrames(1);
-
             AssertThat(_viewport.IsInputHandled()).IsTrue();
             AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
-            AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
-            AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+            AssertThat(host.CurrentState.IsTreePauseOwned).IsTrue();
+            AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
             AssertThat(host.ActiveEntries.Count).IsEqual(1);
-            AssertThat(host.ActiveEntries[0].Policy.PauseTree).IsFalse();
+            AssertThat(host.ActiveEntries[0].Policy.ProcessPolicy)
+                .IsEqual(UIProcessPolicy.WhenPaused);
+            AssertThat(host.ActiveEntries[0].Policy.PauseTree).IsTrue();
         }
         finally
         {
-            _viewport!.PushInput(new InputEventKey
-            {
-                PhysicalKeycode = Key.P,
-                Pressed = false
-            });
-            await AwaitFrames(1);
+            ReleasePhysicalKey(Key.P);
         }
+
+        PushPhysicalKey(Key.P);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+        AssertThat(host.ActiveEntries.Count).IsEqual(0);
     }
 
     [TestCase]
-    public async Task ConfiguredControllerUiCancel_OpensHostedPauseWithoutPausingTree()
+    public async Task ConfiguredControllerUiCancel_OpensHostedPauseThenResumesTreeOnSecondPhysicalAction()
     {
         var controllerButton = JoyButton.B;
         ConfigureCancelBindings(Key.P, new InputEventJoypadButton
@@ -279,27 +324,115 @@ public partial class GameInputLifecycleTest : Node
             Pressed = true
         };
         AssertThat(pressedEvent.IsActionPressed("ui_cancel")).IsTrue();
+        _viewport!.PushInput(pressedEvent);
+        await AwaitFrames(1);
+
         try
         {
-            _viewport!.PushInput(pressedEvent);
-            await AwaitFrames(1);
-
             AssertThat(_viewport.IsInputHandled()).IsTrue();
             AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
-            AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
-            AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+            AssertThat(host.CurrentState.IsTreePauseOwned).IsTrue();
+            AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
             AssertThat(host.ActiveEntries.Count).IsEqual(1);
-            AssertThat(host.ActiveEntries[0].Policy.PauseTree).IsFalse();
+            AssertThat(host.ActiveEntries[0].Policy.ProcessPolicy)
+                .IsEqual(UIProcessPolicy.WhenPaused);
+            AssertThat(host.ActiveEntries[0].Policy.PauseTree).IsTrue();
         }
         finally
         {
-            _viewport!.PushInput(new InputEventJoypadButton
-            {
-                ButtonIndex = controllerButton,
-                Pressed = false
-            });
-            await AwaitFrames(1);
+            ReleasePhysicalJoypadButton(controllerButton);
         }
+
+        PushPhysicalJoypadButton(controllerButton);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+        AssertThat(host.ActiveEntries.Count).IsEqual(0);
+    }
+
+    [TestCase]
+    public async Task ConfiguredKeyboardCancel_SettingsKeyCaptureAndPopupKeepHostedSettingsForNativeHandlers()
+    {
+        ConfigureCancelBindings(Key.P);
+        await ReplaceWithHostedLifecycleFixture();
+
+        PushPhysicalKey(Key.P);
+        await AwaitFrames(2);
+
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%SettingsButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var settings = FindDirectChild<SettingsMenuController>(host.GetNode<Control>("ModalLayer"));
+        GetPrivateField<Button>(settings, "_inventoryKeyBtn")
+            .EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        AssertThat(settings.IsRebinding).IsTrue();
+        PushPhysicalKey(Key.P);
+        await AwaitFrames(2);
+
+        AssertThat(settings.IsRebinding).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Settings)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
+
+        var resolution = GetPrivateField<OptionButton>(settings, "_resolutionOption");
+        resolution.ShowPopup();
+        await AwaitFrames(1);
+
+        AssertThat(settings.IsPopupOpen).IsTrue();
+        PushPhysicalKey(Key.P);
+        await AwaitFrames(2);
+
+        // The host reserves this configured event for the native popup rather
+        // than closing the Settings entry or its logical Pause parent.
+        AssertThat(host.IsKindActive(UIScreenKinds.Settings)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        resolution.GetPopup().Hide();
+    }
+
+    [TestCase]
+    public async Task ConfiguredKeyboardCancel_SaveLoadOverwriteDismissesChildThenClosesHostedChild()
+    {
+        ConfigureCancelBindings(Key.P);
+        _viewport!.GuiEmbedSubwindows = true;
+        await ReplaceWithHostedLifecycleFixture();
+
+        PushPhysicalKey(Key.P);
+        await AwaitFrames(2);
+
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%SaveButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var saveLoad = FindDirectChild<SaveLoadDialog>(host);
+        var slots = GetPrivateField<SaveSlotInfo[]>(saveLoad, "_slotInfos");
+        slots[0] = new SaveSlotInfo { Exists = true, SlotIndex = 0, PlayerLevel = 2 };
+        InvokePrivate(saveLoad, "OnSlotPressed", 0);
+        await AwaitFrames(1);
+
+        AssertThat(saveLoad.HasActiveChildDialog).IsTrue();
+        PushPhysicalKey(Key.P);
+        await AwaitFrames(2);
+
+        AssertThat(saveLoad.HasActiveChildDialog).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
+
+        PushPhysicalKey(Key.P);
+        await AwaitFrames(3);
+
+        AssertThat(GodotObject.IsInstanceValid(saveLoad)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(host.ActiveEntries.Count).IsEqual(1);
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
     }
 
     [TestCase]
@@ -516,13 +649,15 @@ public partial class GameInputLifecycleTest : Node
         }
     }
 
-    private void PushPauseEvent()
+    private static T FindDirectChild<T>(Node parent) where T : Node
     {
-        _viewport!.PushInput(new InputEventAction
+        foreach (var child in parent.GetChildren())
         {
-            Action = "pause_menu",
-            Pressed = true
-        });
+            if (child is T typed)
+                return typed;
+        }
+
+        throw new InvalidOperationException($"Direct child '{typeof(T).Name}' was not found.");
     }
 
     private void ConfigureCancelBindings(Key pauseKey, InputEvent? controllerBinding = null)
@@ -549,6 +684,12 @@ public partial class GameInputLifecycleTest : Node
 
     private void PushPhysicalKey(Key physicalKey)
     {
+        PushPhysicalKeyDown(physicalKey);
+        ReleasePhysicalKey(physicalKey);
+    }
+
+    private void PushPhysicalKeyDown(Key physicalKey)
+    {
         var pressedEvent = new InputEventKey
         {
             PhysicalKeycode = physicalKey,
@@ -558,6 +699,10 @@ public partial class GameInputLifecycleTest : Node
         AssertThat(pressedEvent.IsActionPressed("ui_cancel")).IsTrue();
         AssertThat(pressedEvent.IsActionPressed("ui_close_dialog")).IsTrue();
         _viewport!.PushInput(pressedEvent);
+    }
+
+    private void ReleasePhysicalKey(Key physicalKey)
+    {
         _viewport.PushInput(new InputEventKey
         {
             PhysicalKeycode = physicalKey,
@@ -575,6 +720,11 @@ public partial class GameInputLifecycleTest : Node
         AssertThat(pressedEvent.IsActionPressed("ui_cancel")).IsTrue();
         AssertThat(pressedEvent.IsActionPressed("ui_close_dialog")).IsTrue();
         _viewport!.PushInput(pressedEvent);
+        ReleasePhysicalJoypadButton(button);
+    }
+
+    private void ReleasePhysicalJoypadButton(JoyButton button)
+    {
         _viewport.PushInput(new InputEventJoypadButton
         {
             ButtonIndex = button,

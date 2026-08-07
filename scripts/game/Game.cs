@@ -47,6 +47,12 @@ public partial class Game : Node2D
     private UIScreenHandle? _inventoryHandle;
     private UIScreenHandle? _pauseHandle;
     private PauseScreenController? _pauseScreen;
+    private UIScreenHandle? _hostedSettingsHandle;
+    private SettingsMenuController? _hostedSettingsMenu;
+    private UIScreenHandle? _hostedSaveLoadHandle;
+    private SaveLoadDialog? _hostedSaveLoadDialog;
+    private UIScreenHandle? _hostedReturnConfirmationHandle;
+    private PauseReturnToTitleConfirmationController? _hostedReturnConfirmation;
     private bool _presentationGameplayBlocked;
     private static readonly IReadOnlySet<StringName> GameplayCoreCancelActions =
         new HashSet<StringName> { "pause_menu", "ui_cancel" };
@@ -299,29 +305,53 @@ public partial class Game : Node2D
             ClearInventoryHandle();
         }
 
-        var spec = new UIScreenEntrySpec
-        {
-            Kind = UIScreenKinds.Inventory,
-            Layer = UIScreenLayer.Modal,
-            InputPriority = UIInputPriority.Modal,
-            ProcessPolicy = UIProcessPolicy.WhenPaused,
-            Parent = parent,
-            PauseTree = true,
-            BlockGameplayInput = true,
-            Cursor = UICursorPolicy.Visible,
-            Hud = UIHudPolicy.Inherit,
-            LowerLayers = UILowerLayerPolicy.VisibleInert,
-            Cancel = UICancelPolicy.Close,
-            EntryCancelActions = new HashSet<StringName> { "toggle_inventory" },
-            InitialFocus = () => _inventoryMenu.InitialFocusTarget,
-            SetPresented = visible =>
+        var spec = parent.HasValue
+            ? new UIScreenEntrySpec
             {
-                if (visible) _inventoryMenu.OpenMenu();
-                else _inventoryMenu.CloseMenu();
-            },
-            Cleanup = _ => ClearInventoryHandle(),
-            NodeLifetime = UINodeLifetime.External
-        };
+                Kind = UIScreenKinds.Inventory,
+                Layer = UIScreenLayer.Modal,
+                InputPriority = UIInputPriority.Modal,
+                ProcessPolicy = UIProcessPolicy.Always,
+                Parent = parent,
+                PauseTree = false,
+                BlockGameplayInput = false,
+                Cursor = UICursorPolicy.Visible,
+                Hud = UIHudPolicy.Inherit,
+                LowerLayers = UILowerLayerPolicy.VisibleInert,
+                Cancel = UICancelPolicy.Close,
+                EntryCancelActions = new HashSet<StringName> { "toggle_inventory" },
+                InitialFocus = () => _inventoryMenu.InitialFocusTarget,
+                SetPresented = visible =>
+                {
+                    if (visible) _inventoryMenu.OpenMenu();
+                    else _inventoryMenu.CloseMenu();
+                },
+                Cleanup = _ => ClearInventoryHandle(),
+                NodeLifetime = UINodeLifetime.External
+            }
+            : new UIScreenEntrySpec
+            {
+                Kind = UIScreenKinds.Inventory,
+                Layer = UIScreenLayer.Modal,
+                InputPriority = UIInputPriority.Modal,
+                ProcessPolicy = UIProcessPolicy.WhenPaused,
+                Parent = null,
+                PauseTree = true,
+                BlockGameplayInput = true,
+                Cursor = UICursorPolicy.Visible,
+                Hud = UIHudPolicy.Inherit,
+                LowerLayers = UILowerLayerPolicy.VisibleInert,
+                Cancel = UICancelPolicy.Close,
+                EntryCancelActions = new HashSet<StringName> { "toggle_inventory" },
+                InitialFocus = () => _inventoryMenu.InitialFocusTarget,
+                SetPresented = visible =>
+                {
+                    if (visible) _inventoryMenu.OpenMenu();
+                    else _inventoryMenu.CloseMenu();
+                },
+                Cleanup = _ => ClearInventoryHandle(),
+                NodeLifetime = UINodeLifetime.External
+            };
 
         var result = _screenHost.TryPresent(_inventoryMenu, spec);
         if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
@@ -351,6 +381,454 @@ public partial class Game : Node2D
         TryCloseInventory(UIScreenCloseReason.ExplicitAction);
 
     private void ClearInventoryHandle() => _inventoryHandle = null;
+
+    private void OnHostedPauseInventoryRequested()
+    {
+        if (_screenHost != null && GodotObject.IsInstanceValid(_screenHost) &&
+            _pauseHandle.HasValue && _screenHost.IsActive(_pauseHandle.Value))
+        {
+            TryOpenInventory(_pauseHandle);
+        }
+    }
+
+    private void OnHostedPauseSaveRequested() =>
+        TryOpenHostedSaveLoad(SaveLoadDialog.DialogMode.Save);
+
+    private void OnHostedPauseLoadRequested() =>
+        TryOpenHostedSaveLoad(SaveLoadDialog.DialogMode.Load);
+
+    private void OnHostedPauseSettingsRequested() => TryOpenHostedSettings();
+
+    private void OnHostedPauseReturnToTitleRequested() =>
+        TryOpenHostedReturnConfirmation();
+
+    private bool TryOpenHostedSettings()
+    {
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
+            !_pauseHandle.HasValue || !_screenHost.IsActive(_pauseHandle.Value))
+        {
+            return false;
+        }
+
+        if (_hostedSettingsHandle.HasValue)
+        {
+            if (_screenHost.IsActive(_hostedSettingsHandle.Value))
+                return false;
+
+            if (_hostedSettingsMenu != null)
+                ClearHostedSettings(_hostedSettingsMenu);
+            else
+                _hostedSettingsHandle = null;
+        }
+
+        if (_screenHost.IsKindActive(UIScreenKinds.Settings))
+            return false;
+
+        var scene = GD.Load<PackedScene>("res://scenes/ui/SettingsMenu.tscn");
+        if (scene == null)
+        {
+            GD.PushError("[Game] SettingsMenu.tscn not found.");
+            return false;
+        }
+
+        var settings = scene.Instantiate<SettingsMenuController>();
+        if (settings == null)
+        {
+            GD.PushError("[Game] Failed to instantiate SettingsMenuController.");
+            return false;
+        }
+
+        settings.Closed += OnHostedSettingsClosed;
+        var result = _screenHost.TryPresent(settings, new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.Settings,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Modal,
+            ProcessPolicy = UIProcessPolicy.Always,
+            Parent = _pauseHandle,
+            PauseTree = false,
+            BlockGameplayInput = false,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Inherit,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Close,
+            InterceptCancel = _ =>
+                settings.IsRebinding || settings.IsPopupOpen
+                    ? UIInputInterception.ReserveForNativeHandler
+                    : UIInputInterception.DeferToPolicy,
+            SetPresented = visible =>
+            {
+                if (visible) settings.OpenSettings(showOverlay: false);
+                else settings.Hide();
+            },
+            Cleanup = _ => ClearHostedSettings(settings),
+            NodeLifetime = UINodeLifetime.QueueFree
+        });
+        if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
+        {
+            settings.Closed -= OnHostedSettingsClosed;
+            settings.QueueFree();
+            return false;
+        }
+
+        _hostedSettingsHandle = result.Handle.Value;
+        _hostedSettingsMenu = settings;
+        settings.OpenSettings(showOverlay: false);
+        return true;
+    }
+
+    private void OnHostedSettingsClosed() =>
+        TryCloseHostedSettings(UIScreenCloseReason.ExplicitAction);
+
+    private bool TryCloseHostedSettings(UIScreenCloseReason reason)
+    {
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
+            !_hostedSettingsHandle.HasValue)
+        {
+            return false;
+        }
+
+        var result = _screenHost.TryClose(_hostedSettingsHandle.Value, reason);
+        if (result.Status == UIScreenCloseStatus.StaleHandle)
+        {
+            if (_hostedSettingsMenu != null)
+                ClearHostedSettings(_hostedSettingsMenu);
+            else
+                _hostedSettingsHandle = null;
+        }
+
+        return result.Status == UIScreenCloseStatus.Closed;
+    }
+
+    private void ClearHostedSettings(SettingsMenuController settings)
+    {
+        if (GodotObject.IsInstanceValid(settings))
+            settings.Closed -= OnHostedSettingsClosed;
+
+        if (ReferenceEquals(_hostedSettingsMenu, settings))
+        {
+            _hostedSettingsHandle = null;
+            _hostedSettingsMenu = null;
+        }
+    }
+
+    private bool TryOpenHostedSaveLoad(SaveLoadDialog.DialogMode mode)
+    {
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
+            !_pauseHandle.HasValue || !_screenHost.IsActive(_pauseHandle.Value))
+        {
+            return false;
+        }
+
+        if (_hostedSaveLoadHandle.HasValue)
+        {
+            if (_screenHost.IsActive(_hostedSaveLoadHandle.Value))
+                return false;
+
+            if (_hostedSaveLoadDialog != null)
+                ClearHostedSaveLoadDialog(_hostedSaveLoadDialog);
+            else
+                _hostedSaveLoadHandle = null;
+        }
+
+        if (_screenHost.IsKindActive(UIScreenKinds.SaveLoad))
+            return false;
+
+        var dialog = new SaveLoadDialog();
+        dialog.SaveSlotSelected += OnHostedSaveSlotSelected;
+        dialog.LoadSlotSelected += OnHostedLoadSlotSelected;
+        dialog.DialogClosed += OnHostedSaveLoadClosed;
+        dialog.MainMenuRequested += OnHostedSaveLoadMainMenuRequested;
+
+        var result = _screenHost.TryPresent(dialog, new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.SaveLoad,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Modal,
+            ProcessPolicy = UIProcessPolicy.Always,
+            Parent = _pauseHandle,
+            PauseTree = false,
+            BlockGameplayInput = false,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Inherit,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Close,
+            InterceptCancel = _ =>
+            {
+                if (dialog.HasActiveChildDialog)
+                {
+                    dialog.DismissActiveChildDialog();
+                    return UIInputInterception.ConsumeHere;
+                }
+
+                return UIInputInterception.DeferToPolicy;
+            },
+            SetPresented = visible =>
+            {
+                if (visible) dialog.ShowDialog(mode);
+                else dialog.Hide();
+            },
+            Cleanup = _ => ClearHostedSaveLoadDialog(dialog),
+            NodeLifetime = UINodeLifetime.QueueFree
+        });
+        if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
+        {
+            dialog.SaveSlotSelected -= OnHostedSaveSlotSelected;
+            dialog.LoadSlotSelected -= OnHostedLoadSlotSelected;
+            dialog.DialogClosed -= OnHostedSaveLoadClosed;
+            dialog.MainMenuRequested -= OnHostedSaveLoadMainMenuRequested;
+            dialog.QueueFree();
+            return false;
+        }
+
+        _hostedSaveLoadHandle = result.Handle.Value;
+        _hostedSaveLoadDialog = dialog;
+        dialog.ShowDialog(mode);
+        return true;
+    }
+
+    private void OnHostedSaveSlotSelected(int slot)
+    {
+        if (_gameManager.IsInNpcInteraction)
+        {
+            GD.PrintErr("Save blocked: NPC interaction in progress.");
+            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
+            ShowSaveError("Cannot save during NPC interaction.");
+            return;
+        }
+
+        if (_gameManager.IsInWorldInteraction)
+        {
+            GD.PrintErr("Save/load blocked: world interaction in progress.");
+            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
+            ShowSaveError("Cannot save or load while opening treasure.");
+            return;
+        }
+
+        if (_gameManager.IsInBattle)
+        {
+            GD.PrintErr("Save blocked: Battle in progress.");
+            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
+            ShowSaveError("Cannot save during battle.");
+            return;
+        }
+
+        if (_gameManager.Player != null && !_gameManager.Player.IsAlive)
+        {
+            GD.PrintErr("Save blocked: Player is defeated.");
+            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
+            ShowSaveError("Cannot save while defeated.");
+            return;
+        }
+
+        var saveData = _gameManager.CollectSaveData(_questFlags);
+        if (saveData == null)
+        {
+            GD.PrintErr("Save failed: unable to collect save data.");
+            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
+            ShowSaveError("Unable to collect save data.");
+            return;
+        }
+
+        if (SaveManager.Instance == null)
+        {
+            GD.PushError("Save failed: SaveManager not initialized.");
+            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
+            ShowSaveError("Save system unavailable.");
+            return;
+        }
+
+        var success = SaveManager.Instance.SaveGame(slot, saveData);
+        if (success)
+        {
+            GD.Print($"Game saved to slot {slot}");
+            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
+        }
+        else
+        {
+            GD.PrintErr($"Save failed for slot {slot}.");
+            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
+            ShowSaveError("Failed to save game.");
+        }
+    }
+
+    private void OnHostedLoadSlotSelected(int slot)
+    {
+        if (_gameManager.IsInWorldInteraction)
+        {
+            GD.PrintErr("Save/load blocked: world interaction in progress.");
+            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
+            ShowSaveError("Cannot save or load while opening treasure.", "Load Failed");
+            return;
+        }
+
+        var saveData = slot == 3
+            ? SaveManager.Instance?.LoadAutosave()
+            : SaveManager.Instance?.LoadGame(slot);
+
+        if (saveData == null || SaveManager.Instance == null)
+        {
+            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
+            ShowSaveError("Failed to load save file.", "Load Failed");
+            return;
+        }
+
+        SaveManager.Instance.PendingLoadData = saveData;
+        TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
+        RequestSceneChange(GameScenePath);
+    }
+
+    private void OnHostedSaveLoadClosed() =>
+        TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
+
+    private void OnHostedSaveLoadMainMenuRequested() => ReturnToMainMenu();
+
+    private bool TryCloseHostedSaveLoad(UIScreenCloseReason reason)
+    {
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
+            !_hostedSaveLoadHandle.HasValue)
+        {
+            return false;
+        }
+
+        var result = _screenHost.TryClose(_hostedSaveLoadHandle.Value, reason);
+        if (result.Status == UIScreenCloseStatus.StaleHandle)
+        {
+            if (_hostedSaveLoadDialog != null)
+                ClearHostedSaveLoadDialog(_hostedSaveLoadDialog);
+            else
+                _hostedSaveLoadHandle = null;
+        }
+
+        return result.Status == UIScreenCloseStatus.Closed;
+    }
+
+    private void ClearHostedSaveLoadDialog(SaveLoadDialog dialog)
+    {
+        if (GodotObject.IsInstanceValid(dialog))
+        {
+            dialog.SaveSlotSelected -= OnHostedSaveSlotSelected;
+            dialog.LoadSlotSelected -= OnHostedLoadSlotSelected;
+            dialog.DialogClosed -= OnHostedSaveLoadClosed;
+            dialog.MainMenuRequested -= OnHostedSaveLoadMainMenuRequested;
+        }
+
+        if (ReferenceEquals(_hostedSaveLoadDialog, dialog))
+        {
+            _hostedSaveLoadHandle = null;
+            _hostedSaveLoadDialog = null;
+        }
+    }
+
+    private bool TryOpenHostedReturnConfirmation()
+    {
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
+            !_pauseHandle.HasValue || !_screenHost.IsActive(_pauseHandle.Value))
+        {
+            return false;
+        }
+
+        if (_hostedReturnConfirmationHandle.HasValue)
+        {
+            if (_screenHost.IsActive(_hostedReturnConfirmationHandle.Value))
+                return false;
+
+            if (_hostedReturnConfirmation != null)
+                ClearHostedReturnConfirmation(_hostedReturnConfirmation);
+            else
+                _hostedReturnConfirmationHandle = null;
+        }
+
+        if (_screenHost.IsKindActive(UIScreenKinds.ConfirmQuitToMain))
+            return false;
+
+        var scene = GD.Load<PackedScene>("res://scenes/ui/PauseReturnToTitleConfirmation.tscn");
+        if (scene == null)
+        {
+            GD.PushError("[Game] PauseReturnToTitleConfirmation.tscn not found.");
+            return false;
+        }
+
+        var confirmation = scene.Instantiate<PauseReturnToTitleConfirmationController>();
+        if (confirmation == null)
+        {
+            GD.PushError("[Game] Failed to instantiate PauseReturnToTitleConfirmationController.");
+            return false;
+        }
+
+        confirmation.ReturnToTitleConfirmed += OnHostedReturnToTitleConfirmed;
+        confirmation.CancelRequested += OnHostedReturnConfirmationCancelled;
+        var result = _screenHost.TryPresent(confirmation, new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.ConfirmQuitToMain,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Blocking,
+            ProcessPolicy = UIProcessPolicy.Always,
+            Parent = _pauseHandle,
+            ExclusiveGroup = UIScreenExclusiveGroups.BlockingPrompt,
+            PauseTree = false,
+            BlockGameplayInput = false,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Inherit,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Close,
+            InitialFocus = () => confirmation.InitialFocusTarget,
+            Cleanup = _ => ClearHostedReturnConfirmation(confirmation),
+            NodeLifetime = UINodeLifetime.QueueFree
+        });
+        if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
+        {
+            confirmation.ReturnToTitleConfirmed -= OnHostedReturnToTitleConfirmed;
+            confirmation.CancelRequested -= OnHostedReturnConfirmationCancelled;
+            confirmation.QueueFree();
+            return false;
+        }
+
+        _hostedReturnConfirmationHandle = result.Handle.Value;
+        _hostedReturnConfirmation = confirmation;
+        return true;
+    }
+
+    private void OnHostedReturnToTitleConfirmed() => ReturnToMainMenu();
+
+    private void OnHostedReturnConfirmationCancelled() =>
+        TryCloseHostedReturnConfirmation(UIScreenCloseReason.ExplicitAction);
+
+    private bool TryCloseHostedReturnConfirmation(UIScreenCloseReason reason)
+    {
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
+            !_hostedReturnConfirmationHandle.HasValue)
+        {
+            return false;
+        }
+
+        var result = _screenHost.TryClose(_hostedReturnConfirmationHandle.Value, reason);
+        if (result.Status == UIScreenCloseStatus.StaleHandle)
+        {
+            if (_hostedReturnConfirmation != null)
+                ClearHostedReturnConfirmation(_hostedReturnConfirmation);
+            else
+                _hostedReturnConfirmationHandle = null;
+        }
+
+        return result.Status == UIScreenCloseStatus.Closed;
+    }
+
+    private void ClearHostedReturnConfirmation(
+        PauseReturnToTitleConfirmationController confirmation)
+    {
+        if (GodotObject.IsInstanceValid(confirmation))
+        {
+            confirmation.ReturnToTitleConfirmed -= OnHostedReturnToTitleConfirmed;
+            confirmation.CancelRequested -= OnHostedReturnConfirmationCancelled;
+        }
+
+        if (ReferenceEquals(_hostedReturnConfirmation, confirmation))
+        {
+            _hostedReturnConfirmationHandle = null;
+            _hostedReturnConfirmation = null;
+        }
+    }
 
     private bool TryOpenPause()
     {
@@ -386,6 +864,11 @@ public partial class Game : Node2D
         }
 
         screen.ResumeRequested += OnHostedPauseResumeRequested;
+        screen.InventoryRequested += OnHostedPauseInventoryRequested;
+        screen.SaveRequested += OnHostedPauseSaveRequested;
+        screen.LoadRequested += OnHostedPauseLoadRequested;
+        screen.SettingsRequested += OnHostedPauseSettingsRequested;
+        screen.ReturnToTitleRequested += OnHostedPauseReturnToTitleRequested;
         var result = _screenHost.TryPresent(screen, new UIScreenEntrySpec
         {
             Kind = UIScreenKinds.Pause,
@@ -405,6 +888,11 @@ public partial class Game : Node2D
         if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
         {
             screen.ResumeRequested -= OnHostedPauseResumeRequested;
+            screen.InventoryRequested -= OnHostedPauseInventoryRequested;
+            screen.SaveRequested -= OnHostedPauseSaveRequested;
+            screen.LoadRequested -= OnHostedPauseLoadRequested;
+            screen.SettingsRequested -= OnHostedPauseSettingsRequested;
+            screen.ReturnToTitleRequested -= OnHostedPauseReturnToTitleRequested;
             screen.QueueFree();
             return false;
         }
@@ -437,7 +925,14 @@ public partial class Game : Node2D
     private void ClearPausePresentation(PauseScreenController screen)
     {
         if (GodotObject.IsInstanceValid(screen))
+        {
             screen.ResumeRequested -= OnHostedPauseResumeRequested;
+            screen.InventoryRequested -= OnHostedPauseInventoryRequested;
+            screen.SaveRequested -= OnHostedPauseSaveRequested;
+            screen.LoadRequested -= OnHostedPauseLoadRequested;
+            screen.SettingsRequested -= OnHostedPauseSettingsRequested;
+            screen.ReturnToTitleRequested -= OnHostedPauseReturnToTitleRequested;
+        }
 
         if (ReferenceEquals(_pauseScreen, screen))
         {

@@ -243,6 +243,343 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(GodotObject.IsInstanceValid(pause)).IsFalse();
     }
 
+    [TestCase]
+    public async Task PauseChildInventory_HostsLogicalPauseChildAndRestoresExistingPause()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
+
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        var pauseEntry = FindEntry(host, UIScreenKinds.Pause);
+        var inventoryButton = pause.GetNode<Button>("%InventoryButton");
+        inventoryButton.GrabFocus();
+        inventoryButton.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var inventory = GetPrivateField<InventoryMenuController>(_game, "_inventoryMenu");
+        var inventoryEntry = FindEntry(host, UIScreenKinds.Inventory);
+        AssertThat(inventory.GetParent()).IsEqual(modalLayer);
+        AssertThat(inventoryEntry.Policy.Parent).IsEqual(pauseEntry.Handle);
+        AssertThat(inventoryEntry.Policy.Layer).IsEqual(UIScreenLayer.Modal);
+        AssertThat(inventoryEntry.Policy.InputPriority).IsEqual(UIInputPriority.Modal);
+        AssertThat(inventoryEntry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
+        AssertThat(inventoryEntry.Policy.PauseTree).IsFalse();
+        AssertThat(inventoryEntry.Policy.BlockGameplayInput).IsFalse();
+        AssertThat(inventoryEntry.Policy.Hud).IsEqual(UIHudPolicy.Inherit);
+        AssertThat(inventoryEntry.Policy.Cancel).IsEqual(UICancelPolicy.Close);
+        AssertThat(tree.Paused).IsFalse();
+
+        _viewport!.PushInput(new InputEventAction
+        {
+            Action = "toggle_inventory",
+            Pressed = true
+        });
+        await AwaitFrames(3);
+
+        AssertThat(inventory.GetParent()).IsNull();
+        AssertHostedChildReturnedToSamePause(host, pause, pauseEntry.Handle, inventoryButton);
+    }
+
+    [TestCase]
+    public async Task HostedSettings_HostsLogicalPauseChildAndRestoresExistingPause()
+    {
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
+
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        var pauseEntry = FindEntry(host, UIScreenKinds.Pause);
+        var settingsButton = pause.GetNode<Button>("%SettingsButton");
+        settingsButton.GrabFocus();
+        settingsButton.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var settings = FindDirectChild<SettingsMenuController>(modalLayer);
+        var settingsEntry = FindEntry(host, UIScreenKinds.Settings);
+        AssertThat(settings.GetParent()).IsEqual(modalLayer);
+        AssertThat(settingsEntry.Policy.Parent).IsEqual(pauseEntry.Handle);
+        AssertThat(settingsEntry.Policy.Layer).IsEqual(UIScreenLayer.Modal);
+        AssertThat(settingsEntry.Policy.InputPriority).IsEqual(UIInputPriority.Modal);
+        AssertThat(settingsEntry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
+        AssertThat(settingsEntry.Policy.PauseTree).IsFalse();
+        AssertThat(settingsEntry.Policy.BlockGameplayInput).IsFalse();
+        AssertThat(settingsEntry.Policy.Hud).IsEqual(UIHudPolicy.Inherit);
+        AssertThat(settingsEntry.Policy.Cancel).IsEqual(UICancelPolicy.Close);
+
+        InvokePrivateVoid(settings, "OnCancelPressed");
+        await AwaitFrames(3);
+
+        AssertThat(GodotObject.IsInstanceValid(settings)).IsFalse();
+        AssertHostedChildReturnedToSamePause(host, pause, pauseEntry.Handle, settingsButton);
+    }
+
+    [TestCase]
+    public async Task HostedSaveLoad_SaveAndLoadHostLogicalPauseChildrenAndRestoreExistingPause()
+    {
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        var pauseEntry = FindEntry(host, UIScreenKinds.Pause);
+        var saveButton = pause.GetNode<Button>("%SaveButton");
+        saveButton.GrabFocus();
+        saveButton.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var saveDialog = FindDirectChild<SaveLoadDialog>(host);
+        var saveEntry = FindEntry(host, UIScreenKinds.SaveLoad);
+        AssertThat(saveDialog.GetParent()).IsEqual(host);
+        AssertThat(saveDialog.Title).IsEqual("Save Game");
+        AssertThat(saveEntry.Policy.Parent).IsEqual(pauseEntry.Handle);
+        AssertThat(saveEntry.Policy.Layer).IsEqual(UIScreenLayer.Modal);
+        AssertThat(saveEntry.Policy.InputPriority).IsEqual(UIInputPriority.Modal);
+        AssertThat(saveEntry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
+        AssertThat(saveEntry.Policy.PauseTree).IsFalse();
+        AssertThat(saveEntry.Policy.BlockGameplayInput).IsFalse();
+        AssertThat(saveEntry.Policy.Hud).IsEqual(UIHudPolicy.Inherit);
+        AssertThat(saveEntry.Policy.Cancel).IsEqual(UICancelPolicy.Close);
+
+        GetPrivateField<Button>(saveDialog, "_cancelButton")
+            .EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(3);
+
+        AssertThat(GodotObject.IsInstanceValid(saveDialog)).IsFalse();
+        AssertHostedChildReturnedToSamePause(host, pause, pauseEntry.Handle, saveButton);
+
+        var loadButton = pause.GetNode<Button>("%LoadButton");
+        loadButton.GrabFocus();
+        loadButton.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var loadDialog = FindDirectChild<SaveLoadDialog>(host);
+        var loadEntry = FindEntry(host, UIScreenKinds.SaveLoad);
+        AssertThat(loadDialog.GetParent()).IsEqual(host);
+        AssertThat(loadDialog.Title).IsEqual("Load Game");
+        AssertThat(loadEntry.Policy.Parent).IsEqual(pauseEntry.Handle);
+        AssertThat(loadEntry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
+        AssertThat(loadEntry.Policy.PauseTree).IsFalse();
+        AssertThat(loadEntry.Policy.BlockGameplayInput).IsFalse();
+        AssertThat(loadEntry.Policy.Hud).IsEqual(UIHudPolicy.Inherit);
+
+        GetPrivateField<Button>(loadDialog, "_cancelButton")
+            .EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(3);
+
+        AssertThat(GodotObject.IsInstanceValid(loadDialog)).IsFalse();
+        AssertHostedChildReturnedToSamePause(host, pause, pauseEntry.Handle, loadButton);
+    }
+
+    [TestCase]
+    public async Task PauseChildReturnConfirmation_CancelClosesOnlyTheHostedChild()
+    {
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
+
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        var pauseEntry = FindEntry(host, UIScreenKinds.Pause);
+        var returnButton = pause.GetNode<Button>("%ReturnToTitleButton");
+        returnButton.GrabFocus();
+        returnButton.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var confirmation = FindDirectChild<PauseReturnToTitleConfirmationController>(modalLayer);
+        var confirmationEntry = FindEntry(host, UIScreenKinds.ConfirmQuitToMain);
+        AssertThat(confirmation.GetParent()).IsEqual(modalLayer);
+        AssertThat(confirmationEntry.Policy.Parent).IsEqual(pauseEntry.Handle);
+        AssertThat(confirmationEntry.Policy.Layer).IsEqual(UIScreenLayer.Modal);
+        AssertThat(confirmationEntry.Policy.InputPriority).IsEqual(UIInputPriority.Blocking);
+        AssertThat(confirmationEntry.Policy.ExclusiveGroup)
+            .IsEqual(UIScreenExclusiveGroups.BlockingPrompt);
+        AssertThat(confirmationEntry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
+        AssertThat(confirmationEntry.Policy.PauseTree).IsFalse();
+        AssertThat(confirmationEntry.Policy.BlockGameplayInput).IsFalse();
+        AssertThat(confirmationEntry.Policy.Hud).IsEqual(UIHudPolicy.Inherit);
+        AssertThat(confirmationEntry.Policy.Cancel).IsEqual(UICancelPolicy.Close);
+
+        confirmation.GetNode<Button>("%CancelButton")
+            .EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(3);
+
+        AssertThat(GodotObject.IsInstanceValid(confirmation)).IsFalse();
+        AssertHostedChildReturnedToSamePause(host, pause, pauseEntry.Handle, returnButton);
+    }
+
+    [TestCase]
+    public async Task PauseChildInventory_ToggleInventoryClosesOnlyTheHostedChild()
+    {
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        var pauseEntry = FindEntry(host, UIScreenKinds.Pause);
+        var inventoryButton = pause.GetNode<Button>("%InventoryButton");
+        inventoryButton.GrabFocus();
+        inventoryButton.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Inventory)).IsTrue();
+        _viewport!.PushInput(new InputEventAction
+        {
+            Action = "toggle_inventory",
+            Pressed = true
+        });
+        await AwaitFrames(3);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Inventory)).IsFalse();
+        AssertHostedChildReturnedToSamePause(
+            host,
+            pause,
+            pauseEntry.Handle,
+            inventoryButton);
+    }
+
+    [TestCase]
+    public async Task HostedSaveLoad_ActiveOverwriteChildConsumesCancelBeforeSaveLoad()
+    {
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        var pauseEntry = FindEntry(host, UIScreenKinds.Pause);
+        pause.GetNode<Button>("%SaveButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var saveDialog = FindDirectChild<SaveLoadDialog>(host);
+        var slotInfos = GetPrivateField<SaveSlotInfo[]>(saveDialog, "_slotInfos");
+        slotInfos[0] = new SaveSlotInfo { Exists = true, SlotIndex = 0, PlayerLevel = 2 };
+        InvokePrivateVoid(saveDialog, "OnSlotPressed", 0);
+        await AwaitFrames(1);
+
+        AssertThat(saveDialog.HasActiveChildDialog).IsTrue();
+        var handled = host.TryHandleInput(new InputEventAction
+        {
+            Action = "ui_cancel",
+            Pressed = true
+        });
+
+        AssertThat(handled).IsEqual(UIInputDispatchResult.Consumed);
+        AssertThat(saveDialog.HasActiveChildDialog).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+        AssertHostedChildRemainsAboveSamePause(host, pause, pauseEntry.Handle);
+    }
+
+    [TestCase]
+    public async Task HostedSettings_RebindingAndPopupReserveCancelForNativeHandlers()
+    {
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        var pauseEntry = FindEntry(host, UIScreenKinds.Pause);
+        pause.GetNode<Button>("%SettingsButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var settings = FindDirectChild<SettingsMenuController>(host.GetNode<Control>("ModalLayer"));
+        GetPrivateField<Button>(settings, "_inventoryKeyBtn")
+            .EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        AssertThat(settings.IsRebinding).IsTrue();
+        var rebindCancel = new InputEventAction { Action = "ui_cancel", Pressed = true };
+        AssertThat(host.TryHandleInput(rebindCancel))
+            .IsEqual(UIInputDispatchResult.ReservedForTopEntry);
+        settings._Input(rebindCancel);
+        AssertThat(settings.IsRebinding).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Settings)).IsTrue();
+
+        var resolution = GetPrivateField<OptionButton>(settings, "_resolutionOption");
+        resolution.ShowPopup();
+        await AwaitFrames(1);
+
+        AssertThat(settings.IsPopupOpen).IsTrue();
+        AssertThat(host.TryHandleInput(new InputEventAction
+        {
+            Action = "ui_cancel",
+            Pressed = true
+        })).IsEqual(UIInputDispatchResult.ReservedForTopEntry);
+        AssertThat(host.IsKindActive(UIScreenKinds.Settings)).IsTrue();
+        AssertHostedChildRemainsAboveSamePause(host, pause, pauseEntry.Handle);
+        resolution.GetPopup().Hide();
+    }
+
+    [TestCase]
+    public async Task ProductionPauseInput_RemainsLegacyWhileHostedPauseIsDirectOnly()
+    {
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+        _viewport!.PushInput(new InputEventAction
+        {
+            Action = "pause_menu",
+            Pressed = true
+        });
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        var legacyPause = GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog");
+        AssertThat(legacyPause).IsNotNull();
+        AssertThat(legacyPause!.Visible).IsTrue();
+    }
+
+    private void AssertHostedChildReturnedToSamePause(
+        UIScreenHost host,
+        PauseScreenController pause,
+        UIScreenHandle pauseHandle,
+        Control expectedFocus)
+    {
+        AssertHostedChildRemainsAboveSamePause(host, pause, pauseHandle);
+        AssertThat(host.ActiveEntries.Count).IsEqual(1);
+        AssertThat(_viewport!.GuiGetFocusOwner()).IsEqual(expectedFocus);
+    }
+
+    private void AssertHostedChildRemainsAboveSamePause(
+        UIScreenHost host,
+        PauseScreenController pause,
+        UIScreenHandle pauseHandle)
+    {
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(FindEntry(host, UIScreenKinds.Pause).Handle).IsEqual(pauseHandle);
+        AssertThat(GetPrivateField<PauseScreenController>(_game!, "_pauseScreen")).IsEqual(pause);
+    }
+
+    private static UIScreenEntrySnapshot FindEntry(UIScreenHost host, StringName kind)
+    {
+        foreach (var entry in host.ActiveEntries)
+        {
+            if (entry.Policy.Kind == kind)
+                return entry;
+        }
+
+        throw new InvalidOperationException($"Active entry '{kind}' was not found.");
+    }
+
+    private static T FindDirectChild<T>(Node parent) where T : Node
+    {
+        foreach (var child in parent.GetChildren())
+        {
+            if (child is T typed)
+                return typed;
+        }
+
+        throw new InvalidOperationException($"Direct child '{typeof(T).Name}' was not found.");
+    }
+
     private static async Task AwaitFrames(int frameCount)
     {
         var tree = (SceneTree)Engine.GetMainLoop();
@@ -259,6 +596,20 @@ public partial class GameplayPauseHostTest : Node
             throw new MissingFieldException(instance.GetType().FullName, fieldName);
 
         return (T)field.GetValue(instance)!;
+    }
+
+    private static void InvokePrivateVoid(
+        object instance,
+        string methodName,
+        params object?[] arguments)
+    {
+        var method = instance.GetType().GetMethod(
+            methodName,
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        if (method == null)
+            throw new MissingMethodException(instance.GetType().FullName, methodName);
+
+        method.Invoke(instance, arguments);
     }
 
     private static bool InvokePrivateBool(object instance, string methodName)

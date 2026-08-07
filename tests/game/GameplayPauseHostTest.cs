@@ -557,21 +557,30 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
-    public async Task ProductionPauseInput_RemainsLegacyWhileHostedPauseIsDirectOnly()
+    public async Task RootCancel_PauseMenuActionOpensHostedPauseWhenUnblocked()
     {
+        await AssertRootCancelOpensHostedPause("pause_menu");
+    }
+
+    [TestCase]
+    public async Task RootCancel_UiCancelActionOpensHostedPauseWhenUnblocked()
+    {
+        await AssertRootCancelOpensHostedPause("ui_cancel");
+    }
+
+    private async Task AssertRootCancelOpensHostedPause(StringName action)
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
 
-        _viewport!.PushInput(new InputEventAction
-        {
-            Action = "pause_menu",
-            Pressed = true
-        });
+        _viewport!.PushInput(new InputEventAction { Action = action, Pressed = true });
         await AwaitFrames(2);
 
-        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
-        var legacyPause = GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog");
-        AssertThat(legacyPause).IsNotNull();
-        AssertThat(legacyPause!.Visible).IsTrue();
+        AssertThat(_viewport.IsInputHandled()).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
+        AssertThat(tree.Paused).IsFalse();
+        AssertThat(FindEntry(host, UIScreenKinds.Pause).Policy.PauseTree).IsFalse();
     }
 
     private void AssertHostedChildReturnedToSamePause(

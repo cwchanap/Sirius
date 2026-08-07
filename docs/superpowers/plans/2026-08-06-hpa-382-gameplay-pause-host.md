@@ -2,23 +2,25 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make gameplay `UIScreenHost` the sole presentation authority for Pause and the screens Pause opens, while safely introducing root tree pause only after the HPA-378 process and lifecycle gates pass.
+**Goal:** Make gameplay `UIScreenHost` the sole presentation authority for Pause and the screens Pause opens, while safely introducing root tree pause only after HPA-378 lifecycle/process gates pass.
 
-**Architecture:** `Game.tscn` owns one scene-local host configured by `Game._EnterTree()`. `Game` translates UI actions into host entries and delegates domain work to existing controllers. Direct Inventory moves to the host first; production Pause and its children then migrate with `PauseTree=false` for lifecycle parity; root Pause flips to `PauseTree=true` only after explicit-`Always` gameplay processing is normalized and freeze regressions pass.
+**Architecture:** The real `Game.tscn` owns one scene-local host, but `Game` tolerates synthetic test fixtures with no host. Direct Inventory migrates atomically to host ownership. Hosted Pause is built and tested with `PauseTree=false` before production Cancel cuts over; root Pause flips to real tree pause only after `GridMap` processing and regression gates are green.
 
-**Tech Stack:** Godot 4.6.2, C#/.NET 8, GdUnit4, existing `UIScreenHost`, `SiriusModalShell`, `SiriusTheme`, `InputHintPresenter`.
+**Tech Stack:** Godot 4.6.2, C#/.NET 8, GdUnit4, existing `UIScreenHost`, `SiriusModalShell`, `SiriusUiMetrics`, `InputHintPresenter`.
 
 ## Global Constraints
 
 - Follow `docs/superpowers/specs/2026-08-06-hpa-382-gameplay-pause-host-design.md`.
-- Honor HPA-378 section 19 migration order: no root `PauseTree=true` before teardown, process audit, HUD/host wiring, and composed input blocking are proven.
-- Keep `GameManager`, `SaveManager`, `InventoryMenuController`, `SaveLoadDialog`, and `SettingsMenuController` as domain owners.
-- Do not add an autoload, navigation service, modal manager, screen registry, DI container, or generic confirmation framework.
-- Do not redesign child screens or migrate battle/NPC/puzzle presentation in this ticket.
-- Do not preserve `PauseMenuDialog` compatibility after the hosted replacement is green.
-- Keep legacy Cancel ladder arms until the corresponding hosted replacement is active in the same task.
-- Required viewport checks are 1280×720 and 640×360 only.
-- Use test-first changes and commit each task after its focused tests pass.
+- No root `PauseTree=true` until teardown, process normalization, composed blocking, Inventory ownership, and `PauseTree=false` parity are proven.
+- Keep domain ownership in `GameManager`, `SaveManager`, `InventoryMenuController`, `SaveLoadDialog`, and `SettingsMenuController`.
+- No navigation service, modal manager, screen registry, DI container, generic confirmation framework, or compatibility wrapper.
+- Do not redesign child screens in this ticket.
+- Preserve current Inventory HUD behavior with `Hud = Inherit`; HPA-357 owns later Inventory presentation changes.
+- Do not manually `AddChild` a view before hosting it. Controls attach to the host layer; Windows attach directly to the host.
+- Any `SubViewport` fixture that presents `SaveLoadDialog` sets `GuiEmbedSubwindows = true` explicitly.
+- Keep sibling `UIScreenEntrySpec` values explicit; do not extract a future-facing child-spec factory in this ticket.
+- Required layout checks: 1280×720 and 640×360 only.
+- Every task uses red → minimal implementation → green → commit.
 
 ---
 
@@ -26,40 +28,40 @@
 
 ### Create
 
-- `scenes/ui/PauseScreen.tscn` — scene-authored Pause composition.
-- `scripts/ui/PauseScreenController.cs` — presentation-only action signals, focus target, hints, compact refresh.
-- `scenes/ui/PauseReturnToTitleConfirmation.tscn` — flow-specific destructive confirmation.
-- `scripts/ui/PauseReturnToTitleConfirmationController.cs` — confirmation signals and safe focus.
-- `tests/ui/PauseScreenControllerTest.cs` — component behavior and 1280×720 / 640×360 checks.
-- `tests/ui/PauseReturnToTitleConfirmationControllerTest.cs` — confirmation component behavior.
-- `tests/game/GameplayPauseHostTest.cs` — production host, parentage, stack, process, teardown, and reuse regressions.
+- `scenes/ui/PauseScreen.tscn`
+- `scripts/ui/PauseScreenController.cs`
+- `scenes/ui/PauseReturnToTitleConfirmation.tscn`
+- `scripts/ui/PauseReturnToTitleConfirmationController.cs`
+- `tests/ui/PauseScreenControllerTest.cs`
+- `tests/ui/PauseReturnToTitleConfirmationControllerTest.cs`
+- `tests/game/GameplayPauseHostTest.cs`
 
 ### Modify
 
-- `project.godot` — pin embedded subwindows.
-- `scenes/game/Game.tscn` — add one `UIScreenHost` instance.
-- `scripts/game/Game.cs` — host configuration, composed predicate, Inventory/Pause child adapters, Cancel fallback, teardown-safe scene changes.
-- `scripts/game/PlayerController.cs` — optional presentation-suppression provider.
-- `scenes/game/floors/FloorGF.tscn` — remove explicit `Always` from runtime `GridMap`.
-- `scenes/game/floors/Floor1F.tscn` — remove explicit `Always` from runtime `GridMap`.
-- `scenes/game/floors/Floor2F.tscn` — remove explicit `Always` from runtime `GridMap`.
-- `scenes/game/floors/Floor3F.tscn` — remove explicit `Always` from runtime `GridMap`.
-- `scenes/ui/InventoryMenu.tscn` — remove explicit root `Always`; host chooses process mode.
-- `scripts/ui/InventoryMenuController.cs` — remove private tree-pause ownership and expose host close signal/focus target.
-- `tests/game/GameTest.cs` — migrate legacy Pause assertions and Cancel/child regressions to host state.
-- `tests/game/GameInputLifecycleTest.cs` — keep physical-input/domain precedence coverage against hosted Pause.
-- `tests/game/PlayerControllerTest.cs` — presentation-block coverage.
-- `tests/ui/InventoryMenuControllerTest.cs` — no private pause ownership and close signal coverage.
-- `docs/ui/hpa-376/ui-lifecycle-contract.md` — record production host ownership and PauseTree gate.
+- `project.godot`
+- `scenes/game/Game.tscn`
+- `scripts/game/Game.cs`
+- `scripts/game/PlayerController.cs`
+- `scenes/game/floors/FloorGF.tscn`
+- `scenes/game/floors/Floor1F.tscn`
+- `scenes/game/floors/Floor2F.tscn`
+- `scenes/game/floors/Floor3F.tscn`
+- `scenes/ui/InventoryMenu.tscn`
+- `scripts/ui/InventoryMenuController.cs`
+- `tests/game/GameTest.cs`
+- `tests/game/GameInputLifecycleTest.cs`
+- `tests/game/PlayerControllerTest.cs`
+- `tests/ui/InventoryMenuControllerTest.cs`
+- `docs/ui/hpa-376/ui-lifecycle-contract.md`
 
-### Delete
+### Delete at production cutover
 
 - `scripts/ui/PauseMenuDialog.cs`
 - `tests/ui/PauseMenuDialogTest.cs`
 
 ---
 
-## Task 1: Build the scene-authored Pause component
+## Task 1: Build the scene-authored Pause component with shared metrics
 
 **Files:**
 - Create: `scenes/ui/PauseScreen.tscn`
@@ -69,11 +71,11 @@
 **Interfaces:**
 - Produces: `Control InitialFocusTarget`
 - Produces signals: `ResumeRequested`, `InventoryRequested`, `SaveRequested`, `LoadRequested`, `SettingsRequested`, `ReturnToTitleRequested`
-- Consumes: `SiriusModalShell`, `InputHintPresenter`
+- Consumes: `SiriusModalShell`, `SiriusUiMetrics`, `InputHintPresenter`
 
-- [ ] **Step 1: Write the failing component test**
+- [ ] **Step 1: Write the failing action/focus test**
 
-Create `tests/ui/PauseScreenControllerTest.cs` with exact action/focus assertions:
+Instantiate `PauseScreen.tscn` in a test viewport and assert Resume focus plus exactly one emission from each button.
 
 ```csharp
 [TestCase]
@@ -98,26 +100,35 @@ public async Task SceneExposesSixActionsAndResumeFocus()
     pause.GetNode<Button>("%SettingsButton").EmitSignal(Button.SignalName.Pressed);
     pause.GetNode<Button>("%ReturnToTitleButton").EmitSignal(Button.SignalName.Pressed);
 
-    AssertThat(resume).IsEqual(1);
-    AssertThat(inventory).IsEqual(1);
-    AssertThat(save).IsEqual(1);
-    AssertThat(load).IsEqual(1);
-    AssertThat(settings).IsEqual(1);
-    AssertThat(title).IsEqual(1);
+    AssertThat(new[] { resume, inventory, save, load, settings, title })
+        .ContainsExactly(1, 1, 1, 1, 1, 1);
 }
 ```
 
-Add a compact test that instantiates at 640×360 and asserts each action has at least 40 logical pixels height and the modal panel fits the viewport.
+- [ ] **Step 2: Write failing responsive + resize tests using shared metrics**
 
-- [ ] **Step 2: Run the focused test and confirm red**
+For each focus viewport:
+
+```csharp
+var compact = SiriusUiMetrics.IsCompact(viewport.Size);
+var minimum = SiriusUiMetrics.MinimumTarget(compact);
+```
+
+Assert all six buttons meet `minimum.Y`: 44 at 1280×720, 40 at 640×360.
+
+Also instantiate at 1280×720, resize the viewport to 640×360 after `_Ready()`, await a frame, and assert the shell switches to compact mode. This prevents an implementation that refreshes only once at construction.
+
+- [ ] **Step 3: Run red**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~PauseScreenControllerTest"
 ```
 
-Expected: FAIL because scene/controller do not exist.
+Expected: FAIL because the component does not exist.
 
-- [ ] **Step 3: Implement the presentation-only controller**
+- [ ] **Step 4: Implement the presentation-only controller**
+
+Use shared metrics and the Control resize signal:
 
 ```csharp
 public partial class PauseScreenController : Control
@@ -138,60 +149,53 @@ public partial class PauseScreenController : Control
     {
         _shell = GetNode<SiriusModalShell>("%ModalShell");
         _resume = GetNode<Button>("%ResumeButton");
-        GetNode<Button>("%ResumeButton").Pressed += OnResume;
-        GetNode<Button>("%InventoryButton").Pressed += OnInventory;
-        GetNode<Button>("%SaveButton").Pressed += OnSave;
-        GetNode<Button>("%LoadButton").Pressed += OnLoad;
-        GetNode<Button>("%SettingsButton").Pressed += OnSettings;
-        GetNode<Button>("%ReturnToTitleButton").Pressed += OnReturnToTitle;
+        Resized += OnResized;
+        BindButtons();
         RefreshLayout();
     }
+
+    private void OnResized() => RefreshLayout();
 
     private void RefreshLayout()
     {
         var size = GetViewportRect().Size;
-        _shell.Compact = size.X < 800 || size.Y < 450;
+        _shell.Compact = SiriusUiMetrics.IsCompact(size);
         _shell.RefreshPresentation(size);
     }
 
-    private void OnResume() => EmitSignal(SignalName.ResumeRequested);
-    private void OnInventory() => EmitSignal(SignalName.InventoryRequested);
-    private void OnSave() => EmitSignal(SignalName.SaveRequested);
-    private void OnLoad() => EmitSignal(SignalName.LoadRequested);
-    private void OnSettings() => EmitSignal(SignalName.SettingsRequested);
-    private void OnReturnToTitle() => EmitSignal(SignalName.ReturnToTitleRequested);
+    public override void _ExitTree()
+    {
+        Resized -= OnResized;
+        UnbindButtons();
+    }
 }
 ```
 
-Disconnect the six button subscriptions in `_ExitTree()` using the same bound methods. Do not add navigation or domain references.
+`BindButtons`/`UnbindButtons` use six named methods and only emit the six signals.
 
-- [ ] **Step 4: Author the scene**
-
-Use this authored structure:
+- [ ] **Step 5: Author the scene**
 
 ```text
 PauseScreen (Control, full rect)
-└── ModalShell (SiriusModalShell instance, %ModalShell, title "Paused")
+└── ModalShell (%ModalShell, SiriusModalShell, title "Paused")
     └── .../BodyHost/PauseActions (VBoxContainer)
-        ├── ResumeButton        "Resume"
-        ├── InventoryButton     "Inventory"
-        ├── SaveButton          "Save"
-        ├── LoadButton          "Load"
-        ├── SettingsButton      "Settings"
-        └── ReturnToTitleButton "Return to Title"
+        ├── ResumeButton
+        ├── InventoryButton
+        ├── SaveButton
+        ├── LoadButton
+        ├── SettingsButton
+        └── ReturnToTitleButton
 ```
 
-Set each button minimum height to 40 and `ExpandFill`. Reuse the existing destructive variation for Return to Title.
+Set button minimum target to `SiriusUiMetrics.MinimumTarget(false).Y` in the authored desktop scene. Runtime compact layout may reduce it to the shared compact target. Reuse the existing destructive variation for Return to Title.
 
-- [ ] **Step 5: Run green and commit**
+- [ ] **Step 6: Run green and commit**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~PauseScreenControllerTest"
 git add scenes/ui/PauseScreen.tscn scripts/ui/PauseScreenController.cs tests/ui/PauseScreenControllerTest.cs
 git commit -m "feat(ui): add scene-authored pause screen"
 ```
-
-Expected: selected tests PASS.
 
 ---
 
@@ -204,33 +208,12 @@ Expected: selected tests PASS.
 
 **Interfaces:**
 - Produces: `Control InitialFocusTarget`
-- Produces signals: `ReturnToTitleConfirmed`, `CancelRequested`
-- Navigation duplicate suppression remains in `Game`, not this controller.
+- Signals: `ReturnToTitleConfirmed`, `CancelRequested`
+- Does not navigate or guard duplicates.
 
-- [ ] **Step 1: Write failing controller tests**
+- [ ] **Step 1: Write failing signal/focus tests**
 
-```csharp
-[TestCase]
-public async Task CancelOwnsInitialFocusAndButtonsOnlyEmitSignals()
-{
-    var confirmation = await InstantiateConfirmation();
-    int confirmed = 0;
-    int canceled = 0;
-    confirmation.ReturnToTitleConfirmed += () => confirmed++;
-    confirmation.CancelRequested += () => canceled++;
-
-    AssertThat(confirmation.InitialFocusTarget)
-        .IsEqual(confirmation.GetNode<Button>("%CancelButton"));
-
-    confirmation.GetNode<Button>("%ReturnToTitleButton")
-        .EmitSignal(Button.SignalName.Pressed);
-    confirmation.GetNode<Button>("%CancelButton")
-        .EmitSignal(Button.SignalName.Pressed);
-
-    AssertThat(confirmed).IsEqual(1);
-    AssertThat(canceled).IsEqual(1);
-}
-```
+Assert Cancel owns initial focus and each action emits once.
 
 - [ ] **Step 2: Run red**
 
@@ -238,9 +221,7 @@ public async Task CancelOwnsInitialFocusAndButtonsOnlyEmitSignals()
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~PauseReturnToTitleConfirmationControllerTest"
 ```
 
-Expected: FAIL because the component is missing.
-
-- [ ] **Step 3: Implement the narrow controller and scene**
+- [ ] **Step 3: Implement the narrow controller**
 
 ```csharp
 public partial class PauseReturnToTitleConfirmationController : Control
@@ -262,10 +243,16 @@ public partial class PauseReturnToTitleConfirmationController : Control
 
     private void OnReturn() => EmitSignal(SignalName.ReturnToTitleConfirmed);
     private void OnCancel() => EmitSignal(SignalName.CancelRequested);
+
+    public override void _ExitTree()
+    {
+        _return.Pressed -= OnReturn;
+        _cancel.Pressed -= OnCancel;
+    }
 }
 ```
 
-Author `SiriusModalShell` title `Return to Title?`, body `Unsaved progress will be lost.`, actions `Cancel | Return to Title`, with destructive styling only on the final action.
+Author `SiriusModalShell` title `Return to Title?`, body `Unsaved progress will be lost.`, actions `Cancel | Return to Title`, destructive styling only on the final action.
 
 - [ ] **Step 4: Run green and commit**
 
@@ -275,50 +262,50 @@ git add scenes/ui/PauseReturnToTitleConfirmation.tscn scripts/ui/PauseReturnToTi
 git commit -m "feat(ui): add pause return-to-title confirmation"
 ```
 
-Expected: selected tests PASS.
-
 ---
 
-## Task 3: Bootstrap the gameplay host and teardown-safe scene changes
+## Task 3: Bootstrap the optional-in-tests gameplay host and centralize scene teardown
 
 **Files:**
 - Modify: `project.godot`
 - Modify: `scenes/game/Game.tscn`
 - Modify: `scripts/game/Game.cs`
 - Create: `tests/game/GameplayPauseHostTest.cs`
+- Verify unchanged compatibility: `tests/game/GameTest.cs`, `tests/game/GameInputLifecycleTest.cs`
 
 **Interfaces:**
-- Produces scene node: `UI/UIScreenHost : UIScreenHost`
-- Produces: `RequestSceneChange(string path)`
-- Produces: `ContinueSceneChangeAfterUiTeardown()`
-- Produces test seam: `protected virtual void PerformSceneChange(string path)`
+- Production scene: `UI/UIScreenHost : UIScreenHost`
+- `Game._screenHost : UIScreenHost?`
+- Private: `RequestSceneChange(string path)`
+- Existing protected seam retained: `ReturnToMainMenu()`
 
-- [ ] **Step 1: Write failing production-host and teardown tests**
+- [ ] **Step 1: Write the real-scene host test**
+
+`GameplayPauseHostTest` loads `Game.tscn` and asserts exactly one host exists and starts empty.
+
+When the fixture uses a `SubViewport`, configure:
 
 ```csharp
-[TestCase]
-public async Task GameSceneOwnsOneReadyHostWithEmbeddedSubwindows()
-{
-    var game = await InstantiateGameScene();
-    var host = game.GetNode<UIScreenHost>("UI/UIScreenHost");
-
-    AssertThat(host).IsNotNull();
-    AssertThat(host.Diagnostics.SubwindowEmbeddingEnabled).IsTrue();
-    AssertThat(host.ActiveEntries.Count).IsEqual(0);
-}
+viewport.GuiEmbedSubwindows = true;
 ```
 
-Add a teardown test using a `TestableGame` override of `PerformSceneChange` and a hosted disposable entry. Assert navigation callback is not invoked until `PrepareForTeardown()` has emptied the host.
+before adding the Game scene.
 
-- [ ] **Step 2: Run red**
+Do not rely on the project setting to mutate test-created SubViewports.
+
+- [ ] **Step 2: Write teardown-preparation coverage**
+
+Open a disposable host entry and call `PrepareForTeardown()` through the real host fixture. Assert `Complete` eventually leaves `ActiveEntries.Count == 0` and restores incoming state.
+
+Scene-navigation one-shot behavior is covered later at the Return-to-Title integration boundary; do not add a second virtual `PerformSceneChange` seam just for this test.
+
+- [ ] **Step 3: Run red**
 
 ```bash
-dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest.GameSceneOwnsOneReadyHost|FullyQualifiedName~GameplayPauseHostTest.SceneChange"
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest.GameSceneOwnsOneReadyHost"
 ```
 
-Expected: FAIL because the host/helper do not exist.
-
-- [ ] **Step 3: Pin embedded subwindows and add host scene instance**
+- [ ] **Step 4: Pin production embedded subwindows and add the host scene**
 
 Add:
 
@@ -327,39 +314,48 @@ Add:
 window/subwindows/embed_subwindows=true
 ```
 
-Add `res://scenes/ui/UIScreenHost.tscn` as the final child of `UI`, named `UIScreenHost`. Keep `GameUI` at `UI/GameUI`.
+Instance `res://scenes/ui/UIScreenHost.tscn` as `UI/UIScreenHost` after `GameUI`.
 
-- [ ] **Step 4: Configure the host in `_EnterTree()`**
-
-Add:
+- [ ] **Step 5: Configure with `GetNodeOrNull` so synthetic tests survive `_EnterTree()`**
 
 ```csharp
-private UIScreenHost _screenHost = null!;
+private UIScreenHost? _screenHost;
 private bool _presentationGameplayBlocked;
 private static readonly IReadOnlySet<StringName> GameplayCoreCancelActions =
     new HashSet<StringName> { "pause_menu", "ui_cancel" };
-```
 
-At the start of `_EnterTree()`:
-
-```csharp
-_screenHost = GetNode<UIScreenHost>("UI/UIScreenHost");
-_screenHost.Configure(new UIScreenHostOptions
+public override void _EnterTree()
 {
-    HudRoot = GetNode<Control>("UI/GameUI"),
-    CoreCancelActions = GameplayCoreCancelActions,
-    RootCancelFallback = HandleGameplayRootCancel,
-    GameplayInputBlockChanged = blocked => _presentationGameplayBlocked = blocked
-});
+    _screenHost = GetNodeOrNull<UIScreenHost>("UI/UIScreenHost");
+    var gameUi = GetNodeOrNull<Control>("UI/GameUI");
+
+    if (_screenHost != null && gameUi != null)
+    {
+        _screenHost.Configure(new UIScreenHostOptions
+        {
+            HudRoot = gameUi,
+            CoreCancelActions = GameplayCoreCancelActions,
+            RootCancelFallback = HandleGameplayRootCancel,
+            GameplayInputBlockChanged = blocked => _presentationGameplayBlocked = blocked
+        });
+    }
+
+    // Keep the existing GetNodeOrNull FloorManager pending-load setup here.
+}
 ```
 
-For now `HandleGameplayRootCancel` returns `Declined`.
+For now `HandleGameplayRootCancel` returns `Declined`. Every later host-dependent helper first handles `_screenHost == null` safely.
 
-- [ ] **Step 5: Add the scene-change helper**
+- [ ] **Step 6: Replace direct scene changes with one private teardown helper**
+
+Do **not** add `PerformSceneChange`.
 
 ```csharp
+private const string MainMenuScenePath = "res://scenes/ui/MainMenu.tscn";
+private const string GameScenePath = "res://scenes/game/Game.tscn";
 private string? _pendingScenePath;
 private bool _sceneChangeCommitted;
+private bool _sceneChangeRetryScheduled;
 
 private void RequestSceneChange(string path)
 {
@@ -373,34 +369,51 @@ private void RequestSceneChange(string path)
 
 private void ContinueSceneChangeAfterUiTeardown()
 {
+    _sceneChangeRetryScheduled = false;
+
     if (_screenHost != null && IsInstanceValid(_screenHost) &&
         _screenHost.PrepareForTeardown() == UIScreenTeardownPreparationStatus.Deferred)
     {
-        Callable.From(ContinueSceneChangeAfterUiTeardown).CallDeferred();
+        if (!_sceneChangeRetryScheduled)
+        {
+            _sceneChangeRetryScheduled = true;
+            Callable.From(ContinueSceneChangeAfterUiTeardown).CallDeferred();
+        }
         return;
     }
 
     var path = _pendingScenePath;
     _pendingScenePath = null;
     if (!string.IsNullOrEmpty(path))
-        PerformSceneChange(path);
+        GetTree().ChangeSceneToFile(path);
 }
 
-protected virtual void PerformSceneChange(string path) =>
-    GetTree().ChangeSceneToFile(path);
+protected virtual void ReturnToMainMenu() => RequestSceneChange(MainMenuScenePath);
 ```
 
-Route in-game Load and the concrete Return-to-Title path through `RequestSceneChange`; keep existing domain validation and pending-save handoff unchanged.
+`PrepareForTeardown()` exceptions propagate; do not invent retry-count policy.
 
-- [ ] **Step 6: Run green and commit**
+Route existing paths:
+
+- dead-player encounter, defeat timeout, Save/Load Main Menu request continue calling `ReturnToMainMenu()`;
+- corrupted-save confirmation calls `RequestSceneChange(MainMenuScenePath)`;
+- successful in-game Load sets `PendingLoadData` then calls `RequestSceneChange(GameScenePath)`;
+- hosted Return-to-Title confirmation later calls `ReturnToMainMenu()`.
+
+- [ ] **Step 7: Immediately run the two large synthetic suites plus the new host suite**
 
 ```bash
-dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest"
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameTest|FullyQualifiedName~GameInputLifecycleTest"
+```
+
+Expected: existing synthetic fixtures still enter the tree without an NRE; new real-scene host test passes.
+
+- [ ] **Step 8: Commit**
+
+```bash
 git add project.godot scenes/game/Game.tscn scripts/game/Game.cs tests/game/GameplayPauseHostTest.cs
 git commit -m "feat(ui): bootstrap gameplay screen host"
 ```
-
-Expected: selected host/teardown tests PASS.
 
 ---
 
@@ -412,30 +425,12 @@ Expected: selected host/teardown tests PASS.
 - Modify: `tests/game/PlayerControllerTest.cs`
 
 **Interfaces:**
-- Produces: `PlayerController.GameplayInputSuppressedProvider : Func<bool>?`
-- Consumes: `Game.IsGameplayInputSuppressed`
+- `PlayerController.GameplayInputSuppressedProvider : Func<bool>?`
+- `Game.IsGameplayInputSuppressed()`
 
-- [ ] **Step 1: Write failing movement and interaction tests**
+- [ ] **Step 1: Write movement + interaction red tests**
 
-```csharp
-[TestCase]
-public void PresentationBlockPreventsMovement()
-{
-    var controller = CreateReadyController();
-    controller.GameplayInputSuppressedProvider = () => true;
-    var before = _gridMap.GetPlayerPosition();
-
-    controller._UnhandledInput(new InputEventKey
-    {
-        Keycode = Key.Right,
-        Pressed = true
-    });
-
-    AssertThat(_gridMap.GetPlayerPosition()).IsEqual(before);
-}
-```
-
-Add a second test that sends `interact` and asserts no treasure/puzzle interaction request occurs while the provider returns true.
+When provider returns true, movement and `interact` do nothing. Existing domain guards remain when it returns false.
 
 - [ ] **Step 2: Run red**
 
@@ -443,11 +438,20 @@ Add a second test that sends `interact` and asserts no treasure/puzzle interacti
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~PlayerControllerTest.PresentationBlock"
 ```
 
-Expected: FAIL because the provider is missing.
+- [ ] **Step 3: Implement the optional provider**
 
-- [ ] **Step 3: Implement the composed predicate**
+```csharp
+public Func<bool>? GameplayInputSuppressedProvider { private get; set; }
+```
 
-In `Game`:
+At the top of `_UnhandledInput` after the manager-null guard:
+
+```csharp
+if (GameplayInputSuppressedProvider?.Invoke() == true)
+    return;
+```
+
+Game composes:
 
 ```csharp
 private bool IsGameplayInputSuppressed() =>
@@ -457,20 +461,7 @@ private bool IsGameplayInputSuppressed() =>
     _gameManager.IsInWorldInteraction;
 ```
 
-In `PlayerController`:
-
-```csharp
-public Func<bool>? GameplayInputSuppressedProvider { private get; set; }
-```
-
-At the start of `_UnhandledInput`, after the null manager guard:
-
-```csharp
-if (GameplayInputSuppressedProvider?.Invoke() == true)
-    return;
-```
-
-Wire in `Game._Ready()` and clear in `_ExitTree()`.
+Wire in `_Ready()`, clear in `_ExitTree()`.
 
 - [ ] **Step 4: Run green and commit**
 
@@ -480,27 +471,20 @@ git add scripts/game/Game.cs scripts/game/PlayerController.cs tests/game/PlayerC
 git commit -m "feat(game): compose presentation input blocking"
 ```
 
-Expected: all selected player-controller tests PASS.
-
 ---
 
-## Task 5: Normalize explicit `Always` gameplay processing before root Pause
+## Task 5: Normalize only the four runtime `GridMap` Always overrides
 
 **Files:**
 - Modify: `scenes/game/floors/FloorGF.tscn`
 - Modify: `scenes/game/floors/Floor1F.tscn`
 - Modify: `scenes/game/floors/Floor2F.tscn`
 - Modify: `scenes/game/floors/Floor3F.tscn`
-- Modify: `scenes/ui/InventoryMenu.tscn`
 - Modify: `tests/game/GameplayPauseHostTest.cs`
 
-**Interfaces:**
-- Produces: gameplay/floor nodes inherit pausable process mode.
-- Preserves: host/presentation layers remain `Always` through `UIScreenHost.tscn`.
+**Important:** Do **not** change `InventoryMenu.tscn` in this task. Current Inventory still writes `SceneTree.Paused`; removing its `Always` mode before Task 6 would make it unable to close itself.
 
-- [ ] **Step 1: Write the failing process audit regression**
-
-Add a real-scene assertion before editing scenes:
+- [ ] **Step 1: Write the red process audit**
 
 ```csharp
 [TestCase]
@@ -508,12 +492,9 @@ public async Task RuntimeGridMapDoesNotRemainExplicitAlways()
 {
     var game = await InstantiateGameScene();
     var grid = game.GetNode<FloorManager>("FloorManager").CurrentGridMap;
-
     AssertThat(grid.ProcessMode).IsNotEqual(Node.ProcessModeEnum.Always);
 }
 ```
-
-Add the same assertion for an instantiated `InventoryMenu.tscn` root.
 
 - [ ] **Step 2: Run red**
 
@@ -521,90 +502,54 @@ Add the same assertion for an instantiated `InventoryMenu.tscn` root.
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest.RuntimeGridMapDoesNotRemainExplicitAlways"
 ```
 
-Expected: FAIL because current `GridMap` / Inventory roots are `Always`.
+- [ ] **Step 3: Remove `process_mode = 3` from each floor's `GridMap` node only**
 
-- [ ] **Step 3: Remove only the known explicit gameplay overrides**
+Do not alter floor roots, `InventoryMenu.tscn`, host layers, or CanvasLayer.
 
-In each floor scene, remove:
-
-```ini
-process_mode = 3
-```
-
-from the `GridMap` node. Do not change the floor root, host, CanvasLayer, or presentation layers.
-
-Remove the same line from the root `InventoryMenu` Control; host registration will set its process mode when presented.
-
-- [ ] **Step 4: Run the audit plus floor regressions**
+- [ ] **Step 4: Run floor regressions**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest.RuntimeGridMapDoesNotRemainExplicitAlways|FullyQualifiedName~FloorManagerTest|FullyQualifiedName~GridMap"
 ```
 
-Expected: selected tests PASS.
-
-- [ ] **Step 5: Commit the process normalization**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add scenes/game/floors/FloorGF.tscn scenes/game/floors/Floor1F.tscn scenes/game/floors/Floor2F.tscn scenes/game/floors/Floor3F.tscn scenes/ui/InventoryMenu.tscn tests/game/GameplayPauseHostTest.cs
-git commit -m "fix(game): normalize gameplay process modes for pause"
+git add scenes/game/floors/FloorGF.tscn scenes/game/floors/Floor1F.tscn scenes/game/floors/Floor2F.tscn scenes/game/floors/Floor3F.tscn tests/game/GameplayPauseHostTest.cs
+git commit -m "fix(game): normalize grid processing for pause"
 ```
 
 ---
 
-## Task 6: Move direct Inventory lifecycle under the host
+## Task 6: Move direct Inventory lifecycle under the host atomically
 
 **Files:**
+- Modify: `scenes/ui/InventoryMenu.tscn`
 - Modify: `scripts/ui/InventoryMenuController.cs`
 - Modify: `scripts/game/Game.cs`
 - Modify: `tests/ui/InventoryMenuControllerTest.cs`
 - Modify: `tests/game/GameplayPauseHostTest.cs`
 
 **Interfaces:**
-- Produces signal: `InventoryMenuController.CloseRequested`
-- Produces: `Control? InitialFocusTarget`
-- Produces: `Game.TryOpenInventory(UIScreenHandle? parent) : bool`
-- Reusable Inventory lifetime: `UINodeLifetime.External`
+- `InventoryMenuController.CloseRequested`
+- `Control? InitialFocusTarget`
+- `Game.TryOpenInventory(UIScreenHandle? parent)`
+- `UINodeLifetime.External`
 
-- [ ] **Step 1: Write failing controller ownership tests**
+- [ ] **Step 1: Write red ownership tests**
 
-```csharp
-[TestCase]
-public void OpenAndCloseDoNotWriteSceneTreePause()
-{
-    bool incoming = GetTree().Paused;
-    _menu.OpenMenu();
-    AssertThat(GetTree().Paused).IsEqual(incoming);
-    _menu.CloseMenu();
-    AssertThat(GetTree().Paused).IsEqual(incoming);
-}
-```
+Assert `OpenMenu()`/`CloseMenu()` do not change `SceneTree.Paused`; Close button emits one `CloseRequested`.
 
-Add a Close-button test asserting one `CloseRequested` signal instead of direct pause restoration.
+- [ ] **Step 2: Write red host parentage + reuse test**
 
-- [ ] **Step 2: Write failing host-parentage/reuse test**
+Open direct Inventory through `Game`, then assert:
 
 ```csharp
-[TestCase]
-public async Task DirectInventoryAttachesToModalLayerAndDetachesOnClose()
-{
-    var game = await InstantiateGameScene();
-    var host = game.GetNode<UIScreenHost>("UI/UIScreenHost");
-
-    InvokePrivate(game, "TryOpenInventory", null);
-    var inventory = GetPrivateField<InventoryMenuController>(game, "_inventoryMenu");
-
-    AssertThat(host.IsKindActive(UIScreenKinds.Inventory)).IsTrue();
-    AssertThat(inventory.GetParent())
-        .IsEqual(host.GetNode<Control>("ModalLayer"));
-
-    PushAction("toggle_inventory");
-    await AwaitFrames(2);
-
-    AssertThat(host.IsKindActive(UIScreenKinds.Inventory)).IsFalse();
-    AssertThat(inventory.GetParent()).IsNull();
-}
+AssertThat(host.IsKindActive(UIScreenKinds.Inventory)).IsTrue();
+AssertThat(inventory.GetParent()).IsEqual(host.GetNode<Control>("ModalLayer"));
 ```
+
+Close via `toggle_inventory`, await cleanup, then assert `inventory.GetParent()` is null.
 
 - [ ] **Step 3: Run red**
 
@@ -612,13 +557,19 @@ public async Task DirectInventoryAttachesToModalLayerAndDetachesOnClose()
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~GameplayPauseHostTest.DirectInventory"
 ```
 
-Expected: FAIL because Inventory still owns pause and is pre-parented under `UI`.
+- [ ] **Step 4: Remove all private Inventory pause/Cancel ownership in the same change**
 
-- [ ] **Step 4: Remove private Inventory pause ownership**
+Delete:
 
-Delete `_pauseSnapshotCaptured`, `_treeWasPausedBeforeOpen`, and `RestoreTreePause()`.
+- `_pauseSnapshotCaptured`;
+- `_treeWasPausedBeforeOpen`;
+- `RestoreTreePause()`;
+- `GetTree().Paused = true` in `OpenMenu()`;
+- the `_Input()` branch that terminally closes on `ui_cancel` / `toggle_inventory`.
 
-Make lifecycle methods presentation-only:
+Keep `_Input()` only for input-device hint observation if still needed.
+
+Use:
 
 ```csharp
 [Signal] public delegate void CloseRequestedEventHandler();
@@ -633,24 +584,20 @@ public void OpenMenu()
 public void CloseMenu() => Hide();
 ```
 
-The controller does not terminally close itself from `ui_cancel` / `toggle_inventory` while hosted. Close button emits `CloseRequested`.
+Close UI emits `CloseRequested` rather than closing itself.
 
-- [ ] **Step 5: Stop pre-parenting the reusable Inventory view**
+- [ ] **Step 5: Remove `process_mode = 3` from `InventoryMenu.tscn` now**
 
-Change `SetupInventoryMenu()` so it instantiates the scene and stores `_inventoryMenu`, but does **not** call:
+This is intentionally in the same commit as deleting the controller pause write.
 
-```csharp
-GetNode("UI").AddChild(_inventoryMenu);
-```
+- [ ] **Step 6: Stop pre-parenting reusable Inventory**
 
-Do not use `_inventoryMenu.Visible` as the open-state source.
+`SetupInventoryMenu()` instantiates `_inventoryMenu` but does not call `UI.AddChild`.
 
-- [ ] **Step 6: Implement direct host presentation**
-
-Use this policy when `parent == null`:
+- [ ] **Step 7: Present direct Inventory explicitly**
 
 ```csharp
-new UIScreenEntrySpec
+var spec = new UIScreenEntrySpec
 {
     Kind = UIScreenKinds.Inventory,
     Layer = UIScreenLayer.Modal,
@@ -660,7 +607,7 @@ new UIScreenEntrySpec
     PauseTree = true,
     BlockGameplayInput = true,
     Cursor = UICursorPolicy.Visible,
-    Hud = UIHudPolicy.Hidden,
+    Hud = UIHudPolicy.Inherit,
     LowerLayers = UILowerLayerPolicy.VisibleInert,
     Cancel = UICancelPolicy.Close,
     EntryCancelActions = new HashSet<StringName> { "toggle_inventory" },
@@ -672,147 +619,134 @@ new UIScreenEntrySpec
     },
     Cleanup = _ => ClearInventoryHandle(),
     NodeLifetime = UINodeLifetime.External
-}
+};
 ```
 
-On `CloseRequested`, call `TryClose` on the current Inventory handle.
+Guard `_screenHost == null` and treat failure as no open.
 
-Game's direct `toggle_inventory` path opens Inventory only when no hosted Inventory is already active and `IsGameplayInputSuppressed()` is false.
-
-- [ ] **Step 7: Run green and commit**
+- [ ] **Step 8: Run green and commit**
 
 ```bash
-dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~GameplayPauseHostTest.DirectInventory|FullyQualifiedName~PlayerControllerTest"
-git add scripts/ui/InventoryMenuController.cs scripts/game/Game.cs tests/ui/InventoryMenuControllerTest.cs tests/game/GameplayPauseHostTest.cs
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~GameplayPauseHostTest.DirectInventory|FullyQualifiedName~PlayerControllerTest|FullyQualifiedName~GameTest"
+git add scenes/ui/InventoryMenu.tscn scripts/ui/InventoryMenuController.cs scripts/game/Game.cs tests/ui/InventoryMenuControllerTest.cs tests/game/GameplayPauseHostTest.cs
 git commit -m "feat(ui): host direct inventory lifecycle"
 ```
 
-Expected: selected tests PASS; direct Inventory still pauses the world, now through the host.
-
 ---
 
-## Task 7: Migrate production Pause and all direct Pause children with `PauseTree=false`
+## Task 7A: Build the hosted Pause parity path without production cutover
 
 **Files:**
 - Modify: `scripts/game/Game.cs`
 - Modify: `tests/game/GameplayPauseHostTest.cs`
-- Modify: `tests/game/GameTest.cs`
-- Modify: `tests/game/GameInputLifecycleTest.cs`
-- Delete: `scripts/ui/PauseMenuDialog.cs`
-- Delete: `tests/ui/PauseMenuDialogTest.cs`
 
 **Interfaces:**
-- Produces: `TryOpenPause() : bool`
-- Produces child helpers: `TryOpenInventory(pauseHandle)`, `TryOpenSaveLoad(...)`, `TryOpenSettings(...)`, `TryOpenReturnToTitleConfirmation(...)`
-- Parity Pause policy uses `ProcessPolicy.Always`, `PauseTree=false`.
+- `TryOpenPause() : bool`
+- `_pauseHandle : UIScreenHandle?`
+- `_pauseScreen : PauseScreenController?`
+- Parity policy: `ProcessPolicy.Always`, `PauseTree=false`
 
-- [ ] **Step 1: Write failing parity and parent/reuse tests**
+Production `Game._Input()` / `HandlePauseMenuInput()` still opens the old `PauseMenuDialog` after this task. The new path is invoked directly by integration tests only, so there is no user-visible half-migration.
 
-```csharp
-[TestCase]
-public async Task PauseParityBlocksGameplayWithoutOwningTreePause()
-{
-    var game = await InstantiateGameScene();
-    var host = game.GetNode<UIScreenHost>("UI/UIScreenHost");
-    bool incomingPaused = GetTree().Paused;
+- [ ] **Step 1: Write red parity tests**
 
-    PushAction("pause_menu");
-    await AwaitFrames(2);
+Directly invoke `TryOpenPause()` in the real host fixture. Assert:
 
-    AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
-    AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
-    AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsTrue();
-    AssertThat(GetTree().Paused).IsEqual(incomingPaused);
-    AssertThat(FindEntryView(host, UIScreenKinds.Pause).GetParent())
-        .IsEqual(host.GetNode<Control>("ModalLayer"));
-}
-```
+- Pause kind active once;
+- Pause view parent is `ModalLayer`;
+- `IsTreePauseOwned == false`;
+- `IsPresentationGameplayBlocked == true`;
+- Cursor visible, HUD visible;
+- Resume closes and restores state;
+- repeated `TryOpenPause()` does not create a second kind.
 
-Add:
-
-- repeated Pause closes the same host entry;
-- Resume closes it;
-- direct Inventory close -> Pause -> Inventory reuses the same detached instance with `Parent=pauseHandle`;
-- child close restores the same Pause instance/focus;
-- Return-to-Title confirmation is child-first and `_sceneChangeCommitted` allows one navigation callback;
-- Save overwrite child is dismissed before Save/Load closes;
-- Settings dropdown/key capture reserves Cancel before Settings closes;
-- `ui_cancel` at gameplay root opens Pause just like `pause_menu`.
-
-- [ ] **Step 2: Migrate `GameTest.cs` expectations before deleting legacy fields**
-
-Replace direct legacy reflection with host assertions. For example:
-
-```csharp
-AssertThat(GetPrivateField<PauseMenuDialog?>(_game, "_pauseMenuDialog")).IsNull();
-```
-
-becomes:
-
-```csharp
-var host = _game.GetNode<UIScreenHost>("UI/UIScreenHost");
-AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
-```
-
-Replace `InvokePauseMenu()`-style legacy helpers with a production root-cancel event or `TryOpenPause()` invocation.
-
-Run:
+- [ ] **Step 2: Run red**
 
 ```bash
-rg -n "PauseMenuDialog|_pauseMenuDialog|_pauseMenuRestorePending|_saveLoadFromPause" tests/game/GameTest.cs
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest.PauseParity"
 ```
 
-Expected after migration: no references to deleted Pause fields/types.
+- [ ] **Step 3: Implement Pause presentation with only the handlers needed in this task**
 
-- [ ] **Step 3: Implement Pause host presentation with parity policy**
+Use explicit parity spec:
 
 ```csharp
-private bool TryOpenPause()
+var result = _screenHost.TryPresent(screen, new UIScreenEntrySpec
 {
-    if (_screenHost.IsKindActive(UIScreenKinds.Pause))
-        return true;
-
-    var screen = GD.Load<PackedScene>("res://scenes/ui/PauseScreen.tscn")
-        ?.Instantiate<PauseScreenController>();
-    if (screen == null)
-        return false;
-
-    ConnectPauseScreen(screen);
-    var result = _screenHost.TryPresent(screen, new UIScreenEntrySpec
-    {
-        Kind = UIScreenKinds.Pause,
-        Layer = UIScreenLayer.Modal,
-        InputPriority = UIInputPriority.Modal,
-        ProcessPolicy = UIProcessPolicy.Always,
-        PauseTree = false,
-        BlockGameplayInput = true,
-        Cursor = UICursorPolicy.Visible,
-        Hud = UIHudPolicy.Visible,
-        LowerLayers = UILowerLayerPolicy.VisibleInert,
-        Cancel = UICancelPolicy.Close,
-        InitialFocus = () => screen.InitialFocusTarget,
-        Cleanup = _ => ClearPausePresentation(screen),
-        NodeLifetime = UINodeLifetime.QueueFree
-    });
-
-    if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
-    {
-        DisconnectPauseScreen(screen);
-        screen.Free();
-        return false;
-    }
-
-    _pauseScreen = screen;
-    _pauseHandle = result.Handle.Value;
-    return true;
-}
+    Kind = UIScreenKinds.Pause,
+    Layer = UIScreenLayer.Modal,
+    InputPriority = UIInputPriority.Modal,
+    ProcessPolicy = UIProcessPolicy.Always,
+    PauseTree = false,
+    BlockGameplayInput = true,
+    Cursor = UICursorPolicy.Visible,
+    Hud = UIHudPolicy.Visible,
+    LowerLayers = UILowerLayerPolicy.VisibleInert,
+    Cancel = UICancelPolicy.Close,
+    InitialFocus = () => screen.InitialFocusTarget,
+    Cleanup = _ => ClearPausePresentation(screen),
+    NodeLifetime = UINodeLifetime.QueueFree
+});
 ```
 
-Wire all six Pause signals **in this task**, after all six handlers exist. Do not leave partially wired buttons in an earlier task.
+Connect Resume now. Do not connect the remaining five action signals until Task 7B defines all five hosted handlers.
 
-- [ ] **Step 4: Present Inventory from Pause using the reusable detached instance**
+- [ ] **Step 4: Run green and commit**
 
-Use the direct Inventory policy from Task 6 with these differences:
+```bash
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest.PauseParity|FullyQualifiedName~PauseScreenControllerTest"
+git add scripts/game/Game.cs tests/game/GameplayPauseHostTest.cs
+git commit -m "feat(ui): add hosted pause parity path"
+```
+
+---
+
+## Task 7B: Complete all hosted Pause children while legacy production Pause remains active
+
+**Files:**
+- Modify: `scripts/game/Game.cs`
+- Modify: `tests/game/GameplayPauseHostTest.cs`
+
+**Interfaces:**
+- Hosted Inventory child via existing reusable view
+- Hosted Settings child
+- Hosted Save/Load child
+- Hosted Return confirmation child
+
+The legacy `PauseMenuDialog` remains the production root path during this task. Temporary legacy child constructors may coexist until Task 7C; do not route production Cancel to the new path yet.
+
+- [ ] **Step 1: Write red child parentage + return tests**
+
+For a directly invoked hosted Pause, press each action and assert:
+
+- Inventory parent = `host/ModalLayer`, logical parent = Pause; close detaches reusable view.
+- Settings parent = `host/ModalLayer`, logical parent = Pause.
+- Save/Load parent = `host` itself, logical parent = Pause.
+- Return confirmation parent = `host/ModalLayer`, logical parent = Pause.
+- Closing each child returns to the same Pause entry/focus; no Pause recreation.
+
+If the fixture uses `SubViewport`, set `GuiEmbedSubwindows = true` before opening Save/Load.
+
+- [ ] **Step 2: Write red nested-Cancel tests**
+
+- Save/Load active overwrite child dismisses that child first.
+- Settings popup/rebinding reserves Cancel for the retained handler.
+- Confirmation Cancel closes confirmation only.
+- Inventory `toggle_inventory` closes Inventory child only.
+
+- [ ] **Step 3: Run red**
+
+```bash
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest.PauseChild|FullyQualifiedName~GameplayPauseHostTest.HostedSaveLoad|FullyQualifiedName~GameplayPauseHostTest.HostedSettings"
+```
+
+- [ ] **Step 4: Connect all five remaining Pause signals now**
+
+Define all child handlers first, then bind `InventoryRequested`, `SaveRequested`, `LoadRequested`, `SettingsRequested`, and `ReturnToTitleRequested` in one change. No partially wired production-facing controller state remains after this task.
+
+- [ ] **Step 5: Reuse detached Inventory with Pause parent**
+
+Use the Task 6 spec with only these differences:
 
 ```csharp
 Parent = _pauseHandle.Value,
@@ -821,16 +755,17 @@ PauseTree = false,
 BlockGameplayInput = false,
 ```
 
-Keep `NodeLifetime.External`. Do not reparent or replace an already-active Inventory entry; close first, then present with the new parent.
+Keep `Hud = Inherit` and `NodeLifetime.External`.
 
-- [ ] **Step 5: Host Save/Load and Settings as logical children**
+- [ ] **Step 6: Instantiate Settings unparented and host it explicitly**
 
-Save/Load policy:
+Do not call `UI.AddChild`.
 
 ```csharp
-new UIScreenEntrySpec
+var settings = scene.Instantiate<SettingsMenuController>();
+var result = _screenHost.TryPresent(settings, new UIScreenEntrySpec
 {
-    Kind = UIScreenKinds.SaveLoad,
+    Kind = UIScreenKinds.Settings,
     Layer = UIScreenLayer.Modal,
     InputPriority = UIInputPriority.Modal,
     ProcessPolicy = UIProcessPolicy.Always,
@@ -841,98 +776,111 @@ new UIScreenEntrySpec
     Hud = UIHudPolicy.Inherit,
     LowerLayers = UILowerLayerPolicy.VisibleInert,
     Cancel = UICancelPolicy.Close,
-    InterceptCancel = context =>
-        _saveLoadDialog?.HasActiveChildDialog == true
-            ? DismissSaveChildAndConsume()
+    InterceptCancel = _ =>
+        settings.IsRebinding || settings.IsPopupOpen
+            ? UIInputInterception.ReserveForNativeHandler
             : UIInputInterception.DeferToPolicy,
-    NodeLifetime = UINodeLifetime.QueueFree
-}
-```
-
-Settings policy uses the same parent/layer/process values and:
-
-```csharp
-InterceptCancel = context =>
-    _settingsMenu != null && (_settingsMenu.IsRebinding || _settingsMenu.IsPopupOpen)
-        ? UIInputInterception.ReserveForNativeHandler
-        : UIInputInterception.DeferToPolicy
-```
-
-Keep existing save/settings domain callbacks and validation. Remove `_saveLoadFromPause` after hosted parentage replaces it.
-
-- [ ] **Step 6: Host the Return-to-Title confirmation**
-
-Use:
-
-```csharp
-new UIScreenEntrySpec
-{
-    Kind = UIScreenKinds.ConfirmQuitToMain,
-    Layer = UIScreenLayer.Modal,
-    InputPriority = UIInputPriority.Blocking,
-    ProcessPolicy = UIProcessPolicy.Always,
-    Parent = _pauseHandle,
-    ExclusiveGroup = UIScreenExclusiveGroups.BlockingPrompt,
-    PauseTree = false,
-    BlockGameplayInput = false,
-    Cursor = UICursorPolicy.Visible,
-    Hud = UIHudPolicy.Inherit,
-    LowerLayers = UILowerLayerPolicy.VisibleInert,
-    Cancel = UICancelPolicy.Close,
-    InitialFocus = () => confirmation.InitialFocusTarget,
-    NodeLifetime = UINodeLifetime.QueueFree
-}
-```
-
-`ReturnToTitleConfirmed` calls `RequestSceneChange("res://scenes/ui/MainMenu.tscn")`. Duplicate suppression comes from `Game._sceneChangeCommitted`, not the controller.
-
-- [ ] **Step 7: Preserve the complete unhosted domain Cancel ladder in root fallback**
-
-After child adapters are live, replace only the hosted branches with host ownership and keep the remaining order:
-
-```csharp
-private UIRootCancelResult HandleGameplayRootCancel(UIRootCancelContext context)
-{
-    if (_activeErrorPopup != null && IsInstanceValid(_activeErrorPopup))
+    SetPresented = visible =>
     {
-        _activeErrorPopup.QueueFree();
-        _activeErrorPopup = null;
-        return UIRootCancelResult.Consumed;
-    }
-
-    if ((_battleManager != null && IsInstanceValid(_battleManager) && _battleManager.Visible)
-        || _gameManager.IsInBattle)
-    {
-        EscapeBattleUsingExistingPath();
-        return UIRootCancelResult.Consumed;
-    }
-
-    if (_puzzleRiddleDialog != null && IsInstanceValid(_puzzleRiddleDialog))
-        return UIRootCancelResult.Declined;
-
-    if (_gameManager.IsInWorldInteraction)
-        return UIRootCancelResult.Consumed;
-
-    if (_gameManager.IsInNpcInteraction)
-        return UIRootCancelResult.Declined;
-
-    return TryOpenPause()
-        ? UIRootCancelResult.Consumed
-        : UIRootCancelResult.Declined;
-}
+        if (visible) settings.OpenSettings(showOverlay: false);
+        else settings.Hide();
+    },
+    Cleanup = _ => ClearHostedSettings(settings),
+    NodeLifetime = UINodeLifetime.QueueFree
+});
 ```
 
-Do not gate Pause opening on `pause_menu` only. Both configured core actions are valid gameplay-root Cancel actions.
+Keep existing settings validation/domain logic.
 
-- [ ] **Step 8: Delete legacy Pause state only after hosted replacements compile**
+- [ ] **Step 7: Instantiate Save/Load unparented and host its Window**
+
+Do not call `UI.AddChild`.
+
+Use explicit Save/Load spec with `Layer=Modal`, `Parent=_pauseHandle`, `ProcessPolicy=Always`, `PauseTree=false`, `Hud=Inherit`, `NodeLifetime=QueueFree`.
+
+`InterceptCancel` dismisses `HasActiveChildDialog` first; otherwise defers to `Cancel=Close`.
+
+Presentation uses existing `ShowDialog(mode)` after host attachment.
+
+- [ ] **Step 8: Host Return confirmation explicitly**
+
+Use `InputPriority.Blocking`, `ExclusiveGroup=UIScreenExclusiveGroups.BlockingPrompt`, `InitialFocus=confirmation.InitialFocusTarget`, and `NodeLifetime.QueueFree`.
+
+Confirm calls `ReturnToMainMenu()`. `_sceneChangeCommitted` in `RequestSceneChange` suppresses repeated commits.
+
+- [ ] **Step 9: Run green and commit**
+
+```bash
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~PauseScreenControllerTest|FullyQualifiedName~PauseReturnToTitleConfirmationControllerTest"
+git add scripts/game/Game.cs tests/game/GameplayPauseHostTest.cs
+git commit -m "feat(ui): host pause child flows"
+```
+
+---
+
+## Task 7C: Cut production Cancel/Pause over and delete the legacy dialog
+
+**Files:**
+- Modify: `scripts/game/Game.cs`
+- Modify: `tests/game/GameTest.cs`
+- Modify: `tests/game/GameInputLifecycleTest.cs`
+- Delete: `scripts/ui/PauseMenuDialog.cs`
+- Delete: `tests/ui/PauseMenuDialogTest.cs`
+
+- [ ] **Step 1: Migrate `GameTest` fixture/assertions to host-aware cases**
+
+Task 3 deliberately kept synthetic fixtures host-optional. For tests that now assert hosted Pause state, either:
+
+- move the behavior to `GameplayPauseHostTest` when it needs the real scene, or
+- create a minimal `UI/GameUI/UIScreenHost` subtree before adding `TestableGame` to its viewport.
+
+Do not force every unrelated `GameTest` case to load `Game.tscn`.
+
+Any synthetic `SubViewport` that hosts Save/Load sets `GuiEmbedSubwindows=true`.
+
+Replace reflection on `_pauseMenuDialog`, `_pauseMenuRestorePending`, and `_saveLoadFromPause` with host kind/handle assertions.
+
+- [ ] **Step 2: Write root physical/cancel red tests**
+
+Prove both `pause_menu` and `ui_cancel` open hosted Pause when no blocker exists.
+
+Preserve order:
+
+```text
+active error -> consume/dismiss
+battle -> existing escape/result path
+puzzle -> decline for retained native dialog
+world interaction -> consume/no Pause
+NPC -> decline for retained native dialog
+otherwise -> open hosted Pause
+```
+
+- [ ] **Step 3: Run red before cutover**
+
+```bash
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest.RootCancel|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameTest"
+```
+
+- [ ] **Step 4: Move root Cancel to `UIScreenHost`**
+
+Remove the production `pause_menu -> HandlePauseMenuInput()` branch from `Game._Input()`.
+
+Implement `HandleGameplayRootCancel` using the final domain ladder above. Do not gate root Pause on `pause_menu` only; both configured core actions are valid.
+
+- [ ] **Step 5: Remove legacy child attachment/restoration paths now that production is hosted**
+
+Delete old `UI.AddChild` construction for legacy Settings/Save/Load paths that are no longer used from Pause. Keep domain callbacks, but terminal hosted cleanup closes host handles rather than restoring a hidden Pause dialog.
+
+- [ ] **Step 6: Delete legacy Pause state**
 
 Delete:
 
-- `PauseMenuDialog.cs` and its test;
+- `PauseMenuDialog.cs` and test;
 - `_pauseMenuDialog`;
 - `_pauseMenuRestorePending`;
 - `_saveLoadFromPause`;
-- `ShowPauseMenu`, `CleanupPauseMenu`, `RestorePauseMenuAfterSettings`, and the old `HandlePauseMenuInput` ladder branches now replaced by the host.
+- `ShowPauseMenu`, `CleanupPauseMenu`, `RestorePauseMenuAfterSettings`;
+- obsolete hosted-replaced branches from `HandlePauseMenuInput`.
 
 Run:
 
@@ -940,22 +888,22 @@ Run:
 rg -n "PauseMenuDialog|_pauseMenuDialog|_pauseMenuRestorePending|_saveLoadFromPause" scripts tests
 ```
 
-Expected: zero production/test references.
+Expected: zero production/test matches.
 
-- [ ] **Step 9: Run focused parity suites**
+- [ ] **Step 7: Run focused cutover suites**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~PauseScreenControllerTest|FullyQualifiedName~PauseReturnToTitleConfirmationControllerTest"
 ```
 
-Expected: selected tests PASS while root Pause still reports `IsTreePauseOwned == false`.
+Expected: selected tests PASS while hosted Pause still has `PauseTree=false`.
 
-- [ ] **Step 10: Commit the parity migration**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add scripts/game/Game.cs tests/game/GameplayPauseHostTest.cs tests/game/GameTest.cs tests/game/GameInputLifecycleTest.cs
 git rm scripts/ui/PauseMenuDialog.cs tests/ui/PauseMenuDialogTest.cs
-git commit -m "feat(ui): migrate pause stack to screen host"
+git commit -m "feat(ui): cut gameplay pause over to screen host"
 ```
 
 ---
@@ -968,44 +916,29 @@ git commit -m "feat(ui): migrate pause stack to screen host"
 - Modify: `tests/game/GameTest.cs`
 
 **Interfaces:**
-- Final Pause policy: `ProcessPolicy.WhenPaused`, `PauseTree=true`.
-- Children retain `PauseTree=false`.
+- Final Pause: `ProcessPolicy.WhenPaused`, `PauseTree=true`
+- Children remain `PauseTree=false`.
 
-- [ ] **Step 1: Change the parity test to demand real tree-pause ownership**
+- [ ] **Step 1: Change parity assertion to demand tree ownership**
 
-```csharp
-[TestCase]
-public async Task RootPauseOwnsTreePauseAfterMigrationGate()
-{
-    var game = await InstantiateGameScene();
-    var host = game.GetNode<UIScreenHost>("UI/UIScreenHost");
+Assert `host.CurrentState.IsTreePauseOwned` and `SceneTree.Paused` are true after opening Pause.
 
-    PushAction("pause_menu");
-    await AwaitFrames(2);
+- [ ] **Step 2: Add real-scene freeze probe below runtime `GridMap`**
 
-    AssertThat(host.CurrentState.IsTreePauseOwned).IsTrue();
-    AssertThat(GetTree().Paused).IsTrue();
-}
-```
-
-This must fail against Task 7's parity policy.
-
-- [ ] **Step 2: Add a real-scene gameplay freeze probe**
-
-Attach a small test-only `PausableProbe : Node` below the active runtime `GridMap` with `_Process` incrementing a counter. Record the counter before Pause, wait frames while paused, then Resume and wait frames again:
+A test-only pausable Node increments in `_Process`.
 
 ```csharp
-int beforePause = probe.ProcessCount;
+int before = probe.ProcessCount;
 PushAction("pause_menu");
 await AwaitFrames(3);
-AssertThat(probe.ProcessCount).IsEqual(beforePause);
+AssertThat(probe.ProcessCount).IsEqual(before);
 
 PushAction("pause_menu");
 await AwaitFrames(3);
-AssertThat(probe.ProcessCount).IsGreater(beforePause);
+AssertThat(probe.ProcessCount).IsGreater(before);
 ```
 
-The host must still respond to the second Pause action while gameplay processing is frozen.
+This simultaneously proves the Always host still receives Cancel while gameplay is frozen.
 
 - [ ] **Step 3: Run red**
 
@@ -1013,27 +946,16 @@ The host must still respond to the second Pause action while gameplay processing
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest.RootPauseOwnsTreePause|FullyQualifiedName~GameplayPauseHostTest.GameplayProbe"
 ```
 
-Expected: FAIL because root Pause is still `PauseTree=false`.
-
-- [ ] **Step 4: Flip only the two gated Pause policy fields**
-
-Change:
-
-```csharp
-ProcessPolicy = UIProcessPolicy.Always,
-PauseTree = false,
-```
-
-to:
+- [ ] **Step 4: Flip only the gated Pause fields**
 
 ```csharp
 ProcessPolicy = UIProcessPolicy.WhenPaused,
 PauseTree = true,
 ```
 
-Do not change child pause ownership.
+Do not alter child pause ownership.
 
-- [ ] **Step 5: Run focused freeze/lifecycle suites and commit**
+- [ ] **Step 5: Run green and commit**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameTest|FullyQualifiedName~PlayerControllerTest|FullyQualifiedName~FloorManagerTest"
@@ -1041,111 +963,83 @@ git add scripts/game/Game.cs tests/game/GameplayPauseHostTest.cs tests/game/Game
 git commit -m "feat(ui): enable host-owned gameplay pause"
 ```
 
-Expected: selected tests PASS; Pause freezes gameplay while host Cancel still resumes.
-
 ---
 
-## Task 9: Harden physical Cancel, restoration, and teardown regressions
+## Task 9: Harden physical Cancel, focus restoration, and teardown regressions
 
 **Files:**
 - Modify: `tests/game/GameInputLifecycleTest.cs`
 - Modify: `tests/game/GameplayPauseHostTest.cs`
-- Modify: `scripts/game/Game.cs` only if a regression exposes a production defect.
+- Modify: `scripts/game/Game.cs` only if a test exposes a production defect.
 
-**Interfaces:**
-- Reuses final host/root Cancel policy.
-- Reuses `RequestSceneChange` teardown helper.
+- [ ] **Step 1: Add physical-input precedence cases**
 
-- [ ] **Step 1: Add physical-input order regressions**
-
-Cover exact outcomes:
+Cover:
 
 ```text
-hosted Settings popup/key capture -> reserved for current handler
-hosted Save/Load overwrite child -> dismiss child only
-hosted child -> closes child, Pause remains
-Pause -> closes Pause
-active error -> dismiss error, no Pause
-battle -> existing escape/result close, no Pause
-puzzle -> retained dialog receives Cancel, no Pause
-world interaction -> event consumed, no Pause
-NPC interaction -> retained native dialog receives Cancel, no Pause
-root ui_cancel -> opens Pause
-root pause_menu -> opens Pause
+Settings popup/key capture -> retained handler first
+Save/Load overwrite -> child first
+hosted child -> close child, Pause remains
+Pause -> Resume
+error -> dismiss, no Pause
+battle -> escape/result path, no Pause
+puzzle -> retained dialog, no Pause
+world interaction -> consume, no Pause
+NPC -> retained dialog, no Pause
+root ui_cancel -> Pause
+root pause_menu -> Pause
 ```
 
-Use real `InputEventKey` / configured action bindings in `GameInputLifecycleTest`, not direct method calls for this step.
+Use physical/configured events in `GameInputLifecycleTest`.
 
-- [ ] **Step 2: Add invalid-focus and teardown tests**
+- [ ] **Step 2: Add invalid-focus regression**
 
-In `GameplayPauseHostTest`:
+Focus a gameplay Control, open Pause, free prior focus target, close Pause, assert no exception and no stuck restoration lease.
 
-- focus a temporary gameplay Control;
-- open Pause;
-- free the prior focus target;
-- close Pause;
-- assert no exception and no stuck `RestorationLease`.
+- [ ] **Step 3: Add teardown with child regression**
 
-Then open Pause + Settings (or Save/Load), invoke `RequestSceneChange`, and assert descendants close, `ActiveEntries.Count == 0`, pause restores, and exactly one `PerformSceneChange` callback occurs.
+Open Pause + Settings or Save/Load, call host `PrepareForTeardown`, assert descendants close and leases restore. Separately verify Return confirmation calls the existing `ReturnToMainMenu` seam once when synthetic navigation counting is desired.
 
-- [ ] **Step 3: Run focused lifecycle suites**
+Do not add `PerformSceneChange`.
+
+- [ ] **Step 4: Run and commit**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameTest"
-```
-
-Expected: selected tests PASS.
-
-- [ ] **Step 4: Commit the regression coverage**
-
-```bash
 git add tests/game/GameInputLifecycleTest.cs tests/game/GameplayPauseHostTest.cs scripts/game/Game.cs
 git commit -m "test(ui): lock gameplay pause lifecycle"
 ```
 
-If `scripts/game/Game.cs` did not change, omit it from `git add`; the commit still contains the new regression tests.
+Omit `Game.cs` if unchanged.
 
 ---
 
-## Task 10: Update ownership documentation and run final repository gates
+## Task 10: Update lifecycle documentation and run final gates
 
 **Files:**
 - Modify: `docs/ui/hpa-376/ui-lifecycle-contract.md`
 
-**Interfaces:**
-- Documents the final production ownership model; no runtime interface added.
-
-- [ ] **Step 1: Update the lifecycle contract**
-
-Record these final facts:
+- [ ] **Step 1: Record final ownership facts**
 
 ```text
-Game owns one local UIScreenHost.
-Pause owns the gameplay tree-pause lease.
-Direct Inventory uses the same host and no longer writes SceneTree.Paused.
-Pause children inherit the Pause lease and do not acquire another.
-Hosted Cancel runs before remaining unhosted domain fallback.
+Game owns one local production UIScreenHost but synthetic test Games may omit it.
+Pause owns the final gameplay tree-pause lease.
+Direct Inventory uses the host and no longer writes SceneTree.Paused.
+Inventory HUD policy remains inherited in HPA-382.
+Pause children do not acquire a second pause lease.
+Hosted views are attached by UIScreenHost, never pre-parented by Game.
 GridMap runtime nodes inherit pausable gameplay processing.
 Scene replacement waits for UIScreenHost.PrepareForTeardown() == Complete.
 ```
 
-Do not rewrite unrelated historical HPA-376 content.
-
-- [ ] **Step 2: Search for stale legacy ownership**
+- [ ] **Step 2: Search for stale ownership / Always modes**
 
 ```bash
 rg -n "PauseMenuDialog|_pauseMenuRestorePending|_saveLoadFromPause|_pauseSnapshotCaptured|_treeWasPausedBeforeOpen" scripts tests scenes
-```
-
-Expected: zero matches.
-
-Check explicit Always gameplay nodes:
-
-```bash
 rg -n "process_mode = 3" scenes/game/floors scenes/ui/InventoryMenu.tscn
 ```
 
-Expected: no runtime `GridMap` or Inventory root match.
+Expected: no legacy ownership matches; no runtime `GridMap`/Inventory root `Always` match.
 
 - [ ] **Step 3: Build**
 
@@ -1163,7 +1057,7 @@ dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifie
 
 Expected: zero failures.
 
-- [ ] **Step 5: Run the full .NET/GdUnit4 suite**
+- [ ] **Step 5: Run full .NET/GdUnit4 suite**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local
@@ -1171,7 +1065,7 @@ dotnet test Sirius.sln --settings test.runsettings.local
 
 Expected: zero failures.
 
-- [ ] **Step 6: Commit documentation**
+- [ ] **Step 6: Commit docs**
 
 ```bash
 git add docs/ui/hpa-376/ui-lifecycle-contract.md
@@ -1182,22 +1076,26 @@ git commit -m "docs(ui): record gameplay screen host ownership"
 
 ## Review Gate Checklist
 
-Before implementation is declared complete, verify each item with fresh command output:
+Before implementation is declared complete:
 
-- [ ] `PauseScreen` is a child of `UIScreenHost/ModalLayer`, not a free-floating `CanvasLayer` peer.
-- [ ] Direct Inventory begins unparented, attaches to `ModalLayer`, and detaches on `External` close.
-- [ ] Direct Inventory can close and later reopen as a Pause child without replacing an active kind.
-- [ ] `GameTest.cs` contains no legacy Pause field/type assumptions.
-- [ ] Root Pause parity passed with `PauseTree=false` before the final flip.
-- [ ] Four runtime `GridMap` scenes no longer pin `Always`.
-- [ ] Final root Pause owns `SceneTree.Paused` and gameplay probes stop processing.
-- [ ] Host still receives Cancel while the tree is paused.
-- [ ] Error/battle/puzzle/world/NPC Cancel precedence matches the production contract.
-- [ ] Settings and Save/Load nested Cancel precedence remains intact.
-- [ ] Return-to-Title duplicate navigation suppression is owned by `Game`.
-- [ ] Return to Title and in-game Load wait for host teardown completion.
-- [ ] Focused tests and full suite pass before merge.
+- [ ] Real `Game.tscn` owns exactly one host; synthetic `new Game()` fixtures do not NRE in `_EnterTree()`.
+- [ ] Test SubViewports that host Save/Load explicitly enable embedded subwindows.
+- [ ] Pause Control parent is `ModalLayer`.
+- [ ] Inventory attaches to `ModalLayer`, detaches on `External` close, and reopens with a different logical parent only after a real close.
+- [ ] Settings attaches to `ModalLayer` without `Game.UI.AddChild`.
+- [ ] Save/Load Window attaches directly to `UIScreenHost` without `Game.UI.AddChild`.
+- [ ] Return confirmation attaches to `ModalLayer`.
+- [ ] Inventory process-mode change and private pause-write deletion land atomically.
+- [ ] Inventory controller no longer terminally handles `ui_cancel` / `toggle_inventory` itself.
+- [ ] `GameTest` and `GameInputLifecycleTest` pass immediately after Task 3 host bootstrap.
+- [ ] Hosted Pause parity passes with `PauseTree=false` before production cutover.
+- [ ] Production cutover passes before tree-pause flip.
+- [ ] Four runtime `GridMap` nodes no longer pin `Always`.
+- [ ] Final Pause owns `SceneTree.Paused`; real gameplay probe freezes; host Cancel still resumes.
+- [ ] No extra `PerformSceneChange` or generic child-spec factory exists.
+- [ ] Every `Game` scene replacement is teardown-safe in production.
+- [ ] Focused and full suites pass before merge.
 
 ## Execution Handoff
 
-Implement task-by-task with `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans`. Do not skip Task 5 or the Task 7 `PauseTree=false` parity checkpoint even if the final two-line PauseTree flip appears trivial.
+Implement task-by-task. Do not combine Task 5 with Task 6, do not combine Task 7A/7B with Task 7C, and do not skip the `PauseTree=false` checkpoint before Task 8.

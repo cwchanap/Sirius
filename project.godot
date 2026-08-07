@@ -25,6 +25,10 @@ RecoveryChest="*res://scripts/data/RecoveryChest.cs"
 
 project/assembly_name="Sirius"
 
+[display]
+
+window/subwindows/embed_subwindows=true
+
 [input]
 
 toggle_inventory={

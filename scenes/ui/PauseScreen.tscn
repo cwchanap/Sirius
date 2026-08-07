@@ -1,0 +1,71 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/PauseScreenController.cs" id="1_pause_screen"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusModalShell.tscn" id="2_modal_shell"]
+
+[node name="PauseScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_pause_screen")
+
+[node name="ModalShell" parent="." instance=ExtResource("2_modal_shell")]
+unique_name_in_owner = true
+layout_mode = 1
+title = "Paused"
+
+[node name="PauseActions" type="VBoxContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="ResumeButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/PauseActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Resume"
+theme_type_variation = &"SiriusPrimaryButton"
+
+[node name="InventoryButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/PauseActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Inventory"
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="SaveButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/PauseActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Save"
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="LoadButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/PauseActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Load"
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="SettingsButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/PauseActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Settings"
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="ReturnToTitleButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/PauseActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Return to Title"
+theme_type_variation = &"SiriusDestructiveButton"

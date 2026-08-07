@@ -188,6 +188,61 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(inventory.GetParent()).IsNull();
     }
 
+    [TestCase]
+    public async Task PauseParity_HostsOneAlwaysProcessingViewAndResumeRestoresIncomingState()
+    {
+        // This catches a hosted Pause path that either takes tree-pause ownership,
+        // skips the host policy effects, or leaves its view/entry behind after Resume.
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameUi = _game.GetNode<Control>("UI/GameUI");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
+        var incomingHudVisible = gameUi.Visible;
+        var incomingMouseMode = Input.MouseMode;
+
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(host.ActiveEntries.Count).IsEqual(1);
+        AssertThat(pause.GetParent()).IsEqual(modalLayer);
+        AssertThat(tree.Paused).IsFalse();
+        AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsTrue();
+        AssertThat(Input.MouseMode).IsEqual(Input.MouseModeEnum.Visible);
+        AssertThat(gameUi.Visible).IsTrue();
+
+        var entry = host.ActiveEntries[0];
+        AssertThat(entry.Policy.Kind).IsEqual(UIScreenKinds.Pause);
+        AssertThat(entry.Policy.Layer).IsEqual(UIScreenLayer.Modal);
+        AssertThat(entry.Policy.InputPriority).IsEqual(UIInputPriority.Modal);
+        AssertThat(entry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
+        AssertThat(entry.Policy.PauseTree).IsFalse();
+        AssertThat(entry.Policy.BlockGameplayInput).IsTrue();
+        AssertThat(entry.Policy.Cursor).IsEqual(UICursorPolicy.Visible);
+        AssertThat(entry.Policy.Hud).IsEqual(UIHudPolicy.Visible);
+        AssertThat(entry.Policy.LowerLayers).IsEqual(UILowerLayerPolicy.VisibleInert);
+        AssertThat(entry.Policy.Cancel).IsEqual(UICancelPolicy.Close);
+
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsFalse();
+        AssertThat(host.ActiveEntries.Count).IsEqual(1);
+        AssertThat(GetPrivateField<PauseScreenController>(_game, "_pauseScreen"))
+            .IsEqual(pause);
+
+        pause.GetNode<Button>("%ResumeButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        AssertThat(host.ActiveEntries.Count).IsEqual(0);
+        AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsFalse();
+        AssertThat(tree.Paused).IsFalse();
+        AssertThat(Input.MouseMode).IsEqual(incomingMouseMode);
+        AssertThat(gameUi.Visible).IsEqual(incomingHudVisible);
+        AssertThat(GetPrivateField<PauseScreenController?>(_game, "_pauseScreen")).IsNull();
+        AssertThat(GodotObject.IsInstanceValid(pause)).IsFalse();
+    }
+
     private static async Task AwaitFrames(int frameCount)
     {
         var tree = (SceneTree)Engine.GetMainLoop();
@@ -204,5 +259,19 @@ public partial class GameplayPauseHostTest : Node
             throw new MissingFieldException(instance.GetType().FullName, fieldName);
 
         return (T)field.GetValue(instance)!;
+    }
+
+    private static bool InvokePrivateBool(object instance, string methodName)
+    {
+        var method = instance.GetType().GetMethod(
+            methodName,
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        if (method == null)
+            throw new MissingMethodException(instance.GetType().FullName, methodName);
+
+        if (method.Invoke(instance, null) is bool result)
+            return result;
+
+        throw new InvalidOperationException($"Method '{methodName}' did not return bool.");
     }
 }

@@ -17,6 +17,7 @@ public partial class GameInputLifecycleTest : Node
     private readonly Dictionary<string, InputActionSnapshot> _inputActionSnapshots = new();
     private readonly Dictionary<int, float> _audioBusVolumes = new();
     private bool _treeWasPaused;
+    private Input.MouseModeEnum _originalMouseMode;
     private int _audioBusCount;
     private DisplayServer.WindowMode _simulatedWindowMode;
     private Vector2I _simulatedWindowSize;
@@ -34,6 +35,7 @@ public partial class GameInputLifecycleTest : Node
     {
         var sceneTree = (SceneTree)Engine.GetMainLoop();
         _treeWasPaused = sceneTree.Paused;
+        _originalMouseMode = Input.MouseMode;
         sceneTree.Paused = false;
         CaptureInputActions("toggle_inventory", "interact", "pause_menu", "ui_cancel", "ui_close_dialog");
         CaptureAudioState();
@@ -99,6 +101,7 @@ public partial class GameInputLifecycleTest : Node
         RestoreInputActions();
         RestoreAudioState();
         RestoreSettingsOverrides();
+        Input.MouseMode = _originalMouseMode;
         sceneTree.Paused = _treeWasPaused;
     }
     [TestCase]
@@ -385,13 +388,22 @@ public partial class GameInputLifecycleTest : Node
         await AwaitFrames(1);
 
         AssertThat(settings.IsPopupOpen).IsTrue();
-        PushPhysicalKey(Key.P);
-        await AwaitFrames(2);
+        PushPhysicalKeyDown(Key.P);
+        await AwaitFrames(1);
+        try
+        {
+            // Unlike ConsumeHere, ReserveForNativeHandler leaves the physical
+            // input unhandled while keeping the hosted Settings and Pause
+            // entries active for the native popup's handler.
+            AssertThat(_viewport!.IsInputHandled()).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.Settings)).IsTrue();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        }
+        finally
+        {
+            ReleasePhysicalKey(Key.P);
+        }
 
-        // The host reserves this configured event for the native popup rather
-        // than closing the Settings entry or its logical Pause parent.
-        AssertThat(host.IsKindActive(UIScreenKinds.Settings)).IsTrue();
-        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
         resolution.GetPopup().Hide();
     }
 

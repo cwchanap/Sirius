@@ -189,9 +189,9 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
-    public async Task PauseParity_HostsOneAlwaysProcessingViewAndResumeRestoresIncomingState()
+    public async Task RootPauseOwnsTreePause_AndResumeRestoresIncomingState()
     {
-        // This catches a hosted Pause path that either takes tree-pause ownership,
+        // This catches a hosted Pause path that fails to take tree-pause ownership,
         // skips the host policy effects, or leaves its view/entry behind after Resume.
         var tree = (SceneTree)Engine.GetMainLoop();
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
@@ -206,8 +206,8 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
         AssertThat(host.ActiveEntries.Count).IsEqual(1);
         AssertThat(pause.GetParent()).IsEqual(modalLayer);
-        AssertThat(tree.Paused).IsFalse();
-        AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
+        AssertThat(tree.Paused).IsTrue();
+        AssertThat(host.CurrentState.IsTreePauseOwned).IsTrue();
         AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsTrue();
         AssertThat(Input.MouseMode).IsEqual(Input.MouseModeEnum.Visible);
         AssertThat(gameUi.Visible).IsTrue();
@@ -216,8 +216,8 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(entry.Policy.Kind).IsEqual(UIScreenKinds.Pause);
         AssertThat(entry.Policy.Layer).IsEqual(UIScreenLayer.Modal);
         AssertThat(entry.Policy.InputPriority).IsEqual(UIInputPriority.Modal);
-        AssertThat(entry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
-        AssertThat(entry.Policy.PauseTree).IsFalse();
+        AssertThat(entry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.WhenPaused);
+        AssertThat(entry.Policy.PauseTree).IsTrue();
         AssertThat(entry.Policy.BlockGameplayInput).IsTrue();
         AssertThat(entry.Policy.Cursor).IsEqual(UICursorPolicy.Visible);
         AssertThat(entry.Policy.Hud).IsEqual(UIHudPolicy.Visible);
@@ -271,7 +271,7 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(inventoryEntry.Policy.BlockGameplayInput).IsFalse();
         AssertThat(inventoryEntry.Policy.Hud).IsEqual(UIHudPolicy.Inherit);
         AssertThat(inventoryEntry.Policy.Cancel).IsEqual(UICancelPolicy.Close);
-        AssertThat(tree.Paused).IsFalse();
+        AssertThat(tree.Paused).IsTrue();
 
         _viewport!.PushInput(new InputEventAction
         {
@@ -568,6 +568,42 @@ public partial class GameplayPauseHostTest : Node
         await AssertRootCancelOpensHostedPause("ui_cancel");
     }
 
+    [TestCase]
+    public async Task GameplayProbe_FreezesDuringRootPauseAndResumesAfterConfiguredPauseAction()
+    {
+        // A root Pause policy that does not own tree pause, or a gameplay
+        // parent that runs while paused, makes this real GridMap descendant
+        // continue processing during the hosted pause presentation.
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var grid = _game.GetNode<FloorManager>("FloorManager").CurrentGridMap;
+        var probe = new PausableProbe();
+        grid.AddChild(probe);
+        await AwaitFrames(3);
+
+        AssertThat(probe.ProcessCount).IsGreater(0);
+        var beforePause = probe.ProcessCount;
+
+        PushAction("pause_menu");
+        await AwaitFrames(3);
+
+        AssertThat(host.CurrentState.IsTreePauseOwned).IsTrue();
+        AssertThat(tree.Paused).IsTrue();
+        AssertThat(probe.ProcessCount).IsEqual(beforePause);
+
+        var stablePausedCount = probe.ProcessCount;
+        await AwaitFrames(3);
+        AssertThat(probe.ProcessCount).IsEqual(stablePausedCount);
+
+        PushAction("pause_menu");
+        await AwaitFrames(3);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
+        AssertThat(tree.Paused).IsFalse();
+        AssertThat(probe.ProcessCount).IsGreater(stablePausedCount);
+    }
+
     private async Task AssertRootCancelOpensHostedPause(StringName action)
     {
         var tree = (SceneTree)Engine.GetMainLoop();
@@ -578,9 +614,20 @@ public partial class GameplayPauseHostTest : Node
 
         AssertThat(_viewport.IsInputHandled()).IsTrue();
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
-        AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
-        AssertThat(tree.Paused).IsFalse();
-        AssertThat(FindEntry(host, UIScreenKinds.Pause).Policy.PauseTree).IsFalse();
+        AssertThat(host.CurrentState.IsTreePauseOwned).IsTrue();
+        AssertThat(tree.Paused).IsTrue();
+        AssertThat(FindEntry(host, UIScreenKinds.Pause).Policy.ProcessPolicy)
+            .IsEqual(UIProcessPolicy.WhenPaused);
+        AssertThat(FindEntry(host, UIScreenKinds.Pause).Policy.PauseTree).IsTrue();
+    }
+
+    private void PushAction(StringName action)
+    {
+        _viewport!.PushInput(new InputEventAction
+        {
+            Action = action,
+            Pressed = true
+        });
     }
 
     private void AssertHostedChildReturnedToSamePause(
@@ -709,6 +756,13 @@ public partial class GameplayPauseHostTest : Node
             return result;
 
         throw new InvalidOperationException($"Method '{methodName}' did not return bool.");
+    }
+
+    private sealed partial class PausableProbe : Node
+    {
+        public int ProcessCount { get; private set; }
+
+        public override void _Process(double delta) => ProcessCount++;
     }
 
     private partial class ReturnTrackingGame : Game

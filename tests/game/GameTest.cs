@@ -12,11 +12,16 @@ public partial class GameTest : Node
     private TestableGame? _game;
     private SubViewport? _viewport;
     private GameManager? _gameManager;
+    private bool _incomingTreePaused;
+    private Input.MouseModeEnum _incomingMouseMode;
 
     [Before]
     public async Task Setup()
     {
         var sceneTree = (SceneTree)Engine.GetMainLoop();
+        _incomingTreePaused = sceneTree.Paused;
+        _incomingMouseMode = Input.MouseMode;
+        sceneTree.Paused = false;
 
         _viewport = new SubViewport
         {
@@ -38,6 +43,9 @@ public partial class GameTest : Node
     [After]
     public async Task Cleanup()
     {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        sceneTree.Paused = false;
+
         // Reset interaction/battle state before freeing to prevent signal
         // callbacks from firing on half-freed nodes during teardown.
         if (_gameManager != null && IsInstanceValid(_gameManager))
@@ -67,10 +75,12 @@ public partial class GameTest : Node
             _gameManager = null;
         }
 
-        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(sceneTree, SceneTree.SignalName.ProcessFrame);
+        Input.MouseMode = _incomingMouseMode;
+        sceneTree.Paused = _incomingTreePaused;
     }
     [TestCase]
-    public async Task RootCancel_WhenUnblocked_OpensHostedPauseWithoutPausingTheTree()
+    public async Task RootCancel_WhenUnblocked_OpensHostedPauseAndOwnsTreePause()
     {
         await ReplaceWithHostedFixture();
 
@@ -84,10 +94,12 @@ public partial class GameTest : Node
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
         AssertThat(_viewport.IsInputHandled()).IsTrue();
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
-        AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
-        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+        AssertThat(host.CurrentState.IsTreePauseOwned).IsTrue();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
         AssertThat(host.ActiveEntries.Count).IsEqual(1);
-        AssertThat(host.ActiveEntries[0].Policy.PauseTree).IsFalse();
+        AssertThat(host.ActiveEntries[0].Policy.ProcessPolicy)
+            .IsEqual(UIProcessPolicy.WhenPaused);
+        AssertThat(host.ActiveEntries[0].Policy.PauseTree).IsTrue();
     }
 
     [TestCase]

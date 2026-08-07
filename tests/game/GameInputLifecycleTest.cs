@@ -187,6 +187,7 @@ public partial class GameInputLifecycleTest : Node
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
     }
 
+    [TestCase]
     public async Task ConfiguredKeyboardCancel_ClosesAcceptDialogExactlyOnce()
     {
         ConfigureCancelBindings(Key.P);
@@ -215,6 +216,88 @@ public partial class GameInputLifecycleTest : Node
             {
                 dialog.Free();
             }
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task ConfiguredKeyboardPauseMenu_OpensHostedPauseWithoutPausingTree()
+    {
+        ConfigureCancelBindings(Key.P);
+        await ReplaceWithHostedLifecycleFixture();
+
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        AssertThat(host.ActiveEntries.Count).IsEqual(0);
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsFalse();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+        var pressedEvent = new InputEventKey
+        {
+            PhysicalKeycode = Key.P,
+            Pressed = true
+        };
+        AssertThat(pressedEvent.IsActionPressed("pause_menu")).IsTrue();
+        try
+        {
+            _viewport!.PushInput(pressedEvent);
+            await AwaitFrames(1);
+
+            AssertThat(_viewport.IsInputHandled()).IsTrue();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+            AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
+            AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+            AssertThat(host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(host.ActiveEntries[0].Policy.PauseTree).IsFalse();
+        }
+        finally
+        {
+            _viewport!.PushInput(new InputEventKey
+            {
+                PhysicalKeycode = Key.P,
+                Pressed = false
+            });
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task ConfiguredControllerUiCancel_OpensHostedPauseWithoutPausingTree()
+    {
+        var controllerButton = JoyButton.B;
+        ConfigureCancelBindings(Key.P, new InputEventJoypadButton
+        {
+            ButtonIndex = controllerButton
+        });
+        await ReplaceWithHostedLifecycleFixture();
+
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        AssertThat(host.ActiveEntries.Count).IsEqual(0);
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsFalse();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+        var pressedEvent = new InputEventJoypadButton
+        {
+            ButtonIndex = controllerButton,
+            Pressed = true
+        };
+        AssertThat(pressedEvent.IsActionPressed("ui_cancel")).IsTrue();
+        try
+        {
+            _viewport!.PushInput(pressedEvent);
+            await AwaitFrames(1);
+
+            AssertThat(_viewport.IsInputHandled()).IsTrue();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+            AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
+            AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+            AssertThat(host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(host.ActiveEntries[0].Policy.PauseTree).IsFalse();
+        }
+        finally
+        {
+            _viewport!.PushInput(new InputEventJoypadButton
+            {
+                ButtonIndex = controllerButton,
+                Pressed = false
+            });
             await AwaitFrames(1);
         }
     }
@@ -472,6 +555,7 @@ public partial class GameInputLifecycleTest : Node
             Pressed = true
         };
         AssertThat(pressedEvent.IsActionPressed("pause_menu")).IsTrue();
+        AssertThat(pressedEvent.IsActionPressed("ui_cancel")).IsTrue();
         AssertThat(pressedEvent.IsActionPressed("ui_close_dialog")).IsTrue();
         _viewport!.PushInput(pressedEvent);
         _viewport.PushInput(new InputEventKey
@@ -488,6 +572,7 @@ public partial class GameInputLifecycleTest : Node
             ButtonIndex = button,
             Pressed = true
         };
+        AssertThat(pressedEvent.IsActionPressed("ui_cancel")).IsTrue();
         AssertThat(pressedEvent.IsActionPressed("ui_close_dialog")).IsTrue();
         _viewport!.PushInput(pressedEvent);
         _viewport.PushInput(new InputEventJoypadButton

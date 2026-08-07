@@ -2,76 +2,147 @@
 
 **Linear:** HPA-382  
 **Status:** Implementation-ready  
-**Date:** 2026-08-06
+**Date:** 2026-08-06  
+**Foundation:** HPA-378 `UIScreenHost` contract and migration ordering
 
 ## Decision summary
 
-Sirius will make the existing scene-local `UIScreenHost` the production presentation authority for gameplay Pause and the legacy screens opened from Pause. The current runtime-built `PauseMenuDialog` will be deleted and replaced by a scene-authored `PauseScreen` composed from `SiriusModalShell`, the shared theme, approved icons, and input hints.
+Sirius will make the existing scene-local `UIScreenHost` the production presentation authority for gameplay Pause and the screens opened from Pause. The runtime-built `PauseMenuDialog` will be deleted and replaced by a scene-authored `PauseScreen` built from `SiriusModalShell`, the shared theme, approved icons, and input hints.
 
-`Game` remains the flow orchestrator. `GameManager`, `InventoryMenuController`, `SaveLoadDialog`, `SettingsMenuController`, `SaveManager`, and scene navigation retain their domain responsibilities. The host owns only presentation state: tree pause, presentation input blocking, cursor, HUD visibility, lower-layer interaction, Cancel priority, focus, and teardown.
+`Game` remains the flow orchestrator. `GameManager`, `InventoryMenuController`, `SaveLoadDialog`, `SettingsMenuController`, `SaveManager`, and scene navigation retain their domain responsibilities. The host owns presentation state only: tree pause, presentation gameplay blocking, cursor, HUD policy, lower-layer interaction, Cancel priority, focus, and teardown.
 
-This is a vertical migration, not a second framework and not a blanket migration of every gameplay dialog.
+The migration follows the HPA-378 foundation ordering instead of enabling root tree pause immediately:
+
+1. bootstrap host and teardown safety;
+2. compose presentation blocking into gameplay input;
+3. audit and normalize explicit `Always` gameplay processing;
+4. migrate direct Inventory to the host and remove its private pause ownership;
+5. migrate Pause and its children through the host with `PauseTree=false` first and prove lifecycle/cancel parity;
+6. enable `PauseTree=true` only after the parity and process-freeze gates pass.
+
+This is one vertical migration. It is not a new navigation framework, modal framework, service locator, or blanket migration of every gameplay dialog.
 
 ## Why HPA-382 is the next actionable task
 
-The shared foundation is complete: the theme, modal shell, `UIScreenHost`, focus/cancel policy, and lifecycle regression coverage already exist. HPA-382 has no remaining active blocker and unlocks the Settings, Save/Load, dialogue, shop/healing, puzzle, confirmation, and reward follow-up migrations.
+The shared theme, `SiriusModalShell`, `UIScreenHost`, focus/cancel policies, and lifecycle regression coverage are already merged. HPA-382 has no active blocker and unlocks Settings, Save/Load, dialogue, shop/healing, puzzle, confirmation/error, and reward migrations.
 
-The current Pause path is the highest-leverage production consumer because `Game` still manually coordinates visibility, pause restoration, Cancel precedence, focus restoration, and child return through `_pauseMenuRestorePending` and `_saveLoadFromPause`. Leaving that path in place would keep two presentation models alive and force later screens to integrate around legacy behavior.
+The current Pause path still manually coordinates visibility, Cancel precedence, restoration, and child return through `PauseMenuDialog`, `_pauseMenuRestorePending`, and `_saveLoadFromPause`. Keeping that path would force later migrations to integrate around two presentation authorities.
 
 ## Goals
 
-- Add exactly one local `UIScreenHost` to `Game.tscn` and configure it before the host enters `_Ready`.
-- Replace `PauseMenuDialog` with a responsive, scene-authored Pause screen.
+- Add exactly one local `UIScreenHost` to `Game.tscn` and configure it before host `_Ready()`.
+- Replace `PauseMenuDialog` with a responsive scene-authored Pause screen.
 - Preserve Resume, Inventory, Save, Load, Settings, and Return to Title behavior.
-- Keep Pause active as the logical parent while a child screen is open so closing the child restores Pause and focus deterministically.
+- Preserve the existing domain Cancel ladder until each corresponding child has moved under the host.
+- Keep Pause as the logical parent while a hosted child is open.
 - Make Return to Title an explicit child confirmation and guarantee one navigation request.
-- Route hosted Cancel handling through `UIScreenHost`; retain existing domain-specific escape behavior for battle and unhosted legacy interactions.
-- Restore the exact incoming tree pause, cursor, HUD, lower-layer, and focus state on close and teardown.
-- Validate 1280×720 and the minimum supported 640×360 viewport without adding a full viewport matrix.
+- Remove Inventory's private `SceneTree.Paused` snapshot/write behavior once direct Inventory is hosted.
+- Make gameplay tree pause safe by normalizing explicit `Always` gameplay processing before root Pause acquires a pause lease.
+- Restore exact incoming pause, cursor, HUD, lower-layer, and focus state on close/teardown.
+- Validate 1280×720 and 640×360 without adding a viewport cross-product matrix.
 
 ## Non-goals
 
 - Redesigning Inventory, Settings, Save/Load, battle, dialogue, shop, healing, puzzles, or notifications.
-- Creating another navigation service, modal manager, screen registry, or generic confirmation framework.
+- Creating a navigation service, modal manager, screen registry, DI layer, or generic confirmation framework.
 - Hosting every legacy dialog in this ticket.
 - Changing save, settings, inventory, battle, or scene-navigation domain rules.
-- Adding animation infrastructure, new Pause features, or navigation history.
-- Preserving the deleted `PauseMenuDialog` API or adding compatibility wrappers; there are no production consumers outside this repository.
+- Adding animation infrastructure or new Pause features.
+- Preserving the deleted `PauseMenuDialog` API or adding compatibility wrappers.
 
-## Approaches considered
+## Existing contracts that must be reused
 
-### 1. Restyle `PauseMenuDialog` and keep manual orchestration
+### `UIScreenHost`
 
-This is the smallest visual change, but it leaves `Game._Input`, `_pauseMenuRestorePending`, `_saveLoadFromPause`, manual tree-pause behavior, and popup focus as the real lifecycle authority. Later migrations would still need to unwind it. Rejected.
+Use the existing production contract:
 
-### 2. Host only Pause, but hide/show unhosted children manually
+```csharp
+public void Configure(UIScreenHostOptions options);
+public UIScreenOpenResult TryPresent(Node view, UIScreenEntrySpec spec);
+public UIScreenCloseResult TryClose(UIScreenHandle handle, UIScreenCloseReason reason);
+public UIScreenTeardownPreparationStatus PrepareForTeardown();
+```
 
-This would make the host own Pause while Inventory or Save/Load still owns part of pause, visibility, and Cancel behavior. It creates the exact dual-authority state HPA-382 is intended to remove. Rejected.
+The gameplay host is scene-local, not an autoload.
 
-### 3. Host Pause and only the legacy children Pause opens
+### Host Control parentage
 
-This uses the foundation already delivered, removes the legacy restoration flags, and keeps the migration bounded. Inventory receives a lifecycle-only adaptation so it no longer mutates `SceneTree.Paused`; Settings and Save/Load keep their existing domain controllers and are registered through narrow adapters. Recommended.
+A hosted `Control` is valid only when it is unparented or already parented directly to the selected host layer. `UIScreenViewAdapter.TryCreate` rejects any other parent with `InvalidControlParentage`.
+
+Therefore the current Inventory setup is incompatible with hosting because `Game.SetupInventoryMenu()` currently adds the reusable `InventoryMenuController` under `UI`.
+
+**Chosen fix:** instantiate Inventory once but do **not** pre-parent it. `TryPresent` attaches it to the host `ModalLayer`. `UINodeLifetime.External` detaches it on close so the same instance can later reopen with a different logical parent.
+
+Do not add a manual reparent helper unless a concrete failure proves it necessary.
+
+### Host teardown
+
+Every `Game` scene change that can occur while hosted UI exists must call `PrepareForTeardown()` and change scenes only after `Complete`. A `Deferred` result schedules one later retry from `Game`; no navigation service is introduced.
+
+This applies to Return to Title and in-game Load.
+
+## Process-mode migration gate
+
+HPA-378 explicitly identifies root Pause tree pausing as the highest-risk migration step because current Pause does not pause `SceneTree` while current Inventory does.
+
+Current repository state includes explicit `Always` processing where gameplay must freeze under root Pause:
+
+- `GridMap` nodes in `FloorGF.tscn`, `Floor1F.tscn`, `Floor2F.tscn`, and `Floor3F.tscn` use `process_mode = 3` (`Always`).
+- `InventoryMenu.tscn` also uses `process_mode = 3`.
+
+The floor scene roots themselves are not the verified issue; the explicit `GridMap` children are.
+
+### Chosen normalization
+
+- Remove the explicit `Always` override from each runtime `GridMap` node so it inherits the pausable gameplay tree.
+- Remove the `Always` override from `InventoryMenu.tscn`; host registration supplies the process mode required for each presentation context.
+- Keep the host and its presentation layers `Always` as defined by HPA-378.
+- Any future `Always` gameplay exception must be explicit, justified by a current runtime need, and covered by a focused test.
+
+### Required gate before root `PauseTree=true`
+
+Before root Pause acquires tree pause, tests must prove:
+
+1. the production Game scene can open/close host Pause with `PauseTree=false`;
+2. Cancel/focus/child-return semantics are correct;
+3. Inventory no longer writes `SceneTree.Paused` itself;
+4. the composed gameplay-input predicate blocks movement/interactions under hosted UI;
+5. the normalized `GridMap` does not process gameplay work while the scene tree is paused.
+
+Only then does the production Pause policy change to `PauseTree=true`.
 
 ## Scene composition
 
-`Game.tscn` will contain one `UIScreenHost` instance under the existing `UI` `CanvasLayer`, after `GameUI` so hosted layers render above the HUD. `GameUI` remains at its existing path and is passed as `HudRoot`; reparenting the current HUD is unnecessary for this migration.
+`Game.tscn` contains one `UIScreenHost` instance under the existing `UI` `CanvasLayer`, after `GameUI`, so host layers render above the HUD.
 
-`Game._EnterTree()` configures the scene-authored host before child `_Ready()` executes:
+`Game._EnterTree()` configures it before child `_Ready()`:
 
-- `HudRoot = UI/GameUI`
-- `CoreCancelActions = { pause_menu, ui_cancel }`
-- `RootCancelFallback = HandleGameplayRootCancel`
-- `GameplayInputBlockChanged = SetPresentationGameplayBlocked`
+```csharp
+_screenHost.Configure(new UIScreenHostOptions
+{
+    HudRoot = GetNode<Control>("UI/GameUI"),
+    CoreCancelActions = GameplayCoreCancelActions,
+    RootCancelFallback = HandleGameplayRootCancel,
+    GameplayInputBlockChanged = blocked => _presentationGameplayBlocked = blocked
+});
+```
 
-Embedded subwindows are explicitly enabled in `project.godot` because the existing `SaveLoadDialog` is an `AcceptDialog` registered as a host child.
+`GameplayCoreCancelActions` contains both `pause_menu` and `ui_cancel`.
 
-The root remains scene-local. No autoload or global presentation singleton is introduced.
+Embedded subwindows are pinned with:
+
+```ini
+[display]
+window/subwindows/embed_subwindows=true
+```
+
+because the retained `SaveLoadDialog` is an `AcceptDialog` hosted as a Pause child.
 
 ## New Pause presentation
 
 ### `PauseScreen.tscn`
 
-The scene is a full-rect `Control` that contains `SiriusModalShell.tscn`. It authors six labelled buttons in this order:
+A full-rect `Control` contains `SiriusModalShell.tscn` and six labelled actions:
 
 1. Resume
 2. Inventory
@@ -80,45 +151,125 @@ The scene is a full-rect `Control` that contains `SiriusModalShell.tscn`. It aut
 5. Settings
 6. Return to Title
 
-The scene uses existing theme variations and approved icons. Return to Title uses destructive outline treatment; the final confirmation owns the filled destructive action. The action list is vertical so it remains readable at 640×360. Long content is not added, so the modal body should not require scrolling at either required viewport.
+The action list is vertical and remains usable at 640×360. Return to Title uses the existing destructive outline treatment; the child confirmation owns the final filled destructive action.
 
 ### `PauseScreenController.cs`
 
-The controller has one responsibility: bind scene nodes, maintain responsive shell presentation, update input hints, expose the Resume focus target, and emit action requests. It does not pause the tree, change scenes, open child screens, or call domain managers.
+Presentation-only responsibilities:
 
-`Resume` receives initial focus. Button signals are disconnected in `_ExitTree`. Compact mode is selected using the established threshold: width below 800 or height below 450.
+- bind authored nodes;
+- update responsive shell state and input hints;
+- expose the Resume initial-focus target;
+- emit six action signals.
+
+It does not pause the tree, change scenes, open child screens, or call domain managers.
 
 ### Return-to-title confirmation
 
-A narrow `PauseReturnToTitleConfirmation.tscn` uses `SiriusModalShell` and two buttons: `Return to Title` and `Cancel`. It is specific to this flow; HPA-382 does not introduce a generic confirmation abstraction ahead of HPA-572.
+`PauseReturnToTitleConfirmation.tscn` uses `SiriusModalShell` and two buttons: `Cancel` and `Return to Title`.
 
-The confirmation is a logical child of Pause with `UIScreenKinds.ConfirmQuitToMain`. The host's unique-kind rule prevents duplicate confirmation instances, while `Game` also guards the committed navigation action so rapid repeated button input cannot request navigation twice.
+The controller emits `CancelRequested` and `ReturnToTitleConfirmed` only. It does **not** own duplicate navigation suppression. The one-shot `_sceneChangeCommitted` guard lives in `Game`, where scene navigation is owned.
 
-## Host entry policies
+The confirmation is a logical child of Pause with `UIScreenKinds.ConfirmQuitToMain`. No generic confirmation abstraction is introduced ahead of HPA-572.
 
-| Presentation | Parent | Layer / priority | Process | Pause | Gameplay block | HUD | Cursor | Lower layers | Cancel | Lifetime |
-|---|---|---|---|---:|---:|---|---|---|---|---|
-| Pause | none | Modal / Modal | WhenPaused | yes | yes | Visible | Visible | VisibleInert | Close | QueueFree |
-| Inventory opened directly | none | Modal / Modal | WhenPaused | yes | yes | Hidden | Visible | VisibleInert | Close | External |
-| Inventory from Pause | Pause | Modal / Modal | Always | no | no | Hidden | Visible | VisibleInert | Close | External |
-| Save/Load from Pause | Pause | Modal / Modal | Always | no | no | Inherit | Visible | VisibleInert | Close | QueueFree |
-| Settings from Pause | Pause | Modal / Modal | Always | no | no | Inherit | Visible | VisibleInert | Close | QueueFree |
-| Return-to-title confirmation | Pause | Modal / Blocking | Always | no | no | Inherit | Visible | VisibleInert | Close | QueueFree |
+## Entry-policy matrix
 
-Notes:
+### Direct Inventory
 
-- Pause keeps the gameplay HUD visible but inert beneath the full-screen scrim, matching the approved lifecycle specification.
-- Inventory hides the gameplay HUD in both direct and Pause-child contexts.
-- Children do not acquire a second pause lease. The Pause parent remains active and owns pause while they are open.
-- Child `LowerLayers = VisibleInert` keeps Pause visible beneath the child scrim and prevents interaction.
-- Parent handles are explicit; Godot node parentage is not used as a navigation stack.
-- Save/Load and Settings are hosted only in the Pause flow in this ticket. Their Main Menu migration remains owned by their later vertical tickets.
+| Field | Value |
+|---|---|
+| Kind | `UIScreenKinds.Inventory` |
+| Parent | `null` |
+| Layer / priority | `Modal / Modal` |
+| Process | `WhenPaused` |
+| PauseTree | `true` |
+| BlockGameplayInput | `true` |
+| HUD | `Hidden` |
+| Cursor | `Visible` |
+| LowerLayers | `VisibleInert` |
+| Cancel | `Close` |
+| EntryCancelActions | `toggle_inventory` |
+| Lifetime | `External` |
 
-## Gameplay input and Cancel ownership
+Direct Inventory is migrated only after the gameplay process audit passes. It replaces the controller's old private pause ownership with the host pause lease.
 
-### Composed gameplay suppression
+### Inventory from Pause
 
-`Game` stores the host's presentation-block contribution and exposes one composed predicate:
+| Field | Value |
+|---|---|
+| Kind | `UIScreenKinds.Inventory` |
+| Parent | `pauseHandle` |
+| Layer / priority | `Modal / Modal` |
+| Process | `Always` |
+| PauseTree | `false` |
+| BlockGameplayInput | `false` |
+| HUD | `Hidden` |
+| Cursor | `Visible` |
+| LowerLayers | `VisibleInert` |
+| Cancel | `Close` |
+| EntryCancelActions | `toggle_inventory` |
+| Lifetime | `External` |
+
+The same Inventory instance is reused. Host close detaches an `External` view. A later open therefore presents an unparented view again and may use a different logical `Parent`.
+
+The host never reparents an already-active Inventory entry. Transitioning between direct and Pause-child contexts requires a real close followed by a new `TryPresent`.
+
+### Pause parity phase
+
+Before the tree-pause flip:
+
+| Field | Value |
+|---|---|
+| Kind | `UIScreenKinds.Pause` |
+| Parent | `null` |
+| Layer / priority | `Modal / Modal` |
+| Process | `Always` |
+| PauseTree | `false` |
+| BlockGameplayInput | `true` |
+| HUD | `Visible` |
+| Cursor | `Visible` |
+| LowerLayers | `VisibleInert` |
+| Cancel | `Close` |
+| Lifetime | `QueueFree` |
+
+This phase proves host ownership, input blocking, focus, Cancel, children, and restoration without changing the runtime tree-pause behavior yet.
+
+### Final Pause policy
+
+After the process gate passes, only these Pause fields change:
+
+```text
+ProcessPolicy: Always -> WhenPaused
+PauseTree:      false  -> true
+```
+
+Children keep `PauseTree=false`; the Pause parent owns the pause lease.
+
+### Other Pause children
+
+| Presentation | Parent | Process | PauseTree | Block | HUD | Lower layers | Lifetime |
+|---|---|---|---:|---:|---|---|---|
+| Save/Load | Pause | Always | false | false | Inherit | VisibleInert | QueueFree |
+| Settings | Pause | Always | false | false | Inherit | VisibleInert | QueueFree |
+| Return-to-title confirmation | Pause | Always | false | false | Inherit | VisibleInert | QueueFree |
+
+## Inventory lifecycle adaptation
+
+`InventoryMenuController` loses all `SceneTree.Paused` ownership:
+
+- remove `_pauseSnapshotCaptured` and `_treeWasPausedBeforeOpen`;
+- `OpenMenu()` refreshes and shows only;
+- `CloseMenu()` hides only;
+- Close UI emits `CloseRequested` so `Game` closes the host handle;
+- controller `_Input()` observes device changes but does not terminally own `ui_cancel` or `toggle_inventory` while hosted.
+
+`Game.SetupInventoryMenu()` instantiates one controller and keeps it unparented. Do not call `UI.AddChild(_inventoryMenu)`.
+
+Direct-open state is determined with `host.IsKindActive(UIScreenKinds.Inventory)`, never `_inventoryMenu.Visible`, because an unparented reusable view has no meaningful production visibility until hosted.
+
+## Gameplay input composition
+
+`Game` stores the presentation contribution and exposes one predicate:
 
 ```csharp
 private bool IsGameplayInputSuppressed() =>
@@ -128,173 +279,192 @@ private bool IsGameplayInputSuppressed() =>
     _gameManager.IsInWorldInteraction;
 ```
 
-`PlayerController` receives this predicate through one optional provider configured by `Game`. It remains usable in isolated tests when no provider is supplied. This avoids a new service while ensuring movement and interaction commands respect hosted presentations as well as domain state.
+`PlayerController` receives it through one optional provider:
 
-Direct Inventory opening also uses the composed predicate.
+```csharp
+public Func<bool>? GameplayInputSuppressedProvider { private get; set; }
+```
 
-### Root Cancel fallback
+The provider is a narrow hook, not a service. Existing domain checks remain for isolated tests and domain-specific decisions.
 
-`UIScreenHost` owns Cancel for hosted entries. When no hosted entry claims a core action, `HandleGameplayRootCancel` preserves only the necessary domain behavior:
+## Cancel ownership and migration ordering
 
-- dismiss an active save/load error first;
-- close an active battle through its existing escape path;
-- reserve or decline events that must reach an unhosted native NPC, puzzle, dropdown, or key-capture handler;
-- decline while a world interaction cannot be canceled;
-- otherwise present Pause.
+The old `HandlePauseMenuInput` ladder must not be deleted piecemeal before its hosted replacements exist.
 
-`Game._Input()` no longer opens, hides, or restores Pause. It retains direct Inventory opening and unrelated domain input only. Hosted child precedence comes from logical parentage and host input priority rather than the current ordered chain of nullable fields.
+### Final dispatch order
 
-### Child-specific Cancel interception
+1. **Hosted entry traversal** — `UIScreenHost` owns Cancel for Pause, Inventory, Settings, Save/Load, and confirmation.
+2. **Active error popup** — root fallback dismisses and consumes.
+3. **Battle** — existing escape/result behavior runs and consumes.
+4. **Puzzle riddle** — root fallback declines so the retained native dialog can receive Cancel.
+5. **Atomic world interaction** — consume without opening Pause.
+6. **NPC interaction** — decline so the retained native NPC dialog can receive Cancel.
+7. **No blocker** — either matched core action (`pause_menu` or `ui_cancel`) opens Pause.
 
-- Inventory: `ui_cancel` and `toggle_inventory` close its host handle.
-- Settings: an open dropdown or active key capture reserves Cancel for the existing controller; otherwise Cancel closes the Settings host handle and discards staged edits through the existing close path.
-- Save/Load: an overwrite confirmation is dismissed first through `HasActiveChildDialog` / `DismissActiveChildDialog`; otherwise Cancel closes Save/Load and returns to Pause.
-- Return-to-title confirmation: Cancel closes only the confirmation and restores focus to Return to Title.
+Settings and Save/Load child interceptors preserve their nested precedence:
 
-One physical event produces one host traversal and one logical close.
+- Settings dropdown/key capture reserves Cancel for the current controller/native popup; otherwise close Settings.
+- Save/Load dismisses an active overwrite child first; otherwise close Save/Load.
+- Inventory owns `toggle_inventory` only while it is the applicable hosted entry.
+- Confirmation Cancel closes only the confirmation.
 
-## Legacy child adaptation
+The final root behavior intentionally does not depend on `SettingsManager` mirroring the configured Pause key onto `ui_cancel`; both approved core actions can open Pause at the gameplay root.
 
-### Inventory
+### Migration rule
 
-`InventoryMenuController` currently snapshots and mutates `SceneTree.Paused`. That behavior is removed. The controller becomes presentation/domain UI only:
+Until the hosted child replacement is active in the same implementation slice, keep the corresponding old ladder arm. Remove an old branch only after its host policy and regression test are green.
 
-- `OpenMenu()` refreshes and shows the existing screen.
-- `CloseRequested` is emitted by the Close button instead of directly restoring tree pause.
-- `CloseMenu()` hides the screen and is used by the host adapter cleanup.
-- Its `_Input()` keeps device-hint observation but does not own Cancel or `toggle_inventory` lifecycle.
-
-Both direct Inventory and Pause-child Inventory are registered with the host, so no standalone pause compatibility mode is required.
-
-### Settings
-
-The existing `Closed` signal, `OpenSettings(showOverlay: false)`, `IsRebinding`, and `IsPopupOpen` remain the integration surface. No settings fields, validation, persistence, or layout are redesigned.
-
-### Save/Load
-
-The existing mode, slot signals, overwrite child dialog, and save/load domain callbacks remain. `Game` supplies host presentation callbacks so opening uses `ShowDialog(mode)` and closing uses the existing terminal cleanup. `_saveLoadFromPause` is deleted because logical parentage now identifies the return destination.
+This prevents intermediate commits from changing ESC behavior.
 
 ## Flow behavior
 
 ### Open and Resume
 
-1. Root Cancel fallback validates domain eligibility.
-2. `Game` instantiates `PauseScreen.tscn` and calls `TryPresent` with the Pause policy.
-3. The host acquires pause, gameplay block, cursor, HUD, lower-layer, and focus leases atomically.
-4. Resume or Cancel calls `TryClose` on the Pause handle.
-5. The host closes descendants first, restores leases, and focuses gameplay.
+1. Root fallback checks unhosted domain blockers.
+2. `Game` instantiates `PauseScreen.tscn` and presents it.
+3. During parity phase, the host blocks gameplay but does not pause the tree.
+4. Resume or Cancel closes the Pause handle.
+5. Focus and presentation effects restore through the host.
+6. After the tree-pause gate passes, the same flow additionally owns the host pause lease.
 
-A repeated Pause action while Pause is topmost closes it once. A repeated open request is rejected by the unique Pause kind rather than creating another screen.
+### Open and return from child
 
-### Open and return from a child
+1. Pause remains active as logical parent.
+2. Child is presented with `Parent = pauseHandle`.
+3. Child becomes top input owner; Pause remains visible inert.
+4. Child terminal signal closes its handle.
+5. Host restores the existing Pause instance and Return/Save/etc. focus target.
 
-1. The Pause action handler instantiates or reuses the existing child controller.
-2. `Game` calls `TryPresent` with `Parent = pauseHandle`.
-3. The child becomes the top input owner; Pause remains active and visible inert.
-4. Child terminal signals call `TryClose(childHandle)`.
-5. The host restores Pause presentation and its captured focus target without rebuilding Pause or using deferred popup flags.
+No `_pauseMenuRestorePending` or `_saveLoadFromPause` flag remains in the final implementation.
+
+### Inventory reuse
+
+- Direct Inventory: unparented reusable view -> host ModalLayer -> close -> detached.
+- Pause Inventory: same detached view -> host ModalLayer with `Parent=pauseHandle` -> close -> detached.
+- If Inventory is already active, a second open request is an idempotent no-op; do not attempt to replace its parent in place.
 
 ### Return to Title
 
 1. Return to Title opens the dedicated confirmation child.
-2. Cancel closes only the confirmation.
-3. Confirm sets the one-shot navigation guard, closes the Pause subtree, prepares the host for teardown, then changes to `MainMenu.tscn`.
-4. Further confirm input is ignored.
+2. Cancel closes only that child.
+3. Confirm checks `_sceneChangeCommitted`; first confirm commits, later input is ignored.
+4. `Game` closes/prepares hosted UI.
+5. Scene changes only after `PrepareForTeardown()` returns `Complete`.
 
-## Scene change and teardown
+## Scene-change helper
 
-All `Game`-owned scene changes that can occur while hosted UI is active use one private helper:
+Use one small `Game` helper:
 
-```text
-request scene change
-→ PrepareForTeardown
-→ retry deferred preparation after the current host mutation
-→ change scene only after Complete
+```csharp
+private void RequestSceneChange(string path)
+{
+    if (_sceneChangeCommitted)
+        return;
+
+    _sceneChangeCommitted = true;
+    _pendingScenePath = path;
+    ContinueSceneChangeAfterUiTeardown();
+}
+
+private void ContinueSceneChangeAfterUiTeardown()
+{
+    if (_screenHost != null && IsInstanceValid(_screenHost) &&
+        _screenHost.PrepareForTeardown() == UIScreenTeardownPreparationStatus.Deferred)
+    {
+        Callable.From(ContinueSceneChangeAfterUiTeardown).CallDeferred();
+        return;
+    }
+
+    var path = _pendingScenePath;
+    _pendingScenePath = null;
+    if (!string.IsNullOrEmpty(path))
+        GetTree().ChangeSceneToFile(path);
+}
 ```
 
-This covers Return to Title and in-game Load. Host cleanup restores the exact incoming pause, cursor, HUD, interaction, and focus state before the containing scene is replaced. `_ExitTree` remains a defensive disconnect path, not the primary place to begin host teardown after children have already started exiting.
-
-No asynchronous navigation service is added; a small deferred retry in `Game` is sufficient.
+Tests may keep using the existing virtual navigation seam where useful; do not create another navigation abstraction.
 
 ## Error handling
 
-- Any `TryPresent` result other than `Opened` is logged with kind and status.
-- A failed Pause open leaves gameplay unchanged and frees the unregistered scene instance.
-- A failed child open leaves Pause active, restores its focus, and frees the candidate.
-- `HostMutating` is retried once through `CallDeferred`; it is never silently queued inside the host.
-- Duplicate-kind results are treated as idempotent no-ops.
-- If teardown preparation is deferred, scene navigation is deferred and retried; the scene is not changed early.
-- Existing save/settings/inventory domain errors continue through their current controllers.
+- Log every `TryPresent` rejection with kind/status.
+- On failed Pause open, free the unregistered Pause scene and leave gameplay unchanged.
+- On failed child open, leave Pause active and restore its focus target.
+- On `HostMutating`, defer one retry from the owning `Game` flow; the host itself never queues the open.
+- Treat duplicate kind as idempotent only when the already-active presentation is the intended one.
+- On deferred teardown, retry before scene replacement.
+- Existing save/settings/inventory domain errors stay in their current controllers.
 
 ## Testing strategy
 
-### Component tests
+### Existing suites that must move with the migration
 
-Replace `PauseMenuDialogTest` with `PauseScreenControllerTest` covering all six action signals, Resume initial focus, one signal per press, destructive action identity, input-hint refresh, and disconnect-safe teardown.
+`tests/game/GameTest.cs` contains direct reflection and behavior assertions against `_pauseMenuDialog`, Pause settings restore, Save/Load child behavior, and current Cancel ordering. It is a first-class migration suite, not a late full-suite surprise.
 
-Add a focused confirmation controller test covering Confirm, Cancel, initial focus, and double-confirm suppression at the Game integration boundary.
+Every implementation slice that removes or replaces legacy Pause state includes `GameTest` in its focused filter.
 
-### Gameplay integration tests
+`GameInputLifecycleTest` remains the physical-input/lifecycle suite.
 
-Extend the existing lifecycle suite instead of creating a parallel harness:
+### New integration coverage
 
-- Pause opens through the host and owns pause, gameplay block, cursor, HUD, lower layers, and focus.
-- Pause action repeated closes the same entry and restores gameplay once.
-- Direct Inventory is host-owned and no longer changes tree pause itself.
-- Inventory, Save/Load, and Settings opened from Pause are logical children and return to the same Pause instance.
-- Save overwrite confirmation and Settings dropdown/key capture consume Cancel before their parent.
-- Return-to-title confirmation closes child-first and navigation commits once.
-- Invalid previous focus falls back to Resume and later to the host focus sink/gameplay without an exception.
-- Preparing scene teardown with Pause and a child open closes descendants, restores leases, and leaves no active host entries.
-- Existing battle, NPC, puzzle, error, and corrupted-save escape behavior remains covered.
+`GameplayPauseHostTest` covers:
 
-### Responsive verification
+- one production gameplay host;
+- Pause host layer parentage (`PauseScreen` is under `UIScreenHost/ModalLayer`);
+- parity phase has `PauseTree=false` but presentation block/focus/cursor/HUD work;
+- final phase owns tree pause;
+- direct Inventory opens from an unparented view, attaches to `ModalLayer`, closes/detaches, then reopens from Pause;
+- unique Inventory kind never changes logical parent in place;
+- Settings/Save/Load/confirmation are logical children;
+- nested Cancel precedence;
+- invalid prior focus;
+- teardown with Pause + child;
+- 1280×720 and 640×360 Pause layout.
 
-Instantiate `PauseScreen.tscn` at 1280×720 and 640×360. Assert that the shell stays inside safe margins, all six actions remain visible and at least 40 px high in compact mode, and no horizontal overflow is introduced.
+### Process-freeze regression
 
-### Commands
+Use the real `Game.tscn` / floor fixture. With final Pause active:
 
-```bash
-dotnet build Sirius.sln
-dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~PauseScreenControllerTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~InventoryMenuControllerTest"
-dotnet test Sirius.sln --settings test.runsettings.local
-```
+- `SceneTree.Paused` is true;
+- the host still processes input;
+- a gameplay probe under the runtime `GridMap` does not advance while paused;
+- after Resume it advances again.
+
+This specifically guards against reintroducing explicit `Always` gameplay processing.
+
+## Risks and mitigations
+
+| Risk | Mitigation |
+|---|---|
+| Inventory pre-parented under `UI` causes `InvalidControlParentage` | keep reusable Inventory unparented; host attaches to `ModalLayer`; test parent and detachment |
+| Explicit `Always` GridMap produces half-paused world | remove four GridMap overrides before root pause; add real-scene freeze regression |
+| Legacy direct Inventory pause write competes with host lease | delete snapshot/write fields when direct Inventory moves to host |
+| `GameTest` remains coupled to deleted Pause fields | migrate it in the same slice as legacy Pause deletion and include in focused filters |
+| Cancel ladder removed before children are hosted | retain each legacy arm until its host replacement is active and tested |
+| Reused `External` Inventory is reopened with stale parent assumptions | assert detached after close; new `TryPresent` supplies logical parent each time |
+| Confirmation controller accidentally owns navigation guard | guard remains in `Game`; controller emits only signals |
+| Hosted scene deleted before teardown completes | all Game scene changes use `PrepareForTeardown` helper |
 
 ## Acceptance mapping
 
-- One local production host: scene-authored `UI/UIScreenHost`, configured in `Game._EnterTree`.
-- No desktop Pause framing: `PauseMenuDialog` is deleted; `PauseScreen` uses `SiriusModalShell`.
-- Existing actions preserved: Game handlers delegate to current controllers/managers.
-- Deterministic Resume, child return, confirmation, Cancel, and teardown: logical parent handles and host close ordering replace restoration flags.
-- One authority: Inventory stops mutating tree pause; hosted paths do not manually hide/re-popup Pause.
-- Later migrations: the same gameplay host remains available for their own vertical registration.
-- Focused tests: existing host/lifecycle suites plus Pause-specific component and responsive coverage.
+- **One local production host:** `Game.tscn` + host bootstrap test.
+- **Pause no longer desktop-window framed:** `PauseScreen.tscn`; delete `PauseMenuDialog`.
+- **Existing actions preserved:** `GameTest`, `GameplayPauseHostTest`, child controller suites.
+- **Deterministic Resume/child/Cancel/teardown:** host integration and lifecycle tests.
+- **Single pause/input/cursor authority:** Inventory private pause deletion + final pause lease assertions.
+- **Later screens reuse same host:** child registrations use existing kinds/layers without new framework.
+- **Focused lifecycle/integration tests:** new host suite + migrated `GameTest` + existing lifecycle suite.
 
-## Files affected
+## Implementation shape
 
-### Create
+1. Pause component.
+2. Flow-specific Return-to-Title confirmation.
+3. Gameplay host bootstrap, embedded subwindows, and scene-change teardown helper.
+4. Composed gameplay input suppression.
+5. Explicit-`Always` gameplay audit and normalization.
+6. Direct Inventory host migration, including parentage and removal of private pause ownership.
+7. Production Pause + child migration with `PauseTree=false`, preserving the full legacy domain ladder until replacements are live; migrate `GameTest` in this slice.
+8. Flip root Pause to `PauseTree=true` only after parity/process tests pass.
+9. Remove remaining legacy restoration/cancel code and update lifecycle contract.
+10. Run focused then full regression gates.
 
-- `scenes/ui/PauseScreen.tscn`
-- `scripts/ui/PauseScreenController.cs`
-- `scenes/ui/PauseReturnToTitleConfirmation.tscn`
-- `scripts/ui/PauseReturnToTitleConfirmationController.cs`
-- `tests/ui/PauseScreenControllerTest.cs`
-- `tests/ui/PauseReturnToTitleConfirmationControllerTest.cs`
-- `tests/game/GameplayPauseHostTest.cs`
-
-### Modify
-
-- `scenes/game/Game.tscn`
-- `project.godot`
-- `scripts/game/Game.cs`
-- `scripts/game/PlayerController.cs`
-- `scripts/ui/InventoryMenuController.cs`
-- `tests/game/GameInputLifecycleTest.cs`
-- `tests/game/PlayerControllerTest.cs`
-- `tests/ui/InventoryMenuControllerTest.cs`
-- `docs/ui/hpa-376/ui-lifecycle-contract.md`
-
-### Delete
-
-- `scripts/ui/PauseMenuDialog.cs`
-- `tests/ui/PauseMenuDialogTest.cs`
+This keeps the architecture lean while honoring the foundation's deliberately staged PauseTree migration.

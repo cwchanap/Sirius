@@ -45,6 +45,8 @@ public partial class Game : Node2D
     private Action? _defeatReturnHandler;
     private UIScreenHost? _screenHost;
     private UIScreenHandle? _inventoryHandle;
+    private UIScreenHandle? _pauseHandle;
+    private PauseScreenController? _pauseScreen;
     private bool _presentationGameplayBlocked;
     private static readonly IReadOnlySet<StringName> GameplayCoreCancelActions =
         new HashSet<StringName> { "pause_menu", "ui_cancel" };
@@ -349,6 +351,100 @@ public partial class Game : Node2D
         TryCloseInventory(UIScreenCloseReason.ExplicitAction);
 
     private void ClearInventoryHandle() => _inventoryHandle = null;
+
+    private bool TryOpenPause()
+    {
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost))
+            return false;
+
+        if (_pauseHandle.HasValue)
+        {
+            if (_screenHost.IsActive(_pauseHandle.Value))
+                return false;
+
+            if (_pauseScreen != null)
+                ClearPausePresentation(_pauseScreen);
+            else
+                _pauseHandle = null;
+        }
+
+        if (_screenHost.IsKindActive(UIScreenKinds.Pause))
+            return false;
+
+        var scene = GD.Load<PackedScene>("res://scenes/ui/PauseScreen.tscn");
+        if (scene == null)
+        {
+            GD.PushError("Failed to load PauseScreen scene!");
+            return false;
+        }
+
+        var screen = scene.Instantiate<PauseScreenController>();
+        if (screen == null)
+        {
+            GD.PushError("Failed to instantiate PauseScreenController!");
+            return false;
+        }
+
+        screen.ResumeRequested += OnHostedPauseResumeRequested;
+        var result = _screenHost.TryPresent(screen, new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.Pause,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Modal,
+            ProcessPolicy = UIProcessPolicy.Always,
+            PauseTree = false,
+            BlockGameplayInput = true,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Visible,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Close,
+            InitialFocus = () => screen.InitialFocusTarget,
+            Cleanup = _ => ClearPausePresentation(screen),
+            NodeLifetime = UINodeLifetime.QueueFree
+        });
+        if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
+        {
+            screen.ResumeRequested -= OnHostedPauseResumeRequested;
+            screen.QueueFree();
+            return false;
+        }
+
+        _pauseHandle = result.Handle.Value;
+        _pauseScreen = screen;
+        return true;
+    }
+
+    private void OnHostedPauseResumeRequested()
+    {
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
+            !_pauseHandle.HasValue)
+        {
+            return;
+        }
+
+        var result = _screenHost.TryClose(
+            _pauseHandle.Value,
+            UIScreenCloseReason.ExplicitAction);
+        if (result.Status == UIScreenCloseStatus.StaleHandle)
+        {
+            if (_pauseScreen != null)
+                ClearPausePresentation(_pauseScreen);
+            else
+                _pauseHandle = null;
+        }
+    }
+
+    private void ClearPausePresentation(PauseScreenController screen)
+    {
+        if (GodotObject.IsInstanceValid(screen))
+            screen.ResumeRequested -= OnHostedPauseResumeRequested;
+
+        if (ReferenceEquals(_pauseScreen, screen))
+        {
+            _pauseHandle = null;
+            _pauseScreen = null;
+        }
+    }
 
     public override void _Input(InputEvent @event)
     {

@@ -34,13 +34,8 @@ public partial class Game : Node2D
     private int _pendingSaveSpawnFloorIndex = -1;
     private bool _hasShownCorruptedSaveError;
 
-    private SaveLoadDialog? _saveLoadDialog;
-    private PauseMenuDialog? _pauseMenuDialog;
-    private SettingsMenuController? _settingsMenu;
     private AcceptDialog? _activeErrorPopup;
     private Label? _interactionPromptLabel;
-    private bool _pauseMenuRestorePending;
-    private bool _saveLoadFromPause;
     private SceneTreeTimer? _defeatReturnTimer;
     private Action? _defeatReturnHandler;
     private UIScreenHost? _screenHost;
@@ -946,10 +941,9 @@ public partial class Game : Node2D
         // Handle inventory toggle (I key)
         if (@event.IsActionPressed("toggle_inventory"))
         {
-            if (_inventoryMenu != null && !_gameManager.IsInBattle && !_gameManager.IsInNpcInteraction && !_gameManager.IsInWorldInteraction
-                && (_settingsMenu == null || !GodotObject.IsInstanceValid(_settingsMenu))
-                && (_saveLoadDialog == null || !GodotObject.IsInstanceValid(_saveLoadDialog))
-                && (_pauseMenuDialog == null || !GodotObject.IsInstanceValid(_pauseMenuDialog) || !_pauseMenuDialog.Visible))
+            if (_inventoryMenu != null && !_gameManager.IsInBattle && !_gameManager.IsInNpcInteraction &&
+                !_gameManager.IsInWorldInteraction &&
+                (!_presentationGameplayBlocked || _inventoryHandle.HasValue))
             {
                 var changed = _inventoryHandle.HasValue
                     ? TryCloseInventory(UIScreenCloseReason.ExplicitAction)
@@ -962,138 +956,6 @@ public partial class Game : Node2D
             }
         }
 
-        // Handle pause menu (ESC / remapped key)
-        if (@event.IsActionPressed("pause_menu"))
-        {
-            HandlePauseMenuInput();
-        }
-    }
-
-    protected void HandlePauseMenuInput()
-    {
-        // Dismiss an active error popup first — it must not be left orphaned
-        // while HandlePauseMenuInput closes/reopens the save flow.
-        if (_activeErrorPopup != null && IsInstanceValid(_activeErrorPopup))
-        {
-            _activeErrorPopup.QueueFree();
-            _activeErrorPopup = null;
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        // Close hosted inventory if open.
-        if (TryCloseInventory(UIScreenCloseReason.Cancel))
-        {
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        // Safety fallback: SettingsMenuController._Input normally consumes ESC and
-        // emits Closed synchronously, but if it fails to handle it (e.g. process input
-        // disabled), close settings here so ESC never opens the pause menu on top.
-        // Skip this fallback while the player is actively rebinding a key or when an
-        // OptionButton popup is open — in both cases the event must reach the popup
-        // / capture logic rather than force-closing the entire settings panel.
-        if (_settingsMenu != null && GodotObject.IsInstanceValid(_settingsMenu)
-            && !_settingsMenu.IsRebinding && !_settingsMenu.IsPopupOpen)
-        {
-            OnPauseSettingsClosed();
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        // When settings is open but a popup or rebinding is active, don't
-        // force-close settings — but also don't fall through to the pause-menu
-        // toggle.  The ESC event needs to reach the OptionButton popup or
-        // key-capture logic, and opening the pause menu behind the settings
-        // panel would be confusing.
-        if (_settingsMenu != null && GodotObject.IsInstanceValid(_settingsMenu))
-        {
-            return;
-        }
-
-        // Dismiss save/load dialog before toggling the pause menu so ESC
-        // cancels out of the modal first rather than stacking pause on top.
-        if (_saveLoadDialog != null && GodotObject.IsInstanceValid(_saveLoadDialog))
-        {
-            // If the save dialog has an active child confirmation (e.g. overwrite
-            // prompt), dismiss only the child so the player stays in the save flow.
-            if (_saveLoadDialog.HasActiveChildDialog)
-            {
-                _saveLoadDialog.DismissActiveChildDialog();
-            }
-            else
-            {
-                CleanupSaveDialogAndRestorePause();
-            }
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        if (_pauseMenuRestorePending)
-        {
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        if (_battleManager != null
-            && GodotObject.IsInstanceValid(_battleManager)
-            && _battleManager.Visible)
-        {
-            _battleManager.ForceCloseAsEscape();
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        if (_puzzleRiddleDialog != null && IsInstanceValid(_puzzleRiddleDialog))
-        {
-            return;
-        }
-
-        if (_gameManager.IsInWorldInteraction)
-        {
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        if (_gameManager.IsInNpcInteraction)
-        {
-            // Don't consume the event — AcceptDialog-based NPC modals
-            // (DialogueDialog, ShopDialog, HealDialog) rely on ESC reaching
-            // them to emit Canceled/CloseRequested.  Just skip pause-menu
-            // logic so the dialog can dismiss itself.
-            return;
-        }
-
-        if (!_gameManager.IsInBattle)
-        {
-            if (_pauseMenuDialog != null && GodotObject.IsInstanceValid(_pauseMenuDialog) && _pauseMenuDialog.Visible)
-            {
-                CleanupPauseMenu();
-            }
-            else
-            {
-                ShowPauseMenu();
-            }
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        // In battle: close the battle dialog as an escape to unlock input
-        if (_battleManager != null && GodotObject.IsInstanceValid(_battleManager))
-        {
-            GD.Print("ESC pressed during battle - requesting battle dialog to close as escape");
-            _battleManager.ForceCloseAsEscape();
-            GetViewport().SetInputAsHandled();
-        }
-        else
-        {
-            // Fallback safety: if dialog reference missing, force-clear battle state
-            GD.PrintErr("ESC pressed during battle but BattleManager is null - forcing EndBattle(escaped)");
-            _gameManager.EndBattle(false); // treat as not won (escape); no enemy removal here
-            UpdatePlayerUI();
-            GetViewport().SetInputAsHandled();
-        }
     }
 
     private void OnPlayerMoved(Vector2I newPosition)
@@ -2097,8 +1959,51 @@ public partial class Game : Node2D
         _defeatReturnHandler = null;
     }
 
-    private UIRootCancelResult HandleGameplayRootCancel(UIRootCancelContext _) =>
-        UIRootCancelResult.Declined;
+    private UIRootCancelResult HandleGameplayRootCancel(UIRootCancelContext _)
+    {
+        if (_activeErrorPopup != null && IsInstanceValid(_activeErrorPopup))
+        {
+            _activeErrorPopup.QueueFree();
+            _activeErrorPopup = null;
+            return UIRootCancelResult.Consumed;
+        }
+
+        if (_battleManager != null && IsInstanceValid(_battleManager) && _battleManager.Visible)
+        {
+            _battleManager.ForceCloseAsEscape();
+            return UIRootCancelResult.Consumed;
+        }
+
+        if (_gameManager.IsInBattle)
+        {
+            if (_battleManager != null && IsInstanceValid(_battleManager))
+            {
+                GD.Print("ESC pressed during battle - requesting battle dialog to close as escape");
+                _battleManager.ForceCloseAsEscape();
+            }
+            else
+            {
+                GD.PrintErr("ESC pressed during battle but BattleManager is null - forcing EndBattle(escaped)");
+                _gameManager.EndBattle(false);
+                UpdatePlayerUI();
+            }
+
+            return UIRootCancelResult.Consumed;
+        }
+
+        if (_puzzleRiddleDialog != null && IsInstanceValid(_puzzleRiddleDialog))
+            return UIRootCancelResult.Declined;
+
+        if (_gameManager.IsInWorldInteraction)
+            return UIRootCancelResult.Consumed;
+
+        if (_gameManager.IsInNpcInteraction)
+            return UIRootCancelResult.Declined;
+
+        return TryOpenPause()
+            ? UIRootCancelResult.Consumed
+            : UIRootCancelResult.Declined;
+    }
 
     private void RequestSceneChange(string path)
     {
@@ -2147,292 +2052,6 @@ public partial class Game : Node2D
             ShowCorruptedSaveError();
         }
     }
-
-    /// <summary>
-    /// Shows the save menu dialog.
-    /// </summary>
-    private void ShowSaveMenu()
-    {
-        if (_gameManager.IsInNpcInteraction)
-        {
-            GD.PrintErr("Save blocked: NPC interaction in progress.");
-            ShowSaveError("Cannot save during NPC interaction.");
-            return;
-        }
-
-        if (_gameManager.IsInWorldInteraction)
-        {
-            GD.PrintErr("Save/load blocked: world interaction in progress.");
-            ShowSaveError("Cannot save or load while opening treasure.");
-            return;
-        }
-
-        if (_saveLoadDialog != null)
-        {
-            _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
-            _saveLoadDialog.DialogClosed -= OnSaveDialogClosed;
-            _saveLoadDialog.MainMenuRequested -= OnMainMenuRequested;
-            _saveLoadDialog.QueueFree();
-        }
-
-        _saveLoadDialog = new SaveLoadDialog();
-        GetNode("UI").AddChild(_saveLoadDialog);
-        _saveLoadDialog.SaveSlotSelected += OnSaveSlotSelected;
-        _saveLoadDialog.DialogClosed += OnSaveDialogClosed;
-        _saveLoadDialog.MainMenuRequested += OnMainMenuRequested;
-        _saveLoadDialog.ShowDialog(SaveLoadDialog.DialogMode.Save);
-    }
-
-    private void OnSaveSlotSelected(int slot)
-    {
-        if (_gameManager.IsInNpcInteraction)
-        {
-            GD.PrintErr("Save blocked: NPC interaction in progress.");
-            CleanupSaveDialogAndRestorePause();
-            ShowSaveError("Cannot save during NPC interaction.");
-            return;
-        }
-
-        if (_gameManager.IsInWorldInteraction)
-        {
-            GD.PrintErr("Save/load blocked: world interaction in progress.");
-            CleanupSaveDialogAndRestorePause();
-            ShowSaveError("Cannot save or load while opening treasure.");
-            return;
-        }
-
-        // Defensive: re-check battle state in case a battle started while dialog was open
-        if (_gameManager.IsInBattle)
-        {
-            GD.PrintErr("Save blocked: Battle in progress.");
-            CleanupSaveDialogAndRestorePause();
-            ShowSaveError("Cannot save during battle.");
-            return;
-        }
-
-        // Prevent saving if player is defeated (CurrentHealth <= 0)
-        // This can happen during the 2-second delay after battle loss before returning to menu
-        if (_gameManager.Player != null && !_gameManager.Player.IsAlive)
-        {
-            GD.PrintErr("Save blocked: Player is defeated.");
-            CleanupSaveDialogAndRestorePause();
-            ShowSaveError("Cannot save while defeated.");
-            return;
-        }
-
-        var saveData = _gameManager.CollectSaveData(_questFlags);
-        if (saveData == null)
-        {
-            GD.PrintErr("Save failed: unable to collect save data.");
-            CleanupSaveDialogAndRestorePause();
-            ShowSaveError("Unable to collect save data.");
-            return;
-        }
-
-        if (SaveManager.Instance == null)
-        {
-            GD.PushError("Save failed: SaveManager not initialized.");
-            CleanupSaveDialogAndRestorePause();
-            ShowSaveError("Save system unavailable.");
-            return;
-        }
-
-        bool success = SaveManager.Instance.SaveGame(slot, saveData);
-        if (success)
-        {
-            GD.Print($"Game saved to slot {slot}");
-            CleanupSaveDialogAndRestorePause();
-        }
-        else
-        {
-            GD.PrintErr($"Save failed for slot {slot}.");
-            CleanupSaveDialogAndRestorePause();
-            ShowSaveError("Failed to save game.");
-        }
-    }
-
-    private void OnSaveDialogClosed()
-    {
-        CleanupSaveDialogAndRestorePause();
-    }
-
-    private void OnMainMenuRequested()
-    {
-        GD.Print("Main menu requested from save dialog");
-        _saveLoadFromPause = false;
-        CleanupSaveDialog();
-        CleanupPauseMenu();
-        ReturnToMainMenu();
-    }
-
-    private void CleanupSaveDialog()
-    {
-        if (_saveLoadDialog != null)
-        {
-            _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
-            _saveLoadDialog.LoadSlotSelected -= OnInGameLoadSlotSelected;
-            _saveLoadDialog.DialogClosed -= OnSaveDialogClosed;
-            _saveLoadDialog.MainMenuRequested -= OnMainMenuRequested;
-            _saveLoadDialog.QueueFree();
-            _saveLoadDialog = null;
-        }
-    }
-
-    /// <summary>
-    /// Cleans up the save/load dialog and restores the hidden pause menu
-    /// if the save/load was opened from the pause menu.
-    /// </summary>
-    private void CleanupSaveDialogAndRestorePause()
-    {
-        bool fromPause = _saveLoadFromPause;
-        _saveLoadFromPause = false;
-        CleanupSaveDialog();
-        if (fromPause && _pauseMenuDialog != null && GodotObject.IsInstanceValid(_pauseMenuDialog))
-        {
-            _pauseMenuDialog.PopupCentered();
-        }
-    }
-
-    private void ShowPauseMenu()
-    {
-        _pauseMenuRestorePending = false;
-        if (_pauseMenuDialog != null) CleanupPauseMenu();
-        _pauseMenuDialog = new PauseMenuDialog();
-        GetNode("UI").AddChild(_pauseMenuDialog);
-        _pauseMenuDialog.ResumeRequested += OnPauseResumeRequested;
-        _pauseMenuDialog.SaveRequested += OnPauseSaveRequested;
-        _pauseMenuDialog.LoadRequested += OnPauseLoadRequested;
-        _pauseMenuDialog.SettingsRequested += OnPauseSettingsRequested;
-        _pauseMenuDialog.QuitToMenuRequested += OnPauseQuitRequested;
-        _pauseMenuDialog.PopupCentered();
-    }
-
-    private void CleanupPauseMenu()
-    {
-        _pauseMenuRestorePending = false;
-        if (_pauseMenuDialog == null) return;
-        _pauseMenuDialog.ResumeRequested -= OnPauseResumeRequested;
-        _pauseMenuDialog.SaveRequested -= OnPauseSaveRequested;
-        _pauseMenuDialog.LoadRequested -= OnPauseLoadRequested;
-        _pauseMenuDialog.SettingsRequested -= OnPauseSettingsRequested;
-        _pauseMenuDialog.QuitToMenuRequested -= OnPauseQuitRequested;
-        if (GodotObject.IsInstanceValid(_pauseMenuDialog))
-            _pauseMenuDialog.QueueFree();
-        _pauseMenuDialog = null;
-    }
-
-    private void OnPauseResumeRequested() => CleanupPauseMenu();
-
-    private void OnPauseSaveRequested()
-    {
-        _saveLoadFromPause = true;
-        _pauseMenuDialog?.Hide();
-        ShowSaveMenu();
-    }
-
-    private void OnPauseLoadRequested()
-    {
-        _saveLoadFromPause = true;
-        _pauseMenuDialog?.Hide();
-        ShowLoadMenu();
-    }
-
-    private void OnPauseSettingsRequested()
-    {
-        if (_settingsMenu != null) return;
-        var scene = GD.Load<PackedScene>("res://scenes/ui/SettingsMenu.tscn");
-        if (scene == null) { GD.PushError("[Game] SettingsMenu.tscn not found."); return; }
-        _pauseMenuDialog?.Hide();
-        _settingsMenu = scene.Instantiate<SettingsMenuController>();
-        _settingsMenu.Closed += OnPauseSettingsClosed;
-        GetNode("UI").AddChild(_settingsMenu);
-        _settingsMenu.OpenSettings(showOverlay: false);
-    }
-
-    private void OnPauseSettingsClosed()
-    {
-        if (_settingsMenu != null)
-        {
-            _settingsMenu.Closed -= OnPauseSettingsClosed;
-            _settingsMenu.QueueFree();
-            _settingsMenu = null;
-        }
-
-        if (_pauseMenuDialog != null && GodotObject.IsInstanceValid(_pauseMenuDialog) && !_pauseMenuRestorePending)
-        {
-            _pauseMenuRestorePending = true;
-            CallDeferred(nameof(RestorePauseMenuAfterSettings));
-        }
-    }
-
-    private void RestorePauseMenuAfterSettings()
-    {
-        _pauseMenuRestorePending = false;
-        if (_pauseMenuDialog != null && GodotObject.IsInstanceValid(_pauseMenuDialog))
-        {
-            _pauseMenuDialog.PopupCentered();
-        }
-    }
-
-    private void OnPauseQuitRequested()
-    {
-        CleanupPauseMenu();
-        ReturnToMainMenu();
-    }
-
-    private void ShowLoadMenu()
-    {
-        if (_gameManager.IsInNpcInteraction)
-        {
-            GD.PrintErr("Load blocked: NPC interaction in progress.");
-            ShowSaveError("Cannot load during NPC interaction.", "Load Failed");
-            return;
-        }
-
-        if (_gameManager.IsInWorldInteraction)
-        {
-            GD.PrintErr("Save/load blocked: world interaction in progress.");
-            ShowSaveError("Cannot save or load while opening treasure.", "Load Failed");
-            return;
-        }
-
-        CleanupSaveDialog();
-
-        _saveLoadDialog = new SaveLoadDialog();
-        GetNode("UI").AddChild(_saveLoadDialog);
-        _saveLoadDialog.LoadSlotSelected += OnInGameLoadSlotSelected;
-        _saveLoadDialog.DialogClosed += OnSaveDialogClosed;
-        _saveLoadDialog.MainMenuRequested += OnMainMenuRequested;
-        _saveLoadDialog.ShowDialog(SaveLoadDialog.DialogMode.Load);
-    }
-
-    private void OnInGameLoadSlotSelected(int slot)
-    {
-        if (_gameManager.IsInWorldInteraction)
-        {
-            GD.PrintErr("Save/load blocked: world interaction in progress.");
-            CleanupSaveDialogAndRestorePause();
-            ShowSaveError("Cannot save or load while opening treasure.", "Load Failed");
-            return;
-        }
-
-        var saveData = slot == 3
-            ? SaveManager.Instance?.LoadAutosave()
-            : SaveManager.Instance?.LoadGame(slot);
-
-        if (saveData == null || SaveManager.Instance == null)
-        {
-            CleanupSaveDialogAndRestorePause();
-            ShowSaveError("Failed to load save file.", "Load Failed");
-            return;
-        }
-
-        SaveManager.Instance.PendingLoadData = saveData;
-        _saveLoadFromPause = false;
-        CleanupSaveDialog();
-        RequestSceneChange(GameScenePath);
-    }
-
     private void ShowSaveError(string message, string title = "Save Failed")
     {
         // Dismiss any previous error popup before creating a new one.
@@ -2645,17 +2264,6 @@ public partial class Game : Node2D
 
         CleanupPuzzleRiddleDialog(endWorldInteraction: false);
 
-        // Clean up save dialog if it exists
-        if (_saveLoadDialog != null)
-        {
-            _saveLoadDialog.SaveSlotSelected -= OnSaveSlotSelected;
-            _saveLoadDialog.LoadSlotSelected -= OnInGameLoadSlotSelected;
-            _saveLoadDialog.DialogClosed -= OnSaveDialogClosed;
-            _saveLoadDialog.MainMenuRequested -= OnMainMenuRequested;
-            _saveLoadDialog.QueueFree();
-            _saveLoadDialog = null;
-        }
-
         // Clean up error popup if it exists
         if (_activeErrorPopup != null && IsInstanceValid(_activeErrorPopup))
         {
@@ -2664,26 +2272,6 @@ public partial class Game : Node2D
         }
 
         CleanupBattleManager();
-
-        if (_pauseMenuDialog != null)
-        {
-            _pauseMenuDialog.ResumeRequested -= OnPauseResumeRequested;
-            _pauseMenuDialog.SaveRequested -= OnPauseSaveRequested;
-            _pauseMenuDialog.LoadRequested -= OnPauseLoadRequested;
-            _pauseMenuDialog.SettingsRequested -= OnPauseSettingsRequested;
-            _pauseMenuDialog.QuitToMenuRequested -= OnPauseQuitRequested;
-            if (GodotObject.IsInstanceValid(_pauseMenuDialog))
-                _pauseMenuDialog.QueueFree();
-            _pauseMenuDialog = null;
-        }
-
-        if (_settingsMenu != null)
-        {
-            _settingsMenu.Closed -= OnPauseSettingsClosed;
-            if (GodotObject.IsInstanceValid(_settingsMenu))
-                _settingsMenu.QueueFree();
-            _settingsMenu = null;
-        }
 
         if (_inventoryMenu != null)
         {

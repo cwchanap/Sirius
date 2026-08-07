@@ -101,10 +101,11 @@ public partial class GameInputLifecycleTest : Node
         RestoreSettingsOverrides();
         sceneTree.Paused = _treeWasPaused;
     }
-
     [TestCase]
-    public async Task BattleResultCancelIsHandledAndClosesResultWithoutOpeningPause()
+    public async Task RootCancel_BattleResultClosesNativeDialogWithoutOpeningHostedPause()
     {
+        await ReplaceWithHostedLifecycleFixture();
+
         var scene = GD.Load<PackedScene>("res://scenes/ui/BattleScene.tscn")
             ?? throw new InvalidOperationException("Failed to load BattleScene.tscn.");
         var battle = scene.Instantiate<BattleManager>();
@@ -116,43 +117,76 @@ public partial class GameInputLifecycleTest : Node
         AssertThat(_gameManager!.IsInBattle).IsFalse();
 
         PushPauseEvent();
+        await AwaitFrames(1);
 
+        var host = _game.GetNode<UIScreenHost>("UI/UIScreenHost");
         AssertThat(_viewport!.IsInputHandled()).IsTrue();
-        AssertThat(battle.Visible).IsFalse();
-        AssertThat(GetPrivateField<PauseMenuDialog?>(_game!, "_pauseMenuDialog")).IsNull();
+        AssertThat(GodotObject.IsInstanceValid(battle)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
     }
 
     [TestCase]
-    public void PauseRestorePending_ConsumesWithoutChangingVisibleStack()
+    public async Task RootCancel_ErrorDismissesBeforeOpeningHostedPause()
     {
-        SetPrivateField(_game!, "_pauseMenuRestorePending", true);
+        await ReplaceWithHostedLifecycleFixture();
 
-        PushPauseEvent();
-
-        AssertThat(_viewport!.IsInputHandled()).IsTrue();
-        AssertThat(GetPrivateField<PauseMenuDialog?>(_game!, "_pauseMenuDialog")).IsNull();
-    }
-
-    [TestCase]
-    public void ErrorCancel_DismissesOnlyErrorAndLeavesPauseVisible()
-    {
-        var pause = new PauseMenuDialog();
         var error = new AcceptDialog();
-        _game!.GetNode<CanvasLayer>("UI").AddChild(pause);
-        _game.GetNode<CanvasLayer>("UI").AddChild(error);
-        pause.PopupCentered();
-        error.PopupCentered();
-        SetPrivateField(_game, "_pauseMenuDialog", pause);
-        SetPrivateField(_game, "_activeErrorPopup", error);
+        SetPrivateField(_game!, "_activeErrorPopup", error);
 
         PushPauseEvent();
+        await AwaitFrames(1);
 
+        var host = _game.GetNode<UIScreenHost>("UI/UIScreenHost");
         AssertThat(_viewport!.IsInputHandled()).IsTrue();
         AssertThat(GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup")).IsNull();
-        AssertThat(pause.Visible).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
     }
 
     [TestCase]
+    public async Task RootCancel_BattleWithoutDialogEndsBattleWithoutOpeningHostedPause()
+    {
+        await ReplaceWithHostedLifecycleFixture();
+        _gameManager!.StartBattle(Enemy.CreateGoblin());
+
+        PushPauseEvent();
+        await AwaitFrames(1);
+
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        AssertThat(_viewport!.IsInputHandled()).IsTrue();
+        AssertThat(_gameManager.IsInBattle).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+    }
+
+    [TestCase]
+    public async Task RootCancel_WorldInteractionConsumesWithoutOpeningHostedPause()
+    {
+        await ReplaceWithHostedLifecycleFixture();
+        _gameManager!.StartWorldInteraction();
+
+        PushPauseEvent();
+        await AwaitFrames(1);
+
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        AssertThat(_viewport!.IsInputHandled()).IsTrue();
+        AssertThat(_gameManager.IsInWorldInteraction).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+    }
+
+    [TestCase]
+    public async Task RootCancel_NpcInteractionDeclinesForNativeHandler()
+    {
+        await ReplaceWithHostedLifecycleFixture();
+        _gameManager!.StartNpcInteraction();
+
+        PushPauseEvent();
+        await AwaitFrames(1);
+
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        AssertThat(_viewport!.IsInputHandled()).IsFalse();
+        AssertThat(_gameManager.IsInNpcInteraction).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+    }
+
     public async Task ConfiguredKeyboardCancel_ClosesAcceptDialogExactlyOnce()
     {
         ConfigureCancelBindings(Key.P);
@@ -223,7 +257,7 @@ public partial class GameInputLifecycleTest : Node
     }
 
     [TestCase]
-    public async Task ConfiguredKeyboardCancel_ClosesTopmostRiddleAndRestoresGameplay()
+    public async Task ConfiguredKeyboardCancel_DeclinesToTopmostRiddleWithoutOpeningHostedPause()
     {
         ConfigureCancelBindings(Key.P);
         _viewport!.GuiEmbedSubwindows = true;
@@ -276,7 +310,8 @@ public partial class GameInputLifecycleTest : Node
         AssertThat(GetPrivateField<PuzzleRiddleDialog?>(_realGame, "_puzzleRiddleDialog")).IsNull();
         AssertThat(gameManager.IsInWorldInteraction).IsFalse();
         AssertThat(prompt.Visible).IsTrue();
-        AssertThat(GetPrivateField<PauseMenuDialog?>(_realGame, "_pauseMenuDialog")).IsNull();
+        AssertThat(_realGame.GetNode<UIScreenHost>("UI/UIScreenHost")
+            .IsKindActive(UIScreenKinds.Pause)).IsFalse();
     }
 
     [TestCase]
@@ -476,6 +511,28 @@ public partial class GameInputLifecycleTest : Node
             _gameManager = null;
         }
 
+        await AwaitFrames(2);
+    }
+
+    private async Task ReplaceWithHostedLifecycleFixture()
+    {
+        await FreeLifecycleFixture();
+
+        var hostScene = GD.Load<PackedScene>("res://scenes/ui/UIScreenHost.tscn")
+            ?? throw new InvalidOperationException("Failed to load UIScreenHost.tscn.");
+        var game = new LifecycleGame();
+        var ui = new CanvasLayer { Name = "UI" };
+        ui.AddChild(new Control { Name = "GameUI" });
+        ui.AddChild(hostScene.Instantiate<UIScreenHost>());
+        game.AddChild(ui);
+
+        var gameManager = new LifecycleGameManager();
+        game.AddChild(gameManager);
+        SetPrivateField(game, "_gameManager", gameManager);
+
+        _game = game;
+        _gameManager = gameManager;
+        _viewport!.AddChild(game);
         await AwaitFrames(2);
     }
 

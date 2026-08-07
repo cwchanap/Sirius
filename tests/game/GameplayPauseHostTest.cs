@@ -244,6 +244,43 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
+    public async Task RootPause_FreedGameplayFocusTargetCompletesRestorationWithoutLease()
+    {
+        // A stale focus record must not throw while Pause closes or strand the
+        // host in its temporary cancel-blocking restoration state.
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameUi = _game.GetNode<Control>("UI/GameUI");
+        var gameplayFocusTarget = new Control
+        {
+            Name = "FreedGameplayFocusTarget",
+            FocusMode = Control.FocusModeEnum.All,
+            CustomMinimumSize = Vector2.One
+        };
+        gameUi.AddChild(gameplayFocusTarget);
+        await AwaitFrames(1);
+
+        gameplayFocusTarget.GrabFocus();
+        AssertThat(_viewport!.GuiGetFocusOwner()).IsEqual(gameplayFocusTarget);
+
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+
+        gameplayFocusTarget.Free();
+        AssertThat(GodotObject.IsInstanceValid(gameplayFocusTarget)).IsFalse();
+
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%ResumeButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(3);
+
+        AssertThat(host.ActiveEntries.Count).IsEqual(0);
+        AssertThat(host.CurrentState.IsFocusRestorationPending).IsFalse();
+        AssertThat(host.Diagnostics.RestorationLease).IsNull();
+        AssertThat(host.Diagnostics.StateLeases.IncomingPaused).IsNull();
+        AssertThat(tree.Paused).IsFalse();
+    }
+
+    [TestCase]
     public async Task PauseChildInventory_HostsLogicalPauseChildAndRestoresExistingPause()
     {
         var tree = (SceneTree)Engine.GetMainLoop();
@@ -317,6 +354,52 @@ public partial class GameplayPauseHostTest : Node
 
         AssertThat(GodotObject.IsInstanceValid(settings)).IsFalse();
         AssertHostedChildReturnedToSamePause(host, pause, pauseEntry.Handle, settingsButton);
+    }
+
+    [TestCase]
+    public async Task HostPrepareForTeardown_WithHostedSettingsClosesDescendantsAndRestoresLeases()
+    {
+        // Teardown must cascade Pause's hosted child, release its root pause
+        // ownership, and leave no lease behind for a later scene replacement.
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameUi = _game.GetNode<Control>("UI/GameUI");
+        var incomingHudVisible = gameUi.Visible;
+        var incomingMouseMode = Input.MouseMode;
+
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%SettingsButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var settings = FindDirectChild<SettingsMenuController>(host.GetNode<Control>("ModalLayer"));
+        AssertThat(host.ActiveEntries.Count).IsEqual(2);
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Settings)).IsTrue();
+        AssertThat(tree.Paused).IsTrue();
+        AssertThat(Input.MouseMode).IsEqual(Input.MouseModeEnum.Visible);
+
+        var preparation = host.PrepareForTeardown();
+        await AwaitFrames(3);
+
+        AssertThat(preparation).IsEqual(UIScreenTeardownPreparationStatus.Complete);
+        AssertThat(host.ActiveEntries.Count).IsEqual(0);
+        AssertThat(host.CurrentState.IsTreePauseOwned).IsFalse();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsFalse();
+        AssertThat(host.CurrentState.IsFocusRestorationPending).IsFalse();
+        AssertThat(host.Diagnostics.RestorationLease).IsNull();
+        AssertThat(host.Diagnostics.StateLeases.IncomingPaused).IsNull();
+        AssertThat(host.Diagnostics.StateLeases.IncomingCursorMode).IsNull();
+        AssertThat(host.Diagnostics.StateLeases.IncomingHudVisible).IsNull();
+        AssertThat(tree.Paused).IsFalse();
+        AssertThat(Input.MouseMode).IsEqual(incomingMouseMode);
+        AssertThat(gameUi.Visible).IsEqual(incomingHudVisible);
+        AssertThat(GetGamePrivateField<PauseScreenController?>(_game, "_pauseScreen")).IsNull();
+        AssertThat(GetGamePrivateField<SettingsMenuController?>(_game, "_hostedSettingsMenu")).IsNull();
+        AssertThat(GodotObject.IsInstanceValid(pause)).IsFalse();
+        AssertThat(GodotObject.IsInstanceValid(settings)).IsFalse();
     }
 
     [TestCase]

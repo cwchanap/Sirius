@@ -1045,7 +1045,7 @@ Expected: selected tests PASS; Pause freezes gameplay while host Cancel still re
 
 ---
 
-## Task 9: Harden physical Cancel, restoration, and teardown regressions without new abstractions
+## Task 9: Harden physical Cancel, restoration, and teardown regressions
 
 **Files:**
 - Modify: `tests/game/GameInputLifecycleTest.cs`
@@ -1096,12 +1096,14 @@ dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifie
 
 Expected: selected tests PASS.
 
-- [ ] **Step 4: Commit only if test/code changes were needed**
+- [ ] **Step 4: Commit the regression coverage**
 
 ```bash
 git add tests/game/GameInputLifecycleTest.cs tests/game/GameplayPauseHostTest.cs scripts/game/Game.cs
 git commit -m "test(ui): lock gameplay pause lifecycle"
 ```
+
+If `scripts/game/Game.cs` did not change, omit it from `git add`; the commit still contains the new regression tests.
 
 ---
 

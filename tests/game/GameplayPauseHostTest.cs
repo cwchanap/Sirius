@@ -416,6 +416,47 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
+    public async Task PauseChildReturnConfirmation_ConfirmRoutesThroughReturnToMainMenuOnce()
+    {
+        var navigationGame = await CreateReturnTrackingGame();
+        try
+        {
+            var host = navigationGame.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+            AssertThat(InvokeGamePrivateBool(navigationGame, "TryOpenPause")).IsTrue();
+            await AwaitFrames(2);
+
+            var pause = GetGamePrivateField<PauseScreenController>(
+                navigationGame,
+                "_pauseScreen");
+            pause.GetNode<Button>("%ReturnToTitleButton")
+                .EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+
+            var confirmation = FindDirectChild<PauseReturnToTitleConfirmationController>(
+                host.GetNode<Control>("ModalLayer"));
+            var confirmButton = confirmation.GetNode<Button>("%ReturnToTitleButton");
+
+            // The first press routes through Game.ReturnToMainMenu(), which starts
+            // host teardown and disconnects the confirmation. A duplicate press in
+            // the same frame must not create a second navigation request.
+            confirmButton.EmitSignal(Button.SignalName.Pressed);
+            confirmButton.EmitSignal(Button.SignalName.Pressed);
+
+            AssertThat(navigationGame.ReturnToMainMenuRequests).IsEqual(1);
+            AssertThat(GetGamePrivateField<bool>(navigationGame, "_sceneChangeCommitted")).IsTrue();
+            AssertThat(host.ActiveEntries.Count).IsEqual(0);
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(navigationGame))
+                navigationGame.Free();
+
+            await AwaitFrames(2);
+        }
+    }
+
+    [TestCase]
     public async Task PauseChildInventory_ToggleInventoryClosesOnlyTheHostedChild()
     {
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
@@ -558,6 +599,20 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(GetPrivateField<PauseScreenController>(_game!, "_pauseScreen")).IsEqual(pause);
     }
 
+    private async Task<ReturnTrackingGame> CreateReturnTrackingGame()
+    {
+        var hostScene = GD.Load<PackedScene>("res://scenes/ui/UIScreenHost.tscn")
+            ?? throw new InvalidOperationException("Failed to load UIScreenHost.tscn.");
+        var game = new ReturnTrackingGame();
+        var ui = new CanvasLayer { Name = "UI" };
+        ui.AddChild(new Control { Name = "GameUI" });
+        ui.AddChild(hostScene.Instantiate<UIScreenHost>());
+        game.AddChild(ui);
+        _viewport!.AddChild(game);
+        await AwaitFrames(2);
+        return game;
+    }
+
     private static UIScreenEntrySnapshot FindEntry(UIScreenHost host, StringName kind)
     {
         foreach (var entry in host.ActiveEntries)
@@ -598,6 +653,17 @@ public partial class GameplayPauseHostTest : Node
         return (T)field.GetValue(instance)!;
     }
 
+    private static T GetGamePrivateField<T>(Game game, string fieldName)
+    {
+        var field = typeof(Game).GetField(
+            fieldName,
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        if (field == null)
+            throw new MissingFieldException(typeof(Game).FullName, fieldName);
+
+        return (T)field.GetValue(game)!;
+    }
+
     private static void InvokePrivateVoid(
         object instance,
         string methodName,
@@ -624,5 +690,34 @@ public partial class GameplayPauseHostTest : Node
             return result;
 
         throw new InvalidOperationException($"Method '{methodName}' did not return bool.");
+    }
+
+    private static bool InvokeGamePrivateBool(Game game, string methodName)
+    {
+        var method = typeof(Game).GetMethod(
+            methodName,
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        if (method == null)
+            throw new MissingMethodException(typeof(Game).FullName, methodName);
+
+        if (method.Invoke(game, null) is bool result)
+            return result;
+
+        throw new InvalidOperationException($"Method '{methodName}' did not return bool.");
+    }
+
+    private partial class ReturnTrackingGame : Game
+    {
+        public int ReturnToMainMenuRequests { get; private set; }
+
+        protected override void ReturnToMainMenu()
+        {
+            ReturnToMainMenuRequests++;
+            base.ReturnToMainMenu();
+        }
+
+        public override void _Ready()
+        {
+        }
     }
 }

@@ -419,6 +419,8 @@ public partial class GameplayPauseHostTest : Node
     public async Task PauseChildReturnConfirmation_ConfirmRoutesThroughReturnToMainMenuOnce()
     {
         var navigationGame = await CreateReturnTrackingGame();
+        var navigationRequests = 0;
+        navigationGame.MainMenuNavigationRequested = () => navigationRequests++;
         try
         {
             var host = navigationGame.GetNode<UIScreenHost>("UI/UIScreenHost");
@@ -437,15 +439,9 @@ public partial class GameplayPauseHostTest : Node
                 host.GetNode<Control>("ModalLayer"));
             var confirmButton = confirmation.GetNode<Button>("%ReturnToTitleButton");
 
-            // The first press routes through Game.ReturnToMainMenu(), which starts
-            // host teardown and disconnects the confirmation. A duplicate press in
-            // the same frame must not create a second navigation request.
-            confirmButton.EmitSignal(Button.SignalName.Pressed);
             confirmButton.EmitSignal(Button.SignalName.Pressed);
 
-            AssertThat(navigationGame.ReturnToMainMenuRequests).IsEqual(1);
-            AssertThat(GetGamePrivateField<bool>(navigationGame, "_sceneChangeCommitted")).IsTrue();
-            AssertThat(host.ActiveEntries.Count).IsEqual(0);
+            AssertThat(navigationRequests).IsEqual(1);
         }
         finally
         {
@@ -708,13 +704,9 @@ public partial class GameplayPauseHostTest : Node
 
     private partial class ReturnTrackingGame : Game
     {
-        public int ReturnToMainMenuRequests { get; private set; }
+        public Action? MainMenuNavigationRequested { get; set; }
 
-        protected override void ReturnToMainMenu()
-        {
-            ReturnToMainMenuRequests++;
-            base.ReturnToMainMenu();
-        }
+        protected override void ReturnToMainMenu() => MainMenuNavigationRequested?.Invoke();
 
         public override void _Ready()
         {

@@ -535,6 +535,40 @@ public partial class GameplayPauseHostTest : Node
         }
     }
 
+    // Protects the one-shot navigation guarantee in Game.RequestSceneChange:
+    // once _sceneChangeCommitted is armed, a second request must not overwrite
+    // _pendingScenePath or re-enter the teardown-driven scene change. The
+    // sibling ReturnToTitle confirmation test above overrides ReturnToMainMenu
+    // and only presses Confirm once, so it never reaches this guard. This test
+    // arms the guard directly and asserts the second commit is suppressed.
+    [TestCase]
+    public async Task RequestSceneChange_OneShotGuardSuppressesRepeatCommit()
+    {
+        var navigationGame = await CreateReturnTrackingGame();
+        try
+        {
+            // Arm the one-shot guard as if a prior request already committed,
+            // and record the pending path that commit established.
+            SetPrivateField(navigationGame, "_sceneChangeCommitted", true);
+            SetPrivateField(navigationGame, "_pendingScenePath", "res://first.tscn");
+
+            // A second request must be suppressed by the guard without
+            // overwriting the pending path or re-entering the scene change.
+            InvokePrivateVoid(navigationGame, "RequestSceneChange", "res://second.tscn");
+
+            AssertThat(GetPrivateField<bool>(navigationGame, "_sceneChangeCommitted"))
+                .IsTrue();
+            AssertThat(GetPrivateField<string>(navigationGame, "_pendingScenePath"))
+                .IsEqual("res://first.tscn");
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(navigationGame))
+                navigationGame.Free();
+            await AwaitFrames(2);
+        }
+    }
+
     [TestCase]
     public async Task PauseChildInventory_ToggleInventoryClosesOnlyTheHostedChild()
     {
@@ -788,14 +822,25 @@ public partial class GameplayPauseHostTest : Node
         return (T)field.GetValue(instance)!;
     }
 
+    private static void SetPrivateField(object instance, string fieldName, object? value)
+    {
+        var field = ResolvePrivateMember(
+            instance.GetType(),
+            (type, flags) => type.GetField(fieldName, flags));
+        if (field == null)
+            throw new MissingFieldException(instance.GetType().FullName, fieldName);
+
+        field.SetValue(instance, value);
+    }
+
     private static void InvokePrivateVoid(
         object instance,
         string methodName,
         params object?[] arguments)
     {
-        var method = instance.GetType().GetMethod(
-            methodName,
-            BindingFlags.NonPublic | BindingFlags.Instance);
+        var method = ResolvePrivateMember(
+            instance.GetType(),
+            (type, flags) => type.GetMethod(methodName, flags));
         if (method == null)
             throw new MissingMethodException(instance.GetType().FullName, methodName);
 

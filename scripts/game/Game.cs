@@ -1991,6 +1991,13 @@ public partial class Game : Node2D
 
     private void ContinueSceneChangeAfterUiTeardown()
     {
+        // This method may be re-entered via CallDeferred; by the time the
+        // deferred callback fires the Game node may have been detached or
+        // freed (e.g., during defeat return or rapid navigation). Match the
+        // guard used by OnDefeatReturnTimeout and skip navigation safely.
+        if (!IsInsideTree())
+            return;
+
         if (_screenHost != null && IsInstanceValid(_screenHost) &&
             _screenHost.PrepareForTeardown() == UIScreenTeardownPreparationStatus.Deferred)
         {

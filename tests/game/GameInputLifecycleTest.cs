@@ -346,7 +346,7 @@ public partial class GameInputLifecycleTest : Node
             ReleasePhysicalJoypadButton(controllerButton);
         }
 
-        PushPhysicalJoypadButton(controllerButton);
+        PushPhysicalJoypadButtonPressAndRelease(controllerButton);
         await AwaitFrames(2);
 
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
@@ -402,9 +402,8 @@ public partial class GameInputLifecycleTest : Node
         finally
         {
             ReleasePhysicalKey(Key.P);
+            resolution.GetPopup().Hide();
         }
-
-        resolution.GetPopup().Hide();
     }
 
     [TestCase]
@@ -467,9 +466,9 @@ public partial class GameInputLifecycleTest : Node
             await AwaitFrames(1);
             AssertThat(_viewport.GetEmbeddedSubwindows().Count).IsEqual(1);
 
-            PushPhysicalJoypadButton((JoyButton)10);
+            PushPhysicalJoypadButtonPressAndRelease((JoyButton)10);
             await AwaitFrames(1);
-            PushPhysicalJoypadButton((JoyButton)10);
+            PushPhysicalJoypadButtonPressAndRelease((JoyButton)10);
 
             AssertThat(closedCount).IsEqual(1);
             AssertThat(dialog.Visible).IsFalse();
@@ -722,7 +721,7 @@ public partial class GameInputLifecycleTest : Node
         });
     }
 
-    private void PushPhysicalJoypadButton(JoyButton button)
+    private void PushPhysicalJoypadButtonPressAndRelease(JoyButton button)
     {
         var pressedEvent = new InputEventJoypadButton
         {

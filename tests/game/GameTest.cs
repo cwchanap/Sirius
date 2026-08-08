@@ -100,6 +100,15 @@ public partial class GameTest : Node
         AssertThat(host.ActiveEntries[0].Policy.ProcessPolicy)
             .IsEqual(UIProcessPolicy.WhenPaused);
         AssertThat(host.ActiveEntries[0].Policy.PauseTree).IsTrue();
+
+        // Clean up the hosted Pause entry through the host and restore the tree
+        // so later tests do not inherit an active screen or a paused tree.
+        var closeResult = host.TryClose(
+            host.ActiveEntries[0].Handle,
+            UIScreenCloseReason.ExplicitAction);
+        AssertThat(closeResult.Status).IsEqual(UIScreenCloseStatus.Closed);
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
     }
 
     [TestCase]

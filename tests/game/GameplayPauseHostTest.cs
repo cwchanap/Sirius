@@ -396,8 +396,8 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(tree.Paused).IsFalse();
         AssertThat(Input.MouseMode).IsEqual(incomingMouseMode);
         AssertThat(gameUi.Visible).IsEqual(incomingHudVisible);
-        AssertThat(GetGamePrivateField<PauseScreenController?>(_game, "_pauseScreen")).IsNull();
-        AssertThat(GetGamePrivateField<SettingsMenuController?>(_game, "_hostedSettingsMenu")).IsNull();
+        AssertThat(GetPrivateField<PauseScreenController?>(_game, "_pauseScreen")).IsNull();
+        AssertThat(GetPrivateField<SettingsMenuController?>(_game, "_hostedSettingsMenu")).IsNull();
         AssertThat(GodotObject.IsInstanceValid(pause)).IsFalse();
         AssertThat(GodotObject.IsInstanceValid(settings)).IsFalse();
     }
@@ -499,7 +499,7 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
-    public async Task PauseChildReturnConfirmation_ConfirmRoutesThroughReturnToMainMenuOnce()
+    public async Task PauseChildReturnConfirmation_ConfirmRoutesThroughReturnToMainMenuOnSinglePress()
     {
         var navigationGame = await CreateReturnTrackingGame();
         var navigationRequests = 0;
@@ -508,10 +508,10 @@ public partial class GameplayPauseHostTest : Node
         {
             var host = navigationGame.GetNode<UIScreenHost>("UI/UIScreenHost");
 
-            AssertThat(InvokeGamePrivateBool(navigationGame, "TryOpenPause")).IsTrue();
+            AssertThat(InvokePrivateBool(navigationGame, "TryOpenPause")).IsTrue();
             await AwaitFrames(2);
 
-            var pause = GetGamePrivateField<PauseScreenController>(
+            var pause = GetPrivateField<PauseScreenController>(
                 navigationGame,
                 "_pauseScreen");
             pause.GetNode<Button>("%ReturnToTitleButton")
@@ -779,24 +779,13 @@ public partial class GameplayPauseHostTest : Node
 
     private static T GetPrivateField<T>(object instance, string fieldName)
     {
-        var field = instance.GetType().GetField(
-            fieldName,
-            BindingFlags.NonPublic | BindingFlags.Instance);
+        var field = ResolvePrivateMember(
+            instance.GetType(),
+            (type, flags) => type.GetField(fieldName, flags));
         if (field == null)
             throw new MissingFieldException(instance.GetType().FullName, fieldName);
 
         return (T)field.GetValue(instance)!;
-    }
-
-    private static T GetGamePrivateField<T>(Game game, string fieldName)
-    {
-        var field = typeof(Game).GetField(
-            fieldName,
-            BindingFlags.NonPublic | BindingFlags.Instance);
-        if (field == null)
-            throw new MissingFieldException(typeof(Game).FullName, fieldName);
-
-        return (T)field.GetValue(game)!;
     }
 
     private static void InvokePrivateVoid(
@@ -815,9 +804,9 @@ public partial class GameplayPauseHostTest : Node
 
     private static bool InvokePrivateBool(object instance, string methodName)
     {
-        var method = instance.GetType().GetMethod(
-            methodName,
-            BindingFlags.NonPublic | BindingFlags.Instance);
+        var method = ResolvePrivateMember(
+            instance.GetType(),
+            (type, flags) => type.GetMethod(methodName, flags));
         if (method == null)
             throw new MissingMethodException(instance.GetType().FullName, methodName);
 
@@ -827,18 +816,24 @@ public partial class GameplayPauseHostTest : Node
         throw new InvalidOperationException($"Method '{methodName}' did not return bool.");
     }
 
-    private static bool InvokeGamePrivateBool(Game game, string methodName)
+    // Walks the instance type's base-type chain so private members declared on
+    // a base class (e.g. Game fields reached through a ReturnTrackingGame
+    // subclass) are resolved without a Game-specific overload. DeclaredOnly
+    // ensures each level contributes only its own members.
+    private static TMember? ResolvePrivateMember<TMember>(
+        Type type,
+        Func<Type, BindingFlags, TMember?> select)
+        where TMember : class
     {
-        var method = typeof(Game).GetMethod(
-            methodName,
-            BindingFlags.NonPublic | BindingFlags.Instance);
-        if (method == null)
-            throw new MissingMethodException(typeof(Game).FullName, methodName);
-
-        if (method.Invoke(game, null) is bool result)
-            return result;
-
-        throw new InvalidOperationException($"Method '{methodName}' did not return bool.");
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            var member = select(
+                current,
+                BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+            if (member != null)
+                return member;
+        }
+        return null;
     }
 
     private sealed partial class PausableProbe : Node

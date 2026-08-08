@@ -55,7 +55,6 @@ public partial class Game : Node2D
     private const string GameScenePath = "res://scenes/game/Game.tscn";
     private string? _pendingScenePath;
     private bool _sceneChangeCommitted;
-    private bool _sceneChangeRetryScheduled;
 
     protected virtual double DefeatReturnDelaySeconds => 2.0;
 
@@ -300,53 +299,30 @@ public partial class Game : Node2D
             ClearInventoryHandle();
         }
 
-        var spec = parent.HasValue
-            ? new UIScreenEntrySpec
+        var hasParent = parent.HasValue;
+        var spec = new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.Inventory,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Modal,
+            ProcessPolicy = hasParent ? UIProcessPolicy.Always : UIProcessPolicy.WhenPaused,
+            Parent = hasParent ? parent : null,
+            PauseTree = !hasParent,
+            BlockGameplayInput = !hasParent,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Inherit,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Close,
+            EntryCancelActions = new HashSet<StringName> { "toggle_inventory" },
+            InitialFocus = () => _inventoryMenu.InitialFocusTarget,
+            SetPresented = visible =>
             {
-                Kind = UIScreenKinds.Inventory,
-                Layer = UIScreenLayer.Modal,
-                InputPriority = UIInputPriority.Modal,
-                ProcessPolicy = UIProcessPolicy.Always,
-                Parent = parent,
-                PauseTree = false,
-                BlockGameplayInput = false,
-                Cursor = UICursorPolicy.Visible,
-                Hud = UIHudPolicy.Inherit,
-                LowerLayers = UILowerLayerPolicy.VisibleInert,
-                Cancel = UICancelPolicy.Close,
-                EntryCancelActions = new HashSet<StringName> { "toggle_inventory" },
-                InitialFocus = () => _inventoryMenu.InitialFocusTarget,
-                SetPresented = visible =>
-                {
-                    if (visible) _inventoryMenu.OpenMenu();
-                    else _inventoryMenu.CloseMenu();
-                },
-                Cleanup = _ => ClearInventoryHandle(),
-                NodeLifetime = UINodeLifetime.External
-            }
-            : new UIScreenEntrySpec
-            {
-                Kind = UIScreenKinds.Inventory,
-                Layer = UIScreenLayer.Modal,
-                InputPriority = UIInputPriority.Modal,
-                ProcessPolicy = UIProcessPolicy.WhenPaused,
-                Parent = null,
-                PauseTree = true,
-                BlockGameplayInput = true,
-                Cursor = UICursorPolicy.Visible,
-                Hud = UIHudPolicy.Inherit,
-                LowerLayers = UILowerLayerPolicy.VisibleInert,
-                Cancel = UICancelPolicy.Close,
-                EntryCancelActions = new HashSet<StringName> { "toggle_inventory" },
-                InitialFocus = () => _inventoryMenu.InitialFocusTarget,
-                SetPresented = visible =>
-                {
-                    if (visible) _inventoryMenu.OpenMenu();
-                    else _inventoryMenu.CloseMenu();
-                },
-                Cleanup = _ => ClearInventoryHandle(),
-                NodeLifetime = UINodeLifetime.External
-            };
+                if (visible) _inventoryMenu.OpenMenu();
+                else _inventoryMenu.CloseMenu();
+            },
+            Cleanup = _ => ClearInventoryHandle(),
+            NodeLifetime = UINodeLifetime.External
+        };
 
         var result = _screenHost.TryPresent(_inventoryMenu, spec);
         if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
@@ -882,12 +858,7 @@ public partial class Game : Node2D
         });
         if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
         {
-            screen.ResumeRequested -= OnHostedPauseResumeRequested;
-            screen.InventoryRequested -= OnHostedPauseInventoryRequested;
-            screen.SaveRequested -= OnHostedPauseSaveRequested;
-            screen.LoadRequested -= OnHostedPauseLoadRequested;
-            screen.SettingsRequested -= OnHostedPauseSettingsRequested;
-            screen.ReturnToTitleRequested -= OnHostedPauseReturnToTitleRequested;
+            ClearPausePresentation(screen);
             screen.QueueFree();
             return false;
         }
@@ -1961,6 +1932,9 @@ public partial class Game : Node2D
 
     private UIRootCancelResult HandleGameplayRootCancel(UIRootCancelContext _)
     {
+        if (_gameManager == null)
+            return UIRootCancelResult.Declined;
+
         if (_activeErrorPopup != null && IsInstanceValid(_activeErrorPopup))
         {
             _activeErrorPopup.QueueFree();
@@ -2017,16 +1991,10 @@ public partial class Game : Node2D
 
     private void ContinueSceneChangeAfterUiTeardown()
     {
-        _sceneChangeRetryScheduled = false;
-
         if (_screenHost != null && IsInstanceValid(_screenHost) &&
             _screenHost.PrepareForTeardown() == UIScreenTeardownPreparationStatus.Deferred)
         {
-            if (!_sceneChangeRetryScheduled)
-            {
-                _sceneChangeRetryScheduled = true;
-                Callable.From(ContinueSceneChangeAfterUiTeardown).CallDeferred();
-            }
+            Callable.From(ContinueSceneChangeAfterUiTeardown).CallDeferred();
             return;
         }
 
@@ -2064,6 +2032,10 @@ public partial class Game : Node2D
         var popup = new AcceptDialog();
         popup.Title = title;
         popup.DialogText = message;
+        // Process while paused: save/load errors surface beneath an active
+        // hosted Pause that owns the tree-pause lease, so the dialog must keep
+        // processing Confirmed/Canceled and direct button input.
+        popup.ProcessMode = ProcessModeEnum.Always;
         GetNode("UI").AddChild(popup);
         popup.PopupCentered();
         _activeErrorPopup = popup;
@@ -2276,6 +2248,10 @@ public partial class Game : Node2D
         if (_inventoryMenu != null)
         {
             _inventoryMenu.CloseRequested -= OnInventoryCloseRequested;
+            // Close the host entry before freeing the externally owned view so
+            // its UIScreenHost record is released cleanly while the node is
+            // still valid.
+            TryCloseInventory(UIScreenCloseReason.NodeFreed);
             if (GodotObject.IsInstanceValid(_inventoryMenu))
                 _inventoryMenu.QueueFree();
             _inventoryMenu = null!;

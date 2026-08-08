@@ -536,21 +536,31 @@ public partial class GameplayPauseHostTest : Node
     }
 
     // Protects the one-shot navigation guarantee in Game.RequestSceneChange:
-    // once _sceneChangeCommitted is armed, a second request must not overwrite
-    // _pendingScenePath or re-enter the teardown-driven scene change. The
-    // sibling ReturnToTitle confirmation test above overrides ReturnToMainMenu
-    // and only presses Confirm once, so it never reaches this guard. This test
-    // arms the guard directly and asserts the second commit is suppressed.
+    // the first request arms _sceneChangeCommitted, and any subsequent request
+    // must be suppressed without overwriting _pendingScenePath or re-entering
+    // the teardown-driven scene change. The sibling ReturnToTitle confirmation
+    // test above overrides ReturnToMainMenu and only presses Confirm once, so
+    // it never reaches this guard. This test drives the real first invocation
+    // (with an empty path so ContinueSceneChangeAfterUiTeardown skips the
+    // actual ChangeSceneToFile via its !string.IsNullOrEmpty(path) guard) and
+    // then asserts a second commit is suppressed.
     [TestCase]
     public async Task RequestSceneChange_OneShotGuardSuppressesRepeatCommit()
     {
         var navigationGame = await CreateReturnTrackingGame();
         try
         {
-            // Arm the one-shot guard as if a prior request already committed,
-            // and record the pending path that commit established.
-            SetPrivateField(navigationGame, "_sceneChangeCommitted", true);
-            SetPrivateField(navigationGame, "_pendingScenePath", "res://first.tscn");
+            // Drive the real first request. An empty path arms the one-shot
+            // guard through production code while ContinueSceneChangeAfterUiTeardown
+            // skips ChangeSceneToFile, so no scene swap occurs in the test host.
+            InvokePrivateVoid(navigationGame, "RequestSceneChange", "");
+
+            // The first request must have armed the guard. This catches a
+            // regression where the _sceneChangeCommitted assignment is removed
+            // from RequestSceneChange: without it, the second request below
+            // would proceed and overwrite the pending path.
+            AssertThat(GetPrivateField<bool>(navigationGame, "_sceneChangeCommitted"))
+                .IsTrue();
 
             // A second request must be suppressed by the guard without
             // overwriting the pending path or re-entering the scene change.
@@ -559,7 +569,7 @@ public partial class GameplayPauseHostTest : Node
             AssertThat(GetPrivateField<bool>(navigationGame, "_sceneChangeCommitted"))
                 .IsTrue();
             AssertThat(GetPrivateField<string>(navigationGame, "_pendingScenePath"))
-                .IsEqual("res://first.tscn");
+                .IsNull();
         }
         finally
         {

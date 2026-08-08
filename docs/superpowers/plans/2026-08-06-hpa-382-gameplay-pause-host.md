@@ -355,7 +355,6 @@ private const string MainMenuScenePath = "res://scenes/ui/MainMenu.tscn";
 private const string GameScenePath = "res://scenes/game/Game.tscn";
 private string? _pendingScenePath;
 private bool _sceneChangeCommitted;
-private bool _sceneChangeRetryScheduled;
 
 private void RequestSceneChange(string path)
 {
@@ -369,16 +368,10 @@ private void RequestSceneChange(string path)
 
 private void ContinueSceneChangeAfterUiTeardown()
 {
-    _sceneChangeRetryScheduled = false;
-
     if (_screenHost != null && IsInstanceValid(_screenHost) &&
         _screenHost.PrepareForTeardown() == UIScreenTeardownPreparationStatus.Deferred)
     {
-        if (!_sceneChangeRetryScheduled)
-        {
-            _sceneChangeRetryScheduled = true;
-            Callable.From(ContinueSceneChangeAfterUiTeardown).CallDeferred();
-        }
+        Callable.From(ContinueSceneChangeAfterUiTeardown).CallDeferred();
         return;
     }
 

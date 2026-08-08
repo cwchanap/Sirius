@@ -1993,9 +1993,11 @@ public partial class Game : Node2D
     {
         // This method may be re-entered via CallDeferred; by the time the
         // deferred callback fires the Game node may have been detached or
-        // freed (e.g., during defeat return or rapid navigation). Match the
-        // guard used by OnDefeatReturnTimeout and skip navigation safely.
-        if (!IsInsideTree())
+        // freed (e.g., during defeat return or rapid navigation). The
+        // Callable.From delegate keeps the C# wrapper alive after native
+        // teardown, so IsInsideTree() alone is an unsafe dereference on a
+        // disposed instance — validate the native object first.
+        if (!GodotObject.IsInstanceValid(this) || !IsInsideTree())
             return;
 
         if (_screenHost != null && IsInstanceValid(_screenHost) &&

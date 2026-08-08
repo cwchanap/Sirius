@@ -4,7 +4,7 @@
 
 **Goal:** Replace Sirius's runtime-built Settings layout with a scene-authored, themed, responsive screen while preserving all existing settings behavior and the HPA-382 gameplay-host lifecycle.
 
-**Architecture:** Keep `SettingsMenuController` as the single screen controller and `SettingsManager`/`SettingsData` as the existing domain owners. Move static controls and layout to `SettingsMenu.tscn`, bind those nodes from C#, reuse `SiriusModalShell` and the existing Theme, disable the shell's outer body scrolling for Settings, and let page-local scroll containers own overflow. Focus is applied exactly once by the invoking owner: `UIScreenHost` under Pause, direct `MainMenu` otherwise.
+**Architecture:** Keep `SettingsMenuController` as the single screen controller and `SettingsManager`/`SettingsData` as domain owners. Move static controls/layout to `SettingsMenu.tscn`, reuse `SiriusModalShell` for width/theme/composition, give Settings itself an explicit viewport-bounded panel height, and let page-local `ScrollContainer`s own overflow. Preserve the direct Main Menu invocation until HPA-380 adds the Main Menu host.
 
 **Tech Stack:** Godot 4.6.2, C#/.NET 8, GdUnit4, existing `SiriusModalShell`, Sirius Theme, and `UIScreenHost`.
 
@@ -13,42 +13,41 @@
 - Primary target is desktop landscape with mouse, keyboard, and gamepad.
 - Minimum supported logical resolution is 640×360.
 - Compact reflow is `SiriusUiMetrics.IsCompact(viewportSize)`; do not invent another breakpoint.
+- `SiriusUiMetrics.VerificationViewports` is the authoritative all-viewport list.
+- `SiriusUiMetrics.FocusVerificationViewports` is the authoritative detailed 640×360 / 1280×720 list.
 - Preserve Master, Music, and SFX volume; fullscreen; resolution; difficulty; autosave; Toggle Inventory, Interact, and Pause/Cancel bindings.
 - Preserve staged edits until Apply; Cancel discards staged edits.
 - Preserve custom/non-preset resolutions.
 - Preserve reserved-key and duplicate-key validation.
 - Preserve key-capture and `OptionButton` popup Cancel priority.
-- Preserve the default initial-focus outcome: Audio's master-volume slider.
 - `SettingsManager` remains the application/persistence owner.
-- The gameplay `UIScreenHost` remains the presentation-lifecycle and initial-focus owner under Pause.
-- Direct Main Menu remains responsible for its own initial-focus and return-focus handoff until HPA-380.
+- The gameplay `UIScreenHost` remains the hosted presentation-lifecycle owner under Pause.
+- `SiriusModalShell` remains a responsive-width component per HPA-377; do not add a shared height API in HPA-383.
 - HPA-380 owns the Main Menu `UIScreenHost`; do not add it here.
 - HPA-572 owns generic host-managed confirmations/warnings/errors; use themed inline Settings validation here.
-- HPA-541 owns Reduced Motion; do not add new settings in HPA-383.
-- Do not create a Settings view model, generic settings-row component family, navigation framework, or another modal shell.
-- Do not add hard-coded page-height math; use expand/fill containers and page-local scrolling.
-- `SiriusErrorPanel` may remain assigned to a `PanelContainer`: `Control.theme_type_variation` resolves an explicitly named variation before class fallback. Do not change Theme resources just to align the variation's declared base type.
-- Do not modify `SettingsData`, `SettingsManager`, `SiriusTheme.tres`, `SiriusModalShell`, or `scripts/ui/hosting/*` unless implementation proves the design impossible; reassess scope before doing so.
+- HPA-541 owns Reduced Motion; do not add new settings here.
+- Do not create a Settings view model, presenter, generic settings-row family, navigation framework, or another modal shell.
+- Do not modify `SettingsData`, `SettingsManager`, Sirius Theme resources, `SiriusModalShell`, or `scripts/ui/hosting/*` unless a failing HPA-383 acceptance test proves the design impossible; reassess scope before doing so.
 
 ---
 
 ## File map
 
 **Production**
-- Modify `scenes/ui/SettingsMenu.tscn` — canonical static Settings hierarchy, row/control cells, Sirius styling, page-local scrolling, and fixed actions.
-- Modify `scripts/ui/SettingsMenuController.cs` — scene-node binding, shell-scroll configuration, dynamic values, staged behavior, page selection, responsive reflow, and inline feedback.
-- Modify `scripts/game/Game.cs` — add the Settings initial-focus callback and remove the redundant second hosted `OpenSettings()` call.
-- Modify `scripts/ui/MainMenu.cs` — apply initial focus after direct open and restore focus to the existing Settings button after close.
+- Modify `scenes/ui/SettingsMenu.tscn` — canonical static Settings hierarchy, Sirius styling, row/control cells, page-local scrolling, fixed actions.
+- Modify `scripts/ui/SettingsMenuController.cs` — node binding, dynamic values, existing staged behavior, page selection, Settings-specific panel height, responsive reflow, inline feedback.
+- Modify `scripts/game/Game.cs` — add Settings `InitialFocus`; remove the redundant second hosted `OpenSettings()` call only.
+- Modify `scripts/ui/MainMenu.cs` — apply direct Settings initial focus and restore the existing Settings button on close.
 
 **Tests**
-- Create `tests/ui/SettingsMenuSceneTest.cs` — prove scene-authored controls/labels exist before `_Ready()` and verify scroll ownership, responsive structure, page selection, and viewport fit.
-- Modify `tests/ui/SettingsMenuControllerTest.cs` — preserve behavior coverage, replace obsolete focus ownership and old generic-panel sizing assumptions.
-- Modify `tests/game/GameplayPauseHostTest.cs` — verify hosted Settings initial focus and existing Cancel/cleanup behavior.
-- Modify `tests/ui/MainMenuTest.cs` — verify direct Settings initial focus and close restoration.
+- Create `tests/ui/SettingsMenuSceneTest.cs` — pre-`_Ready()` authorship, responsive/perceptual layout, scrolling, long-label, viewport-fit coverage.
+- Modify `tests/ui/SettingsMenuControllerTest.cs` — preserve behavior coverage and replace obsolete generic-panel/focus assumptions.
+- Modify `tests/game/GameplayPauseHostTest.cs` — hosted initial focus and existing Cancel/cleanup behavior.
+- Modify `tests/ui/MainMenuTest.cs` — direct initial focus and close restoration using the helpers that file already owns.
 
 ---
 
-### Task 1: Scene-author Settings and preserve controller/domain behavior
+## Task 1: Cut Settings over to a scene-authored control tree
 
 **Files:**
 - Create: `tests/ui/SettingsMenuSceneTest.cs`
@@ -57,15 +56,16 @@
 - Modify: `tests/ui/SettingsMenuControllerTest.cs`
 
 **Interfaces:**
-- Consumes: `SiriusModalShell`, `SiriusThemeTypes`, `SettingsData`, `SettingsManager`, and `OpenSettings(SettingsData? snapshot = null, bool showOverlay = true)`.
-- Produces: stable unique scene nodes, page selection on the authored scene, `SettingsMenuController.InitialFocusTarget`, the existing Settings behavior without runtime layout builders, and one explicit shell/page scroll boundary.
+- Consumes: existing `SiriusModalShell`, Theme variations, `SettingsData`, `SettingsManager`, `OpenSettings(SettingsData? snapshot = null, bool showOverlay = true)`.
+- Produces: stable unique nodes, `InitialFocusTarget`, existing Settings behavior without runtime layout builders, and reusable test fixture helpers for Task 2.
 
-- [ ] **Step 1: Add the failing pre-`_Ready()` scene-authorship contract**
+- [ ] **Step 1: Create the scene-test fixture and failing authorship contract**
 
-Create `tests/ui/SettingsMenuSceneTest.cs`:
+Create `tests/ui/SettingsMenuSceneTest.cs` with the runtime fixture up front so later task snippets compile literally:
 
 ```csharp
 using System.Reflection;
+using System.Threading.Tasks;
 using GdUnit4;
 using Godot;
 using static GdUnit4.Assertions;
@@ -74,6 +74,10 @@ using static GdUnit4.Assertions;
 [RequireGodotRuntime]
 public partial class SettingsMenuSceneTest : Node
 {
+    private SceneTree _sceneTree = null!;
+    private SubViewport _viewport = null!;
+    private SettingsMenuController _screen = null!;
+
     private static readonly string[] RequiredUniqueNodes =
     {
         "%ModalShell",
@@ -92,7 +96,6 @@ public partial class SettingsMenuSceneTest : Node
         "%DisplayRows",
         "%GameplayRows",
         "%ControlsRows",
-
         "%MasterVolumeLabel",
         "%MasterSlider",
         "%MasterValueLabel",
@@ -102,45 +105,84 @@ public partial class SettingsMenuSceneTest : Node
         "%SfxVolumeLabel",
         "%SfxSlider",
         "%SfxValueLabel",
-
         "%FullscreenLabel",
         "%FullscreenCheck",
         "%ResolutionLabel",
         "%ResolutionOption",
-
         "%DifficultyLabel",
         "%DifficultyOption",
         "%AutoSaveLabel",
         "%AutoSaveCheck",
-
         "%InventoryKeyLabel",
         "%InventoryKeyButton",
         "%InteractKeyLabel",
         "%InteractKeyButton",
         "%PauseKeyLabel",
         "%PauseKeyButton",
-
         "%ErrorPanel",
         "%ErrorLabel",
         "%ApplyButton",
         "%CancelButton"
     };
 
+    [BeforeTest]
+    public async Task Setup()
+    {
+        _sceneTree = (SceneTree)Engine.GetMainLoop();
+        _viewport = new SubViewport
+        {
+            Disable3D = true,
+            HandleInputLocally = true,
+            Size = new Vector2I(1280, 720)
+        };
+        _sceneTree.Root.AddChild(_viewport);
+
+        var packed = GD.Load<PackedScene>("res://scenes/ui/SettingsMenu.tscn")
+            ?? throw new System.InvalidOperationException("SettingsMenu.tscn did not load.");
+        _screen = packed.Instantiate<SettingsMenuController>();
+        _viewport.AddChild(_screen);
+        await AwaitFrames(2);
+    }
+
+    [AfterTest]
+    public async Task Cleanup()
+    {
+        if (GodotObject.IsInstanceValid(_screen))
+            _screen.Free();
+        if (GodotObject.IsInstanceValid(_viewport))
+            _viewport.Free();
+        await AwaitFrames(1);
+    }
+
+    private async Task ResizeAndOpen(Vector2I size)
+    {
+        _viewport.Size = size;
+        await AwaitFrames(1);
+        _screen.OpenSettings(SettingsData.CreateDefaults());
+        await AwaitFrames(2);
+    }
+
+    private async Task AwaitFrames(int count)
+    {
+        for (var i = 0; i < count; i++)
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+    }
+
     [TestCase]
-    public void SceneOwnsSettingsControlsBeforeReady()
+    public void PackedSceneOwnsControlsBeforeReady()
     {
         var packed = GD.Load<PackedScene>("res://scenes/ui/SettingsMenu.tscn");
         AssertThat(packed).IsNotNull();
 
-        var screen = packed!.Instantiate<SettingsMenuController>();
+        var detached = packed!.Instantiate<SettingsMenuController>();
         try
         {
             foreach (var path in RequiredUniqueNodes)
-                AssertThat(screen.GetNodeOrNull(path)).IsNotNull();
+                AssertThat(detached.GetNodeOrNull(path)).IsNotNull();
         }
         finally
         {
-            screen.Free();
+            detached.Free();
         }
     }
 
@@ -148,38 +190,40 @@ public partial class SettingsMenuSceneTest : Node
     public void ControllerHasNoRuntimeLayoutBuilders()
     {
         var flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        AssertThat(typeof(SettingsMenuController).GetMethod("BuildUI", flags)).IsNull();
-        AssertThat(typeof(SettingsMenuController).GetMethod("BuildAudioTab", flags)).IsNull();
-        AssertThat(typeof(SettingsMenuController).GetMethod("BuildDisplayTab", flags)).IsNull();
-        AssertThat(typeof(SettingsMenuController).GetMethod("BuildGameplayTab", flags)).IsNull();
-        AssertThat(typeof(SettingsMenuController).GetMethod("BuildControlsTab", flags)).IsNull();
-        AssertThat(typeof(SettingsMenuController).GetMethod("AddSliderRow", flags)).IsNull();
-        AssertThat(typeof(SettingsMenuController).GetMethod("AddKeyRow", flags)).IsNull();
+        foreach (var name in new[]
+        {
+            "BuildUI",
+            "BuildAudioTab",
+            "BuildDisplayTab",
+            "BuildGameplayTab",
+            "BuildControlsTab",
+            "AddSliderRow",
+            "AddKeyRow"
+        })
+        {
+            AssertThat(typeof(SettingsMenuController).GetMethod(name, flags)).IsNull();
+        }
     }
 }
 ```
 
-The first test is the primary contract. The reflection test is only a tripwire against reintroducing the known builder methods.
-
-- [ ] **Step 2: Run the new scene tests and confirm the expected failure**
-
-Run:
+- [ ] **Step 2: Run the new suite and verify the authorship tests fail**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local \
   --filter "FullyQualifiedName~SettingsMenuSceneTest"
 ```
 
-Expected: the required authored nodes are missing and the builder-method assertions fail.
+Expected: authored-node test fails because the skeleton scene lacks the nodes; builder-removal test fails because the old methods still exist.
 
-- [ ] **Step 3: Replace the skeleton scene with the concrete authored hierarchy**
+- [ ] **Step 3: Author the concrete Settings scene**
 
-Keep `res://scenes/ui/SettingsMenu.tscn` and author:
+Replace the current skeleton with:
 
 ```text
 SettingsMenuController
 ├── Background (Panel, SiriusScrim)
-└── ModalShell (SiriusModalShell, Title="Settings", SizeClass=Large)
+└── ModalShell (SiriusModalShell, title="Settings", SizeClass=Large)
     ├── BodyHost
     │   ├── SettingsFrame (GridContainer)
     │   │   ├── PageSelector (GridContainer)
@@ -199,74 +243,38 @@ SettingsMenuController
         └── CancelButton (SiriusSecondaryButton)
 ```
 
-Use one scene-authored `ButtonGroup` for the four page buttons. Each page button uses toggle mode; Audio starts pressed and `PageDeck.CurrentTab = 0`.
+Author one `ButtonGroup` shared by the four page buttons. Each page button has `toggle_mode = true`; Audio starts pressed. `PageDeck` starts on index `0` and hides its built-in tab bar.
 
-Keep the outer shell hierarchy unchanged. Do **not** add another shell or duplicate `BodyHost`/`ActionsHost`.
+Set every interactive control's scene minimum height to at least `44` logical pixels for the standard authored state.
 
-Author the page rows with this exact shape:
-
-```text
-AudioRows
-├── MasterVolumeLabel
-├── MasterControlCell (HBoxContainer)
-│   ├── MasterSlider
-│   └── MasterValueLabel
-├── MusicVolumeLabel
-├── MusicControlCell (HBoxContainer)
-│   ├── MusicSlider
-│   └── MusicValueLabel
-├── SfxVolumeLabel
-└── SfxControlCell (HBoxContainer)
-    ├── SfxSlider
-    └── SfxValueLabel
-
-DisplayRows
-├── FullscreenLabel
-├── FullscreenCheck
-├── ResolutionLabel
-└── ResolutionOption
-
-GameplayRows
-├── DifficultyLabel
-├── DifficultyOption
-├── AutoSaveLabel
-└── AutoSaveCheck
-
-ControlsRows
-├── InventoryKeyLabel
-├── InventoryKeyButton
-├── InteractKeyLabel
-├── InteractKeyButton
-├── PauseKeyLabel
-└── PauseKeyButton
-```
-
-Mark every label/control name listed in Step 1 as unique in the Settings scene. Set row labels to word-smart wrapping. Give interactive controls the existing minimum target contract: at least 44 logical pixels standard, with compact sizing allowed to reduce to the shared 40-pixel target through layout/Theme behavior.
-
-Keep `ResolutionOption` and `DifficultyOption` empty in the scene; their items remain dynamic controller data.
-
-Keep `ErrorPanel` as `PanelContainer` with `theme_type_variation = SiriusErrorPanel`. The explicit variation is valid for lookup even though the Theme variation's base is `Panel`, and retaining `PanelContainer` avoids extra wrapper layout solely for styling.
-
-Keep Apply/Cancel in `SiriusModalShell.ActionsHost`, outside page scrolling.
-
-- [ ] **Step 4: Add explicit scene-node binding and disable shell body scrolling**
-
-Delete these runtime construction methods from `SettingsMenuController`:
+Author rows as:
 
 ```text
-BuildUI
-BuildAudioTab
-BuildDisplayTab
-BuildGameplayTab
-BuildControlsTab
-AddSliderRow
-AddKeyRow
+MasterVolumeLabel | MasterControlCell(MasterSlider + MasterValueLabel)
+MusicVolumeLabel  | MusicControlCell(MusicSlider + MusicValueLabel)
+SfxVolumeLabel    | SfxControlCell(SfxSlider + SfxValueLabel)
+FullscreenLabel   | FullscreenCheck
+ResolutionLabel   | ResolutionOption
+DifficultyLabel   | DifficultyOption
+AutoSaveLabel     | AutoSaveCheck
+InventoryKeyLabel | InventoryKeyButton
+InteractKeyLabel  | InteractKeyButton
+PauseKeyLabel     | PauseKeyButton
 ```
 
-Add structure fields while retaining existing behavior fields:
+Every row label gets `autowrap_mode = TextServer.AutowrapMode.WordSmart` and the exact unique name from Step 1.
+
+Keep `ResolutionOption` and `DifficultyOption` empty; the controller continues to populate those values.
+
+- [ ] **Step 4: Bind scene nodes and disable the shell scroll owner**
+
+Delete the runtime builder family from `SettingsMenuController`.
+
+Add the structure fields:
 
 ```csharp
 private SiriusModalShell _shell = null!;
+private PanelContainer _modalPanel = null!;
 private ScrollContainer _shellBodyScroll = null!;
 private GridContainer _settingsFrame = null!;
 private GridContainer _pageSelector = null!;
@@ -275,117 +283,43 @@ private GridContainer _audioRows = null!;
 private GridContainer _displayRows = null!;
 private GridContainer _gameplayRows = null!;
 private GridContainer _controlsRows = null!;
-
+private ScrollContainer _audioScroll = null!;
+private ScrollContainer _displayScroll = null!;
+private ScrollContainer _gameplayScroll = null!;
+private ScrollContainer _controlsScroll = null!;
 private Button _audioPageButton = null!;
 private Button _displayPageButton = null!;
 private Button _gameplayPageButton = null!;
 private Button _controlsPageButton = null!;
-private Button[] _pageButtons = null!;
-
 private PanelContainer _errorPanel = null!;
 private Button _applyButton = null!;
 private Button _cancelButton = null!;
 ```
 
-Expose first-control focus instead of page-selector focus:
+Bind the shell internals through the shell instance, not from the Settings root:
 
 ```csharp
-public Control InitialFocusTarget => _pageDeck.CurrentTab switch
-{
-    0 => _masterSlider,
-    1 => _fullscreenCheck,
-    2 => _difficultyOption,
-    3 => _inventoryKeyBtn,
-    _ => _masterSlider
-};
+_shell = GetNode<SiriusModalShell>("%ModalShell");
+_modalPanel = _shell.GetNode<PanelContainer>("%Panel");
+_shellBodyScroll = _shell.GetNode<ScrollContainer>("%BodyScroll");
+_shellBodyScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+_shellBodyScroll.VerticalScrollMode = ScrollContainer.ScrollMode.Disabled;
 ```
 
-Make `_Ready()` bind/configure before population:
+Bind the rest through their authored unique names. Keep the existing behavior field names (`_masterSlider`, `_resolutionOption`, `_inventoryKeyBtn`, etc.) so behavior tests do not need a state-model rewrite.
 
-```csharp
-public override void _Ready()
-{
-    BindSceneNodes();
-    ConfigureScrollOwnership();
-    PopulateChoiceItems();
-    BindSignals();
-    RefreshLayout();
+Do **not** change `SiriusModalShell.cs`; HPA-377 defines it as a responsive-width component.
 
-    Hide();
-    SetProcessInput(false);
-}
-```
+- [ ] **Step 5: Populate dynamic choices and wire named behavior handlers**
 
-Bind shell internals through the shell instance; do not try to resolve `%BodyScroll` from the Settings root:
-
-```csharp
-private void BindSceneNodes()
-{
-    _shell = GetNode<SiriusModalShell>("%ModalShell");
-    _shellBodyScroll = _shell.GetNode<ScrollContainer>("%BodyScroll");
-    _settingsFrame = GetNode<GridContainer>("%SettingsFrame");
-    _pageSelector = GetNode<GridContainer>("%PageSelector");
-    _pageDeck = GetNode<TabContainer>("%PageDeck");
-    _audioRows = GetNode<GridContainer>("%AudioRows");
-    _displayRows = GetNode<GridContainer>("%DisplayRows");
-    _gameplayRows = GetNode<GridContainer>("%GameplayRows");
-    _controlsRows = GetNode<GridContainer>("%ControlsRows");
-
-    _audioPageButton = GetNode<Button>("%AudioPageButton");
-    _displayPageButton = GetNode<Button>("%DisplayPageButton");
-    _gameplayPageButton = GetNode<Button>("%GameplayPageButton");
-    _controlsPageButton = GetNode<Button>("%ControlsPageButton");
-    _pageButtons =
-    [
-        _audioPageButton,
-        _displayPageButton,
-        _gameplayPageButton,
-        _controlsPageButton
-    ];
-
-    _masterSlider = GetNode<HSlider>("%MasterSlider");
-    _masterValueLabel = GetNode<Label>("%MasterValueLabel");
-    _musicSlider = GetNode<HSlider>("%MusicSlider");
-    _musicValueLabel = GetNode<Label>("%MusicValueLabel");
-    _sfxSlider = GetNode<HSlider>("%SfxSlider");
-    _sfxValueLabel = GetNode<Label>("%SfxValueLabel");
-
-    _fullscreenCheck = GetNode<CheckBox>("%FullscreenCheck");
-    _resolutionOption = GetNode<OptionButton>("%ResolutionOption");
-    _difficultyOption = GetNode<OptionButton>("%DifficultyOption");
-    _autoSaveCheck = GetNode<CheckBox>("%AutoSaveCheck");
-
-    _inventoryKeyBtn = GetNode<Button>("%InventoryKeyButton");
-    _interactKeyBtn = GetNode<Button>("%InteractKeyButton");
-    _pauseKeyBtn = GetNode<Button>("%PauseKeyButton");
-
-    _errorPanel = GetNode<PanelContainer>("%ErrorPanel");
-    _errorLabel = GetNode<Label>("%ErrorLabel");
-    _applyButton = GetNode<Button>("%ApplyButton");
-    _cancelButton = GetNode<Button>("%CancelButton");
-}
-```
-
-Configure the shell's built-in scroller once:
-
-```csharp
-private void ConfigureScrollOwnership()
-{
-    _shellBodyScroll.VerticalScrollMode = ScrollContainer.ScrollMode.Disabled;
-    _shellBodyScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
-}
-```
-
-The four page `ScrollContainer`s remain `Auto` and use expand/fill size flags. Do not add a `SiriusModalShell` export or edit the shared shell scene.
-
-- [ ] **Step 5: Populate dynamic choices only**
+Add:
 
 ```csharp
 private void PopulateChoiceItems()
 {
     _resolutionOption.Clear();
     foreach (var (w, h) in ResolutionPresets)
-        _resolutionOption.AddItem($"{w}\u00d7{h}");
+        _resolutionOption.AddItem($"{w}×{h}");
 
     _difficultyOption.Clear();
     foreach (var difficulty in Difficulties)
@@ -393,68 +327,22 @@ private void PopulateChoiceItems()
 }
 ```
 
-Keep custom-resolution insertion/removal behavior in the existing controller methods.
+Use named handlers for sliders, key buttons, Apply, Cancel, page buttons, and `Resized`, and detach every one in `_ExitTree()`.
 
-- [ ] **Step 6: Bind all authored controls with named handlers, including page selection**
-
-Wire all signals in one place so Task 1 leaves the authored scene fully operable:
-
-```csharp
-private void BindSignals()
-{
-    Resized += OnResized;
-
-    _masterSlider.ValueChanged += OnMasterVolumeChanged;
-    _musicSlider.ValueChanged += OnMusicVolumeChanged;
-    _sfxSlider.ValueChanged += OnSfxVolumeChanged;
-
-    _inventoryKeyBtn.Pressed += OnInventoryKeyPressed;
-    _interactKeyBtn.Pressed += OnInteractKeyPressed;
-    _pauseKeyBtn.Pressed += OnPauseKeyPressed;
-
-    _audioPageButton.Pressed += OnAudioPagePressed;
-    _displayPageButton.Pressed += OnDisplayPagePressed;
-    _gameplayPageButton.Pressed += OnGameplayPagePressed;
-    _controlsPageButton.Pressed += OnControlsPagePressed;
-
-    _applyButton.Pressed += OnApplyPressed;
-    _cancelButton.Pressed += OnCancelPressed;
-}
-```
-
-Add matching detachments in `_ExitTree()`.
-
-Keep the handlers thin:
+Thin examples:
 
 ```csharp
 private void OnMasterVolumeChanged(double value) =>
     _masterValueLabel.Text = $"{(int)value}%";
 
-private void OnMusicVolumeChanged(double value) =>
-    _musicValueLabel.Text = $"{(int)value}%";
-
-private void OnSfxVolumeChanged(double value) =>
-    _sfxValueLabel.Text = $"{(int)value}%";
-
 private void OnInventoryKeyPressed() => StartKeyCapture("toggle_inventory");
-private void OnInteractKeyPressed() => StartKeyCapture("interact");
-private void OnPauseKeyPressed() => StartKeyCapture("pause_menu");
-
-private void OnAudioPagePressed() => SelectPage(0);
-private void OnDisplayPagePressed() => SelectPage(1);
-private void OnGameplayPagePressed() => SelectPage(2);
-private void OnControlsPagePressed() => SelectPage(3);
-
-private void SelectPage(int pageIndex)
-{
-    _pageDeck.CurrentTab = pageIndex;
-    _pageButtons[pageIndex].ButtonPressed = true;
-}
+private void OnApplyButtonPressed() => OnApplyPressed();
+private void OnCancelButtonPressed() => OnCancelPressed();
 ```
 
-`ButtonGroup` owns exclusivity. Do not add a separate `RefreshPageSelection()` loop.
+Do not alter staged settings, resolution preservation, duplicate/reserved validation, Apply, Cancel, or input-priority rules.
 
-- [ ] **Step 7: Move validation feedback onto the authored error surface**
+- [ ] **Step 6: Move validation into the authored error surface**
 
 ```csharp
 private void ShowError(string msg)
@@ -471,75 +359,70 @@ private void ClearError()
 }
 ```
 
-Call `ClearError()` from `OpenSettings()` before population, from `StartKeyCapture()`, from successful key capture, and from `CancelKeyCapture()`.
+Call `ClearError()` on open, when capture starts, after successful capture, and when capture is canceled.
 
-Do not introduce HPA-572's generic message controller.
+Keep `ErrorPanel` as `PanelContainer` with the existing `SiriusErrorPanel` variation; do not add a wrapper or Theme type.
 
-- [ ] **Step 8: Preserve `OpenSettings` state behavior but remove focus ownership from it**
+- [ ] **Step 7: Preserve the public open/close contract without applying focus inside the screen**
 
-Keep the signature:
+Keep:
 
 ```csharp
 public void OpenSettings(SettingsData? snapshot = null, bool showOverlay = true)
 ```
 
-The implementation should end after showing/enabling input; it must not call `GrabFocus()`:
+Its end state becomes:
 
 ```csharp
-public void OpenSettings(SettingsData? snapshot = null, bool showOverlay = true)
+_editedSettings = source.Clone();
+PopulateControls();
+Show();
+SetProcessInput(true);
+```
+
+It must **not** call `GrabFocus()`. Task 3 assigns focus at the owning invocation boundary.
+
+Expose:
+
+```csharp
+public Control InitialFocusTarget => _pageDeck.CurrentTab switch
 {
-    if (_listeningAction != null)
-        CancelKeyCapture();
-
-    _closedEmitted = false;
-    GetNode<Control>("Background").Visible = showOverlay;
-    ClearError();
-
-    var source =
-        snapshot ??
-        SettingsManager.Instance?.GetSnapshot() ??
-        SettingsData.CreateDefaults();
-
-    _editedSettings = source.Clone();
-    PopulateControls();
-    Show();
-    SetProcessInput(true);
-}
+    0 => _masterSlider,
+    1 => _fullscreenCheck,
+    2 => _difficultyOption,
+    3 => _inventoryKeyBtn,
+    _ => _masterSlider
+};
 ```
 
-Keep `EmitClosedOnce()` and `OnCancelPressed()` semantics unchanged.
+- [ ] **Step 8: Update controller regression tests for the new ownership boundary**
 
-- [ ] **Step 9: Update existing controller tests for the new ownership boundary**
+Keep all existing semantic tests.
 
-Keep all behavior tests for staging, Apply/Cancel, custom resolution, difficulty, autosave, key capture, Pause binding capture, reserved/duplicate keys, pointer input, keyboard navigation, joypad navigation, dropdown Cancel priority, and one-shot `Closed`.
-
-Replace the old direct focus side-effect test:
+Replace `OpenSettings_GrabsFocusOnFirstControl` with:
 
 ```csharp
 [TestCase]
-public void InitialFocusTarget_DefaultAudioPage_IsMasterSlider()
+public void DefaultInitialFocusTarget_IsMasterSlider()
 {
     _ctrl.OpenSettings(SettingsData.CreateDefaults());
-
-    AssertThat(_ctrl.InitialFocusTarget)
-        .IsEqual(GetField<HSlider>(_ctrl, "_masterSlider"));
+    var master = GetField<HSlider>(_ctrl, "_masterSlider");
+    AssertThat(_ctrl.InitialFocusTarget).IsEqual(master);
 }
 ```
 
-Delete `OpenSettings_GrabsFocusOnFirstControl`; actual focus application is now tested at the hosted and Main Menu invocation boundaries in Task 3.
+Delete `OpenSettings_InGameMode_PanelSizeClampedToViewport`; Task 2 owns panel fit with the real shell panel.
 
-Delete `OpenSettings_InGameMode_PanelSizeClampedToViewport`; viewport fit belongs to `SettingsMenuSceneTest` and must target `ModalShell/Panel`, not controller-owned panel minimum-size math.
-
-- [ ] **Step 10: Run the focused Settings tests**
+- [ ] **Step 9: Run Settings tests**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local \
   --filter "FullyQualifiedName~SettingsMenuSceneTest|FullyQualifiedName~SettingsMenuControllerTest"
 ```
 
-Expected: all Settings scene/authorship and behavior tests pass.
+Expected: all tests pass.
 
-- [ ] **Step 11: Commit the authored cutover**
+- [ ] **Step 10: Commit the authored cutover**
 
 ```bash
 git add \
@@ -547,26 +430,23 @@ git add \
   scripts/ui/SettingsMenuController.cs \
   tests/ui/SettingsMenuControllerTest.cs \
   tests/ui/SettingsMenuSceneTest.cs
-
 git commit -m "feat(ui): scene-author settings screen"
 ```
 
 ---
 
-### Task 2: Add responsive reflow, page-local overflow, and viewport contracts
+## Task 2: Add responsive reflow, real panel height, and perceptual layout tests
 
 **Files:**
 - Modify: `scripts/ui/SettingsMenuController.cs`
-- Modify: `scenes/ui/SettingsMenu.tscn`
 - Modify: `tests/ui/SettingsMenuSceneTest.cs`
+- Modify: `scenes/ui/SettingsMenu.tscn` only if a failing layout test requires authored size flags/wrap settings.
 
 **Interfaces:**
-- Consumes: `SiriusUiMetrics.IsCompact(Vector2)`, `SiriusModalShell.Compact`, `SiriusModalShell.RefreshPresentation(Vector2)`, authored selector/deck/row grids, disabled shell `BodyScroll`, and page-local `ScrollContainer`s from Task 1.
-- Produces: standard left rail, compact top selector, responsive row columns, page-local overflow, and fit at all approved viewports without hard-coded body heights.
+- Consumes: `SiriusUiMetrics.IsCompact`, `VerificationViewports`, `FocusVerificationViewports`, `SiriusModalShell.Compact`, `RefreshPresentation`, `_modalPanel`, page controls from Task 1.
+- Produces: standard left rail, compact top selector, non-zero page viewport, page-local overflow, deterministic fit on X/Y.
 
-- [ ] **Step 1: Add failing standard/compact structure tests**
-
-Use a `SubViewport` fixture and assert after opening:
+- [ ] **Step 1: Add failing standard/compact and page-selection tests**
 
 ```csharp
 [TestCase]
@@ -574,54 +454,29 @@ public async Task StandardViewportUsesLeftRailAndTwoColumnRows()
 {
     await ResizeAndOpen(new Vector2I(1280, 720));
 
-    AssertThat(_screen!.GetNode<GridContainer>("%SettingsFrame").Columns).IsEqual(2);
+    AssertThat(_screen.GetNode<GridContainer>("%SettingsFrame").Columns).IsEqual(2);
     AssertThat(_screen.GetNode<GridContainer>("%PageSelector").Columns).IsEqual(1);
     AssertThat(_screen.GetNode<GridContainer>("%AudioRows").Columns).IsEqual(2);
-    AssertThat(_screen.GetNode<GridContainer>("%DisplayRows").Columns).IsEqual(2);
-    AssertThat(_screen.GetNode<GridContainer>("%GameplayRows").Columns).IsEqual(2);
     AssertThat(_screen.GetNode<GridContainer>("%ControlsRows").Columns).IsEqual(2);
 }
 
 [TestCase]
-public async Task MinimumViewportUsesTopSelectorAndSingleColumnRows()
+public async Task CompactViewportUsesTopSelectorAndOneColumnRows()
 {
     await ResizeAndOpen(new Vector2I(640, 360));
 
-    AssertThat(_screen!.GetNode<GridContainer>("%SettingsFrame").Columns).IsEqual(1);
+    AssertThat(_screen.GetNode<GridContainer>("%SettingsFrame").Columns).IsEqual(1);
     AssertThat(_screen.GetNode<GridContainer>("%PageSelector").Columns).IsEqual(4);
     AssertThat(_screen.GetNode<GridContainer>("%AudioRows").Columns).IsEqual(1);
-    AssertThat(_screen.GetNode<GridContainer>("%DisplayRows").Columns).IsEqual(1);
-    AssertThat(_screen.GetNode<GridContainer>("%GameplayRows").Columns).IsEqual(1);
     AssertThat(_screen.GetNode<GridContainer>("%ControlsRows").Columns).IsEqual(1);
 }
-```
-
-- [ ] **Step 2: Add failing scroll-ownership and page-selection tests**
-
-```csharp
-[TestCase]
-public async Task SettingsDisablesShellScrollAndKeepsPageScrollAuto()
-{
-    await ResizeAndOpen(new Vector2I(640, 360));
-
-    var shell = _screen!.GetNode<SiriusModalShell>("%ModalShell");
-    var shellScroll = shell.GetNode<ScrollContainer>("%BodyScroll");
-    var controlsScroll = _screen.GetNode<ScrollContainer>("%ControlsScroll");
-
-    AssertThat(shellScroll.VerticalScrollMode)
-        .IsEqual(ScrollContainer.ScrollMode.Disabled);
-    AssertThat(shellScroll.HorizontalScrollMode)
-        .IsEqual(ScrollContainer.ScrollMode.Disabled);
-    AssertThat(controlsScroll.VerticalScrollMode)
-        .IsEqual(ScrollContainer.ScrollMode.Auto);
-}
 
 [TestCase]
-public async Task PageButtonSelectsOneTabAndButtonGroupKeepsExclusivity()
+public async Task PageButtonSelectsOnePage()
 {
     await ResizeAndOpen(new Vector2I(1280, 720));
 
-    var deck = _screen!.GetNode<TabContainer>("%PageDeck");
+    var deck = _screen.GetNode<TabContainer>("%PageDeck");
     var audio = _screen.GetNode<Button>("%AudioPageButton");
     var controls = _screen.GetNode<Button>("%ControlsPageButton");
 
@@ -634,16 +489,51 @@ public async Task PageButtonSelectsOneTabAndButtonGroupKeepsExclusivity()
 }
 ```
 
-- [ ] **Step 3: Run the new layout tests and confirm they fail before responsive code**
+- [ ] **Step 2: Add the perceptual tests that fail a collapsed page**
 
-```bash
-dotnet test Sirius.sln --settings test.runsettings.local \
-  --filter "FullyQualifiedName~SettingsMenuSceneTest"
+Use the authoritative focus-verification array instead of hard-coding the two sizes:
+
+```csharp
+[TestCase]
+public async Task DetailedViewportsKeepMasterSliderVisibleInsideModal()
+{
+    foreach (var size in SiriusUiMetrics.FocusVerificationViewports)
+    {
+        await ResizeAndOpen(size);
+
+        var panel = _screen.GetNode<PanelContainer>("ModalShell/Panel");
+        var slider = _screen.GetNode<HSlider>("%MasterSlider");
+        var panelRect = panel.GetGlobalRect();
+        var sliderRect = slider.GetGlobalRect();
+
+        AssertThat(slider.Size.Y).IsGreater(0f);
+        AssertThat(panelRect.Encloses(sliderRect)).IsTrue();
+    }
+}
 ```
 
-Expected: compact/standard columns and scroll/page-selection assertions fail until the controller/scene is complete.
+This is the load-bearing test: correct `Columns` values are insufficient if the page viewport is zero-height.
 
-- [ ] **Step 4: Implement only container reflow**
+- [ ] **Step 3: Implement one page-selection owner**
+
+Use the authored `ButtonGroup` for exclusivity and named handlers only for choosing the `TabContainer` page:
+
+```csharp
+private void OnAudioPagePressed() => SelectPage(0, _audioPageButton);
+private void OnDisplayPagePressed() => SelectPage(1, _displayPageButton);
+private void OnGameplayPagePressed() => SelectPage(2, _gameplayPageButton);
+private void OnControlsPagePressed() => SelectPage(3, _controlsPageButton);
+
+private void SelectPage(int index, Button selected)
+{
+    _pageDeck.CurrentTab = index;
+    selected.SetPressedNoSignal(true);
+}
+```
+
+Do not add a second `RefreshPageSelection()` loop.
+
+- [ ] **Step 4: Implement responsive reflow and the Settings-specific modal height**
 
 ```csharp
 private void OnResized() => RefreshLayout();
@@ -664,93 +554,116 @@ private void RefreshLayout()
     _displayRows.Columns = rowColumns;
     _gameplayRows.Columns = rowColumns;
     _controlsRows.Columns = rowColumns;
+
+    var panelHeight = compact
+        ? size.Y - SiriusUiMetrics.SafeMargin(true) * 2f
+        : size.Y * 0.90f;
+
+    _modalPanel.CustomMinimumSize = new Vector2(
+        _modalPanel.CustomMinimumSize.X,
+        Mathf.Max(0f, panelHeight));
 }
 ```
 
-Do not set `PageDeck.CustomMinimumSize` from viewport subtraction. Set `SettingsFrame`, `PageDeck`, each page root, and each page `ScrollContainer` to the appropriate expand/fill size flags in the scene so the shell and containers negotiate height naturally.
+The ordering is intentional: `_shell.RefreshPresentation(size)` owns X and resets Y, then Settings restores only its screen-specific Y contract.
 
-- [ ] **Step 5: Add the seven-viewport fit test using the real nested shell path**
+Do not add `SiriusModalShell` height state or page-specific height constants.
 
-```csharp
-[TestCase(640, 360)]
-[TestCase(1024, 768)]
-[TestCase(1280, 720)]
-[TestCase(1440, 900)]
-[TestCase(1920, 1080)]
-[TestCase(2560, 1080)]
-[TestCase(2560, 1440)]
-public async Task ApprovedViewportKeepsSettingsPanelInsideViewport(int width, int height)
-{
-    await ResizeAndOpen(new Vector2I(width, height));
-
-    var panel = _screen!.GetNode<PanelContainer>("ModalShell/Panel");
-    var panelRect = panel.GetGlobalRect();
-
-    AssertThat(panelRect.Position.X).IsGreaterEqual(0f);
-    AssertThat(panelRect.Position.Y).IsGreaterEqual(0f);
-    AssertThat(panelRect.End.X).IsLessEqual(width + 0.5f);
-    AssertThat(panelRect.End.Y).IsLessEqual(height + 0.5f);
-}
-```
-
-Keep `ModalShell/Panel`. Do not replace this with `%Panel` on the Settings root; `%Panel` belongs to the modal-shell scene's unique-name owner.
-
-- [ ] **Step 6: Add a long-label compact overflow test**
-
-Switch to the Controls page at 640×360, expand a real authored row label, and verify the shell remains inside the viewport while the page-local scroll range grows rather than the outer shell scrolling:
+- [ ] **Step 5: Assert scroll ownership and real page viewport**
 
 ```csharp
 [TestCase]
-public async Task LongCompactControlsLabelUsesPageScrollWithoutGrowingShell()
+public async Task SettingsUsesOnlyPageLocalVerticalScroll()
 {
     await ResizeAndOpen(new Vector2I(640, 360));
 
-    _screen!.GetNode<Button>("%ControlsPageButton")
-        .EmitSignal(Button.SignalName.Pressed);
-
-    var label = _screen.GetNode<Label>("%InventoryKeyLabel");
-    label.Text = string.Join(" ", Enumerable.Repeat(
-        "RepresentativeLocalizedInventoryBindingLabel", 12));
-
-    await AwaitFrames(3);
-
     var shell = _screen.GetNode<SiriusModalShell>("%ModalShell");
-    var shellScroll = shell.GetNode<ScrollContainer>("%BodyScroll");
-    var controlsScroll = _screen.GetNode<ScrollContainer>("%ControlsScroll");
-    var panel = _screen.GetNode<PanelContainer>("ModalShell/Panel");
+    var outer = shell.GetNode<ScrollContainer>("%BodyScroll");
+    var controls = _screen.GetNode<ScrollContainer>("%ControlsScroll");
 
-    AssertThat(shellScroll.ScrollVertical).IsEqual(0);
-    AssertThat(controlsScroll.GetVScrollBar().MaxValue)
-        .IsGreater(controlsScroll.GetVScrollBar().Page);
-    AssertThat(panel.GetGlobalRect().End.Y).IsLessEqual(360.5f);
+    AssertThat(outer.HorizontalScrollMode).IsEqual(ScrollContainer.ScrollMode.Disabled);
+    AssertThat(outer.VerticalScrollMode).IsEqual(ScrollContainer.ScrollMode.Disabled);
+    AssertThat(controls.VerticalScrollMode).IsNotEqual(ScrollContainer.ScrollMode.Disabled);
+    AssertThat(controls.GetVScrollBar().Page).IsGreater(0f);
 }
 ```
 
-Add `using System.Linq;` to the test file for the repeated representative text. If the exact `VScrollBar` range changes with Theme metrics, keep the semantic assertion `MaxValue > Page`; do not pin pixel values.
+- [ ] **Step 6: Add all-viewport X/Y fit coverage from `SiriusUiMetrics`**
 
-- [ ] **Step 7: Run scene/layout tests and Settings behavior tests**
+```csharp
+[TestCase]
+public async Task EveryApprovedViewportKeepsModalInsideViewport()
+{
+    foreach (var size in SiriusUiMetrics.VerificationViewports)
+    {
+        await ResizeAndOpen(size);
+
+        var panel = _screen.GetNode<PanelContainer>("ModalShell/Panel");
+        var rect = panel.GetGlobalRect();
+
+        AssertThat(rect.Position.X).IsGreaterEqual(-0.5f);
+        AssertThat(rect.Position.Y).IsGreaterEqual(-0.5f);
+        AssertThat(rect.End.X).IsLessEqual(size.X + 0.5f);
+        AssertThat(rect.End.Y).IsLessEqual(size.Y + 0.5f);
+    }
+}
+```
+
+No duplicated `[TestCase(640, 360)] ...` list is required.
+
+- [ ] **Step 7: Add a long-label test that checks the axis that can actually blow out**
+
+```csharp
+[TestCase]
+public async Task CompactLongControlsLabelWrapsAndKeepsUsableScrollViewport()
+{
+    await ResizeAndOpen(new Vector2I(640, 360));
+
+    _screen.GetNode<Button>("%ControlsPageButton")
+        .EmitSignal(Button.SignalName.Pressed);
+    await AwaitFrames(1);
+
+    var label = _screen.GetNode<Label>("%InventoryKeyLabel");
+    label.Text = "Toggle Inventory With A Representative Localized Label That Must Wrap";
+    await AwaitFrames(2);
+
+    var panel = _screen.GetNode<PanelContainer>("ModalShell/Panel");
+    var scroll = _screen.GetNode<ScrollContainer>("%ControlsScroll");
+    var rect = panel.GetGlobalRect();
+    var bar = scroll.GetVScrollBar();
+
+    AssertThat(label.AutowrapMode).IsEqual(TextServer.AutowrapMode.WordSmart);
+    AssertThat(rect.Position.X).IsGreaterEqual(-0.5f);
+    AssertThat(rect.End.X).IsLessEqual(640.5f);
+    AssertThat(rect.Position.Y).IsGreaterEqual(-0.5f);
+    AssertThat(rect.End.Y).IsLessEqual(360.5f);
+    AssertThat(bar.Page).IsGreater(0f);
+    AssertThat(bar.MaxValue).IsGreater(bar.Page);
+}
+```
+
+- [ ] **Step 8: Run layout and behavior suites**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local \
   --filter "FullyQualifiedName~SettingsMenuSceneTest|FullyQualifiedName~SettingsMenuControllerTest"
 ```
 
-Expected: authorship, page selection, scroll ownership, standard/compact layout, long-label overflow, viewport fit, and existing behavior all pass.
+Expected: authored, standard/compact, perceptual visibility, scroll ownership, long-label, all-viewport fit, and existing Settings behavior all pass.
 
-- [ ] **Step 8: Commit responsive Settings behavior**
+- [ ] **Step 9: Commit responsive layout**
 
 ```bash
 git add \
   scenes/ui/SettingsMenu.tscn \
   scripts/ui/SettingsMenuController.cs \
   tests/ui/SettingsMenuSceneTest.cs
-
 git commit -m "feat(ui): make settings layout responsive"
 ```
 
 ---
 
-### Task 3: Make initial focus single-owned at Pause and Main Menu invocation boundaries
+## Task 3: Lock focus at the Pause and Main Menu invocation boundaries
 
 **Files:**
 - Modify: `scripts/game/Game.cs`
@@ -759,12 +672,12 @@ git commit -m "feat(ui): make settings layout responsive"
 - Modify: `tests/ui/MainMenuTest.cs`
 
 **Interfaces:**
-- Consumes: `SettingsMenuController.InitialFocusTarget`, existing HPA-382 `TryOpenHostedSettings()`, existing `UIScreenEntrySpec.InitialFocus`, current direct Main Menu Settings lifecycle.
-- Produces: exactly one initial-focus owner per invocation, host restoration under Pause, and direct focus/return-focus under Main Menu.
+- Consumes: `SettingsMenuController.InitialFocusTarget`, current HPA-382 hosted Settings flow, current Main Menu helpers/fields.
+- Produces: one focus owner per invocation, Pause restoration, Main Menu restoration, no duplicate hosted open.
 
-- [ ] **Step 1: Add a failing gameplay-host initial-focus assertion**
+- [ ] **Step 1: Add hosted Settings initial-focus assertion**
 
-Extend `GameplayPauseHostTest.HostedSettings_HostsLogicalPauseChildAndRestoresExistingPause()` after Settings is presented:
+Extend the existing `GameplayPauseHostTest.HostedSettings_HostsLogicalPauseChildAndRestoresExistingPause()`:
 
 ```csharp
 var settings = FindDirectChild<SettingsMenuController>(modalLayer);
@@ -772,88 +685,75 @@ await AwaitFrames(2);
 
 AssertThat(_viewport!.GuiGetFocusOwner())
     .IsEqual(settings.InitialFocusTarget);
-AssertThat(settings.InitialFocusTarget)
-    .IsEqual(settings.GetNode<HSlider>("%MasterSlider"));
 ```
 
-Keep the existing parent handle, process policy, pause ownership, HUD, Cancel, and restoration assertions.
+Keep the existing parent/pause/process/cleanup assertions intact.
 
-- [ ] **Step 2: Add failing Main Menu initial-focus and return-focus assertions**
+- [ ] **Step 2: Add Main Menu direct-focus and restoration coverage using the file's real helpers**
 
-Extend the existing Main Menu Settings lifecycle test or add one focused test:
+Do **not** introduce `_mainMenu`, `FindDirectChild`, `AwaitFrames`, or `InvokePrivate`; `MainMenuTest` does not own those helpers.
+
+Add an async test using `_menu`, `InvokePrivateAcrossHierarchy`, `GetPrivateField`, and `ToSignal`:
 
 ```csharp
-var settingsButton = _mainMenu!.GetNode<Button>("VBoxContainer/SettingsButton");
-settingsButton.EmitSignal(Button.SignalName.Pressed);
-await AwaitFrames(2);
+[TestCase]
+public async Task SettingsOpenAndClose_AppliesInitialFocusAndRestoresSettingsButton()
+{
+    var settingsButton = _menu.GetNode<Button>("VBoxContainer/SettingsButton");
 
-var settings = FindDirectChild<SettingsMenuController>(_mainMenu);
-AssertThat(_mainMenu.GetViewport().GuiGetFocusOwner())
-    .IsEqual(settings.InitialFocusTarget);
-AssertThat(settings.InitialFocusTarget)
-    .IsEqual(settings.GetNode<HSlider>("%MasterSlider"));
+    InvokePrivateAcrossHierarchy(_menu, "_on_settings_button_pressed");
+    await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
 
-InvokePrivate(settings, "OnCancelPressed");
-await AwaitFrames(2);
+    var settings = GetPrivateField<SettingsMenuController?>(_menu, "_settingsMenu");
+    AssertThat(settings).IsNotNull();
+    AssertThat(_menu.GetViewport().GuiGetFocusOwner())
+        .IsEqual(settings!.InitialFocusTarget);
 
-AssertThat(_mainMenu.GetViewport().GuiGetFocusOwner())
-    .IsEqual(settingsButton);
+    InvokePrivateAcrossHierarchy(settings, "OnCancelPressed");
+    await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+    await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+    AssertThat(GetPrivateField<SettingsMenuController?>(_menu, "_settingsMenu")).IsNull();
+    AssertThat(_menu.GetViewport().GuiGetFocusOwner()).IsEqual(settingsButton);
+}
 ```
 
-Use the existing helpers in `MainMenuTest`; do not create another test framework.
-
-- [ ] **Step 3: Run gameplay-host and Main Menu suites and confirm only the new focus assertions fail**
+- [ ] **Step 3: Run the integration suites and verify the new assertions fail**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local \
   --filter "FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~MainMenuTest"
 ```
 
-Expected: existing lifecycle assertions remain green; new initial-focus/return-focus expectations fail until production seams change.
+Expected: existing lifecycle assertions pass; new focus assertions fail until production seams are updated.
 
-- [ ] **Step 4: Give the HPA-382 hosted Settings entry explicit initial focus and one open call**
+- [ ] **Step 4: Add only the host initial-focus callback and remove the duplicate hosted open**
 
-In `Game.TryOpenHostedSettings()`, add:
+In `Game.TryOpenHostedSettings()` add:
 
 ```csharp
 InitialFocus = () => settings.InitialFocusTarget,
 ```
 
-Keep the existing `SetPresented` callback:
+Keep the existing `SetPresented` callback as the only hosted `OpenSettings(showOverlay: false)` call.
 
-```csharp
-SetPresented = visible =>
-{
-    if (visible) settings.OpenSettings(showOverlay: false);
-    else settings.Hide();
-},
-```
-
-After a successful `TryPresent`, keep only handle/reference assignment:
-
-```csharp
-_hostedSettingsHandle = result.Handle.Value;
-_hostedSettingsMenu = settings;
-return true;
-```
-
-Remove the redundant second:
+Delete the redundant call after successful `TryPresent`:
 
 ```csharp
 settings.OpenSettings(showOverlay: false);
 ```
 
-Do not change any other `UIScreenEntrySpec` policy field and do not add a `Game._Input()` branch.
+Do not change the other `UIScreenEntrySpec` policy values and do not add another `Game._Input()` branch.
 
-- [ ] **Step 5: Make direct Main Menu own direct initial focus and close restoration**
+- [ ] **Step 5: Give direct Main Menu invocation explicit focus and restoration**
 
-Cache the existing button in `MainMenu`:
+Cache the existing Settings button:
 
 ```csharp
 private Button? _settingsButton;
 ```
 
-Bind it in `_Ready()`:
+Bind in `_Ready()`:
 
 ```csharp
 _settingsButton = GetNodeOrNull<Button>("VBoxContainer/SettingsButton");
@@ -862,32 +762,29 @@ _settingsButton = GetNodeOrNull<Button>("VBoxContainer/SettingsButton");
 After direct open:
 
 ```csharp
-_settingsMenu = scene.Instantiate<SettingsMenuController>();
-_settingsMenu.Closed += OnSettingsClosed;
-AddChild(_settingsMenu);
 _settingsMenu.OpenSettings();
 _settingsMenu.InitialFocusTarget.GrabFocus();
 ```
 
-After the existing close cleanup, restore focus:
+After existing close cleanup:
 
 ```csharp
 if (_settingsButton != null && IsInstanceValid(_settingsButton))
     _settingsButton.GrabFocus();
 ```
 
-Do not add `UIScreenHost`, Continue behavior, new Main Menu layout, or generic messages.
+Do not add HPA-380's Main Menu host or redesign.
 
-- [ ] **Step 6: Re-run integration suites**
+- [ ] **Step 6: Re-run integration tests**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local \
   --filter "FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~MainMenuTest"
 ```
 
-Expected: hosted Settings focuses the master slider through the host; direct Main Menu Settings focuses the same target once; close restores to Pause or Main Menu correctly; existing host cleanup remains green.
+Expected: hosted/direct initial focus and parent restoration pass with the existing lifecycle assertions.
 
-- [ ] **Step 7: Commit invocation/focus integration**
+- [ ] **Step 7: Commit invocation integration**
 
 ```bash
 git add \
@@ -895,20 +792,19 @@ git add \
   scripts/ui/MainMenu.cs \
   tests/game/GameplayPauseHostTest.cs \
   tests/ui/MainMenuTest.cs
-
 git commit -m "fix(ui): restore settings focus across parents"
 ```
 
 ---
 
-### Task 4: Final parity, scope, and regression verification
+## Task 4: Final parity, regression, and scope verification
 
 **Files:**
-- Modify only files from Tasks 1–3 if a failing verification proves a required HPA-383 correction.
+- Modify only Tasks 1–3 files if a failing verification proves a required HPA-383 correction.
 
 **Interfaces:**
-- Consumes: scene-authored Settings, preserved controller semantics, responsive layout/scroll ownership, gameplay host integration, and Main Menu focus handoff.
-- Produces: a clean HPA-383 implementation branch with no legacy runtime Settings builder and no scope creep.
+- Consumes: authored Settings scene, responsive panel/page contract, behavior parity, hosted/direct focus seams.
+- Produces: review-ready HPA-383 implementation with no legacy builder and no scope creep.
 
 - [ ] **Step 1: Run the complete focused HPA-383 suite**
 
@@ -917,9 +813,9 @@ dotnet test Sirius.sln --settings test.runsettings.local \
   --filter "FullyQualifiedName~SettingsMenuSceneTest|FullyQualifiedName~SettingsMenuControllerTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~MainMenuTest"
 ```
 
-Expected: zero failures and zero skips introduced by HPA-383.
+Expected: zero failures.
 
-- [ ] **Step 2: Prove the runtime Settings builder is gone**
+- [ ] **Step 2: Prove the runtime builder is gone**
 
 ```bash
 rg -n \
@@ -929,35 +825,25 @@ rg -n \
   tests/ui
 ```
 
-Expected: no production matches. Reflection-test string literals in `SettingsMenuSceneTest.cs` are the only acceptable matches.
+Expected: no production matches; reflection-test string literals are the only acceptable test matches.
 
-- [ ] **Step 3: Prove the rejected layout/focus patterns did not return**
-
-```bash
-rg -n \
-  "pageHeight|CustomMinimumSize.*page|InitialFocusTarget\.GrabFocus\(\)" \
-  scripts/ui/SettingsMenuController.cs
-```
-
-Expected: no matches. `SettingsMenuController` does not calculate body height or grab initial focus itself.
-
-Confirm shell scroll configuration exists only as the scoped Settings integration:
+- [ ] **Step 3: Prove no speculative sizing/framework layer appeared**
 
 ```bash
 rg -n \
-  "VerticalScrollMode|HorizontalScrollMode" \
-  scripts/ui/SettingsMenuController.cs
+  "pageHeight|240f|260f|SettingsViewModel|SettingsPresenter|SettingsRow|NavigationHistory|FillAvailableHeight" \
+  scripts scenes tests
 ```
 
-Expected: the two assignments that disable `%BodyScroll`; no new shell/shared-framework API.
+Expected: no HPA-383 implementation matches for these rejected patterns.
 
-- [ ] **Step 4: Prove HPA-383 did not modify domain or shared-framework ownership**
+- [ ] **Step 4: Audit changed paths**
 
 ```bash
 git diff --name-only main...HEAD
 ```
 
-Expected paths are limited to:
+Expected runtime/test paths are limited to:
 
 ```text
 scenes/ui/SettingsMenu.tscn
@@ -968,6 +854,11 @@ tests/ui/SettingsMenuControllerTest.cs
 tests/ui/SettingsMenuSceneTest.cs
 tests/game/GameplayPauseHostTest.cs
 tests/ui/MainMenuTest.cs
+```
+
+Planning docs are also expected:
+
+```text
 docs/superpowers/specs/2026-08-08-hpa-383-scene-authored-settings-design.md
 docs/superpowers/plans/2026-08-08-hpa-383-scene-authored-settings.md
 ```
@@ -978,10 +869,11 @@ Specifically confirm no changes under:
 scripts/settings/
 resources/ui/theme/
 scripts/ui/components/SiriusModalShell.cs
+scenes/ui/components/SiriusModalShell.tscn
 scripts/ui/hosting/
 ```
 
-- [ ] **Step 5: Build the solution**
+- [ ] **Step 5: Build**
 
 ```bash
 dotnet build Sirius.sln --no-restore
@@ -989,40 +881,41 @@ dotnet build Sirius.sln --no-restore
 
 Expected: zero errors.
 
-- [ ] **Step 6: Run the full test suite**
+- [ ] **Step 6: Run the full suite**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore
 ```
 
-Expected: zero failed tests. Existing repository warning noise is acceptable only if unchanged from `main`.
+Expected: zero failed tests. Existing warning noise is acceptable only if unchanged from `main`.
 
-- [ ] **Step 7: Inspect the final diff for accidental architecture expansion**
+- [ ] **Step 7: Final diff hygiene**
 
 ```bash
 git diff --check
 git diff --stat main...HEAD
 ```
 
-Reject and remove any of the following if they appeared without a failing HPA-383 acceptance test that required them:
+Reject any unproven addition of:
 
 ```text
 new Settings view model/presenter
-new generic settings-row component hierarchy
+new generic settings-row hierarchy
 new navigation/history service
 new Main Menu UIScreenHost work
 new generic error/confirmation service
 new persisted setting
-new Theme token or component-shell API
-magic page-height offsets
-second initial-focus owner inside SettingsMenuController
+new Theme token
+new SiriusModalShell API/height policy
 ```
 
-- [ ] **Step 8: Commit a verification-only correction only when required**
+- [ ] **Step 8: Commit a verification correction only if required**
 
-If verification proves a scoped HPA-383 defect, stage only paths from Step 4 and commit:
+If verification forced a scoped correction:
 
 ```bash
+git status --short
+git add <only approved HPA-383 paths>
 git commit -m "fix(ui): preserve settings layout parity"
 ```
 
@@ -1034,20 +927,19 @@ If no correction was required, do not create an empty commit.
 
 The implementation is ready for review only when all of the following are true:
 
-- `SettingsMenu.tscn` owns the player-facing control tree and row labels before `_Ready()`.
+- `SettingsMenu.tscn` owns the player-facing control tree before `_Ready()`.
 - `SettingsMenuController` contains no runtime UI-construction helpers.
 - Existing settings semantics remain covered and passing.
-- Audio rows preserve their visible percentage labels inside one control cell.
-- Standard layout uses a left page rail and two-column setting rows.
-- Compact layout uses a top page selector and one-column setting rows.
-- `SiriusModalShell.BodyScroll` is disabled for Settings; page-local scroll containers own overflow.
-- No hard-coded page-height calculation exists.
+- Standard layout uses a left page rail.
+- Compact layout uses a top page selector.
+- Settings has an explicit viewport-bounded modal height; the active page does not collapse to zero visible height.
 - Apply/Cancel remain fixed outside page scrolling.
-- Inline validation uses the existing `SiriusErrorPanel` variation without changing Theme resources.
-- The default `InitialFocusTarget` is the master-volume slider.
-- `OpenSettings()` does not grab focus.
-- Hosted Settings receives initial focus from `UIScreenHost` and opens once.
-- Direct Main Menu Settings applies initial focus once and restores to its existing Settings button.
+- Shell scrolling is disabled for Settings; page scroll containers exclusively own overflow.
+- `MasterSlider` has non-zero visible size and is enclosed by `ModalShell/Panel` at both focus-verification viewports.
+- Long Controls text wraps and cannot push the modal outside 640×360 on either axis.
+- Inline validation uses the existing Sirius error Theme.
 - Hosted Settings remains a child of Pause without taking a second pause/input authority.
-- No HPA-380, HPA-541, HPA-572, save-domain, settings-domain, Theme-core, modal-shell-core, or `UIScreenHost` scope is implemented early.
+- Hosted focus is applied by `UIScreenHost`; direct focus is applied by Main Menu; `OpenSettings()` applies neither.
+- Direct Main Menu Settings returns focus to its existing Settings button.
+- No HPA-380, HPA-541, HPA-572, save-domain, settings-domain, Theme-core, modal-shell-core, or host-framework scope is implemented early.
 - Focused tests, full tests, build, `git diff --check`, and scope audit pass.

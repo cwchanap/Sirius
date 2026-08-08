@@ -161,6 +161,50 @@ public partial class GameInputLifecycleTest : Node
         }
     }
 
+    // Protects the ProcessModeEnum.Always fix in Game.ShowSaveError: a
+    // save/load error surfacing beneath an active hosted Pause (which owns the
+    // tree-pause lease) must keep processing so it stays dismissible while
+    // SceneTree.Paused is true, and dismissing it must not drop the Pause
+    // lease. The sibling test above only assigns a bare AcceptDialog to
+    // _activeErrorPopup and never opens Pause, so it never exercises this
+    // paused-processing requirement.
+    [TestCase]
+    public async Task ConfiguredKeyboardCancel_PausedErrorPopupRemainsDismissibleWhilePauseActive()
+    {
+        ConfigureCancelBindings(Key.P);
+        _viewport!.GuiEmbedSubwindows = true;
+        await ReplaceWithHostedLifecycleFixture();
+
+        // Open the hosted Pause so it owns the tree-pause lease.
+        PushPhysicalKey(Key.P);
+        await AwaitFrames(2);
+
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
+
+        // Surface a real save/load error through the production ShowSaveError
+        // path (the one that required ProcessModeEnum.Always to remain
+        // dismissible while the tree is paused).
+        InvokePrivate(_game, "ShowSaveError", "Cannot save during battle.", "Save Failed");
+        await AwaitFrames(1);
+
+        var popup = GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup");
+        AssertThat(popup).IsNotNull();
+        AssertThat(popup!.ProcessMode).IsEqual(ProcessModeEnum.Always);
+        AssertThat(popup.GetParent()).IsNotNull();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
+
+        // Dismiss the popup while the tree is still paused; the Confirmed
+        // handler must free it and clear _activeErrorPopup.
+        popup.EmitSignal(AcceptDialog.SignalName.Confirmed);
+        await AwaitFrames(2);
+
+        AssertThat(GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup")).IsNull();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+    }
+
     [TestCase]
     public async Task ConfiguredKeyboardCancel_BattleWithoutDialogEndsBattleWithoutOpeningHostedPause()
     {

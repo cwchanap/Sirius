@@ -271,15 +271,22 @@ public partial class SettingsMenuSceneTest : Node
         // is flaky). Assert the scroller moved off its initial position...
         AssertThat(controlsScroll.ScrollVertical).IsGreater(scrollBefore);
 
-        // ...and the focused control now overlaps the scroll viewport —
-        // i.e. follow_focus brought it into view. Overlap (not full
-        // containment) is used because the compact-mode page scroller has a
-        // minimal viewport, so a control taller than that viewport can only
-        // ever be partially visible.
+        // ...and the focused control is now fully visible within the scroll
+        // viewport, per the follow_focus contract (Godot scrolls focused
+        // descendants so they are fully visible). When the control is
+        // shorter than the viewport, the full control height must be
+        // visible; when the control is taller than the viewport (compact
+        // page scroller), the full viewport height must be covered by the
+        // control. Either way the visible intersection height equals
+        // min(button height, viewport height), which avoids depending on
+        // font/content height while still rejecting a 1px-only overlap.
         var scrollRect = controlsScroll.GetGlobalRect();
         var buttonRect = pauseButton.GetGlobalRect();
-        AssertThat(buttonRect.End.Y).IsGreater(scrollRect.Position.Y - 1f);
-        AssertThat(buttonRect.Position.Y).IsLess(scrollRect.End.Y + 1f);
+        var visibleTop = Mathf.Max(buttonRect.Position.Y, scrollRect.Position.Y);
+        var visibleBottom = Mathf.Min(buttonRect.End.Y, scrollRect.End.Y);
+        var visibleHeight = Mathf.Max(0f, visibleBottom - visibleTop);
+        var expectedVisibleHeight = Mathf.Min(buttonRect.Size.Y, scrollRect.Size.Y);
+        AssertThat(visibleHeight).IsGreaterEqual(expectedVisibleHeight - 1f);
     }
 
     private async Task ResizeAndOpen(Vector2I size)

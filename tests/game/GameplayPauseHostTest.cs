@@ -324,8 +324,22 @@ public partial class GameplayPauseHostTest : Node
     [TestCase]
     public async Task HostedSettings_HostsLogicalPauseChildAndRestoresExistingPause()
     {
+        const int firstPresentationSentinel = -1;
+        var tree = (SceneTree)Engine.GetMainLoop();
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
         var modalLayer = host.GetNode<Control>("ModalLayer");
+
+        void MarkFirstPresentation(Node node)
+        {
+            if (node is not SettingsMenuController settings)
+                return;
+
+            settings.VisibilityChanged += () =>
+            {
+                if (settings.Visible)
+                    settings.EditedSettings.MasterVolumePercent = firstPresentationSentinel;
+            };
+        }
 
         AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
         await AwaitFrames(2);
@@ -334,10 +348,32 @@ public partial class GameplayPauseHostTest : Node
         var pauseEntry = FindEntry(host, UIScreenKinds.Pause);
         var settingsButton = pause.GetNode<Button>("%SettingsButton");
         settingsButton.GrabFocus();
-        settingsButton.EmitSignal(Button.SignalName.Pressed);
+
+        tree.NodeAdded += MarkFirstPresentation;
+        try
+        {
+            settingsButton.EmitSignal(Button.SignalName.Pressed);
+        }
+        finally
+        {
+            tree.NodeAdded -= MarkFirstPresentation;
+        }
+
         await AwaitFrames(2);
 
         var settings = FindDirectChild<SettingsMenuController>(modalLayer);
+        await AwaitFrames(2);
+
+        // OpenSettings() shows the controller only after it has populated
+        // EditedSettings. A second call would replace this invalid sentinel
+        // with a normalized SettingsManager snapshot, proving presentation ran once.
+        AssertThat(settings.EditedSettings.MasterVolumePercent)
+            .IsEqual(firstPresentationSentinel);
+        AssertThat(_viewport!.GuiGetFocusOwner())
+            .IsEqual(settings.InitialFocusTarget);
+        AssertThat(settings.InitialFocusTarget)
+            .IsEqual(settings.GetNode<HSlider>("%MasterSlider"));
+
         var settingsEntry = FindEntry(host, UIScreenKinds.Settings);
         AssertThat(settings.GetParent()).IsEqual(modalLayer);
         AssertThat(settingsEntry.Policy.Parent).IsEqual(pauseEntry.Handle);

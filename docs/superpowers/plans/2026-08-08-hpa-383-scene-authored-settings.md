@@ -4,7 +4,7 @@
 
 **Goal:** Replace Sirius's runtime-built Settings layout with a scene-authored, themed, responsive screen while preserving all existing settings behavior and the HPA-382 gameplay-host lifecycle.
 
-**Architecture:** Keep `SettingsMenuController` as the single screen controller and `SettingsManager`/`SettingsData` as the existing domain owners. Move static controls and layout to `SettingsMenu.tscn`, bind those nodes from C#, reuse `SiriusModalShell` and the existing Theme, disable the shell's outer body scrolling for Settings, and let page-local scroll containers own overflow. Focus is applied exactly once by the invoking owner: `UIScreenHost` under Pause, direct `MainMenu` otherwise.
+**Architecture:** Keep `SettingsMenuController` as the single screen controller and `SettingsManager`/`SettingsData` as the existing domain owners. Move static controls and layout to `SettingsMenu.tscn`, bind those nodes from C#, reuse `SiriusModalShell` and the existing Theme, disable the shell's outer body scrolling for Settings, and let page-local scroll containers own overflow. Focus is applied exactly once by the invoking owner: `UIScreenHost` under Pause, direct `MainMenu` otherwise. The current host does not invoke incoming `SetPresented(true)` during initial attachment, so `Game` makes the sole initial `OpenSettings(showOverlay: false)` call after a successful `TryPresent`; `SetPresented` remains for later host-driven presentation transitions.
 
 **Tech Stack:** Godot 4.6.2, C#/.NET 8, GdUnit4, existing `SiriusModalShell`, Sirius Theme, and `UIScreenHost`.
 
@@ -37,13 +37,13 @@
 **Production**
 - Modify `scenes/ui/SettingsMenu.tscn` — canonical static Settings hierarchy, row/control cells, Sirius styling, page-local scrolling, and fixed actions.
 - Modify `scripts/ui/SettingsMenuController.cs` — scene-node binding, shell-scroll configuration, dynamic values, staged behavior, page selection, responsive reflow, and inline feedback.
-- Modify `scripts/game/Game.cs` — add the Settings initial-focus callback and remove the redundant second hosted `OpenSettings()` call.
+- Modify `scripts/game/Game.cs` — add the Settings initial-focus callback and retain the explicit post-`TryPresent` `OpenSettings(showOverlay: false)` call as the sole initial hosted open.
 - Modify `scripts/ui/MainMenu.cs` — apply initial focus after direct open and restore focus to the existing Settings button after close.
 
 **Tests**
 - Create `tests/ui/SettingsMenuSceneTest.cs` — prove scene-authored controls/labels exist before `_Ready()` and verify scroll ownership, responsive structure, page selection, and viewport fit.
 - Modify `tests/ui/SettingsMenuControllerTest.cs` — preserve behavior coverage, replace obsolete focus ownership and old generic-panel sizing assumptions.
-- Modify `tests/game/GameplayPauseHostTest.cs` — verify hosted Settings initial focus and existing Cancel/cleanup behavior.
+- Modify `tests/game/GameplayPauseHostTest.cs` — verify hosted Settings initial focus, the zero/one/duplicate initial-open guard, and existing Cancel/cleanup behavior.
 - Modify `tests/ui/MainMenuTest.cs` — verify direct Settings initial focus and close restoration.
 
 ---
@@ -760,23 +760,50 @@ git commit -m "feat(ui): make settings layout responsive"
 
 **Interfaces:**
 - Consumes: `SettingsMenuController.InitialFocusTarget`, existing HPA-382 `TryOpenHostedSettings()`, existing `UIScreenEntrySpec.InitialFocus`, current direct Main Menu Settings lifecycle.
-- Produces: exactly one initial-focus owner per invocation, host restoration under Pause, and direct focus/return-focus under Main Menu.
+- Produces: exactly one initial-focus owner per invocation, exactly one explicit initial hosted open guarded against zero and duplicate calls, host restoration under Pause, and direct focus/return-focus under Main Menu.
 
-- [ ] **Step 1: Add a failing gameplay-host initial-focus assertion**
+- [ ] **Step 1: Add failing gameplay-host initial-focus and exact-initial-open assertions**
 
-Extend `GameplayPauseHostTest.HostedSettings_HostsLogicalPauseChildAndRestoresExistingPause()` after Settings is presented:
+Extend `GameplayPauseHostTest.HostedSettings_HostsLogicalPauseChildAndRestoresExistingPause()` before presenting Settings so a `VisibilityChanged` handler marks the first visible presentation with an invalid sentinel. Keep that sentinel after presentation alongside the focus assertions:
 
 ```csharp
+const int firstPresentationSentinel = -1;
+
+void MarkFirstPresentation(Node node)
+{
+    if (node is not SettingsMenuController settings)
+        return;
+
+    settings.VisibilityChanged += () =>
+    {
+        if (settings.Visible)
+            settings.EditedSettings.MasterVolumePercent = firstPresentationSentinel;
+    };
+}
+
+tree.NodeAdded += MarkFirstPresentation;
+try
+{
+    settingsButton.EmitSignal(Button.SignalName.Pressed);
+}
+finally
+{
+    tree.NodeAdded -= MarkFirstPresentation;
+}
+
+await AwaitFrames(2);
 var settings = FindDirectChild<SettingsMenuController>(modalLayer);
 await AwaitFrames(2);
 
+AssertThat(settings.EditedSettings.MasterVolumePercent)
+    .IsEqual(firstPresentationSentinel);
 AssertThat(_viewport!.GuiGetFocusOwner())
     .IsEqual(settings.InitialFocusTarget);
 AssertThat(settings.InitialFocusTarget)
     .IsEqual(settings.GetNode<HSlider>("%MasterSlider"));
 ```
 
-Keep the existing parent handle, process policy, pause ownership, HUD, Cancel, and restoration assertions.
+This first-presentation sentinel fails for zero initial opens, passes for exactly the one explicit post-`TryPresent` open, and fails for a duplicate because the second `OpenSettings()` repopulates the normalized snapshot. Keep the existing parent handle, process policy, pause ownership, HUD, Cancel, and restoration assertions.
 
 - [ ] **Step 2: Add failing Main Menu initial-focus and return-focus assertions**
 
@@ -809,9 +836,9 @@ dotnet test Sirius.sln --settings test.runsettings.local \
   --filter "FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~MainMenuTest"
 ```
 
-Expected: existing lifecycle assertions remain green; new initial-focus/return-focus expectations fail until production seams change.
+Expected: existing lifecycle assertions remain green; new initial-focus, zero/one/duplicate initial-open, and return-focus expectations fail until production seams change.
 
-- [ ] **Step 4: Give the HPA-382 hosted Settings entry explicit initial focus and one open call**
+- [ ] **Step 4: Give the HPA-382 hosted Settings entry explicit initial focus and retain its sole initial open**
 
 In `Game.TryOpenHostedSettings()`, add:
 
@@ -819,7 +846,7 @@ In `Game.TryOpenHostedSettings()`, add:
 InitialFocus = () => settings.InitialFocusTarget,
 ```
 
-Keep the existing `SetPresented` callback:
+Keep the existing `SetPresented` callback for later host-driven presentation transitions:
 
 ```csharp
 SetPresented = visible =>
@@ -829,21 +856,16 @@ SetPresented = visible =>
 },
 ```
 
-After a successful `TryPresent`, keep only handle/reference assignment:
+The current `UIScreenHost` does not invoke incoming `SetPresented(true)` during initial attachment. After a successful `TryPresent`, keep the handle/reference assignment and the explicit call below; it is the sole initial hosted open:
 
 ```csharp
 _hostedSettingsHandle = result.Handle.Value;
 _hostedSettingsMenu = settings;
+settings.OpenSettings(showOverlay: false);
 return true;
 ```
 
-Remove the redundant second:
-
-```csharp
-settings.OpenSettings(showOverlay: false);
-```
-
-Do not change any other `UIScreenEntrySpec` policy field and do not add a `Game._Input()` branch.
+Do not remove or move this post-`TryPresent` call into `SetPresented`: the first-presentation sentinel from Step 1 guards zero, one, and duplicate initial opens. Do not change any other `UIScreenEntrySpec` policy field and do not add a `Game._Input()` branch.
 
 - [ ] **Step 5: Make direct Main Menu own direct initial focus and close restoration**
 
@@ -885,7 +907,7 @@ dotnet test Sirius.sln --settings test.runsettings.local \
   --filter "FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~MainMenuTest"
 ```
 
-Expected: hosted Settings focuses the master slider through the host; direct Main Menu Settings focuses the same target once; close restores to Pause or Main Menu correctly; existing host cleanup remains green.
+Expected: hosted Settings focuses the master slider through the host and initializes through one explicit post-`TryPresent` open; the retained `SetPresented` callback remains available for later presentation transitions; direct Main Menu Settings focuses the same target once; close restores to Pause or Main Menu correctly; existing host cleanup remains green.
 
 - [ ] **Step 7: Commit invocation/focus integration**
 
@@ -1046,7 +1068,7 @@ The implementation is ready for review only when all of the following are true:
 - Inline validation uses the existing `SiriusErrorPanel` variation without changing Theme resources.
 - The default `InitialFocusTarget` is the master-volume slider.
 - `OpenSettings()` does not grab focus.
-- Hosted Settings receives initial focus from `UIScreenHost` and opens once.
+- Hosted Settings receives initial focus from `UIScreenHost`. Because the current host does not invoke incoming `SetPresented(true)` on initial attachment, `Game` makes exactly one explicit post-`TryPresent` `OpenSettings(showOverlay: false)` call; the retained callback handles later presentation transitions, and the regression guard covers zero, one, and duplicate initial opens.
 - Direct Main Menu Settings applies initial focus once and restores to its existing Settings button.
 - Hosted Settings remains a child of Pause without taking a second pause/input authority.
 - No HPA-380, HPA-541, HPA-572, save-domain, settings-domain, Theme-core, modal-shell-core, or `UIScreenHost` scope is implemented early.

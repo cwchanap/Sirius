@@ -162,6 +162,15 @@ public partial class SettingsMenuSceneTest : Node
             .IsEqual(ScrollContainer.ScrollMode.Disabled);
         AssertThat(controlsScroll.VerticalScrollMode)
             .IsEqual(ScrollContainer.ScrollMode.Auto);
+
+        // follow_focus must be enabled on every page scroller so keyboard/
+        // gamepad navigation scrolls focused controls into view. A disabled
+        // value on any page scroller breaks focus-driven scrolling on that
+        // page, so assert all four rather than only the Controls page.
+        AssertThat(_screen.GetNode<ScrollContainer>("%AudioScroll").FollowFocus).IsTrue();
+        AssertThat(_screen.GetNode<ScrollContainer>("%DisplayScroll").FollowFocus).IsTrue();
+        AssertThat(_screen.GetNode<ScrollContainer>("%GameplayScroll").FollowFocus).IsTrue();
+        AssertThat(_screen.GetNode<ScrollContainer>("%ControlsScroll").FollowFocus).IsTrue();
     }
 
     [TestCase]

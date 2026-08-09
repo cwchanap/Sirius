@@ -103,6 +103,8 @@ No new abstraction is inserted between `SettingsMenuController` and `SettingsMan
 
 When opened from Pause, the gameplay `UIScreenHost` remains the only owner of parent/child presentation state, tree-pause inheritance, cursor state, lower-layer interactivity, Cancel priority, and focus restoration.
 
+On its initial attachment, the current `UIScreenHost` does not invoke an incoming `SetPresented(true)` callback. Once `TryPresent` succeeds, `Game` therefore makes the one explicit `settings.OpenSettings(showOverlay: false)` call that initializes and shows hosted Settings. This does not add a second lifecycle owner: `SetPresented` remains installed for later host-driven presentation transitions, opening when `true` and hiding when `false`.
+
 Settings must not write `SceneTree.Paused`, change gameplay-input suppression directly, or implement its own parent stack.
 
 When opened from Main Menu, HPA-383 preserves the current direct-child flow. The direct caller owns initial focus and restores focus to the existing Main Menu Settings button on close. HPA-380 later replaces that invocation with the Main Menu host.
@@ -328,7 +330,7 @@ HPA-572 may later migrate appropriate non-inline errors to the shared host-manag
 - close-on-Cancel, with Settings native interception first
 - queue-free node lifetime
 
-HPA-383 adds the explicit `InitialFocus` callback. The host's existing `SetPresented` callback remains the single call to `OpenSettings(showOverlay: false)`; the redundant post-`TryPresent` `OpenSettings()` call is removed so hosted presentation happens once.
+HPA-383 adds the explicit `InitialFocus` callback. The current host does not invoke the incoming `SetPresented(true)` callback during initial attachment, so after a successful `TryPresent`, `Game` retains the explicit post-`TryPresent` `settings.OpenSettings(showOverlay: false)` call as the sole initial open. `SetPresented` remains for later host-driven presentation transitions. The hosted first-presentation sentinel regression guard distinguishes zero, one, and duplicate initial opens.
 
 ### 14.2 Main Menu
 
@@ -392,6 +394,7 @@ The shell panel is queried through the concrete nested path `ModalShell/Panel`; 
 
 - Settings is still a logical child of Pause,
 - Settings receives host-owned initial focus on its first active-page control,
+- a first-presentation sentinel guards zero, one, and duplicate initial hosted opens,
 - Cancel returns to the same Pause entry,
 - key capture/dropdown still intercept Cancel before the host, and
 - teardown leaves no Settings entry or focus lease.

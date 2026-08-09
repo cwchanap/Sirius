@@ -232,6 +232,46 @@ public partial class SettingsMenuSceneTest : Node
         AssertThat(panel.GetGlobalRect().End.Y).IsLessEqual(360.5f);
     }
 
+    [TestCase]
+    public async Task CompactControlsFocusScrollsLastControlIntoView()
+    {
+        // Catches a page-local ScrollContainer that lets keyboard/gamepad
+        // navigation move focus onto an off-screen setting without scrolling
+        // it into view (follow_focus must be enabled on every page scroller).
+        await ResizeAndOpen(new Vector2I(640, 360));
+
+        _screen!.GetNode<Button>("%ControlsPageButton")
+            .EmitSignal(Button.SignalName.Pressed);
+
+        var label = _screen.GetNode<Label>("%InventoryKeyLabel");
+        label.Text = string.Join(" ", Enumerable.Repeat(
+            "RepresentativeLocalizedInventoryBindingLabel", 12));
+
+        await AwaitFrames(3);
+
+        var controlsScroll = _screen.GetNode<ScrollContainer>("%ControlsScroll");
+        var pauseButton = _screen.GetNode<Button>("%PauseKeyButton");
+
+        // Establish that the page content overflows the local scroller and
+        // that the last control starts below the visible viewport.
+        AssertThat(controlsScroll.GetVScrollBar().MaxValue)
+            .IsGreater(controlsScroll.GetVScrollBar().Page);
+        AssertThat(controlsScroll.ScrollVertical).IsEqual(0);
+
+        // Focus the last control — follow_focus should scroll it into view.
+        pauseButton.GrabFocus();
+        await AwaitFrames(3);
+
+        // follow_focus must move the scroll offset off zero and bring the
+        // last control into view. The last control sits at the bottom of
+        // the content, so the scroller should have moved to (near) its
+        // maximum range.
+        var bar = controlsScroll.GetVScrollBar();
+        var maxScroll = (int)(bar.MaxValue - bar.Page);
+        AssertThat(controlsScroll.ScrollVertical).IsGreater(0);
+        AssertThat(controlsScroll.ScrollVertical).IsGreaterEqual(maxScroll - 1);
+    }
+
     private async Task ResizeAndOpen(Vector2I size)
     {
         _container = new SubViewportContainer

@@ -1,7 +1,7 @@
 # HPA-381 Compact Exploration HUD Design
 
 **Date:** 2026-08-09  
-**Status:** Draft for review  
+**Status:** Revised after implementation-plan review  
 **Linear:** HPA-381 — Replace the Sirius debug exploration HUD with a compact contextual HUD
 
 ## 1. Purpose
@@ -12,7 +12,7 @@ This is a presentation migration. `Game` remains the owner of gameplay/world con
 
 ## 2. Why HPA-381 is the next slice
 
-The Sirius project delivery order starts with the compact exploration HUD. HPA-381 is High priority and Todo, and its only listed blocker, HPA-354, is complete. The shared Sirius Theme, art catalogue, `SiriusStatBar`, `SiriusContextPrompt`, `SiriusInputHint`, and gameplay `UIScreenHost` are already merged, so this ticket can now be implemented as a player-visible vertical slice without adding foundation work.
+The Sirius project delivery order starts with the compact exploration HUD. HPA-381 is High priority and Todo, and its listed blocker HPA-354 is complete. The shared Sirius Theme, art catalogue, `SiriusStatBar`, `SiriusContextPrompt`, `SiriusInputHint`, and gameplay `UIScreenHost` are already merged, so this ticket can be implemented as a player-visible vertical slice without adding foundation work.
 
 The current runtime still carries the prototype presentation in `Game.tscn`:
 
@@ -68,6 +68,7 @@ HPA-381 will:
 8. Replace the permanent instruction block with one short, session-scoped movement hint; do not add tutorial persistence.
 9. Keep the HUD safely positioned at all approved desktop landscape viewports, including the 1600 px centred ultrawide content frame.
 10. Guarantee that the non-interactive HUD does not capture gameplay mouse/focus input.
+11. Cut production over atomically: no committed intermediate state may remove the old prompt/HUD nodes while code or lifecycle tests still depend on them.
 
 ## 5. Non-goals
 
@@ -146,12 +147,14 @@ public void ShowSessionHint(string text);
 
 `ShowInteractionPrompt` always binds `SiriusContextPrompt.Actions` to the existing `interact` action. No new prompt abstraction or target model is introduced.
 
-## 7. Scene structure
+## 7. Scene structure and Theme ownership
 
 Add `res://scenes/ui/ExplorationHud.tscn` and instance it once under `UI/GameUI` in `Game.tscn`.
 
+The **root explicitly owns `theme = res://resources/ui/theme/SiriusTheme.tres`**. Shared components already carry the Theme in their own scenes, but free `Label`, `PanelContainer`, and `ProgressBar` nodes in this HUD must inherit the Sirius Theme from the feature root rather than falling back to Godot defaults.
+
 ```text
-ExplorationHud                       # full-rect Control, controller attached
+ExplorationHud                       # full-rect Control, SiriusTheme, controller attached
 ├── SafeFrame                        # centred max-width 1600 content frame
 │   ├── HeroOrbitArc                 # existing quarter-orbit ornament
 │   ├── HeroPlate                    # PanelContainer, SiriusHudPlate, top-left
@@ -181,7 +184,7 @@ The `PanelContainer` nodes each have one layout child. The orbit/connector are e
 
 The timers are authored children rather than ad hoc async tasks. They only control temporary presentation lifetime.
 
-The scene uses existing Theme roles. It does not add Theme tokens.
+No Theme token or new Theme resource is added.
 
 ## 8. Visual composition
 
@@ -212,7 +215,7 @@ Current prompt mapping remains intentionally narrow:
 
 HPA-381 does not add NPC prompt behavior that the current interaction path does not already expose.
 
-`SiriusInputHint` resolves the active keyboard/mouse/gamepad binding while the prompt is visible. `ShowInteractionPrompt` also explicitly refreshes the component, so returning from Settings picks up a remapped `interact` binding before the player takes another action.
+`SiriusInputHint` resolves the active keyboard/mouse/gamepad binding while the prompt is visible. `ShowInteractionPrompt` explicitly refreshes the component, so returning from Settings picks up a remapped `interact` binding before the player takes another action.
 
 ### 8.3 Area title
 
@@ -220,13 +223,15 @@ HPA-381 does not add NPC prompt behavior that the current interaction path does 
 
 ### 8.4 Session hint
 
-The permanent instruction block is removed. On gameplay startup, `Game` asks the HUD to show one short session-scoped movement hint using information the game already exposes:
+The permanent instruction block is removed. On gameplay startup, `Game` asks the HUD to show one short session-scoped movement hint:
 
 `Move with WASD or Arrow Keys`
 
-The hint automatically hides after a few seconds. It does not mention remappable Inventory/Pause bindings and therefore cannot become stale when Settings changes those controls. Interaction discoverability comes from the contextual prompt itself.
+This remains a fixed hint intentionally. Current movement is handled directly from WASD/arrow key events rather than through a movement InputMap action, so making this surface binding-aware would require a gameplay-input change outside HPA-381. The interaction prompt remains binding/device-aware through the existing `interact` action.
 
-No save flag, tutorial progression object, or persistence change is added.
+The hint automatically hides after a few seconds. It does not mention remappable Inventory/Pause bindings and therefore cannot become stale when Settings changes those controls.
+
+No save flag, tutorial progression object, persistence change, or new movement action is added.
 
 ## 9. Prompt visibility and host integration
 
@@ -234,18 +239,31 @@ The interaction prompt must disappear whenever exploration input is incompatible
 
 `Game.UpdateInteractionPrompt()` keeps the existing world-target resolution but begins with this visibility gate:
 
-- no valid grid/player/game manager;
+- no valid HUD/grid/player/game manager;
 - `_sceneChangeCommitted` is true; or
 - `IsGameplayInputSuppressed()` is true.
 
 `IsGameplayInputSuppressed()` already composes the gameplay `UIScreenHost` presentation block with battle, NPC interaction, and world interaction state.
 
-The existing `GameplayInputBlockChanged` host callback is expanded only enough to refresh the interaction prompt after `_presentationGameplayBlocked` changes. This ensures:
+The existing `GameplayInputBlockChanged` host callback is expanded only enough to refresh the interaction prompt after `_presentationGameplayBlocked` changes:
+
+```csharp
+GameplayInputBlockChanged = blocked =>
+{
+    _presentationGameplayBlocked = blocked;
+    if (IsNodeReady())
+        UpdateInteractionPrompt();
+};
+```
+
+This ensures:
 
 - opening Pause or direct Inventory hides a currently visible prompt;
 - closing the blocking screen re-resolves and restores the prompt if the target is still valid;
 - battle/NPC/world-interaction transitions continue to hide it through existing calls; and
 - a committed scene transition cannot leave a stale prompt visible.
+
+`RequestSceneChange()` hides/re-resolves the prompt immediately after setting `_sceneChangeCommitted = true` so navigation does not depend on a later incidental refresh.
 
 The host continues to treat `UI/GameUI` as its HUD root. HPA-381 does not register the passive HUD as another host screen.
 
@@ -262,7 +280,7 @@ Use the existing `SiriusUiMetrics` contract:
 
 ```text
 contentWidth = min(viewportWidth - 2 * safeMargin, 1600)
-sideInset = (viewportWidth - contentWidth) / 2
+sideInset = max(safeMargin, (viewportWidth - contentWidth) / 2)
 verticalInset = safeMargin
 ```
 
@@ -281,28 +299,39 @@ This includes internals of the instanced prompt and stat-bar components. `Sirius
 
 The HUD therefore never becomes a gameplay focus target and never blocks clicks or movement input.
 
-## 12. Changes to existing files
+## 12. Production cutover
+
+The isolated HUD component may land as its own green commit. The production migration is one atomic second slice because `Game.tscn`, `Game.cs`, and existing lifecycle tests share the old prompt/HUD path.
+
+The cutover changes together:
 
 ### `scenes/game/Game.tscn`
 
 - remove the `DraggablePanel` ext-resource from this scene;
 - remove the old `TopPanel` subtree;
 - remove the permanent `Instructions` label;
-- remove the old local stylebox resources used only by that debug panel;
+- remove old local stylebox resources used only by that debug panel;
 - instance `ExplorationHud.tscn` under `UI/GameUI`.
 
 ### `scripts/game/Game.cs`
 
 - replace individual HUD label fields and runtime prompt label with `_explorationHud`;
 - bind the authored HUD in `_Ready()`;
-- keep `UpdatePlayerUI()` as the adapter call used by existing lifecycle paths;
-- simplify `UpdatePlayerUI()` to create `ExplorationHudPlayerState` and call `ApplyPlayerState`;
-- preserve existing `PlayerStatsChanged` wiring;
-- keep interaction target lookup in `UpdateInteractionPrompt()`, but call HUD show/hide methods;
-- refresh prompt when host gameplay blocking changes;
+- simplify `UpdatePlayerUI()` into the `ExplorationHudPlayerState` adapter;
+- convert `UpdateInteractionPrompt()` to HUD show/hide calls while retaining all existing finders and target-validity rules;
+- refresh the prompt from `GameplayInputBlockChanged`;
 - show the floor title in `OnFloorLoaded`;
-- show the one-shot movement hint at gameplay startup; and
-- hide/reject prompt presentation once scene navigation is committed.
+- show the one-shot movement hint at gameplay startup;
+- hide the prompt when scene navigation commits; and
+- remove `EnsureInteractionPromptLabel()` and all old `TopPanel`/`InteractionPrompt` node paths in the same commit.
+
+### Tests changed in the same slice
+
+- `tests/game/GameTest.cs`
+- `tests/game/GameInputLifecycleTest.cs`
+- `tests/game/GameplayPauseHostTest.cs`
+
+No intermediate commit may delete `_interactionPromptLabel`, `EnsureInteractionPromptLabel()`, or `UI/GameUI/InteractionPrompt` while `UpdateInteractionPrompt()` or lifecycle tests still use them.
 
 No `GameManager`, `Character`, `GridMap`, `PlayerController`, Theme, or host API change is required.
 
@@ -313,6 +342,8 @@ No `GameManager`, `Character`, `GridMap`, `PlayerController`, Theme, or host API
 Add focused tests that prove:
 
 - all required scene-authored HUD nodes exist before `_Ready()`;
+- the root scene explicitly references `SiriusTheme.tres`;
+- free labels/plates resolve Sirius Theme variations through that root;
 - no debug title, Lock control, permanent Instructions, ATK, DEF, SPD, or Gold node is present;
 - applying player state updates name, level, HP, MP, and EXP;
 - `MaxMana <= 0` collapses the MP row;
@@ -332,17 +363,27 @@ Update/add focused `GameTest` coverage for:
 - an adjacent treasure producing `Open` through `SiriusContextPrompt`;
 - puzzle targets preserving `Use`/`Solve` semantics;
 - opening a host-blocking screen hiding the prompt and closing it re-resolving the prompt for a still-valid target;
-- battle/NPC/world interaction continuing to suppress prompts; and
-- floor load showing the current floor name.
+- floor load showing the current floor name; and
+- production `Game.tscn` containing the new HUD and no prototype nodes.
 
-Keep HPA-382 host/Pause tests intact; add only the prompt visibility assertion needed to protect the HUD integration boundary.
+Update existing `GameInputLifecycleTest` contracts that directly use `UI/GameUI/InteractionPrompt`:
+
+- configured Cancel while a riddle owns the interaction;
+- floor replacement/rebinding; and
+- battle hide/escape restoration.
+
+Those tests must assert `%PromptPlate`/`%ContextPrompt` state from the real resolver. They must not force a presentation node visible to simulate a valid target.
+
+Keep HPA-382 host/Pause tests intact; add the host-block suppression assertion in `GameplayPauseHostTest` and keep real-target restoration acceptance-critical in `GameTest`/lifecycle coverage.
 
 ### 13.3 Final verification
 
 Run:
 
-- focused exploration-HUD/controller tests;
-- focused `GameTest` and gameplay-host tests affected by prompt/HUD behavior;
+- `ExplorationHudControllerTest`;
+- `GameTest`;
+- `GameInputLifecycleTest`;
+- `GameplayPauseHostTest`;
 - the full `Sirius.sln` test suite;
 - `dotnet build Sirius.sln --no-restore`; and
 - a diff/scope audit proving no Theme, `UIScreenHost`, domain-model, inventory, battle, save, or settings files changed unintentionally.
@@ -351,7 +392,15 @@ Run:
 
 ### Prompt stays visible under Pause or another host screen
 
-Mitigation: make prompt eligibility use `IsGameplayInputSuppressed()` and refresh on the host's `GameplayInputBlockChanged` callback, rather than relying only on battle/NPC/world state.
+Mitigation: make prompt eligibility use `IsGameplayInputSuppressed()` and refresh on the host's `GameplayInputBlockChanged` callback, rather than relying only on battle/NPC/world state. Test both hide and real-target restoration.
+
+### Production cutover creates a broken bridge state
+
+Mitigation: keep component creation separate, then migrate scene, `Game`, and all old prompt-path tests atomically. There is no mid-cutover green checkpoint.
+
+### Free HUD controls render with default Godot styling
+
+Mitigation: explicitly assign `SiriusTheme.tres` to the HUD root and assert that authored Theme relationship in the component test.
 
 ### Reusable component internals consume mouse events
 
@@ -365,9 +414,9 @@ Mitigation: lock the approved content list, use only name/level + HP/MP + thin E
 
 Mitigation: use one shared `IsCompact` branch plus the existing safe-margin/max-content-frame policy. The seven reference viewports are verification inputs, not seven implementations.
 
-### HPA-381 expands into tutorial persistence
+### HPA-381 expands into tutorial persistence or movement rebinding
 
-Mitigation: keep the movement hint timer-scoped to the current gameplay scene. Persistence requires a separate gameplay issue.
+Mitigation: keep the movement hint timer-scoped and fixed to the current direct WASD/arrow behavior. Persistence or movement-action refactoring requires a separate gameplay issue.
 
 ## 15. Acceptance mapping
 
@@ -381,7 +430,7 @@ Mitigation: keep the movement hint timer-scoped to the current gameplay scene. P
 | Hints temporary/non-obstructive | one-shot scene-authored movement hint timer; no persistence |
 | Safe at approved aspect ratios | shared compact/safe-frame policy + seven viewport tests |
 | HUD does not intercept gameplay input | recursive mouse-ignore/focus-none policy + test |
-| Existing behavior/tests preserved | domain ownership stays in `Game`/`GameManager`; focused + full regression gates |
+| Existing behavior/tests preserved | atomic cutover updates `GameTest`, `GameInputLifecycleTest`, and host coverage together |
 
 ## 16. Final scope decision
 

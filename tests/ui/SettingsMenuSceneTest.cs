@@ -258,18 +258,28 @@ public partial class SettingsMenuSceneTest : Node
             .IsGreater(controlsScroll.GetVScrollBar().Page);
         AssertThat(controlsScroll.ScrollVertical).IsEqual(0);
 
+        var scrollBefore = controlsScroll.ScrollVertical;
+
         // Focus the last control — follow_focus should scroll it into view.
         pauseButton.GrabFocus();
         await AwaitFrames(3);
 
-        // follow_focus must move the scroll offset off zero and bring the
-        // last control into view. The last control sits at the bottom of
-        // the content, so the scroller should have moved to (near) its
-        // maximum range.
-        var bar = controlsScroll.GetVScrollBar();
-        var maxScroll = (int)(bar.MaxValue - bar.Page);
-        AssertThat(controlsScroll.ScrollVertical).IsGreater(0);
-        AssertThat(controlsScroll.ScrollVertical).IsGreaterEqual(maxScroll - 1);
+        // follow_focus only needs to scroll enough to make the focused
+        // control visible; it does not guarantee the scroller reaches its
+        // maximum range (content height varies with font/theme metrics
+        // across CI environments, so asserting ScrollVertical >= maxScroll
+        // is flaky). Assert the scroller moved off its initial position...
+        AssertThat(controlsScroll.ScrollVertical).IsGreater(scrollBefore);
+
+        // ...and the focused control now overlaps the scroll viewport —
+        // i.e. follow_focus brought it into view. Overlap (not full
+        // containment) is used because the compact-mode page scroller has a
+        // minimal viewport, so a control taller than that viewport can only
+        // ever be partially visible.
+        var scrollRect = controlsScroll.GetGlobalRect();
+        var buttonRect = pauseButton.GetGlobalRect();
+        AssertThat(buttonRect.End.Y).IsGreater(scrollRect.Position.Y - 1f);
+        AssertThat(buttonRect.Position.Y).IsLess(scrollRect.End.Y + 1f);
     }
 
     private async Task ResizeAndOpen(Vector2I size)

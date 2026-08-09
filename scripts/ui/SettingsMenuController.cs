@@ -18,33 +18,62 @@ public partial class SettingsMenuController : Control
     /// dismiss the popup instead.
     public bool IsPopupOpen => IsAnyOptionPopupOpen();
 
+    public Control InitialFocusTarget => _pageDeck.CurrentTab switch
+    {
+        0 => _masterSlider,
+        1 => _fullscreenCheck,
+        2 => _difficultyOption,
+        3 => _inventoryKeyBtn,
+        _ => _masterSlider
+    };
+
     private SettingsData _editedSettings = SettingsData.CreateDefaults();
     private string? _listeningAction;
     private bool _closedEmitted;
 
+    // Scene structure
+    private SiriusModalShell _shell = null!;
+    private ScrollContainer _shellBodyScroll = null!;
+    private GridContainer _settingsFrame = null!;
+    private GridContainer _pageSelector = null!;
+    private TabContainer _pageDeck = null!;
+    private GridContainer _audioRows = null!;
+    private GridContainer _displayRows = null!;
+    private GridContainer _gameplayRows = null!;
+    private GridContainer _controlsRows = null!;
+
+    private Button _audioPageButton = null!;
+    private Button _displayPageButton = null!;
+    private Button _gameplayPageButton = null!;
+    private Button _controlsPageButton = null!;
+    private Button[] _pageButtons = null!;
+
     // Audio
-    private HSlider _masterSlider;
-    private Label _masterValueLabel;
-    private HSlider _musicSlider;
-    private Label _musicValueLabel;
-    private HSlider _sfxSlider;
-    private Label _sfxValueLabel;
+    private HSlider _masterSlider = null!;
+    private Label _masterValueLabel = null!;
+    private HSlider _musicSlider = null!;
+    private Label _musicValueLabel = null!;
+    private HSlider _sfxSlider = null!;
+    private Label _sfxValueLabel = null!;
 
     // Display
-    private CheckBox _fullscreenCheck;
-    private OptionButton _resolutionOption;
+    private CheckBox _fullscreenCheck = null!;
+    private OptionButton _resolutionOption = null!;
 
     // Gameplay
-    private OptionButton _difficultyOption;
-    private CheckBox _autoSaveCheck;
+    private OptionButton _difficultyOption = null!;
+    private CheckBox _autoSaveCheck = null!;
 
     // Controls
-    private Button _inventoryKeyBtn;
-    private Button _interactKeyBtn;
-    private Button _pauseKeyBtn;
+    private Button _inventoryKeyBtn = null!;
+    private Button _interactKeyBtn = null!;
+    private Button _pauseKeyBtn = null!;
 
     // Feedback
-    private Label _errorLabel;
+    private PanelContainer _errorPanel = null!;
+    private Label _errorLabel = null!;
+    private Button _applyButton = null!;
+    private Button _cancelButton = null!;
 
     private static readonly (int W, int H)[] ResolutionPresets =
     {
@@ -55,192 +84,180 @@ public partial class SettingsMenuController : Control
 
     public override void _Ready()
     {
-        var content = GetNode<VBoxContainer>("Panel/ScrollContainer/Content");
-        BuildUI(content);
+        BindSceneNodes();
+        ConfigureScrollOwnership();
+        PopulateChoiceItems();
+        BindSignals();
+        RefreshLayout();
+
         Hide();
         SetProcessInput(false);
     }
 
+    public override void _ExitTree()
+    {
+        UnbindSignals();
+    }
+
     public void OpenSettings(SettingsData? snapshot = null, bool showOverlay = true)
     {
-        if (_listeningAction != null) CancelKeyCapture();
+        if (_listeningAction != null)
+            CancelKeyCapture();
+
         _closedEmitted = false;
+        GetNode<Control>("Background").Visible = showOverlay;
+        ClearError();
 
-        var bg = GetNodeOrNull<ColorRect>("Background");
-        if (bg != null) bg.Visible = showOverlay;
+        var source =
+            snapshot ??
+            SettingsManager.Instance?.GetSnapshot() ??
+            SettingsData.CreateDefaults();
 
-        var panel = GetNodeOrNull<PanelContainer>("Panel");
-        if (panel != null)
-        {
-            if (showOverlay)
-            {
-                panel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-            }
-            else
-            {
-                // Cap the panel to 90% of viewport so it always fits, even at
-                // the minimum supported resolution (640×360).  The
-                // ScrollContainer handles overflow when content is taller.
-                var vpSize = GetViewport().GetVisibleRect().Size;
-                var maxW = Mathf.Min(580f, vpSize.X * 0.9f);
-                var maxH = Mathf.Min(500f, vpSize.Y * 0.9f);
-                panel.CustomMinimumSize = new Vector2(maxW, maxH);
-                panel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.Center, Control.LayoutPresetMode.Minsize);
-            }
-        }
-
-        var source = snapshot ?? SettingsManager.Instance?.GetSnapshot() ?? SettingsData.CreateDefaults();
         _editedSettings = source.Clone();
         PopulateControls();
         Show();
         SetProcessInput(true);
-
-        // Grab focus on the first interactive control so that UI navigation
-        // keys (ui_up, ui_down, ui_accept, etc.) are handled by Godot's GUI
-        // focus system rather than leaking through to the game scene behind
-        // the modal.
-        if (_masterSlider != null)
-            _masterSlider.GrabFocus();
     }
 
-    private void BuildUI(VBoxContainer content)
+    private void BindSceneNodes()
     {
-        content.AddChild(new Label { Text = "Settings" });
+        _shell = GetNode<SiriusModalShell>("%ModalShell");
+        _shellBodyScroll = _shell.GetNode<ScrollContainer>("%BodyScroll");
+        _settingsFrame = GetNode<GridContainer>("%SettingsFrame");
+        _pageSelector = GetNode<GridContainer>("%PageSelector");
+        _pageDeck = GetNode<TabContainer>("%PageDeck");
+        _audioRows = GetNode<GridContainer>("%AudioRows");
+        _displayRows = GetNode<GridContainer>("%DisplayRows");
+        _gameplayRows = GetNode<GridContainer>("%GameplayRows");
+        _controlsRows = GetNode<GridContainer>("%ControlsRows");
 
-        var tabs = new TabContainer();
-        tabs.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-        content.AddChild(tabs);
+        _audioPageButton = GetNode<Button>("%AudioPageButton");
+        _displayPageButton = GetNode<Button>("%DisplayPageButton");
+        _gameplayPageButton = GetNode<Button>("%GameplayPageButton");
+        _controlsPageButton = GetNode<Button>("%ControlsPageButton");
+        _pageButtons =
+        [
+            _audioPageButton,
+            _displayPageButton,
+            _gameplayPageButton,
+            _controlsPageButton
+        ];
 
-        tabs.AddChild(BuildAudioTab());
-        tabs.AddChild(BuildDisplayTab());
-        tabs.AddChild(BuildGameplayTab());
-        tabs.AddChild(BuildControlsTab());
+        _masterSlider = GetNode<HSlider>("%MasterSlider");
+        _masterValueLabel = GetNode<Label>("%MasterValueLabel");
+        _musicSlider = GetNode<HSlider>("%MusicSlider");
+        _musicValueLabel = GetNode<Label>("%MusicValueLabel");
+        _sfxSlider = GetNode<HSlider>("%SfxSlider");
+        _sfxValueLabel = GetNode<Label>("%SfxValueLabel");
 
-        _errorLabel = new Label { Modulate = Colors.Red, Visible = false };
-        content.AddChild(_errorLabel);
+        _fullscreenCheck = GetNode<CheckBox>("%FullscreenCheck");
+        _resolutionOption = GetNode<OptionButton>("%ResolutionOption");
+        _difficultyOption = GetNode<OptionButton>("%DifficultyOption");
+        _autoSaveCheck = GetNode<CheckBox>("%AutoSaveCheck");
 
-        var btnRow = new HBoxContainer();
-        btnRow.AddThemeConstantOverride("separation", 8);
-        content.AddChild(btnRow);
+        _inventoryKeyBtn = GetNode<Button>("%InventoryKeyButton");
+        _interactKeyBtn = GetNode<Button>("%InteractKeyButton");
+        _pauseKeyBtn = GetNode<Button>("%PauseKeyButton");
 
-        var applyBtn = new Button { Text = "Apply" };
-        applyBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        applyBtn.Pressed += OnApplyPressed;
-        btnRow.AddChild(applyBtn);
-
-        var cancelBtn = new Button { Text = "Cancel" };
-        cancelBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        cancelBtn.Pressed += OnCancelPressed;
-        btnRow.AddChild(cancelBtn);
+        _errorPanel = GetNode<PanelContainer>("%ErrorPanel");
+        _errorLabel = GetNode<Label>("%ErrorLabel");
+        _applyButton = GetNode<Button>("%ApplyButton");
+        _cancelButton = GetNode<Button>("%CancelButton");
     }
 
-    private VBoxContainer BuildAudioTab()
+    private void ConfigureScrollOwnership()
     {
-        var tab = new VBoxContainer { Name = "Audio" };
-        tab.AddThemeConstantOverride("separation", 8);
-
-        (_masterSlider, _masterValueLabel) = AddSliderRow(tab, "Master Volume");
-        (_musicSlider,  _musicValueLabel)  = AddSliderRow(tab, "Music Volume");
-        (_sfxSlider,    _sfxValueLabel)    = AddSliderRow(tab, "SFX Volume");
-
-        _masterSlider.ValueChanged += v => _masterValueLabel.Text = $"{(int)v}%";
-        _musicSlider.ValueChanged  += v => _musicValueLabel.Text  = $"{(int)v}%";
-        _sfxSlider.ValueChanged    += v => _sfxValueLabel.Text    = $"{(int)v}%";
-
-        return tab;
+        _shellBodyScroll.VerticalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        _shellBodyScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
     }
 
-    private static (HSlider slider, Label valueLabel) AddSliderRow(VBoxContainer parent, string labelText)
+    private void PopulateChoiceItems()
     {
-        var row = new HBoxContainer();
-        parent.AddChild(row);
-
-        var lbl = new Label { Text = labelText };
-        lbl.CustomMinimumSize = new Vector2(140, 0);
-        row.AddChild(lbl);
-
-        var slider = new HSlider { MinValue = 0, MaxValue = 100, Step = 1 };
-        slider.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        row.AddChild(slider);
-
-        var val = new Label { Text = "100%" };
-        val.CustomMinimumSize = new Vector2(45, 0);
-        row.AddChild(val);
-
-        return (slider, val);
-    }
-
-    private VBoxContainer BuildDisplayTab()
-    {
-        var tab = new VBoxContainer { Name = "Display" };
-        tab.AddThemeConstantOverride("separation", 8);
-
-        var fsRow = new HBoxContainer();
-        tab.AddChild(fsRow);
-        fsRow.AddChild(new Label { Text = "Fullscreen" });
-        _fullscreenCheck = new CheckBox();
-        fsRow.AddChild(_fullscreenCheck);
-
-        var resRow = new HBoxContainer();
-        tab.AddChild(resRow);
-        resRow.AddChild(new Label { Text = "Resolution" });
-        _resolutionOption = new OptionButton();
+        _resolutionOption.Clear();
         foreach (var (w, h) in ResolutionPresets)
-            _resolutionOption.AddItem($"{w}\u00d7{h}");
-        resRow.AddChild(_resolutionOption);
+            _resolutionOption.AddItem($"{w}×{h}");
 
-        return tab;
+        _difficultyOption.Clear();
+        foreach (var difficulty in Difficulties)
+            _difficultyOption.AddItem(difficulty);
     }
 
-    private VBoxContainer BuildGameplayTab()
+    private void BindSignals()
     {
-        var tab = new VBoxContainer { Name = "Gameplay" };
-        tab.AddThemeConstantOverride("separation", 8);
+        Resized += OnResized;
 
-        var diffRow = new HBoxContainer();
-        tab.AddChild(diffRow);
-        diffRow.AddChild(new Label { Text = "Difficulty" });
-        _difficultyOption = new OptionButton();
-        foreach (var d in Difficulties)
-            _difficultyOption.AddItem(d);
-        diffRow.AddChild(_difficultyOption);
+        _masterSlider.ValueChanged += OnMasterVolumeChanged;
+        _musicSlider.ValueChanged += OnMusicVolumeChanged;
+        _sfxSlider.ValueChanged += OnSfxVolumeChanged;
 
-        var asRow = new HBoxContainer();
-        tab.AddChild(asRow);
-        asRow.AddChild(new Label { Text = "Auto Save" });
-        _autoSaveCheck = new CheckBox();
-        asRow.AddChild(_autoSaveCheck);
+        _inventoryKeyBtn.Pressed += OnInventoryKeyPressed;
+        _interactKeyBtn.Pressed += OnInteractKeyPressed;
+        _pauseKeyBtn.Pressed += OnPauseKeyPressed;
 
-        return tab;
+        _audioPageButton.Pressed += OnAudioPagePressed;
+        _displayPageButton.Pressed += OnDisplayPagePressed;
+        _gameplayPageButton.Pressed += OnGameplayPagePressed;
+        _controlsPageButton.Pressed += OnControlsPagePressed;
+
+        _applyButton.Pressed += OnApplyPressed;
+        _cancelButton.Pressed += OnCancelPressed;
     }
 
-    private VBoxContainer BuildControlsTab()
+    private void UnbindSignals()
     {
-        var tab = new VBoxContainer { Name = "Controls" };
-        tab.AddThemeConstantOverride("separation", 8);
+        Resized -= OnResized;
 
-        _inventoryKeyBtn = AddKeyRow(tab, "Toggle Inventory", "toggle_inventory");
-        _interactKeyBtn  = AddKeyRow(tab, "Interact",         "interact");
-        _pauseKeyBtn     = AddKeyRow(tab, "Pause / Cancel",   "pause_menu");
+        _masterSlider.ValueChanged -= OnMasterVolumeChanged;
+        _musicSlider.ValueChanged -= OnMusicVolumeChanged;
+        _sfxSlider.ValueChanged -= OnSfxVolumeChanged;
 
-        return tab;
+        _inventoryKeyBtn.Pressed -= OnInventoryKeyPressed;
+        _interactKeyBtn.Pressed -= OnInteractKeyPressed;
+        _pauseKeyBtn.Pressed -= OnPauseKeyPressed;
+
+        _audioPageButton.Pressed -= OnAudioPagePressed;
+        _displayPageButton.Pressed -= OnDisplayPagePressed;
+        _gameplayPageButton.Pressed -= OnGameplayPagePressed;
+        _controlsPageButton.Pressed -= OnControlsPagePressed;
+
+        _applyButton.Pressed -= OnApplyPressed;
+        _cancelButton.Pressed -= OnCancelPressed;
     }
 
-    private Button AddKeyRow(VBoxContainer parent, string displayName, string action)
+    private void OnResized() => RefreshLayout();
+
+    private void RefreshLayout()
     {
-        var row = new HBoxContainer();
-        parent.AddChild(row);
+        _shell.RefreshPresentation(GetViewportRect().Size);
+    }
 
-        var lbl = new Label { Text = displayName };
-        lbl.CustomMinimumSize = new Vector2(160, 0);
-        row.AddChild(lbl);
+    private void OnMasterVolumeChanged(double value) =>
+        _masterValueLabel.Text = $"{(int)value}%";
 
-        var btn = new Button();
-        btn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        btn.Pressed += () => StartKeyCapture(action);
-        row.AddChild(btn);
+    private void OnMusicVolumeChanged(double value) =>
+        _musicValueLabel.Text = $"{(int)value}%";
 
-        return btn;
+    private void OnSfxVolumeChanged(double value) =>
+        _sfxValueLabel.Text = $"{(int)value}%";
+
+    private void OnInventoryKeyPressed() => StartKeyCapture("toggle_inventory");
+
+    private void OnInteractKeyPressed() => StartKeyCapture("interact");
+
+    private void OnPauseKeyPressed() => StartKeyCapture("pause_menu");
+
+    private void OnAudioPagePressed() => SelectPage(0);
+
+    private void OnDisplayPagePressed() => SelectPage(1);
+
+    private void OnGameplayPagePressed() => SelectPage(2);
+
+    private void OnControlsPagePressed() => SelectPage(3);
+
+    private void SelectPage(int pageIndex)
+    {
+        _pageDeck.CurrentTab = pageIndex;
+        _pageButtons[pageIndex].ButtonPressed = true;
     }
 
     private void PopulateControls()
@@ -316,10 +333,12 @@ public partial class SettingsMenuController : Control
 
     private void StartKeyCapture(string action)
     {
-        if (_listeningAction != null) CancelKeyCapture();
+        if (_listeningAction != null)
+            CancelKeyCapture();
+
         _listeningAction = action;
         GetKeyButton(action).Text = "Press a key...";
-        if (_errorLabel != null) _errorLabel.Visible = false;
+        ClearError();
         SetProcessInput(true);
     }
 
@@ -417,7 +436,7 @@ public partial class SettingsMenuController : Control
         _editedSettings.PrimaryKeybindings[_listeningAction] = (long)key;
         UpdateKeyButtonText(GetKeyButton(_listeningAction), _listeningAction);
         _listeningAction = null;
-        if (_errorLabel != null) _errorLabel.Visible = false;
+        ClearError();
         GetViewport()?.SetInputAsHandled();
     }
 
@@ -510,9 +529,15 @@ public partial class SettingsMenuController : Control
 
     private void ShowError(string msg)
     {
-        if (_errorLabel == null) return;
-        _errorLabel.Text    = msg;
+        _errorLabel.Text = msg;
         _errorLabel.Visible = true;
+        _errorPanel.Visible = true;
+    }
+
+    private void ClearError()
+    {
+        _errorLabel.Visible = false;
+        _errorPanel.Visible = false;
     }
 
     private (int W, int H) ResolveSelectedResolution(int selectedIndex)
@@ -583,10 +608,15 @@ public partial class SettingsMenuController : Control
 
     private void CancelKeyCapture()
     {
-        if (_listeningAction == null) return;
+        if (_listeningAction == null)
+        {
+            ClearError();
+            return;
+        }
+
         var prev = _listeningAction;
         _listeningAction = null;
-        if (_errorLabel != null) _errorLabel.Visible = false;
+        ClearError();
         UpdateKeyButtonText(GetKeyButton(prev), prev);
     }
 

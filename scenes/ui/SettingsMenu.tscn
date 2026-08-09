@@ -1,6 +1,11 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/SettingsMenuController.cs" id="1_ctrl"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusModalShell.tscn" id="2_modal_shell"]
+[ext_resource type="Theme" path="res://resources/ui/theme/SiriusTheme.tres" id="3_theme"]
+
+[sub_resource type="ButtonGroup" id="ButtonGroup_pages"]
+resource_name = "SettingsPages"
 
 [node name="SettingsMenuController" type="Control"]
 layout_mode = 3
@@ -9,31 +14,399 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("3_theme")
 script = ExtResource("1_ctrl")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="Panel" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+mouse_filter = 2
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 0.7)
+theme_type_variation = &"SiriusScrim"
 
-[node name="Panel" type="PanelContainer" parent="."]
+[node name="ModalShell" parent="." instance=ExtResource("2_modal_shell")]
+unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+title = "Settings"
+size_class = 2
 
-[node name="ScrollContainer" type="ScrollContainer" parent="Panel"]
+[node name="SettingsFrame" type="GridContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 12
+columns = 2
+
+[node name="PageSelector" type="GridContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+columns = 1
+
+[node name="AudioPageButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageSelector"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Audio"
+toggle_mode = true
+button_pressed = true
+button_group = SubResource("ButtonGroup_pages")
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="DisplayPageButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageSelector"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Display"
+toggle_mode = true
+button_group = SubResource("ButtonGroup_pages")
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="GameplayPageButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageSelector"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Gameplay"
+toggle_mode = true
+button_group = SubResource("ButtonGroup_pages")
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="ControlsPageButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageSelector"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Controls"
+toggle_mode = true
+button_group = SubResource("ButtonGroup_pages")
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="PageDeck" type="TabContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+tabs_visible = false
+current_tab = 0
+
+[node name="AudioPage" type="VBoxContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="Content" type="VBoxContainer" parent="Panel/ScrollContainer"]
+[node name="AudioScroll" type="ScrollContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/AudioPage"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 1
+vertical_scroll_mode = 1
+
+[node name="AudioRows" type="GridContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/AudioPage/AudioScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 2
+
+[node name="MasterVolumeLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/AudioPage/AudioScroll/AudioRows"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Master Volume"
+autowrap_mode = 3
+theme_type_variation = &"SiriusBody"
+
+[node name="MasterControlCell" type="HBoxContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/AudioPage/AudioScroll/AudioRows"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
+
+[node name="MasterSlider" type="HSlider" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/AudioPage/AudioScroll/AudioRows/MasterControlCell"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+
+[node name="MasterValueLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/AudioPage/AudioScroll/AudioRows/MasterControlCell"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 44)
+layout_mode = 2
+text = "100%"
+horizontal_alignment = 2
+vertical_alignment = 1
+theme_type_variation = &"SiriusNumeric"
+
+[node name="MusicVolumeLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/AudioPage/AudioScroll/AudioRows"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Music Volume"
+autowrap_mode = 3
+theme_type_variation = &"SiriusBody"
+
+[node name="MusicControlCell" type="HBoxContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/AudioPage/AudioScroll/AudioRows"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="MusicSlider" type="HSlider" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/AudioPage/AudioScroll/AudioRows/MusicControlCell"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+
+[node name="MusicValueLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/AudioPage/AudioScroll/AudioRows/MusicControlCell"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 44)
+layout_mode = 2
+text = "100%"
+horizontal_alignment = 2
+vertical_alignment = 1
+theme_type_variation = &"SiriusNumeric"
+
+[node name="SfxVolumeLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/AudioPage/AudioScroll/AudioRows"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "SFX Volume"
+autowrap_mode = 3
+theme_type_variation = &"SiriusBody"
+
+[node name="SfxControlCell" type="HBoxContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/AudioPage/AudioScroll/AudioRows"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="SfxSlider" type="HSlider" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/AudioPage/AudioScroll/AudioRows/SfxControlCell"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+
+[node name="SfxValueLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/AudioPage/AudioScroll/AudioRows/SfxControlCell"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 44)
+layout_mode = 2
+text = "100%"
+horizontal_alignment = 2
+vertical_alignment = 1
+theme_type_variation = &"SiriusNumeric"
+
+[node name="DisplayPage" type="VBoxContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="DisplayScroll" type="ScrollContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/DisplayPage"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 1
+vertical_scroll_mode = 1
+
+[node name="DisplayRows" type="GridContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/DisplayPage/DisplayScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 2
+
+[node name="FullscreenLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/DisplayPage/DisplayScroll/DisplayRows"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Fullscreen"
+autowrap_mode = 3
+theme_type_variation = &"SiriusBody"
+
+[node name="FullscreenCheck" type="CheckBox" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/DisplayPage/DisplayScroll/DisplayRows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ResolutionLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/DisplayPage/DisplayScroll/DisplayRows"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Resolution"
+autowrap_mode = 3
+theme_type_variation = &"SiriusBody"
+
+[node name="ResolutionOption" type="OptionButton" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/DisplayPage/DisplayScroll/DisplayRows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="GameplayPage" type="VBoxContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="GameplayScroll" type="ScrollContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/GameplayPage"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 1
+vertical_scroll_mode = 1
+
+[node name="GameplayRows" type="GridContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/GameplayPage/GameplayScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 2
+
+[node name="DifficultyLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/GameplayPage/GameplayScroll/GameplayRows"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Difficulty"
+autowrap_mode = 3
+theme_type_variation = &"SiriusBody"
+
+[node name="DifficultyOption" type="OptionButton" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/GameplayPage/GameplayScroll/GameplayRows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AutoSaveLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/GameplayPage/GameplayScroll/GameplayRows"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Auto Save"
+autowrap_mode = 3
+theme_type_variation = &"SiriusBody"
+
+[node name="AutoSaveCheck" type="CheckBox" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/GameplayPage/GameplayScroll/GameplayRows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ControlsPage" type="VBoxContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ControlsScroll" type="ScrollContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/ControlsPage"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 1
+vertical_scroll_mode = 1
+
+[node name="ControlsRows" type="GridContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/ControlsPage/ControlsScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 2
+
+[node name="InventoryKeyLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/ControlsPage/ControlsScroll/ControlsRows"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Toggle Inventory"
+autowrap_mode = 3
+theme_type_variation = &"SiriusBody"
+
+[node name="InventoryKeyButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/ControlsPage/ControlsScroll/ControlsRows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "(unbound)"
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="InteractKeyLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/ControlsPage/ControlsScroll/ControlsRows"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Interact"
+autowrap_mode = 3
+theme_type_variation = &"SiriusBody"
+
+[node name="InteractKeyButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/ControlsPage/ControlsScroll/ControlsRows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "(unbound)"
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="PauseKeyLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/ControlsPage/ControlsScroll/ControlsRows"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Pause / Cancel"
+autowrap_mode = 3
+theme_type_variation = &"SiriusBody"
+
+[node name="PauseKeyButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/SettingsFrame/PageDeck/ControlsPage/ControlsScroll/ControlsRows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "(unbound)"
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="ErrorPanel" type="PanelContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusErrorPanel"
+
+[node name="ErrorLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/ErrorPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 3
+theme_type_variation = &"SiriusBody"
+
+[node name="ApplyButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/ActionsHost"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Apply"
+theme_type_variation = &"SiriusPrimaryButton"
+
+[node name="CancelButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/ActionsHost"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Cancel"
+theme_type_variation = &"SiriusSecondaryButton"

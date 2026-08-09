@@ -19,7 +19,7 @@ The current runtime still carries the prototype presentation in `Game.tscn`:
 - a draggable `TopPanel`;
 - the `Player HUD` developer title;
 - the visible Lock toggle;
-- 96 px portrait plus oversized labels;
+- a 96 px portrait plus oversized labels;
 - raw ATK, DEF, and SPD diagnostics;
 - permanent themed-area/control instructions; and
 - a plain `InteractionPrompt` label created at runtime by `Game`.
@@ -59,11 +59,11 @@ Rejected under YAGNI. Generalize only if a second real consumer proves a shared 
 HPA-381 will:
 
 1. Replace the debug `TopPanel` and permanent `Instructions` nodes with one scene-authored compact exploration HUD.
-2. Reuse the existing Sirius Theme, `SiriusStatBar`, `SiriusContextPrompt`, `SiriusInputHint`, and existing player portrait asset.
+2. Reuse the existing Sirius Theme, `SiriusStatBar`, `SiriusContextPrompt`, `SiriusInputHint`, UI ornaments, and current hero portrait asset.
 3. Show player identity, level, HP, MP, and thin EXP progress.
 4. Keep gold out of the exploration HUD, following the approved HPA-373 composition that reserves gold for inventory/shop surfaces.
 5. Move the interaction prompt into the scene-authored HUD while preserving current target-validity rules.
-6. Let the existing `interact` InputMap action drive the prompt glyph/label so remaps and active-device changes are reflected by `SiriusInputHint`.
+6. Let the existing `interact` InputMap action drive the prompt glyph/label so remaps and active-device changes are reflected by the existing input-hint component while the prompt is actionable.
 7. Show the current floor/area name briefly at the top centre when a floor loads.
 8. Replace the permanent instruction block with one short, session-scoped movement hint; do not add tutorial persistence.
 9. Keep the HUD safely positioned at all approved desktop landscape viewports, including the 1600 px centred ultrawide content frame.
@@ -130,7 +130,7 @@ public readonly record struct ExplorationHudPlayerState(
 
 `Game.UpdatePlayerUI()` remains as the existing call-site seam, but its implementation becomes a small adapter from `GameManager.Player` to `ExplorationHudPlayerState`. `Game` calculates the effective maximum health before passing the state. The HUD simply renders the supplied values.
 
-MP is visible when `MaxMana > 0`; otherwise that row collapses. EXP collapses if there is no meaningful positive next-level maximum. A missing portrait hides the portrait node while name/level remain visible as the identity fallback.
+MP is visible when `MaxMana > 0`; otherwise that row collapses. EXP collapses if there is no meaningful positive next-level maximum. If the portrait control has no texture, it collapses while name/level remain as the identity fallback.
 
 ### 6.4 HUD methods
 
@@ -152,30 +152,32 @@ Add `res://scenes/ui/ExplorationHud.tscn` and instance it once under `UI/GameUI`
 
 ```text
 ExplorationHud                       # full-rect Control, controller attached
-└── SafeFrame                        # centred max-width 1600 content frame
-    ├── HeroPlate                    # PanelContainer, SiriusHudPlate, top-left
-    │   └── HeroContent              # HBoxContainer
-    │       ├── Portrait             # existing hero portrait; graceful hide fallback
-    │       └── PlayerData           # VBoxContainer
-    │           ├── IdentityRow
-    │           │   ├── PlayerName
-    │           │   └── PlayerLevel
-    │           ├── HealthBar        # SiriusStatBar
-    │           ├── ManaBar          # SiriusStatBar
-    │           └── ExperienceRow
-    │               ├── ExperienceLabel
-    │               └── ExperienceBar # thin ProgressBar, SiriusExpBar
-    ├── AreaTitle                    # top-centre, hidden by default
-    ├── PromptPlate                  # bottom-centre, SiriusHudPlate, hidden by default
-    │   ├── ContextPrompt            # SiriusContextPrompt
-    │   └── PromptConnector          # existing callout connector ornament, optional if loaded
-    └── HintPlate                    # compact temporary hint, hidden by default
-        └── HintLabel
-
-ExplorationHud
+├── SafeFrame                        # centred max-width 1600 content frame
+│   ├── HeroOrbitArc                 # existing quarter-orbit ornament
+│   ├── HeroPlate                    # PanelContainer, SiriusHudPlate, top-left
+│   │   └── HeroContent              # HBoxContainer
+│   │       ├── Portrait             # existing hero portrait; collapses if absent
+│   │       └── PlayerData           # VBoxContainer
+│   │           ├── IdentityRow
+│   │           │   ├── PlayerName
+│   │           │   └── PlayerLevel
+│   │           ├── HealthBar        # SiriusStatBar
+│   │           ├── ManaBar          # SiriusStatBar
+│   │           └── ExperienceRow
+│   │               ├── ExperienceLabel
+│   │               └── ExperienceBar # thin ProgressBar, SiriusExpBar
+│   ├── AreaTitle                    # top-centre, hidden by default
+│   ├── PromptPlate                  # bottom-centre, SiriusHudPlate, hidden by default
+│   │   └── PromptContent            # VBoxContainer
+│   │       ├── ContextPrompt        # SiriusContextPrompt
+│   │       └── PromptConnector      # existing callout-connector ornament
+│   └── HintPlate                    # small temporary top-right hint, hidden by default
+│       └── HintLabel
 ├── AreaTitleTimer                   # one-shot
 └── HintTimer                        # one-shot
 ```
+
+The `PanelContainer` nodes each have one layout child. The orbit/connector are existing committed ornaments; no new art or fallback loader is added.
 
 The timers are authored children rather than ad hoc async tasks. They only control temporary presentation lifetime.
 
@@ -185,7 +187,7 @@ The scene uses existing Theme roles. It does not add Theme tokens.
 
 ### 8.1 Hero anchor
 
-The top-left hero plate is a compact interpretation of the approved quarter-orbit composition rather than another large rectangular workbench.
+The top-left hero anchor uses the existing orbit ornament plus a compact HUD plate rather than another large rectangular workbench.
 
 - Standard portrait target: 56 px.
 - Compact portrait target: 40 px, matching HPA-373.
@@ -210,7 +212,7 @@ Current prompt mapping remains intentionally narrow:
 
 HPA-381 does not add NPC prompt behavior that the current interaction path does not already expose.
 
-`SiriusInputHint` observes active keyboard/mouse/gamepad input while visible and resolves the current InputMap binding. When Settings changes a binding under a blocking presentation layer, the prompt is hidden; showing it again refreshes the current binding.
+`SiriusInputHint` resolves the active keyboard/mouse/gamepad binding while the prompt is visible. `ShowInteractionPrompt` also explicitly refreshes the component, so returning from Settings picks up a remapped `interact` binding before the player takes another action.
 
 ### 8.3 Area title
 
@@ -264,16 +266,16 @@ sideInset = (viewportWidth - contentWidth) / 2
 verticalInset = safeMargin
 ```
 
-The authored child anchors then position the hero plate, area title, prompt, and hint relative to that frame. No per-aspect-ratio branches or duplicate layouts are created.
+The authored child anchors then position the hero anchor, area title, prompt, and hint relative to that frame. No per-aspect-ratio branches or duplicate layouts are created.
 
-At compact size, the controller switches the shared components to compact typography, reduces the portrait to 40 px, and shortens the hero/prompt footprint. Missing optional MP/portrait data collapses without reserved empty regions.
+At compact size, the controller switches the shared components to compact typography, reduces the portrait to 40 px, shortens the hero/prompt footprint, and keeps the temporary hint narrow enough to avoid the hero and bottom-centre prompt. Missing optional MP/portrait data collapses without reserved empty regions.
 
 ## 11. Input policy
 
 The exploration HUD has no interactive controls. During `_Ready()`, the controller recursively sets every `Control` in its subtree to:
 
 - `MouseFilter = Ignore`; and
-- `FocusMode = None` where applicable.
+- `FocusMode = None`.
 
 This includes internals of the instanced prompt and stat-bar components. `SiriusInputHint` may observe `_Input` to update its glyph, but it does not mark the event handled.
 
@@ -314,7 +316,7 @@ Add focused tests that prove:
 - no debug title, Lock control, permanent Instructions, ATK, DEF, SPD, or Gold node is present;
 - applying player state updates name, level, HP, MP, and EXP;
 - `MaxMana <= 0` collapses the MP row;
-- missing portrait still leaves a readable identity treatment;
+- clearing the portrait texture still leaves a readable identity treatment;
 - interaction prompt uses the correct text/icon/action and hides deterministically;
 - area title and session hint become visible and their authored timers hide them;
 - every HUD control is mouse-ignore/non-focusable after `_Ready()`; and
@@ -329,7 +331,7 @@ Update/add focused `GameTest` coverage for:
 - `PlayerStatsChanged` updating the authored HUD, including mana;
 - an adjacent treasure producing `Open` through `SiriusContextPrompt`;
 - puzzle targets preserving `Use`/`Solve` semantics;
-- opening a host-blocking screen hiding the prompt and closing it re-resolving the prompt;
+- opening a host-blocking screen hiding the prompt and closing it re-resolving the prompt for a still-valid target;
 - battle/NPC/world interaction continuing to suppress prompts; and
 - floor load showing the current floor name.
 
@@ -372,7 +374,7 @@ Mitigation: keep the movement hint timer-scoped to the current gameplay scene. P
 | HPA-381 acceptance requirement | Design coverage |
 |---|---|
 | Remove draggable/debug HUD and permanent instructions | `Game.tscn` replaces `TopPanel`/`Instructions` entirely |
-| Compact approved HUD, supported data only | Hero plate shows identity, level, HP, MP, EXP; no Gold/future placeholders |
+| Compact approved HUD, supported data only | Hero anchor shows identity, level, HP, MP, EXP; no Gold/future placeholders |
 | HP, MP, EXP, level update | `ExplorationHudPlayerState` fed from existing `PlayerStatsChanged` path |
 | Prompt appears/disappears deterministically | Existing target resolver + suppression/host gate + HUD show/hide methods |
 | Prompt reflects bindings/device | Reuse `SiriusContextPrompt`/`SiriusInputHint` with the existing `interact` action |

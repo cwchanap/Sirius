@@ -228,7 +228,20 @@ public partial class SettingsMenuController : Control
 
     private void RefreshLayout()
     {
-        _shell.RefreshPresentation(GetViewportRect().Size);
+        var size = GetViewportRect().Size;
+        var compact = SiriusUiMetrics.IsCompact(size);
+
+        _shell.Compact = compact;
+        _shell.RefreshPresentation(size);
+
+        _settingsFrame.Columns = compact ? 1 : 2;
+        _pageSelector.Columns = compact ? 4 : 1;
+
+        var rowColumns = compact ? 1 : 2;
+        _audioRows.Columns = rowColumns;
+        _displayRows.Columns = rowColumns;
+        _gameplayRows.Columns = rowColumns;
+        _controlsRows.Columns = rowColumns;
     }
 
     private void OnMasterVolumeChanged(double value) =>

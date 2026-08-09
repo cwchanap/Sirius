@@ -6,6 +6,7 @@ public partial class MainMenu : Control
 	private AudioStreamPlayer _backgroundMusic;
 	private SaveLoadDialog? _loadDialog;
 	private SettingsMenuController? _settingsMenu;
+	private Button? _settingsButton;
 
 	public override void _Ready()
 	{
@@ -15,6 +16,7 @@ public partial class MainMenu : Control
 		// Load and set the background image
 		LoadBackgroundImage();
 		SetupBackgroundMusic();
+		_settingsButton = GetNodeOrNull<Button>("VBoxContainer/SettingsButton");
 	}
 
 	private void LoadBackgroundImage()
@@ -171,6 +173,7 @@ public partial class MainMenu : Control
 		_settingsMenu.Closed += OnSettingsClosed;
 		AddChild(_settingsMenu);
 		_settingsMenu.OpenSettings();
+		_settingsMenu.InitialFocusTarget.GrabFocus();
 	}
 
 	private void OnSettingsClosed()
@@ -179,6 +182,8 @@ public partial class MainMenu : Control
 		_settingsMenu.Closed -= OnSettingsClosed;
 		_settingsMenu.QueueFree();
 		_settingsMenu = null;
+		if (_settingsButton != null && IsInstanceValid(_settingsButton))
+			_settingsButton.GrabFocus();
 	}
 
 	private void _on_quit_button_pressed()

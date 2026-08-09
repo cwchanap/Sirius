@@ -427,6 +427,7 @@ public partial class Game : Node2D
                 settings.IsRebinding || settings.IsPopupOpen
                     ? UIInputInterception.ReserveForNativeHandler
                     : UIInputInterception.DeferToPolicy,
+            InitialFocus = () => settings.InitialFocusTarget,
             SetPresented = visible =>
             {
                 if (visible) settings.OpenSettings(showOverlay: false);

@@ -67,24 +67,35 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
-    public void SettingsPressed_DoesNotStackAndClosedCleansOnlySettingsChild()
+    public async Task SettingsPressed_DoesNotStackAndClosedCleansOnlySettingsChild()
     {
-        InvokePrivateAcrossHierarchy(_menu, "_on_settings_button_pressed");
+        var settingsButton = _menu.GetNode<Button>("VBoxContainer/SettingsButton");
+        settingsButton.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
         var settings = GetPrivateField<SettingsMenuController?>(_menu, "_settingsMenu");
 
         AssertThat(settings).IsNotNull();
         AssertThat(settings!.Visible).IsTrue();
         AssertThat(CountSettingsChildren(_menu)).IsEqual(1);
+        AssertThat(_menu.GetViewport().GuiGetFocusOwner())
+            .IsEqual(settings.InitialFocusTarget);
+        AssertThat(settings.InitialFocusTarget)
+            .IsEqual(settings.GetNode<HSlider>("%MasterSlider"));
 
         InvokePrivateAcrossHierarchy(_menu, "_on_settings_button_pressed");
 
         AssertThat(CountSettingsChildren(_menu)).IsEqual(1);
 
-        settings.EmitSignal(SettingsMenuController.SignalName.Closed);
+        InvokePrivateAcrossHierarchy(settings, "OnCancelPressed");
 
         AssertThat(settings.IsQueuedForDeletion()).IsTrue();
         AssertThat(GetPrivateField<SettingsMenuController?>(_menu, "_settingsMenu")).IsNull();
         AssertThat(_menu.Visible).IsTrue();
+
+        await AwaitFrames(2);
+
+        AssertThat(_menu.GetViewport().GuiGetFocusOwner()).IsEqual(settingsButton);
     }
 
     private partial class TestableMainMenu : MainMenu
@@ -137,5 +148,11 @@ public partial class MainMenuTest : Node
         foreach (var child in node.GetChildren())
             count += CountSettingsChildren(child);
         return count;
+    }
+
+    private async Task AwaitFrames(int frameCount)
+    {
+        for (var index = 0; index < frameCount; index++)
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
     }
 }

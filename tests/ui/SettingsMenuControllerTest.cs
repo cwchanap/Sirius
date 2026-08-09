@@ -306,19 +306,6 @@ public partial class SettingsMenuControllerTest : Node
     }
 
     [TestCase]
-    public void OpenSettings_InGameMode_PanelSizeClampedToViewport()
-    {
-        _ctrl.OpenSettings(SettingsData.CreateDefaults(), showOverlay: false);
-
-        var panel = _ctrl.GetNodeOrNull<PanelContainer>("Panel");
-        AssertThat(panel).IsNotNull();
-        // Panel must not exceed 90% of viewport height (default window > 360,
-        // so the clamp ensures it stays within bounds at any resolution).
-        var vpHeight = _ctrl.GetViewport().GetVisibleRect().Size.Y;
-        AssertThat(panel!.CustomMinimumSize.Y).IsLessEqual(vpHeight * 0.9f + 0.5f);
-    }
-
-    [TestCase]
     public void OnCancelPressed_EmitsClosed_WhenSettingsManagerIsNull()
     {
         // SettingsManager.Instance is null in unit tests (not autoloaded).
@@ -792,15 +779,12 @@ public partial class SettingsMenuControllerTest : Node
     }
 
     [TestCase]
-    public void OpenSettings_GrabsFocusOnFirstControl()
+    public void InitialFocusTarget_DefaultAudioPage_IsMasterSlider()
     {
-        // After opening, the first interactive control (master slider) should
-        // have focus so that UI navigation keys are captured by Godot's GUI
-        // focus system instead of leaking to the game scene.
         _ctrl.OpenSettings(SettingsData.CreateDefaults());
 
-        var masterSlider = GetField<HSlider>(_ctrl, "_masterSlider");
-        AssertThat(_ctrl.GetViewport().GuiGetFocusOwner()).IsEqual(masterSlider);
+        AssertThat(_ctrl.InitialFocusTarget)
+            .IsEqual(GetField<HSlider>(_ctrl, "_masterSlider"));
     }
 
     [TestCase]

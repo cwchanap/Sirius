@@ -39,8 +39,8 @@
 
 **Tests**
 - Create `tests/ui/ExplorationHudControllerTest.cs` — scene authorship, state binding, passive input, temporary surfaces, compact behavior, and viewport-fit coverage.
-- Modify `tests/game/GameTest.cs` — production scene cutover, player-state binding, interaction prompt semantics, and floor-title integration.
-- Modify `tests/game/GameplayPauseHostTest.cs` — prove a visible interaction prompt is suppressed/restored by the existing host gameplay-block boundary.
+- Modify `tests/game/GameTest.cs` — production scene cutover, player-state binding, interaction prompt semantics, prompt restoration, and floor-title integration.
+- Modify `tests/game/GameplayPauseHostTest.cs` — prove a stale visible prompt is suppressed by the existing host gameplay-block boundary.
 
 ---
 
@@ -52,12 +52,12 @@
 - Create: `tests/ui/ExplorationHudControllerTest.cs`
 
 **Interfaces:**
-- Consumes: `SiriusUiMetrics`, `SiriusThemeTypes`, `SiriusStatBar`, `SiriusContextPrompt`, `UiIconId`, the existing hero sprite texture, and the existing callout connector ornament.
+- Consumes: `SiriusUiMetrics`, `SiriusThemeTypes`, `SiriusStatBar`, `SiriusContextPrompt`, `UiIconId`, the current hero sprite texture, and existing orbit/callout ornaments.
 - Produces: `ExplorationHudPlayerState`, `ExplorationHudController.ApplyPlayerState`, `ShowInteractionPrompt`, `HideInteractionPrompt`, `ShowAreaTitle`, and `ShowSessionHint`.
 
-- [ ] **Step 1: Write the failing scene-authorship test**
+- [ ] **Step 1: Write the failing scene-authorship contract**
 
-Create `tests/ui/ExplorationHudControllerTest.cs` with a pre-`_Ready()` contract so runtime C# cannot silently rebuild the HUD:
+Create `tests/ui/ExplorationHudControllerTest.cs` with a pre-`_Ready()` test so static HUD structure cannot drift back into runtime construction:
 
 ```csharp
 using System;
@@ -74,6 +74,7 @@ public partial class ExplorationHudControllerTest : Node
     private static readonly string[] RequiredNodes =
     {
         "%SafeFrame",
+        "%HeroOrbitArc",
         "%HeroPlate",
         "%Portrait",
         "%PlayerName",
@@ -86,14 +87,26 @@ public partial class ExplorationHudControllerTest : Node
         "%AreaTitle",
         "%PromptPlate",
         "%ContextPrompt",
+        "%PromptConnector",
         "%HintPlate",
         "%HintLabel",
         "%AreaTitleTimer",
         "%HintTimer"
     };
 
+    private static readonly string[] ProhibitedPrototypeNodes =
+    {
+        "HeaderTitle",
+        "LockDrag",
+        "Instructions",
+        "PlayerAttackHUD",
+        "PlayerDefenseHUD",
+        "PlayerSpeedHUD",
+        "PlayerGold"
+    };
+
     [TestCase]
-    public void SceneOwnsTheCompleteHudBeforeReady()
+    public void SceneOwnsCompleteHudWithoutPrototypeNodes()
     {
         var packed = GD.Load<PackedScene>("res://scenes/ui/ExplorationHud.tscn");
         AssertThat(packed).IsNotNull();
@@ -104,13 +117,8 @@ public partial class ExplorationHudControllerTest : Node
             foreach (var path in RequiredNodes)
                 AssertThat(hud.GetNodeOrNull(path)).IsNotNull();
 
-            AssertThat(hud.FindChild("Player HUD", recursive: true, owned: false)).IsNull();
-            AssertThat(hud.FindChild("LockDrag", recursive: true, owned: false)).IsNull();
-            AssertThat(hud.FindChild("Instructions", recursive: true, owned: false)).IsNull();
-            AssertThat(hud.FindChild("PlayerAttackHUD", recursive: true, owned: false)).IsNull();
-            AssertThat(hud.FindChild("PlayerDefenseHUD", recursive: true, owned: false)).IsNull();
-            AssertThat(hud.FindChild("PlayerSpeedHUD", recursive: true, owned: false)).IsNull();
-            AssertThat(hud.FindChild("PlayerGold", recursive: true, owned: false)).IsNull();
+            foreach (var nodeName in ProhibitedPrototypeNodes)
+                AssertThat(hud.FindChild(nodeName, recursive: true, owned: false)).IsNull();
         }
         finally
         {
@@ -120,7 +128,7 @@ public partial class ExplorationHudControllerTest : Node
 }
 ```
 
-- [ ] **Step 2: Run the new test and verify it fails because the scene does not exist**
+- [ ] **Step 2: Run the new test and confirm the expected red state**
 
 Run:
 
@@ -131,13 +139,14 @@ dotnet test Sirius.sln --settings test.runsettings.local \
 
 Expected: FAIL loading `res://scenes/ui/ExplorationHud.tscn`.
 
-- [ ] **Step 3: Author `ExplorationHud.tscn` from existing components**
+- [ ] **Step 3: Author `ExplorationHud.tscn` entirely from existing UI building blocks**
 
-Create this hierarchy and mark the named nodes above as unique in owner:
+Create this hierarchy and mark the required nodes above as unique in owner:
 
 ```text
 ExplorationHud (Control, full rect)
-├── SafeFrame (Control)
+├── SafeFrame (Control, full rect anchors; offsets controlled by controller)
+│   ├── HeroOrbitArc (TextureRect, existing orbit_arc.png)
 │   ├── HeroPlate (PanelContainer, SiriusHudPlate, top-left)
 │   │   └── HeroContent (HBoxContainer)
 │   │       ├── Portrait (TextureRect)
@@ -150,23 +159,24 @@ ExplorationHud (Control, full rect)
 │   │           └── ExperienceRow (VBoxContainer)
 │   │               ├── ExperienceLabel (Label, SiriusNumeric)
 │   │               └── ExperienceBar (ProgressBar, SiriusExpBar)
-│   ├── AreaTitle (Label, SiriusTitle, hidden)
-│   ├── PromptPlate (PanelContainer, SiriusHudPlate, hidden)
-│   │   ├── ContextPrompt (SiriusContextPrompt)
-│   │   └── PromptConnector (TextureRect)
-│   └── HintPlate (PanelContainer, SiriusHudPlate, hidden)
+│   ├── AreaTitle (Label, SiriusTitle, top-centre, hidden)
+│   ├── PromptPlate (PanelContainer, SiriusHudPlate, bottom-centre, hidden)
+│   │   └── PromptContent (VBoxContainer)
+│   │       ├── ContextPrompt (SiriusContextPrompt)
+│   │       └── PromptConnector (TextureRect, existing callout_connector.png)
+│   └── HintPlate (PanelContainer, SiriusHudPlate, top-right, hidden)
 │       └── HintLabel (Label, SiriusMetadata)
 ├── AreaTitleTimer (Timer, one_shot=true, wait_time=2.0)
 └── HintTimer (Timer, one_shot=true, wait_time=4.0)
 ```
 
-Use the current player atlas texture already referenced by `Game.tscn` for `Portrait`. Use the existing `UiOrnamentId.CalloutConnector` asset path or direct texture resource for `PromptConnector`; if the texture cannot be loaded, hide only the connector and keep the prompt readable.
+Use the current player atlas texture already referenced by `Game.tscn` for `Portrait`. Each `PanelContainer` has one layout child. No new texture or Theme resource is required.
 
-Set the scene root and authored passive surfaces to full/anchored layout; do not hard-code seven viewport-specific rectangles.
+Anchor HeroPlate, AreaTitle, PromptPlate, and HintPlate relative to SafeFrame. Keep the portrait, bars, and hint width compact in the scene; runtime code should only switch shared compact sizing and safe-frame insets, not rebuild hierarchy.
 
-- [ ] **Step 4: Implement the feature-local controller contract**
+- [ ] **Step 4: Implement the feature-local HUD controller**
 
-Create `scripts/ui/ExplorationHudController.cs` with the display state and the only public operations this ticket needs:
+Create `scripts/ui/ExplorationHudController.cs`:
 
 ```csharp
 using Godot;
@@ -188,7 +198,6 @@ public partial class ExplorationHudController : Control
     private const float MaximumContentWidth = 1600f;
 
     private Control _safeFrame = null!;
-    private PanelContainer _heroPlate = null!;
     private TextureRect _portrait = null!;
     private Label _playerName = null!;
     private Label _playerLevel = null!;
@@ -230,16 +239,16 @@ public partial class ExplorationHudController : Control
         _playerName.Text = string.IsNullOrWhiteSpace(state.Name) ? "Adventurer" : state.Name;
         _playerLevel.Text = $"Lv {state.Level}";
 
+        _healthBar.Label = "HP";
         _healthBar.Current = state.CurrentHealth;
         _healthBar.Maximum = state.MaxHealth;
-        _healthBar.Label = "HP";
 
         _manaBar.Visible = state.MaxMana > 0;
         if (_manaBar.Visible)
         {
+            _manaBar.Label = "MP";
             _manaBar.Current = state.CurrentMana;
             _manaBar.Maximum = state.MaxMana;
-            _manaBar.Label = "MP";
         }
 
         _experienceRow.Visible = state.ExperienceToNext > 0;
@@ -296,17 +305,17 @@ public partial class ExplorationHudController : Control
 }
 ```
 
-Implement `BindNodes()` using the unique names from Step 1.
+Implement `BindNodes()` using the authored unique names. Do not call `new Label`, `new ProgressBar`, or build presentation nodes in this controller.
 
-Implement `MakePassive(Node node)` recursively and keep it feature-local:
+Make the whole feature subtree passive after every child is ready:
 
 ```csharp
 private static void MakePassive(Node node)
 {
     if (node is Control control)
     {
-        control.MouseFilter = MouseFilterEnum.Ignore;
-        control.FocusMode = FocusModeEnum.None;
+        control.MouseFilter = Control.MouseFilterEnum.Ignore;
+        control.FocusMode = Control.FocusModeEnum.None;
     }
 
     foreach (var child in node.GetChildren())
@@ -314,7 +323,7 @@ private static void MakePassive(Node node)
 }
 ```
 
-Implement `RefreshLayout()` using only shared metrics and one max-width rule:
+Implement one responsive calculation:
 
 ```csharp
 private void RefreshLayout()
@@ -322,9 +331,8 @@ private void RefreshLayout()
     var viewportSize = GetViewportRect().Size;
     var compact = SiriusUiMetrics.IsCompact(viewportSize);
     var margin = SiriusUiMetrics.SafeMargin(compact);
-    var contentWidth = MathF.Min(
-        MathF.Max(0, viewportSize.X - 2 * margin),
-        MaximumContentWidth);
+    var availableWidth = MathF.Max(0, viewportSize.X - 2 * margin);
+    var contentWidth = MathF.Min(availableWidth, MaximumContentWidth);
     var sideInset = MathF.Max(margin, (viewportSize.X - contentWidth) / 2f);
 
     _safeFrame.OffsetLeft = sideInset;
@@ -344,11 +352,13 @@ private void RefreshLayout()
 }
 ```
 
-Keep positional anchoring for HeroPlate/AreaTitle/PromptPlate/HintPlate in the scene, relative to `SafeFrame`; do not calculate separate coordinates in code for each supported aspect ratio.
+SafeFrame must use full-rect anchors in the scene so these offsets form the actual safe rectangle.
 
-- [ ] **Step 5: Add focused controller behavior and passive-input tests**
+- [ ] **Step 5: Add focused controller tests**
 
-Extend `ExplorationHudControllerTest` with a SubViewport fixture and tests equivalent to:
+Add a SubViewport fixture that instantiates the production HUD scene and awaits one process frame.
+
+Cover player state:
 
 ```csharp
 [TestCase]
@@ -370,9 +380,15 @@ public async Task ApplyPlayerStateBindsSupportedStatsAndCollapsesMissingMana()
 
     AssertThat(hud.GetNode<SiriusStatBar>("%ManaBar").Visible).IsFalse();
 }
+```
 
+Cover portrait fallback by clearing `%Portrait.Texture`, applying state, and asserting the portrait is hidden while `%PlayerName` and `%PlayerLevel` remain visible.
+
+Cover prompt and timer-owned surfaces:
+
+```csharp
 [TestCase]
-public async Task PromptUsesInteractBindingAndTemporarySurfacesHideOnTheirTimers()
+public async Task PromptAndTemporarySurfacesUseAuthoredPresentation()
 {
     var hud = await InstantiateHud(new Vector2I(1280, 720));
 
@@ -380,6 +396,7 @@ public async Task PromptUsesInteractBindingAndTemporarySurfacesHideOnTheirTimers
     var prompt = hud.GetNode<SiriusContextPrompt>("%ContextPrompt");
     AssertThat(hud.GetNode<PanelContainer>("%PromptPlate").Visible).IsTrue();
     AssertThat(prompt.Prompt).IsEqual("Open");
+    AssertThat(prompt.IconId).IsEqual(UiIconId.Reward);
     AssertThat(prompt.Actions.Length).IsEqual(1);
     AssertThat(prompt.Actions[0]).IsEqual(new StringName("interact"));
 
@@ -391,7 +408,11 @@ public async Task PromptUsesInteractBindingAndTemporarySurfacesHideOnTheirTimers
     hud.GetNode<Timer>("%HintTimer").EmitSignal(Timer.SignalName.Timeout);
     AssertThat(hud.GetNode<PanelContainer>("%HintPlate").Visible).IsFalse();
 }
+```
 
+Cover passive input recursively:
+
+```csharp
 [TestCase]
 public async Task HudSubtreeIsPassive()
 {
@@ -408,7 +429,7 @@ public async Task HudSubtreeIsPassive()
 }
 ```
 
-Add a viewport loop over `SiriusUiMetrics.VerificationViewports`. For each size, resize the SubViewport, await a frame, and assert every currently visible plate has a non-zero rect fully contained by `%SafeFrame`. At 640×360 also assert portrait minimum size is 40×40; at 1280×720 assert 56×56.
+Loop through `SiriusUiMetrics.VerificationViewports`, resize the SubViewport, await one process frame, and assert `%HeroPlate`, `%AreaTitle` when shown, `%PromptPlate` when shown, and `%HintPlate` when shown have non-zero rectangles contained by `%SafeFrame`. At 640×360 assert the portrait minimum is 40×40; at 1280×720 assert 56×56. At those two sizes also assert the four surfaces do not overlap each other after all are shown.
 
 - [ ] **Step 6: Run Task 1 tests and commit**
 
@@ -443,9 +464,9 @@ git commit -m "feat(ui): add compact exploration HUD component"
 - Consumes: `ExplorationHudController`, `ExplorationHudPlayerState`, existing `GameManager.PlayerStatsChanged`, and `Character` values.
 - Produces: one production `ExplorationHud` instance under `UI/GameUI`; `Game.UpdatePlayerUI()` as the sole adapter from player domain state to HUD state.
 
-- [ ] **Step 1: Add failing production cutover and player-binding tests**
+- [ ] **Step 1: Add failing production-cutover and player-binding tests**
 
-Add a `GameTest` that instantiates the real `Game.tscn` and checks the new boundary rather than old label paths:
+Add a real-scene test using the same fixture style already present in `GameTest`:
 
 ```csharp
 [TestCase]
@@ -467,7 +488,9 @@ public async Task GameSceneUsesCompactExplorationHudWithoutPrototypeDebugControl
 }
 ```
 
-Add a state-update test that mutates the existing player and emits through the current production signal seam:
+If `GameTest` does not yet have `InstantiateRealGameScene()`, factor its existing repeated `GD.Load<PackedScene>("res://scenes/game/Game.tscn")` + `AddChild` + `AwaitFrames` setup into a private test helper. Do not add a production seam solely for this test.
+
+Add player-state binding through the current signal:
 
 ```csharp
 [TestCase]
@@ -497,9 +520,7 @@ public async Task PlayerStatsChangedRefreshesExplorationHudIncludingMana()
 }
 ```
 
-If `GameTest` does not already expose `InstantiateRealGameScene()`, add one local test helper that loads `res://scenes/game/Game.tscn`, adds it to the test root, and awaits the same initialization frame count used by the existing real-scene tests. Do not create production-only seams for test setup.
-
-- [ ] **Step 2: Run the focused Game tests and confirm they fail on the current debug HUD**
+- [ ] **Step 2: Run focused Game tests and confirm the expected red state**
 
 Run:
 
@@ -508,7 +529,7 @@ dotnet test Sirius.sln --settings test.runsettings.local \
   --filter "FullyQualifiedName~GameTest"
 ```
 
-Expected: the new ExplorationHud path is absent and the old TopPanel still exists.
+Expected: FAIL because the production scene still owns `TopPanel`/`Instructions` and has no `ExplorationHud`.
 
 - [ ] **Step 3: Replace the prototype hierarchy in `Game.tscn`**
 
@@ -519,10 +540,10 @@ DraggablePanel ext_resource used by TopPanel
 TopPanel and every child beneath it
 Instructions
 TopPanel-only StyleBoxFlat resources
-TopPanel-only portrait AtlasTexture if the new HUD scene owns that atlas resource
+TopPanel-only portrait AtlasTexture if the new HUD scene now owns it
 ```
 
-Add one packed-scene resource and instance:
+Add one packed-scene resource and one instance:
 
 ```text
 UI
@@ -530,11 +551,11 @@ UI
     └── ExplorationHud (instance of res://scenes/ui/ExplorationHud.tscn)
 ```
 
-Keep `UI/UIScreenHost` unchanged and keep `GameUI` as the existing `HudRoot` configured in `Game._EnterTree()`.
+Keep `UI/UIScreenHost` unchanged and keep `GameUI` as the `HudRoot` configured by `Game._EnterTree()`.
 
-- [ ] **Step 4: Replace old label fields with the HUD controller**
+- [ ] **Step 4: Replace old HUD fields and paths in `Game.cs`**
 
-In `Game.cs`, remove:
+Remove:
 
 ```text
 _playerNameLabel
@@ -552,17 +573,17 @@ Add:
 private ExplorationHudController _explorationHud = null!;
 ```
 
-Bind it in `_Ready()` before subscribing to `PlayerStatsChanged`:
+Bind it in `_Ready()` before `PlayerStatsChanged` subscription:
 
 ```csharp
 _explorationHud = GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
 ```
 
-Do not preserve fallback lookups to the old `TopPanel` paths; there are no production users that require backward compatibility for the removed prototype layout.
+Delete all fallback lookups for old `TopPanel` paths. This prototype layout has no compatibility requirement.
 
-- [ ] **Step 5: Collapse `UpdatePlayerUI()` into the domain-to-presentation adapter**
+- [ ] **Step 5: Collapse `UpdatePlayerUI()` into one domain-to-presentation adapter**
 
-Replace all old label/bar/build-stat updates with:
+Replace old label/bar/build-stat mutation with:
 
 ```csharp
 private void UpdatePlayerUI()
@@ -583,9 +604,9 @@ private void UpdatePlayerUI()
 }
 ```
 
-Keep every existing `UpdatePlayerUI()` call site. This minimizes lifecycle churn while removing presentation coupling.
+Keep all current `UpdatePlayerUI()` call sites so battle, load, NPC, floor-change, and other existing update triggers retain their behavior.
 
-- [ ] **Step 6: Run focused HUD/Game tests and the build**
+- [ ] **Step 6: Run focused HUD/Game tests and build**
 
 Run:
 
@@ -597,16 +618,16 @@ dotnet build Sirius.sln --no-restore
 
 Expected: PASS and 0 build errors.
 
-- [ ] **Step 7: Run stale-prototype searches and commit**
+- [ ] **Step 7: Prove the prototype paths are gone and commit**
 
 Run:
 
 ```bash
 rg -n 'Player HUD|Lock position|PlayerAttackHUD|PlayerDefenseHUD|PlayerSpeedHUD|UI/GameUI/TopPanel|UI/GameUI/Instructions' \
-  scenes/game/Game.tscn scripts/game/Game.cs tests/game/GameTest.cs
+  scenes/game/Game.tscn scripts/game/Game.cs
 ```
 
-Expected: no production matches for the removed prototype paths/copy. Test names/comments may be rewritten to describe the new contract instead of preserving stale strings.
+Expected: no matches.
 
 Commit:
 
@@ -625,12 +646,12 @@ git commit -m "feat(ui): replace exploration debug HUD"
 - Modify: `tests/game/GameplayPauseHostTest.cs`
 
 **Interfaces:**
-- Consumes: existing `Game.UpdateInteractionPrompt()` world-target resolver, `IsGameplayInputSuppressed()`, `UIScreenHostOptions.GameplayInputBlockChanged`, `FloorManager.FloorLoaded`, and `ExplorationHudController` prompt/title/hint methods.
-- Produces: binding-aware `Open`/`Use`/`Solve` prompt presentation, host/domain suppression and restoration, temporary floor title, and one session-scoped movement hint.
+- Consumes: existing `Game.UpdateInteractionPrompt()` target resolver, `IsGameplayInputSuppressed()`, `UIScreenHostOptions.GameplayInputBlockChanged`, `FloorManager.FloorLoaded`, and the HUD prompt/title/hint API.
+- Produces: binding-aware `Open`/`Use`/`Solve` prompt presentation, host/domain suppression and valid-target restoration, temporary floor title, and one session-scoped movement hint.
 
-- [ ] **Step 1: Rewrite the existing treasure prompt test against `SiriusContextPrompt` and add suppression coverage**
+- [ ] **Step 1: Rewrite the existing treasure prompt test against the new component**
 
-Update the current `Game_OpeningAdjacentTreasureAwardsOnceAndShowsOpenPrompt` test so it locates:
+In `Game_OpeningAdjacentTreasureAwardsOnceAndShowsOpenPrompt`, replace the runtime-created plain Label lookup with:
 
 ```csharp
 var hud = gameScene.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
@@ -638,7 +659,7 @@ var promptPlate = hud.GetNode<PanelContainer>("%PromptPlate");
 var prompt = hud.GetNode<SiriusContextPrompt>("%ContextPrompt");
 ```
 
-Replace plain-label assertions with:
+After arranging the same adjacent unopened treasure:
 
 ```csharp
 AssertThat(promptPlate.Visible).IsTrue();
@@ -648,17 +669,22 @@ AssertThat(prompt.Actions.Length).IsEqual(1);
 AssertThat(prompt.Actions[0]).IsEqual(new StringName("interact"));
 ```
 
-Preserve the existing reward-once assertions and assert `promptPlate.Visible` becomes false while treasure opening owns world interaction and remains false after the box is opened.
+Preserve every existing reward-once assertion. During treasure opening, assert `promptPlate.Visible` becomes false; after the treasure is opened, assert it stays false.
 
-Add focused puzzle assertions using the existing test floor/entity helpers: an unsolved `PuzzleSwitchSpawn` resolves `Use`/`UiIconId.Puzzle`, and an unsolved `PuzzleRiddleSpawn` resolves `Solve`/`UiIconId.Puzzle`. Do not add new target types.
+Add two focused cases using the existing runtime spawn setup patterns:
 
-- [ ] **Step 2: Add a failing host-block visibility test**
+- adjacent unsolved `PuzzleSwitchSpawn` → `Use`, `UiIconId.Puzzle`;
+- adjacent unsolved `PuzzleRiddleSpawn` → `Solve`, `UiIconId.Puzzle`.
 
-In `GameplayPauseHostTest`, create a prompt directly through the production HUD, then open/close the existing hosted Pause and force the production resolver refresh:
+Do not add prompt mappings for target types that the current gameplay path does not expose.
+
+- [ ] **Step 2: Add failing host-block and valid-target restoration tests**
+
+In `GameplayPauseHostTest`, prove the host cannot leave stale passive prompt presentation behind:
 
 ```csharp
 [TestCase]
-public async Task HostGameplayBlockSuppressesAndRestoresExplorationPrompt()
+public async Task HostGameplayBlockSuppressesStaleExplorationPrompt()
 {
     var hud = _game!.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
     hud.ShowInteractionPrompt("Open", UiIconId.Reward);
@@ -666,22 +692,23 @@ public async Task HostGameplayBlockSuppressesAndRestoresExplorationPrompt()
 
     AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
     await AwaitFrames(2);
-    AssertThat(hud.GetNode<PanelContainer>("%PromptPlate").Visible).IsFalse();
 
-    var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
-    pause.GetNode<Button>("%ResumeButton").EmitSignal(Button.SignalName.Pressed);
-    await AwaitFrames(2);
-
-    // With no valid adjacent target in this fixture, the resolver keeps it hidden.
-    // The important contract is that host unblock re-runs the resolver rather than
-    // resurrecting stale presentation state.
     AssertThat(hud.GetNode<PanelContainer>("%PromptPlate").Visible).IsFalse();
 }
 ```
 
-Also add a `GameTest` real-target variant if needed to prove a valid adjacent target reappears after Resume. Prefer extending the existing treasure fixture rather than adding a new production seam.
+Extend the existing real treasure fixture in `GameTest` to prove restoration from actual gameplay state:
 
-- [ ] **Step 3: Run the focused interaction/host tests and confirm failure on the runtime-created label path**
+1. arrange the adjacent unopened treasure and verify `Open` is visible;
+2. invoke the real Pause path;
+3. verify the prompt is hidden while Pause owns gameplay blocking;
+4. activate Resume;
+5. await host restoration; and
+6. verify `Open` is visible again because the adjacent target is still valid.
+
+This test must use the real resolver; do not restore the prompt directly through the HUD API.
+
+- [ ] **Step 3: Run the focused Game/host tests and confirm the expected red state**
 
 Run:
 
@@ -690,11 +717,11 @@ dotnet test Sirius.sln --settings test.runsettings.local \
   --filter "FullyQualifiedName~GameTest|FullyQualifiedName~GameplayPauseHostTest"
 ```
 
-Expected: new prompt-component and host-suppression expectations fail before the implementation below.
+Expected: FAIL until `Game.UpdateInteractionPrompt()` and the host-block callback target the new HUD.
 
 - [ ] **Step 4: Convert `UpdateInteractionPrompt()` to HUD presentation calls**
 
-Keep all existing treasure/puzzle lookup logic in `Game`. Replace label mutation with this shape:
+Keep existing world lookup logic in `Game` and replace only presentation mutation:
 
 ```csharp
 private void UpdateInteractionPrompt()
@@ -741,11 +768,11 @@ private void UpdateInteractionPrompt()
 }
 ```
 
-Do not move `FindTreasureBoxAt`, `FindPuzzleSwitchAt`, or `FindPuzzleRiddleAt` into the HUD controller.
+Do not move `FindTreasureBoxAt`, `FindPuzzleSwitchAt`, or `FindPuzzleRiddleAt` into `ExplorationHudController`.
 
-- [ ] **Step 5: Refresh prompt state when `UIScreenHost` gameplay blocking changes**
+- [ ] **Step 5: Refresh prompt state from the existing host gameplay-block boundary**
 
-Change only the callback body in `_EnterTree()`:
+Change only the existing callback body in `Game._EnterTree()`:
 
 ```csharp
 GameplayInputBlockChanged = blocked =>
@@ -756,9 +783,7 @@ GameplayInputBlockChanged = blocked =>
 }
 ```
 
-This reuses the existing presentation-block signal rather than adding a second modal-state observer.
-
-Before committing a scene change, explicitly clear the passive prompt once:
+Before a committed scene change proceeds, clear the current passive prompt once:
 
 ```csharp
 private void RequestSceneChange(string path)
@@ -773,15 +798,17 @@ private void RequestSceneChange(string path)
 }
 ```
 
+The existing battle/NPC/world-interaction calls to `UpdateInteractionPrompt()` remain unchanged and now use the same suppression gate.
+
 - [ ] **Step 6: Hook floor-title and session-scoped hint presentation**
 
-At the end of successful gameplay initialization in `_Ready()`, after `_explorationHud` exists:
+At the end of normal gameplay `_Ready()` initialization, after the HUD is bound:
 
 ```csharp
 _explorationHud.ShowSessionHint("Move with WASD or Arrow Keys");
 ```
 
-In `OnFloorLoaded(FloorDefinition floorDef, GridMap gridMap)`, after the floor/grid references are valid:
+In `OnFloorLoaded(FloorDefinition floorDef, GridMap gridMap)`, after the loaded floor/grid is accepted:
 
 ```csharp
 _explorationHud?.ShowAreaTitle(floorDef.FloorName);
@@ -789,14 +816,15 @@ _explorationHud?.ShowAreaTitle(floorDef.FloorName);
 
 Do not add save data, tutorial flags, or animation state.
 
-- [ ] **Step 7: Add floor-title and binding-refresh assertions**
+- [ ] **Step 7: Prove input-binding refresh and floor-title behavior**
 
-In `GameTest`, assert the real initial floor load leaves `%AreaTitle` populated with `FloorManager.CurrentFloorDefinition.FloorName` while visible before its timer expires. Trigger the timer signal directly rather than waiting real seconds.
-
-For input binding, use a scoped InputMap mutation around the existing `interact` action:
+For a scoped `interact` remap test, preserve the original action events by duplication, remap to `Key.E`, show the prompt, and inspect the existing nested component:
 
 ```csharp
-var originalEvents = InputMap.ActionGetEvents("interact");
+var originalEvents = InputMap.ActionGetEvents("interact")
+    .Select(inputEvent => (InputEvent)inputEvent.Duplicate())
+    .ToArray();
+
 try
 {
     InputMap.ActionEraseEvents("interact");
@@ -806,7 +834,9 @@ try
     hud.ShowInteractionPrompt("Open", UiIconId.Reward);
     await AwaitFrames(1);
 
-    var bindingLabel = hud.GetNode<Label>("%ContextPrompt/%InputHint/%BindingLabel");
+    var prompt = hud.GetNode<SiriusContextPrompt>("%ContextPrompt");
+    var inputHint = prompt.GetNode<SiriusInputHint>("%InputHint");
+    var bindingLabel = inputHint.GetNode<Label>("%BindingLabel");
     AssertThat(bindingLabel.Text).IsEqual("E");
 }
 finally
@@ -817,9 +847,11 @@ finally
 }
 ```
 
-If the nested unique-name lookup differs in the instantiated component, resolve `%BindingLabel` from the `SiriusInputHint` child; do not expose a production property solely for the test.
+For floor title, instantiate the real Game scene, await initial floor load, and assert `%AreaTitle.Text` equals `FloorManager.CurrentFloorDefinition.FloorName`. Emit `%AreaTitleTimer.Timeout` directly and assert the title hides; do not make the test sleep for two real seconds.
 
-- [ ] **Step 8: Run focused and full validation**
+Existing `SiriusInputHintTest` already covers keyboard/mouse/gamepad device observation and fallback behavior, so do not duplicate that component matrix here.
+
+- [ ] **Step 8: Run focused, full, build, and scope verification**
 
 Run:
 
@@ -831,9 +863,9 @@ dotnet test Sirius.sln --settings test.runsettings.local
 dotnet build Sirius.sln --no-restore
 ```
 
-Expected: all focused tests pass, full suite passes, build has 0 errors.
+Expected: focused tests pass, full suite passes, build has 0 errors.
 
-Run scope/staleness checks:
+Run stale-path and scope checks:
 
 ```bash
 rg -n 'new Label.*InteractionPrompt|EnsureInteractionPromptLabel|_interactionPromptLabel|Player HUD|Lock position|PlayerAttackHUD|PlayerDefenseHUD|PlayerSpeedHUD' \
@@ -844,11 +876,11 @@ git diff --name-only main...HEAD
 
 Expected:
 
-- no production runtime-created interaction prompt or old debug HUD bindings remain;
-- no HPA-381 change touches Theme resources, shared UI component implementations, hosting infrastructure, domain model/rules, inventory, battle, save/load, or settings implementation;
-- changed runtime/test files are limited to the HPA-381 file map above.
+- no production runtime-created interaction prompt or old debug HUD binding remains;
+- no Theme resource, shared component implementation, hosting infrastructure, domain model/rule, inventory, battle, save/load, or settings implementation file changed;
+- runtime/test changes are limited to the HPA-381 file map above.
 
-- [ ] **Step 9: Commit the prompt/lifecycle slice**
+- [ ] **Step 9: Commit the contextual lifecycle slice**
 
 ```bash
 git add scripts/game/Game.cs \
@@ -859,7 +891,7 @@ git commit -m "feat(ui): contextualize exploration HUD feedback"
 
 ---
 
-## Implementation completion checklist
+## Completion checklist
 
 Before marking HPA-381 complete, verify all of the following together:
 
@@ -867,9 +899,9 @@ Before marking HPA-381 complete, verify all of the following together:
 - `Game.cs` contains no direct concrete HUD Label/ProgressBar binding paths.
 - HP, MP, EXP, name, and level update through the existing `PlayerStatsChanged` path.
 - Gold, ATK, DEF, and SPD are absent from exploration.
-- Treasure/puzzle prompt behavior is unchanged except for themed presentation and binding/device hints.
-- Prompt visibility follows existing domain suppression plus `UIScreenHost` gameplay blocking.
-- Floor title and movement hint are temporary and timer-owned.
+- Treasure/puzzle target semantics are unchanged except for themed prompt presentation and binding/device hints.
+- Prompt visibility follows existing domain suppression plus `UIScreenHost` gameplay blocking, and a still-valid prompt reappears after Resume.
+- Floor title and movement hint are temporary and Timer-owned.
 - HUD subtree is passive for mouse and focus.
 - Every `SiriusUiMetrics.VerificationViewports` case fits inside the shared safe frame.
 - Focused tests, full suite, build, stale-path search, and scope audit pass.

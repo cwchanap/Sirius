@@ -119,9 +119,16 @@ Use a themed `PanelContainer`, not a reusable component. Show only existing meta
 - floor name;
 - stored timestamp when it is not `DateTime.MinValue`.
 
-The Continue summary must not introduce derived gameplay metadata. At compact size, hide timestamp first; keep slot/player/level/floor visible.
-
 When no eligible Continue save exists, hide the summary and disable Continue.
+
+At compact size, apply reductions in this order if the full standard composition does not fit:
+
+1. hide `ContinueTimestampLabel`;
+2. switch to existing compact typography and 4px rail separation;
+3. render the essential summary as one wrapped/compact line containing slot, player/level, and floor rather than separate vertical metadata rows;
+4. keep the rail anchored to the lower-left but allow it to grow upward inside `SafeFrame`.
+
+Do not reduce action targets below 40px, shrink essential text below the existing compact Theme roles, clip the rail, hide essential slot/player/level/floor information, or add a second responsive breakpoint.
 
 ## 6. Deterministic Continue policy
 
@@ -142,26 +149,6 @@ Ordering:
 Compare and format the **Continue selection/summary** using stored `DateTime` values directly. Do not call `ToLocalTime`, `ToUniversalTime`, migrate timestamps, backfill missing timestamps, or introduce a compatibility wrapper.
 
 This rule applies to HPA-380's new Continue path only. The legacy `SaveLoadDialog` currently formats its own slot timestamps and is intentionally unchanged until HPA-384; HPA-380 must not modify that dialog just to align its display formatting.
-
-Recommended helper shape:
-
-```csharp
-internal static SaveSlotInfo? SelectContinueSave(
-    IReadOnlyList<SaveSlotInfo> slots)
-{
-    SaveSlotInfo? best = null;
-    foreach (var candidate in slots)
-    {
-        if (!candidate.Exists || candidate.IsCorrupted)
-            continue;
-
-        if (best == null || IsBetterContinueCandidate(candidate, best))
-            best = candidate;
-    }
-
-    return best;
-}
-```
 
 Return the selected existing metadata object; do not create a parallel Continue model.
 
@@ -188,6 +175,8 @@ private bool IsRootActionBlocked() =>
 
 Every root action handler—Continue, New Game, Load, Settings, and Quit—must also check `IsRootActionBlocked()` before doing work. Disabled buttons are presentation feedback, not the only correctness barrier: programmatic/double signal activation while a hosted child is active must also be a no-op.
 
+These five Buttons are the complete set of focusable/clickable root actions introduced by HPA-380. `Background`, labels, Continue summary chrome, and input-hint presentation are non-actionable and must not capture pointer/focus input. If a future ticket adds another root action, it must join the same predicate/availability contract rather than relying on host lower-layer effects.
+
 When a child closes, cleanup refreshes action availability before host focus restoration runs.
 
 ## 8. Local `UIScreenHost` integration
@@ -213,8 +202,8 @@ HPA-380 integrates but does not redesign `SaveLoadDialog`.
 Direct Load activation:
 
 1. preserve the current SaveManager-availability check;
-2. preserve the current “any save exists” check;
-3. create one `SaveLoadDialog`;
+2. preserve the current “any save exists” check using `SaveExists(0..3)`;
+3. create one `SaveLoadDialog` only after those checks pass;
 4. register it as `UIScreenKinds.SaveLoad`;
 5. use Modal layer/priority, `UIProcessPolicy.Always`, visible cursor, Cancel-to-close, and `NodeLifetime.QueueFree`;
 6. preserve child-dialog Cancel interception;
@@ -222,16 +211,6 @@ Direct Load activation:
 8. restore focus to `LoadButton` when direct Load closes.
 
 For Continue failure fallback, the same helper accepts an explicit restoration target and restores `ContinueButton`, because Continue—not Load—started that flow.
-
-Recommended shape:
-
-```csharp
-private bool TryOpenHostedLoad(Control? restoreFocus = null)
-{
-    var restoreTarget = restoreFocus ?? _loadButton;
-    // register RestoreFocus = () => restoreTarget
-}
-```
 
 Do not add Save-mode behavior to Main Menu.
 
@@ -246,6 +225,8 @@ Use the existing full-load path. On success:
 ### 9.2 Manual Load failure
 
 Show the local themed error as a logical child of Load. On acknowledgement, close the error and its Load parent so the player returns to the correct Main Menu restoration target.
+
+Closing the parent from the child message cleanup is intentionally allowed: `UIScreenHost.TryClose()` called while the host is draining another close queues the parent close and processes it in the same close transaction. HPA-380 must add an integration test for this exact child-error → parent-Load dismissal path so the behavior is proven rather than assumed.
 
 ## 10. Hosted Settings flow
 
@@ -288,11 +269,14 @@ The helper:
 - uses `UIProcessPolicy.Always`;
 - uses visible cursor and `UILowerLayerPolicy.VisibleInert`;
 - focuses the built-in OK button;
-- maps Confirmed/Canceled/CloseRequested to one host close;
+- provides `SetPresented = visible => { if (visible) popup.PopupCentered(); else popup.Hide(); }` so later host presentation changes preserve centred Window presentation;
+- still performs one explicit `PopupCentered()` after the initial successful `TryPresent`, matching the existing Settings/Load first-presentation contract;
+- maps Confirmed/Canceled/CloseRequested through one local `handled` latch so only one host close is requested;
 - allows only one active message;
 - never uses a timer;
 - restores a supplied root control for root messages;
-- relies on logical parent restoration for child messages.
+- relies on logical parent restoration for child messages;
+- when `closeParentOnDismiss` is true, queues the parent close from cleanup and proves that lifecycle with a focused integration test.
 
 This stays private to `MainMenu` so HPA-572 can later replace concrete call sites cleanly.
 
@@ -312,17 +296,21 @@ When Continue is pressed:
 
 Do not scan for a second-best save after full-load failure. The player chooses explicitly from Load.
 
+Testing must exercise both layers:
+
+- the real `_on_continue_button_pressed` activation seam must be proven to call `LoadSlot` with the selected slot and obey the null/scene-committed guards;
+- the hosted failure UI lifecycle may be tested separately through the real scene fixture once a null load result is routed into `HandleContinueLoadResult`.
+
 ## 13. Scene-transition gate and host teardown
 
 Mirror the existing narrow pattern in `Game.cs`; do not extract a navigation service.
+
+Declare the one-way gate before any task that reads it:
 
 ```csharp
 private const string GameScenePath = "res://scenes/game/Game.tscn";
 private string? _pendingScenePath;
 private bool _sceneChangeCommitted;
-
-private void RequestSceneChange(string path);
-private void ContinueSceneChangeAfterUiTeardown();
 ```
 
 `RequestSceneChange` commits once, refreshes action availability immediately, and starts host teardown.
@@ -351,11 +339,13 @@ Use existing `SiriusUiMetrics` only:
 `SafeFrame` is authored FullRect and receives runtime offsets. At compact size:
 
 - use compact typography;
-- reduce rail spacing;
+- reduce rail spacing to 4px;
 - keep every action at the 40px minimum target;
 - hide Continue timestamp first;
-- keep slot/player/level/floor summary visible;
-- keep Select hint compact.
+- if needed, collapse the essential Continue summary to one compact/wrapped line before considering any other content cut;
+- keep slot/player/level/floor visible;
+- keep Select hint compact;
+- allow the rail to grow upward while remaining fully enclosed by `SafeFrame`.
 
 Do not add another breakpoint or per-resolution position table.
 
@@ -379,6 +369,7 @@ Cover:
 - Theme/background are scene-authored;
 - required menu/summary/host nodes exist before `_Ready()`;
 - old centred `VBoxContainer` is gone;
+- non-action chrome is not focusable/clickable;
 - 640×360 and 1280×720 content fits the safe frame and target-size contract;
 - every shared verification viewport respects the content cap.
 
@@ -387,7 +378,7 @@ The deep responsive fixture must explicitly inject an eligible Continue save and
 At compact size assert:
 
 - summary is visible;
-- slot/detail labels have non-zero size and remain inside the summary/safe frame;
+- essential summary text has non-zero size and remains inside the summary/safe frame;
 - timestamp is hidden;
 - all five actions meet the 40px target;
 - the whole rail remains enclosed by the safe frame.
@@ -401,25 +392,44 @@ Cover:
 - production scene owns exactly one `UIScreenHost`;
 - Settings opens once and restores Settings focus;
 - direct Load opens once and restores Load focus;
+- missing SaveManager shows one root error and no SaveLoad entry;
+- no save files shows one root message/error and no SaveLoad entry;
+- valid save presence opens exactly one SaveLoad entry;
 - Continue fallback Load restores Continue focus when closed;
-- all root actions are disabled while a hosted child is active;
-- at least one programmatic root action (New Game or Quit) is also proven to no-op while a child is active, validating the hard guard rather than only disabled state;
+- all five root actions are disabled while a hosted child is active;
+- at least one programmatic root action is also proven to no-op while a child is active;
 - root Cancel is a no-op;
-- one root message at a time.
+- one root message at a time;
+- one message signal outcome produces one close even if another terminal signal also fires;
+- manual Load failure → dismiss child error → both error and Load are closed, root actions re-enable, focus returns to Load.
 
 ### 15.4 Continue/load/transition
 
 Cover:
 
+- `_on_continue_button_pressed` calls `LoadSlot` for `_continueSave.SlotIndex`;
+- no selected Continue and committed-scene cases do not call `LoadSlot`;
 - Continue full-load failure opens Load + child error and does not commit scene change;
 - dismissing Continue failure error keeps Load open;
 - closing fallback Load returns focus to Continue;
-- manual Load failure dismisses back to Main Menu;
 - Continue success sets `PendingLoadData` and requests Game once;
 - New Game clears `PendingLoadData` and requests Game once;
 - repeated activation after `_sceneChangeCommitted` cannot request a second scene change.
 
-## 16. File ownership
+## 16. Existing Main Menu test migration
+
+HPA-380 replaces several concrete private methods/fields and scene paths. The test migration is part of the feature, not cleanup to discover later.
+
+Rewrite or remove these current tests when their production contracts disappear:
+
+- `ShowMessage_CreatesOneVisibleAcceptDialogAndKeepsRootVisible` → hosted `TryOpenMessage`/`UIScreenKinds.SaveError` coverage;
+- `OnLoadDialogClosed_QueuesChildAndClearsReference` → host close/cleanup coverage;
+- `SettingsPressed_DoesNotStackAndClosedCleansOnlySettingsChild` → hosted Settings lifecycle/focus coverage;
+- all `VBoxContainer/...` node paths → `%...` authored Main Menu paths.
+
+Final stale-path verification must reject `VBoxContainer/`, `ShowMessage`, `CleanupLoadDialog`, and `OnLoadDialogClosed` in `tests/ui/MainMenuTest.cs` and `scripts/ui/MainMenu.cs`.
+
+## 17. File ownership
 
 Expected implementation changes:
 
@@ -432,15 +442,35 @@ tests/ui/MainMenuSceneTest.cs
 
 Do not modify `SaveManager`, `SaveLoadDialog`, `SettingsMenuController`, `UIScreenHost`, Theme resources, or `project.godot` unless implementation proves the design impossible; reassess scope before expanding.
 
-## 17. Risks and mitigations
+## 18. Risks and mitigations
 
 ### Compact vertical overflow
 
-The Continue summary adds height to a five-action rail. Mitigate with compact typography, 4px compact spacing, hidden timestamp, and a test that forces the summary visible at 640×360.
+The Continue summary adds height to a five-action rail. Use the explicit reduction ladder: hide timestamp, compact typography/spacing, collapse essential summary to one line, then grow upward inside `SafeFrame`. The 640×360 test forces Continue summary visible and must keep the whole rail enclosed.
+
+### Existing-test migration drift
+
+HPA-380 removes `ShowMessage`, direct `_loadDialog` cleanup, and legacy `VBoxContainer` paths. Rewrite those tests in the same host-migration task and grep for stale paths before declaring the slice green.
+
+### Task-order compile drift
+
+`RefreshActionAvailability` reads `_sceneChangeCommitted` before transition behavior is implemented. Declare the field in Task 2 with its default `false`; Task 4 only starts mutating it.
+
+### Controller-only synthetic fixture drift
+
+The Task 4 `TestableMainMenu` intentionally skips production scene binding. `RefreshActionAvailability()` must permanently tolerate unbound root buttons via null checks; tests should treat that as a controller-only seam contract, not an incidental implementation detail.
 
 ### Root controls active behind child presentation
 
-Disabled state alone is insufficient for programmatic/double signals. Centralize `IsRootActionBlocked()` and guard every root handler.
+Disabled state alone is insufficient for programmatic/double signals. Centralize `IsRootActionBlocked()` and guard every root handler. Keep the five Buttons as the complete root action set for this ticket.
+
+### Hosted Window presentation drift
+
+The local `AcceptDialog` must provide `SetPresented` with `PopupCentered()/Hide()` and perform the same explicit first `PopupCentered()` call after `TryPresent`. A local handled latch prevents Confirmed/Canceled/CloseRequested from racing multiple closes.
+
+### Parent close from child cleanup
+
+Manual Load failure closes its Load parent from child-message cleanup. The host queues re-entrant close requests while draining; add an integration test for message dismissal → parent close → root-action/focus restoration so implementation does not rely on an untested lifecycle assumption.
 
 ### Wrong focus after Continue fallback
 
@@ -454,18 +484,18 @@ A single hard-coded Load restoration target would return focus to Load even when
 
 Keep the themed `AcceptDialog` helper private and transitional. HPA-572 owns shared typed confirmation/warning/error presentation.
 
-## 18. Acceptance mapping
+## 19. Acceptance mapping
 
 | HPA-380 acceptance | Design response |
 | --- | --- |
 | Main Menu owns one local production `UIScreenHost` | authored host configured in `_EnterTree()` |
 | Approved visual system | scene-authored Theme/background/lower-left rail/Continue summary |
 | Deterministic Continue | pure `SaveSlotInfo` selector with exact eligibility/order/ties |
-| Existing actions preserved | existing domain methods and legacy child flows retained |
+| Existing actions preserved | existing domain methods, Load prechecks, and legacy child flows retained |
 | Focus/layout usable | explicit initial/return focus and forced-summary responsive tests |
 | No double activation | hard root-action guard + one-way scene commitment + host teardown |
 
-## 19. Explicit non-goals
+## 20. Explicit non-goals
 
 - Save-format migration or timestamp normalization;
 - cloud saves, extra slots, thumbnails, renaming, repair, or deletion;

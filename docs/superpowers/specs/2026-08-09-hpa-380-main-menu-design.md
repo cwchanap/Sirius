@@ -272,7 +272,7 @@ Keep the simpler existing behavior boundary: Load is terminal after the player c
 3. open a root hosted `Load Failed` message restoring to `LoadButton`;
 4. dismissing the error returns to Main Menu.
 
-Do not keep a hidden `SaveLoadDialog` alive under the error and do not add a `closeParentOnDismiss` cleanup protocol.
+Do not keep a hidden `SaveLoadDialog` alive under the error and do not add a parent-close-from-message-cleanup protocol.
 
 ### 10.3 HPA-384 handoff
 
@@ -458,8 +458,8 @@ Do not let user/developer `user://saves` decide test expectations.
 
 Use two deterministic cases with cleanup:
 
-- delete slots 0–3, instantiate/open Main Menu, assert `NewGameButton` focus;
-- seed one valid slot via `SaveManager.SaveGame`, instantiate/open Main Menu, assert `ContinueButton` focus;
+- delete slots 0–3, recreate Main Menu, assert `NewGameButton` focus;
+- seed one valid slot via `SaveManager.SaveGame`, recreate Main Menu, assert `ContinueButton` focus;
 - delete test saves in `finally`.
 
 ### 17.5 Host/focus/lifecycle

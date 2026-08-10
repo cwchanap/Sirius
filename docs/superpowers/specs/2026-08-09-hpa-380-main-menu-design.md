@@ -174,7 +174,7 @@ Ordering:
 
 Comparison uses the stored `DateTime` values directly. Do not normalize, mutate, migrate, backfill, or convert timestamps before ranking.
 
-Save creation currently writes `DateTime.UtcNow`, while `SaveLoadDialog` displays slot timestamps using `.ToLocalTime()`. The Main Menu Continue summary should therefore also display:
+Save creation currently writes `DateTime.UtcNow`, while `SaveLoadDialog` displays slot timestamps using `.ToLocalTime()`. The Main Menu Continue summary therefore also displays:
 
 ```csharp
 info.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm")

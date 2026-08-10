@@ -56,7 +56,9 @@ public partial class SiriusUiShowcaseResponsiveTest : Node
         AssertThat(safeFrame.GetThemeConstant("margin_right")).IsEqual(safeMargin);
         AssertThat(safeFrame.GetThemeConstant("margin_bottom")).IsEqual(safeMargin);
         AssertThat(content.CustomMinimumSize.X)
-            .IsEqual(Mathf.Min(1600f, size.X - safeMargin * 2f));
+            .IsEqual(Mathf.Min(
+                SiriusUiMetrics.MaximumContentWidth,
+                size.X - safeMargin * 2f));
         AssertThat(primary.CustomMinimumSize).IsEqual(target);
         AssertThat(selected.CustomMinimumSize).IsEqual(target);
         AssertThat(ignition.CustomMinimumSize).IsEqual(SiriusUiMetrics.IgnitionSize(compact));

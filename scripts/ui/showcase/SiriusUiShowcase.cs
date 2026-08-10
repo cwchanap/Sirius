@@ -4,7 +4,6 @@ using System.Collections.Generic;
 
 public partial class SiriusUiShowcase : Control
 {
-    private const float MaximumContentWidth = 1600f;
     private static readonly Vector2 EntryTranslation = new(0, 12);
     private static readonly Vector2 ExitTranslation = new(0, -8);
     private static readonly StringName KeyboardAction = "hpa377_showcase_keyboard";
@@ -178,7 +177,7 @@ public partial class SiriusUiShowcase : Control
     {
         var safeMargin = SiriusUiMetrics.SafeMargin(Compact);
         var contentWidth = Mathf.Min(
-            MaximumContentWidth,
+            SiriusUiMetrics.MaximumContentWidth,
             PreviewViewport.Size.X - safeMargin * 2f);
         var target = SiriusUiMetrics.MinimumTarget(Compact);
 

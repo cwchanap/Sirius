@@ -1,17 +1,11 @@
-[gd_scene load_steps=6 format=3 uid="uid://cnuaphtldwher"]
+[gd_scene load_steps=7 format=3 uid="uid://cnuaphtldwher"]
 
-[ext_resource type="Script" uid="uid://ba6ex3cbvkvgg" path="res://scripts/ui/MainMenu.cs" id="1_1x2y3"]
-[ext_resource type="AudioStream" uid="uid://de6b8evccxa64" path="res://assets/audio/background/Whispering Grove.mp3" id="2_whispering_grove"]
-
-[sub_resource type="Gradient" id="Gradient_prussian_blue"]
-colors = PackedColorArray(0, 0.12, 0.25, 1, 0, 0.31, 0.53, 1)
-
-[sub_resource type="GradientTexture2D" id="GradientTexture2D_background"]
-gradient = SubResource("Gradient_prussian_blue")
-fill_to = Vector2(0, 1)
-
-[sub_resource type="LabelSettings" id="LabelSettings_1x2y3"]
-font_size = 48
+[ext_resource type="Script" uid="uid://ba6ex3cbvkvgg" path="res://scripts/ui/MainMenu.cs" id="1_main_menu"]
+[ext_resource type="Texture2D" path="res://assets/sprites/ui/ui_main_menu_background.png" id="2_background"]
+[ext_resource type="Theme" path="res://resources/ui/theme/SiriusTheme.tres" id="3_theme"]
+[ext_resource type="AudioStream" uid="uid://de6b8evccxa64" path="res://assets/audio/background/Whispering Grove.mp3" id="4_whispering_grove"]
+[ext_resource type="PackedScene" path="res://scenes/ui/UIScreenHost.tscn" id="5_screen_host"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusInputHint.tscn" id="6_input_hint"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -20,63 +14,165 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1_1x2y3")
+theme = ExtResource("3_theme")
+script = ExtResource("1_main_menu")
 
 [node name="Background" type="TextureRect" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-texture = SubResource("GradientTexture2D_background")
+mouse_filter = 2
+focus_mode = 0
+expand_mode = 1
+stretch_mode = 6
+texture = ExtResource("2_background")
 
-[node name="BackgroundMusic" type="AudioStreamPlayer" parent="."]
-bus = &"Music"
-stream = ExtResource("2_whispering_grove")
-autoplay = true
-
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
+[node name="MainMenuContent" type="Control" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -100.0
-offset_top = -150.0
-offset_right = 100.0
-offset_bottom = 150.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+focus_mode = 0
+
+[node name="SafeFrame" type="Control" parent="MainMenuContent"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+focus_mode = 0
+
+[node name="MenuRail" type="VBoxContainer" parent="MainMenuContent/SafeFrame"]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_right = 0.0
+anchor_bottom = 1.0
+offset_right = 360.0
+grow_vertical = 0
+mouse_filter = 2
+focus_mode = 0
+alignment = 2
+theme_override_constants/separation = 8
+
+[node name="WordmarkLabel" type="Label" parent="MainMenuContent/SafeFrame/MenuRail"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+focus_mode = 0
+text = "SIRIUS"
+theme_type_variation = &"SiriusDisplay"
+
+[node name="ContinueButton" type="Button" parent="MainMenuContent/SafeFrame/MenuRail"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(360, 44)
+layout_mode = 2
+focus_mode = 2
+text = "Continue"
+theme_type_variation = &"SiriusPrimaryButton"
+
+[node name="ContinueSummary" type="PanelContainer" parent="MainMenuContent/SafeFrame/MenuRail"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(360, 0)
+layout_mode = 2
+mouse_filter = 2
+focus_mode = 0
+theme_type_variation = &"SiriusContentPanel"
+
+[node name="ContinueSummaryContent" type="VBoxContainer" parent="MainMenuContent/SafeFrame/MenuRail/ContinueSummary"]
+layout_mode = 2
+mouse_filter = 2
+focus_mode = 0
+theme_override_constants/separation = 2
+
+[node name="ContinueSlotLabel" type="Label" parent="MainMenuContent/SafeFrame/MenuRail/ContinueSummary/ContinueSummaryContent"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+focus_mode = 0
+theme_type_variation = &"SiriusSection"
+
+[node name="ContinueDetailLabel" type="Label" parent="MainMenuContent/SafeFrame/MenuRail/ContinueSummary/ContinueSummaryContent"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+focus_mode = 0
+autowrap_mode = 2
+theme_type_variation = &"SiriusBody"
+
+[node name="ContinueTimestampLabel" type="Label" parent="MainMenuContent/SafeFrame/MenuRail/ContinueSummary/ContinueSummaryContent"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+focus_mode = 0
+theme_type_variation = &"SiriusMetadata"
+
+[node name="NewGameButton" type="Button" parent="MainMenuContent/SafeFrame/MenuRail"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(360, 44)
+layout_mode = 2
+focus_mode = 2
+text = "New Game"
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="LoadButton" type="Button" parent="MainMenuContent/SafeFrame/MenuRail"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(360, 44)
+layout_mode = 2
+focus_mode = 2
+text = "Load"
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="SettingsButton" type="Button" parent="MainMenuContent/SafeFrame/MenuRail"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(360, 44)
+layout_mode = 2
+focus_mode = 2
+text = "Settings"
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="QuitButton" type="Button" parent="MainMenuContent/SafeFrame/MenuRail"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(360, 44)
+layout_mode = 2
+focus_mode = 2
+text = "Quit"
+theme_type_variation = &"SiriusTertiaryButton"
+
+[node name="SelectHint" parent="MainMenuContent/SafeFrame/MenuRail" instance=ExtResource("6_input_hint")]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+prompt = "Select"
+actions = [&"ui_accept"]
+
+[node name="UIScreenHost" parent="." instance=ExtResource("5_screen_host")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="TitleLabel" type="Label" parent="VBoxContainer"]
-layout_mode = 2
-text = "SIRIUS"
-label_settings = SubResource("LabelSettings_1x2y3")
-horizontal_alignment = 1
+[node name="BackgroundMusic" type="AudioStreamPlayer" parent="."]
+bus = &"Music"
+stream = ExtResource("4_whispering_grove")
+autoplay = true
 
-[node name="VSeparator" type="VSeparator" parent="VBoxContainer"]
-custom_minimum_size = Vector2(0, 50)
-layout_mode = 2
-
-[node name="StartButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
-text = "Start Game"
-
-[node name="LoadButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
-text = "Load Game"
-
-[node name="SettingsButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
-text = "Settings"
-
-[node name="QuitButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
-text = "Quit"
-
-[connection signal="pressed" from="VBoxContainer/StartButton" to="." method="_on_start_button_pressed"]
-[connection signal="pressed" from="VBoxContainer/LoadButton" to="." method="_on_load_button_pressed"]
-[connection signal="pressed" from="VBoxContainer/SettingsButton" to="." method="_on_settings_button_pressed"]
-[connection signal="pressed" from="VBoxContainer/QuitButton" to="." method="_on_quit_button_pressed"]
+[connection signal="pressed" from="MainMenuContent/SafeFrame/MenuRail/ContinueButton" to="." method="_on_continue_button_pressed"]
+[connection signal="pressed" from="MainMenuContent/SafeFrame/MenuRail/NewGameButton" to="." method="_on_new_game_button_pressed"]
+[connection signal="pressed" from="MainMenuContent/SafeFrame/MenuRail/LoadButton" to="." method="_on_load_button_pressed"]
+[connection signal="pressed" from="MainMenuContent/SafeFrame/MenuRail/SettingsButton" to="." method="_on_settings_button_pressed"]
+[connection signal="pressed" from="MainMenuContent/SafeFrame/MenuRail/QuitButton" to="." method="_on_quit_button_pressed"]

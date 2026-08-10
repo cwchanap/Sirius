@@ -152,7 +152,7 @@ public partial class MainMenuTest : Node
     [TestCase]
     public async Task SettingsPressed_DoesNotStackAndClosedCleansOnlySettingsChild()
     {
-        var settingsButton = _menu.GetNode<Button>("VBoxContainer/SettingsButton");
+        var settingsButton = _menu.GetNode<Button>("%SettingsButton");
         settingsButton.EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(2);
 
@@ -179,6 +179,60 @@ public partial class MainMenuTest : Node
         await AwaitFrames(2);
 
         AssertThat(_menu.GetViewport().GuiGetFocusOwner()).IsEqual(settingsButton);
+    }
+
+    [TestCase]
+    public async Task InitialFocusWithoutSaveIsNewGame()
+    {
+        var manager = SaveManager.Instance!;
+        for (var slot = 0; slot <= 3; slot++)
+            manager.DeleteSave(slot);
+
+        try
+        {
+            var menu = await RecreateProductionMenu();
+            AssertThat(menu.GetViewport().GuiGetFocusOwner())
+                .IsEqual(menu.GetNode<Button>("%NewGameButton"));
+        }
+        finally
+        {
+            for (var slot = 0; slot <= 3; slot++)
+                manager.DeleteSave(slot);
+        }
+    }
+
+    [TestCase]
+    public async Task InitialFocusWithEligibleSaveIsContinue()
+    {
+        var manager = SaveManager.Instance!;
+        for (var slot = 0; slot <= 3; slot++)
+            manager.DeleteSave(slot);
+
+        AssertThat(manager.SaveGame(0, ValidSaveData())).IsTrue();
+        try
+        {
+            var menu = await RecreateProductionMenu();
+            AssertThat(menu.GetViewport().GuiGetFocusOwner())
+                .IsEqual(menu.GetNode<Button>("%ContinueButton"));
+        }
+        finally
+        {
+            for (var slot = 0; slot <= 3; slot++)
+                manager.DeleteSave(slot);
+        }
+    }
+
+    private async Task<MainMenu> RecreateProductionMenu()
+    {
+        if (GodotObject.IsInstanceValid(_menu))
+            _menu.QueueFree();
+        await AwaitFrames(2);
+
+        var scene = GD.Load<PackedScene>("res://scenes/ui/MainMenu.tscn");
+        _menu = scene.Instantiate<MainMenu>();
+        _sceneTree.Root.AddChild(_menu);
+        await AwaitFrames(2);
+        return _menu;
     }
 
     private partial class TestableMainMenu : MainMenu

@@ -582,7 +582,6 @@ public partial class GameInputLifecycleTest : Node
         AssertThat(closedCount).IsEqual(1);
         AssertThat(GetPrivateField<PuzzleRiddleDialog?>(_realGame, "_puzzleRiddleDialog")).IsNull();
         AssertThat(gameManager.IsInWorldInteraction).IsFalse();
-        InvokePrivate(_realGame, "UpdateInteractionPrompt");
         AssertThat(promptPlate.Visible).IsTrue();
         AssertThat(prompt.Prompt).IsEqual("Solve");
         AssertThat(_realGame.GetNode<UIScreenHost>("UI/UIScreenHost")
@@ -644,9 +643,28 @@ public partial class GameInputLifecycleTest : Node
             var floorManager = game.GetNode<FloorManager>("FloorManager");
             var originalGrid = floorManager.CurrentGridMap;
             ulong originalGridId = originalGrid.GetInstanceId();
+            var playerController = game.GetNode<PlayerController>("PlayerController");
+            var box = new TreasureBoxSpawn
+            {
+                Name = "TreasureBox_FloorReplacementPromptTest",
+                TreasureBoxId = "TreasureBox_FloorReplacementPromptTest",
+                GridPosition = new Vector2I(9, 50),
+                RewardGold = 1
+            };
+            originalGrid.AddChild(box);
+            box.AddToGroup("TreasureBoxSpawn");
+            SetPrivateField(originalGrid, "_grid", new int[originalGrid.GridWidth, originalGrid.GridHeight]);
+            SetPrivateField(originalGrid, "_playerPosition", new Vector2I(8, 50));
+            SetPrivateField(playerController, "_lastFacingDirection", Vector2I.Right);
+            originalGrid.CallDeferred(nameof(GridMap.RegisterStaticTreasureBoxes));
+            await AwaitFrames(3);
+
             var hud = game.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
             var promptPlate = hud.GetNode<PanelContainer>("%PromptPlate");
             InvokePrivate(game, "UpdateInteractionPrompt");
+            var prompt = hud.GetNode<SiriusContextPrompt>("%ContextPrompt");
+            AssertThat(promptPlate.Visible).IsTrue();
+            AssertThat(prompt.Prompt).IsEqual("Open");
 
             AssertThat(floorManager.LoadFloor(1)).IsTrue();
             await AwaitFrames(8);

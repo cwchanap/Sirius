@@ -10,6 +10,22 @@ using static GdUnit4.Assertions;
 [RequireGodotRuntime]
 public partial class MainMenuTest : Node
 {
+    private static readonly string[] MainMenuSavePaths =
+    {
+        "user://saves/slot_0.json",
+        "user://saves/slot_0.json.bak",
+        "user://saves/slot_0.json.tmp",
+        "user://saves/slot_1.json",
+        "user://saves/slot_1.json.bak",
+        "user://saves/slot_1.json.tmp",
+        "user://saves/slot_2.json",
+        "user://saves/slot_2.json.bak",
+        "user://saves/slot_2.json.tmp",
+        "user://saves/autosave.json",
+        "user://saves/autosave.json.bak",
+        "user://saves/autosave.json.tmp"
+    };
+
     private MainMenu _menu = null!;
     private SceneTree _sceneTree = null!;
 
@@ -355,12 +371,14 @@ public partial class MainMenuTest : Node
     public async Task ManualLoadFailureClosesLoadThenOpensRootErrorAndRestoresLoadFocus()
     {
         var manager = SaveManager.Instance!;
-        for (var slot = 0; slot <= 3; slot++)
-            manager.DeleteSave(slot);
-
-        AssertThat(manager.SaveGame(0, ValidSaveData())).IsTrue();
+        var originalSaveFiles = CaptureSaveFiles();
         try
         {
+            for (var slot = 0; slot <= 3; slot++)
+                manager.DeleteSave(slot);
+
+            AssertThat(manager.SaveGame(0, ValidSaveData())).IsTrue();
+
             InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
             await AwaitFrames(2);
 
@@ -389,7 +407,11 @@ public partial class MainMenuTest : Node
         {
             for (var slot = 0; slot <= 3; slot++)
                 manager.DeleteSave(slot);
+
+            RestoreSaveFiles(originalSaveFiles);
         }
+
+        AssertSaveFilesMatch(originalSaveFiles);
     }
 
     [TestCase]
@@ -628,6 +650,54 @@ public partial class MainMenuTest : Node
             Level = 1
         }
     };
+
+    private sealed record SaveFileSnapshot(string VirtualPath, bool Exists, byte[]? Data);
+
+    private static SaveFileSnapshot[] CaptureSaveFiles() =>
+        MainMenuSavePaths.Select(path =>
+        {
+            var absolutePath = ProjectSettings.GlobalizePath(path);
+            var exists = System.IO.File.Exists(absolutePath);
+            return new SaveFileSnapshot(
+                path,
+                exists,
+                exists ? System.IO.File.ReadAllBytes(absolutePath) : null);
+        }).ToArray();
+
+    private static void RestoreSaveFiles(SaveFileSnapshot[] snapshots)
+    {
+        foreach (var snapshot in snapshots)
+        {
+            var absolutePath = ProjectSettings.GlobalizePath(snapshot.VirtualPath);
+            if (snapshot.Exists)
+            {
+                var directory = System.IO.Path.GetDirectoryName(absolutePath);
+                if (!string.IsNullOrEmpty(directory))
+                    System.IO.Directory.CreateDirectory(directory);
+
+                System.IO.File.WriteAllBytes(absolutePath, snapshot.Data!);
+            }
+            else if (System.IO.File.Exists(absolutePath))
+            {
+                System.IO.File.Delete(absolutePath);
+            }
+        }
+    }
+
+    private static void AssertSaveFilesMatch(SaveFileSnapshot[] snapshots)
+    {
+        foreach (var snapshot in snapshots)
+        {
+            var absolutePath = ProjectSettings.GlobalizePath(snapshot.VirtualPath);
+            var exists = System.IO.File.Exists(absolutePath);
+            AssertThat(exists).IsEqual(snapshot.Exists);
+            if (snapshot.Exists)
+            {
+                var bytes = System.IO.File.ReadAllBytes(absolutePath);
+                AssertThat(bytes.SequenceEqual(snapshot.Data!)).IsTrue();
+            }
+        }
+    }
 
     private static object? InvokePrivateAcrossHierarchy(object instance, string methodName, params object[] arguments)
     {

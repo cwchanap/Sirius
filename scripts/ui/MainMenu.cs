@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Godot;
 
 public partial class MainMenu : Control
@@ -7,6 +9,42 @@ public partial class MainMenu : Control
 	private SaveLoadDialog? _loadDialog;
 	private SettingsMenuController? _settingsMenu;
 	private Button? _settingsButton;
+
+	internal static SaveSlotInfo? SelectContinueSave(
+		IReadOnlyList<SaveSlotInfo> slots)
+	{
+		SaveSlotInfo? best = null;
+		foreach (var candidate in slots)
+		{
+			if (!candidate.Exists || candidate.IsCorrupted)
+				continue;
+
+			if (best == null || IsBetterContinueCandidate(candidate, best))
+				best = candidate;
+		}
+
+		return best;
+	}
+
+	private static bool IsBetterContinueCandidate(
+		SaveSlotInfo candidate,
+		SaveSlotInfo current)
+	{
+		var timestampComparison = candidate.Timestamp.CompareTo(current.Timestamp);
+		if (timestampComparison != 0)
+			return timestampComparison > 0;
+
+		return ContinueTieRank(candidate.SlotIndex) < ContinueTieRank(current.SlotIndex);
+	}
+
+	private static int ContinueTieRank(int slot) => slot switch
+	{
+		3 => 0,
+		0 => 1,
+		1 => 2,
+		2 => 3,
+		_ => int.MaxValue
+	};
 
 	public override void _Ready()
 	{

@@ -67,6 +67,89 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
+    public void SelectContinueSave_NoEligibleSlot_ReturnsNull()
+    {
+        var slots = new[]
+        {
+            new SaveSlotInfo { SlotIndex = 0, Exists = false },
+            new SaveSlotInfo { SlotIndex = 1, Exists = true, IsCorrupted = true },
+            new SaveSlotInfo { SlotIndex = 2, Exists = false },
+            new SaveSlotInfo { SlotIndex = 3, Exists = true, IsCorrupted = true }
+        };
+
+        AssertThat(MainMenu.SelectContinueSave(slots)).IsNull();
+    }
+
+    [TestCase]
+    public void SelectContinueSave_NewestStoredTimestampWins()
+    {
+        var older = new DateTime(2026, 8, 1, 10, 0, 0, DateTimeKind.Utc);
+        var newer = new DateTime(2026, 8, 2, 10, 0, 0, DateTimeKind.Utc);
+
+        var slots = new[]
+        {
+            EligibleSlot(0, older),
+            EligibleSlot(1, newer),
+            EligibleSlot(2, DateTime.MinValue),
+            new SaveSlotInfo
+            {
+                SlotIndex = 3,
+                Exists = true,
+                IsCorrupted = true,
+                Timestamp = newer.AddDays(1)
+            }
+        };
+
+        AssertThat(MainMenu.SelectContinueSave(slots)!.SlotIndex).IsEqual(1);
+    }
+
+    [TestCase]
+    public void SelectContinueSave_UsableTimestampBeatsMinValue()
+    {
+        var slots = new[]
+        {
+            EligibleSlot(0, DateTime.MinValue),
+            EligibleSlot(1, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)),
+            EligibleSlot(2, DateTime.MinValue),
+            EligibleSlot(3, DateTime.MinValue)
+        };
+
+        AssertThat(MainMenu.SelectContinueSave(slots)!.SlotIndex).IsEqual(1);
+    }
+
+    [TestCase]
+    public void SelectContinueSave_EqualTimestampsPreferAutosaveThenManualOrder()
+    {
+        var timestamp = new DateTime(2026, 8, 9, 20, 0, 0, DateTimeKind.Utc);
+
+        AssertThat(MainMenu.SelectContinueSave(new[]
+        {
+            EligibleSlot(2, timestamp),
+            EligibleSlot(1, timestamp),
+            EligibleSlot(0, timestamp),
+            EligibleSlot(3, timestamp)
+        })!.SlotIndex).IsEqual(3);
+
+        AssertThat(MainMenu.SelectContinueSave(new[]
+        {
+            EligibleSlot(2, timestamp),
+            EligibleSlot(1, timestamp),
+            EligibleSlot(0, timestamp)
+        })!.SlotIndex).IsEqual(0);
+    }
+
+    [TestCase]
+    public void SelectContinueSave_AllMinValueUsesSameTieOrder()
+    {
+        AssertThat(MainMenu.SelectContinueSave(new[]
+        {
+            EligibleSlot(2, DateTime.MinValue),
+            EligibleSlot(0, DateTime.MinValue),
+            EligibleSlot(1, DateTime.MinValue)
+        })!.SlotIndex).IsEqual(0);
+    }
+
+    [TestCase]
     public async Task SettingsPressed_DoesNotStackAndClosedCleansOnlySettingsChild()
     {
         var settingsButton = _menu.GetNode<Button>("VBoxContainer/SettingsButton");
@@ -103,6 +186,30 @@ public partial class MainMenuTest : Node
         public int QuitRequests { get; private set; }
         protected override void RequestApplicationQuit() => QuitRequests++;
     }
+
+    private static SaveSlotInfo EligibleSlot(int slot, DateTime timestamp) => new()
+    {
+        SlotIndex = slot,
+        Exists = true,
+        IsCorrupted = false,
+        PlayerName = $"Hero{slot}",
+        PlayerLevel = slot + 1,
+        FloorIndex = slot,
+        Timestamp = timestamp
+    };
+
+    private static SaveData ValidSaveData() => new()
+    {
+        Version = SaveData.CurrentVersion,
+        CurrentFloorIndex = 0,
+        PlayerPosition = new Vector2IDto { X = 1, Y = 1 },
+        SaveTimestamp = DateTime.UtcNow,
+        Character = new CharacterSaveData
+        {
+            Name = "TestHero",
+            Level = 1
+        }
+    };
 
     private static void InvokePrivateAcrossHierarchy(object instance, string methodName, params object[] arguments)
     {

@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
@@ -44,26 +45,199 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
-    public void ShowMessage_CreatesOneVisibleAcceptDialogAndKeepsRootVisible()
+    public void TryOpenMessage_CreatesOneHostedSaveErrorAndKeepsRootVisible()
     {
-        InvokePrivateAcrossHierarchy(_menu, "ShowMessage", "Save system unavailable.");
+        InvokePrivateAcrossHierarchy(
+            _menu,
+            "TryOpenMessage",
+            "Load Failed",
+            "Save system unavailable.",
+            _menu.GetNode<Button>("%LoadButton"),
+            null!);
 
         AssertThat(_menu.Visible).IsTrue();
-        AssertThat(CountVisibleAcceptDialogs(_menu)).IsEqual(1);
+        var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsTrue();
+        AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.SaveError))
+            .IsEqual(1);
     }
 
     [TestCase]
-    public void OnLoadDialogClosed_QueuesChildAndClearsReference()
+    public async Task HostedLoadClosed_ClearsEntryReferenceAndQueuesDialog()
     {
-        var loadDialog = new SaveLoadDialog();
-        _menu.AddChild(loadDialog);
-        SetPrivateField(_menu, "_loadDialog", loadDialog);
+        var manager = SaveManager.Instance!;
+        for (var slot = 0; slot <= 3; slot++)
+            manager.DeleteSave(slot);
 
-        InvokePrivateAcrossHierarchy(_menu, "OnLoadDialogClosed");
+        AssertThat(manager.SaveGame(0, ValidSaveData())).IsTrue();
+        try
+        {
+            InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
+            await AwaitFrames(2);
 
-        AssertThat(loadDialog.IsQueuedForDeletion()).IsTrue();
-        AssertThat(GetPrivateField<SaveLoadDialog?>(_menu, "_loadDialog")).IsNull();
-        AssertThat(_menu.Visible).IsTrue();
+            var loadDialog = GetPrivateField<SaveLoadDialog?>(_menu, "_loadDialog");
+            AssertThat(loadDialog).IsNotNull();
+            AssertThat(_menu.GetNode<UIScreenHost>("%UIScreenHost")
+                .IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+
+            InvokePrivateAcrossHierarchy(_menu, "OnHostedLoadClosed");
+            AssertThat(loadDialog!.IsQueuedForDeletion()).IsTrue();
+            AssertThat(GetPrivateField<SaveLoadDialog?>(_menu, "_loadDialog")).IsNull();
+            AssertThat(_menu.GetNode<UIScreenHost>("%UIScreenHost")
+                .IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+        }
+        finally
+        {
+            manager.DeleteSave(0);
+        }
+    }
+
+    [TestCase]
+    public async Task SettingsPressed_DoesNotStackAndHostedCloseRestoresFocus()
+    {
+        var settingsButton = _menu.GetNode<Button>("%SettingsButton");
+        settingsButton.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var settings = GetPrivateField<SettingsMenuController?>(_menu, "_settingsMenu");
+        var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+
+        AssertThat(settings).IsNotNull();
+        AssertThat(settings!.Visible).IsTrue();
+        AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Settings))
+            .IsEqual(1);
+        foreach (var button in new[]
+        {
+            "%ContinueButton", "%NewGameButton", "%LoadButton",
+            "%SettingsButton", "%QuitButton"
+        })
+        {
+            AssertThat(_menu.GetNode<Button>(button).Disabled).IsTrue();
+        }
+
+        AssertThat(_menu.GetViewport().GuiGetFocusOwner())
+            .IsEqual(settings.InitialFocusTarget);
+
+        settingsButton.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+        AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Settings))
+            .IsEqual(1);
+
+        InvokePrivateAcrossHierarchy(settings, "OnCancelPressed");
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Settings)).IsFalse();
+        AssertThat(GetPrivateField<SettingsMenuController?>(_menu, "_settingsMenu")).IsNull();
+        AssertThat(_menu.GetViewport().GuiGetFocusOwner()).IsEqual(settingsButton);
+    }
+
+    [TestCase]
+    public async Task RootNewGameHandlerDoesNothingWhileHostedChildIsActive()
+    {
+        _menu.GetNode<Button>("%SettingsButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var pendingBefore = SaveManager.Instance?.PendingLoadData;
+        InvokePrivateAcrossHierarchy(_menu, "_on_new_game_button_pressed");
+
+        AssertThat(GetPrivateField<bool>(_menu, "_sceneChangeCommitted")).IsFalse();
+        AssertThat(SaveManager.Instance?.PendingLoadData).IsEqual(pendingBefore);
+    }
+
+    [TestCase]
+    public async Task LoadPressedWithNoSavesShowsMessageOnly()
+    {
+        var manager = SaveManager.Instance!;
+        for (var slot = 0; slot <= 3; slot++)
+            manager.DeleteSave(slot);
+
+        InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
+        await AwaitFrames(2);
+
+        var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+    }
+
+    [TestCase]
+    public async Task LoadPressedWithSaveOpensExactlyOneSaveLoadEntry()
+    {
+        var manager = SaveManager.Instance!;
+        for (var slot = 0; slot <= 3; slot++)
+            manager.DeleteSave(slot);
+
+        AssertThat(manager.SaveGame(0, ValidSaveData())).IsTrue();
+        try
+        {
+            InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
+            await AwaitFrames(2);
+
+            var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+            AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.SaveLoad))
+                .IsEqual(1);
+        }
+        finally
+        {
+            manager.DeleteSave(0);
+        }
+    }
+
+    [TestCase]
+    public async Task LoadPressedWithoutSaveManagerShowsOneErrorOnly()
+    {
+        var property = typeof(SaveManager).GetProperty(
+            nameof(SaveManager.Instance),
+            BindingFlags.Public | BindingFlags.Static)!;
+        var original = SaveManager.Instance;
+        property.SetValue(null, null);
+        try
+        {
+            InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
+            await AwaitFrames(2);
+
+            var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+            AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.SaveError))
+                .IsEqual(1);
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+        }
+        finally
+        {
+            property.SetValue(null, original);
+        }
+    }
+
+    [TestCase]
+    public void RootCancelFallbackConsumesWithoutOpeningAnything()
+    {
+        var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+        var input = new InputEventAction { Action = "ui_cancel", Pressed = true };
+
+        AssertThat(host.TryHandleInput(input)).IsEqual(UIInputDispatchResult.Consumed);
+        AssertThat(host.ActiveEntries.Count).IsEqual(0);
+    }
+
+    [TestCase]
+    public void TryOpenMessageIsLatchedAndTerminalSignalsCloseOnce()
+    {
+        var loadButton = _menu.GetNode<Button>("%LoadButton");
+        var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+
+        AssertThat((bool)InvokePrivateAcrossHierarchy(
+            _menu, "TryOpenMessage", "Load Failed", "First", loadButton, null!)!).IsTrue();
+        AssertThat((bool)InvokePrivateAcrossHierarchy(
+            _menu, "TryOpenMessage", "Load Failed", "Second", loadButton, null!)!).IsFalse();
+        AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.SaveError))
+            .IsEqual(1);
+
+        var popup = GetPrivateField<AcceptDialog?>(_menu, "_messageDialog");
+        AssertThat(popup).IsNotNull();
+        popup!.EmitSignal(AcceptDialog.SignalName.Confirmed);
+        popup.EmitSignal(AcceptDialog.SignalName.Canceled);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsFalse();
+        AssertThat(GetPrivateField<AcceptDialog?>(_menu, "_messageDialog")).IsNull();
+        AssertThat(_menu.GetNode<Button>("%LoadButton").Disabled).IsFalse();
     }
 
     [TestCase]
@@ -150,38 +324,6 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
-    public async Task SettingsPressed_DoesNotStackAndClosedCleansOnlySettingsChild()
-    {
-        var settingsButton = _menu.GetNode<Button>("%SettingsButton");
-        settingsButton.EmitSignal(Button.SignalName.Pressed);
-        await AwaitFrames(2);
-
-        var settings = GetPrivateField<SettingsMenuController?>(_menu, "_settingsMenu");
-
-        AssertThat(settings).IsNotNull();
-        AssertThat(settings!.Visible).IsTrue();
-        AssertThat(CountSettingsChildren(_menu)).IsEqual(1);
-        AssertThat(_menu.GetViewport().GuiGetFocusOwner())
-            .IsEqual(settings.InitialFocusTarget);
-        AssertThat(settings.InitialFocusTarget)
-            .IsEqual(settings.GetNode<HSlider>("%MasterSlider"));
-
-        InvokePrivateAcrossHierarchy(_menu, "_on_settings_button_pressed");
-
-        AssertThat(CountSettingsChildren(_menu)).IsEqual(1);
-
-        InvokePrivateAcrossHierarchy(settings, "OnCancelPressed");
-
-        AssertThat(settings.IsQueuedForDeletion()).IsTrue();
-        AssertThat(GetPrivateField<SettingsMenuController?>(_menu, "_settingsMenu")).IsNull();
-        AssertThat(_menu.Visible).IsTrue();
-
-        await AwaitFrames(2);
-
-        AssertThat(_menu.GetViewport().GuiGetFocusOwner()).IsEqual(settingsButton);
-    }
-
-    [TestCase]
     public async Task InitialFocusWithoutSaveIsNewGame()
     {
         var manager = SaveManager.Instance!;
@@ -265,7 +407,7 @@ public partial class MainMenuTest : Node
         }
     };
 
-    private static void InvokePrivateAcrossHierarchy(object instance, string methodName, params object[] arguments)
+    private static object? InvokePrivateAcrossHierarchy(object instance, string methodName, params object[] arguments)
     {
         for (var type = instance.GetType(); type != null; type = type.BaseType)
         {
@@ -273,8 +415,7 @@ public partial class MainMenuTest : Node
                 BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
             if (method != null)
             {
-                method.Invoke(instance, arguments);
-                return;
+                return method.Invoke(instance, arguments);
             }
         }
 
@@ -293,22 +434,6 @@ public partial class MainMenuTest : Node
         var field = instance.GetType().GetField(fieldName,
             BindingFlags.NonPublic | BindingFlags.Instance)!;
         return (T)field.GetValue(instance)!;
-    }
-
-    private static int CountVisibleAcceptDialogs(Node node)
-    {
-        int count = node is AcceptDialog dialog && dialog.Visible ? 1 : 0;
-        foreach (var child in node.GetChildren())
-            count += CountVisibleAcceptDialogs(child);
-        return count;
-    }
-
-    private static int CountSettingsChildren(Node node)
-    {
-        int count = node is SettingsMenuController ? 1 : 0;
-        foreach (var child in node.GetChildren())
-            count += CountSettingsChildren(child);
-        return count;
     }
 
     private async Task AwaitFrames(int frameCount)

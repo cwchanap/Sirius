@@ -61,6 +61,29 @@ public partial class MainMenuSceneTest : Node
         }
     }
 
+    [TestCase]
+    public void ProductionSceneOwnsExactlyOneUIScreenHost()
+    {
+        var packed = GD.Load<PackedScene>(ScenePath);
+        var menu = packed.Instantiate<MainMenu>();
+        try
+        {
+            var count = 0;
+            foreach (var child in menu.GetChildren())
+            {
+                if (child is UIScreenHost)
+                    count++;
+            }
+
+            AssertThat(count).IsEqual(1);
+            AssertThat(menu.GetNode<UIScreenHost>("%UIScreenHost")).IsNotNull();
+        }
+        finally
+        {
+            menu.Free();
+        }
+    }
+
     [TestCase(640, 360)]
     [TestCase(1280, 720)]
     public async Task LayoutFitsWithContinueSummaryVisible(int width, int height)

@@ -28,10 +28,15 @@ public partial class MainMenuTest : Node
 
     private MainMenu _menu = null!;
     private SceneTree _sceneTree = null!;
+    private SaveFileSnapshot[]? _originalSaveFiles;
 
     [BeforeTest]
     public async Task Setup()
     {
+        // Main-menu tests intentionally exercise clean-room save setup. Own the
+        // persistent-file snapshot at fixture scope so every save-mutating path
+        // is restored even when a test fails before reaching its local cleanup.
+        _originalSaveFiles = CaptureSaveFiles();
         _sceneTree = (SceneTree)Engine.GetMainLoop();
         var scene = GD.Load<PackedScene>("res://scenes/ui/MainMenu.tscn");
         _menu = scene.Instantiate<MainMenu>();
@@ -42,11 +47,18 @@ public partial class MainMenuTest : Node
     [AfterTest]
     public async Task Cleanup()
     {
-        if (GodotObject.IsInstanceValid(_menu))
-            _menu.QueueFree();
+        try
+        {
+            if (GodotObject.IsInstanceValid(_menu))
+                _menu.QueueFree();
 
-        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
-        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+        }
+        finally
+        {
+            RestoreOriginalSaveFiles();
+        }
     }
 
     [TestCase]
@@ -371,7 +383,6 @@ public partial class MainMenuTest : Node
     public async Task ManualLoadFailureClosesLoadThenOpensRootErrorAndRestoresLoadFocus()
     {
         var manager = SaveManager.Instance!;
-        var originalSaveFiles = CaptureSaveFiles();
         try
         {
             for (var slot = 0; slot <= 3; slot++)
@@ -407,11 +418,7 @@ public partial class MainMenuTest : Node
         {
             for (var slot = 0; slot <= 3; slot++)
                 manager.DeleteSave(slot);
-
-            RestoreSaveFiles(originalSaveFiles);
         }
-
-        AssertSaveFilesMatch(originalSaveFiles);
     }
 
     [TestCase]
@@ -663,6 +670,17 @@ public partial class MainMenuTest : Node
                 exists,
                 exists ? System.IO.File.ReadAllBytes(absolutePath) : null);
         }).ToArray();
+
+    private void RestoreOriginalSaveFiles()
+    {
+        var snapshots = _originalSaveFiles;
+        _originalSaveFiles = null;
+        if (snapshots == null)
+            return;
+
+        RestoreSaveFiles(snapshots);
+        AssertSaveFilesMatch(snapshots);
+    }
 
     private static void RestoreSaveFiles(SaveFileSnapshot[] snapshots)
     {

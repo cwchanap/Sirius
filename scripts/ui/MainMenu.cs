@@ -21,12 +21,19 @@ public partial class MainMenu : Control
     private Button? _quitButton;
     private SiriusInputHint? _selectHint;
     private AudioStreamPlayer? _backgroundMusic;
+    private UIScreenHost? _screenHost;
+    private UIScreenHandle? _loadHandle;
     private SaveLoadDialog? _loadDialog;
+    private UIScreenHandle? _settingsHandle;
     private SettingsMenuController? _settingsMenu;
+    private UIScreenHandle? _messageHandle;
+    private AcceptDialog? _messageDialog;
 
     private SaveSlotInfo? _continueSave;
     private Button[] _rootActions = Array.Empty<Button>();
     private bool _sceneChangeCommitted;
+    private static readonly IReadOnlySet<StringName> MainMenuCoreCancelActions =
+        new HashSet<StringName> { "ui_cancel" };
 
     internal static SaveSlotInfo? SelectContinueSave(
         IReadOnlyList<SaveSlotInfo> slots)
@@ -76,16 +83,19 @@ public partial class MainMenu : Control
         Callable.From(ApplyInitialFocus).CallDeferred();
     }
 
+    public override void _EnterTree()
+    {
+        _screenHost = GetNodeOrNull<UIScreenHost>("%UIScreenHost");
+        _screenHost?.Configure(new UIScreenHostOptions
+        {
+            CoreCancelActions = MainMenuCoreCancelActions,
+            RootCancelFallback = _ => UIRootCancelResult.Consumed
+        });
+    }
+
     public override void _ExitTree()
     {
         Resized -= OnResized;
-        CleanupLoadDialog();
-        if (_settingsMenu != null && IsInstanceValid(_settingsMenu))
-        {
-            _settingsMenu.Closed -= OnSettingsClosed;
-            _settingsMenu.QueueFree();
-            _settingsMenu = null;
-        }
     }
 
     private void BindSceneNodes()
@@ -144,13 +154,13 @@ public partial class MainMenu : Control
 
     private void _on_continue_button_pressed()
     {
-        if (_sceneChangeCommitted || _continueSave == null)
+        if (IsRootActionBlocked() || _continueSave == null)
             return;
     }
 
     private void _on_new_game_button_pressed()
     {
-        if (_sceneChangeCommitted)
+        if (IsRootActionBlocked())
             return;
 
         _sceneChangeCommitted = true;
@@ -273,7 +283,7 @@ public partial class MainMenu : Control
 
     private void RefreshActionAvailability()
     {
-        var blocked = _sceneChangeCommitted;
+        var blocked = IsRootActionBlocked();
         if (_continueButton != null)
             _continueButton.Disabled = blocked || _continueSave == null;
         if (_newGameButton != null)
@@ -285,6 +295,12 @@ public partial class MainMenu : Control
         if (_quitButton != null)
             _quitButton.Disabled = blocked;
     }
+
+    private bool IsRootActionBlocked() =>
+        _sceneChangeCommitted ||
+        (_screenHost != null &&
+         IsInstanceValid(_screenHost) &&
+         _screenHost.ActiveEntries.Count != 0);
 
     private void ApplyInitialFocus()
     {
@@ -301,7 +317,7 @@ public partial class MainMenu : Control
 
     private void _on_load_button_pressed()
     {
-        if (_sceneChangeCommitted)
+        if (IsRootActionBlocked())
             return;
 
         GD.Print("Load Game button pressed");
@@ -310,7 +326,7 @@ public partial class MainMenu : Control
         if (saveManager == null || !IsInstanceValid(saveManager))
         {
             GD.PushError("MainMenu: SaveManager is not initialized.");
-            ShowMessage("Save system unavailable.");
+            TryOpenMessage("Load Failed", "Save system unavailable.", _loadButton);
             return;
         }
 
@@ -326,21 +342,203 @@ public partial class MainMenu : Control
 
         if (!anySaveExists)
         {
-            ShowMessage("No save files found!");
+            TryOpenMessage("Load Game", "No save files found!", _loadButton);
             return;
         }
 
-        if (_loadDialog != null)
-            CleanupLoadDialog();
-
-        _loadDialog = new SaveLoadDialog();
-        _loadDialog.LoadSlotSelected += OnLoadSlotSelected;
-        _loadDialog.DialogClosed += OnLoadDialogClosed;
-        AddChild(_loadDialog);
-        _loadDialog.ShowDialog(SaveLoadDialog.DialogMode.Load);
+        TryOpenHostedLoad();
     }
 
-    private void OnLoadSlotSelected(int slot)
+    private bool TryOpenHostedSettings()
+    {
+        if (_screenHost == null || !IsInstanceValid(_screenHost) ||
+            _sceneChangeCommitted)
+        {
+            return false;
+        }
+
+        if (_settingsHandle.HasValue)
+        {
+            if (_screenHost.IsActive(_settingsHandle.Value))
+                return false;
+
+            if (_settingsMenu != null)
+                ClearHostedSettings(_settingsMenu);
+            else
+                _settingsHandle = null;
+        }
+
+        if (_screenHost.IsKindActive(UIScreenKinds.Settings))
+            return false;
+
+        var scene = GD.Load<PackedScene>("res://scenes/ui/SettingsMenu.tscn");
+        if (scene == null)
+        {
+            TryOpenMessage("Settings", "Settings unavailable.", _settingsButton);
+            return false;
+        }
+
+        var settings = scene.Instantiate<SettingsMenuController>();
+        if (settings == null)
+        {
+            TryOpenMessage("Settings", "Settings unavailable.", _settingsButton);
+            return false;
+        }
+
+        settings.Closed += OnHostedSettingsClosed;
+        var result = _screenHost.TryPresent(settings, new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.Settings,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Modal,
+            ProcessPolicy = UIProcessPolicy.Always,
+            PauseTree = false,
+            BlockGameplayInput = false,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Inherit,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Close,
+            InterceptCancel = _ =>
+                settings.IsRebinding || settings.IsPopupOpen
+                    ? UIInputInterception.ReserveForNativeHandler
+                    : UIInputInterception.DeferToPolicy,
+            InitialFocus = () => settings.InitialFocusTarget,
+            RestoreFocus = () => _settingsButton,
+            SetPresented = visible =>
+            {
+                if (visible) settings.OpenSettings(showOverlay: false);
+                else settings.Hide();
+            },
+            Cleanup = _ => ClearHostedSettings(settings),
+            NodeLifetime = UINodeLifetime.QueueFree
+        });
+
+        if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
+        {
+            settings.Closed -= OnHostedSettingsClosed;
+            settings.QueueFree();
+            return false;
+        }
+
+        _settingsHandle = result.Handle.Value;
+        _settingsMenu = settings;
+        settings.OpenSettings(showOverlay: false);
+        RefreshActionAvailability();
+        return true;
+    }
+
+    private void OnHostedSettingsClosed() =>
+        TryCloseHostedSettings(UIScreenCloseReason.ExplicitAction);
+
+    private bool TryCloseHostedSettings(UIScreenCloseReason reason)
+    {
+        if (_screenHost == null || !IsInstanceValid(_screenHost) ||
+            !_settingsHandle.HasValue)
+        {
+            return false;
+        }
+
+        var result = _screenHost.TryClose(_settingsHandle.Value, reason);
+        if (result.Status == UIScreenCloseStatus.StaleHandle)
+        {
+            if (_settingsMenu != null)
+                ClearHostedSettings(_settingsMenu);
+            else
+                _settingsHandle = null;
+        }
+
+        return result.Status == UIScreenCloseStatus.Closed;
+    }
+
+    private void ClearHostedSettings(SettingsMenuController settings)
+    {
+        if (IsInstanceValid(settings))
+            settings.Closed -= OnHostedSettingsClosed;
+
+        if (ReferenceEquals(_settingsMenu, settings))
+        {
+            _settingsHandle = null;
+            _settingsMenu = null;
+        }
+
+        RefreshActionAvailability();
+    }
+
+    private bool TryOpenHostedLoad(Control? restoreFocus = null)
+    {
+        if (_screenHost == null || !IsInstanceValid(_screenHost) ||
+            _sceneChangeCommitted)
+        {
+            return false;
+        }
+
+        if (_loadHandle.HasValue)
+        {
+            if (_screenHost.IsActive(_loadHandle.Value))
+                return false;
+
+            if (_loadDialog != null)
+                ClearHostedLoad(_loadDialog);
+            else
+                _loadHandle = null;
+        }
+
+        if (_screenHost.IsKindActive(UIScreenKinds.SaveLoad))
+            return false;
+
+        var restoreTarget = restoreFocus ?? _loadButton;
+        var dialog = new SaveLoadDialog();
+        dialog.LoadSlotSelected += OnHostedLoadSlotSelected;
+        dialog.DialogClosed += OnHostedLoadClosed;
+
+        var result = _screenHost.TryPresent(dialog, new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.SaveLoad,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Modal,
+            ProcessPolicy = UIProcessPolicy.Always,
+            PauseTree = false,
+            BlockGameplayInput = false,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Inherit,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Close,
+            InterceptCancel = _ =>
+            {
+                if (dialog.HasActiveChildDialog)
+                {
+                    dialog.DismissActiveChildDialog();
+                    return UIInputInterception.ConsumeHere;
+                }
+
+                return UIInputInterception.DeferToPolicy;
+            },
+            RestoreFocus = () => restoreTarget,
+            SetPresented = visible =>
+            {
+                if (visible) dialog.ShowDialog(SaveLoadDialog.DialogMode.Load);
+                else dialog.Hide();
+            },
+            Cleanup = _ => ClearHostedLoad(dialog),
+            NodeLifetime = UINodeLifetime.QueueFree
+        });
+
+        if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
+        {
+            dialog.LoadSlotSelected -= OnHostedLoadSlotSelected;
+            dialog.DialogClosed -= OnHostedLoadClosed;
+            dialog.QueueFree();
+            return false;
+        }
+
+        _loadHandle = result.Handle.Value;
+        _loadDialog = dialog;
+        dialog.ShowDialog(SaveLoadDialog.DialogMode.Load);
+        RefreshActionAvailability();
+        return true;
+    }
+
+    private void OnHostedLoadSlotSelected(int slot)
     {
         if (_sceneChangeCommitted)
             return;
@@ -350,70 +548,202 @@ public partial class MainMenu : Control
         var saveData = slot == 3
             ? SaveManager.Instance?.LoadAutosave()
             : SaveManager.Instance?.LoadGame(slot);
-
         var manager = SaveManager.Instance;
         if (saveData != null && manager != null)
         {
             _sceneChangeCommitted = true;
             RefreshActionAvailability();
             manager.PendingLoadData = saveData;
-            CleanupLoadDialog();
+            TryCloseHostedLoad(UIScreenCloseReason.ExplicitAction);
             GetTree().ChangeSceneToFile(GameScenePath);
+            return;
         }
-        else
-        {
-            ShowMessage("Failed to load save file!");
-            CleanupLoadDialog();
-        }
+
+        TryCloseHostedLoad(UIScreenCloseReason.ExplicitAction);
+        TryOpenMessage("Load Failed", "Failed to load save file!", _loadButton);
     }
 
-    private void OnLoadDialogClosed() => CleanupLoadDialog();
+    private void OnHostedLoadClosed() =>
+        TryCloseHostedLoad(UIScreenCloseReason.ExplicitAction);
 
-    private void CleanupLoadDialog()
+    private bool TryCloseHostedLoad(UIScreenCloseReason reason)
     {
-        if (_loadDialog == null)
-            return;
+        if (_screenHost == null || !IsInstanceValid(_screenHost) ||
+            !_loadHandle.HasValue)
+        {
+            return false;
+        }
 
-        _loadDialog.LoadSlotSelected -= OnLoadSlotSelected;
-        _loadDialog.DialogClosed -= OnLoadDialogClosed;
-        _loadDialog.QueueFree();
-        _loadDialog = null;
+        var result = _screenHost.TryClose(_loadHandle.Value, reason);
+        if (result.Status == UIScreenCloseStatus.StaleHandle)
+        {
+            if (_loadDialog != null)
+                ClearHostedLoad(_loadDialog);
+            else
+                _loadHandle = null;
+        }
+
+        return result.Status == UIScreenCloseStatus.Closed;
+    }
+
+    private void ClearHostedLoad(SaveLoadDialog dialog)
+    {
+        if (IsInstanceValid(dialog))
+        {
+            dialog.LoadSlotSelected -= OnHostedLoadSlotSelected;
+            dialog.DialogClosed -= OnHostedLoadClosed;
+        }
+
+        if (ReferenceEquals(_loadDialog, dialog))
+        {
+            _loadHandle = null;
+            _loadDialog = null;
+        }
+
+        RefreshActionAvailability();
+    }
+
+    private bool TryOpenMessage(
+        string title,
+        string message,
+        Control? restoreFocus,
+        UIScreenHandle? parent = null)
+    {
+        if (_screenHost == null || !IsInstanceValid(_screenHost) ||
+            _screenHost.IsKindActive(UIScreenKinds.SaveError))
+        {
+            return false;
+        }
+
+        var popup = new AcceptDialog
+        {
+            Title = title,
+            DialogText = message,
+            Exclusive = true,
+            Theme = GD.Load<Theme>(SiriusThemeTypes.ResourcePath)
+        };
+
+        var handled = false;
+        Action close = () =>
+        {
+            if (handled)
+                return;
+            handled = true;
+            TryCloseHostedMessage(UIScreenCloseReason.ExplicitAction);
+        };
+
+        popup.Confirmed += close;
+        popup.Canceled += close;
+        popup.CloseRequested += close;
+
+        var result = _screenHost.TryPresent(popup, new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.SaveError,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Blocking,
+            ProcessPolicy = UIProcessPolicy.Always,
+            Parent = parent,
+            ExclusiveGroup = UIScreenExclusiveGroups.BlockingPrompt,
+            PauseTree = false,
+            BlockGameplayInput = false,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Inherit,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Close,
+            InitialFocus = () => popup.GetOkButton(),
+            RestoreFocus = parent.HasValue || restoreFocus == null
+                ? null
+                : () => restoreFocus,
+            SetPresented = visible =>
+            {
+                if (visible) popup.PopupCentered();
+                else popup.Hide();
+            },
+            Cleanup = _ =>
+            {
+                if (IsInstanceValid(popup))
+                {
+                    popup.Confirmed -= close;
+                    popup.Canceled -= close;
+                    popup.CloseRequested -= close;
+                }
+
+                if (ReferenceEquals(_messageDialog, popup))
+                {
+                    _messageHandle = null;
+                    _messageDialog = null;
+                }
+
+                RefreshActionAvailability();
+            },
+            NodeLifetime = UINodeLifetime.QueueFree
+        });
+
+        if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
+        {
+            popup.Confirmed -= close;
+            popup.Canceled -= close;
+            popup.CloseRequested -= close;
+            popup.QueueFree();
+            return false;
+        }
+
+        _messageHandle = result.Handle.Value;
+        _messageDialog = popup;
+        popup.PopupCentered();
+        RefreshActionAvailability();
+        return true;
+    }
+
+    private bool TryCloseHostedMessage(UIScreenCloseReason reason)
+    {
+        if (_screenHost == null || !IsInstanceValid(_screenHost) ||
+            !_messageHandle.HasValue)
+        {
+            return false;
+        }
+
+        var result = _screenHost.TryClose(_messageHandle.Value, reason);
+        if (result.Status == UIScreenCloseStatus.StaleHandle)
+        {
+            if (_messageDialog != null)
+                ClearHostedMessage(_messageDialog);
+            else
+                _messageHandle = null;
+        }
+
+        return result.Status == UIScreenCloseStatus.Closed;
+    }
+
+    private void ClearHostedMessage(AcceptDialog popup)
+    {
+        if (IsInstanceValid(popup))
+        {
+            // Cleanup owns signal disconnection; this helper only repairs stale
+            // references when a caller discovers a stale handle.
+            popup.Hide();
+        }
+
+        if (ReferenceEquals(_messageDialog, popup))
+        {
+            _messageHandle = null;
+            _messageDialog = null;
+        }
+
+        RefreshActionAvailability();
     }
 
     private void _on_settings_button_pressed()
     {
-        if (_settingsMenu != null)
+        if (IsRootActionBlocked())
             return;
 
-        var scene = GD.Load<PackedScene>("res://scenes/ui/SettingsMenu.tscn");
-        if (scene == null)
-        {
-            ShowMessage("Settings unavailable.");
-            return;
-        }
-
-        _settingsMenu = scene.Instantiate<SettingsMenuController>();
-        _settingsMenu.Closed += OnSettingsClosed;
-        AddChild(_settingsMenu);
-        _settingsMenu.OpenSettings();
-        _settingsMenu.InitialFocusTarget.GrabFocus();
-    }
-
-    private void OnSettingsClosed()
-    {
-        if (_settingsMenu == null)
-            return;
-
-        _settingsMenu.Closed -= OnSettingsClosed;
-        _settingsMenu.QueueFree();
-        _settingsMenu = null;
-        if (_settingsButton != null && IsInstanceValid(_settingsButton))
-            _settingsButton.GrabFocus();
+        TryOpenHostedSettings();
     }
 
     private void _on_quit_button_pressed()
     {
-        if (_sceneChangeCommitted)
+        if (IsRootActionBlocked())
             return;
 
         GD.Print("Quit button pressed");
@@ -423,23 +753,4 @@ public partial class MainMenu : Control
     }
 
     protected virtual void RequestApplicationQuit() => GetTree().Quit();
-
-    private void ShowMessage(string message)
-    {
-        var popup = new AcceptDialog
-        {
-            DialogText = message
-        };
-        AddChild(popup);
-        popup.PopupCentered();
-
-        if (message != "Quitting game...")
-        {
-            GetTree().CreateTimer(2.0).Timeout += () =>
-            {
-                if (IsInstanceValid(popup))
-                    popup.QueueFree();
-            };
-        }
-    }
 }

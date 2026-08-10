@@ -1,0 +1,183 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/ExplorationHudController.cs" id="1_exploration_hud"]
+[ext_resource type="Theme" path="res://resources/ui/theme/SiriusTheme.tres" id="2_sirius_theme"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusStatBar.tscn" id="3_stat_bar"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusContextPrompt.tscn" id="4_context_prompt"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/player_hero/sprite_sheet.png" id="5_hero_sheet"]
+[ext_resource type="Texture2D" path="res://assets/sprites/ui/ornaments/orbit_arc.png" id="6_orbit_arc"]
+[ext_resource type="Texture2D" path="res://assets/sprites/ui/ornaments/callout_connector.png" id="7_callout_connector"]
+
+[sub_resource type="AtlasTexture" id="HeroPortrait"]
+atlas = ExtResource("5_hero_sheet")
+region = Rect2(0, 0, 96, 96)
+filter_clip = true
+
+[node name="ExplorationHud" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_sirius_theme")
+script = ExtResource("1_exploration_hud")
+
+[node name="SafeFrame" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="HeroOrbitArc" type="TextureRect" parent="SafeFrame"]
+unique_name_in_owner = true
+layout_mode = 1
+offset_right = 208.0
+offset_bottom = 104.0
+mouse_filter = 2
+texture = ExtResource("6_orbit_arc")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeroPlate" type="PanelContainer" parent="SafeFrame"]
+unique_name_in_owner = true
+layout_mode = 1
+offset_right = 208.0
+offset_bottom = 198.0
+mouse_filter = 2
+theme_type_variation = &"SiriusHudPlate"
+
+[node name="HeroContent" type="HBoxContainer" parent="SafeFrame/HeroPlate"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Portrait" type="TextureRect" parent="SafeFrame/HeroPlate/HeroContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+texture = SubResource("HeroPortrait")
+mouse_filter = 2
+
+[node name="PlayerData" type="VBoxContainer" parent="SafeFrame/HeroPlate/HeroContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="IdentityRow" type="HBoxContainer" parent="SafeFrame/HeroPlate/HeroContent/PlayerData"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PlayerName" type="Label" parent="SafeFrame/HeroPlate/HeroContent/PlayerData/IdentityRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true
+theme_type_variation = &"SiriusBody"
+text = "Adventurer"
+
+[node name="PlayerLevel" type="Label" parent="SafeFrame/HeroPlate/HeroContent/PlayerData/IdentityRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"SiriusMetadata"
+text = "Lv 1"
+
+[node name="HealthBar" parent="SafeFrame/HeroPlate/HeroContent/PlayerData" instance=ExtResource("3_stat_bar")]
+unique_name_in_owner = true
+layout_mode = 2
+kind = 0
+current = 100.0
+maximum = 100.0
+label = "HP"
+
+[node name="ManaBar" parent="SafeFrame/HeroPlate/HeroContent/PlayerData" instance=ExtResource("3_stat_bar")]
+unique_name_in_owner = true
+layout_mode = 2
+kind = 1
+current = 100.0
+maximum = 100.0
+label = "MP"
+
+[node name="ExperienceBar" type="ProgressBar" parent="SafeFrame/HeroPlate/HeroContent/PlayerData"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 4)
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 100.0
+value = 0.0
+show_percentage = false
+theme_type_variation = &"SiriusExpBar"
+
+[node name="PromptPlate" type="PanelContainer" parent="SafeFrame"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 12
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -150.0
+offset_top = -72.0
+offset_right = 150.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"SiriusHudPlate"
+
+[node name="PromptContent" type="VBoxContainer" parent="SafeFrame/PromptPlate"]
+layout_mode = 2
+theme_override_constants/separation = 4
+alignment = 1
+
+[node name="ContextPrompt" parent="SafeFrame/PromptPlate/PromptContent" instance=ExtResource("4_context_prompt")]
+unique_name_in_owner = true
+layout_mode = 2
+alignment = 1
+
+[node name="PromptConnector" type="TextureRect" parent="SafeFrame/PromptPlate/PromptContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(128, 16)
+layout_mode = 2
+size_flags_horizontal = 4
+expand_mode = 1
+stretch_mode = 5
+texture = ExtResource("7_callout_connector")
+mouse_filter = 2
+
+[node name="TransientPlate" type="PanelContainer" parent="SafeFrame"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -90.0
+offset_top = 0.0
+offset_right = 90.0
+offset_bottom = 60.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"SiriusHudPlate"
+
+[node name="TransientLabel" type="Label" parent="SafeFrame/TransientPlate"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+clip_text = true
+theme_type_variation = &"SiriusTitle"
+text = ""
+
+[node name="TransientTimer" type="Timer" parent="."]
+unique_name_in_owner = true
+process_mode = 3
+wait_time = 2.0
+one_shot = true

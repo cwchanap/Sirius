@@ -3,6 +3,8 @@ using System;
 
 public static class SiriusUiMetrics
 {
+    public const float MaximumContentWidth = 1600f;
+
     public static readonly Vector2I[] VerificationViewports =
     {
         new(640, 360),

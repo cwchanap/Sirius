@@ -218,7 +218,7 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
-    public void TryOpenMessageIsLatchedAndTerminalSignalsCloseOnce()
+    public async Task TryOpenMessageIsLatchedAndTerminalSignalsCloseOnce()
     {
         var loadButton = _menu.GetNode<Button>("%LoadButton");
         var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
@@ -235,9 +235,13 @@ public partial class MainMenuTest : Node
         popup!.EmitSignal(AcceptDialog.SignalName.Confirmed);
         popup.EmitSignal(AcceptDialog.SignalName.Canceled);
 
+        await AwaitFrames(2);
+
         AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsFalse();
         AssertThat(GetPrivateField<AcceptDialog?>(_menu, "_messageDialog")).IsNull();
         AssertThat(_menu.GetNode<Button>("%LoadButton").Disabled).IsFalse();
+        AssertThat(_menu.GetViewport().GuiGetFocusOwner())
+            .IsEqual(loadButton);
     }
 
     [TestCase]

@@ -57,7 +57,7 @@ Rejected. There are only five actions and one root. `SaveManager` and `UIScreenH
 
 ## 4. Selected architecture
 
-`MainMenu` remains the single root controller. The implementation adds only two narrow pure/test seams:
+`MainMenu` remains the single root controller. The implementation adds one pure policy helper and only two narrow virtual test seams:
 
 ```csharp
 internal static SaveSlotInfo? SelectContinueSave(
@@ -67,7 +67,7 @@ protected virtual SaveData? LoadSlot(int slot);
 protected virtual Error ChangeSceneToFile(string path);
 ```
 
-`SelectContinueSave` is a pure policy helper. `LoadSlot` allows a focused full-load-failure test without introducing a SaveManager interface. `ChangeSceneToFile` follows the existing `RequestApplicationQuit` test seam and allows scene-transition/double-activation tests without actually replacing the test scene.
+`SelectContinueSave` is the deterministic Continue policy. `LoadSlot` allows a focused full-load-failure test without introducing a SaveManager interface. `ChangeSceneToFile` follows the existing `RequestApplicationQuit` test seam and allows scene-transition/double-activation tests without actually replacing the test scene.
 
 No new singleton, navigation framework, save service, settings facade, view model, or compatibility layer is introduced.
 
@@ -261,7 +261,7 @@ Delete the direct Main Menu `AddChild(settings)` lifecycle and the manual post-c
 
 HPA-572 owns the future shared confirmation/warning/error component family. HPA-380 therefore does not create `SiriusMessageDialog`, a message service, or another modal shell.
 
-For the concrete Main Menu save/load messages in this ticket, use one private host helper around an embedded `AcceptDialog`:
+For the concrete Main Menu availability/save/load messages in this ticket, use one private host helper around an embedded `AcceptDialog`:
 
 ```csharp
 private bool TryOpenMessage(
@@ -275,7 +275,7 @@ private bool TryOpenMessage(
 The helper:
 
 - applies `SiriusTheme.tres` directly to the embedded dialog
-- registers `UIScreenKinds.SaveError`
+- reuses existing `UIScreenKinds.SaveError` as the transitional concrete error kind
 - uses Blocking input priority and `UIScreenExclusiveGroups.BlockingPrompt`
 - uses `UIProcessPolicy.Always`
 - sets visible cursor and `UILowerLayerPolicy.VisibleInert`
@@ -286,7 +286,7 @@ The helper:
 - restores the invoking Main Menu control when it is a root message
 - relies on logical parent focus restoration when it is a child of Load
 
-This is deliberately local transitional code. HPA-572 can replace the concrete call sites later without first dismantling a new generic framework.
+This is deliberately local transitional code. HPA-572 can replace the concrete call sites later without first dismantling a new generic framework or extra kind taxonomy.
 
 ## 12. Continue activation and failure fallback
 
@@ -296,9 +296,9 @@ When Continue is pressed:
 2. call `LoadSlot(_continueSave.SlotIndex)` using the existing full-load path
 3. on success, assign `PendingLoadData` and request the Game scene transition
 4. on failure, do **not** clear into New Game
-5. open the existing Load flow
+5. if `SaveManager` remains available, open the existing Load flow
 6. if Load opens, show “Failed to load the selected save.” as a hosted child error over Load; dismissing the error leaves Load open
-7. if Load cannot open because the save system itself is unavailable, show the same failure as a root hosted message and stay on Main Menu
+7. if the save system is unavailable or Load cannot be hosted, show the same failure as a root hosted message and stay on Main Menu
 
 This makes Continue deterministic without creating a fallback-save scan after full-load failure. HPA-380 selects exactly one candidate from metadata; if its full load fails, the player chooses explicitly from Load.
 
@@ -340,7 +340,7 @@ Use the existing `SiriusUiMetrics` values only.
 - max centred content width: `SiriusUiMetrics.MaximumContentWidth`
 - minimum action height: `SiriusUiMetrics.MinimumTarget(compact).Y`
 
-`SafeFrame` is full-rect and receives runtime offsets calculated from the existing margin/max-width contract. At standard sizes the rail uses the left/lower portion of the safe frame. At compact size:
+`SafeFrame` is authored FullRect and receives runtime offsets calculated from the existing margin/max-width contract. At standard sizes the rail uses the left/lower portion of the safe frame. At compact size:
 
 - use compact typography variations
 - reduce rail spacing
@@ -385,11 +385,12 @@ Extend `MainMenuTest` for:
 - Continue initial focus versus New Game fallback
 - Settings opens once through the host, preserves Settings initial focus, and restores Settings button focus
 - Load opens once through the host and restores Load button focus
-- root actions are disabled while a hosted child is active and restored afterward
+- all root actions are disabled while a hosted child is active and restored afterward according to Continue eligibility
 - root Cancel is a no-op
 - one root message at a time
 - Continue full-load failure opens Load plus the themed child error and never requests Game
 - dismissing the Continue failure error keeps Load open
+- manual Load failure dismisses back to Main Menu
 - successful Continue sets `PendingLoadData` and requests Game once
 - New Game clears `PendingLoadData` and requests Game once
 - repeated action activation after `_sceneChangeCommitted` cannot request a second scene change
@@ -443,7 +444,7 @@ Mitigation: one `_sceneChangeCommitted` gate plus `PrepareForTeardown()` before 
 
 ### Compact menu exceeds 360px height
 
-Mitigation: 40px action targets are non-negotiable; compact spacing/typography and hiding only the timestamp are the first reductions. Scene tests assert actual enclosure/overlap at 640×360 rather than relying on nominal sizes.
+Mitigation: 40px action targets are non-negotiable; compact spacing/typography and hiding only the timestamp are the first reductions. Scene tests assert actual enclosure at 640×360 rather than relying on nominal sizes.
 
 ## 18. Acceptance mapping
 

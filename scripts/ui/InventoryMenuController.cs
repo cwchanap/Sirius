@@ -12,6 +12,7 @@ public partial class InventoryMenuController : Control
 	private readonly InputHintPresenter _inputHintPresenter = new();
 	private GameManager _gameManager;
 	private Button _closeButton = null!;
+	private Label _goldLabel = null!;
 
 	public Control? InitialFocusTarget => _closeButton;
 
@@ -48,6 +49,7 @@ public partial class InventoryMenuController : Control
 		UiIconPresenter.Apply(GetNode<TextureRect>("%EquipmentTitleIcon"), UiIconId.Equipment, UiIconSize.Default);
 		UiIconPresenter.Apply(GetNode<TextureRect>("%InventoryTitleIcon"), UiIconId.General, UiIconSize.Default);
 		_closeButton = GetNode<Button>("%CloseButton");
+		_goldLabel = GetNode<Label>("%GoldLabel");
 		RefreshCloseHint();
 		CacheStyles();
 		InitializeSkillSelector();
@@ -218,6 +220,9 @@ public partial class InventoryMenuController : Control
 			GD.PushError("[InventoryMenuController] RefreshUI called with no player data — UI will be empty.");
 			return;
 		}
+
+		var player = _gameManager.Player;
+		_goldLabel.Text = $"Gold: {player.Gold}";
 
 		RefreshEquipmentSlots();
 		RefreshAccessorySlots();

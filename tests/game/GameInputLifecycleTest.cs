@@ -552,16 +552,18 @@ public partial class GameInputLifecycleTest : Node
         await AwaitFrames(3);
         InvokePrivate(_realGame, "UpdateInteractionPrompt");
 
-        var prompt = _realGame.GetNode<Label>("UI/GameUI/InteractionPrompt");
-        AssertThat(prompt.Visible).IsTrue();
-        AssertThat(prompt.Text).IsEqual("Solve");
+        var hud = _realGame.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+        var promptPlate = hud.GetNode<PanelContainer>("%PromptPlate");
+        var prompt = hud.GetNode<SiriusContextPrompt>("%ContextPrompt");
+        AssertThat(promptPlate.Visible).IsTrue();
+        AssertThat(prompt.Prompt).IsEqual("Solve");
 
         InvokePrivate(_realGame, "OpenPuzzleRiddle", riddle);
         var dialog = GetPrivateField<PuzzleRiddleDialog>(_realGame, "_puzzleRiddleDialog");
         int closedCount = 0;
         dialog.PuzzleRiddleClosed += () => closedCount++;
         AssertThat(gameManager.IsInWorldInteraction).IsTrue();
-        AssertThat(prompt.Visible).IsFalse();
+        AssertThat(promptPlate.Visible).IsFalse();
         await AwaitFrames(1);
         AssertThat(_viewport!.GetEmbeddedSubwindows().Count).IsEqual(1);
 
@@ -580,7 +582,9 @@ public partial class GameInputLifecycleTest : Node
         AssertThat(closedCount).IsEqual(1);
         AssertThat(GetPrivateField<PuzzleRiddleDialog?>(_realGame, "_puzzleRiddleDialog")).IsNull();
         AssertThat(gameManager.IsInWorldInteraction).IsFalse();
-        AssertThat(prompt.Visible).IsTrue();
+        InvokePrivate(_realGame, "UpdateInteractionPrompt");
+        AssertThat(promptPlate.Visible).IsTrue();
+        AssertThat(prompt.Prompt).IsEqual("Solve");
         AssertThat(_realGame.GetNode<UIScreenHost>("UI/UIScreenHost")
             .IsKindActive(UIScreenKinds.Pause)).IsFalse();
     }
@@ -640,9 +644,9 @@ public partial class GameInputLifecycleTest : Node
             var floorManager = game.GetNode<FloorManager>("FloorManager");
             var originalGrid = floorManager.CurrentGridMap;
             ulong originalGridId = originalGrid.GetInstanceId();
-            var prompt = game.GetNode<Label>("UI/GameUI/InteractionPrompt");
-            prompt.Visible = true;
-            AssertThat(prompt.Visible).IsTrue();
+            var hud = game.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+            var promptPlate = hud.GetNode<PanelContainer>("%PromptPlate");
+            InvokePrivate(game, "UpdateInteractionPrompt");
 
             AssertThat(floorManager.LoadFloor(1)).IsTrue();
             await AwaitFrames(8);
@@ -650,7 +654,7 @@ public partial class GameInputLifecycleTest : Node
             AssertThat(floorManager.CurrentGridMap.GetInstanceId()).IsNotEqual(originalGridId);
             AssertThat(GetPrivateField<GridMap>(game, "_gridMap"))
                 .IsEqual(floorManager.CurrentGridMap);
-            AssertThat(prompt.Visible).IsFalse();
+            AssertThat(promptPlate.Visible).IsFalse();
         }
         finally
         {
@@ -685,18 +689,22 @@ public partial class GameInputLifecycleTest : Node
             await AwaitFrames(3);
             InvokePrivate(game, "UpdateInteractionPrompt");
 
-            var prompt = game.GetNode<Label>("UI/GameUI/InteractionPrompt");
-            AssertThat(prompt.Visible).IsTrue();
+            var hud = game.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+            var promptPlate = hud.GetNode<PanelContainer>("%PromptPlate");
+            var prompt = hud.GetNode<SiriusContextPrompt>("%ContextPrompt");
+            AssertThat(promptPlate.Visible).IsTrue();
+            AssertThat(prompt.Prompt).IsEqual("Open");
 
             gameManager.StartBattle(Enemy.CreateGoblin());
 
-            AssertThat(prompt.Visible).IsFalse();
+            AssertThat(promptPlate.Visible).IsFalse();
             var battle = GetPrivateField<BattleManager>(game, "_battleManager");
             AssertThat(GodotObject.IsInstanceValid(battle)).IsTrue();
 
             battle.ForceCloseAsEscape();
 
-            AssertThat(prompt.Visible).IsTrue();
+            AssertThat(promptPlate.Visible).IsTrue();
+            AssertThat(prompt.Prompt).IsEqual("Open");
         }
         finally
         {

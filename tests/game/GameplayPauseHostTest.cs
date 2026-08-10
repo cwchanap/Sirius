@@ -244,6 +244,52 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
+    public async Task RootPauseGameplayBlock_SuppressesAndRestoresInteractionPrompt()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var floorManager = _game!.GetNode<FloorManager>("FloorManager");
+        var gridMap = floorManager.CurrentGridMap;
+        var playerController = _game.GetNode<PlayerController>("PlayerController");
+        var box = new TreasureBoxSpawn
+        {
+            Name = "TreasureBox_HostPromptTest",
+            TreasureBoxId = "TreasureBox_HostPromptTest",
+            GridPosition = new Vector2I(9, 50),
+            RewardGold = 1
+        };
+        gridMap.AddChild(box);
+        box.AddToGroup("TreasureBoxSpawn");
+        SetPrivateField(gridMap, "_grid", new int[gridMap.GridWidth, gridMap.GridHeight]);
+        SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 50));
+        SetPrivateField(playerController, "_lastFacingDirection", Vector2I.Right);
+        gridMap.CallDeferred(nameof(GridMap.RegisterStaticTreasureBoxes));
+        await AwaitFrames(3);
+        InvokePrivateVoid(_game, "UpdateInteractionPrompt");
+
+        var hud = _game.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+        var promptPlate = hud.GetNode<PanelContainer>("%PromptPlate");
+        var prompt = hud.GetNode<SiriusContextPrompt>("%ContextPrompt");
+        AssertThat(promptPlate.Visible).IsTrue();
+        AssertThat(prompt.Prompt).IsEqual("Open");
+
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+
+        var host = _game.GetNode<UIScreenHost>("UI/UIScreenHost");
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsTrue();
+        AssertThat(promptPlate.Visible).IsFalse();
+
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%ResumeButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(3);
+
+        AssertThat(tree.Paused).IsFalse();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsFalse();
+        AssertThat(promptPlate.Visible).IsTrue();
+        AssertThat(prompt.Prompt).IsEqual("Open");
+    }
+
+    [TestCase]
     public async Task RootPause_FreedGameplayFocusTargetCompletesRestorationWithoutLease()
     {
         // A stale focus record must not throw while Pause closes or strand the

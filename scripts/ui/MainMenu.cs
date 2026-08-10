@@ -32,6 +32,7 @@ public partial class MainMenu : Control
     private SaveSlotInfo? _continueSave;
     private Button[] _rootActions = Array.Empty<Button>();
     private bool _sceneChangeCommitted;
+    private string? _pendingScenePath;
     private static readonly IReadOnlySet<StringName> MainMenuCoreCancelActions =
         new HashSet<StringName> { "ui_cancel" };
 
@@ -156,6 +157,8 @@ public partial class MainMenu : Control
     {
         if (IsRootActionBlocked() || _continueSave == null)
             return;
+
+        HandleContinueLoadResult(LoadSlot(_continueSave.SlotIndex));
     }
 
     private void _on_new_game_button_pressed()
@@ -163,13 +166,37 @@ public partial class MainMenu : Control
         if (IsRootActionBlocked())
             return;
 
-        _sceneChangeCommitted = true;
-        RefreshActionAvailability();
-
         if (SaveManager.Instance != null)
             SaveManager.Instance.PendingLoadData = null;
 
-        GetTree().ChangeSceneToFile(GameScenePath);
+        RequestSceneChange(GameScenePath);
+    }
+
+    private void HandleContinueLoadResult(SaveData? saveData)
+    {
+        if (saveData != null && SaveManager.Instance != null)
+        {
+            SaveManager.Instance.PendingLoadData = saveData;
+            RequestSceneChange(GameScenePath);
+            return;
+        }
+
+        if (SaveManager.Instance != null &&
+            TryOpenHostedLoad(_continueButton) &&
+            _loadHandle.HasValue)
+        {
+            TryOpenMessage(
+                "Load Failed",
+                "Failed to load the selected save.",
+                restoreFocus: null,
+                parent: _loadHandle);
+            return;
+        }
+
+        TryOpenMessage(
+            "Load Failed",
+            "Failed to load the selected save.",
+            _continueButton);
     }
 
     private void RefreshContinueState()
@@ -545,26 +572,65 @@ public partial class MainMenu : Control
 
         GD.Print($"Loading from slot {slot}");
 
-        var saveData = slot == 3
-            ? SaveManager.Instance?.LoadAutosave()
-            : SaveManager.Instance?.LoadGame(slot);
+        var saveData = LoadSlot(slot);
         var manager = SaveManager.Instance;
-        if (saveData != null && manager != null)
+        if (saveData == null || manager == null)
         {
-            _sceneChangeCommitted = true;
-            RefreshActionAvailability();
-            manager.PendingLoadData = saveData;
             TryCloseHostedLoad(UIScreenCloseReason.ExplicitAction);
-            GetTree().ChangeSceneToFile(GameScenePath);
+            Callable.From(() =>
+            {
+                if (!GodotObject.IsInstanceValid(this) || !IsInsideTree())
+                    return;
+                TryOpenMessage(
+                    "Load Failed",
+                    "Failed to load save file.",
+                    _loadButton);
+            }).CallDeferred();
             return;
         }
 
-        TryCloseHostedLoad(UIScreenCloseReason.ExplicitAction);
-        TryOpenMessage("Load Failed", "Failed to load save file!", _loadButton);
+        manager.PendingLoadData = saveData;
+        RequestSceneChange(GameScenePath);
     }
 
     private void OnHostedLoadClosed() =>
         TryCloseHostedLoad(UIScreenCloseReason.ExplicitAction);
+
+    protected virtual SaveData? LoadSlot(int slot) => slot == 3
+        ? SaveManager.Instance?.LoadAutosave()
+        : SaveManager.Instance?.LoadGame(slot);
+
+    protected virtual Error ChangeSceneToFile(string path) =>
+        GetTree().ChangeSceneToFile(path);
+
+    private void RequestSceneChange(string path)
+    {
+        if (_sceneChangeCommitted)
+            return;
+
+        _sceneChangeCommitted = true;
+        _pendingScenePath = path;
+        RefreshActionAvailability();
+        ContinueSceneChangeAfterUiTeardown();
+    }
+
+    private void ContinueSceneChangeAfterUiTeardown()
+    {
+        if (!GodotObject.IsInstanceValid(this) || !IsInsideTree())
+            return;
+
+        if (_screenHost != null && IsInstanceValid(_screenHost) &&
+            _screenHost.PrepareForTeardown() == UIScreenTeardownPreparationStatus.Deferred)
+        {
+            Callable.From(ContinueSceneChangeAfterUiTeardown).CallDeferred();
+            return;
+        }
+
+        var path = _pendingScenePath;
+        _pendingScenePath = null;
+        if (!string.IsNullOrEmpty(path))
+            ChangeSceneToFile(path);
+    }
 
     private bool TryCloseHostedLoad(UIScreenCloseReason reason)
     {

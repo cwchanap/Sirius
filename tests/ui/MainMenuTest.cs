@@ -208,6 +208,191 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
+    public async Task ContinuePressedUsesSelectedSlot()
+    {
+        var menu = await CreateTestableRootMenu();
+        try
+        {
+            SetPrivateField(menu, "_continueSave", EligibleSlot(3, DateTime.UtcNow));
+            menu.NextLoadResult = null;
+
+            InvokePrivateAcrossHierarchy(menu, "_on_continue_button_pressed");
+
+            AssertThat(menu.LoadRequests).IsEqual(1);
+            AssertThat(menu.LastLoadedSlot).IsEqual(3);
+            AssertThat(menu.SceneChangeRequests).IsEqual(0);
+        }
+        finally
+        {
+            menu.QueueFree();
+            await AwaitFrames(2);
+        }
+    }
+
+    [TestCase]
+    public async Task ContinuePressedWithoutSelectedSaveDoesNothing()
+    {
+        var menu = await CreateTestableRootMenu();
+        try
+        {
+            menu.NextLoadResult = ValidSaveData();
+
+            InvokePrivateAcrossHierarchy(menu, "_on_continue_button_pressed");
+
+            AssertThat(menu.LoadRequests).IsEqual(0);
+            AssertThat(menu.SceneChangeRequests).IsEqual(0);
+        }
+        finally
+        {
+            menu.QueueFree();
+            await AwaitFrames(2);
+        }
+    }
+
+    [TestCase]
+    public async Task ContinuePressedAfterSceneChangeCommitDoesNothing()
+    {
+        var menu = await CreateTestableRootMenu();
+        try
+        {
+            SetPrivateField(menu, "_continueSave", EligibleSlot(3, DateTime.UtcNow));
+            SetPrivateField(menu, "_sceneChangeCommitted", true);
+
+            InvokePrivateAcrossHierarchy(menu, "_on_continue_button_pressed");
+
+            AssertThat(menu.LoadRequests).IsEqual(0);
+            AssertThat(menu.SceneChangeRequests).IsEqual(0);
+        }
+        finally
+        {
+            menu.QueueFree();
+            await AwaitFrames(2);
+        }
+    }
+
+    [TestCase]
+    public async Task ContinueSuccessSetsPendingLoadAndRequestsGameOnce()
+    {
+        var menu = await CreateTestableRootMenu();
+        var previousPending = SaveManager.Instance?.PendingLoadData;
+        try
+        {
+            var loaded = new SaveData();
+            menu.NextLoadResult = loaded;
+            SetPrivateField(menu, "_continueSave", EligibleSlot(3, DateTime.UtcNow));
+
+            InvokePrivateAcrossHierarchy(menu, "_on_continue_button_pressed");
+            InvokePrivateAcrossHierarchy(menu, "_on_continue_button_pressed");
+
+            AssertThat(SaveManager.Instance!.PendingLoadData).IsEqual(loaded);
+            AssertThat(menu.LoadRequests).IsEqual(1);
+            AssertThat(menu.SceneChangeRequests).IsEqual(1);
+            AssertThat(menu.LastScenePath).IsEqual("res://scenes/game/Game.tscn");
+        }
+        finally
+        {
+            SaveManager.Instance!.PendingLoadData = previousPending;
+            menu.QueueFree();
+            await AwaitFrames(2);
+        }
+    }
+
+    [TestCase]
+    public async Task NewGameClearsPendingLoadAndRequestsGameOnce()
+    {
+        var menu = await CreateTestableRootMenu();
+        var previousPending = SaveManager.Instance?.PendingLoadData;
+        try
+        {
+            SaveManager.Instance!.PendingLoadData = ValidSaveData();
+
+            InvokePrivateAcrossHierarchy(menu, "_on_new_game_button_pressed");
+            InvokePrivateAcrossHierarchy(menu, "_on_new_game_button_pressed");
+
+            AssertThat(SaveManager.Instance.PendingLoadData).IsNull();
+            AssertThat(menu.SceneChangeRequests).IsEqual(1);
+            AssertThat(menu.LastScenePath).IsEqual("res://scenes/game/Game.tscn");
+        }
+        finally
+        {
+            SaveManager.Instance!.PendingLoadData = previousPending;
+            menu.QueueFree();
+            await AwaitFrames(2);
+        }
+    }
+
+    [TestCase]
+    public async Task ContinueFailureOpensHostedFallbackAndRestoresContinueFocus()
+    {
+        SetPrivateField(_menu, "_continueSave", EligibleSlot(3, DateTime.UtcNow));
+        var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+        var continueButton = _menu.GetNode<Button>("%ContinueButton");
+
+        InvokePrivateAcrossHierarchy(
+            _menu, "HandleContinueLoadResult", new object[] { null! });
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsTrue();
+        AssertThat(GetPrivateField<bool>(_menu, "_sceneChangeCommitted")).IsFalse();
+
+        var fallbackError = GetPrivateField<AcceptDialog?>(_menu, "_messageDialog");
+        AssertThat(fallbackError).IsNotNull();
+        fallbackError!.EmitSignal(AcceptDialog.SignalName.Confirmed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+
+        InvokePrivateAcrossHierarchy(_menu, "OnHostedLoadClosed");
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+        AssertThat(_menu.GetViewport().GuiGetFocusOwner()).IsEqual(continueButton);
+    }
+
+    [TestCase]
+    public async Task ManualLoadFailureClosesLoadThenOpensRootErrorAndRestoresLoadFocus()
+    {
+        var manager = SaveManager.Instance!;
+        for (var slot = 0; slot <= 3; slot++)
+            manager.DeleteSave(slot);
+
+        AssertThat(manager.SaveGame(0, ValidSaveData())).IsTrue();
+        try
+        {
+            InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
+            await AwaitFrames(2);
+
+            var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+
+            InvokePrivateAcrossHierarchy(_menu, "OnHostedLoadSlotSelected", 1);
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+            await AwaitFrames(2);
+
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+            AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.SaveError))
+                .IsEqual(1);
+
+            var error = GetPrivateField<AcceptDialog?>(_menu, "_messageDialog");
+            AssertThat(error).IsNotNull();
+            error!.EmitSignal(AcceptDialog.SignalName.Confirmed);
+            await AwaitFrames(2);
+
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsFalse();
+            AssertThat(_menu.GetNode<Button>("%LoadButton").Disabled).IsFalse();
+            AssertThat(_menu.GetViewport().GuiGetFocusOwner())
+                .IsEqual(_menu.GetNode<Button>("%LoadButton"));
+        }
+        finally
+        {
+            for (var slot = 0; slot <= 3; slot++)
+                manager.DeleteSave(slot);
+        }
+    }
+
+    [TestCase]
     public void RootCancelFallbackConsumesWithoutOpeningAnything()
     {
         var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
@@ -384,7 +569,40 @@ public partial class MainMenuTest : Node
     private partial class TestableMainMenu : MainMenu
     {
         public int QuitRequests { get; private set; }
+        public int SceneChangeRequests { get; private set; }
+        public int LoadRequests { get; private set; }
+        public int LastLoadedSlot { get; private set; } = -1;
+        public string? LastScenePath { get; private set; }
+        public SaveData? NextLoadResult { get; set; }
+
+        public override void _Ready()
+        {
+            // Controller-only fixture. Production scene binding/layout has separate tests.
+        }
+
         protected override void RequestApplicationQuit() => QuitRequests++;
+
+        protected override SaveData? LoadSlot(int slot)
+        {
+            LoadRequests++;
+            LastLoadedSlot = slot;
+            return NextLoadResult;
+        }
+
+        protected override Error ChangeSceneToFile(string path)
+        {
+            SceneChangeRequests++;
+            LastScenePath = path;
+            return Error.Ok;
+        }
+    }
+
+    private async Task<TestableMainMenu> CreateTestableRootMenu()
+    {
+        var menu = new TestableMainMenu();
+        _sceneTree.Root.AddChild(menu);
+        await AwaitFrames(1);
+        return menu;
     }
 
     private static SaveSlotInfo EligibleSlot(int slot, DateTime timestamp) => new()
@@ -428,9 +646,18 @@ public partial class MainMenuTest : Node
 
     private static void SetPrivateField(object instance, string fieldName, object? value)
     {
-        var field = instance.GetType().GetField(fieldName,
-            BindingFlags.NonPublic | BindingFlags.Instance)!;
-        field.SetValue(instance, value);
+        for (var type = instance.GetType(); type != null; type = type.BaseType)
+        {
+            var field = type.GetField(fieldName,
+                BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+            if (field == null)
+                continue;
+
+            field.SetValue(instance, value);
+            return;
+        }
+
+        throw new MissingFieldException(instance.GetType().Name, fieldName);
     }
 
     private static T GetPrivateField<T>(object instance, string fieldName)

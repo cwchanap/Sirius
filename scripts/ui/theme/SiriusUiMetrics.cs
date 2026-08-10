@@ -27,6 +27,19 @@ public static class SiriusUiMetrics
 
     public static int SafeMargin(bool compact) => compact ? 12 : 24;
 
+    public static (bool Compact, float Margin, float SideInset)
+        SafeFrameInsets(Vector2 viewportSize)
+    {
+        var compact = IsCompact(viewportSize);
+        var margin = SafeMargin(compact);
+        var availableWidth = MathF.Max(0f, viewportSize.X - margin * 2f);
+        var contentWidth = MathF.Min(availableWidth, MaximumContentWidth);
+        var sideInset = MathF.Max(
+            margin,
+            (viewportSize.X - contentWidth) / 2f);
+        return (compact, margin, sideInset);
+    }
+
     public static Vector2 MinimumTarget(bool compact) =>
         compact ? new Vector2(40, 40) : new Vector2(44, 44);
 

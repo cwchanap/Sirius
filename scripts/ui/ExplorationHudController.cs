@@ -193,20 +193,13 @@ public partial class ExplorationHudController : Control
     private void RefreshLayout()
     {
         var viewportSize = GetViewportRect().Size;
-        _compact = SiriusUiMetrics.IsCompact(viewportSize);
-        var margin = SiriusUiMetrics.SafeMargin(_compact);
-        var availableWidth = MathF.Max(0, viewportSize.X - margin * 2f);
-        var contentWidth = MathF.Min(
-            availableWidth,
-            SiriusUiMetrics.MaximumContentWidth);
-        var sideInset = MathF.Max(
-            margin,
-            (viewportSize.X - contentWidth) / 2f);
+        var layout = SiriusUiMetrics.SafeFrameInsets(viewportSize);
+        _compact = layout.Compact;
 
-        _safeFrame.OffsetLeft = sideInset;
-        _safeFrame.OffsetRight = -sideInset;
-        _safeFrame.OffsetTop = margin;
-        _safeFrame.OffsetBottom = -margin;
+        _safeFrame.OffsetLeft = layout.SideInset;
+        _safeFrame.OffsetRight = -layout.SideInset;
+        _safeFrame.OffsetTop = layout.Margin;
+        _safeFrame.OffsetBottom = -layout.Margin;
 
         _portrait.CustomMinimumSize = _compact
             ? new Vector2(40, 40)

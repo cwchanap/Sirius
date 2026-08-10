@@ -112,6 +112,108 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public async Task GameSceneUsesExplorationHudWithoutPrototypeHud()
+    {
+        var game = await InstantiateRealGameScene();
+        try
+        {
+            AssertThat(game.GetNodeOrNull<ExplorationHudController>(
+                "UI/GameUI/ExplorationHud")).IsNotNull();
+
+            string[] removedPaths =
+            {
+                "UI/GameUI/" + "TopPanel",
+                "UI/GameUI/" + "Instructions",
+                "UI/GameUI/" + "InteractionPrompt"
+            };
+
+            foreach (var path in removedPaths)
+                AssertThat(game.GetNodeOrNull(path)).IsNull();
+        }
+        finally
+        {
+            game.Free();
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task PlayerStatsChangedRefreshesExplorationHud()
+    {
+        var game = await InstantiateRealGameScene();
+        try
+        {
+            var manager = game.GetNode<GameManager>("GameManager");
+            var hud = game.GetNode<ExplorationHudController>(
+                "UI/GameUI/ExplorationHud");
+
+            manager.Player.CurrentHealth = 61;
+            manager.Player.CurrentMana = 17;
+            manager.Player.Experience = 42;
+            manager.NotifyPlayerStatsChanged();
+            await AwaitFrames(1);
+
+            AssertThat(hud.GetNode<SiriusStatBar>("%HealthBar").Current).IsEqual(61);
+            AssertThat(hud.GetNode<SiriusStatBar>("%ManaBar").Current).IsEqual(17);
+            AssertThat(hud.GetNode<ProgressBar>("%ExperienceBar").Value).IsEqual(42);
+        }
+        finally
+        {
+            game.Free();
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task PauseHidesPromptAndResumeRestoresResolvedPrompt()
+    {
+        var game = await InstantiateRealGameScene();
+        try
+        {
+            var floorManager = game.GetNode<FloorManager>("FloorManager");
+            var gridMap = floorManager.CurrentGridMap;
+            var playerController = game.GetNode<PlayerController>("PlayerController");
+            var box = new TreasureBoxSpawn
+            {
+                Name = "TreasureBox_PausePromptTest",
+                TreasureBoxId = "TreasureBox_PausePromptTest",
+                GridPosition = new Vector2I(9, 50),
+                RewardGold = 1
+            };
+            gridMap.AddChild(box);
+            box.AddToGroup("TreasureBoxSpawn");
+            SetPrivateField(gridMap, "_grid", new int[gridMap.GridWidth, gridMap.GridHeight]);
+            SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 50));
+            SetPrivateField(playerController, "_lastFacingDirection", Vector2I.Right);
+            gridMap.CallDeferred(nameof(GridMap.RegisterStaticTreasureBoxes));
+            await AwaitFrames(3);
+            InvokePrivate(game, "UpdateInteractionPrompt");
+
+            var hud = game.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+            var promptPlate = hud.GetNode<PanelContainer>("%PromptPlate");
+            var prompt = hud.GetNode<SiriusContextPrompt>("%ContextPrompt");
+            AssertThat(promptPlate.Visible).IsTrue();
+            AssertThat(prompt.Prompt).IsEqual("Open");
+
+            AssertThat(InvokePrivate<bool>(game, "TryOpenPause")).IsTrue();
+            await AwaitFrames(2);
+            AssertThat(promptPlate.Visible).IsFalse();
+
+            var pause = GetPrivateField<PauseScreenController>(game, "_pauseScreen");
+            pause.GetNode<Button>("%ResumeButton").EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(3);
+
+            AssertThat(promptPlate.Visible).IsTrue();
+            AssertThat(prompt.Prompt).IsEqual("Open");
+        }
+        finally
+        {
+            game.Free();
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
     public async Task Game_OpeningAdjacentTreasureAwardsOnceAndShowsOpenPrompt()
     {
         var sceneTree = (SceneTree)Engine.GetMainLoop();
@@ -153,17 +255,20 @@ public partial class GameTest : Node
             PressMovement(playerController, Vector2I.Right);
             await AwaitFrames(1);
 
-            var prompt = gameScene.GetNodeOrNull<Label>("UI/GameUI/InteractionPrompt");
-            AssertThat(prompt).IsNotNull();
-            AssertThat(prompt!.Visible).IsTrue();
-            AssertThat(prompt.Text).IsEqual("Open");
+            var hud = gameScene.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+            var promptPlate = hud.GetNode<PanelContainer>("%PromptPlate");
+            var prompt = hud.GetNode<SiriusContextPrompt>("%ContextPrompt");
+            AssertThat(promptPlate.Visible).IsTrue();
+            AssertThat(prompt.Prompt).IsEqual("Open");
+            AssertThat(prompt.IconId).IsEqual(UiIconId.Reward);
+            AssertThat(prompt.Actions).Contains(new StringName("interact"));
 
             int startingGold = gameManager.Player.Gold;
             int startingPotionCount = gameManager.Player.GetItemQuantity("health_potion");
             PressInteract(playerController);
             await AwaitFrames(1);
 
-            AssertThat(prompt.Visible).IsFalse();
+            AssertThat(promptPlate.Visible).IsFalse();
 
             await AwaitFrames(120);
 
@@ -171,14 +276,14 @@ public partial class GameTest : Node
             AssertThat(gameManager.Player.GetItemQuantity("health_potion")).IsEqual(startingPotionCount + 1);
             AssertThat(gameManager.IsTreasureBoxOpened("TreasureBox_RuntimeTest")).IsTrue();
             AssertThat(box.IsOpened).IsTrue();
-            AssertThat(prompt.Visible).IsFalse();
+            AssertThat(promptPlate.Visible).IsFalse();
 
             PressInteractRelease(playerController);
             PressInteract(playerController);
             await AwaitFrames(30);
 
             AssertThat(gameManager.Player.Gold).IsEqual(startingGold + 25);
-            AssertThat(prompt.Visible).IsFalse();
+            AssertThat(promptPlate.Visible).IsFalse();
         }
         finally
         {
@@ -679,20 +784,23 @@ public partial class GameTest : Node
             gridMap.CallDeferred(nameof(GridMap.RegisterStaticPuzzleEntities));
             await AwaitFrames(3);
 
-            var prompt = gameScene.GetNodeOrNull<Label>("UI/GameUI/InteractionPrompt");
-            AssertThat(prompt).IsNotNull();
+            var hud = gameScene.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+            var promptPlate = hud.GetNode<PanelContainer>("%PromptPlate");
+            var prompt = hud.GetNode<SiriusContextPrompt>("%ContextPrompt");
 
             PressMovement(playerController, Vector2I.Right);
             await AwaitInputDebounce();
 
-            AssertThat(prompt!.Visible).IsTrue();
-            AssertThat(prompt.Text).IsEqual("Use");
+            AssertThat(promptPlate.Visible).IsTrue();
+            AssertThat(prompt.Prompt).IsEqual("Use");
+            AssertThat(prompt.IconId).IsEqual(UiIconId.Puzzle);
 
             PressMovement(playerController, Vector2I.Down);
             await AwaitInputDebounce();
 
-            AssertThat(prompt.Visible).IsTrue();
-            AssertThat(prompt.Text).IsEqual("Solve");
+            AssertThat(promptPlate.Visible).IsTrue();
+            AssertThat(prompt.Prompt).IsEqual("Solve");
+            AssertThat(prompt.IconId).IsEqual(UiIconId.Puzzle);
         }
         finally
         {
@@ -736,6 +844,17 @@ public partial class GameTest : Node
         _gameManager = gameManager;
         _viewport!.AddChild(game);
         await AwaitFrames(2);
+    }
+
+    private static async Task<Game> InstantiateRealGameScene()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var scene = GD.Load<PackedScene>("res://scenes/game/Game.tscn")
+            ?? throw new InvalidOperationException("Failed to load Game.tscn.");
+        var game = scene.Instantiate<Game>();
+        sceneTree.Root.AddChild(game);
+        await AwaitFrames(6);
+        return game;
     }
 
     private static async Task AwaitFrames(int frameCount)
@@ -1012,6 +1131,39 @@ public partial class GameTest : Node
         }
 
         return (T)field.GetValue(instance)!;
+    }
+
+    private static T InvokePrivate<T>(object instance, string methodName, params object?[] arguments)
+    {
+        var method = FindPrivateMethod(instance.GetType(), methodName);
+        if (method == null)
+            throw new MissingMethodException(instance.GetType().FullName, methodName);
+
+        return (T)method.Invoke(instance, arguments)!;
+    }
+
+    private static void InvokePrivate(object instance, string methodName, params object?[] arguments)
+    {
+        var method = FindPrivateMethod(instance.GetType(), methodName);
+        if (method == null)
+            throw new MissingMethodException(instance.GetType().FullName, methodName);
+
+        method.Invoke(instance, arguments);
+    }
+
+    private static MethodInfo? FindPrivateMethod(Type? type, string methodName)
+    {
+        while (type != null)
+        {
+            var method = type.GetMethod(methodName,
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            if (method != null)
+                return method;
+
+            type = type.BaseType;
+        }
+
+        return null;
     }
 
     private static FieldInfo? FindPrivateField(Type? type, string fieldName)

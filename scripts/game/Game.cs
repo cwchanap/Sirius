@@ -13,12 +13,8 @@ public partial class Game : Node2D
     private PlayerController _playerController;
     private GridMap _gridMap; // Dynamically set by FloorManager
     private Control _gameUI;
+    private ExplorationHudController _explorationHud = null!;
     private Camera2D _camera;
-    private Label _playerNameLabel;
-    private Label _playerLevelLabel;
-    private Label _playerHealthLabel;
-    private Label _playerExperienceLabel;
-    private Label _playerGoldLabel;
     private BattleManager _battleManager;
     private Vector2I _lastEnemyPosition; // Store enemy position for after battle
     private NpcInteractionController _npcInteractionController;
@@ -35,7 +31,6 @@ public partial class Game : Node2D
     private bool _hasShownCorruptedSaveError;
 
     private AcceptDialog? _activeErrorPopup;
-    private Label? _interactionPromptLabel;
     private SceneTreeTimer? _defeatReturnTimer;
     private Action? _defeatReturnHandler;
     private UIScreenHost? _screenHost;
@@ -76,7 +71,12 @@ public partial class Game : Node2D
                 HudRoot = gameUi,
                 CoreCancelActions = GameplayCoreCancelActions,
                 RootCancelFallback = HandleGameplayRootCancel,
-                GameplayInputBlockChanged = blocked => _presentationGameplayBlocked = blocked
+                GameplayInputBlockChanged = blocked =>
+                {
+                    _presentationGameplayBlocked = blocked;
+                    if (IsNodeReady())
+                        UpdateInteractionPrompt();
+                }
             });
         }
 
@@ -122,25 +122,12 @@ public partial class Game : Node2D
         _gameManager.QuestFlagProvider = () => _questFlags;
         _puzzleTrapController = new PuzzleTrapController(_gameManager);
 
-        // Initialize HUD labels BEFORE connecting signals (LoadFromSaveData may emit PlayerStatsChanged)
-        _playerNameLabel =
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerName") ??
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerName");
-        _playerLevelLabel =
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerLevel") ??
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerLevel");
-        _playerHealthLabel =
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerHealth") ??
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerHealth");
-        _playerExperienceLabel =
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerExperience") ??
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerExperience");
-        _playerGoldLabel =
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerGold") ??
-            GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/PlayerGold");
-        EnsureInteractionPromptLabel();
+        // Bind the production HUD before connecting signals: LoadFromSaveData
+        // may emit PlayerStatsChanged during initialization.
+        _explorationHud = GetNode<ExplorationHudController>(
+            "UI/GameUI/ExplorationHud");
 
-        // Connect signals AFTER HUD labels are initialized, so signals are always connected even if save is corrupted
+        // Connect signals AFTER the HUD is initialized, so signals are always connected even if save is corrupted
         _gameManager.BattleStarted += OnBattleStarted;
         _gameManager.BattleEnded += OnBattleEnded;
         _gameManager.PlayerStatsChanged += OnPlayerStatsChanged;
@@ -224,6 +211,14 @@ public partial class Game : Node2D
         UpdatePlayerUI();
 
         // Player display and camera will be set up in OnFloorLoaded after floor loads
+
+        if (_floorManager.CurrentFloorDefinition != null)
+        {
+            _explorationHud.ShowAreaTitle(
+                _floorManager.CurrentFloorDefinition.FloorName);
+        }
+
+        _explorationHud.ShowSessionHint("Move with WASD or Arrow Keys");
         
         // Load and setup inventory menu
         SetupInventoryMenu();
@@ -1397,59 +1392,18 @@ public partial class Game : Node2D
         return null;
     }
 
-    private void EnsureInteractionPromptLabel()
-    {
-        if (_interactionPromptLabel != null && IsInstanceValid(_interactionPromptLabel))
-        {
-            return;
-        }
-
-        var gameUi = GetNodeOrNull<Control>("UI/GameUI");
-        if (gameUi == null)
-        {
-            return;
-        }
-
-        _interactionPromptLabel = gameUi.GetNodeOrNull<Label>("InteractionPrompt");
-        if (_interactionPromptLabel == null)
-        {
-            _interactionPromptLabel = new Label
-            {
-                Name = "InteractionPrompt",
-                Text = "Open",
-                Visible = false,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                ZIndex = 20
-            };
-            _interactionPromptLabel.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
-            _interactionPromptLabel.OffsetLeft = 0;
-            _interactionPromptLabel.OffsetRight = 0;
-            _interactionPromptLabel.OffsetTop = -96;
-            _interactionPromptLabel.OffsetBottom = -56;
-            gameUi.AddChild(_interactionPromptLabel);
-        }
-    }
-
     private void UpdateInteractionPrompt()
     {
-        EnsureInteractionPromptLabel();
-        if (_interactionPromptLabel == null)
-        {
+        if (_explorationHud == null)
             return;
-        }
 
-        _interactionPromptLabel.Text = "Open";
-
-        if (_gridMap == null || _playerController == null || _gameManager == null)
+        if (_gridMap == null ||
+            _playerController == null ||
+            _gameManager == null ||
+            _sceneChangeCommitted ||
+            IsGameplayInputSuppressed())
         {
-            _interactionPromptLabel.Visible = false;
-            return;
-        }
-
-        if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction || _gameManager.IsInWorldInteraction)
-        {
-            _interactionPromptLabel.Visible = false;
+            _explorationHud.HideInteractionPrompt();
             return;
         }
 
@@ -1460,8 +1414,7 @@ public partial class Game : Node2D
             !box.IsOpening &&
             !_gameManager.IsTreasureBoxOpened(box.TreasureBoxId))
         {
-            _interactionPromptLabel.Text = "Open";
-            _interactionPromptLabel.Visible = true;
+            _explorationHud.ShowInteractionPrompt("Open", UiIconId.Reward);
             return;
         }
 
@@ -1470,8 +1423,7 @@ public partial class Game : Node2D
             !string.IsNullOrWhiteSpace(puzzleSwitch.PuzzleId) &&
             !_gameManager.IsPuzzleSolved(puzzleSwitch.PuzzleId))
         {
-            _interactionPromptLabel.Text = "Use";
-            _interactionPromptLabel.Visible = true;
+            _explorationHud.ShowInteractionPrompt("Use", UiIconId.Puzzle);
             return;
         }
 
@@ -1480,12 +1432,11 @@ public partial class Game : Node2D
             !string.IsNullOrWhiteSpace(riddle.PuzzleId) &&
             !_gameManager.IsPuzzleSolved(riddle.PuzzleId))
         {
-            _interactionPromptLabel.Text = "Solve";
-            _interactionPromptLabel.Visible = true;
+            _explorationHud.ShowInteractionPrompt("Solve", UiIconId.Puzzle);
             return;
         }
 
-        _interactionPromptLabel.Visible = false;
+        _explorationHud.HideInteractionPrompt();
     }
 
     private void OnNpcInteractionComplete()
@@ -1795,110 +1746,23 @@ public partial class Game : Node2D
 
     private void UpdatePlayerUI()
     {
-        // Guard against accessing null _gridMap when initialization was aborted
-        if (_isAbortInitialization)
+        if (_isAbortInitialization ||
+            _gameManager?.Player == null ||
+            _explorationHud == null)
         {
             return;
         }
 
-        if (_gameManager?.Player != null)
-        {
-            var player = _gameManager.Player;
-            int effectiveMaxHealth = player.GetEffectiveMaxHealth();
-
-            if (_playerNameLabel != null)
-                _playerNameLabel.Text = player.Name;
-            if (_playerLevelLabel != null)
-                _playerLevelLabel.Text = $"Level: {player.Level}";
-            if (_playerHealthLabel != null)
-                _playerHealthLabel.Text = $"HP: {player.CurrentHealth}/{effectiveMaxHealth}";
-            if (_playerExperienceLabel != null)
-                _playerExperienceLabel.Text = $"EXP: {player.Experience}/{player.ExperienceToNext}";
-            if (_playerGoldLabel != null)
-            {
-                _playerGoldLabel.Text = $"Gold: {player.Gold}";
-            }
-
-            // Update progress bars if present
-            var hpBar =
-                GetNodeOrNull<ProgressBar>("UI/GameUI/TopPanel/Content/PlayerStats/HPBar") ??
-                GetNodeOrNull<ProgressBar>("UI/GameUI/TopPanel/PlayerStats/HPBar");
-            if (hpBar != null)
-            {
-                hpBar.MaxValue = effectiveMaxHealth;
-                hpBar.Value = player.CurrentHealth;
-            }
-
-            var expBar =
-                GetNodeOrNull<ProgressBar>("UI/GameUI/TopPanel/Content/PlayerStats/ExpBar") ??
-                GetNodeOrNull<ProgressBar>("UI/GameUI/TopPanel/PlayerStats/ExpBar");
-            if (expBar != null)
-            {
-                expBar.MaxValue = _gameManager.Player.ExperienceToNext;
-                expBar.Value = _gameManager.Player.Experience;
-            }
-
-            // Update level badge text if present
-            var badge =
-                GetNodeOrNull<Label>("UI/GameUI/TopPanel/Content/PlayerStats/IconWrapper/LevelBadge/BadgeLabel") ??
-                GetNodeOrNull<Label>("UI/GameUI/TopPanel/PlayerStats/IconWrapper/LevelBadge/BadgeLabel");
-            if (badge != null)
-            {
-                badge.Text = $"Lv {_gameManager.Player.Level}";
-            }
-
-            // Update additional HUD labels if present
-            var atkLabel =
-                GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerAttackHUD") ??
-                GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/PlayerStats/PlayerAttackHUD");
-            if (atkLabel != null)
-            {
-                int effectiveAttack = player.GetEffectiveAttack();
-                int atkBonus = player.Equipment.GetAttackBonus();
-                if (atkBonus > 0)
-                {
-                    atkLabel.Text = $"ATK: {effectiveAttack} [color=#4CAF50](+{atkBonus})[/color]";
-                }
-                else
-                {
-                    atkLabel.Text = $"ATK: {effectiveAttack}";
-                }
-            }
-
-            var defLabel =
-                GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerDefenseHUD") ??
-                GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/PlayerStats/PlayerDefenseHUD");
-            if (defLabel != null)
-            {
-                int effectiveDefense = player.GetEffectiveDefense();
-                int defBonus = player.Equipment.GetDefenseBonus();
-                if (defBonus > 0)
-                {
-                    defLabel.Text = $"DEF: {effectiveDefense} [color=#4CAF50](+{defBonus})[/color]";
-                }
-                else
-                {
-                    defLabel.Text = $"DEF: {effectiveDefense}";
-                }
-            }
-
-            var spdLabel =
-                GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/Content/PlayerStats/PlayerSpeedHUD") ??
-                GetNodeOrNull<RichTextLabel>("UI/GameUI/TopPanel/PlayerStats/PlayerSpeedHUD");
-            if (spdLabel != null)
-            {
-                int effectiveSpeed = player.GetEffectiveSpeed();
-                int spdBonus = player.Equipment.GetSpeedBonus();
-                if (spdBonus > 0)
-                {
-                    spdLabel.Text = $"SPD: {effectiveSpeed} [color=#4CAF50](+{spdBonus})[/color]";
-                }
-                else
-                {
-                    spdLabel.Text = $"SPD: {effectiveSpeed}";
-                }
-            }
-        }
+        var player = _gameManager.Player;
+        _explorationHud.ApplyPlayerState(new ExplorationHudPlayerState(
+            player.Name,
+            player.Level,
+            player.CurrentHealth,
+            player.GetEffectiveMaxHealth(),
+            player.CurrentMana,
+            player.MaxMana,
+            player.Experience,
+            player.ExperienceToNext));
     }
 
     private void ScheduleDefeatReturnToMainMenu()
@@ -1986,6 +1850,7 @@ public partial class Game : Node2D
             return;
 
         _sceneChangeCommitted = true;
+        UpdateInteractionPrompt();
         _pendingScenePath = path;
         ContinueSceneChangeAfterUiTeardown();
     }
@@ -2107,6 +1972,7 @@ public partial class Game : Node2D
     private void OnFloorLoaded(FloorDefinition floorDef, GridMap gridMap)
     {
         GD.Print($"🎮 Game.OnFloorLoaded: Floor '{floorDef.FloorName}' ready");
+        _explorationHud?.ShowAreaTitle(floorDef.FloorName);
 
         // Disconnect signals from old GridMap to prevent handler accumulation
         if (_gridMap != null)

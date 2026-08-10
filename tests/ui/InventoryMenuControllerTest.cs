@@ -81,6 +81,17 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
+    public void OpenMenuShowsCurrentPlayerGold()
+    {
+        _gameManager.Player.Gold = 321;
+
+        _inventoryMenu.OpenMenu();
+
+        AssertThat(_inventoryMenu.GetNode<Label>("%GoldLabel").Text)
+            .IsEqual("Gold: 321");
+    }
+
+    [TestCase]
     public void OpenAndClose_FromPausedTree_DoesNotChangeTreePauseState()
     {
         var tree = (SceneTree)Engine.GetMainLoop();

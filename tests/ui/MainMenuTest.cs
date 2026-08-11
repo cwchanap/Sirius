@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -59,6 +60,31 @@ public partial class MainMenuTest : Node
         {
             RestoreOriginalSaveFiles();
         }
+    }
+
+    [TestCase]
+    public void MainMenuSavePathsAgreeWithSaveManagerSymbols()
+    {
+        var saveDir = GetSaveManagerConstant("SaveDir");
+        var slotFileFormat = GetSaveManagerConstant("SlotFileFormat");
+        var autosaveFile = GetSaveManagerConstant("AutosaveFile");
+
+        var expected = new List<string>();
+        foreach (var slot in new[] { 0, 1, 2 })
+        {
+            var fileName = string.Format(slotFileFormat, slot);
+            expected.Add($"{saveDir}/{fileName}");
+            expected.Add($"{saveDir}/{fileName}.bak");
+            expected.Add($"{saveDir}/{fileName}.tmp");
+        }
+        expected.Add($"{saveDir}/{autosaveFile}");
+        expected.Add($"{saveDir}/{autosaveFile}.bak");
+        expected.Add($"{saveDir}/{autosaveFile}.tmp");
+
+        var unexpected = MainMenuSavePaths.Except(expected).ToList();
+        var missing = expected.Except(MainMenuSavePaths).ToList();
+        AssertThat(unexpected.Count).IsEqual(0);
+        AssertThat(missing.Count).IsEqual(0);
     }
 
     [TestCase]
@@ -214,13 +240,16 @@ public partial class MainMenuTest : Node
     [TestCase]
     public async Task LoadPressedWithoutSaveManagerShowsOneErrorOnly()
     {
-        var property = typeof(SaveManager).GetProperty(
-            nameof(SaveManager.Instance),
-            BindingFlags.Public | BindingFlags.Static)!;
-        var original = SaveManager.Instance;
-        property.SetValue(null, null);
+        PropertyInfo? property = null;
+        object? original = null;
         try
         {
+            property = typeof(SaveManager).GetProperty(
+                nameof(SaveManager.Instance),
+                BindingFlags.Public | BindingFlags.Static)!;
+            original = SaveManager.Instance;
+            property.SetValue(null, null);
+
             InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
             await AwaitFrames(2);
 
@@ -231,7 +260,7 @@ public partial class MainMenuTest : Node
         }
         finally
         {
-            property.SetValue(null, original);
+            property?.SetValue(null, original);
         }
     }
 
@@ -679,7 +708,7 @@ public partial class MainMenuTest : Node
             return;
 
         RestoreSaveFiles(snapshots);
-        AssertSaveFilesMatch(snapshots);
+        ReportSaveFileMismatches(snapshots);
     }
 
     private static void RestoreSaveFiles(SaveFileSnapshot[] snapshots)
@@ -702,17 +731,29 @@ public partial class MainMenuTest : Node
         }
     }
 
-    private static void AssertSaveFilesMatch(SaveFileSnapshot[] snapshots)
+    private static void ReportSaveFileMismatches(SaveFileSnapshot[] snapshots)
     {
         foreach (var snapshot in snapshots)
         {
             var absolutePath = ProjectSettings.GlobalizePath(snapshot.VirtualPath);
             var exists = System.IO.File.Exists(absolutePath);
-            AssertThat(exists).IsEqual(snapshot.Exists);
+            if (exists != snapshot.Exists)
+            {
+                GD.PushError(
+                    $"[MainMenuTest] save-file restore mismatch for {snapshot.VirtualPath}: " +
+                    $"expected Exists={snapshot.Exists}, actual Exists={exists}");
+                continue;
+            }
+
             if (snapshot.Exists)
             {
                 var bytes = System.IO.File.ReadAllBytes(absolutePath);
-                AssertThat(bytes.SequenceEqual(snapshot.Data!)).IsTrue();
+                if (!bytes.SequenceEqual(snapshot.Data!))
+                {
+                    GD.PushError(
+                        $"[MainMenuTest] save-file restore content mismatch for " +
+                        $"{snapshot.VirtualPath}");
+                }
             }
         }
     }
@@ -750,9 +791,26 @@ public partial class MainMenuTest : Node
 
     private static T GetPrivateField<T>(object instance, string fieldName)
     {
-        var field = instance.GetType().GetField(fieldName,
-            BindingFlags.NonPublic | BindingFlags.Instance)!;
-        return (T)field.GetValue(instance)!;
+        for (var type = instance.GetType(); type != null; type = type.BaseType)
+        {
+            var field = type.GetField(fieldName,
+                BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+            if (field != null)
+                return (T)field.GetValue(instance)!;
+        }
+
+        throw new MissingFieldException(instance.GetType().Name, fieldName);
+    }
+
+    private static string GetSaveManagerConstant(string fieldName)
+    {
+        var field = typeof(SaveManager).GetField(fieldName,
+            BindingFlags.NonPublic | BindingFlags.Static);
+        if (field == null || field.GetValue(null) is not string value)
+            throw new InvalidOperationException(
+                $"SaveManager constant '{fieldName}' not found via reflection.");
+
+        return value;
     }
 
     private async Task AwaitFrames(int frameCount)

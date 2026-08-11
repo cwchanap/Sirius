@@ -11,25 +11,9 @@ using static GdUnit4.Assertions;
 [RequireGodotRuntime]
 public partial class MainMenuTest : Node
 {
-    private static readonly string[] MainMenuSavePaths =
-    {
-        "user://saves/slot_0.json",
-        "user://saves/slot_0.json.bak",
-        "user://saves/slot_0.json.tmp",
-        "user://saves/slot_1.json",
-        "user://saves/slot_1.json.bak",
-        "user://saves/slot_1.json.tmp",
-        "user://saves/slot_2.json",
-        "user://saves/slot_2.json.bak",
-        "user://saves/slot_2.json.tmp",
-        "user://saves/autosave.json",
-        "user://saves/autosave.json.bak",
-        "user://saves/autosave.json.tmp"
-    };
-
     private MainMenu _menu = null!;
     private SceneTree _sceneTree = null!;
-    private SaveFileSnapshot[]? _originalSaveFiles;
+    private TestHelpers.SaveFileSnapshot[]? _originalSaveFiles;
 
     [BeforeTest]
     public async Task Setup()
@@ -37,7 +21,7 @@ public partial class MainMenuTest : Node
         // Main-menu tests intentionally exercise clean-room save setup. Own the
         // persistent-file snapshot at fixture scope so every save-mutating path
         // is restored even when a test fails before reaching its local cleanup.
-        _originalSaveFiles = CaptureSaveFiles();
+        _originalSaveFiles = TestHelpers.CaptureSaveFiles();
         _sceneTree = (SceneTree)Engine.GetMainLoop();
         var scene = GD.Load<PackedScene>("res://scenes/ui/MainMenu.tscn");
         _menu = scene.Instantiate<MainMenu>();
@@ -62,6 +46,17 @@ public partial class MainMenuTest : Node
         }
     }
 
+    private void RestoreOriginalSaveFiles()
+    {
+        var snapshots = _originalSaveFiles;
+        _originalSaveFiles = null;
+        if (snapshots == null)
+            return;
+
+        TestHelpers.RestoreSaveFiles(snapshots);
+        TestHelpers.ReportSaveFileMismatches(snapshots, nameof(MainMenuTest));
+    }
+
     [TestCase]
     public void MainMenuSavePathsAgreeWithSaveManagerSymbols()
     {
@@ -81,8 +76,8 @@ public partial class MainMenuTest : Node
         expected.Add($"{saveDir}/{autosaveFile}.bak");
         expected.Add($"{saveDir}/{autosaveFile}.tmp");
 
-        var unexpected = MainMenuSavePaths.Except(expected).ToList();
-        var missing = expected.Except(MainMenuSavePaths).ToList();
+        var unexpected = TestHelpers.UserSaveFilePaths.Except(expected).ToList();
+        var missing = expected.Except(TestHelpers.UserSaveFilePaths).ToList();
         AssertThat(unexpected.Count).IsEqual(0);
         AssertThat(missing.Count).IsEqual(0);
     }
@@ -686,77 +681,6 @@ public partial class MainMenuTest : Node
             Level = 1
         }
     };
-
-    private sealed record SaveFileSnapshot(string VirtualPath, bool Exists, byte[]? Data);
-
-    private static SaveFileSnapshot[] CaptureSaveFiles() =>
-        MainMenuSavePaths.Select(path =>
-        {
-            var absolutePath = ProjectSettings.GlobalizePath(path);
-            var exists = System.IO.File.Exists(absolutePath);
-            return new SaveFileSnapshot(
-                path,
-                exists,
-                exists ? System.IO.File.ReadAllBytes(absolutePath) : null);
-        }).ToArray();
-
-    private void RestoreOriginalSaveFiles()
-    {
-        var snapshots = _originalSaveFiles;
-        _originalSaveFiles = null;
-        if (snapshots == null)
-            return;
-
-        RestoreSaveFiles(snapshots);
-        ReportSaveFileMismatches(snapshots);
-    }
-
-    private static void RestoreSaveFiles(SaveFileSnapshot[] snapshots)
-    {
-        foreach (var snapshot in snapshots)
-        {
-            var absolutePath = ProjectSettings.GlobalizePath(snapshot.VirtualPath);
-            if (snapshot.Exists)
-            {
-                var directory = System.IO.Path.GetDirectoryName(absolutePath);
-                if (!string.IsNullOrEmpty(directory))
-                    System.IO.Directory.CreateDirectory(directory);
-
-                System.IO.File.WriteAllBytes(absolutePath, snapshot.Data!);
-            }
-            else if (System.IO.File.Exists(absolutePath))
-            {
-                System.IO.File.Delete(absolutePath);
-            }
-        }
-    }
-
-    private static void ReportSaveFileMismatches(SaveFileSnapshot[] snapshots)
-    {
-        foreach (var snapshot in snapshots)
-        {
-            var absolutePath = ProjectSettings.GlobalizePath(snapshot.VirtualPath);
-            var exists = System.IO.File.Exists(absolutePath);
-            if (exists != snapshot.Exists)
-            {
-                GD.PushError(
-                    $"[MainMenuTest] save-file restore mismatch for {snapshot.VirtualPath}: " +
-                    $"expected Exists={snapshot.Exists}, actual Exists={exists}");
-                continue;
-            }
-
-            if (snapshot.Exists)
-            {
-                var bytes = System.IO.File.ReadAllBytes(absolutePath);
-                if (!bytes.SequenceEqual(snapshot.Data!))
-                {
-                    GD.PushError(
-                        $"[MainMenuTest] save-file restore content mismatch for " +
-                        $"{snapshot.VirtualPath}");
-                }
-            }
-        }
-    }
 
     private static object? InvokePrivateAcrossHierarchy(object instance, string methodName, params object[] arguments)
     {

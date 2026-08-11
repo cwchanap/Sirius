@@ -13,19 +13,43 @@ public partial class MainMenuSceneTest : Node
     private SceneTree _sceneTree = null!;
     private SubViewportContainer? _container;
     private MainMenu? _menu;
+    // ResizeAndCreate() adds the production MainMenu to the viewport, which runs
+    // _Ready() -> RefreshContinueState() -> SaveManager.GetSaveSlotInfo() for all
+    // four slots. GetSaveSlotInfo() is not read-only: when a primary save is
+    // missing but its .bak exists, it renames the backup into the primary file.
+    // Snapshot/restore user://saves so this layout suite cannot mutate a
+    // developer's real save-file layout (e.g. a backup-only slot after an
+    // interrupted save). Mirrors the protection in MainMenuTest.
+    private TestHelpers.SaveFileSnapshot[]? _originalSaveFiles;
 
     [BeforeTest]
-    public void Setup() =>
+    public void Setup()
+    {
+        _originalSaveFiles = TestHelpers.CaptureSaveFiles();
         _sceneTree = (SceneTree)Engine.GetMainLoop();
+    }
 
     [AfterTest]
     public async Task Cleanup()
     {
-        if (_container != null && GodotObject.IsInstanceValid(_container))
-            _container.QueueFree();
-        _container = null;
-        _menu = null;
-        await AwaitFrames(2);
+        try
+        {
+            if (_container != null && GodotObject.IsInstanceValid(_container))
+                _container.QueueFree();
+            _container = null;
+            _menu = null;
+            await AwaitFrames(2);
+        }
+        finally
+        {
+            var snapshots = _originalSaveFiles;
+            _originalSaveFiles = null;
+            if (snapshots != null)
+            {
+                TestHelpers.RestoreSaveFiles(snapshots);
+                TestHelpers.ReportSaveFileMismatches(snapshots, nameof(MainMenuSceneTest));
+            }
+        }
     }
 
     [TestCase]

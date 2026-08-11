@@ -2,11 +2,115 @@ using GdUnit4;
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using static GdUnit4.Assertions;
 
 public static class TestHelpers
 {
+    /// <summary>
+    /// Every persistent save file (primary, .bak, .tmp) across the three manual
+    /// slots and the autosave slot. Tests that instantiate production MainMenu
+    /// (or anything else that touches <see cref="SaveManager"/>) snapshot/restore
+    /// this set so they cannot mutate a developer's real <c>user://saves</c>.
+    /// Kept in sync with <see cref="SaveManager"/> symbols by
+    /// <c>MainMenuTest.MainMenuSavePathsAgreeWithSaveManagerSymbols</c>.
+    /// </summary>
+    public static readonly string[] UserSaveFilePaths =
+    {
+        "user://saves/slot_0.json",
+        "user://saves/slot_0.json.bak",
+        "user://saves/slot_0.json.tmp",
+        "user://saves/slot_1.json",
+        "user://saves/slot_1.json.bak",
+        "user://saves/slot_1.json.tmp",
+        "user://saves/slot_2.json",
+        "user://saves/slot_2.json.bak",
+        "user://saves/slot_2.json.tmp",
+        "user://saves/autosave.json",
+        "user://saves/autosave.json.bak",
+        "user://saves/autosave.json.tmp"
+    };
+
+    /// <summary>
+    /// Immutable snapshot of one save file's on-disk state at capture time.
+    /// </summary>
+    public sealed record SaveFileSnapshot(string VirtualPath, bool Exists, byte[]? Data);
+
+    /// <summary>
+    /// Capture the current on-disk state of every path in
+    /// <see cref="UserSaveFilePaths"/>. Call in <c>[BeforeTest]</c> before any
+    /// code that could mutate <c>user://saves</c>.
+    /// </summary>
+    public static SaveFileSnapshot[] CaptureSaveFiles() =>
+        UserSaveFilePaths.Select(path =>
+        {
+            var absolutePath = ProjectSettings.GlobalizePath(path);
+            var exists = System.IO.File.Exists(absolutePath);
+            return new SaveFileSnapshot(
+                path,
+                exists,
+                exists ? System.IO.File.ReadAllBytes(absolutePath) : null);
+        }).ToArray();
+
+    /// <summary>
+    /// Restore the captured on-disk state: rewrite files that existed, delete
+    /// files that did not. Call in <c>[AfterTest]</c> (ideally in a
+    /// <c>finally</c> block so cleanup runs even on assertion failure).
+    /// </summary>
+    public static void RestoreSaveFiles(SaveFileSnapshot[] snapshots)
+    {
+        foreach (var snapshot in snapshots)
+        {
+            var absolutePath = ProjectSettings.GlobalizePath(snapshot.VirtualPath);
+            if (snapshot.Exists)
+            {
+                var directory = System.IO.Path.GetDirectoryName(absolutePath);
+                if (!string.IsNullOrEmpty(directory))
+                    System.IO.Directory.CreateDirectory(directory);
+
+                System.IO.File.WriteAllBytes(absolutePath, snapshot.Data!);
+            }
+            else if (System.IO.File.Exists(absolutePath))
+            {
+                System.IO.File.Delete(absolutePath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Push <see cref="GD.PushError"/> for any snapshot entry whose restored
+    /// on-disk state (existence or content) does not match the capture. Used to
+    /// surface silent restore failures. <paramref name="tag"/> labels the
+    /// originating fixture in the error messages.
+    /// </summary>
+    public static void ReportSaveFileMismatches(SaveFileSnapshot[] snapshots, string tag)
+    {
+        foreach (var snapshot in snapshots)
+        {
+            var absolutePath = ProjectSettings.GlobalizePath(snapshot.VirtualPath);
+            var exists = System.IO.File.Exists(absolutePath);
+            if (exists != snapshot.Exists)
+            {
+                GD.PushError(
+                    $"[{tag}] save-file restore mismatch for {snapshot.VirtualPath}: " +
+                    $"expected Exists={snapshot.Exists}, actual Exists={exists}");
+                continue;
+            }
+
+            if (snapshot.Exists)
+            {
+                var bytes = System.IO.File.ReadAllBytes(absolutePath);
+                if (!bytes.SequenceEqual(snapshot.Data!))
+                {
+                    GD.PushError(
+                        $"[{tag}] save-file restore content mismatch for " +
+                        $"{snapshot.VirtualPath}");
+                }
+            }
+        }
+    }
+
     /// <summary>
     /// Reset the <see cref="GameManager"/> singleton to null via reflection.
     /// Tries the public Instance setter first, then falls back to the

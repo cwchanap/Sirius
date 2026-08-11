@@ -75,7 +75,7 @@ theme_type_variation = &"SiriusDisplay"
 
 [node name="ContinueButton" type="Button" parent="MainMenuContent/SafeFrame/MenuRail"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(360, 44)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 focus_mode = 2
 text = "Continue"
@@ -84,7 +84,7 @@ theme_type_variation = &"SiriusPrimaryButton"
 [node name="ContinueSummary" type="PanelContainer" parent="MainMenuContent/SafeFrame/MenuRail"]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(360, 0)
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 mouse_filter = 2
 focus_mode = 0
@@ -120,7 +120,7 @@ theme_type_variation = &"SiriusMetadata"
 
 [node name="NewGameButton" type="Button" parent="MainMenuContent/SafeFrame/MenuRail"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(360, 44)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 focus_mode = 2
 text = "New Game"
@@ -128,7 +128,7 @@ theme_type_variation = &"SiriusSecondaryButton"
 
 [node name="LoadButton" type="Button" parent="MainMenuContent/SafeFrame/MenuRail"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(360, 44)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 focus_mode = 2
 text = "Load"
@@ -136,7 +136,7 @@ theme_type_variation = &"SiriusSecondaryButton"
 
 [node name="SettingsButton" type="Button" parent="MainMenuContent/SafeFrame/MenuRail"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(360, 44)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 focus_mode = 2
 text = "Settings"
@@ -144,7 +144,7 @@ theme_type_variation = &"SiriusSecondaryButton"
 
 [node name="QuitButton" type="Button" parent="MainMenuContent/SafeFrame/MenuRail"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(360, 44)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 focus_mode = 2
 text = "Quit"

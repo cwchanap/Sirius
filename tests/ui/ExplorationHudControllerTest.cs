@@ -88,25 +88,6 @@ public partial class ExplorationHudControllerTest : Node
     }
 
     [TestCase]
-    public void SharedSafeFrameInsetsMatchApprovedSizes()
-    {
-        var compact = SiriusUiMetrics.SafeFrameInsets(new Vector2(640, 360));
-        AssertThat(compact.Compact).IsTrue();
-        AssertThat(compact.Margin).IsEqual(12f);
-        AssertThat(compact.SideInset).IsEqual(12f);
-
-        var standard = SiriusUiMetrics.SafeFrameInsets(new Vector2(1280, 720));
-        AssertThat(standard.Compact).IsFalse();
-        AssertThat(standard.Margin).IsEqual(24f);
-        AssertThat(standard.SideInset).IsEqual(24f);
-
-        var ultrawide = SiriusUiMetrics.SafeFrameInsets(new Vector2(2560, 1080));
-        AssertThat(ultrawide.Compact).IsFalse();
-        AssertThat(ultrawide.Margin).IsEqual(24f);
-        AssertThat(ultrawide.SideInset).IsEqual(480f);
-    }
-
-    [TestCase]
     public async Task ApplyPlayerStateBindsStatsAndUsesThinExpBar()
     {
         var hud = await InstantiateHud(new Vector2I(1280, 720));

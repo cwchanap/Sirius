@@ -158,9 +158,13 @@ public partial class MainMenuSceneTest : Node
         InvokePrivateAcrossHierarchyWithResult(menu, "RefreshContinuePresentation");
         await AwaitFrames(2);
 
-        AssertEnclosed(
-            menu.GetNode<Control>("%SafeFrame"),
-            menu.GetNode<Control>("%MenuRail"));
+        var safeFrame = menu.GetNode<Control>("%SafeFrame");
+        var rail = menu.GetNode<VBoxContainer>("%MenuRail");
+        foreach (var child in rail.GetChildren())
+        {
+            if (child is Control control && control.Visible)
+                AssertEnclosed(safeFrame, control);
+        }
     }
 
     [TestCase]
@@ -224,10 +228,19 @@ public partial class MainMenuSceneTest : Node
 
     private static void SetPrivateField(object instance, string fieldName, object? value)
     {
-        var field = instance.GetType().GetField(
-            fieldName,
-            BindingFlags.NonPublic | BindingFlags.Instance)!;
-        field.SetValue(instance, value);
+        for (var type = instance.GetType(); type != null; type = type.BaseType)
+        {
+            var field = type.GetField(
+                fieldName,
+                BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+            if (field == null)
+                continue;
+
+            field.SetValue(instance, value);
+            return;
+        }
+
+        throw new MissingFieldException(instance.GetType().Name, fieldName);
     }
 
     private static object? InvokePrivateAcrossHierarchyWithResult(

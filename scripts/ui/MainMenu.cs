@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 public partial class MainMenu : Control
@@ -28,6 +29,7 @@ public partial class MainMenu : Control
     private SettingsMenuController? _settingsMenu;
     private UIScreenHandle? _messageHandle;
     private AcceptDialog? _messageDialog;
+    private Action? _messageCloseDelegate;
 
     private SaveSlotInfo? _continueSave;
     private Button[] _rootActions = Array.Empty<Button>();
@@ -117,14 +119,14 @@ public partial class MainMenu : Control
         _selectHint = GetNodeOrNull<SiriusInputHint>("%SelectHint");
         _backgroundMusic = GetNodeOrNull<AudioStreamPlayer>("BackgroundMusic");
 
-        _rootActions = new[]
+        _rootActions = new Button?[]
         {
-            _continueButton!,
-            _newGameButton!,
-            _loadButton!,
-            _settingsButton!,
-            _quitButton!
-        };
+            _continueButton,
+            _newGameButton,
+            _loadButton,
+            _settingsButton,
+            _quitButton
+        }.OfType<Button>().ToArray();
     }
 
     private void SetupBackgroundMusic()
@@ -268,15 +270,16 @@ public partial class MainMenu : Control
         _safeFrame.OffsetTop = layout.Margin;
         _safeFrame.OffsetBottom = -layout.Margin;
 
+        var railWidth = layout.Compact ? 280f : 360f;
+        var minimum = SiriusUiMetrics.MinimumTarget(layout.Compact);
         foreach (var button in _rootActions)
-        {
-            button.CustomMinimumSize = new Vector2(
-                button.CustomMinimumSize.X,
-                SiriusUiMetrics.MinimumTarget(layout.Compact).Y);
-        }
+            button.CustomMinimumSize = new Vector2(railWidth, minimum.Y);
+
+        if (_continueSummary != null)
+            _continueSummary.CustomMinimumSize = new Vector2(railWidth, 0);
 
         _menuRail.AddThemeConstantOverride("separation", layout.Compact ? 4 : 8);
-        _menuRail.CustomMinimumSize = new Vector2(layout.Compact ? 280 : 360, 0);
+        _menuRail.CustomMinimumSize = new Vector2(railWidth, 0);
 
         if (_wordmarkLabel != null)
             _wordmarkLabel.ThemeTypeVariation = layout.Compact
@@ -331,15 +334,21 @@ public partial class MainMenu : Control
 
     private void ApplyInitialFocus()
     {
-        if (_newGameButton == null)
+        // Invoked via Callable.From(...).CallDeferred(); the menu (or its target
+        // button) may have been detached/freed before the deferred callback runs.
+        if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() ||
+            _newGameButton == null)
+        {
             return;
+        }
 
         var target = _continueSave != null &&
                      _continueButton != null &&
                      !_continueButton.Disabled
             ? _continueButton
             : _newGameButton;
-        target.GrabFocus();
+        if (GodotObject.IsInstanceValid(target) && target.IsInsideTree())
+            target.GrabFocus();
     }
 
     private void _on_load_button_pressed()
@@ -698,6 +707,7 @@ public partial class MainMenu : Control
             TryCloseHostedMessage(UIScreenCloseReason.ExplicitAction);
         };
 
+        _messageCloseDelegate = close;
         popup.Confirmed += close;
         popup.Canceled += close;
         popup.CloseRequested += close;
@@ -725,23 +735,7 @@ public partial class MainMenu : Control
                 if (visible) popup.PopupCentered();
                 else popup.Hide();
             },
-            Cleanup = _ =>
-            {
-                if (IsInstanceValid(popup))
-                {
-                    popup.Confirmed -= close;
-                    popup.Canceled -= close;
-                    popup.CloseRequested -= close;
-                }
-
-                if (ReferenceEquals(_messageDialog, popup))
-                {
-                    _messageHandle = null;
-                    _messageDialog = null;
-                }
-
-                RefreshActionAvailability();
-            },
+            Cleanup = _ => ClearHostedMessage(popup),
             NodeLifetime = UINodeLifetime.QueueFree
         });
 
@@ -750,6 +744,7 @@ public partial class MainMenu : Control
             popup.Confirmed -= close;
             popup.Canceled -= close;
             popup.CloseRequested -= close;
+            _messageCloseDelegate = null;
             popup.QueueFree();
             return false;
         }
@@ -783,17 +778,20 @@ public partial class MainMenu : Control
 
     private void ClearHostedMessage(AcceptDialog popup)
     {
-        if (IsInstanceValid(popup))
+        if (IsInstanceValid(popup) && _messageCloseDelegate != null)
         {
-            // Cleanup owns signal disconnection; this helper only repairs stale
-            // references when a caller discovers a stale handle.
-            popup.Hide();
+            popup.Confirmed -= _messageCloseDelegate;
+            popup.Canceled -= _messageCloseDelegate;
+            popup.CloseRequested -= _messageCloseDelegate;
         }
 
         if (ReferenceEquals(_messageDialog, popup))
         {
+            if (IsInstanceValid(popup))
+                popup.QueueFree();
             _messageHandle = null;
             _messageDialog = null;
+            _messageCloseDelegate = null;
         }
 
         RefreshActionAvailability();

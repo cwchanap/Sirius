@@ -1,5 +1,6 @@
 using GdUnit4;
 using Godot;
+using System;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
 
@@ -145,6 +146,35 @@ public partial class SaveLoadScreenSceneTest : Node
     }
 
     [TestCase]
+    public async Task CompactViewport_FollowFocusScrollsLastCardIntoVisibleBodyViewport()
+    {
+        WriteValidAutosave();
+        await ResizeAndCreate(new Vector2I(640, 360), SaveLoadMode.Load);
+
+        var shell = _screen!.GetNode<SiriusModalShell>("%ModalShell");
+        var bodyScroll = shell.GetNode<ScrollContainer>("%BodyScroll");
+        var card = _screen.GetNode<Button>("%Slot3Card");
+        var scrollBar = bodyScroll.GetVScrollBar();
+
+        AssertThat(bodyScroll.FollowFocus).IsTrue();
+        AssertThat(bodyScroll.ScrollVertical).IsEqual(0);
+        AssertThat(scrollBar.MaxValue).IsGreater(scrollBar.Page);
+
+        card.GrabFocus();
+        await AwaitFrames(3);
+
+        AssertThat(bodyScroll.ScrollVertical).IsGreater(0);
+
+        var scrollRect = bodyScroll.GetGlobalRect();
+        var cardRect = card.GetGlobalRect();
+        var visibleTop = Mathf.Max(cardRect.Position.Y, scrollRect.Position.Y);
+        var visibleBottom = Mathf.Min(cardRect.End.Y, scrollRect.End.Y);
+        var visibleHeight = Mathf.Max(0f, visibleBottom - visibleTop);
+        var expectedVisibleHeight = Mathf.Min(cardRect.Size.Y, scrollRect.Size.Y);
+        AssertThat(visibleHeight).IsGreaterEqual(expectedVisibleHeight - 1f);
+    }
+
+    [TestCase]
     public async Task LongIncompatibleReason_WrapsInsideCard()
     {
         await ResizeAndCreate(new Vector2I(640, 360));
@@ -181,7 +211,7 @@ public partial class SaveLoadScreenSceneTest : Node
         AssertThat(panelRect.End.Y).IsLessEqual(height + 0.5f);
     }
 
-    private async Task ResizeAndCreate(Vector2I size)
+    private async Task ResizeAndCreate(Vector2I size, SaveLoadMode mode = SaveLoadMode.Save)
     {
         _container = new SubViewportContainer
         {
@@ -205,8 +235,26 @@ public partial class SaveLoadScreenSceneTest : Node
             return;
 
         _screen = scene.Instantiate<SaveLoadScreenController>();
+        _screen.Mode = mode;
         _viewport.AddChild(_screen);
         await AwaitFrames(3);
+    }
+
+    private static void WriteValidAutosave()
+    {
+        var manager = SaveManager.Instance;
+        AssertThat(manager).IsNotNull();
+        if (manager == null)
+            return;
+
+        AssertThat(manager.AutoSave(new SaveData
+        {
+            Version = SaveData.CurrentVersion,
+            CurrentFloorIndex = 1,
+            PlayerPosition = new Vector2IDto { X = 4, Y = 5 },
+            Character = new CharacterSaveData { Name = "FocusFixture", Level = 2 },
+            SaveTimestamp = DateTime.UtcNow
+        })).IsTrue();
     }
 
     private async Task AwaitFrames(int count)

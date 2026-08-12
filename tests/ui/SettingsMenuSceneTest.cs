@@ -65,6 +65,7 @@ public partial class SettingsMenuSceneTest : Node
 
     private SceneTree _sceneTree = null!;
     private SubViewportContainer? _container;
+    private SubViewport? _viewport;
     private SettingsMenuController? _screen;
 
     [BeforeTest]
@@ -81,6 +82,7 @@ public partial class SettingsMenuSceneTest : Node
 
         await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
         _container = null;
+        _viewport = null;
         _screen = null;
     }
 
@@ -298,12 +300,60 @@ public partial class SettingsMenuSceneTest : Node
         AssertThat(visibleHeight).IsGreaterEqual(expectedVisibleHeight - 1f);
     }
 
-    private async Task ResizeAndOpen(Vector2I size)
+    [TestCase]
+    public async Task StandardToCompactResizeKeepsShellBoundsAndPageLocalOverflow()
+    {
+        // This is intentionally one in-place resize: the shared shell child
+        // is ready before SettingsMenuController claims page-local scroll
+        // ownership, so a stale outer minimum can survive the transition.
+        await ResizeAndOpen(new Vector2I(1280, 720), stretch: false);
+
+        var shell = _screen!.GetNode<SiriusModalShell>("%ModalShell");
+        var shellScroll = shell.GetNode<ScrollContainer>("%BodyScroll");
+        var controlsScroll = _screen.GetNode<ScrollContainer>("%ControlsScroll");
+        var panel = _screen.GetNode<PanelContainer>("ModalShell/Panel");
+
+        var standardRect = panel.GetGlobalRect();
+        AssertThat(standardRect.Position.X).IsGreaterEqual(0f);
+        AssertThat(standardRect.Position.Y).IsGreaterEqual(0f);
+        AssertThat(standardRect.End.X).IsLessEqual(1280.5f);
+        AssertThat(standardRect.End.Y).IsLessEqual(720.5f);
+
+        _screen.GetNode<Button>("%ControlsPageButton")
+            .EmitSignal(Button.SignalName.Pressed);
+        _screen.GetNode<Label>("%InventoryKeyLabel").Text = string.Join(
+            " ", Enumerable.Repeat("RepresentativeLocalizedInventoryBindingLabel", 12));
+
+        _container!.Size = new Vector2(640, 360);
+        _viewport!.Size = new Vector2I(640, 360);
+        await AwaitFrames(3);
+
+        var compactRect = panel.GetGlobalRect();
+        GD.Print(
+            $"[SettingsMenuSceneTest] 1280x720->640x360 panel={compactRect} " +
+            $"outerMax={shellScroll.GetVScrollBar().MaxValue:F1} " +
+            $"pageMax={controlsScroll.GetVScrollBar().MaxValue:F1} " +
+            $"page={controlsScroll.GetVScrollBar().Page:F1}");
+
+        AssertThat(compactRect.Position.X).IsGreaterEqual(0f);
+        AssertThat(compactRect.Position.Y).IsGreaterEqual(0f);
+        AssertThat(compactRect.End.X).IsLessEqual(640.5f);
+        AssertThat(compactRect.End.Y).IsLessEqual(360.5f);
+        AssertThat(shellScroll.VerticalScrollMode)
+            .IsEqual(ScrollContainer.ScrollMode.Disabled);
+        AssertThat(shellScroll.HorizontalScrollMode)
+            .IsEqual(ScrollContainer.ScrollMode.Disabled);
+        AssertThat(shellScroll.ScrollVertical).IsEqual(0);
+        AssertThat(controlsScroll.GetVScrollBar().MaxValue)
+            .IsGreater(controlsScroll.GetVScrollBar().Page);
+    }
+
+    private async Task ResizeAndOpen(Vector2I size, bool stretch = true)
     {
         _container = new SubViewportContainer
         {
             Size = size,
-            Stretch = true
+            Stretch = stretch
         };
         _sceneTree.Root.AddChild(_container);
 
@@ -315,6 +365,7 @@ public partial class SettingsMenuSceneTest : Node
             Size = size
         };
         _container.AddChild(viewport);
+        _viewport = viewport;
 
         var scene = GD.Load<PackedScene>(ScenePath);
         AssertThat(scene).IsNotNull();

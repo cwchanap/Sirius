@@ -169,6 +169,13 @@ public partial class SettingsMenuController : Control
     {
         _shellBodyScroll.VerticalScrollMode = ScrollContainer.ScrollMode.Disabled;
         _shellBodyScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        // SiriusModalShell readies before this controller and may have sized
+        // the shared body for its enabled outer-scroll contract. Settings
+        // owns page-local scrolling, so clear that inherited height when we
+        // claim the body rather than leaving a stale minimum across reflows.
+        _shellBodyScroll.CustomMinimumSize = new Vector2(
+            _shellBodyScroll.CustomMinimumSize.X,
+            0f);
     }
 
     private void PopulateChoiceItems()

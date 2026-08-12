@@ -19,6 +19,7 @@ The current flow is concentrated in a small number of seams:
 - `MainMenu` already presents Load through its local `UIScreenHost` and owns the `PendingLoadData` handoff and scene transition.
 - `Game` already presents Save/Load as a logical Pause child and owns gameplay save eligibility, `CollectSaveData`, persistence calls, load handoff, errors, and scene transitions.
 - HPA-382 already established parent/child host policy and child-first Cancel behavior. HPA-380 already established the Main Menu host path.
+- `tests/game/GameInputLifecycleTest.cs` still contains two direct `SaveLoadDialog` assumptions: configured keyboard Cancel over the overwrite child, and configured controller Cancel against the native dialog. Those tests must migrate before the old type is deleted.
 - The HPA-373 wireframe uses cards, a 2×2 desktop composition, and a stacked compact composition. Its old Delete action is superseded by HPA-384, which explicitly excludes Delete.
 
 The migration should therefore replace the concrete view, not move responsibilities between systems.
@@ -174,7 +175,7 @@ The complete action matrix is:
 
 This preserves the current behavior that a manual corrupted/incompatible slot may be replaced directly, while a valid manual slot requires overwrite confirmation.
 
-If `SaveManager` is unavailable, all cards are disabled with `Save system unavailable`, and Cancel becomes the initial focus target.
+If `SaveManager` is unavailable or invalid, `RefreshSlotInfo()` renders all four cards as disabled with `Save system unavailable`, `CanActivateSlot()` returns false for every card, and Cancel becomes the initial focus target. No Save intent may be emitted from the no-manager state.
 
 ### Why cards directly activate
 
@@ -266,7 +267,34 @@ When `SiriusUiMetrics.IsCompact(viewportSize)` is true:
 - the shell body scrolls while title and footer remain fixed;
 - actions retain the 40 px compact minimum target.
 
-The screen locally bounds the modal panel height to the viewport/safe margin so `BodyScroll` becomes the overflow owner. Do not modify `SiriusModalShell` globally; HPA-384 is one concrete consumer and the shell’s shared width contract remains unchanged.
+### Local overflow ownership
+
+Save/Load deliberately uses the shell `BodyScroll` as its only vertical overflow owner. Unlike Settings, it does not add page-local scrollers.
+
+`SaveLoadScreenController` binds the shell panel and body scroll and caps only the panel's Y axis on every layout refresh:
+
+```csharp
+var size = GetViewportRect().Size;
+var compact = SiriusUiMetrics.IsCompact(size);
+var margin = SiriusUiMetrics.SafeMargin(compact);
+var maximumPanelHeight = Mathf.Max(0f, size.Y - margin * 2f);
+
+_shell.Compact = compact;
+_shell.RefreshPresentation(size);
+_shellPanel.CustomMaximumSize = new Vector2(-1f, maximumPanelHeight);
+_shellBodyScroll.FollowFocus = true;
+_cardsGrid.Columns = compact ? 1 : 2;
+```
+
+`-1f` leaves the X axis uncapped; `0` must not be used for X because Godot treats a non-negative custom maximum as an actual maximum. `SiriusModalShell` keeps its shared width contract unchanged.
+
+The scene test must prove the mechanism, not merely the final card count:
+
+- the panel rectangle stays inside every approved viewport;
+- at 640×360 with stacked cards/long status text, `BodyScroll.GetVScrollBar().MaxValue > BodyScroll.GetVScrollBar().Page`;
+- `BodyScroll.FollowFocus` is true;
+- title and footer remain visible while the body scrolls;
+- the focused last actionable card can be brought into view without moving the modal itself.
 
 Validate all `SiriusUiMetrics.VerificationViewports`, with deep perceptual/layout assertions at 640×360 and 1280×720 plus one long disabled-reason case.
 
@@ -306,7 +334,7 @@ Replace `SaveLoadDialogTest` with scene-backed controller coverage for:
 - manual Load and autosave Load;
 - corrupted and incompatible display/reasons;
 - autosave disabled in Save mode;
-- no-manager state;
+- no-manager state disables all cards and focuses Cancel;
 - Close and Main Menu terminal signals;
 - repeated card press/terminal signal emits once.
 
@@ -318,7 +346,8 @@ Add a focused Save/Load scene test that mounts the production `.tscn` in a `SubV
 - modal remains inside viewport bounds;
 - cards have non-zero size and minimum targets;
 - title/footer remain visible at 640×360;
-- body is scrollable rather than clipped when content exceeds compact height;
+- shell `BodyScroll` has a real vertical scroll range when stacked content exceeds compact height;
+- focus-driven scrolling can reveal the last actionable compact card;
 - long status/reason text wraps and remains inside its card.
 
 ### Host integration
@@ -336,18 +365,38 @@ Lock:
 - save failures/load failures still close Save/Load before the current error path;
 - double activation cannot produce duplicate host/domain actions.
 
+Also migrate both existing `GameInputLifecycleTest` Save/Load cases before deleting `SaveLoadDialog`:
+
+- configured keyboard Cancel must dismiss the overwrite child first, then close only the hosted Save/Load child on the next Cancel;
+- the old direct `AcceptDialog` configured-controller-Cancel test becomes a hosted `SaveLoadScreenController` Cancel-routing test, because `UIScreenHost`—not the new screen—is the global Cancel owner.
+
 ## 13. Lifecycle documentation and cleanup
 
-After both hosts are migrated:
+After both hosts and every direct test consumer are migrated:
 
 - delete `scripts/ui/SaveLoadDialog.cs`;
 - delete/replace `tests/ui/SaveLoadDialogTest.cs`;
 - update the `MAIN-LOAD` and `PAUSE-SAVELOAD` rows in `docs/ui/hpa-376/ui-lifecycle-contract.md` so they describe the scene-authored `Control` hosted on the modal layer rather than the old `AcceptDialog`/Window presentation;
+- migrate `tests/game/GameInputLifecycleTest.cs` away from direct `SaveLoadDialog`, `ShowDialog`, and native-dialog assumptions;
 - search for stale `SaveLoadDialog`, `ShowDialog`, and legacy Window-specific Save/Load assumptions.
 
 Do not update HPA-373’s historical wireframe to reintroduce Delete. HPA-384 is the later concrete product decision.
 
-## 14. Non-goals
+## 14. Risks and mitigations
+
+### Compact body never becomes scrollable
+
+**Risk:** `SiriusModalShell` owns responsive width but does not itself cap modal height. A one-column compact card stack can therefore expand the panel instead of producing body overflow.
+
+**Mitigation:** HPA-384 locally sets `Panel.CustomMaximumSize.Y` to viewport height minus the existing safe margins, leaves X uncapped with `-1f`, keeps shell `BodyScroll` enabled with `FollowFocus = true`, and verifies both panel enclosure and `VScrollBar.MaxValue > Page` at 640×360 before either host cutover.
+
+### Legacy dialog deletion breaks a non-obvious input suite
+
+**Risk:** `GameInputLifecycleTest` contains direct `SaveLoadDialog` construction/type lookup in addition to the obvious Main Menu/Game/SaveLoadDialog tests.
+
+**Mitigation:** Task 4 lists and migrates that fixture before `git rm`; the stale-reference grep remains a backstop, not the discovery mechanism.
+
+## 15. Non-goals
 
 HPA-384 does not add:
 
@@ -365,19 +414,20 @@ HPA-384 does not add:
 - HPA-572’s shared confirmation/error framework;
 - Main Menu Continue selection changes.
 
-## 15. Acceptance mapping
+## 16. Acceptance mapping
 
 | HPA-384 acceptance | Design response |
 | --- | --- |
 | No generic desktop-dialog presentation | Scene-authored themed `SaveLoadScreen.tscn` under `SiriusModalShell` |
 | Manual/autosave readable | Four explicit cards with slot identity/state and autosave action rules |
 | Preserve Save/Overwrite/Load/backup/transition | Existing Game/MainMenu/SaveManager ownership remains unchanged |
-| Nested Cancel closes overwrite first | Existing host interception uses controller child seam |
+| Nested Cancel closes overwrite first | Existing host interception uses controller child seam; physical keyboard coverage remains in `GameInputLifecycleTest` |
 | Main Menu/Pause return and focus | Existing host parents/restoration retained; explicit initial focus added |
 | No unsupported metadata or Delete | Only current `SaveSlotInfo` metadata; Delete omitted despite old wireframe |
-| Focused tests pass | Domain-state, scene/controller, existing host integration, full suite/build |
+| Compact layout scrolls | Screen-local panel Y cap + shell `BodyScroll` range/focus assertions at 640×360 |
+| Focused tests pass | Domain-state, scene/controller, Main Menu, gameplay host/input lifecycle, full suite/build |
 
-## 16. Decision summary
+## 17. Decision summary
 
 HPA-384 should be a narrow vertical UI migration:
 
@@ -385,7 +435,7 @@ HPA-384 should be a narrow vertical UI migration:
 - one new controller;
 - one small metadata-state classification;
 - two explicit host cutovers;
-- focused test migration;
+- focused test migration including the existing input-lifecycle Save/Load cases;
 - removal of the old runtime-built dialog.
 
 That is enough to deliver the approved player-facing improvement without creating new persistence, navigation, component, or confirmation frameworks.

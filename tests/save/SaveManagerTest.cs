@@ -254,6 +254,7 @@ public partial class SaveManagerTest : Node
 
         // Assert
         AssertThat(info.Exists).IsFalse();
+        AssertThat(info.State).IsEqual(SaveSlotState.Empty);
         AssertThat(info.SlotIndex).IsEqual(0);
 
         saveManager.Free();
@@ -280,6 +281,7 @@ public partial class SaveManagerTest : Node
 
         // Assert
         AssertThat(info.Exists).IsTrue();
+        AssertThat(info.State).IsEqual(SaveSlotState.Valid);
         AssertThat(info.SlotIndex).IsEqual(0);
         AssertThat(info.PlayerName).IsEqual("Hero");
         AssertThat(info.PlayerLevel).IsEqual(10);
@@ -401,6 +403,7 @@ public partial class SaveManagerTest : Node
         AssertThat(info).IsNotNull();
         AssertThat(info.Exists).IsTrue();
         AssertThat(info.IsCorrupted).IsTrue();
+        AssertThat(info.State).IsEqual(SaveSlotState.Corrupted);
         AssertThat(info.SlotIndex).IsEqual(1);
         AssertThat(info.PlayerName).IsEqual("Corrupted Save");
 
@@ -626,6 +629,7 @@ public partial class SaveManagerTest : Node
 
         // Assert - Info should show the save exists with correct data
         AssertThat(info.Exists).IsTrue();
+        AssertThat(info.State).IsEqual(SaveSlotState.Valid);
         AssertThat(info.SlotIndex).IsEqual(0);
         AssertThat(info.PlayerName).IsEqual("Hero");
         AssertThat(info.PlayerLevel).IsEqual(10);
@@ -635,6 +639,42 @@ public partial class SaveManagerTest : Node
         AssertThat(FileAccess.FileExists("user://saves/slot_0.json")).IsTrue();
 
         // Cleanup
+        saveManager.DeleteSave(0);
+        saveManager.Free();
+    }
+
+    [TestCase]
+    public void TestGetSaveSlotInfo_FutureVersion_ReturnsIncompatibleWithoutFakePlayerName()
+    {
+        var saveManager = new SaveManager();
+        saveManager.EnsureSaveDirectoryExists();
+        saveManager.DeleteSave(0);
+
+        const string savePath = "user://saves/slot_0.json";
+        const string json = """
+        {
+            "Version": 999,
+            "Character": {"Name": "Hero", "Level": 1},
+            "CurrentFloorIndex": 0,
+            "PlayerPosition": {"X": 5, "Y": 5},
+            "SaveTimestamp": "2024-01-01T00:00:00Z"
+        }
+        """;
+
+        using (var file = FileAccess.Open(savePath, FileAccess.ModeFlags.Write))
+        {
+            AssertThat(file).IsNotNull();
+            file.StoreString(json);
+            file.Flush();
+        }
+
+        var info = saveManager.GetSaveSlotInfo(0);
+
+        AssertThat(info.Exists).IsTrue();
+        AssertThat(info.IsCorrupted).IsTrue();
+        AssertThat(info.State).IsEqual(SaveSlotState.Incompatible);
+        AssertThat(info.PlayerName).IsNull();
+
         saveManager.DeleteSave(0);
         saveManager.Free();
     }

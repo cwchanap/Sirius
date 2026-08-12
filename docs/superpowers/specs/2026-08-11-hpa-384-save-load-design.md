@@ -6,123 +6,113 @@
 
 ## 1. Goal
 
-Replace the runtime-built `SaveLoadDialog : AcceptDialog` presentation with one scene-authored Sirius Save/Load screen while preserving the save domain and lifecycle behavior already shipped.
+Replace the runtime-built `SaveLoadDialog : AcceptDialog` with a scene-authored Sirius Save/Load flow while preserving the save domain and lifecycle behavior already shipped.
 
-This is a presentation migration. It does not redesign persistence, add save features, or introduce a generic save-navigation layer.
+This is a presentation migration. It does not redesign persistence, add save features, or introduce a save facade, view model, navigation service, host factory, or generic confirmation framework.
 
-## 2. Current-state findings
+## 2. Verified current-state findings
 
-The current flow is concentrated in a small number of seams:
+The relevant seams on current `main` are small and already well separated:
 
-- `scripts/ui/SaveLoadDialog.cs` builds all four slot buttons, labels, footer actions, and overwrite confirmation at runtime.
-- `SaveManager` already owns the complete persistence path: three manual slots, autosave, metadata reads, version checks, atomic temp-file replacement, `.bak` recovery, and full load.
-- `MainMenu` already presents Load through its local `UIScreenHost` and owns the `PendingLoadData` handoff and scene transition.
-- `Game` already presents Save/Load as a logical Pause child and owns gameplay save eligibility, `CollectSaveData`, persistence calls, load handoff, errors, and scene transitions.
-- HPA-382 already established parent/child host policy and child-first Cancel behavior. HPA-380 already established the Main Menu host path.
-- `tests/game/GameInputLifecycleTest.cs` still contains two direct `SaveLoadDialog` assumptions: configured keyboard Cancel over the overwrite child, and configured controller Cancel against the native dialog. Those tests must migrate before the old type is deleted.
-- The HPA-373 wireframe uses cards, a 2×2 desktop composition, and a stacked compact composition. Its old Delete action is superseded by HPA-384, which explicitly excludes Delete.
+- `SaveManager` owns three manual slots, autosave, metadata reads, version validation, atomic writes, backup restoration, and full loads.
+- `MainMenu` owns its Load entry, `PendingLoadData`, load-failure recovery, and scene transition.
+- `Game` owns gameplay save eligibility, `CollectSaveData`, persistence calls, load handoff, errors, and scene transitions.
+- Main Menu and gameplay each already own one local `UIScreenHost`.
+- `SiriusModalShell` already owns modal chrome and responsive width. Its scene also owns `BodyScroll`, but the shared component has no bounded-height policy yet.
+- `UIScreenKinds.ConfirmOverwrite` already exists even though current Save/Load still uses a native `AcceptDialog` child.
+- `PauseReturnToTitleConfirmation.tscn` + `PauseReturnToTitleConfirmationController` demonstrate the shipped scene-authored blocking-confirmation pattern: `SiriusModalShell`, explicit buttons, safe initial focus, and `UIScreenHost` parent/child lifecycle.
+- `GameInputLifecycleTest` has direct `SaveLoadDialog` assumptions that must migrate before the legacy type is deleted.
+- `SettingsManager.cs` and `SettingsManagerTest.cs` contain comments naming `SaveLoadDialog`; these are documentation blast-radius items rather than runtime dependencies.
+- The HPA-373 Save/Load wireframe uses cards, but its Delete action is superseded by HPA-384, which explicitly excludes Delete.
 
-The migration should therefore replace the concrete view, not move responsibilities between systems.
+One previous HPA-384 planning revision proposed `Control.CustomMaximumSize`. Godot 4.6 does not expose that property. The implementation must use supported `Control.Size`, minimum-size, and `ScrollContainer` behavior instead.
 
-## 3. Approaches considered
+## 3. Chosen shape
 
-### A. One scene-authored Save/Load screen with a local controller — chosen
+HPA-384 remains a small vertical migration, with two narrow shared reuses that reduce duplicate work:
 
-Create `SaveLoadScreen.tscn` and `SaveLoadScreenController.cs`. Author the four slot cards explicitly in the scene, reuse `SiriusModalShell`, and keep the existing explicit Main Menu and Game host call sites.
+1. complete the existing `SiriusModalShell` height/scroll contract once;
+2. author the repeated save-card subtree once as a script-less scene.
 
-Benefits:
+The production flow then consists of:
 
-- smallest production cutover;
-- preserves current ownership boundaries;
-- gives Godot editor visibility into the real layout;
-- supports responsive card reflow and focused layout tests;
-- avoids a reusable component whose only consumer would be Save/Load.
+- `scenes/ui/components/SiriusSaveSlotCard.tscn` — script-less card structure only;
+- `scenes/ui/SaveLoadScreen.tscn` + `scripts/ui/SaveLoadScreenController.cs` — four explicit card instances and presentation intent;
+- `scenes/ui/SaveOverwriteConfirmation.tscn` + `scripts/ui/SaveOverwriteConfirmationController.cs` — feature-specific scene-authored overwrite confirmation;
+- existing `MainMenu` and `Game` host call sites — concrete view cutovers only;
+- existing `SaveManager` — one additive `SaveSlotState` classification.
 
-### B. Keep `SaveLoadDialog` and change its internals/base type
+This does **not** introduce a card controller, collection renderer, save repository, or shared confirmation framework.
 
-This would reduce renames but leave a misleading `Dialog` abstraction after the screen becomes a scene-authored `Control`. It also makes it easier to accidentally preserve `AcceptDialog` assumptions in host and tests.
+## 4. Shared `SiriusModalShell` height contract
 
-Rejected because the migration is a clean breaking change with no external consumer requiring the old type.
+### 4.1 Why this belongs in the shell
 
-### C. Add reusable save-card components, a save view model, or a SaveManager facade
+`SiriusModalShell` owns all chrome that determines usable modal height:
 
-This would create more interfaces than the feature needs. There is one Save/Load screen, four fixed slots, and an already-sufficient domain API.
+- centred `Panel`;
+- margins;
+- header;
+- `BodyScroll` / `BodyHost`;
+- footer `ActionsHost`.
 
-Rejected under YAGNI. Extract only if another real screen later needs the same component or presentation model.
+It already owns responsive width in `RefreshPresentation(Vector2 availableSize)`. Letting every future modal derive a separate panel-height formula would duplicate knowledge of the same shell hierarchy.
 
-## 4. Architecture
+Settings remains the exception it already is: it disables the shell scroller and uses page-local scrollers. The shared height behavior must respect `BodyScroll.VerticalScrollMode == Disabled` and must not re-enable Settings' outer scroll.
 
-### 4.1 New scene and controller
+### 4.2 Supported sizing primitive
 
-Create:
+Godot 4.6 provides `Control.Size`, `CustomMinimumSize`, `GetCombinedMinimumSize()`, and `ScrollContainer` overflow. It does not provide `CustomMaximumSize`.
 
-- `scenes/ui/SaveLoadScreen.tscn`
-- `scripts/ui/SaveLoadScreenController.cs`
-
-The root is a full-rect `Control` using the existing Sirius Theme. It contains:
-
-1. a `SiriusScrim` background;
-2. one `SiriusModalShell`, size class `Large`;
-3. one `GridContainer` inside `ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost`;
-4. four explicitly authored slot-card `Button`s with child labels;
-5. footer actions in the shell `ActionsHost`.
-
-Do not add `SaveSlotCard.tscn`, a card controller, or a generic collection renderer. Four explicit cards are easier to inspect and are the complete domain cardinality.
-
-### 4.2 Public controller contract
-
-Use a small presentation contract:
+The shell therefore uses a content-fit body minimum, bounded by the available safe height. The implementation target is:
 
 ```csharp
-public enum SaveLoadMode
+private ScrollContainer _bodyScroll = null!;
+
+private void RefreshBodyHeight(Vector2 availableSize)
 {
-    Save,
-    Load
-}
+    if (_bodyScroll.VerticalScrollMode == ScrollContainer.ScrollMode.Disabled)
+        return;
 
-public partial class SaveLoadScreenController : Control
-{
-    [Signal] public delegate void SaveSlotSelectedEventHandler(int slot);
-    [Signal] public delegate void LoadSlotSelectedEventHandler(int slot);
-    [Signal] public delegate void ClosedEventHandler();
-    [Signal] public delegate void MainMenuRequestedEventHandler();
+    var safeMargin = SiriusUiMetrics.SafeMargin(Compact);
+    var maximumPanelHeight = Mathf.Max(0f, availableSize.Y - safeMargin * 2f);
 
-    public SaveLoadMode Mode { get; set; }
-    public Control InitialFocusTarget { get; }
-    public bool HasActiveChildDialog { get; }
+    var currentBodyMinimum = _bodyScroll.GetCombinedMinimumSize().Y;
+    var currentPanelMinimum = _panel.GetCombinedMinimumSize().Y;
+    var chromeHeight = Mathf.Max(0f, currentPanelMinimum - currentBodyMinimum);
+    var maximumBodyHeight = Mathf.Max(0f, maximumPanelHeight - chromeHeight);
+    var contentHeight = BodyHost.GetCombinedMinimumSize().Y;
+    var bodyHeight = Mathf.Min(contentHeight, maximumBodyHeight);
 
-    public void DismissActiveChildDialog();
+    _bodyScroll.CustomMinimumSize = new Vector2(
+        _bodyScroll.CustomMinimumSize.X,
+        bodyHeight);
+    _bodyScroll.FollowFocus = true;
 }
 ```
 
-Each host creates a fresh screen instance for one presentation, sets `Mode` before `UIScreenHost.TryPresent`, and lets `_Ready()` bind the scene, read metadata, configure the mode, and lay out the cards. There is no reusable `Open()`/reset lifecycle because the host already uses `NodeLifetime = QueueFree`.
+`RefreshPresentation` keeps its current width calculation and then applies this body-height policy.
 
-### 4.3 Ownership boundary
+This formula is an implementation target, not an unmeasured runtime claim. Task 1 begins with a 640×360 regression fixture that must prove the actual Godot layout behavior before HPA-384 screen work proceeds. If Godot minimum-size propagation makes this exact calculation fail the contract, Task 1 stays inside `SiriusModalShell` and adjusts the supported sizing primitive there; downstream Save/Load tasks do not invent a feature-local workaround.
 
-`SaveLoadScreenController` owns only:
+### 4.3 Shell acceptance contract
 
-- reading current `SaveSlotInfo` for presentation;
-- formatting slot identity, state, player/level/floor, and timestamp;
-- deciding whether a card is actionable for the current mode;
-- opening/canceling the local overwrite confirmation;
-- terminal/double-activation guarding;
-- emitting Save, Load, Close, or Main Menu intent.
+At 640×360 with deliberately tall body content and a footer:
 
-It does not:
+- the panel stays inside the viewport safe bounds;
+- title and footer remain visible;
+- `BodyScroll.GetVScrollBar().MaxValue > BodyScroll.GetVScrollBar().Page`;
+- `BodyScroll.FollowFocus == true`;
+- focusing a lower body control can bring it into view;
+- a short-body confirmation remains content-fit rather than expanding to full safe height.
 
-- call `SaveGame`, `LoadGame`, `LoadAutosave`, or `CollectSaveData`;
-- write `PendingLoadData`;
-- change scenes;
-- decide whether gameplay is currently allowed to save;
-- recover, migrate, delete, rename, or repair save files.
+Existing width, Settings, Pause, return-to-title confirmation, and showcase tests remain regression gates.
 
-Those responsibilities remain in `SaveManager`, `MainMenu`, and `Game` exactly where they are today.
+No exact panel/scroll numbers are claimed in this planning PR because a Godot 4.6 runtime is not available in the planning environment; Task 1 records those measurements from the real test fixture before implementation continues.
 
 ## 5. Save metadata state
 
-HPA-384 must visually distinguish an unreadable/corrupted file from a newer-version/incompatible file. `SaveSlotInfo` currently collapses both into `IsCorrupted` and, for a newer file, stores a descriptive string in `PlayerName`.
-
-Add one small presentation-facing classification to the existing metadata object:
+`SaveSlotInfo` currently collapses corrupted and newer-version files into `IsCorrupted`. Add one small presentation classification:
 
 ```csharp
 public enum SaveSlotState
@@ -135,268 +125,289 @@ public enum SaveSlotState
 
 public class SaveSlotInfo
 {
-    public SaveSlotState State { get; set; }
-    // Existing fields remain the current source for Continue and save behavior.
+    public SaveSlotState State { get; set; } = SaveSlotState.Empty;
+    // Existing fields remain unchanged.
 }
 ```
 
-`SaveManager.GetSaveSlotInfo` / `ExtractMetadataFromFile` sets:
+`SaveManager.GetSaveSlotInfo` / `ExtractMetadataFromFile` resolves:
 
-- no primary or backup: `Empty`;
-- valid supported metadata: `Valid`;
-- invalid JSON, missing required metadata, or unreadable format: `Corrupted`;
-- file version greater than `SaveData.CurrentVersion`: `Incompatible`.
+- no primary or backup → `Empty`;
+- supported readable metadata → `Valid`;
+- invalid JSON, missing required metadata, unreadable format → `Corrupted`;
+- `fileVersion > SaveData.CurrentVersion` → `Incompatible`.
 
-Keep `Exists` and `IsCorrupted` semantics unchanged for the already-shipped Main Menu Continue policy. `State` is the explicit UI classification HPA-384 needs; it does not become a new persistence protocol.
+Keep existing `Exists` and `IsCorrupted` semantics so HPA-380 Continue remains unchanged. An incompatible file remains `Exists = true` and `IsCorrupted = true`.
 
-Do not add a `RecoveredFromBackup` state. Backup restoration remains a transparent `SaveManager` behavior. If recovery succeeds, the card displays the recovered metadata as a normal valid save.
+The old `PlayerName = $"Newer Version (v{fileVersion})"` workaround is removed. `PlayerName` remains `null` for `Incompatible`; the UI renders the compatibility reason from `State`. No status string is stored in a metadata field that purports to contain player data.
 
-## 6. Card behavior
+Backup recovery remains transparent. A usable recovered backup resolves to ordinary `Valid`; there is no `Recovered` UI state.
 
-Cards are the primary actions. There is no separate selection model or bottom `Load`/`Save` command state.
+## 6. Script-less save card component
 
-Each card shows only supported metadata:
+Create `scenes/ui/components/SiriusSaveSlotCard.tscn` with **no script**.
 
-- slot identity (`Slot 1`…`Slot 3`, `Autosave`);
-- player name for a valid save;
-- level;
-- floor/location through `GetFloorName()`;
-- local display timestamp when present;
-- explicit slot state/action text.
+Structure:
 
-The complete action matrix is:
+```text
+SiriusSaveSlotCard (Button)
+└── Margin
+    └── Content (VBoxContainer)
+        ├── SlotNameLabel
+        ├── DetailLabel
+        ├── TimestampLabel
+        ├── StateLabel
+        └── ActionLabel
+```
+
+The screen instances this scene four times and gives the roots stable unique names:
+
+- `Slot0Card`
+- `Slot1Card`
+- `Slot2Card`
+- `Slot3Card`
+
+The component centralizes only authored structure, spacing, wrapping, and theme roles. It has no C# API, no state object, and no behavior. `SaveLoadScreenController` still owns one `_cards` array and applies data through relative child paths.
+
+This preserves the fixed four-slot model while avoiding four hand-maintained copies of the same subtree.
+
+## 7. Save/Load screen contract
+
+Create `SaveLoadScreen.tscn` using the existing Theme and `SiriusModalShell`.
+
+```text
+SaveLoadScreenController (Control, full rect)
+├── Background (SiriusScrim)
+└── ModalShell (Large)
+    ├── BodyHost
+    │   └── CardsGrid
+    │       ├── Slot0Card (SiriusSaveSlotCard instance)
+    │       ├── Slot1Card (instance)
+    │       ├── Slot2Card (instance)
+    │       └── Slot3Card (instance)
+    └── ActionsHost
+        ├── MainMenuButton
+        └── CancelButton
+```
+
+Controller contract:
+
+```csharp
+public enum SaveLoadMode
+{
+    Save,
+    Load
+}
+
+public partial class SaveLoadScreenController : Control
+{
+    [Signal] public delegate void SaveSlotSelectedEventHandler(int slot);
+    [Signal] public delegate void LoadSlotSelectedEventHandler(int slot);
+    [Signal] public delegate void OverwriteRequestedEventHandler(int slot);
+    [Signal] public delegate void ClosedEventHandler();
+    [Signal] public delegate void MainMenuRequestedEventHandler();
+
+    public SaveLoadMode Mode { get; set; }
+    public Control InitialFocusTarget => FirstEnabledCard() ?? _cancelButton;
+}
+```
+
+There is no `HasActiveChildDialog`, `DismissActiveChildDialog`, `AcceptDialog`, or screen-owned modal stack.
+
+### 7.1 Action matrix
 
 | Slot state | Save mode, manual 0–2 | Save mode, autosave 3 | Load mode |
 | --- | --- | --- | --- |
 | Empty | Enabled — `Save` | Disabled — `Autosave is created automatically` | Disabled — `No save data to load` |
-| Valid | Enabled — `Overwrite` → child confirmation | Disabled — `Autosave is created automatically` | Enabled — `Load` |
+| Valid | Enabled — `Overwrite` → `OverwriteRequested(slot)` | Disabled — `Autosave is created automatically` | Enabled — `Load` |
 | Corrupted | Enabled — `Save` | Disabled — `Autosave is created automatically` | Disabled — `File cannot be read` |
 | Incompatible | Enabled — `Save` | Disabled — `Autosave is created automatically` | Disabled — `Requires a newer game version` |
 
-This preserves the current behavior that a manual corrupted/incompatible slot may be replaced directly, while a valid manual slot requires overwrite confirmation.
+The card shows only real supported metadata: slot identity, valid player name, level, floor, timestamp, and explicit state/action text.
 
-If `SaveManager` is unavailable or invalid, `RefreshSlotInfo()` renders all four cards as disabled with `Save system unavailable`, `CanActivateSlot()` returns false for every card, and Cancel becomes the initial focus target. No Save intent may be emitted from the no-manager state.
+If `SaveManager.Instance` is unexpectedly unavailable, the controller defensively disables all cards with `Save system unavailable` and falls back to Cancel focus. There is no dedicated injection/reset seam or isolated no-manager test: `SaveManager` is an autoload in supported runtime, and adding a production dependency override solely to simulate broken project configuration is not justified.
 
-### Why cards directly activate
+### 7.2 Terminal guard
 
-The old wireframe included a separate selected record and footer Load/Delete actions. HPA-384 explicitly removes Delete, and the current shipped dialog directly activates a slot. Keeping each card as the action preserves behavior and avoids introducing a second selection state only to press another button.
+Keep one `_terminalEmitted` latch for terminal screen intents:
 
-Keyboard/gamepad focus supplies the approved focused-card visual treatment. No persistent “selected card” state is added.
+- direct Save;
+- Load;
+- Close;
+- Main Menu.
 
-## 7. Overwrite confirmation
+`OverwriteRequested` is **not** terminal because Cancel returns to the same Save/Load screen. While the hosted confirmation is open, `UIScreenHost` makes the Save/Load parent inert.
 
-A valid manual save in Save mode opens exactly one child overwrite confirmation.
+## 8. Scene-authored overwrite confirmation
 
-For HPA-384, keep this confirmation local to the Save/Load screen and theme the existing `AcceptDialog` with `SiriusTheme.tres`. Do not build HPA-572’s shared confirmation/warning/error framework early.
+Create `SaveOverwriteConfirmation.tscn` patterned narrowly after the existing return-to-title confirmation.
 
-Rules:
+```text
+SaveOverwriteConfirmationController (Control)
+└── ModalShell
+    ├── BodyHost
+    │   └── Message
+    └── ActionsHost
+        ├── CancelButton
+        └── OverwriteButton
+```
 
-- while the child is active, parent card activation is ignored;
-- Cancel closes the overwrite child first and leaves Save/Load open;
-- confirmation emits exactly one `SaveSlotSelected(slot)` terminal intent;
-- cancellation clears the pending slot and restores focus to the invoking card;
-- there is never a third actionable layer.
+Controller:
 
-`HasActiveChildDialog` and `DismissActiveChildDialog()` remain the narrow seam used by the host’s existing Cancel interception.
+```csharp
+public partial class SaveOverwriteConfirmationController : Control
+{
+    [Signal] public delegate void OverwriteConfirmedEventHandler(int slot);
+    [Signal] public delegate void CancelRequestedEventHandler();
 
-## 8. Terminal and double-activation policy
+    public int Slot { get; set; }
+    public Control InitialFocusTarget => _cancel;
+}
+```
 
-The screen keeps one `_terminalEmitted` latch.
+The message uses only slot identity, e.g. `Slot 1 already contains save data. Overwrite it?`; it does not fabricate player metadata.
 
-Before emitting any terminal Save, Load, Close, or Main Menu intent, the controller sets the latch and disables all card/footer actions. Subsequent button presses, duplicate confirmation signals, or close signals are ignored.
+`Game` presents this scene as a logical child of the active Save/Load entry using the already-existing `UIScreenKinds.ConfirmOverwrite`:
 
-This is enough to prevent double activation because the actual save/load/scene work is synchronous at the current caller seams and the host frees the screen after terminal handling. Do not add async operation IDs, cancellation tokens, queues, or a save transaction service.
+- `Layer = Modal`;
+- `InputPriority = Blocking`;
+- `ProcessPolicy = Always`;
+- `Parent = _hostedSaveLoadHandle`;
+- `ExclusiveGroup = BlockingPrompt`;
+- `PauseTree = false`;
+- `BlockGameplayInput = false`;
+- `Cursor = Visible`;
+- `Hud = Inherit`;
+- `LowerLayers = VisibleInert`;
+- `Cancel = Close`;
+- `InitialFocus = confirmation.InitialFocusTarget`;
+- `NodeLifetime = QueueFree`.
+
+Cancel closes only the confirmation and host focus restoration returns to Save/Load. Confirm closes the confirmation and routes the confirmed slot into the existing `OnHostedSaveSlotSelected` domain handler. The confirmation controller is one-shot so repeated button/signal activation cannot save twice.
+
+This is feature-specific reuse of the existing host/scene pattern, not implementation of HPA-572’s future generic confirmation framework.
 
 ## 9. Host integration
 
 ### 9.1 Main Menu
 
-`MainMenu.TryOpenHostedLoad` continues to own the Main Menu Load entry.
+`MainMenu.TryOpenHostedLoad` swaps only the concrete hosted view:
 
-Change only the concrete view:
-
-- instantiate `res://scenes/ui/SaveLoadScreen.tscn`;
-- set `Mode = SaveLoadMode.Load` before presentation;
+- instantiate `SaveLoadScreen.tscn`;
+- `Mode = Load`;
 - wire `LoadSlotSelected` and `Closed`;
-- keep `UIScreenKinds.SaveLoad`, modal layer/priority, no tree pause, visible cursor, inherited HUD, `VisibleInert` lower layers, and `NodeLifetime.QueueFree`;
-- keep child-first Cancel interception;
-- add `InitialFocus = () => screen.InitialFocusTarget`;
-- keep the existing `RestoreFocus` target, including Continue’s failed-load fallback;
-- keep `OnHostedLoadSlotSelected`, `LoadSlot`, `PendingLoadData`, deferred load-failure message, and teardown-safe scene transition unchanged.
+- keep `UIScreenKinds.SaveLoad`, current modal policy, restore-focus target, `PendingLoadData`, error behavior, and teardown-safe scene transition;
+- add `InitialFocus = screen.InitialFocusTarget`.
 
-If the screen has no actionable Load card, `InitialFocusTarget` returns Cancel. This preserves the HPA-380 fallback where a failed Continue may open Load even if no row can complete a load.
+There is no Save mode and therefore no overwrite child on Main Menu. Remove the old SaveLoad-specific `InterceptCancel` closure; normal host `Cancel = Close` is sufficient.
 
 ### 9.2 Gameplay Pause
 
-`Game.TryOpenHostedSaveLoad` continues to own Save/Load under Pause.
+`Game.TryOpenHostedSaveLoad` swaps to the same screen and keeps the Pause handle as its parent. It wires all existing Save/Load/Close/MainMenu intents plus `OverwriteRequested`.
 
-Change only the concrete view:
+The Save/Load entry itself needs no child-interception closure. When overwrite is requested, `Game` presents `SaveOverwriteConfirmation` with `Parent = _hostedSaveLoadHandle`; topmost child-first Cancel is handled by `UIScreenHost` directly.
 
-- instantiate the same scene;
-- set Save or Load mode before presentation;
-- wire the four screen intent signals;
-- keep the active Pause handle as logical parent;
-- keep `ProcessPolicy.Always`, `PauseTree = false`, no additional gameplay block, inherited HUD, visible cursor, child-first Cancel, and `NodeLifetime.QueueFree`;
-- add `InitialFocus = () => screen.InitialFocusTarget`.
+`Game` continues to own save eligibility, collection, SaveManager calls, errors, load handoff, Return to Main Menu, and scene transitions.
 
-`Game` keeps all save eligibility checks, save-data collection, SaveManager calls, errors, load handoff, Return to Main Menu, and teardown-safe scene changes.
+## 10. Responsive layout and focus
 
-No generic host factory is introduced. The two explicit call sites differ in parent, focus restoration, available signals, and domain handling, so sharing them would obscure rather than remove meaningful behavior.
-
-## 10. Responsive layout
-
-Reuse `SiriusUiMetrics` rather than introducing Save/Load-specific breakpoint constants.
-
-### Standard
-
-At non-compact viewports:
-
-- `SiriusModalShell.SizeClass = Large`;
-- cards use a 2×2 grid;
-- metadata uses standard Section/Body/Metadata theme roles;
-- each card keeps at least the standard 44 px interaction target and enough vertical room to show state and metadata without overlap.
-
-### Compact
-
-When `SiriusUiMetrics.IsCompact(viewportSize)` is true:
-
-- shell uses compact presentation;
-- cards become one column;
-- card metadata uses compact typography;
-- optional timestamp moves to the least prominent line and may be hidden only when the card would otherwise clip essential state/action text;
-- the shell body scrolls while title and footer remain fixed;
-- actions retain the 40 px compact minimum target.
-
-### Local overflow ownership
-
-Save/Load deliberately uses the shell `BodyScroll` as its only vertical overflow owner. Unlike Settings, it does not add page-local scrollers.
-
-`SaveLoadScreenController` binds the shell panel and body scroll and caps only the panel's Y axis on every layout refresh:
+Save/Load itself only owns feature reflow:
 
 ```csharp
-var size = GetViewportRect().Size;
-var compact = SiriusUiMetrics.IsCompact(size);
-var margin = SiriusUiMetrics.SafeMargin(compact);
-var maximumPanelHeight = Mathf.Max(0f, size.Y - margin * 2f);
+private void RefreshLayout()
+{
+    var size = GetViewportRect().Size;
+    var compact = SiriusUiMetrics.IsCompact(size);
 
-_shell.Compact = compact;
-_shell.RefreshPresentation(size);
-_shellPanel.CustomMaximumSize = new Vector2(-1f, maximumPanelHeight);
-_shellBodyScroll.FollowFocus = true;
-_cardsGrid.Columns = compact ? 1 : 2;
+    _shell.Compact = compact;
+    _shell.RefreshPresentation(size);
+    _cardsGrid.Columns = compact ? 1 : 2;
+    ApplyCardTypography(compact);
+    ApplyMinimumTargets(compact);
+}
 ```
 
-`-1f` leaves the X axis uncapped; `0` must not be used for X because Godot treats a non-negative custom maximum as an actual maximum. `SiriusModalShell` keeps its shared width contract unchanged.
+The shell owns content-fit/bounded body height. Save/Load does not reach into `%Panel` to size it.
 
-The scene test must prove the mechanism, not merely the final card count:
+Standard behavior:
 
-- the panel rectangle stays inside every approved viewport;
-- at 640×360 with stacked cards/long status text, `BodyScroll.GetVScrollBar().MaxValue > BodyScroll.GetVScrollBar().Page`;
-- `BodyScroll.FollowFocus` is true;
-- title and footer remain visible while the body scrolls;
-- the focused last actionable card can be brought into view without moving the modal itself.
+- Large modal;
+- 2×2 card grid;
+- 44 px minimum targets.
 
-Validate all `SiriusUiMetrics.VerificationViewports`, with deep perceptual/layout assertions at 640×360 and 1280×720 plus one long disabled-reason case.
+Compact behavior:
 
-## 11. Focus and input
+- one-column cards;
+- compact typography;
+- 40 px minimum targets;
+- optional timestamp may be hidden before essential state/action text;
+- shell body scrolls while title/footer stay fixed.
 
-- Initial focus is the first enabled slot in slot order.
-- If no slot is enabled, initial focus is Cancel.
-- Main Menu host restores the invoking Load/Continue control.
-- Pause child closure restores the existing Pause entry and its invoking action through `UIScreenHost`.
-- Mouse, keyboard, and gamepad all activate the same card buttons.
-- The screen does not process global Cancel itself; `UIScreenHost` remains the owner, reserving the active overwrite child first.
+Initial focus is the first enabled card, otherwise Cancel. There is no cross-opening remembered selection.
 
-No cross-session or cross-opening “last selected slot” memory is added. The approved “last valid slot” behavior is satisfied within a live screen by normal Godot focus; every new host presentation starts from the first actionable card.
+## 11. Test strategy
 
-## 12. Tests
+### Shared shell
 
-### Save domain metadata
+Extend `SiriusModalShellTest` first with a real 640×360 `SubViewport` fixture containing tall body content and footer actions. Record the observed panel height, body page, and scrollbar max during implementation and require the shell contract from §4.3.
 
-Extend `SaveManagerTest` to lock:
+Run shared regressions for:
 
-- empty → `SaveSlotState.Empty`;
-- valid → `Valid`;
-- invalid JSON → `Corrupted`;
-- future version → `Incompatible`;
-- missing primary with usable backup still resolves to the recovered state/metadata.
+- `SiriusModalShellTest`;
+- `SettingsMenuSceneTest` / `SettingsMenuControllerTest`;
+- `PauseScreenControllerTest`;
+- `PauseReturnToTitleConfirmationControllerTest`;
+- `SiriusUiShowcaseResponsiveTest`.
 
-Keep existing atomic write/load/backup tests as the domain regression gate.
+### Save metadata
 
-### Screen controller
+Extend `SaveManagerTest` for Empty/Valid/Corrupted/Incompatible and backup recovery. The incompatible test also asserts `PlayerName == null` while `IsCorrupted` remains true.
 
-Replace `SaveLoadDialogTest` with scene-backed controller coverage for:
+### Card + screen
 
-- Save vs Load mode text/action availability;
-- manual empty Save;
-- valid Save → one overwrite child → confirm;
-- overwrite Cancel keeps parent active and restores focus;
-- manual Load and autosave Load;
-- corrupted and incompatible display/reasons;
-- autosave disabled in Save mode;
-- no-manager state disables all cards and focuses Cancel;
-- Close and Main Menu terminal signals;
-- repeated card press/terminal signal emits once.
+Test the script-less card scene structure once, then test the screen for:
 
-### Responsive scene
+- four explicit component instances;
+- Save/Load action matrix;
+- valid Save emits `OverwriteRequested` without terminally closing;
+- direct Save/Load terminal latch;
+- autosave Save-disabled reason;
+- corrupted/incompatible reasons;
+- 2-column standard / 1-column compact;
+- long reason wrapping;
+- shell scroll range at 640×360;
+- first-actionable/Cancel focus.
 
-Add a focused Save/Load scene test that mounts the production `.tscn` in a `SubViewport`, resizes through the shared verification viewports, and verifies:
+### Overwrite confirmation
 
-- standard 2-column vs compact 1-column card layout;
-- modal remains inside viewport bounds;
-- cards have non-zero size and minimum targets;
-- title/footer remain visible at 640×360;
-- shell `BodyScroll` has a real vertical scroll range when stacked content exceeds compact height;
-- focus-driven scrolling can reveal the last actionable compact card;
-- long status/reason text wraps and remains inside its card.
+Test its scene/controller independently for safe Cancel focus and one-shot confirm/cancel signals.
 
 ### Host integration
 
-Update existing Main Menu and gameplay-host tests instead of creating a parallel integration harness.
+Update existing Main Menu, gameplay host, and input lifecycle fixtures. Configured keyboard/gamepad Cancel over overwrite must close the hosted confirmation first, then Save/Load, then Pause in normal stack order.
 
-Lock:
+No native `AcceptDialog`/`ui_close_dialog` behavior remains part of Save/Load acceptance.
 
-- Main Menu Load uses the scene-authored Save/Load screen and restores Load focus;
-- failed Continue can host the new Load screen with safe Cancel focus;
-- Pause Save and Load remain logical children of the same Pause handle;
-- overwrite Cancel closes only the child;
-- Save/Load close returns to the same Pause;
-- manual and autosave load still set `PendingLoadData` and use the current scene-transition path;
-- save failures/load failures still close Save/Load before the current error path;
-- double activation cannot produce duplicate host/domain actions.
+## 12. Cleanup blast radius
 
-Also migrate both existing `GameInputLifecycleTest` Save/Load cases before deleting `SaveLoadDialog`:
-
-- configured keyboard Cancel must dismiss the overwrite child first, then close only the hosted Save/Load child on the next Cancel;
-- the old direct `AcceptDialog` configured-controller-Cancel test becomes a hosted `SaveLoadScreenController` Cancel-routing test, because `UIScreenHost`—not the new screen—is the global Cancel owner.
-
-## 13. Lifecycle documentation and cleanup
-
-After both hosts and every direct test consumer are migrated:
+After both hosts migrate:
 
 - delete `scripts/ui/SaveLoadDialog.cs`;
-- delete/replace `tests/ui/SaveLoadDialogTest.cs`;
-- update the `MAIN-LOAD` and `PAUSE-SAVELOAD` rows in `docs/ui/hpa-376/ui-lifecycle-contract.md` so they describe the scene-authored `Control` hosted on the modal layer rather than the old `AcceptDialog`/Window presentation;
-- migrate `tests/game/GameInputLifecycleTest.cs` away from direct `SaveLoadDialog`, `ShowDialog`, and native-dialog assumptions;
-- search for stale `SaveLoadDialog`, `ShowDialog`, and legacy Window-specific Save/Load assumptions.
+- delete `tests/ui/SaveLoadDialogTest.cs`;
+- migrate `MainMenu`, `Game`, `GameplayPauseHostTest`, `GameInputLifecycleTest`, and Main Menu tests;
+- update `SettingsManager.cs` and `SettingsManagerTest.cs` comments so they describe modal/UI action conflicts generically rather than naming the removed `SaveLoadDialog`;
+- update `CLAUDE.md` architecture/file-list wording from `SaveLoadDialog` to `SaveLoadScreenController`;
+- update only `MAIN-LOAD` and `PAUSE-SAVELOAD` lifecycle rows plus overwrite-child wording in `docs/ui/hpa-376/ui-lifecycle-contract.md`.
 
-Do not update HPA-373’s historical wireframe to reintroduce Delete. HPA-384 is the later concrete product decision.
+Final active-source expectation:
 
-## 14. Risks and mitigations
+```bash
+git grep -n "SaveLoadDialog\|ShowDialog" -- scripts scenes tests
+```
 
-### Compact body never becomes scrollable
+returns no matches. Historical planning/baseline documents outside active source/tests may retain the old name when describing history.
 
-**Risk:** `SiriusModalShell` owns responsive width but does not itself cap modal height. A one-column compact card stack can therefore expand the panel instead of producing body overflow.
-
-**Mitigation:** HPA-384 locally sets `Panel.CustomMaximumSize.Y` to viewport height minus the existing safe margins, leaves X uncapped with `-1f`, keeps shell `BodyScroll` enabled with `FollowFocus = true`, and verifies both panel enclosure and `VScrollBar.MaxValue > Page` at 640×360 before either host cutover.
-
-### Legacy dialog deletion breaks a non-obvious input suite
-
-**Risk:** `GameInputLifecycleTest` contains direct `SaveLoadDialog` construction/type lookup in addition to the obvious Main Menu/Game/SaveLoadDialog tests.
-
-**Mitigation:** Task 4 lists and migrates that fixture before `git rm`; the stale-reference grep remains a backstop, not the discovery mechanism.
-
-## 15. Non-goals
+## 13. Non-goals
 
 HPA-384 does not add:
 
@@ -407,35 +418,57 @@ HPA-384 does not add:
 - save renaming;
 - playtime or fabricated metadata;
 - automatic repair UI;
-- a save repository/facade;
-- a generic save-card component;
-- a generic host factory;
-- a navigation/scene service;
-- HPA-572’s shared confirmation/error framework;
+- save repository/facade;
+- save view model;
+- card controller or collection renderer;
+- generic host factory;
+- navigation/scene service;
+- HPA-572 generic confirmation/error framework;
 - Main Menu Continue selection changes.
 
-## 16. Acceptance mapping
+## 14. Risks and gates
+
+### Shared shell height behavior
+
+Risk: Godot minimum-size propagation can make either an overgrown modal or a collapsed body if the wrong primitive is used.
+
+Gate: Task 1 proves the 640×360 layout in `SiriusModalShellTest` before Save/Load authoring starts. Downstream tasks depend only on the tested shell contract.
+
+### Confirmation ownership drift
+
+Risk: keeping a native child dialog would duplicate host stack behavior and preserve desktop-dialog presentation.
+
+Gate: overwrite is a real `UIScreenHost` child using existing `ConfirmOverwrite`; no Save/Load `InterceptCancel`, `HasActiveChildDialog`, or native subwindow remains.
+
+### Legacy name drift
+
+Risk: comments/guidance can keep stale `SaveLoadDialog` assumptions after code deletion.
+
+Gate: explicit comment/guidance files are in Task 5, followed by active-source grep.
+
+## 15. Acceptance mapping
 
 | HPA-384 acceptance | Design response |
 | --- | --- |
-| No generic desktop-dialog presentation | Scene-authored themed `SaveLoadScreen.tscn` under `SiriusModalShell` |
-| Manual/autosave readable | Four explicit cards with slot identity/state and autosave action rules |
+| No generic desktop-dialog presentation | Save/Load and overwrite confirmation are scene-authored `Control`s using `SiriusModalShell` |
+| Manual/autosave distinct and readable | Four explicit instances of one script-less card structure |
 | Preserve Save/Overwrite/Load/backup/transition | Existing Game/MainMenu/SaveManager ownership remains unchanged |
-| Nested Cancel closes overwrite first | Existing host interception uses controller child seam; physical keyboard coverage remains in `GameInputLifecycleTest` |
+| Nested Cancel closes overwrite first | Overwrite is a host child of Save/Load; `UIScreenHost` owns topmost Cancel |
 | Main Menu/Pause return and focus | Existing host parents/restoration retained; explicit initial focus added |
-| No unsupported metadata or Delete | Only current `SaveSlotInfo` metadata; Delete omitted despite old wireframe |
-| Compact layout scrolls | Screen-local panel Y cap + shell `BodyScroll` range/focus assertions at 640×360 |
-| Focused tests pass | Domain-state, scene/controller, Main Menu, gameplay host/input lifecycle, full suite/build |
+| No unsupported metadata or Delete | State-driven reasons; incompatible `PlayerName` is null; Delete omitted |
+| Responsive minimum viewport | Shared shell height contract + Save/Load 1-column reflow and scroll assertions |
+| Focused regressions | Shell, save domain, screen/card, confirmation, Main Menu, gameplay host/input lifecycle, full suite/build |
 
-## 17. Decision summary
+## 16. Decision summary
 
-HPA-384 should be a narrow vertical UI migration:
+The revised HPA-384 implementation remains lean:
 
-- one new scene;
-- one new controller;
-- one small metadata-state classification;
+- one small shared fix to finish `SiriusModalShell`’s existing responsive contract;
+- one additive metadata enum;
+- one script-less repeated card scene;
+- one Save/Load screen/controller;
+- one tiny feature-specific hosted overwrite confirmation;
 - two explicit host cutovers;
-- focused test migration including the existing input-lifecycle Save/Load cases;
-- removal of the old runtime-built dialog.
+- removal of the legacy native dialog and stale active references.
 
-That is enough to deliver the approved player-facing improvement without creating new persistence, navigation, component, or confirmation frameworks.
+The new files replace duplicated scene markup and native-dialog lifecycle seams; they do not add domain layers or speculative frameworks.

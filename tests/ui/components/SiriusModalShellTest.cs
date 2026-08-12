@@ -171,6 +171,8 @@ public partial class SiriusModalShellTest : Node
 
             AssertThat(rect.Position.Y).IsGreaterEqual(margin - 0.5f);
             AssertThat(rect.End.Y).IsLessEqual(360f - margin + 0.5f);
+            AssertThat(bodyScroll.Size.Y).IsGreater(0f);
+            AssertThat(scrollBar.Page).IsGreater(0f);
             AssertThat(scrollBar.MaxValue).IsGreater(scrollBar.Page);
             AssertThat(cancel.GetGlobalRect().End.Y).IsLessEqual(rect.End.Y + 0.5f);
         }
@@ -200,8 +202,12 @@ public partial class SiriusModalShellTest : Node
             await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
 
             var panel = shell.GetNode<PanelContainer>("%Panel");
+            var bodyScroll = shell.GetNode<ScrollContainer>("%BodyScroll");
+            var scrollBar = bodyScroll.GetVScrollBar();
             AssertThat(panel.Size.Y).IsGreater(0f);
             AssertThat(panel.Size.Y).IsLess(360f - SiriusUiMetrics.SafeMargin(true) * 2f);
+            AssertThat(bodyScroll.Size.Y).IsGreater(0f);
+            AssertThat(scrollBar.Page).IsGreater(0f);
         }
         finally
         {

@@ -10,6 +10,7 @@ public partial class SiriusModalShell : Control
     private PanelContainer _panel = null!;
     private TextureRect _severityIcon = null!;
     private Label _titleLabel = null!;
+    private ScrollContainer _bodyScroll = null!;
     private Vector2 _lastAvailableSize = Vector2.Zero;
 
     [Export]
@@ -64,6 +65,7 @@ public partial class SiriusModalShell : Control
         _panel = GetNode<PanelContainer>("%Panel");
         _severityIcon = GetNode<TextureRect>("%SeverityIcon");
         _titleLabel = GetNode<Label>("%TitleLabel");
+        _bodyScroll = GetNode<ScrollContainer>("%BodyScroll");
         BodyHost = GetNode<VBoxContainer>("%BodyHost");
         ActionsHost = GetNode<HBoxContainer>("%ActionsHost");
         RefreshPresentation(GetViewportRect().Size);
@@ -83,6 +85,28 @@ public partial class SiriusModalShell : Control
             ? availableSize.X - SiriusUiMetrics.SafeMargin(true) * 2
             : Mathf.Min(SiriusUiMetrics.ModalWidth(SizeClass), availableSize.X * 0.90f);
         _panel.CustomMinimumSize = new Vector2(Mathf.Max(0, width), 0);
+        RefreshBodyHeight(availableSize);
+    }
+
+    private void RefreshBodyHeight(Vector2 availableSize)
+    {
+        if (_bodyScroll.VerticalScrollMode == ScrollContainer.ScrollMode.Disabled)
+            return;
+
+        var safeMargin = SiriusUiMetrics.SafeMargin(Compact);
+        var maximumPanelHeight = Mathf.Max(0f, availableSize.Y - safeMargin * 2f);
+
+        var currentBodyMinimum = _bodyScroll.GetCombinedMinimumSize().Y;
+        var currentPanelMinimum = _panel.GetCombinedMinimumSize().Y;
+        var chromeHeight = Mathf.Max(0f, currentPanelMinimum - currentBodyMinimum);
+        var maximumBodyHeight = Mathf.Max(0f, maximumPanelHeight - chromeHeight);
+        var contentHeight = BodyHost.GetCombinedMinimumSize().Y;
+        var bodyHeight = Mathf.Min(contentHeight, maximumBodyHeight);
+
+        _bodyScroll.CustomMinimumSize = new Vector2(
+            _bodyScroll.CustomMinimumSize.X,
+            bodyHeight);
+        _bodyScroll.FollowFocus = true;
     }
 
     private void RefreshIfReady()

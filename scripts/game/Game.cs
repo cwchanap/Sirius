@@ -40,7 +40,9 @@ public partial class Game : Node2D
     private UIScreenHandle? _hostedSettingsHandle;
     private SettingsMenuController? _hostedSettingsMenu;
     private UIScreenHandle? _hostedSaveLoadHandle;
-    private SaveLoadDialog? _hostedSaveLoadDialog;
+    private SaveLoadScreenController? _hostedSaveLoadScreen;
+    private UIScreenHandle? _hostedOverwriteHandle;
+    private SaveOverwriteConfirmationController? _hostedOverwriteConfirmation;
     private UIScreenHandle? _hostedReturnConfirmationHandle;
     private PauseReturnToTitleConfirmationController? _hostedReturnConfirmation;
     private bool _presentationGameplayBlocked;
@@ -358,10 +360,10 @@ public partial class Game : Node2D
     }
 
     private void OnHostedPauseSaveRequested() =>
-        TryOpenHostedSaveLoad(SaveLoadDialog.DialogMode.Save);
+        TryOpenHostedSaveLoad(SaveLoadMode.Save);
 
     private void OnHostedPauseLoadRequested() =>
-        TryOpenHostedSaveLoad(SaveLoadDialog.DialogMode.Load);
+        TryOpenHostedSaveLoad(SaveLoadMode.Load);
 
     private void OnHostedPauseSettingsRequested() => TryOpenHostedSettings();
 
@@ -479,7 +481,7 @@ public partial class Game : Node2D
         }
     }
 
-    private bool TryOpenHostedSaveLoad(SaveLoadDialog.DialogMode mode)
+    private bool TryOpenHostedSaveLoad(SaveLoadMode mode)
     {
         if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
             !_pauseHandle.HasValue || !_screenHost.IsActive(_pauseHandle.Value))
@@ -492,8 +494,8 @@ public partial class Game : Node2D
             if (_screenHost.IsActive(_hostedSaveLoadHandle.Value))
                 return false;
 
-            if (_hostedSaveLoadDialog != null)
-                ClearHostedSaveLoadDialog(_hostedSaveLoadDialog);
+            if (_hostedSaveLoadScreen != null)
+                ClearHostedSaveLoadScreen(_hostedSaveLoadScreen);
             else
                 _hostedSaveLoadHandle = null;
         }
@@ -501,13 +503,30 @@ public partial class Game : Node2D
         if (_screenHost.IsKindActive(UIScreenKinds.SaveLoad))
             return false;
 
-        var dialog = new SaveLoadDialog();
-        dialog.SaveSlotSelected += OnHostedSaveSlotSelected;
-        dialog.LoadSlotSelected += OnHostedLoadSlotSelected;
-        dialog.DialogClosed += OnHostedSaveLoadClosed;
-        dialog.MainMenuRequested += OnHostedSaveLoadMainMenuRequested;
+        var scene = GD.Load<PackedScene>("res://scenes/ui/SaveLoadScreen.tscn");
+        if (scene == null)
+        {
+            GD.PushError("[Game] SaveLoadScreen.tscn not found.");
+            return false;
+        }
 
-        var result = _screenHost.TryPresent(dialog, new UIScreenEntrySpec
+        var screen = scene.Instantiate<SaveLoadScreenController>();
+        if (screen == null)
+        {
+            GD.PushError("[Game] Failed to instantiate SaveLoadScreenController.");
+            return false;
+        }
+
+        // Mode is part of the screen's presentation contract and must be set
+        // before the host attaches the scene-authored view.
+        screen.Mode = mode;
+        screen.SaveSlotSelected += OnHostedSaveSlotSelected;
+        screen.LoadSlotSelected += OnHostedLoadSlotSelected;
+        screen.OverwriteRequested += OnHostedOverwriteRequested;
+        screen.Closed += OnHostedSaveLoadClosed;
+        screen.MainMenuRequested += OnHostedSaveLoadMainMenuRequested;
+
+        var result = _screenHost.TryPresent(screen, new UIScreenEntrySpec
         {
             Kind = UIScreenKinds.SaveLoad,
             Layer = UIScreenLayer.Modal,
@@ -520,39 +539,110 @@ public partial class Game : Node2D
             Hud = UIHudPolicy.Inherit,
             LowerLayers = UILowerLayerPolicy.VisibleInert,
             Cancel = UICancelPolicy.Close,
-            InterceptCancel = _ =>
-            {
-                if (dialog.HasActiveChildDialog)
-                {
-                    dialog.DismissActiveChildDialog();
-                    return UIInputInterception.ConsumeHere;
-                }
-
-                return UIInputInterception.DeferToPolicy;
-            },
-            SetPresented = visible =>
-            {
-                if (visible) dialog.ShowDialog(mode);
-                else dialog.Hide();
-            },
-            Cleanup = _ => ClearHostedSaveLoadDialog(dialog),
+            InitialFocus = () => screen.InitialFocusTarget,
+            SetPresented = visible => screen.Visible = visible,
+            Cleanup = _ => ClearHostedSaveLoadScreen(screen),
             NodeLifetime = UINodeLifetime.QueueFree
         });
         if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
         {
-            dialog.SaveSlotSelected -= OnHostedSaveSlotSelected;
-            dialog.LoadSlotSelected -= OnHostedLoadSlotSelected;
-            dialog.DialogClosed -= OnHostedSaveLoadClosed;
-            dialog.MainMenuRequested -= OnHostedSaveLoadMainMenuRequested;
-            dialog.QueueFree();
+            ClearHostedSaveLoadScreen(screen);
+            if (GodotObject.IsInstanceValid(screen))
+                screen.QueueFree();
             return false;
         }
 
         _hostedSaveLoadHandle = result.Handle.Value;
-        _hostedSaveLoadDialog = dialog;
-        dialog.ShowDialog(mode);
+        _hostedSaveLoadScreen = screen;
         return true;
     }
+
+    private void OnHostedOverwriteRequested(int slot) =>
+        TryOpenHostedOverwriteConfirmation(slot);
+
+    private bool TryOpenHostedOverwriteConfirmation(int slot)
+    {
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
+            !_hostedSaveLoadHandle.HasValue ||
+            !_screenHost.IsActive(_hostedSaveLoadHandle.Value))
+        {
+            return false;
+        }
+
+        if (_hostedOverwriteHandle.HasValue)
+        {
+            if (_screenHost.IsActive(_hostedOverwriteHandle.Value))
+                return false;
+
+            if (_hostedOverwriteConfirmation != null)
+                ClearHostedOverwriteConfirmation(_hostedOverwriteConfirmation);
+            else
+                _hostedOverwriteHandle = null;
+        }
+
+        if (_screenHost.IsKindActive(UIScreenKinds.ConfirmOverwrite))
+            return false;
+
+        var scene = GD.Load<PackedScene>(
+            "res://scenes/ui/SaveOverwriteConfirmation.tscn");
+        if (scene == null)
+        {
+            GD.PushError("[Game] SaveOverwriteConfirmation.tscn not found.");
+            return false;
+        }
+
+        var confirmation = scene.Instantiate<SaveOverwriteConfirmationController>();
+        if (confirmation == null)
+        {
+            GD.PushError(
+                "[Game] Failed to instantiate SaveOverwriteConfirmationController.");
+            return false;
+        }
+
+        confirmation.Slot = slot;
+        confirmation.OverwriteConfirmed += OnHostedOverwriteConfirmed;
+        confirmation.CancelRequested += OnHostedOverwriteCancelled;
+
+        var result = _screenHost.TryPresent(confirmation, new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.ConfirmOverwrite,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Blocking,
+            ProcessPolicy = UIProcessPolicy.Always,
+            Parent = _hostedSaveLoadHandle,
+            ExclusiveGroup = UIScreenExclusiveGroups.BlockingPrompt,
+            PauseTree = false,
+            BlockGameplayInput = false,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Inherit,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Close,
+            InitialFocus = () => confirmation.InitialFocusTarget,
+            SetPresented = visible => confirmation.Visible = visible,
+            Cleanup = _ => ClearHostedOverwriteConfirmation(confirmation),
+            NodeLifetime = UINodeLifetime.QueueFree
+        });
+        if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
+        {
+            ClearHostedOverwriteConfirmation(confirmation);
+            if (GodotObject.IsInstanceValid(confirmation))
+                confirmation.QueueFree();
+            return false;
+        }
+
+        _hostedOverwriteHandle = result.Handle.Value;
+        _hostedOverwriteConfirmation = confirmation;
+        return true;
+    }
+
+    private void OnHostedOverwriteConfirmed(int slot)
+    {
+        TryCloseHostedOverwriteConfirmation(UIScreenCloseReason.ExplicitAction);
+        OnHostedSaveSlotSelected(slot);
+    }
+
+    private void OnHostedOverwriteCancelled() =>
+        TryCloseHostedOverwriteConfirmation(UIScreenCloseReason.ExplicitAction);
 
     private void OnHostedSaveSlotSelected(int slot)
     {
@@ -661,8 +751,8 @@ public partial class Game : Node2D
         var result = _screenHost.TryClose(_hostedSaveLoadHandle.Value, reason);
         if (result.Status == UIScreenCloseStatus.StaleHandle)
         {
-            if (_hostedSaveLoadDialog != null)
-                ClearHostedSaveLoadDialog(_hostedSaveLoadDialog);
+            if (_hostedSaveLoadScreen != null)
+                ClearHostedSaveLoadScreen(_hostedSaveLoadScreen);
             else
                 _hostedSaveLoadHandle = null;
         }
@@ -670,20 +760,57 @@ public partial class Game : Node2D
         return result.Status == UIScreenCloseStatus.Closed;
     }
 
-    private void ClearHostedSaveLoadDialog(SaveLoadDialog dialog)
+    private void ClearHostedSaveLoadScreen(SaveLoadScreenController screen)
     {
-        if (GodotObject.IsInstanceValid(dialog))
+        if (GodotObject.IsInstanceValid(screen))
         {
-            dialog.SaveSlotSelected -= OnHostedSaveSlotSelected;
-            dialog.LoadSlotSelected -= OnHostedLoadSlotSelected;
-            dialog.DialogClosed -= OnHostedSaveLoadClosed;
-            dialog.MainMenuRequested -= OnHostedSaveLoadMainMenuRequested;
+            screen.SaveSlotSelected -= OnHostedSaveSlotSelected;
+            screen.LoadSlotSelected -= OnHostedLoadSlotSelected;
+            screen.OverwriteRequested -= OnHostedOverwriteRequested;
+            screen.Closed -= OnHostedSaveLoadClosed;
+            screen.MainMenuRequested -= OnHostedSaveLoadMainMenuRequested;
         }
 
-        if (ReferenceEquals(_hostedSaveLoadDialog, dialog))
+        if (ReferenceEquals(_hostedSaveLoadScreen, screen))
         {
             _hostedSaveLoadHandle = null;
-            _hostedSaveLoadDialog = null;
+            _hostedSaveLoadScreen = null;
+        }
+    }
+
+    private bool TryCloseHostedOverwriteConfirmation(UIScreenCloseReason reason)
+    {
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
+            !_hostedOverwriteHandle.HasValue)
+        {
+            return false;
+        }
+
+        var result = _screenHost.TryClose(_hostedOverwriteHandle.Value, reason);
+        if (result.Status == UIScreenCloseStatus.StaleHandle)
+        {
+            if (_hostedOverwriteConfirmation != null)
+                ClearHostedOverwriteConfirmation(_hostedOverwriteConfirmation);
+            else
+                _hostedOverwriteHandle = null;
+        }
+
+        return result.Status == UIScreenCloseStatus.Closed;
+    }
+
+    private void ClearHostedOverwriteConfirmation(
+        SaveOverwriteConfirmationController confirmation)
+    {
+        if (GodotObject.IsInstanceValid(confirmation))
+        {
+            confirmation.OverwriteConfirmed -= OnHostedOverwriteConfirmed;
+            confirmation.CancelRequested -= OnHostedOverwriteCancelled;
+        }
+
+        if (ReferenceEquals(_hostedOverwriteConfirmation, confirmation))
+        {
+            _hostedOverwriteHandle = null;
+            _hostedOverwriteConfirmation = null;
         }
     }
 

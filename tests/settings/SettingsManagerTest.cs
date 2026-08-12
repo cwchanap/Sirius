@@ -717,7 +717,7 @@ public partial class SettingsManagerTest : Node
         AssertThat(GetPrimaryKey("pause_menu")).IsEqual((long)Key.P);
         // ui_cancel should also be rebound to P
         AssertThat(GetPrimaryKey("ui_cancel")).IsEqual((long)Key.P);
-        // AcceptDialog listens to ui_close_dialog rather than ui_cancel.
+        // Native dialog controls listen to ui_close_dialog rather than ui_cancel.
         AssertThat(HasKeyBinding("ui_close_dialog", Key.P)).IsTrue();
     }
 
@@ -747,8 +747,8 @@ public partial class SettingsManagerTest : Node
     {
         // Enter is a UI key that backs ui_accept.  Remapping pause_menu to
         // Enter would mirror it onto ui_cancel, creating a dual-action where a
-        // single Enter press both confirms AND cancels modals (NPC AcceptDialog,
-        // SaveLoadDialog, etc.).  NormalizeKeybindings must reject it and reset
+        // single Enter press both confirms AND cancels modal controls (native
+        // confirmation/dialog controls, etc.). NormalizeKeybindings must reject it and reset
         // to default (Escape).
         var manager = await BootstrapSettingsManager();
         var candidate = manager.GetSnapshot();
@@ -1191,7 +1191,7 @@ public partial class SettingsManagerTest : Node
         var candidate = manager.GetSnapshot();
 
         // Enter and Space back Godot's ui_accept; binding a game action to them
-        // would let Game._Input() steal events from AcceptDialog controls.
+        // would let Game._Input() steal events from native dialog controls.
         candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.Enter;
         candidate.PrimaryKeybindings["interact"] = (long)Key.Space;
 

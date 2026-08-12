@@ -14,6 +14,8 @@ public partial class GameplayPauseHostTest : Node
     private Game? _game;
     private bool _incomingTreePaused;
     private Input.MouseModeEnum _originalMouseMode;
+    private TestHelpers.SaveFileSnapshot[] _saveFiles = null!;
+    private SaveData? _incomingPendingLoadData;
 
     [BeforeTest]
     public async Task SetUp()
@@ -21,6 +23,10 @@ public partial class GameplayPauseHostTest : Node
         var tree = (SceneTree)Engine.GetMainLoop();
         _incomingTreePaused = tree.Paused;
         _originalMouseMode = Input.MouseMode;
+        _saveFiles = TestHelpers.CaptureSaveFiles();
+        _incomingPendingLoadData = SaveManager.Instance?.PendingLoadData;
+        if (SaveManager.Instance != null)
+            SaveManager.Instance.PendingLoadData = null;
         tree.Paused = false;
         Input.MouseMode = Input.MouseModeEnum.Captured;
 
@@ -61,6 +67,10 @@ public partial class GameplayPauseHostTest : Node
         await AwaitFrames(2);
         Input.MouseMode = _originalMouseMode;
         tree.Paused = _incomingTreePaused;
+        if (SaveManager.Instance != null)
+            SaveManager.Instance.PendingLoadData = _incomingPendingLoadData;
+        TestHelpers.RestoreSaveFiles(_saveFiles);
+        TestHelpers.ReportSaveFileMismatches(_saveFiles, nameof(GameplayPauseHostTest));
     }
 
     [TestCase]
@@ -488,6 +498,7 @@ public partial class GameplayPauseHostTest : Node
     public async Task HostedSaveLoad_SaveAndLoadHostLogicalPauseChildrenAndRestoreExistingPause()
     {
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
 
         AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
         await AwaitFrames(2);
@@ -499,10 +510,10 @@ public partial class GameplayPauseHostTest : Node
         saveButton.EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(2);
 
-        var saveDialog = FindDirectChild<SaveLoadDialog>(host);
+        var saveScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
         var saveEntry = FindEntry(host, UIScreenKinds.SaveLoad);
-        AssertThat(saveDialog.GetParent()).IsEqual(host);
-        AssertThat(saveDialog.Title).IsEqual("Save Game");
+        AssertThat(saveScreen.GetParent()).IsEqual(modalLayer);
+        AssertThat(saveScreen.Mode).IsEqual(SaveLoadMode.Save);
         AssertThat(saveEntry.Policy.Parent).IsEqual(pauseEntry.Handle);
         AssertThat(saveEntry.Policy.Layer).IsEqual(UIScreenLayer.Modal);
         AssertThat(saveEntry.Policy.InputPriority).IsEqual(UIInputPriority.Modal);
@@ -512,11 +523,11 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(saveEntry.Policy.Hud).IsEqual(UIHudPolicy.Inherit);
         AssertThat(saveEntry.Policy.Cancel).IsEqual(UICancelPolicy.Close);
 
-        GetPrivateField<Button>(saveDialog, "_cancelButton")
+        saveScreen.GetNode<Button>("%CancelButton")
             .EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(3);
 
-        AssertThat(GodotObject.IsInstanceValid(saveDialog)).IsFalse();
+        AssertThat(GodotObject.IsInstanceValid(saveScreen)).IsFalse();
         AssertHostedChildReturnedToSamePause(host, pause, pauseEntry.Handle, saveButton);
 
         var loadButton = pause.GetNode<Button>("%LoadButton");
@@ -524,22 +535,313 @@ public partial class GameplayPauseHostTest : Node
         loadButton.EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(2);
 
-        var loadDialog = FindDirectChild<SaveLoadDialog>(host);
+        var loadScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
         var loadEntry = FindEntry(host, UIScreenKinds.SaveLoad);
-        AssertThat(loadDialog.GetParent()).IsEqual(host);
-        AssertThat(loadDialog.Title).IsEqual("Load Game");
+        AssertThat(loadScreen.GetParent()).IsEqual(modalLayer);
+        AssertThat(loadScreen.Mode).IsEqual(SaveLoadMode.Load);
         AssertThat(loadEntry.Policy.Parent).IsEqual(pauseEntry.Handle);
         AssertThat(loadEntry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
         AssertThat(loadEntry.Policy.PauseTree).IsFalse();
         AssertThat(loadEntry.Policy.BlockGameplayInput).IsFalse();
         AssertThat(loadEntry.Policy.Hud).IsEqual(UIHudPolicy.Inherit);
 
-        GetPrivateField<Button>(loadDialog, "_cancelButton")
+        loadScreen.GetNode<Button>("%CancelButton")
             .EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(3);
 
-        AssertThat(GodotObject.IsInstanceValid(loadDialog)).IsFalse();
+        AssertThat(GodotObject.IsInstanceValid(loadScreen)).IsFalse();
         AssertHostedChildReturnedToSamePause(host, pause, pauseEntry.Handle, loadButton);
+    }
+
+    [TestCase]
+    public async Task HostedSaveLoad_CloseReturnsFocusToSamePause()
+    {
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
+
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        var pauseEntry = FindEntry(host, UIScreenKinds.Pause);
+        var saveButton = pause.GetNode<Button>("%SaveButton");
+        saveButton.GrabFocus();
+        saveButton.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var saveScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
+        saveScreen.GetNode<Button>("%CancelButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(3);
+
+        AssertThat(GodotObject.IsInstanceValid(saveScreen)).IsFalse();
+        AssertHostedChildReturnedToSamePause(host, pause, pauseEntry.Handle, saveButton);
+    }
+
+    [TestCase]
+    public async Task HostedSaveLoad_SaveIntentInvokesExistingSavePathOnce()
+    {
+        var manager = SaveManager.Instance;
+        AssertThat(manager).IsNotNull();
+        if (manager == null)
+            return;
+
+        manager.DeleteSave(0);
+        var saveCompletions = 0;
+        void OnSaveCompleted(bool success, int slot)
+        {
+            if (success && slot == 0)
+                saveCompletions++;
+        }
+
+        manager.SaveCompleted += OnSaveCompleted;
+        try
+        {
+            var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+            AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+            await AwaitFrames(2);
+            var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+            pause.GetNode<Button>("%SaveButton").EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+
+            var saveScreen = FindDirectChild<SaveLoadScreenController>(host.GetNode<Control>("ModalLayer"));
+            saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(3);
+
+            AssertThat(saveCompletions).IsEqual(1);
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        }
+        finally
+        {
+            manager.SaveCompleted -= OnSaveCompleted;
+        }
+    }
+
+    [TestCase]
+    public async Task HostedSaveLoad_ManualLoadUsesExistingPendingLoadTransition()
+    {
+        WriteValidSlot(0);
+        var manager = SaveManager.Instance;
+        AssertThat(manager).IsNotNull();
+        if (manager == null)
+            return;
+
+        // Suppress the actual scene swap while retaining the production
+        // PendingLoadData handoff that OnHostedLoadSlotSelected owns.
+        SetPrivateField(_game!, "_sceneChangeCommitted", true);
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%LoadButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var loadScreen = FindDirectChild<SaveLoadScreenController>(host.GetNode<Control>("ModalLayer"));
+        loadScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(manager.PendingLoadData).IsNotNull();
+        AssertThat(manager.PendingLoadData!.Character!.Name).IsEqual("Aster");
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+    }
+
+    [TestCase]
+    public async Task HostedSaveLoad_AutosaveLoadUsesExistingPendingLoadTransition()
+    {
+        WriteValidSlot(3);
+        var manager = SaveManager.Instance;
+        AssertThat(manager).IsNotNull();
+        if (manager == null)
+            return;
+
+        SetPrivateField(_game!, "_sceneChangeCommitted", true);
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%LoadButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var loadScreen = FindDirectChild<SaveLoadScreenController>(host.GetNode<Control>("ModalLayer"));
+        loadScreen.GetNode<Button>("%Slot3Card").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(manager.PendingLoadData).IsNotNull();
+        AssertThat(manager.PendingLoadData!.Character!.Name).IsEqual("Aster");
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+    }
+
+    [TestCase]
+    public async Task HostedSaveLoad_LoadFailureClosesChildBeforeError()
+    {
+        var manager = SaveManager.Instance;
+        AssertThat(manager).IsNotNull();
+        if (manager == null)
+            return;
+
+        manager.DeleteSave(0);
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%LoadButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var loadScreen = FindDirectChild<SaveLoadScreenController>(host.GetNode<Control>("ModalLayer"));
+        var slotInfos = GetPrivateField<SaveSlotInfo[]>(loadScreen, "_slotInfos");
+        slotInfos[0] = new SaveSlotInfo
+        {
+            Exists = true,
+            State = SaveSlotState.Valid,
+            SlotIndex = 0,
+            PlayerName = "Missing",
+            PlayerLevel = 1
+        };
+        loadScreen.GetNode<Button>("%Slot0Card").Disabled = false;
+        loadScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup")).IsNotNull();
+    }
+
+    [TestCase]
+    public async Task HostedSaveLoad_TerminalActivationCannotRunTwice()
+    {
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%SaveButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var saveScreen = FindDirectChild<SaveLoadScreenController>(host.GetNode<Control>("ModalLayer"));
+        var saves = 0;
+        saveScreen.SaveSlotSelected += _ => saves++;
+        saveScreen.GetNode<Button>("%CancelButton").EmitSignal(Button.SignalName.Pressed);
+        saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(saves).IsEqual(0);
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+    }
+
+    [TestCase]
+    public async Task HostedSaveLoad_ValidSaveCardHostsConfirmOverwriteChild()
+    {
+        WriteValidSlot(0);
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%SaveButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var saveScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
+        saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var confirmation = FindDirectChild<SaveOverwriteConfirmationController>(modalLayer);
+        AssertThat(host.IsKindActive(UIScreenKinds.ConfirmOverwrite)).IsTrue();
+        AssertThat(confirmation.GetParent()).IsEqual(modalLayer);
+        AssertThat(FindEntry(host, UIScreenKinds.ConfirmOverwrite).Policy.Parent)
+            .IsEqual(FindEntry(host, UIScreenKinds.SaveLoad).Handle);
+    }
+
+    [TestCase]
+    public async Task HostedOverwrite_CancelClosesOnlyConfirmationAndRestoresSaveLoad()
+    {
+        WriteValidSlot(0);
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        var pauseEntry = FindEntry(host, UIScreenKinds.Pause);
+        pause.GetNode<Button>("%SaveButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+        var saveScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
+        saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+        var confirmation = FindDirectChild<SaveOverwriteConfirmationController>(modalLayer);
+        confirmation.GetNode<Button>("%CancelButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(3);
+
+        AssertThat(GodotObject.IsInstanceValid(confirmation)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.ConfirmOverwrite)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+        AssertHostedChildRemainsAboveSamePause(host, pause, pauseEntry.Handle);
+    }
+
+    [TestCase]
+    public async Task HostedOverwrite_ConfirmInvokesExistingSavePathOnce()
+    {
+        WriteValidSlot(0);
+        var manager = SaveManager.Instance;
+        AssertThat(manager).IsNotNull();
+        if (manager == null)
+            return;
+
+        var completions = 0;
+        void OnSaveCompleted(bool success, int slot)
+        {
+            if (success && slot == 0)
+                completions++;
+        }
+
+        manager.SaveCompleted += OnSaveCompleted;
+        try
+        {
+            var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+            var modalLayer = host.GetNode<Control>("ModalLayer");
+            AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+            await AwaitFrames(2);
+            var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+            pause.GetNode<Button>("%SaveButton").EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+            var saveScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
+            saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+            var confirmation = FindDirectChild<SaveOverwriteConfirmationController>(modalLayer);
+            confirmation.GetNode<Button>("%OverwriteButton").EmitSignal(Button.SignalName.Pressed);
+            confirmation.GetNode<Button>("%OverwriteButton").EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(4);
+
+            AssertThat(completions).IsEqual(1);
+            AssertThat(host.IsKindActive(UIScreenKinds.ConfirmOverwrite)).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        }
+        finally
+        {
+            manager.SaveCompleted -= OnSaveCompleted;
+        }
+    }
+
+    [TestCase]
+    public async Task HostedOverwrite_UsesExistingConfirmOverwriteKindAndBlockingPromptGroup()
+    {
+        WriteValidSlot(0);
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%SaveButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+        var saveScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
+        saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var saveLoadEntry = FindEntry(host, UIScreenKinds.SaveLoad);
+        var confirmEntry = FindEntry(host, UIScreenKinds.ConfirmOverwrite);
+        AssertThat(confirmEntry.Policy.Kind).IsEqual(UIScreenKinds.ConfirmOverwrite);
+        AssertThat(confirmEntry.Policy.Parent).IsEqual(saveLoadEntry.Handle);
+        AssertThat(confirmEntry.Policy.InputPriority).IsEqual(UIInputPriority.Blocking);
+        AssertThat(confirmEntry.Policy.ExclusiveGroup).IsEqual(UIScreenExclusiveGroups.BlockingPrompt);
+        AssertThat(confirmEntry.Policy.PauseTree).IsFalse();
+        AssertThat(confirmEntry.Policy.Cancel).IsEqual(UICancelPolicy.Close);
     }
 
     [TestCase]
@@ -693,9 +995,11 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
-    public async Task HostedSaveLoad_ActiveOverwriteChildConsumesCancelBeforeSaveLoad()
+    public async Task HostedOverwrite_ActiveChildConsumesCancelBeforeSaveLoad()
     {
+        WriteValidSlot(0);
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
 
         AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
         await AwaitFrames(2);
@@ -705,13 +1009,11 @@ public partial class GameplayPauseHostTest : Node
         pause.GetNode<Button>("%SaveButton").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(2);
 
-        var saveDialog = FindDirectChild<SaveLoadDialog>(host);
-        var slotInfos = GetPrivateField<SaveSlotInfo[]>(saveDialog, "_slotInfos");
-        slotInfos[0] = new SaveSlotInfo { Exists = true, SlotIndex = 0, PlayerLevel = 2 };
-        InvokePrivateVoid(saveDialog, "OnSlotPressed", 0);
+        var saveScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
+        saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(1);
 
-        AssertThat(saveDialog.HasActiveChildDialog).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.ConfirmOverwrite)).IsTrue();
         var handled = host.TryHandleInput(new InputEventAction
         {
             Action = "ui_cancel",
@@ -719,7 +1021,7 @@ public partial class GameplayPauseHostTest : Node
         });
 
         AssertThat(handled).IsEqual(UIInputDispatchResult.Consumed);
-        AssertThat(saveDialog.HasActiveChildDialog).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.ConfirmOverwrite)).IsFalse();
         AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
         AssertHostedChildRemainsAboveSamePause(host, pause, pauseEntry.Handle);
     }
@@ -894,6 +1196,38 @@ public partial class GameplayPauseHostTest : Node
         }
 
         throw new InvalidOperationException($"Direct child '{typeof(T).Name}' was not found.");
+    }
+
+    private static void WriteValidSlot(int slot)
+    {
+        var manager = SaveManager.Instance;
+        AssertThat(manager).IsNotNull();
+        if (manager == null)
+            return;
+
+        var data = new SaveData
+        {
+            Version = SaveData.CurrentVersion,
+            CurrentFloorIndex = 0,
+            PlayerPosition = new Vector2IDto { X = 6, Y = 50 },
+            Character = new CharacterSaveData
+            {
+                Name = "Aster",
+                Level = 4,
+                MaxHealth = 100,
+                CurrentHealth = 100,
+                Attack = 20,
+                Defense = 10,
+                Speed = 15,
+                ExperienceToNext = 100
+            },
+            SaveTimestamp = DateTime.UtcNow
+        };
+
+        var success = slot == 3
+            ? manager.AutoSave(data)
+            : manager.SaveGame(slot, data);
+        AssertThat(success).IsTrue();
     }
 
     private static async Task AwaitFrames(int frameCount)

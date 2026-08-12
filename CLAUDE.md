@@ -72,7 +72,7 @@ scripts/
 ├── save/          # Persistence: SaveManager.cs, SaveData.cs, CharacterSaveData.cs, EquipmentSaveData.cs
 ├── settings/      # SettingsManager.cs (autoload), SettingsData.cs
 ├── tilemap_json/  # Tilemap import/export (TilemapJsonImporter.cs, TilemapJsonExporter.cs)
-└── ui/            # UI controllers (BattleManager.cs, MainMenu.cs, InventoryMenuController.cs, SaveLoadDialog.cs, ShopDialog.cs, HealDialog.cs, DialogueDialog.cs, NpcInteractionController.cs)
+└── ui/            # UI controllers (BattleManager.cs, MainMenu.cs, InventoryMenuController.cs, SaveLoadScreenController.cs, SaveOverwriteConfirmationController.cs, ShopDialog.cs, HealDialog.cs, DialogueDialog.cs, NpcInteractionController.cs)
 
 scenes/
 ├── game/          # Game.tscn, floors/ (FloorGF.tscn, Floor1F.tscn)
@@ -138,7 +138,7 @@ Skills are stored in `SkillCatalog` (static registry) and referenced on `Charact
 - `ActiveSkillExplicitlyNone` flag prevents auto-equip on level-up from overriding a deliberate "no active skill" choice
 
 ### Save System
-`SaveManager` (autoload singleton) handles 3 manual slots (0-2) + autosave (slot 3, `autosave.json`). Saves use atomic write (temp → rename) with `.bak` backup for crash recovery. `SaveData` is serialized as JSON via `System.Text.Json`. `SaveManager.PendingLoadData` is the handoff mechanism between MainMenu and Game scenes — set before scene change, consumed on load.
+`SaveManager` (autoload singleton) handles 3 manual slots (0-2) + autosave (slot 3, `autosave.json`). Saves use atomic write (temp → rename) with `.bak` backup for crash recovery. `SaveData` is serialized as JSON via `System.Text.Json`. `SaveManager.PendingLoadData` is the handoff mechanism between MainMenu and Game scenes — set before scene change, consumed on load. `SaveLoadScreenController` owns Save/Load slot presentation and direct intents; `SaveOverwriteConfirmationController` is hosted as a `ConfirmOverwrite` child when replacing a valid manual slot.
 
 ### NPC & Dialogue System
 NPCs follow the same catalog-and-spawn pattern as enemies. `NpcCatalog` is a static registry of `NpcData` objects, referenced by string `NpcId`. `NpcSpawn` is a scene node (mirroring `EnemySpawn`) placed in floor `.tscn` files with `NpcId` and `GridPosition` exports. `GridMap.RegisterStaticNpcSpawns()` picks them up via the `"NpcSpawn"` group.

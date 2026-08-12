@@ -29,6 +29,8 @@ public partial class GameInputLifecycleTest : Node
     private Action<string, string, bool>? _previousFileMoveWithOverwriteOverride;
     private Action<string, string>? _previousFileMoveOverride;
     private Action<string>? _previousFileDeleteOverride;
+    private TestHelpers.SaveFileSnapshot[] _saveFiles = null!;
+    private SaveData? _incomingPendingLoadData;
 
     [BeforeTest]
     public async Task Setup()
@@ -40,6 +42,10 @@ public partial class GameInputLifecycleTest : Node
         CaptureInputActions("toggle_inventory", "interact", "pause_menu", "ui_cancel", "ui_close_dialog");
         CaptureAudioState();
         CaptureAndInstallSettingsOverrides();
+        _saveFiles = TestHelpers.CaptureSaveFiles();
+        _incomingPendingLoadData = SaveManager.Instance?.PendingLoadData;
+        if (SaveManager.Instance != null)
+            SaveManager.Instance.PendingLoadData = null;
 
         _viewport = new SubViewport
         {
@@ -103,6 +109,10 @@ public partial class GameInputLifecycleTest : Node
         RestoreSettingsOverrides();
         Input.MouseMode = _originalMouseMode;
         sceneTree.Paused = _treeWasPaused;
+        if (SaveManager.Instance != null)
+            SaveManager.Instance.PendingLoadData = _incomingPendingLoadData;
+        TestHelpers.RestoreSaveFiles(_saveFiles);
+        TestHelpers.ReportSaveFileMismatches(_saveFiles, nameof(GameInputLifecycleTest));
     }
     [TestCase]
     public async Task ConfiguredKeyboardCancel_BattleResultClosesNativeDialogWithoutOpeningHostedPause()
@@ -275,39 +285,6 @@ public partial class GameInputLifecycleTest : Node
     }
 
     [TestCase]
-    public async Task ConfiguredKeyboardCancel_ClosesAcceptDialogExactlyOnce()
-    {
-        ConfigureCancelBindings(Key.P);
-        _viewport!.GuiEmbedSubwindows = true;
-        var dialog = new AcceptDialog();
-        int canceledCount = 0;
-        dialog.Canceled += () => canceledCount++;
-        _viewport.AddChild(dialog);
-        await AwaitFrames(1);
-        try
-        {
-            dialog.PopupCentered();
-            await AwaitFrames(1);
-            AssertThat(_viewport.GetEmbeddedSubwindows().Count).IsEqual(1);
-
-            PushPhysicalKey(Key.P);
-            await AwaitFrames(1);
-            PushPhysicalKey(Key.P);
-
-            AssertThat(canceledCount).IsEqual(1);
-            AssertThat(dialog.Visible).IsFalse();
-        }
-        finally
-        {
-            if (IsInstanceValid(dialog))
-            {
-                dialog.Free();
-            }
-            await AwaitFrames(1);
-        }
-    }
-
-    [TestCase]
     public async Task ConfiguredKeyboardPauseMenu_OpensHostedPauseThenResumesTreeOnSecondPhysicalAction()
     {
         ConfigureCancelBindings(Key.P);
@@ -454,28 +431,29 @@ public partial class GameInputLifecycleTest : Node
     public async Task ConfiguredKeyboardCancel_SaveLoadOverwriteDismissesChildThenClosesHostedChild()
     {
         ConfigureCancelBindings(Key.P);
-        _viewport!.GuiEmbedSubwindows = true;
         await ReplaceWithHostedLifecycleFixture();
+        WriteValidSlot(0);
 
         PushPhysicalKey(Key.P);
         await AwaitFrames(2);
 
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
         var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
         pause.GetNode<Button>("%SaveButton").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(2);
 
-        var saveLoad = FindDirectChild<SaveLoadDialog>(host);
-        var slots = GetPrivateField<SaveSlotInfo[]>(saveLoad, "_slotInfos");
-        slots[0] = new SaveSlotInfo { Exists = true, SlotIndex = 0, PlayerLevel = 2 };
-        InvokePrivate(saveLoad, "OnSlotPressed", 0);
-        await AwaitFrames(1);
+        var saveLoad = FindDirectChild<SaveLoadScreenController>(modalLayer);
+        saveLoad.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
 
-        AssertThat(saveLoad.HasActiveChildDialog).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.ConfirmOverwrite)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
         PushPhysicalKey(Key.P);
         await AwaitFrames(2);
 
-        AssertThat(saveLoad.HasActiveChildDialog).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.ConfirmOverwrite)).IsFalse();
         AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
         AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
@@ -491,40 +469,31 @@ public partial class GameInputLifecycleTest : Node
     }
 
     [TestCase]
-    public async Task ConfiguredControllerCancel_ClosesSaveLoadDialogExactlyOnce()
+    public async Task ConfiguredControllerCancel_ClosesHostedSaveLoadBeforePause()
     {
         var controllerBinding = new InputEventJoypadButton
         {
             ButtonIndex = (JoyButton)10
         };
         ConfigureCancelBindings(Key.P, controllerBinding);
-        _viewport!.GuiEmbedSubwindows = true;
-        var dialog = new SaveLoadDialog();
-        int closedCount = 0;
-        dialog.DialogClosed += () => closedCount++;
-        _viewport.AddChild(dialog);
-        await AwaitFrames(1);
-        try
-        {
-            dialog.ShowDialog(SaveLoadDialog.DialogMode.Load);
-            await AwaitFrames(1);
-            AssertThat(_viewport.GetEmbeddedSubwindows().Count).IsEqual(1);
+        await ReplaceWithHostedLifecycleFixture();
 
-            PushPhysicalJoypadButtonPressAndRelease((JoyButton)10);
-            await AwaitFrames(1);
-            PushPhysicalJoypadButtonPressAndRelease((JoyButton)10);
+        PushPhysicalJoypadButtonPressAndRelease((JoyButton)10);
+        await AwaitFrames(2);
 
-            AssertThat(closedCount).IsEqual(1);
-            AssertThat(dialog.Visible).IsFalse();
-        }
-        finally
-        {
-            if (IsInstanceValid(dialog))
-            {
-                dialog.Free();
-            }
-            await AwaitFrames(1);
-        }
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%LoadButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        PushPhysicalJoypadButtonPressAndRelease((JoyButton)10);
+        await AwaitFrames(3);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
     }
 
     [TestCase]
@@ -565,7 +534,7 @@ public partial class GameInputLifecycleTest : Node
         AssertThat(gameManager.IsInWorldInteraction).IsTrue();
         AssertThat(promptPlate.Visible).IsFalse();
         await AwaitFrames(1);
-        AssertThat(_viewport!.GetEmbeddedSubwindows().Count).IsEqual(1);
+        AssertThat(dialog.Visible).IsTrue();
 
         _viewport.PushInput(new InputEventKey
         {
@@ -741,6 +710,38 @@ public partial class GameInputLifecycleTest : Node
         throw new InvalidOperationException($"Direct child '{typeof(T).Name}' was not found.");
     }
 
+    private static void WriteValidSlot(int slot)
+    {
+        var manager = SaveManager.Instance;
+        AssertThat(manager).IsNotNull();
+        if (manager == null)
+            return;
+
+        var data = new SaveData
+        {
+            Version = SaveData.CurrentVersion,
+            CurrentFloorIndex = 0,
+            PlayerPosition = new Vector2IDto { X = 6, Y = 50 },
+            Character = new CharacterSaveData
+            {
+                Name = "Aster",
+                Level = 4,
+                MaxHealth = 100,
+                CurrentHealth = 100,
+                Attack = 20,
+                Defense = 10,
+                Speed = 15,
+                ExperienceToNext = 100
+            },
+            SaveTimestamp = DateTime.UtcNow
+        };
+
+        var success = slot == 3
+            ? manager.AutoSave(data)
+            : manager.SaveGame(slot, data);
+        AssertThat(success).IsTrue();
+    }
+
     private void ConfigureCancelBindings(Key pauseKey, InputEvent? controllerBinding = null)
     {
         if (controllerBinding != null)
@@ -778,7 +779,6 @@ public partial class GameInputLifecycleTest : Node
         };
         AssertThat(pressedEvent.IsActionPressed("pause_menu")).IsTrue();
         AssertThat(pressedEvent.IsActionPressed("ui_cancel")).IsTrue();
-        AssertThat(pressedEvent.IsActionPressed("ui_close_dialog")).IsTrue();
         _viewport!.PushInput(pressedEvent);
     }
 
@@ -799,7 +799,6 @@ public partial class GameInputLifecycleTest : Node
             Pressed = true
         };
         AssertThat(pressedEvent.IsActionPressed("ui_cancel")).IsTrue();
-        AssertThat(pressedEvent.IsActionPressed("ui_close_dialog")).IsTrue();
         _viewport!.PushInput(pressedEvent);
         ReleasePhysicalJoypadButton(button);
     }

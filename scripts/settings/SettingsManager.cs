@@ -29,7 +29,7 @@ public partial class SettingsManager : Node
     // UI keys (Escape, Enter, Space, Tab) back Godot's built-in ui_cancel /
     // ui_close_dialog / ui_accept / ui_focus_next actions; binding a game action
     // to one of these causes Game._Input() to consume the event before
-    // AcceptDialog / SaveLoadDialog controls can see it.
+    // Native dialog and hosted modal controls can see it.
     private static readonly System.Collections.Generic.HashSet<long> ReservedKeys = new()
     {
         (long)Key.W, (long)Key.A, (long)Key.S, (long)Key.D,
@@ -538,7 +538,7 @@ public partial class SettingsManager : Node
         // — so there is no dual-action conflict.  Enter/Space/Tab are rejected
         // because they also back ui_accept / ui_focus_next; mirroring pause_menu
         // onto ui_cancel for those keys means a single press simultaneously
-        // confirms AND cancels modals (NPC AcceptDialog, SaveLoadDialog, etc.).
+        // confirms AND cancels modal controls (native confirmation/dialog controls, etc.).
         // Movement keys are still rejected for pause_menu because Game._Input()
         // would swallow them before PlayerController can process movement.
         var defaultsForReserved = SettingsData.CreateDefaultKeybindings();
@@ -625,7 +625,7 @@ public partial class SettingsManager : Node
         // manually via the settings menu).
 
         // pause_menu mirrors onto ui_cancel, whose effective events are then
-        // synchronized to ui_close_dialog for AcceptDialog dismissal. Without
+        // synchronized to ui_close_dialog for native dialog dismissal. Without
         // it, every modal in the game becomes unclosable.
         if (normalized["pause_menu"] == -1)
         {

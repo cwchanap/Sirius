@@ -24,7 +24,7 @@ public partial class MainMenu : Control
     private AudioStreamPlayer? _backgroundMusic;
     private UIScreenHost? _screenHost;
     private UIScreenHandle? _loadHandle;
-    private SaveLoadDialog? _loadDialog;
+    private SaveLoadScreenController? _loadScreen;
     private UIScreenHandle? _settingsHandle;
     private SettingsMenuController? _settingsMenu;
     private UIScreenHandle? _messageHandle;
@@ -513,8 +513,8 @@ public partial class MainMenu : Control
             if (_screenHost.IsActive(_loadHandle.Value))
                 return false;
 
-            if (_loadDialog != null)
-                ClearHostedLoad(_loadDialog);
+            if (_loadScreen != null)
+                ClearHostedLoad(_loadScreen);
             else
                 _loadHandle = null;
         }
@@ -523,11 +523,25 @@ public partial class MainMenu : Control
             return false;
 
         var restoreTarget = restoreFocus ?? _loadButton;
-        var dialog = new SaveLoadDialog();
-        dialog.LoadSlotSelected += OnHostedLoadSlotSelected;
-        dialog.DialogClosed += OnHostedLoadClosed;
+        var scene = GD.Load<PackedScene>("res://scenes/ui/SaveLoadScreen.tscn");
+        if (scene == null)
+        {
+            TryOpenMessage("Load Game", "Load screen unavailable.", restoreTarget);
+            return false;
+        }
 
-        var result = _screenHost.TryPresent(dialog, new UIScreenEntrySpec
+        var screen = scene.Instantiate<SaveLoadScreenController>();
+        if (screen == null)
+        {
+            TryOpenMessage("Load Game", "Load screen unavailable.", restoreTarget);
+            return false;
+        }
+
+        screen.Mode = SaveLoadMode.Load;
+        screen.LoadSlotSelected += OnHostedLoadSlotSelected;
+        screen.Closed += OnHostedLoadClosed;
+
+        var result = _screenHost.TryPresent(screen, new UIScreenEntrySpec
         {
             Kind = UIScreenKinds.SaveLoad,
             Layer = UIScreenLayer.Modal,
@@ -539,37 +553,23 @@ public partial class MainMenu : Control
             Hud = UIHudPolicy.Inherit,
             LowerLayers = UILowerLayerPolicy.VisibleInert,
             Cancel = UICancelPolicy.Close,
-            InterceptCancel = _ =>
-            {
-                if (dialog.HasActiveChildDialog)
-                {
-                    dialog.DismissActiveChildDialog();
-                    return UIInputInterception.ConsumeHere;
-                }
-
-                return UIInputInterception.DeferToPolicy;
-            },
+            InitialFocus = () => screen.InitialFocusTarget,
             RestoreFocus = () => restoreTarget,
-            SetPresented = visible =>
-            {
-                if (visible) dialog.ShowDialog(SaveLoadDialog.DialogMode.Load);
-                else dialog.Hide();
-            },
-            Cleanup = _ => ClearHostedLoad(dialog),
+            SetPresented = visible => screen.Visible = visible,
+            Cleanup = _ => ClearHostedLoad(screen),
             NodeLifetime = UINodeLifetime.QueueFree
         });
 
         if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
         {
-            dialog.LoadSlotSelected -= OnHostedLoadSlotSelected;
-            dialog.DialogClosed -= OnHostedLoadClosed;
-            dialog.QueueFree();
+            screen.LoadSlotSelected -= OnHostedLoadSlotSelected;
+            screen.Closed -= OnHostedLoadClosed;
+            screen.QueueFree();
             return false;
         }
 
         _loadHandle = result.Handle.Value;
-        _loadDialog = dialog;
-        dialog.ShowDialog(SaveLoadDialog.DialogMode.Load);
+        _loadScreen = screen;
         RefreshActionAvailability();
         return true;
     }
@@ -652,8 +652,8 @@ public partial class MainMenu : Control
         var result = _screenHost.TryClose(_loadHandle.Value, reason);
         if (result.Status == UIScreenCloseStatus.StaleHandle)
         {
-            if (_loadDialog != null)
-                ClearHostedLoad(_loadDialog);
+            if (_loadScreen != null)
+                ClearHostedLoad(_loadScreen);
             else
                 _loadHandle = null;
         }
@@ -661,18 +661,18 @@ public partial class MainMenu : Control
         return result.Status == UIScreenCloseStatus.Closed;
     }
 
-    private void ClearHostedLoad(SaveLoadDialog dialog)
+    private void ClearHostedLoad(SaveLoadScreenController screen)
     {
-        if (IsInstanceValid(dialog))
+        if (IsInstanceValid(screen))
         {
-            dialog.LoadSlotSelected -= OnHostedLoadSlotSelected;
-            dialog.DialogClosed -= OnHostedLoadClosed;
+            screen.LoadSlotSelected -= OnHostedLoadSlotSelected;
+            screen.Closed -= OnHostedLoadClosed;
         }
 
-        if (ReferenceEquals(_loadDialog, dialog))
+        if (ReferenceEquals(_loadScreen, screen))
         {
             _loadHandle = null;
-            _loadDialog = null;
+            _loadScreen = null;
         }
 
         RefreshActionAvailability();

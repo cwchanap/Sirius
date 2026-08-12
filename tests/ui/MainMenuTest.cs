@@ -112,7 +112,7 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
-    public async Task HostedLoadClosed_ClearsEntryReferenceAndQueuesDialog()
+    public async Task HostedLoad_CloseRestoresLoadButtonFocus()
     {
         var manager = SaveManager.Instance!;
         for (var slot = 0; slot <= 3; slot++)
@@ -124,16 +124,21 @@ public partial class MainMenuTest : Node
             InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
             await AwaitFrames(2);
 
-            var loadDialog = GetPrivateField<SaveLoadDialog?>(_menu, "_loadDialog");
-            AssertThat(loadDialog).IsNotNull();
+            var loadScreen = GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen");
+            AssertThat(loadScreen).IsNotNull();
+            AssertThat(loadScreen!.Mode).IsEqual(SaveLoadMode.Load);
             AssertThat(_menu.GetNode<UIScreenHost>("%UIScreenHost")
                 .IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
 
             InvokePrivateAcrossHierarchy(_menu, "OnHostedLoadClosed");
-            AssertThat(loadDialog!.IsQueuedForDeletion()).IsTrue();
-            AssertThat(GetPrivateField<SaveLoadDialog?>(_menu, "_loadDialog")).IsNull();
+            AssertThat(loadScreen.IsQueuedForDeletion()).IsTrue();
+            AssertThat(GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen")).IsNull();
             AssertThat(_menu.GetNode<UIScreenHost>("%UIScreenHost")
                 .IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+
+            await AwaitFrames(2);
+            AssertThat(_menu.GetViewport().GuiGetFocusOwner())
+                .IsEqual(_menu.GetNode<Button>("%LoadButton"));
         }
         finally
         {
@@ -209,7 +214,7 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
-    public async Task LoadPressedWithSaveOpensExactlyOneSaveLoadEntry()
+    public async Task LoadPressed_HostsSceneAuthoredLoadScreen()
     {
         var manager = SaveManager.Instance!;
         for (var slot = 0; slot <= 3; slot++)
@@ -222,6 +227,10 @@ public partial class MainMenuTest : Node
             await AwaitFrames(2);
 
             var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+            var loadScreen = GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen");
+            AssertThat(loadScreen).IsNotNull();
+            AssertThat(loadScreen!.Mode).IsEqual(SaveLoadMode.Load);
+            AssertThat(loadScreen.GetNodeOrNull<Button>("%Slot0Card")).IsNotNull();
             AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
             AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.SaveLoad))
                 .IsEqual(1);
@@ -229,6 +238,64 @@ public partial class MainMenuTest : Node
         finally
         {
             manager.DeleteSave(0);
+        }
+    }
+
+    [TestCase]
+    public async Task HostedLoad_InitialFocusUsesFirstActionableCard()
+    {
+        var manager = SaveManager.Instance!;
+        for (var slot = 0; slot <= 3; slot++)
+            manager.DeleteSave(slot);
+
+        AssertThat(manager.SaveGame(0, ValidSaveData())).IsTrue();
+        try
+        {
+            InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
+            await AwaitFrames(2);
+
+            var loadScreen = GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen");
+            AssertThat(loadScreen).IsNotNull();
+            var firstCard = loadScreen!.GetNode<Button>("%Slot0Card");
+            AssertThat(firstCard.Disabled).IsFalse();
+            AssertThat(loadScreen.InitialFocusTarget).IsEqual(firstCard);
+            AssertThat(_menu.GetViewport().GuiGetFocusOwner()).IsEqual(firstCard);
+        }
+        finally
+        {
+            for (var slot = 0; slot <= 3; slot++)
+                manager.DeleteSave(slot);
+        }
+    }
+
+    [TestCase]
+    public async Task LoadPressedTwice_DoesNotStackSaveLoadEntries()
+    {
+        var manager = SaveManager.Instance!;
+        for (var slot = 0; slot <= 3; slot++)
+            manager.DeleteSave(slot);
+
+        AssertThat(manager.SaveGame(0, ValidSaveData())).IsTrue();
+        try
+        {
+            InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
+            await AwaitFrames(2);
+            var firstScreen = GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen");
+            AssertThat(firstScreen).IsNotNull();
+
+            InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
+            await AwaitFrames(1);
+
+            var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+            AssertThat(GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen"))
+                .IsEqual(firstScreen);
+            AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.SaveLoad))
+                .IsEqual(1);
+        }
+        finally
+        {
+            for (var slot = 0; slot <= 3; slot++)
+                manager.DeleteSave(slot);
         }
     }
 
@@ -374,7 +441,7 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
-    public async Task ContinueFailureOpensHostedFallbackAndRestoresContinueFocus()
+    public async Task ContinueLoadFailure_HostsNewLoadScreenAndCanCancelSafely()
     {
         SetPrivateField(_menu, "_continueSave", EligibleSlot(3, DateTime.UtcNow));
         var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
@@ -387,6 +454,9 @@ public partial class MainMenuTest : Node
         AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
         AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsTrue();
         AssertThat(GetPrivateField<bool>(_menu, "_sceneChangeCommitted")).IsFalse();
+        var loadScreen = GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen");
+        AssertThat(loadScreen).IsNotNull();
+        AssertThat(loadScreen!.Mode).IsEqual(SaveLoadMode.Load);
 
         var fallbackError = GetPrivateField<AcceptDialog?>(_menu, "_messageDialog");
         AssertThat(fallbackError).IsNotNull();
@@ -396,7 +466,8 @@ public partial class MainMenuTest : Node
         AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsFalse();
         AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
 
-        InvokePrivateAcrossHierarchy(_menu, "OnHostedLoadClosed");
+        var cancel = new InputEventAction { Action = "ui_cancel", Pressed = true };
+        AssertThat(host.TryHandleInput(cancel)).IsEqual(UIInputDispatchResult.Consumed);
         await AwaitFrames(2);
 
         AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
@@ -404,7 +475,7 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
-    public async Task ManualLoadFailureClosesLoadThenOpensRootErrorAndRestoresLoadFocus()
+    public async Task HostedLoadSlotSelected_FailureClosesLoadBeforeDeferredError()
     {
         var manager = SaveManager.Instance!;
         try
@@ -419,9 +490,13 @@ public partial class MainMenuTest : Node
 
             var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
             AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+            var loadScreen = GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen");
+            AssertThat(loadScreen).IsNotNull();
 
             InvokePrivateAcrossHierarchy(_menu, "OnHostedLoadSlotSelected", 1);
             AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+            AssertThat(loadScreen!.IsQueuedForDeletion()).IsTrue();
+            AssertThat(GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen")).IsNull();
             await AwaitFrames(2);
 
             AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
@@ -442,6 +517,32 @@ public partial class MainMenuTest : Node
         {
             for (var slot = 0; slot <= 3; slot++)
                 manager.DeleteSave(slot);
+        }
+    }
+
+    [TestCase]
+    public async Task HostedLoadSlotSelected_SetsPendingLoadAndUsesExistingSceneTransition()
+    {
+        var menu = await CreateTestableRootMenu();
+        var previousPending = SaveManager.Instance?.PendingLoadData;
+        try
+        {
+            var loaded = ValidSaveData();
+            menu.NextLoadResult = loaded;
+
+            InvokePrivateAcrossHierarchy(menu, "OnHostedLoadSlotSelected", 2);
+
+            AssertThat(SaveManager.Instance!.PendingLoadData).IsEqual(loaded);
+            AssertThat(menu.LoadRequests).IsEqual(1);
+            AssertThat(menu.LastLoadedSlot).IsEqual(2);
+            AssertThat(menu.SceneChangeRequests).IsEqual(1);
+            AssertThat(menu.LastScenePath).IsEqual("res://scenes/game/Game.tscn");
+        }
+        finally
+        {
+            SaveManager.Instance!.PendingLoadData = previousPending;
+            menu.QueueFree();
+            await AwaitFrames(2);
         }
     }
 

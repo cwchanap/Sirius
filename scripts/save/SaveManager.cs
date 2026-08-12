@@ -419,6 +419,7 @@ public partial class SaveManager : Node
                 {
                     Exists = true,
                     IsCorrupted = true,
+                    State = SaveSlotState.Corrupted,
                     PlayerName = "Unknown Format"
                 };
             }
@@ -431,7 +432,8 @@ public partial class SaveManager : Node
                 {
                     Exists = true,
                     IsCorrupted = true,
-                    PlayerName = $"Newer Version (v{fileVersion})"
+                    State = SaveSlotState.Incompatible,
+                    PlayerName = null
                 };
             }
             
@@ -485,6 +487,7 @@ public partial class SaveManager : Node
                 {
                     Exists = true,
                     IsCorrupted = true,
+                    State = SaveSlotState.Corrupted,
                     PlayerName = "Corrupted Save",
                     PlayerLevel = 0,
                     FloorIndex = floorIndex,
@@ -496,6 +499,7 @@ public partial class SaveManager : Node
             {
                 Exists = true,
                 IsCorrupted = false,
+                State = SaveSlotState.Valid,
                 PlayerName = playerName,
                 PlayerLevel = playerLevel,
                 FloorIndex = floorIndex,
@@ -509,6 +513,7 @@ public partial class SaveManager : Node
             {
                 Exists = true,
                 IsCorrupted = true,
+                State = SaveSlotState.Corrupted,
                 PlayerName = "Corrupted Save",
                 PlayerLevel = 0
             };
@@ -520,6 +525,7 @@ public partial class SaveManager : Node
             {
                 Exists = true,
                 IsCorrupted = true,
+                State = SaveSlotState.Corrupted,
                 PlayerName = "Corrupted Save",
                 PlayerLevel = 0
             };
@@ -536,7 +542,7 @@ public partial class SaveManager : Node
         if (!IsValidSlot(slot))
         {
             GD.PushError($"Invalid save slot: {slot} (valid: 0-3)");
-            return new SaveSlotInfo { Exists = false, SlotIndex = slot };
+            return new SaveSlotInfo { Exists = false, State = SaveSlotState.Empty, SlotIndex = slot };
         }
 
         string fileName = GetSlotFileName(slot);
@@ -575,7 +581,7 @@ public partial class SaveManager : Node
             }
             else
             {
-                return new SaveSlotInfo { Exists = false, SlotIndex = slot };
+                return new SaveSlotInfo { Exists = false, State = SaveSlotState.Empty, SlotIndex = slot };
             }
         }
 
@@ -590,6 +596,7 @@ public partial class SaveManager : Node
                 {
                     Exists = true,
                     IsCorrupted = true,
+                    State = SaveSlotState.Corrupted,
                     SlotIndex = slot,
                     PlayerName = "Corrupted Save",
                     PlayerLevel = 0
@@ -607,6 +614,7 @@ public partial class SaveManager : Node
             {
                 Exists = true,
                 IsCorrupted = true,
+                State = SaveSlotState.Corrupted,
                 SlotIndex = slot,
                 PlayerName = "Corrupted Save",
                 PlayerLevel = 0
@@ -695,12 +703,24 @@ public partial class SaveManager : Node
 }
 
 /// <summary>
+/// Read state of a save slot's metadata.
+/// </summary>
+public enum SaveSlotState
+{
+    Empty,
+    Valid,
+    Corrupted,
+    Incompatible
+}
+
+/// <summary>
 /// Metadata about a save slot for UI display.
 /// </summary>
 public class SaveSlotInfo
 {
     public bool Exists { get; set; }
     public bool IsCorrupted { get; set; }
+    public SaveSlotState State { get; set; } = SaveSlotState.Empty;
     public int SlotIndex { get; set; }
     public string? PlayerName { get; set; }
     public int PlayerLevel { get; set; }

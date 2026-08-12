@@ -1,5 +1,6 @@
 using GdUnit4;
 using Godot;
+using System;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
 
@@ -129,6 +130,86 @@ public partial class SiriusModalShellTest : Node
     }
 
     [TestCase]
+    public async Task RefreshPresentation_TallBodyAtMinimumViewportFitsAndScrolls()
+    {
+        var (viewport, shell) = await CreateViewportShell(new Vector2I(640, 360));
+        try
+        {
+            shell.Compact = true;
+            shell.Title = "Save Game";
+
+            for (var i = 0; i < 12; i++)
+            {
+                shell.BodyHost.AddChild(new Label
+                {
+                    Text = $"Tall body fixture row {i}: representative wrapped modal content",
+                    AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                    CustomMinimumSize = new Vector2(0, 32)
+                });
+            }
+
+            var cancel = new Button
+            {
+                Text = "Cancel",
+                CustomMinimumSize = SiriusUiMetrics.MinimumTarget(true)
+            };
+            shell.ActionsHost.AddChild(cancel);
+
+            shell.RefreshPresentation(viewport.Size);
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+            var panel = shell.GetNode<PanelContainer>("%Panel");
+            var bodyScroll = shell.GetNode<ScrollContainer>("%BodyScroll");
+            var scrollBar = bodyScroll.GetVScrollBar();
+            var rect = panel.GetGlobalRect();
+            var margin = SiriusUiMetrics.SafeMargin(true);
+
+            GD.Print(
+                $"[SiriusModalShellTest] 640x360 panelY={rect.Position.Y:F1} " +
+                $"panelH={rect.Size.Y:F1} page={scrollBar.Page:F1} max={scrollBar.MaxValue:F1}");
+
+            AssertThat(rect.Position.Y).IsGreaterEqual(margin - 0.5f);
+            AssertThat(rect.End.Y).IsLessEqual(360f - margin + 0.5f);
+            AssertThat(scrollBar.MaxValue).IsGreater(scrollBar.Page);
+            AssertThat(cancel.GetGlobalRect().End.Y).IsLessEqual(rect.End.Y + 0.5f);
+        }
+        finally
+        {
+            viewport.Free();
+        }
+    }
+
+    [TestCase]
+    public async Task RefreshPresentation_ShortBodyRemainsContentFitAtMinimumViewport()
+    {
+        var (viewport, shell) = await CreateViewportShell(new Vector2I(640, 360));
+        try
+        {
+            shell.Compact = true;
+            shell.Title = "Confirm";
+            shell.BodyHost.AddChild(new Label { Text = "Short message" });
+            shell.ActionsHost.AddChild(new Button
+            {
+                Text = "Cancel",
+                CustomMinimumSize = SiriusUiMetrics.MinimumTarget(true)
+            });
+
+            shell.RefreshPresentation(viewport.Size);
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+            var panel = shell.GetNode<PanelContainer>("%Panel");
+            AssertThat(panel.Size.Y).IsGreater(0f);
+            AssertThat(panel.Size.Y).IsLess(360f - SiriusUiMetrics.SafeMargin(true) * 2f);
+        }
+        finally
+        {
+            viewport.Free();
+        }
+    }
+
+    [TestCase]
     public void Hosts_AreExposedFromTheAuthoredScene()
     {
         AssertThat(ReferenceEquals(_shell.BodyHost,
@@ -159,5 +240,25 @@ public partial class SiriusModalShellTest : Node
         }
 
         return false;
+    }
+
+    private async Task<(SubViewport viewport, SiriusModalShell shell)> CreateViewportShell(
+        Vector2I size)
+    {
+        var viewport = new SubViewport
+        {
+            Disable3D = true,
+            HandleInputLocally = true,
+            Size = size,
+            GuiEmbedSubwindows = true
+        };
+        _sceneTree.Root.AddChild(viewport);
+
+        var scene = ResourceLoader.Load<PackedScene>(ScenePath)
+            ?? throw new InvalidOperationException("Failed to load SiriusModalShell.tscn.");
+        var shell = scene.Instantiate<SiriusModalShell>();
+        viewport.AddChild(shell);
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+        return (viewport, shell);
     }
 }

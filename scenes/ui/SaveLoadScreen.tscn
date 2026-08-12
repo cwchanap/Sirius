@@ -1,0 +1,72 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/SaveLoadScreenController.cs" id="1_save_load_controller"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusModalShell.tscn" id="2_modal_shell"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusSaveSlotCard.tscn" id="3_slot_card"]
+[ext_resource type="Theme" path="res://resources/ui/theme/SiriusTheme.tres" id="4_sirius_theme"]
+
+[node name="SaveLoadScreenController" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("4_sirius_theme")
+script = ExtResource("1_save_load_controller")
+
+[node name="Background" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_type_variation = &"SiriusScrim"
+
+[node name="ModalShell" parent="." instance=ExtResource("2_modal_shell")]
+unique_name_in_owner = true
+layout_mode = 1
+title = "Save Game"
+size_class = 2
+
+[node name="CardsGrid" type="GridContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 2
+
+[node name="Slot0Card" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/CardsGrid" instance=ExtResource("3_slot_card")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Slot1Card" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/CardsGrid" instance=ExtResource("3_slot_card")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Slot2Card" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/CardsGrid" instance=ExtResource("3_slot_card")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Slot3Card" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/CardsGrid" instance=ExtResource("3_slot_card")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="MainMenuButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/ActionsHost"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Main Menu"
+theme_type_variation = &"SiriusSecondaryButton"
+
+[node name="CancelButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/ActionsHost"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Cancel"
+theme_type_variation = &"SiriusSecondaryButton"

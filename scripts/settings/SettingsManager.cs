@@ -626,7 +626,8 @@ public partial class SettingsManager : Node
 
         // pause_menu mirrors onto ui_cancel, whose effective events are then
         // synchronized to ui_close_dialog for native dialog dismissal. Without
-        // it, every modal in the game becomes unclosable.
+        // it, native dialog controls become unclosable, as does any hosted
+        // modal that also depends on ui_close_dialog.
         if (normalized["pause_menu"] == -1)
         {
             ForceDefaultIfAvailable(normalized, actionOrder, "pause_menu", defaultBindings);

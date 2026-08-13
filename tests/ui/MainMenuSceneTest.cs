@@ -115,7 +115,7 @@ public partial class MainMenuSceneTest : Node
         for (var slot = 0; slot <= 3; slot++)
             manager.DeleteSave(slot);
 
-        AssertThat(manager.SaveGame(0, ValidSaveData())).IsTrue();
+        AssertThat(manager.SaveGame(0, TestHelpers.CreateValidSaveData("SceneTestHero"))).IsTrue();
         try
         {
             var menu = await ResizeAndCreate(new Vector2I(1280, 720));
@@ -323,17 +323,4 @@ public partial class MainMenuSceneTest : Node
 
         throw new MissingFieldException(instance.GetType().Name, fieldName);
     }
-
-    private static SaveData ValidSaveData() => new()
-    {
-        Version = SaveData.CurrentVersion,
-        CurrentFloorIndex = 0,
-        PlayerPosition = new Vector2IDto { X = 1, Y = 1 },
-        SaveTimestamp = DateTime.UtcNow,
-        Character = new CharacterSaveData
-        {
-            Name = "SceneTestHero",
-            Level = 1
-        }
-    };
 }

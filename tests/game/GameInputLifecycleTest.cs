@@ -432,7 +432,7 @@ public partial class GameInputLifecycleTest : Node
     {
         ConfigureCancelBindings(Key.P);
         await ReplaceWithHostedLifecycleFixture();
-        WriteValidSlot(0);
+        TestHelpers.WriteValidSlot(0);
 
         PushPhysicalKey(Key.P);
         await AwaitFrames(2);
@@ -708,38 +708,6 @@ public partial class GameInputLifecycleTest : Node
         }
 
         throw new InvalidOperationException($"Direct child '{typeof(T).Name}' was not found.");
-    }
-
-    private static void WriteValidSlot(int slot)
-    {
-        var manager = SaveManager.Instance;
-        AssertThat(manager).IsNotNull();
-        if (manager == null)
-            return;
-
-        var data = new SaveData
-        {
-            Version = SaveData.CurrentVersion,
-            CurrentFloorIndex = 0,
-            PlayerPosition = new Vector2IDto { X = 6, Y = 50 },
-            Character = new CharacterSaveData
-            {
-                Name = "Aster",
-                Level = 4,
-                MaxHealth = 100,
-                CurrentHealth = 100,
-                Attack = 20,
-                Defense = 10,
-                Speed = 15,
-                ExperienceToNext = 100
-            },
-            SaveTimestamp = DateTime.UtcNow
-        };
-
-        var success = slot == 3
-            ? manager.AutoSave(data)
-            : manager.SaveGame(slot, data);
-        AssertThat(success).IsTrue();
     }
 
     private void ConfigureCancelBindings(Key pauseKey, InputEvent? controllerBinding = null)

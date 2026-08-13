@@ -620,7 +620,7 @@ public partial class GameplayPauseHostTest : Node
     [TestCase]
     public async Task HostedSaveLoad_ManualLoadUsesExistingPendingLoadTransition()
     {
-        WriteValidSlot(0);
+        TestHelpers.WriteValidSlot(0);
         var manager = SaveManager.Instance;
         AssertThat(manager).IsNotNull();
         if (manager == null)
@@ -648,7 +648,7 @@ public partial class GameplayPauseHostTest : Node
     [TestCase]
     public async Task HostedSaveLoad_AutosaveLoadUsesExistingPendingLoadTransition()
     {
-        WriteValidSlot(3);
+        TestHelpers.WriteValidSlot(3);
         var manager = SaveManager.Instance;
         AssertThat(manager).IsNotNull();
         if (manager == null)
@@ -729,7 +729,7 @@ public partial class GameplayPauseHostTest : Node
     [TestCase]
     public async Task HostedSaveLoad_ValidSaveCardHostsConfirmOverwriteChild()
     {
-        WriteValidSlot(0);
+        TestHelpers.WriteValidSlot(0);
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
         var modalLayer = host.GetNode<Control>("ModalLayer");
         AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
@@ -752,7 +752,7 @@ public partial class GameplayPauseHostTest : Node
     [TestCase]
     public async Task HostedOverwrite_CancelClosesOnlyConfirmationAndRestoresSaveLoad()
     {
-        WriteValidSlot(0);
+        TestHelpers.WriteValidSlot(0);
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
         var modalLayer = host.GetNode<Control>("ModalLayer");
         AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
@@ -777,7 +777,7 @@ public partial class GameplayPauseHostTest : Node
     [TestCase]
     public async Task HostedOverwrite_ConfirmInvokesExistingSavePathOnce()
     {
-        WriteValidSlot(0);
+        TestHelpers.WriteValidSlot(0);
         var manager = SaveManager.Instance;
         AssertThat(manager).IsNotNull();
         if (manager == null)
@@ -822,7 +822,7 @@ public partial class GameplayPauseHostTest : Node
     [TestCase]
     public async Task HostedOverwrite_UsesExistingConfirmOverwriteKindAndBlockingPromptGroup()
     {
-        WriteValidSlot(0);
+        TestHelpers.WriteValidSlot(0);
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
         var modalLayer = host.GetNode<Control>("ModalLayer");
         AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
@@ -997,7 +997,7 @@ public partial class GameplayPauseHostTest : Node
     [TestCase]
     public async Task HostedOverwrite_ActiveChildConsumesCancelBeforeSaveLoad()
     {
-        WriteValidSlot(0);
+        TestHelpers.WriteValidSlot(0);
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
         var modalLayer = host.GetNode<Control>("ModalLayer");
 
@@ -1196,38 +1196,6 @@ public partial class GameplayPauseHostTest : Node
         }
 
         throw new InvalidOperationException($"Direct child '{typeof(T).Name}' was not found.");
-    }
-
-    private static void WriteValidSlot(int slot)
-    {
-        var manager = SaveManager.Instance;
-        AssertThat(manager).IsNotNull();
-        if (manager == null)
-            return;
-
-        var data = new SaveData
-        {
-            Version = SaveData.CurrentVersion,
-            CurrentFloorIndex = 0,
-            PlayerPosition = new Vector2IDto { X = 6, Y = 50 },
-            Character = new CharacterSaveData
-            {
-                Name = "Aster",
-                Level = 4,
-                MaxHealth = 100,
-                CurrentHealth = 100,
-                Attack = 20,
-                Defense = 10,
-                Speed = 15,
-                ExperienceToNext = 100
-            },
-            SaveTimestamp = DateTime.UtcNow
-        };
-
-        var success = slot == 3
-            ? manager.AutoSave(data)
-            : manager.SaveGame(slot, data);
-        AssertThat(success).IsTrue();
     }
 
     private static async Task AwaitFrames(int frameCount)

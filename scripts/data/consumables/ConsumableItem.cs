@@ -36,6 +36,13 @@ public partial class ConsumableItem : Item
     public string EffectDescription => _effect?.Description ?? "No effect";
 
     /// <summary>
+    /// Non-throwing accessor: true when this item's effect can only be used in
+    /// battle. Returns false when no effect is configured (matches the
+    /// <see cref="Apply"/> no-op behavior for unconfigured items).
+    /// </summary>
+    public bool RequiresBattle => _effect?.RequiresBattle == true;
+
+    /// <summary>
     /// Applies this item's effect to the target character.
     /// Returns true if the effect was applied successfully.
     /// Does NOT remove the item from inventory — callers are responsible for that.

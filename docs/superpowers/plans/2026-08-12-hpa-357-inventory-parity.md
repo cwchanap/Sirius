@@ -2,32 +2,35 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the fixed Sirius Inventory workbench with one responsive, host-managed character/equipment/items/skills screen while preserving current inventory behavior and HPA-374 art presentation.
+**Goal:** Replace the fixed Sirius Inventory workbench with one responsive, host-managed character/equipment/items/skills screen while preserving current domain behavior and the tested HPA-374 art contract.
 
-**Architecture:** Keep `InventoryMenuController` as the one feature controller and `Game` / `UIScreenHost` as lifecycle owners. Add one presentational `SiriusItemSlot` leaf shared by equipment, the four real accessory slots, and dynamic inventory entries. Perform the Inventory scene rewrite, old-test migration, and dynamic catalogue conversion atomically so no intermediate commit depends on obsolete 24-slot or `TextureButton` structure.
+**Architecture:** Keep `InventoryMenuController` as the one feature controller and `Game` / `UIScreenHost` as lifecycle owners. Add one `SiriusItemSlot` UI leaf, one tiny shared player-summary presenter now that HUD and Inventory are two concrete consumers, and TextureRect glyph/item helpers on the existing `UiIconPresenter`. Perform the Inventory scene rewrite, old-test migration, dynamic catalogue conversion, accessory-index routing, and legacy TextureButton presenter deletion atomically.
 
 **Tech Stack:** Godot 4.6, C#/.NET 8, GdUnit4, existing Sirius Theme/UI components.
 
 ## Global Constraints
 
-- Preserve equip, unequip, capacity rollback, consumable rollback, quantity, and explicit no-active-skill behavior.
-- Preserve ordinal `DisplayName` ordering.
+- Preserve current primary equip, unequip, capacity rollback, consumable rollback, quantity, and explicit no-active-skill behavior.
+- Make the four existing `EquipmentSet.AccessorySlotCount` indices reachable using the existing indexed `Character.TryEquip` overload; do not add an unlock/progression system.
+- Accessory equip chooses the first empty index and falls back to index 0 only when all four are occupied.
+- Preserve ordinal `DisplayName` inventory ordering.
 - Minimum supported resolution: 640×360.
 - Compact rule: `SiriusUiMetrics.IsCompact` (`width < 800 || height < 450`).
 - Safe margins: 24 px standard / 12 px compact; maximum content width: 1600 px.
 - Slot size: 56×56 standard / 48×48 compact.
 - Minimum target: 44×44 standard / 40×40 compact.
 - Essential compact text remains at least 14 px.
-- Reuse `SiriusTheme.tres`, UI art, hero crop `Rect2(0, 0, 96, 96)`, `SiriusStatBar`, `InputHintPresenter`, and gameplay `UIScreenHost`.
-- Inventory HUD policy becomes `UIHudPolicy.Hidden`; no other `Game.TryOpenInventory` policy changes.
+- Reuse `SiriusTheme.tres`, current art, hero crop `Rect2(0, 0, 96, 96)`, `SiriusStatBar`, `InputHintPresenter`, and gameplay `UIScreenHost`.
+- Inventory host policy changes only from `UIHudPolicy.Inherit` to `UIHudPolicy.Hidden`.
 - `InventoryMenuController` never owns `SceneTree.Paused`, terminal Cancel, or terminal `toggle_inventory`.
-- Author exactly `EquipmentSet.AccessorySlotCount` accessory slots (currently four); remove fake slot 4/5 presentation.
-- Preserve generated 32 px glyphs at native size and populated item art with aspect-preserving scaling.
-- Identity fallbacks match the HUD: blank name → `Adventurer`; hide MP when `MaxMana <= 0`; hide EXP when `ExperienceToNext <= 0`.
+- Generated slot glyphs remain 32 px native/centered; item art remains aspect-preserving scaled.
+- Shared player-summary rules remain: blank name → `Adventurer`; hide MP when `MaxMana <= 0`; hide EXP when `ExperienceToNext <= 0`; clamp visible EXP.
 - Gold copy remains exactly `Gold: {value}`.
-- Focus restoration uses screen-local semantic identity (equipment slot type / accessory index / inventory item ID), never a dynamic `Control` as identity.
-- No persistent selection, comparison, filters, user sorting, Drop, Sell, Favourite, Lock, bulk actions, new InputMap actions, inventory persistence changes, battle-item redesign, view model, presenter, collection renderer, navigation service, facade, or compatibility layer.
-- Do not modify `Character`, `Inventory`, `EquipmentSet`, save-format, or skill-domain code. A need to do so requires design review before continuing.
+- Focus restoration uses equipment slot type / accessory index / item ID, never a dynamic `Control` as semantic identity.
+- Focus summary is plain text, passive, and ephemeral.
+- Start with Godot spatial focus navigation. Add explicit `FocusNeighbor*` only when an actual input test fails at a named boundary.
+- No persistent selection, comparison, filters, user sorting, Drop, Sell, Favourite, Lock action, bulk actions, accessory unlock rules, new InputMap page actions, inventory persistence changes, battle-item redesign, view model, presenter layer, collection renderer, navigation service, facade, or compatibility layer.
+- Do not modify `Character`, `Inventory`, `EquipmentSet`, save-format, or skill-domain production code.
 
 ---
 
@@ -37,15 +40,20 @@
 
 - `scripts/ui/components/SiriusItemSlotController.cs`
 - `scenes/ui/components/SiriusItemSlot.tscn`
+- `scripts/ui/SiriusPlayerSummaryPresenter.cs`
 - `tests/ui/components/SiriusItemSlotControllerTest.cs`
 - `tests/ui/InventoryMenuSceneTest.cs`
 
 ### Modify
 
+- `scripts/ui/art/UiIconPresenter.cs`
 - `resources/ui/theme/SiriusTheme.tres`
 - `scripts/ui/theme/SiriusThemeTypes.cs`
 - `scripts/ui/theme/SiriusUiMetrics.cs`
 - `tests/ui/theme/SiriusUiMetricsTest.cs`
+- `tests/ui/theme/SiriusUiContractsTest.cs`
+- `scripts/ui/ExplorationHudController.cs`
+- `tests/ui/ExplorationHudControllerTest.cs`
 - `scenes/ui/InventoryMenu.tscn`
 - `scripts/ui/InventoryMenuController.cs`
 - `tests/ui/InventoryMenuControllerTest.cs`
@@ -60,16 +68,21 @@
 
 ---
 
-### Task 1: Add the reusable Sirius item-slot leaf
+## Task 1: Add the reusable slot and shared presentation seams
 
 **Files:**
 - Create: `scripts/ui/components/SiriusItemSlotController.cs`
 - Create: `scenes/ui/components/SiriusItemSlot.tscn`
+- Create: `scripts/ui/SiriusPlayerSummaryPresenter.cs`
 - Create: `tests/ui/components/SiriusItemSlotControllerTest.cs`
+- Modify: `scripts/ui/art/UiIconPresenter.cs`
 - Modify: `resources/ui/theme/SiriusTheme.tres`
 - Modify: `scripts/ui/theme/SiriusThemeTypes.cs`
 - Modify: `scripts/ui/theme/SiriusUiMetrics.cs`
 - Modify: `tests/ui/theme/SiriusUiMetricsTest.cs`
+- Modify: `tests/ui/theme/SiriusUiContractsTest.cs`
+- Modify: `scripts/ui/ExplorationHudController.cs`
+- Modify: `tests/ui/ExplorationHudControllerTest.cs`
 
 **Produces:**
 
@@ -79,14 +92,14 @@ public enum SiriusItemSlotVisualState
     Empty,
     Available,
     Equipped,
-    Locked,
     Unsupported
 }
 
 public partial class SiriusItemSlotController : Button
 {
     [Signal] public delegate void ActivatedEventHandler();
-    public bool Actionable { get; private set; }
+
+    public bool Actionable { get; }
 
     public void SetCompact(bool compact);
 
@@ -95,24 +108,35 @@ public partial class SiriusItemSlotController : Button
         string quantityText,
         string stateText,
         string tooltipText,
-        SiriusItemSlotVisualState state,
-        bool actionable);
+        SiriusItemSlotVisualState state);
 
     public void PresentItem(
         Texture2D? texture,
         string quantityText,
         string stateText,
         string tooltipText,
-        SiriusItemSlotVisualState state,
-        bool actionable);
+        SiriusItemSlotVisualState state);
+}
+
+public static class SiriusPlayerSummaryPresenter
+{
+    public static void Apply(
+        ExplorationHudPlayerState state,
+        Label nameLabel,
+        Label levelLabel,
+        SiriusStatBar healthBar,
+        SiriusStatBar manaBar,
+        ProgressBar experienceBar);
 }
 ```
 
-The Button root owns input/focus. `%Icon`, `%QuantityLabel`, `%StateLabel` are passive children. The component never references `Item`, `Character`, `Inventory`, `EquipmentSet`, or `GameManager`.
+`SiriusItemSlotController` has no domain dependency. `SiriusPlayerSummaryPresenter` applies presentation only; it does not read `GameManager` or mutate `Character`.
 
-- [ ] **Step 1: Write the slot metric test**
+### Task 1A — freeze closed contracts first
 
-Add to `SiriusUiMetricsTest.cs`:
+- [ ] **Step 1: Add slot metric and closed-contract tests**
+
+Add to `tests/ui/theme/SiriusUiMetricsTest.cs`:
 
 ```csharp
 [TestCase]
@@ -123,25 +147,47 @@ public void ItemSlotSize_UsesApprovedGeometry()
 }
 ```
 
-- [ ] **Step 2: Run RED**
+Add to `tests/ui/theme/SiriusUiContractsTest.cs`:
+
+```csharp
+[TestCase]
+public void ItemSlotVisualState_ContainsOnlyApprovedValues()
+{
+    AssertThat(string.Join(",", Enum.GetNames<SiriusItemSlotVisualState>()))
+        .IsEqual("Empty,Available,Equipped,Unsupported");
+}
+
+[TestCase]
+public void ItemSlotThemeTypes_ExposeExactStableNames()
+{
+    AssertThat(SiriusThemeTypes.ItemSlotButton.ToString())
+        .IsEqual("SiriusItemSlotButton");
+    AssertThat(SiriusThemeTypes.ItemSlotEquippedButton.ToString())
+        .IsEqual("SiriusItemSlotEquippedButton");
+    AssertThat(SiriusThemeTypes.ItemSlotUnavailableButton.ToString())
+        .IsEqual("SiriusItemSlotUnavailableButton");
+}
+```
+
+- [ ] **Step 2: Run contract RED**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
-  --filter "FullyQualifiedName~SiriusUiMetricsTest.ItemSlotSize_UsesApprovedGeometry"
+  --filter "FullyQualifiedName~SiriusUiMetricsTest.ItemSlotSize_UsesApprovedGeometry|FullyQualifiedName~SiriusUiContractsTest.ItemSlot"
 ```
 
-Expected: compile failure because `ItemSlotSize` does not exist.
+Expected: compile/test failure because the new enum/metric/Theme names do not exist.
 
-- [ ] **Step 3: Add exactly one shared metric**
+- [ ] **Step 3: Add exactly one shared slot metric and three Theme names**
+
+Add to `SiriusUiMetrics.cs`:
 
 ```csharp
 public static Vector2 ItemSlotSize(bool compact) =>
     compact ? new Vector2(48, 48) : new Vector2(56, 56);
 ```
 
-Do not add Inventory-specific grid/page/orbit metrics.
-
-- [ ] **Step 4: Add exactly three Theme variation names**
+Add to `SiriusThemeTypes.cs`:
 
 ```csharp
 public static readonly StringName ItemSlotButton = "SiriusItemSlotButton";
@@ -149,7 +195,7 @@ public static readonly StringName ItemSlotEquippedButton = "SiriusItemSlotEquipp
 public static readonly StringName ItemSlotUnavailableButton = "SiriusItemSlotUnavailableButton";
 ```
 
-In `SiriusTheme.tres`, use existing palette resources for:
+In `SiriusTheme.tres`, add exactly these three Button variations using existing palette values:
 
 ```text
 SiriusItemSlotButton
@@ -159,22 +205,55 @@ SiriusItemSlotEquippedButton
   same geometry; gold equipped border; cyan focus remains independent
 
 SiriusItemSlotUnavailableButton
-  same geometry; muted ~45% emphasis; still focusable; native disabled=false
+  same geometry; muted ~45% treatment; root still focusable / native disabled=false
 ```
 
-- [ ] **Step 5: Write component tests for glyph art, item art, activation, and clearing**
+Do not add new palette tokens.
+
+### Task 1B — move glyph/item distinction onto TextureRect
+
+- [ ] **Step 4: Add the two narrow TextureRect presenter APIs**
+
+Add to `scripts/ui/art/UiIconPresenter.cs` without deleting the current TextureButton APIs yet:
+
+```csharp
+public static bool ApplyGlyph(TextureRect target, UiIconId id, UiIconSize size)
+{
+    var texture = UiArtCatalog.LoadIcon(id, size);
+    target.Texture = texture;
+    target.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
+    target.StretchMode = TextureRect.StretchModeEnum.KeepCentered;
+    return texture != null;
+}
+
+public static void ApplyItem(TextureRect target, Texture2D? texture)
+{
+    target.Texture = texture;
+    target.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
+    target.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
+}
+```
+
+Keep `Apply(TextureButton, ...)`, `ApplyTexture(TextureButton, ...)`, `ApplyGlyphTexture(TextureButton, ...)`, and `SetSlotTextures(...)` temporarily because the production Inventory controller still uses them until Task 2.
+
+### Task 1C — add component tests and implementation
+
+- [ ] **Step 5: Write slot component tests**
+
+Create `tests/ui/components/SiriusItemSlotControllerTest.cs` with a runtime fixture for `res://scenes/ui/components/SiriusItemSlot.tscn` and these cases:
 
 ```csharp
 [TestCase]
-public void PresentGlyph_KeepsGeneratedFeatureIconNativeAndCentered()
+public void PresentGlyph_UsesNativeCenteredFeatureGlyph()
 {
     _slot!.PresentGlyph(
         UiIconId.Weapon, "", "", "Weapon\nEmpty",
-        SiriusItemSlotVisualState.Empty, false);
+        SiriusItemSlotVisualState.Empty);
 
     var icon = _slot.GetNode<TextureRect>("%Icon");
     AssertThat(icon.Texture!.GetSize()).IsEqual(new Vector2(32, 32));
     AssertThat(icon.StretchMode).IsEqual(TextureRect.StretchModeEnum.KeepCentered);
+    AssertThat(_slot.Actionable).IsFalse();
     AssertThat(_slot.Icon).IsNull();
 }
 
@@ -184,30 +263,32 @@ public void PresentItem_UsesAspectCenteredItemArt()
     var sword = EquipmentCatalog.CreateWoodenSword();
     _slot!.PresentItem(
         sword.LoadAssetOrDefault<Texture2D>(), "", "", sword.DisplayName,
-        SiriusItemSlotVisualState.Equipped, true);
+        SiriusItemSlotVisualState.Equipped);
 
     var icon = _slot.GetNode<TextureRect>("%Icon");
     AssertThat(icon.Texture!.ResourcePath).IsEqual(sword.AssetPath);
     AssertThat(icon.StretchMode).IsEqual(TextureRect.StretchModeEnum.KeepAspectCentered);
-    AssertThat(_slot.Icon).IsNull();
+    AssertThat(_slot.Actionable).IsTrue();
 }
 
 [TestCase]
-public void Available_EmitsOneActivation()
+public void Actionable_IsDerivedOnlyFromVisualState()
 {
-    var activations = 0;
-    void OnActivated() => activations++;
-    _slot!.Activated += OnActivated;
+    _slot!.PresentGlyph(UiIconId.Weapon, "", "", "Empty", SiriusItemSlotVisualState.Empty);
+    AssertThat(_slot.Actionable).IsFalse();
 
-    _slot.PresentItem(null, "×2", "", "Potion x2", SiriusItemSlotVisualState.Available, true);
-    _slot.EmitSignal(Button.SignalName.Pressed);
+    _slot.PresentGlyph(UiIconId.General, "", "", "Available", SiriusItemSlotVisualState.Available);
+    AssertThat(_slot.Actionable).IsTrue();
 
-    AssertThat(activations).IsEqual(1);
-    _slot.Activated -= OnActivated;
+    _slot.PresentItem(null, "", "", "Equipped", SiriusItemSlotVisualState.Equipped);
+    AssertThat(_slot.Actionable).IsTrue();
+
+    _slot.PresentGlyph(UiIconId.General, "", "UNAVAILABLE", "Unsupported", SiriusItemSlotVisualState.Unsupported);
+    AssertThat(_slot.Actionable).IsFalse();
 }
 
 [TestCase]
-public void UnavailableStates_RemainFocusableAndDoNotActivate()
+public void EmptyAndUnsupported_RemainFocusableButDoNotActivate()
 {
     var activations = 0;
     void OnActivated() => activations++;
@@ -216,11 +297,10 @@ public void UnavailableStates_RemainFocusableAndDoNotActivate()
     foreach (var state in new[]
              {
                  SiriusItemSlotVisualState.Empty,
-                 SiriusItemSlotVisualState.Locked,
                  SiriusItemSlotVisualState.Unsupported
              })
     {
-        _slot.PresentGlyph(UiIconId.Locked, "", "UNAVAILABLE", "Reason", state, false);
+        _slot.PresentGlyph(UiIconId.General, "", "UNAVAILABLE", "Reason", state);
         _slot.GrabFocus();
         _slot.EmitSignal(Button.SignalName.Pressed);
 
@@ -235,12 +315,25 @@ public void UnavailableStates_RemainFocusableAndDoNotActivate()
 [TestCase]
 public void Present_ClearsStaleLabels()
 {
-    _slot!.PresentGlyph(UiIconId.Locked, "×9", "LOCKED", "Locked", SiriusItemSlotVisualState.Locked, false);
-    _slot.PresentGlyph(UiIconId.Weapon, "", "", "Empty", SiriusItemSlotVisualState.Empty, false);
+    _slot!.PresentGlyph(
+        UiIconId.General, "×9", "UNAVAILABLE", "Unsupported",
+        SiriusItemSlotVisualState.Unsupported);
+    _slot.PresentGlyph(
+        UiIconId.Weapon, "", "", "Empty",
+        SiriusItemSlotVisualState.Empty);
 
     AssertThat(_slot.GetNode<Label>("%QuantityLabel").Visible).IsFalse();
     AssertThat(_slot.GetNode<Label>("%StateLabel").Visible).IsFalse();
     AssertThat(_slot.TooltipText).IsEqual("Empty");
+}
+
+[TestCase]
+public void SetCompact_UsesSharedMetric()
+{
+    _slot!.SetCompact(false);
+    AssertThat(_slot.CustomMinimumSize).IsEqual(new Vector2(56, 56));
+    _slot.SetCompact(true);
+    AssertThat(_slot.CustomMinimumSize).IsEqual(new Vector2(48, 48));
 }
 ```
 
@@ -248,12 +341,12 @@ public void Present_ClearsStaleLabels()
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
-  --filter "FullyQualifiedName~SiriusItemSlotControllerTest|FullyQualifiedName~SiriusUiMetricsTest"
+  --filter "FullyQualifiedName~SiriusItemSlotControllerTest|FullyQualifiedName~SiriusUiMetricsTest|FullyQualifiedName~SiriusUiContractsTest"
 ```
 
-Expected: missing component/Theme contract failures.
+Expected: missing component/enum/scene failures.
 
-- [ ] **Step 7: Implement the component**
+- [ ] **Step 7: Implement `SiriusItemSlotController`**
 
 ```csharp
 using Godot;
@@ -263,7 +356,6 @@ public enum SiriusItemSlotVisualState
     Empty,
     Available,
     Equipped,
-    Locked,
     Unsupported
 }
 
@@ -271,11 +363,14 @@ public partial class SiriusItemSlotController : Button
 {
     [Signal] public delegate void ActivatedEventHandler();
 
+    private SiriusItemSlotVisualState _state;
     private TextureRect _icon = null!;
     private Label _quantityLabel = null!;
     private Label _stateLabel = null!;
 
-    public bool Actionable { get; private set; }
+    public bool Actionable =>
+        _state is SiriusItemSlotVisualState.Available
+            or SiriusItemSlotVisualState.Equipped;
 
     public override void _Ready()
     {
@@ -294,12 +389,10 @@ public partial class SiriusItemSlotController : Button
         string quantityText,
         string stateText,
         string tooltipText,
-        SiriusItemSlotVisualState state,
-        bool actionable)
+        SiriusItemSlotVisualState state)
     {
-        UiIconPresenter.Apply(_icon, iconId, UiIconSize.Feature);
-        _icon.StretchMode = TextureRect.StretchModeEnum.KeepCentered;
-        PresentCore(quantityText, stateText, tooltipText, state, actionable);
+        UiIconPresenter.ApplyGlyph(_icon, iconId, UiIconSize.Feature);
+        PresentCore(quantityText, stateText, tooltipText, state);
     }
 
     public void PresentItem(
@@ -307,23 +400,19 @@ public partial class SiriusItemSlotController : Button
         string quantityText,
         string stateText,
         string tooltipText,
-        SiriusItemSlotVisualState state,
-        bool actionable)
+        SiriusItemSlotVisualState state)
     {
-        _icon.Texture = texture;
-        _icon.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
-        _icon.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
-        PresentCore(quantityText, stateText, tooltipText, state, actionable);
+        UiIconPresenter.ApplyItem(_icon, texture);
+        PresentCore(quantityText, stateText, tooltipText, state);
     }
 
     private void PresentCore(
         string quantityText,
         string stateText,
         string tooltipText,
-        SiriusItemSlotVisualState state,
-        bool actionable)
+        SiriusItemSlotVisualState state)
     {
-        Actionable = actionable;
+        _state = state;
         TooltipText = tooltipText ?? string.Empty;
         _quantityLabel.Text = quantityText ?? string.Empty;
         _quantityLabel.Visible = !string.IsNullOrWhiteSpace(_quantityLabel.Text);
@@ -332,9 +421,8 @@ public partial class SiriusItemSlotController : Button
         ThemeTypeVariation = state switch
         {
             SiriusItemSlotVisualState.Equipped => SiriusThemeTypes.ItemSlotEquippedButton,
-            SiriusItemSlotVisualState.Empty or
-            SiriusItemSlotVisualState.Locked or
-            SiriusItemSlotVisualState.Unsupported => SiriusThemeTypes.ItemSlotUnavailableButton,
+            SiriusItemSlotVisualState.Empty or SiriusItemSlotVisualState.Unsupported
+                => SiriusThemeTypes.ItemSlotUnavailableButton,
             _ => SiriusThemeTypes.ItemSlotButton
         };
     }
@@ -351,7 +439,7 @@ public partial class SiriusItemSlotController : Button
 
 ```text
 SiriusItemSlot (Button + SiriusItemSlotController)
-├── Icon (TextureRect, unique=%Icon, full inner rect, mouse_filter=Ignore)
+├── Icon (TextureRect, unique=%Icon, mouse_filter=Ignore)
 ├── QuantityLabel (Label, unique=%QuantityLabel, bottom-right, mouse_filter=Ignore)
 └── StateLabel (Label, unique=%StateLabel, bottom, mouse_filter=Ignore)
 
@@ -360,38 +448,110 @@ root:
   focus_mode = All
   theme_type_variation = SiriusItemSlotButton
 
-Icon default:
+Icon:
   expand_mode = IgnoreSize
   stretch_mode = KeepAspectCentered
 ```
 
-No domain-specific copy belongs in this scene.
+No domain-specific copy belongs in the reusable scene.
 
-- [ ] **Step 9: Run Task 1 GREEN**
+### Task 1D — share HUD/Inventory fallback policy
+
+- [ ] **Step 9: Add the static player-summary presenter**
+
+Create `scripts/ui/SiriusPlayerSummaryPresenter.cs`:
+
+```csharp
+using Godot;
+using System;
+
+public static class SiriusPlayerSummaryPresenter
+{
+    public static void Apply(
+        ExplorationHudPlayerState state,
+        Label nameLabel,
+        Label levelLabel,
+        SiriusStatBar healthBar,
+        SiriusStatBar manaBar,
+        ProgressBar experienceBar)
+    {
+        nameLabel.Text = string.IsNullOrWhiteSpace(state.Name)
+            ? "Adventurer"
+            : state.Name;
+        levelLabel.Text = $"Lv {state.Level}";
+
+        healthBar.Current = state.CurrentHealth;
+        healthBar.Maximum = state.MaxHealth;
+
+        manaBar.Visible = state.MaxMana > 0;
+        if (manaBar.Visible)
+        {
+            manaBar.Current = state.CurrentMana;
+            manaBar.Maximum = state.MaxMana;
+        }
+
+        experienceBar.Visible = state.ExperienceToNext > 0;
+        if (experienceBar.Visible)
+        {
+            experienceBar.MaxValue = state.ExperienceToNext;
+            experienceBar.Value = Math.Clamp(
+                state.Experience,
+                0,
+                state.ExperienceToNext);
+        }
+    }
+}
+```
+
+- [ ] **Step 10: Move Exploration HUD common binding onto the presenter**
+
+Replace the duplicated name/level/HP/MP/EXP body of `ExplorationHudController.ApplyPlayerState` with:
+
+```csharp
+SiriusPlayerSummaryPresenter.Apply(
+    state,
+    _playerName,
+    _playerLevel,
+    _healthBar,
+    _manaBar,
+    _experienceBar);
+
+_portrait.Visible = _portrait.Texture != null;
+```
+
+Do not change the `ExplorationHudPlayerState` shape or Game's current state construction in this task.
+
+- [ ] **Step 11: Run HUD fallback regressions plus Task 1 suite GREEN**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
-  --filter "FullyQualifiedName~SiriusItemSlotControllerTest|FullyQualifiedName~SiriusUiMetricsTest|FullyQualifiedName~SiriusUiContractsTest"
+  --filter "FullyQualifiedName~ExplorationHudControllerTest|FullyQualifiedName~SiriusItemSlotControllerTest|FullyQualifiedName~SiriusUiMetricsTest|FullyQualifiedName~SiriusUiContractsTest"
 ```
 
-Expected: zero failures.
+Expected: zero failures. Existing HUD tests remain the regression gate for Adventurer, MP visibility, EXP visibility/clamp, and portrait behavior.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 12: Commit Task 1**
 
 ```bash
-git add scripts/ui/components/SiriusItemSlotController.cs \
+git add \
+  scripts/ui/components/SiriusItemSlotController.cs \
   scenes/ui/components/SiriusItemSlot.tscn \
+  scripts/ui/SiriusPlayerSummaryPresenter.cs \
   tests/ui/components/SiriusItemSlotControllerTest.cs \
+  scripts/ui/art/UiIconPresenter.cs \
   resources/ui/theme/SiriusTheme.tres \
   scripts/ui/theme/SiriusThemeTypes.cs \
   scripts/ui/theme/SiriusUiMetrics.cs \
-  tests/ui/theme/SiriusUiMetricsTest.cs
-git commit -m "feat(ui): add Sirius item slot component"
+  tests/ui/theme/SiriusUiMetricsTest.cs \
+  tests/ui/theme/SiriusUiContractsTest.cs \
+  scripts/ui/ExplorationHudController.cs \
+  tests/ui/ExplorationHudControllerTest.cs
+git commit -m "feat(ui): add shared Inventory presentation seams"
 ```
 
 ---
 
-### Task 2: Atomically cut Inventory over to the responsive scene and dynamic catalogue
+## Task 2: Atomically cut Inventory over to the responsive dynamic screen
 
 **Files:**
 - Modify: `scenes/ui/InventoryMenu.tscn`
@@ -399,6 +559,7 @@ git commit -m "feat(ui): add Sirius item slot component"
 - Create: `tests/ui/InventoryMenuSceneTest.cs`
 - Modify: `tests/ui/InventoryMenuControllerTest.cs`
 - Modify: `tests/ui/art/Hpa374RuntimeSmokeTest.cs`
+- Modify: `scripts/ui/art/UiIconPresenter.cs` — delete legacy TextureButton slot APIs after production cutover.
 
 **Stable unique-name contract:**
 
@@ -446,32 +607,109 @@ git commit -m "feat(ui): add Sirius item slot component"
 %AccessorySlot3
 ```
 
-`%FocusSummary` is a `RichTextLabel`. `%InventoryGrid` is empty in the authored scene. `%AccessorySlot4` and `%AccessorySlot5` do not exist.
+`%FocusSummary` is a plain `Label` using `AutowrapMode.WordSmart` inside a bounded layout region.
 
-**Feature-local types:**
+### Task 2A — build a complete scene-test fixture before assertions
+
+- [ ] **Step 1: Create the complete `InventoryMenuSceneTest` fixture**
+
+Create `tests/ui/InventoryMenuSceneTest.cs` with these fields/helpers before adding test cases:
 
 ```csharp
-private enum InventoryPage
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using GdUnit4;
+using Godot;
+using static GdUnit4.Assertions;
+
+[TestSuite]
+[RequireGodotRuntime]
+public partial class InventoryMenuSceneTest : Node
 {
-    Equipment,
-    Items,
-    Skills
+    private SceneTree _sceneTree = null!;
+    private GameManager _gameManager = null!;
+    private SubViewportContainer _viewportContainer = null!;
+    private SubViewport _viewport = null!;
+    private InventoryMenuController _menu = null!;
+
+    [BeforeTest]
+    public async Task SetUp()
+    {
+        TestHelpers.ResetGameManagerSingleton();
+        _sceneTree = (SceneTree)Engine.GetMainLoop();
+        _sceneTree.Paused = false;
+
+        _gameManager = new GameManager { AutoSaveEnabled = false };
+        _sceneTree.Root.AddChild(_gameManager);
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        _viewportContainer = new SubViewportContainer
+        {
+            Size = new Vector2(1280, 720),
+            Stretch = true
+        };
+        _viewport = new SubViewport
+        {
+            Disable3D = true,
+            HandleInputLocally = true,
+            Size = new Vector2I(1280, 720),
+            GuiEmbedSubwindows = true
+        };
+        _viewportContainer.AddChild(_viewport);
+        _sceneTree.Root.AddChild(_viewportContainer);
+
+        var packed = GD.Load<PackedScene>("res://scenes/ui/InventoryMenu.tscn")
+            ?? throw new InvalidOperationException("Failed to load InventoryMenu.tscn.");
+        _menu = packed.Instantiate<InventoryMenuController>();
+        _viewport.AddChild(_menu);
+        await AwaitFrames(2);
+    }
+
+    [AfterTest]
+    public async Task TearDown()
+    {
+        _sceneTree.Paused = false;
+        if (GodotObject.IsInstanceValid(_menu)) _menu.Free();
+        if (GodotObject.IsInstanceValid(_viewportContainer)) _viewportContainer.Free();
+        if (GodotObject.IsInstanceValid(_gameManager)) _gameManager.Free();
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+        TestHelpers.ResetGameManagerSingleton();
+    }
+
+    private async Task AwaitFrames(int count)
+    {
+        for (var i = 0; i < count; i++)
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+    }
+
+    private async Task Resize(Vector2I size)
+    {
+        _viewport.Size = size;
+        _viewportContainer.Size = new Vector2(size.X, size.Y);
+        await AwaitFrames(2);
+    }
+
+    private int VisiblePageCount() =>
+        new[] { "%EquipmentPage", "%ItemsPage", "%SkillsPage" }
+            .Count(path => _menu.GetNode<Control>(path).Visible);
+
+    private void PushAction(StringName action)
+    {
+        _viewport.PushInput(new InputEventAction
+        {
+            Action = action,
+            Pressed = true
+        });
+    }
 }
-
-private readonly record struct InventoryFocusKey(
-    EquipmentSlotType? EquipmentSlot,
-    int? AccessoryIndex,
-    string? ItemId);
-
-private readonly record struct PendingFocusRestore(
-    InventoryFocusKey? Key,
-    int InventoryIndex,
-    InventoryFocusKey? MutationFallback);
 ```
 
-- [ ] **Step 1: Write scene, fallback, and four-accessory tests**
+This fixture owns `AwaitFrames`, `Resize`, and `VisiblePageCount`; later steps do not assume hidden helper code.
 
-Create `InventoryMenuSceneTest.cs` with a `SubViewport` fixture.
+### Task 2B — write the scene/parity tests against the target shape
+
+- [ ] **Step 2: Write responsive scene tests**
 
 ```csharp
 [TestCase]
@@ -479,22 +717,22 @@ public async Task FitsEveryVerificationViewport()
 {
     foreach (var size in SiriusUiMetrics.VerificationViewports)
     {
-        _viewport!.Size = size;
-        _menu!.OpenMenu();
+        await Resize(size);
+        _menu.OpenMenu();
         await AwaitFrames(2);
 
-        var safeFrame = _menu.GetNode<Control>("%SafeFrame");
-        AssertThat(new Rect2(Vector2.Zero, size).Encloses(safeFrame.GetGlobalRect())).IsTrue();
-        AssertThat(safeFrame.Size.X).IsGreater(0f);
-        AssertThat(safeFrame.Size.Y).IsGreater(0f);
+        var safe = _menu.GetNode<Control>("%SafeFrame");
+        AssertThat(new Rect2(Vector2.Zero, size).Encloses(safe.GetGlobalRect())).IsTrue();
+        AssertThat(safe.Size.X).IsGreater(0f);
+        AssertThat(safe.Size.Y).IsGreater(0f);
     }
 }
 
 [TestCase]
-public async Task Standard_ShowsAllContentAreasAndStableHeadings()
+public async Task Standard_ShowsAllThreeContentAreasTogether()
 {
-    _viewport!.Size = new Vector2I(1280, 720);
-    _menu!.OpenMenu();
+    await Resize(new Vector2I(1280, 720));
+    _menu.OpenMenu();
     await AwaitFrames(2);
 
     AssertThat(_menu.GetNode<Control>("%CompactTabs").Visible).IsFalse();
@@ -503,12 +741,29 @@ public async Task Standard_ShowsAllContentAreasAndStableHeadings()
     AssertThat(_menu.GetNode<Control>("%ItemsPage").Visible).IsTrue();
     AssertThat(_menu.GetNode<Label>("%EquipmentTitleLabel").Text).IsEqual("Equipment");
     AssertThat(_menu.GetNode<Label>("%InventoryTitleLabel").Text).IsEqual("Items");
+    AssertThat(_menu.GetNode<SiriusItemSlotController>("%WeaponSlot").CustomMinimumSize)
+        .IsEqual(new Vector2(56, 56));
+}
+
+[TestCase]
+public async Task Compact_ShowsOnePageAndApprovedSlotSize()
+{
+    await Resize(new Vector2I(640, 360));
+    _menu.OpenMenu();
+    await AwaitFrames(2);
+
+    AssertThat(_menu.GetNode<Control>("%CompactTabs").Visible).IsTrue();
+    AssertThat(VisiblePageCount()).IsEqual(1);
+    AssertThat(_menu.GetNode<Control>("%IdentityStrip").Visible).IsTrue();
+    AssertThat(_menu.GetNode<Button>("%CloseButton").Visible).IsTrue();
+    AssertThat(_menu.GetNode<SiriusItemSlotController>("%WeaponSlot").CustomMinimumSize)
+        .IsEqual(new Vector2(48, 48));
 }
 
 [TestCase]
 public void AuthorsExactlyDomainAccessorySlotCount()
 {
-    var slots = _menu!.GetNode<Container>("%AccessorySlots")
+    var slots = _menu.GetNode<Container>("%AccessorySlots")
         .GetChildren().OfType<SiriusItemSlotController>().ToArray();
 
     AssertThat(slots.Length).IsEqual(EquipmentSet.AccessorySlotCount);
@@ -517,11 +772,100 @@ public void AuthorsExactlyDomainAccessorySlotCount()
 }
 ```
 
-Add to `InventoryMenuControllerTest.cs`:
+- [ ] **Step 3: Write behavioral compact focus tests — do not inspect `FocusNeighbor*`**
 
 ```csharp
 [TestCase]
-public void OpenMenu_UsesHudCompatibleFallbacksAndExactGoldCopy()
+public async Task Compact_EquipmentTabDownAndFirstControlUpUseSpatialNavigation()
+{
+    await Resize(new Vector2I(640, 360));
+    _menu.OpenMenu();
+    await AwaitFrames(2);
+
+    var tab = _menu.GetNode<Button>("%EquipmentTab");
+    var weapon = _menu.GetNode<SiriusItemSlotController>("%WeaponSlot");
+
+    tab.GrabFocus();
+    PushAction("ui_down");
+    await AwaitFrames(2);
+    AssertThat(weapon.HasFocus()).IsTrue();
+
+    PushAction("ui_up");
+    await AwaitFrames(2);
+    AssertThat(tab.HasFocus()).IsTrue();
+}
+
+[TestCase]
+public async Task Compact_LastEquipmentControlDownReachesClose()
+{
+    await Resize(new Vector2I(640, 360));
+    _menu.OpenMenu();
+    await AwaitFrames(2);
+
+    var lastAccessory = _menu.GetNode<SiriusItemSlotController>("%AccessorySlot3");
+    var close = _menu.GetNode<Button>("%CloseButton");
+
+    lastAccessory.GrabFocus();
+    PushAction("ui_down");
+    await AwaitFrames(2);
+
+    AssertThat(close.HasFocus()).IsTrue();
+}
+```
+
+These tests define the required behavior. Do not add explicit neighbours merely because the old plan mentioned them.
+
+- [ ] **Step 4: Write paused-process shoulder test through real viewport input**
+
+```csharp
+[TestCase]
+public async Task CompactShoulders_CyclePagesWhenProcessModeIsWhenPaused()
+{
+    await Resize(new Vector2I(640, 360));
+    _menu.ProcessMode = Node.ProcessModeEnum.WhenPaused;
+    _menu.OpenMenu();
+    _sceneTree.Paused = true;
+
+    try
+    {
+        _viewport.PushInput(new InputEventJoypadButton
+        {
+            ButtonIndex = JoyButton.RightShoulder,
+            Pressed = true
+        });
+        await AwaitFrames(2);
+        AssertThat(_menu.GetNode<Button>("%ItemsTab").ButtonPressed).IsTrue();
+
+        _viewport.PushInput(new InputEventJoypadButton
+        {
+            ButtonIndex = JoyButton.RightShoulder,
+            Pressed = true
+        });
+        await AwaitFrames(2);
+        AssertThat(_menu.GetNode<Button>("%SkillsTab").ButtonPressed).IsTrue();
+    }
+    finally
+    {
+        _sceneTree.Paused = false;
+    }
+}
+```
+
+No new InputMap actions are added.
+
+- [ ] **Step 5: Add Inventory fallback + dynamic catalogue tests**
+
+In `InventoryMenuControllerTest.cs`, add:
+
+```csharp
+private SiriusItemSlotController FindInventorySlotByTooltip(string text) =>
+    _inventoryMenu.GetNode<Container>("%InventoryGrid")
+        .GetChildren()
+        .OfType<SiriusItemSlotController>()
+        .Single(slot => slot.TooltipText.Contains(text, StringComparison.Ordinal));
+
+[TestCase]
+public void OpenMenu_UsesSharedFallbacksAndExactGoldCopy()
 {
     var player = _gameManager.Player;
     player.Name = "   ";
@@ -536,23 +880,7 @@ public void OpenMenu_UsesHudCompatibleFallbacksAndExactGoldCopy()
     AssertThat(_inventoryMenu.GetNode<ProgressBar>("%ExperienceBar").Visible).IsFalse();
     AssertThat(_inventoryMenu.GetNode<Label>("%GoldLabel").Text).IsEqual("Gold: 321");
 }
-```
 
-- [ ] **Step 2: Write dynamic-catalogue and focus-restoration tests**
-
-Add helper:
-
-```csharp
-private SiriusItemSlotController FindInventorySlotByTooltip(string text) =>
-    _inventoryMenu.GetNode<Container>("%InventoryGrid")
-        .GetChildren()
-        .OfType<SiriusItemSlotController>()
-        .Single(slot => slot.TooltipText.Contains(text, StringComparison.Ordinal));
-```
-
-Add:
-
-```csharp
 [TestCase]
 public void Catalogue_RendersEveryCurrentItemTypeBeyondLegacyTwentyFourLimit()
 {
@@ -579,7 +907,76 @@ public void Catalogue_RendersEveryCurrentItemTypeBeyondLegacyTwentyFourLimit()
     AssertThat(slots[0].TooltipText).Contains("Item 00");
     AssertThat(slots[^1].TooltipText).Contains("Item 29");
 }
+```
 
+- [ ] **Step 6: Add the accessory-reachability regression**
+
+```csharp
+private static EquipmentItem CreateAccessory(string id, string name) => new()
+{
+    Id = id,
+    DisplayName = name,
+    SlotType = EquipmentSlotType.Accessory,
+    AssetPath = "res://assets/sprites/items/consumables/warding_charm.png"
+};
+
+[TestCase]
+public async Task AccessoryEquip_FillsFirstEmptySlotAndFocusesIt()
+{
+    var first = CreateAccessory("accessory_first", "Accessory First");
+    var second = CreateAccessory("accessory_second", "Accessory Second");
+    AssertThat(_gameManager.Player.TryAddItem(first, 1, out _)).IsTrue();
+    AssertThat(_gameManager.Player.TryAddItem(second, 1, out _)).IsTrue();
+    _inventoryMenu.OpenMenu();
+
+    FindInventorySlotByTooltip("Accessory First")
+        .EmitSignal(Button.SignalName.Pressed);
+    await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+    AssertThat(_gameManager.Player.Equipment.GetEquipped(EquipmentSlotType.Accessory, 0))
+        .IsEqual(first);
+
+    FindInventorySlotByTooltip("Accessory Second")
+        .EmitSignal(Button.SignalName.Pressed);
+    await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+    AssertThat(_gameManager.Player.Equipment.GetEquipped(EquipmentSlotType.Accessory, 0))
+        .IsEqual(first);
+    AssertThat(_gameManager.Player.Equipment.GetEquipped(EquipmentSlotType.Accessory, 1))
+        .IsEqual(second);
+    AssertThat(_inventoryMenu.GetViewport().GuiGetFocusOwner())
+        .IsEqual(_inventoryMenu.GetNode<SiriusItemSlotController>("%AccessorySlot1"));
+}
+
+[TestCase]
+public void AccessoryEquip_WhenAllSlotsAreFullFallsBackToExistingSlotZeroReplacement()
+{
+    var originals = new EquipmentItem[EquipmentSet.AccessorySlotCount];
+    for (var i = 0; i < originals.Length; i++)
+    {
+        originals[i] = CreateAccessory($"accessory_original_{i}", $"Original {i}");
+        AssertThat(_gameManager.Player.TryEquip(originals[i], out _, i)).IsTrue();
+    }
+
+    var replacement = CreateAccessory("accessory_replacement", "Replacement");
+    AssertThat(_gameManager.Player.TryAddItem(replacement, 1, out _)).IsTrue();
+    _inventoryMenu.OpenMenu();
+    FindInventorySlotByTooltip("Replacement")
+        .EmitSignal(Button.SignalName.Pressed);
+
+    AssertThat(_gameManager.Player.Equipment.GetEquipped(EquipmentSlotType.Accessory, 0))
+        .IsEqual(replacement);
+    for (var i = 1; i < originals.Length; i++)
+        AssertThat(_gameManager.Player.Equipment.GetEquipped(EquipmentSlotType.Accessory, i))
+            .IsEqual(originals[i]);
+}
+```
+
+This uses only the indexed equip seam already present in the domain.
+
+- [ ] **Step 7: Add catalogue-mutation focus tests**
+
+```csharp
 [TestCase]
 public async Task EquipActivation_RestoresFocusToResultingEquipmentSlot()
 {
@@ -594,7 +991,7 @@ public async Task EquipActivation_RestoresFocusToResultingEquipmentSlot()
 
     var weapon = _inventoryMenu.GetNode<SiriusItemSlotController>("%WeaponSlot");
     AssertThat(_inventoryMenu.GetViewport().GuiGetFocusOwner()).IsEqual(weapon);
-    AssertThat(_inventoryMenu.GetNode<RichTextLabel>("%FocusSummary").Text)
+    AssertThat(_inventoryMenu.GetNode<Label>("%FocusSummary").Text)
         .Contains(sword.DisplayName);
 }
 
@@ -605,7 +1002,6 @@ public async Task ConsumingFinalItem_RestoresFocusToNextCatalogueEntry()
     var second = ConsumableCatalog.CreateManaPotion();
     first.DisplayName = "A First";
     second.DisplayName = "B Second";
-
     AssertThat(_gameManager.Player.TryAddItem(first, 1, out _)).IsTrue();
     AssertThat(_gameManager.Player.TryAddItem(second, 1, out _)).IsTrue();
     _gameManager.Player.CurrentHealth = 1;
@@ -618,7 +1014,7 @@ public async Task ConsumingFinalItem_RestoresFocusToNextCatalogueEntry()
 
     var secondSlot = FindInventorySlotByTooltip("B Second");
     AssertThat(_inventoryMenu.GetViewport().GuiGetFocusOwner()).IsEqual(secondSlot);
-    AssertThat(_inventoryMenu.GetNode<RichTextLabel>("%FocusSummary").Text)
+    AssertThat(_inventoryMenu.GetNode<Label>("%FocusSummary").Text)
         .Contains("B Second");
 }
 
@@ -634,77 +1030,16 @@ public void Refresh_RePushesSummaryWhenFocusedSlotSurvives()
     _inventoryMenu.OpenMenu();
 
     AssertThat(_inventoryMenu.GetViewport().GuiGetFocusOwner()).IsEqual(slot);
-    AssertThat(_inventoryMenu.GetNode<RichTextLabel>("%FocusSummary").Text)
+    AssertThat(_inventoryMenu.GetNode<Label>("%FocusSummary").Text)
         .Contains(sword.DisplayName);
 }
 ```
 
-- [ ] **Step 3: Write compact page/focus-neighbour/paused-input tests in Inventory suites**
+Keep the existing equip/unequip/capacity rollback, consumable rollback, active skill, Close hint, and alphabetical-order tests; rewrite their node access to the new slot shape rather than deleting parity coverage.
 
-In `InventoryMenuSceneTest.cs`:
+- [ ] **Step 8: Rewrite HPA-374 Inventory smoke expectations**
 
-```csharp
-[TestCase]
-public async Task Compact_LinksTabToPageAndPageToClose()
-{
-    _viewport!.Size = new Vector2I(640, 360);
-    _menu!.OpenMenu();
-    await AwaitFrames(2);
-
-    var equipmentTab = _menu.GetNode<Button>("%EquipmentTab");
-    var weapon = _menu.GetNode<SiriusItemSlotController>("%WeaponSlot");
-    var close = _menu.GetNode<Button>("%CloseButton");
-
-    AssertThat(_menu.GetNode<Control>("%CompactTabs").Visible).IsTrue();
-    AssertThat(VisiblePageCount()).IsEqual(1);
-    AssertThat(equipmentTab.FocusNeighborBottom).IsEqual(equipmentTab.GetPathTo(weapon));
-    AssertThat(weapon.FocusNeighborTop).IsEqual(weapon.GetPathTo(equipmentTab));
-    AssertThat(close.FocusNeighborTop.ToString()).IsNotEqual(string.Empty);
-}
-```
-
-Also in `InventoryMenuSceneTest.cs`, exercise actual viewport input while paused instead of calling `_Input` directly:
-
-```csharp
-[TestCase]
-public async Task CompactShoulders_CyclePagesWhenProcessModeIsWhenPaused()
-{
-    var tree = (SceneTree)Engine.GetMainLoop();
-    _viewport!.Size = new Vector2I(640, 360);
-    _menu!.ProcessMode = Node.ProcessModeEnum.WhenPaused;
-    _menu.OpenMenu();
-    tree.Paused = true;
-
-    try
-    {
-        _viewport.PushInput(new InputEventJoypadButton
-        {
-            ButtonIndex = JoyButton.RightShoulder,
-            Pressed = true
-        });
-        await AwaitFrames(2);
-        AssertThat(_menu.GetNode<Button>("%ItemsTab").ButtonPressed).IsTrue();
-
-        _viewport.PushInput(new InputEventJoypadButton
-        {
-            ButtonIndex = JoyButton.RightShoulder,
-            Pressed = true
-        });
-        await AwaitFrames(2);
-        AssertThat(_menu.GetNode<Button>("%SkillsTab").ButtonPressed).IsTrue();
-    }
-    finally
-    {
-        tree.Paused = false;
-    }
-}
-```
-
-Shoulder tests do not belong in `GameplayPauseHostTest` and no `inventory_page_*` InputMap actions are added.
-
-- [ ] **Step 4: Rewrite HPA-374 Inventory smoke expectations before production**
-
-Replace old `PanelContainer -> TextureButton` and fake `%AccessorySlot4` access with:
+Use:
 
 ```csharp
 var equipmentHeading = _inventoryMenu.GetNode<TextureRect>("%EquipmentTitleIcon");
@@ -724,27 +1059,22 @@ AssertThat(accessoryIcon.StretchMode).IsEqual(TextureRect.StretchModeEnum.KeepCe
 AssertThat(close.Text).StartsWith("Close [");
 ```
 
-After equipping a wooden sword:
+After equipping the wooden sword, assert its resource path and `KeepAspectCentered`.
 
-```csharp
-_inventoryMenu.OpenMenu();
-AssertThat(weaponIcon.Texture!.ResourcePath).IsEqual(sword.AssetPath);
-AssertThat(weaponIcon.StretchMode)
-    .IsEqual(TextureRect.StretchModeEnum.KeepAspectCentered);
-```
-
-- [ ] **Step 5: Run the atomic cutover suite RED**
+- [ ] **Step 9: Run target-shape RED**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~InventoryMenuSceneTest|FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~Hpa374RuntimeSmokeTest"
 ```
 
-Expected: new scene nodes, dynamic catalogue, fallback behavior, and `%Icon` contract are absent.
+Expected: target scene/dynamic/accessory/focus behavior is absent.
 
-- [ ] **Step 6: Rewrite `InventoryMenu.tscn` as a full-screen SafeFrame screen**
+### Task 2C — implement the atomic screen cutover
 
-Remove the fixed 1240×760 panel, Inventory-local `StyleBoxFlat`s, fixed `HSplitContainer`, 24 authored inventory slots, and fake fifth/sixth accessory placeholders.
+- [ ] **Step 10: Rewrite `InventoryMenu.tscn`**
+
+Remove fixed panel dimensions, local `StyleBoxFlat`s, the `HSplitContainer`, 24 authored inventory slots, and fake `%AccessorySlot4`/`%AccessorySlot5`.
 
 Author:
 
@@ -755,12 +1085,12 @@ InventoryMenu (Theme = SiriusTheme.tres)
     └── ScreenSurface
         └── Content
             ├── IdentityStrip
-            │   ├── Portrait (same hero AtlasTexture region Rect2(0,0,96,96))
+            │   ├── Portrait (same 96×96 AtlasTexture region)
             │   ├── PlayerName / PlayerLevel
             │   ├── HealthBar / ManaBar / ExperienceBar
             │   ├── AttackValue / DefenseValue / SpeedValue
             │   └── GoldLabel
-            ├── CompactTabs (one ButtonGroup; 3 toggle buttons; Equipment pressed)
+            ├── CompactTabs (one ButtonGroup; Equipment initially pressed)
             ├── ResponsiveContent
             │   ├── CharacterColumn
             │   │   ├── EquipmentPage
@@ -774,15 +1104,15 @@ InventoryMenu (Theme = SiriusTheme.tres)
             │       ├── InventoryTitleRow
             │       └── InventoryScroll
             │           └── InventoryGrid (no authored children)
-            ├── FocusSummary (RichTextLabel)
+            ├── FocusSummary (Label, autowrap=WordSmart)
             └── Footer/CloseButton
 ```
 
-Do not use `SiriusModalShell` or a `TabContainer` as the content host.
+Do not use `SiriusModalShell` or a `TabContainer` content host.
 
-- [ ] **Step 7: Replace controller-owned style/size/fixed-array presentation**
+- [ ] **Step 11: Remove runtime fixed-style/fixed-capacity ownership**
 
-Delete:
+Delete from `InventoryMenuController`:
 
 ```text
 EquipmentPanelSize / EquipmentButtonSize
@@ -802,59 +1132,58 @@ Bind:
 private readonly Dictionary<EquipmentSlotType, SiriusItemSlotController> _equipmentSlots = new();
 private readonly List<SiriusItemSlotController> _accessorySlots = new();
 private readonly List<SiriusItemSlotController> _inventorySlots = new();
+
+// Refresh-scoped only. Inventory owns these mutable entries; never retain one
+// from this map across a mutation / RefreshInventoryCatalogue call.
 private readonly Dictionary<SiriusItemSlotController, InventoryEntry> _inventoryEntryBySlot = new();
 private readonly Dictionary<string, SiriusItemSlotController> _inventorySlotByItemId = new(StringComparer.Ordinal);
 
 private PackedScene _itemSlotScene = null!;
-private RichTextLabel _focusSummary = null!;
+private Label _focusSummary = null!;
 private InventoryPage _activeCompactPage = InventoryPage.Equipment;
 private bool _isCompact;
 private PendingFocusRestore? _pendingFocusRestore;
 ```
 
-Load `SiriusItemSlot.tscn` once in `_Ready()`.
-
-Bind accessories only with:
+Bind accessory nodes with exactly:
 
 ```csharp
 for (var index = 0; index < EquipmentSet.AccessorySlotCount; index++)
     _accessorySlots.Add(GetNode<SiriusItemSlotController>($"%AccessorySlot{index}"));
 ```
 
-- [ ] **Step 8: Bind the identity strip with existing fallbacks**
+- [ ] **Step 12: Reuse the shared player-summary presenter in Inventory**
+
+Build the existing payload with named arguments:
 
 ```csharp
-private void RefreshCharacterSummary()
-{
-    var player = _gameManager.Player;
-    _playerName.Text = string.IsNullOrWhiteSpace(player.Name) ? "Adventurer" : player.Name;
-    _playerLevel.Text = $"Lv {player.Level}";
+var state = new ExplorationHudPlayerState(
+    Name: player.Name,
+    Level: player.Level,
+    CurrentHealth: player.CurrentHealth,
+    MaxHealth: player.GetEffectiveMaxHealth(),
+    CurrentMana: player.CurrentMana,
+    MaxMana: player.MaxMana,
+    Experience: player.Experience,
+    ExperienceToNext: player.ExperienceToNext);
 
-    _healthBar.Current = player.CurrentHealth;
-    _healthBar.Maximum = player.GetEffectiveMaxHealth();
+SiriusPlayerSummaryPresenter.Apply(
+    state,
+    _playerName,
+    _playerLevel,
+    _healthBar,
+    _manaBar,
+    _experienceBar);
 
-    _manaBar.Visible = player.MaxMana > 0;
-    if (_manaBar.Visible)
-    {
-        _manaBar.Current = player.CurrentMana;
-        _manaBar.Maximum = player.MaxMana;
-    }
-
-    _experienceBar.Visible = player.ExperienceToNext > 0;
-    if (_experienceBar.Visible)
-    {
-        _experienceBar.MaxValue = player.ExperienceToNext;
-        _experienceBar.Value = Math.Clamp(player.Experience, 0, player.ExperienceToNext);
-    }
-
-    _attackValue.Text = player.GetEffectiveAttack().ToString();
-    _defenseValue.Text = player.GetEffectiveDefense().ToString();
-    _speedValue.Text = player.GetEffectiveSpeed().ToString();
-    _goldLabel.Text = $"Gold: {player.Gold}";
-}
+_attackValue.Text = player.GetEffectiveAttack().ToString();
+_defenseValue.Text = player.GetEffectiveDefense().ToString();
+_speedValue.Text = player.GetEffectiveSpeed().ToString();
+_goldLabel.Text = $"Gold: {player.Gold}";
 ```
 
-- [ ] **Step 9: Bind fixed equipment/accessories through the slot leaf**
+Do not re-implement Adventurer / MP / EXP fallback logic in Inventory.
+
+- [ ] **Step 13: Bind fixed equipment/accessories through the slot leaf**
 
 Empty primary:
 
@@ -862,7 +1191,7 @@ Empty primary:
 slot.PresentGlyph(
     UiArtCatalog.ForEquipmentSlot(slotType),
     "", "", $"{SlotDisplayName(slotType)}\nEmpty",
-    SiriusItemSlotVisualState.Empty, false);
+    SiriusItemSlotVisualState.Empty);
 ```
 
 Empty accessory:
@@ -871,7 +1200,7 @@ Empty accessory:
 slot.PresentGlyph(
     UiIconId.Accessory,
     "", "", $"Accessory Slot {index + 1}\nEmpty",
-    SiriusItemSlotVisualState.Empty, false);
+    SiriusItemSlotVisualState.Empty);
 ```
 
 Populated:
@@ -880,18 +1209,83 @@ Populated:
 slot.PresentItem(
     item.LoadAssetOrDefault<Texture2D>(),
     "", "", BuildEquipmentTooltip(item),
-    SiriusItemSlotVisualState.Equipped, true);
+    SiriusItemSlotVisualState.Equipped);
 ```
 
-Activating a populated fixed slot continues to invoke the existing unequip path.
+- [ ] **Step 14: Make accessory equip target the first empty existing index**
 
-- [ ] **Step 10: Implement grow/reuse/shrink dynamic catalogue binding**
+Add:
+
+```csharp
+private int ResolveAccessoryEquipIndex()
+{
+    for (var index = 0; index < EquipmentSet.AccessorySlotCount; index++)
+    {
+        if (_gameManager.Player.Equipment.GetEquipped(EquipmentSlotType.Accessory, index) == null)
+            return index;
+    }
+
+    return 0;
+}
+```
+
+In `EquipFromInventory`, choose the index before `TryEquip`:
+
+```csharp
+var accessoryIndex = item.SlotType == EquipmentSlotType.Accessory
+    ? ResolveAccessoryEquipIndex()
+    : 0;
+
+_pendingFocusRestore = _pendingFocusRestore?.WithPreferred(
+    item.SlotType == EquipmentSlotType.Accessory
+        ? InventoryFocusKey.ForAccessory(accessoryIndex)
+        : InventoryFocusKey.ForEquipment(item.SlotType));
+
+if (!_gameManager.Player.TryEquip(item, out var replacedItem, accessoryIndex))
+    return;
+```
+
+Keep the existing replaced-item return, inventory removal ordering, warnings, and refresh semantics unchanged.
+
+Define the focus types explicitly:
+
+```csharp
+private readonly record struct InventoryFocusKey(
+    EquipmentSlotType? EquipmentSlot,
+    int? AccessoryIndex,
+    string? ItemId)
+{
+    public static InventoryFocusKey ForEquipment(EquipmentSlotType slot) =>
+        new(slot, null, null);
+
+    public static InventoryFocusKey ForAccessory(int index) =>
+        new(EquipmentSlotType.Accessory, index, null);
+
+    public static InventoryFocusKey ForItem(string itemId) =>
+        new(null, null, itemId);
+}
+
+private readonly record struct PendingFocusRestore(
+    InventoryFocusKey Preferred,
+    int PreviousCatalogueIndex)
+{
+    public PendingFocusRestore WithPreferred(InventoryFocusKey preferred) =>
+        this with { Preferred = preferred };
+}
+```
+
+Before any catalogue activation, seed `_pendingFocusRestore` from the focused item ID + its current index; equipment/accessory activation replaces only the preferred key as above.
+
+- [ ] **Step 15: Implement grow/reuse/shrink dynamic catalogue**
 
 ```csharp
 private void RefreshInventoryCatalogue()
 {
     var entries = new List<InventoryEntry>(_gameManager.Player.Inventory.GetAllEntries());
-    entries.Sort((a, b) => string.Compare(a.Item.DisplayName, b.Item.DisplayName, StringComparison.Ordinal));
+    entries.Sort((a, b) => string.Compare(
+        a.Item.DisplayName,
+        b.Item.DisplayName,
+        StringComparison.Ordinal));
 
     while (_inventorySlots.Count < entries.Count)
         _inventorySlots.Add(CreateInventorySlot());
@@ -907,23 +1301,14 @@ private void RefreshInventoryCatalogue()
     _inventoryEntryBySlot.Clear();
     _inventorySlotByItemId.Clear();
 
-    for (var i = 0; i < entries.Count; i++)
-        BindInventorySlot(_inventorySlots[i], entries[i]);
+    for (var index = 0; index < entries.Count; index++)
+        BindInventorySlot(_inventorySlots[index], entries[index]);
 }
 ```
 
-```csharp
-private SiriusItemSlotController CreateInventorySlot()
-{
-    var slot = _itemSlotScene.Instantiate<SiriusItemSlotController>();
-    _inventoryGrid.AddChild(slot);
-    slot.Activated += () => OnInventorySlotActivated(slot);
-    slot.FocusEntered += () => RefreshFocusSummaryFor(slot);
-    slot.MouseEntered += () => RefreshFocusSummaryFor(slot);
-    slot.SetCompact(_isCompact);
-    return slot;
-}
-```
+`CreateInventorySlot()` instantiates `SiriusItemSlot`, adds it to `%InventoryGrid`, connects `Activated`, `FocusEntered`, and `MouseEntered` exactly once, and applies current compact size.
+
+`BindInventorySlot`:
 
 ```csharp
 private void BindInventorySlot(SiriusItemSlotController slot, InventoryEntry entry)
@@ -931,37 +1316,30 @@ private void BindInventorySlot(SiriusItemSlotController slot, InventoryEntry ent
     _inventoryEntryBySlot[slot] = entry;
     _inventorySlotByItemId[entry.Item.Id] = slot;
 
-    var actionable = entry.Item switch
+    var quantity = entry.Quantity > 1 ? $"×{entry.Quantity}" : string.Empty;
+    var state = entry.Item switch
     {
-        EquipmentItem => true,
-        ConsumableItem consumable when consumable.Effect?.RequiresBattle != true => true,
-        _ => false
+        EquipmentItem => SiriusItemSlotVisualState.Available,
+        ConsumableItem consumable when consumable.Effect?.RequiresBattle != true
+            => SiriusItemSlotVisualState.Available,
+        _ => SiriusItemSlotVisualState.Unsupported
     };
+
+    var stateText = state == SiriusItemSlotVisualState.Unsupported
+        ? entry.Item is ConsumableItem ? "BATTLE ONLY" : "UNSUPPORTED"
+        : string.Empty;
 
     slot.SetCompact(_isCompact);
     slot.PresentItem(
         entry.Item.LoadAssetOrDefault<Texture2D>(),
-        entry.Quantity > 1 ? $"×{entry.Quantity}" : string.Empty,
-        actionable ? string.Empty : entry.Item is ConsumableItem ? "BATTLE ONLY" : "UNSUPPORTED",
+        quantity,
+        stateText,
         BuildInventoryTooltip(entry),
-        actionable ? SiriusItemSlotVisualState.Available : SiriusItemSlotVisualState.Unsupported,
-        actionable);
+        state);
 }
 ```
 
-Keep existing real missing-asset warnings; remove fixed-capacity diagnostics.
-
-- [ ] **Step 11: Implement semantic focus capture/restoration before mutations**
-
-Factories:
-
-```csharp
-private static InventoryFocusKey EquipmentFocus(EquipmentSlotType slot) => new(slot, null, null);
-private static InventoryFocusKey AccessoryFocus(int index) => new(EquipmentSlotType.Accessory, index, null);
-private static InventoryFocusKey ItemFocus(string itemId) => new(null, null, itemId);
-```
-
-Before dynamic item activation:
+- [ ] **Step 16: Route activation through existing methods**
 
 ```csharp
 private void OnInventorySlotActivated(SiriusItemSlotController slot)
@@ -970,69 +1348,72 @@ private void OnInventorySlotActivated(SiriusItemSlotController slot)
         return;
 
     var index = _inventorySlots.IndexOf(slot);
-    InventoryFocusKey? fallback = entry.Item is EquipmentItem equipment
-        ? equipment.SlotType == EquipmentSlotType.Accessory
-            ? AccessoryFocus(0)
-            : EquipmentFocus(equipment.SlotType)
-        : null;
+    _pendingFocusRestore = new PendingFocusRestore(
+        InventoryFocusKey.ForItem(entry.Item.Id),
+        index);
 
-    _pendingFocusRestore = new PendingFocusRestore(ItemFocus(entry.Item.Id), index, fallback);
-    ActivateInventoryEntry(entry);
+    if (entry.Item is EquipmentItem equipment)
+    {
+        EquipFromInventory(equipment);
+        return;
+    }
+
+    if (entry.Item is ConsumableItem consumable &&
+        consumable.Effect?.RequiresBattle != true)
+    {
+        UseConsumableOutOfBattle(consumable);
+    }
 }
 ```
 
-Before fixed equipment/accessory activation, arm `_pendingFocusRestore` with the fixed slot identity and index `-1`, then keep the existing domain mutation order.
+No action method takes a new view-model or DTO.
 
-At the end of `RefreshUI()`:
+- [ ] **Step 17: Restore focus semantically after `RefreshUI`**
 
-```csharp
-RestorePendingFocus();
-RefreshFocusSummaryFromCurrentFocus();
-```
-
-`RestorePendingFocus()` resolves in this order:
+Resolution order:
 
 ```text
-1. Same equipment slot / accessory index / item ID.
-2. MutationFallback (e.g. item moved into equipment).
-3. For a vanished consumable: catalogue slot at min(previousIndex, count - 1).
-4. Active-page fallback when no catalogue entry remains.
-5. Only GrabFocus on valid + visible + FocusMode != None.
-6. Clear pending restore after one attempt.
+1. exact preferred equipment slot / accessory index / surviving item ID
+2. if preferred item disappeared, current entry at PreviousCatalogueIndex
+3. otherwise previous last catalogue entry
+4. active-page fallback: Equipment first slot / Items first item / Skills selector
+5. active compact page button
+6. Close
 ```
 
-No dictionary of dynamic `Control` references is used as semantic memory.
-
-- [ ] **Step 12: Re-push the passive focus summary after every rebind**
-
-Use current tooltip builders as the text source:
+Before `GrabFocus`, require:
 
 ```csharp
-private void RefreshFocusSummaryFor(SiriusItemSlotController slot)
+GodotObject.IsInstanceValid(target) &&
+target.IsVisibleInTree() &&
+target.FocusMode != Control.FocusModeEnum.None
+```
+
+Clear `_pendingFocusRestore` after one restore attempt.
+
+After every catalogue rebind, call `RefreshFocusSummaryFromCurrentFocus()` so a surviving focused node gets fresh content even when `FocusEntered` did not fire.
+
+- [ ] **Step 18: Keep focus summary plain and passive**
+
+Use existing tooltip builders as source text:
+
+```csharp
+private void PresentFocusSummary(string text) =>
+    _focusSummary.Text = text ?? string.Empty;
+```
+
+Update it from slot `FocusEntered` / `MouseEntered` and active-skill focus/selection. It never routes an action or stores selection.
+
+- [ ] **Step 19: Implement Settings-style compact page visibility and raw shoulders**
+
+```csharp
+private enum InventoryPage
 {
-    if (_inventoryEntryBySlot.TryGetValue(slot, out var entry))
-    {
-        _focusSummary.Text = BuildInventoryTooltip(entry);
-        return;
-    }
-
-    if (TryBuildFixedSlotSummary(slot, out var text))
-    {
-        _focusSummary.Text = text;
-        return;
-    }
-
-    _focusSummary.Text = string.Empty;
+    Equipment,
+    Items,
+    Skills
 }
-```
 
-`RefreshFocusSummaryFromCurrentFocus()` inspects `GetViewport().GuiGetFocusOwner()` after `RefreshUI()` and updates the summary even when focus stayed on the same surviving control and `FocusEntered` did not fire.
-
-- [ ] **Step 13: Implement Settings-style compact page buttons without `TabContainer`**
-
-Use one scene-authored `ButtonGroup`. Named button handlers call:
-
-```csharp
 private void SetCompactPage(InventoryPage page)
 {
     _activeCompactPage = page;
@@ -1040,11 +1421,10 @@ private void SetCompactPage(InventoryPage page)
     _itemsTab.ButtonPressed = page == InventoryPage.Items;
     _skillsTab.ButtonPressed = page == InventoryPage.Skills;
     ApplyPageVisibility();
-    RefreshCompactFocusNeighbors();
 }
 ```
 
-Responsive behavior:
+Responsive rules:
 
 ```text
 standard:
@@ -1059,28 +1439,7 @@ compact:
   slot size 48
 ```
 
-- [ ] **Step 14: Link compact tab ↔ page ↔ Close focus and raw LB/RB shoulders**
-
-```csharp
-private static void LinkVertical(Control upper, Control lower)
-{
-    upper.FocusNeighborBottom = upper.GetPathTo(lower);
-    lower.FocusNeighborTop = lower.GetPathTo(upper);
-}
-```
-
-After each page/catalogue refresh:
-
-```text
-active page tab down -> first focusable page control
-first page control up -> its tab
-last focusable active-page control down -> Close
-Close up -> last focusable active-page control
-```
-
-Keep tab left/right neighbours inside the three-tab row.
-
-Extend existing `_Input`:
+Extend existing `_Input` only for compact shoulders:
 
 ```csharp
 if (Visible && _isCompact && @event is InputEventJoypadButton joy && joy.Pressed)
@@ -1098,11 +1457,32 @@ if (Visible && _isCompact && @event is InputEventJoypadButton joy && joy.Pressed
 }
 ```
 
-`CycleCompactPage` wraps exactly Equipment → Items → Skills. No new InputMap actions.
+Do not handle Cancel/toggle here.
 
-- [ ] **Step 15: Migrate every existing test that encodes the old node shape**
+- [ ] **Step 20: Run behavioral focus tests before adding any explicit neighbors**
 
-Replace:
+Run only the compact focus tests first:
+
+```bash
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
+  --filter "FullyQualifiedName~InventoryMenuSceneTest.Compact_EquipmentTabDownAndFirstControlUpUseSpatialNavigation|FullyQualifiedName~InventoryMenuSceneTest.Compact_LastEquipmentControlDownReachesClose"
+```
+
+If both pass: add **no** `FocusNeighbor*` assignments.
+
+If a boundary fails solely because Godot spatial focus chooses the wrong target, add only the direct assignment for that failing boundary. Examples:
+
+```csharp
+_equipmentTab.FocusNeighborBottom = _equipmentTab.GetPathTo(_weaponSlot);
+_weaponSlot.FocusNeighborTop = _weaponSlot.GetPathTo(_equipmentTab);
+_accessorySlots[^1].FocusNeighborBottom = _accessorySlots[^1].GetPathTo(_closeButton);
+```
+
+Do not add `LinkVertical`, a generic neighbor graph, or a refresh-all-neighbours helper. If dynamic Items require an override, update only the first/last Items boundary when catalogue count changes and keep the behavioral test as its justification.
+
+- [ ] **Step 21: Migrate existing node-shape tests atomically**
+
+Replace the old helper:
 
 ```csharp
 private TextureButton GetSlotButton(string slotPath) =>
@@ -1119,28 +1499,26 @@ private TextureRect GetSlotIcon(string slotPath) =>
     GetSlot(slotPath).GetNode<TextureRect>("%Icon");
 ```
 
-Rewrite texture-state tests to assert `%Icon.Texture.ResourcePath` and `%Icon.StretchMode` rather than `TextureNormal/Hover/Pressed/Disabled/Focused`.
+Rewrite texture-state assertions to `%Icon.Texture.ResourcePath` / `%Icon.StretchMode`. Preserve heading, active-skill, Close-hint, equip/unequip/rollback/consumable tests.
 
-Keep heading tests on `%EquipmentTitleIcon`, `%InventoryTitleIcon`, `%EquipmentTitleLabel`, `%InventoryTitleLabel`.
+Replace fake accessory-lock tests with the four-real-slot and accessory-fill regressions from Steps 2/6.
 
-Replace `InactiveAccessoryPlaceholders_ShowLockWithoutUnlockRule` with:
+- [ ] **Step 22: Delete the now-dead TextureButton presenter path**
 
-```csharp
-[TestCase]
-public void AccessorySlots_MatchDomainCountWithoutFakeLockedPositions()
-{
-    var grid = _inventoryMenu.GetNode<Container>("%AccessorySlots");
-    AssertThat(grid.GetChildren().OfType<SiriusItemSlotController>().Count())
-        .IsEqual(EquipmentSet.AccessorySlotCount);
-    AssertThat(_inventoryMenu.GetNodeOrNull<SiriusItemSlotController>("%AccessorySlot4")).IsNull();
-}
+After `InventoryMenuController` has no `TextureButton` slot usage, delete from `UiIconPresenter.cs`:
+
+```text
+Apply(TextureButton target, UiIconId id, UiIconSize size)
+ApplyTexture(TextureButton target, Texture2D? texture)
+ApplyGlyphTexture(TextureButton target, Texture2D? texture)
+SetSlotTextures(...)
 ```
 
-Preserve active-skill and Close-hint tests. New UI parity tests activate rendered slots through `EmitSignal(Button.SignalName.Pressed)` rather than calling private domain methods.
+Keep `Apply(TextureRect, ...)`, `ApplyGlyph(TextureRect, ...)`, `ApplyItem(TextureRect, ...)`, and `Apply(Button, ...)`.
 
-- [ ] **Step 16: Remove fixed-grid diagnostics**
+- [ ] **Step 23: Remove fixed-grid diagnostics**
 
-Delete logs/warnings tied only to authored slot capacity:
+Delete logs/warnings tied only to authored capacity:
 
 ```text
 InitializeInventorySlots: found ...
@@ -1151,27 +1529,41 @@ Inventory UI only displays ... hidden.
 
 Keep real domain and missing-asset warnings.
 
-- [ ] **Step 17: Run the complete Task 2 suite GREEN**
+### Task 2D — verification gate before the atomic commit
+
+- [ ] **Step 24: Run Task 2 focused suites GREEN**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
-  --filter "FullyQualifiedName~InventoryMenuSceneTest|FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~Hpa374RuntimeSmokeTest|FullyQualifiedName~SiriusItemSlotControllerTest"
+  --filter "FullyQualifiedName~InventoryMenuSceneTest|FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~Hpa374RuntimeSmokeTest|FullyQualifiedName~SiriusItemSlotControllerTest|FullyQualifiedName~ExplorationHudControllerTest|FullyQualifiedName~SiriusUiContractsTest"
 ```
 
-Expected: zero failures. Do not commit while any old `PanelContainer -> TextureButton`, fake accessory 4/5, fixed 24-slot, heading-node, art-stretch, compact-input, or focus-restoration assertion is red.
+Expected: zero failures.
 
-- [ ] **Step 18: Commit**
+- [ ] **Step 25: Run the full suite at the riskiest cutover boundary**
 
 ```bash
-git add scenes/ui/InventoryMenu.tscn scripts/ui/InventoryMenuController.cs \
-  tests/ui/InventoryMenuSceneTest.cs tests/ui/InventoryMenuControllerTest.cs \
-  tests/ui/art/Hpa374RuntimeSmokeTest.cs
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore
+```
+
+Expected: zero failures. This is required before the Task 2 commit because the `.tscn`/controller migration is the largest cross-scene risk in HPA-357.
+
+- [ ] **Step 26: Commit Task 2**
+
+```bash
+git add \
+  scenes/ui/InventoryMenu.tscn \
+  scripts/ui/InventoryMenuController.cs \
+  tests/ui/InventoryMenuSceneTest.cs \
+  tests/ui/InventoryMenuControllerTest.cs \
+  tests/ui/art/Hpa374RuntimeSmokeTest.cs \
+  scripts/ui/art/UiIconPresenter.cs
 git commit -m "feat(ui): redesign responsive Inventory screen"
 ```
 
 ---
 
-### Task 3: Change only the Inventory HUD host policy and finish verification
+## Task 3: Change only the Inventory HUD host policy and finish verification
 
 **Files:**
 - Modify: `scripts/game/Game.cs`
@@ -1248,7 +1640,7 @@ rg -n "InventoryMenu|WeaponSlot|AccessorySlot[45]|InventorySlot|EquipmentTitleIc
 
 If no matches: leave the file unchanged.
 
-If matches exist: replace only obsolete Inventory node paths with Task 2 stable names. Do not add page-navigation behavior to the lifecycle suite.
+If matches exist: replace only obsolete Inventory node paths with Task 2 stable names. Do not add compact-page behavior to the lifecycle suite.
 
 - [ ] **Step 6: Audit lifecycle documentation for stale Inventory presentation**
 
@@ -1268,12 +1660,12 @@ content-first focus; parent/gameplay focus restored on close.
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
-  --filter "FullyQualifiedName~SiriusItemSlotControllerTest|FullyQualifiedName~InventoryMenuSceneTest|FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~Hpa374RuntimeSmokeTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~SiriusUiMetricsTest|FullyQualifiedName~SiriusUiContractsTest"
+  --filter "FullyQualifiedName~SiriusItemSlotControllerTest|FullyQualifiedName~InventoryMenuSceneTest|FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~Hpa374RuntimeSmokeTest|FullyQualifiedName~ExplorationHudControllerTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~SiriusUiMetricsTest|FullyQualifiedName~SiriusUiContractsTest"
 ```
 
 Expected: zero failures.
 
-- [ ] **Step 8: Run full suite and build**
+- [ ] **Step 8: Run final full suite and build**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore
@@ -1282,7 +1674,7 @@ dotnet build Sirius.sln --no-restore
 
 Expected: zero test failures and zero build errors.
 
-- [ ] **Step 9: Audit stale fixed presentation and fake accessory slots**
+- [ ] **Step 9: Audit stale fixed presentation, fake accessory slots, and dead presenter APIs**
 
 ```bash
 rg -n \
@@ -1304,7 +1696,14 @@ rg -n "AccessorySlot4|AccessorySlot5" \
   tests/ui/InventoryMenuControllerTest.cs tests/ui/art/Hpa374RuntimeSmokeTest.cs
 ```
 
-Expected: zero positive production/test dependencies. Negative `GetNodeOrNull` assertions in `InventoryMenuSceneTest` are allowed.
+Expected: zero positive production/test dependencies. Negative absence assertions in `InventoryMenuSceneTest` are allowed.
+
+```bash
+rg -n "TextureButton|ApplyTexture\(|ApplyGlyphTexture\(|SetSlotTextures" \
+  scripts/ui/art/UiIconPresenter.cs scripts/ui/InventoryMenuController.cs
+```
+
+Expected: zero legacy slot-presentation matches.
 
 ```bash
 rg -n "GetTree\(\)\.Paused|SceneTree\.Paused" scripts/ui/InventoryMenuController.cs
@@ -1312,13 +1711,23 @@ rg -n "GetTree\(\)\.Paused|SceneTree\.Paused" scripts/ui/InventoryMenuController
 
 Expected: zero matches.
 
-- [ ] **Step 10: Audit slot icon path and HPA-375/framework creep**
+- [ ] **Step 10: Audit visual-state and focus-neighbour YAGNI**
 
 ```bash
-rg -n "\.Icon\s*=" scripts/ui/components/SiriusItemSlotController.cs
+rg -n "SiriusItemSlotVisualState\.Locked|\bLocked,|bool actionable|bool Actionable \{ get; private set; \}" \
+  scripts/ui/components/SiriusItemSlotController.cs tests/ui/components/SiriusItemSlotControllerTest.cs
 ```
 
-Expected: zero matches; slot art lives on `%Icon` `TextureRect`.
+Expected: zero matches.
+
+```bash
+rg -n "FocusNeighbor|LinkVertical" \
+  scripts/ui/InventoryMenuController.cs scenes/ui/InventoryMenu.tscn
+```
+
+Expected by default: zero matches. If Task 2 Step 20 required a specific evidence-backed override, only those direct assignments may remain; no helper/general neighbor graph is allowed.
+
+- [ ] **Step 11: Audit HPA-375/framework creep and refresh-scoped map comment**
 
 ```bash
 rg -n -i \
@@ -1328,7 +1737,14 @@ rg -n -i \
 
 Expected: zero implementation matches.
 
-- [ ] **Step 11: Check diff hygiene**
+```bash
+rg -n "Refresh-scoped only|never retain one.*across.*mutation" \
+  scripts/ui/InventoryMenuController.cs
+```
+
+Expected: the `_inventoryEntryBySlot` lifetime comment is present.
+
+- [ ] **Step 12: Check diff hygiene and domain-file boundary**
 
 ```bash
 git diff --check
@@ -1339,31 +1755,47 @@ git diff --name-only main...HEAD
 Expected production/test scope:
 
 ```text
+scripts/ui/components/SiriusItemSlotController.cs
+scenes/ui/components/SiriusItemSlot.tscn
+scripts/ui/SiriusPlayerSummaryPresenter.cs
+scripts/ui/art/UiIconPresenter.cs
 resources/ui/theme/SiriusTheme.tres
 scripts/ui/theme/SiriusThemeTypes.cs
 scripts/ui/theme/SiriusUiMetrics.cs
-scripts/ui/components/SiriusItemSlotController.cs
-scenes/ui/components/SiriusItemSlot.tscn
+scripts/ui/ExplorationHudController.cs
 scenes/ui/InventoryMenu.tscn
 scripts/ui/InventoryMenuController.cs
 scripts/game/Game.cs
-tests/ui/theme/SiriusUiMetricsTest.cs
 tests/ui/components/SiriusItemSlotControllerTest.cs
+tests/ui/theme/SiriusUiMetricsTest.cs
+tests/ui/theme/SiriusUiContractsTest.cs
+tests/ui/ExplorationHudControllerTest.cs
 tests/ui/InventoryMenuSceneTest.cs
 tests/ui/InventoryMenuControllerTest.cs
 tests/ui/art/Hpa374RuntimeSmokeTest.cs
 tests/game/GameplayPauseHostTest.cs
 ```
 
-`tests/game/GameInputLifecycleTest.cs` and `docs/ui/hpa-376/ui-lifecycle-contract.md` appear only when Steps 5/6 found the exact stale evidence described above. The HPA-357 design/plan docs are expected as implementation inputs.
+`tests/game/GameInputLifecycleTest.cs` and `docs/ui/hpa-376/ui-lifecycle-contract.md` appear only if their audits found stale references.
 
-- [ ] **Step 12: Commit**
+Explicitly require no changed path under:
+
+```text
+scripts/data/Character.cs
+scripts/data/Inventory.cs
+scripts/data/EquipmentSet.cs
+scripts/save/
+```
+
+The design/plan docs are expected implementation inputs.
+
+- [ ] **Step 13: Commit Task 3**
 
 ```bash
 git add scripts/game/Game.cs tests/game/GameplayPauseHostTest.cs
 ```
 
-Add `tests/game/GameInputLifecycleTest.cs` and/or `docs/ui/hpa-376/ui-lifecycle-contract.md` only when their audits required edits.
+Add `tests/game/GameInputLifecycleTest.cs` and/or `docs/ui/hpa-376/ui-lifecycle-contract.md` only if Steps 5/6 required edits.
 
 ```bash
 git commit -m "feat(ui): complete hosted Inventory parity migration"
@@ -1374,20 +1806,27 @@ git commit -m "feat(ui): complete hosted Inventory parity migration"
 ## Final Self-Review Checklist
 
 - [ ] One `InventoryMenuController`; no presenter/view-model/collection renderer/navigation service.
-- [ ] `Game` / `UIScreenHost` remain lifecycle owners; only Inventory HUD policy changes to Hidden.
+- [ ] `Game` / `UIScreenHost` remain lifecycle owners; only Inventory HUD policy changes in `Game`.
 - [ ] Dynamic catalogue grows/reuses/shrinks exactly current entries; no authored 24-slot or 100-placeholder capacity.
 - [ ] Standard and compact reuse one content tree.
 - [ ] `SiriusItemSlot` is the only new UI leaf.
+- [ ] `SiriusItemSlotVisualState` has exactly Empty / Available / Equipped / Unsupported.
+- [ ] `Actionable` is derived from state; no independent actionable parameter exists.
 - [ ] `SiriusUiMetrics` gains only `ItemSlotSize`.
-- [ ] `%Icon` preserves native 32 px glyphs with `KeepCentered` and item art with `KeepAspectCentered`; Button `Icon` is unused.
+- [ ] TextureRect glyph/item behavior is owned by `UiIconPresenter`; legacy TextureButton slot presenter APIs are deleted only after Inventory cutover.
 - [ ] HPA-374 Inventory smoke migrates in the same atomic Task 2 cutover.
-- [ ] Exactly four accessory slots are authored; fake fifth/sixth slots are gone.
-- [ ] Blank name / unsupported MP / invalid EXP denominator / Gold copy match existing HUD/Inventory behavior.
-- [ ] Focus restoration uses equipment slot type / accessory index / item ID plus prior catalogue index; no dynamic `Control` identity is persisted.
-- [ ] Mutation restores focus to a valid semantic target and explicitly re-pushes `%FocusSummary` after rebind.
+- [ ] Exactly four accessory slots are authored and all four are reachable through first-empty indexed equip routing.
+- [ ] Full accessory set preserves existing slot-0 replacement behavior.
+- [ ] Exploration HUD and Inventory share one common name/HP/MP/EXP fallback presenter.
+- [ ] Gold copy remains exact.
+- [ ] Focus restoration uses equipment slot type / accessory index / item ID + prior catalogue index; no dynamic `Control` identity is persisted.
+- [ ] Mutation restores focus to a valid semantic target and re-pushes `%FocusSummary` after rebind.
+- [ ] `%FocusSummary` is plain wrapped Label text; no BBCode parser is introduced.
 - [ ] Compact page selection copies Settings-style buttons while content remains visibility-based.
-- [ ] Compact focus links tab ↔ page ↔ Close; raw LB/RB works through actual paused viewport input; no new InputMap actions exist.
+- [ ] Behavioral `ui_up` / `ui_down` tests are used; explicit FocusNeighbor overrides exist only if those tests prove a boundary needs one.
+- [ ] Raw LB/RB works through actual paused viewport input; no new InputMap actions exist.
 - [ ] Shoulder/page tests live in Inventory suites, not the host suite.
+- [ ] Task 2 full suite passes before its large scene/controller commit.
 - [ ] Existing equip/unequip/consume/rollback/active-skill methods remain the domain path.
-- [ ] No domain/save-format files changed.
-- [ ] Focused tests, full tests, build, `git diff --check`, stale-pattern search, and scope audit are green.
+- [ ] No domain/save-format production file changed.
+- [ ] Focused tests, full tests, build, `git diff --check`, stale-pattern searches, and scope audit are green.

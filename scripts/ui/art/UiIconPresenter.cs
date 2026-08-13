@@ -18,6 +18,22 @@ public static class UiIconPresenter
 		return texture != null;
 	}
 
+	public static bool ApplyGlyph(TextureRect target, UiIconId id, UiIconSize size)
+	{
+		var texture = UiArtCatalog.LoadIcon(id, size);
+		target.Texture = texture;
+		target.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
+		target.StretchMode = TextureRect.StretchModeEnum.KeepCentered;
+		return texture != null;
+	}
+
+	public static void ApplyItem(TextureRect target, Texture2D? texture)
+	{
+		target.Texture = texture;
+		target.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
+		target.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
+	}
+
 	internal static void ApplyTexture(TextureButton target, Texture2D? texture) =>
 		SetSlotTextures(target, texture, TextureButton.StretchModeEnum.KeepAspectCentered);
 

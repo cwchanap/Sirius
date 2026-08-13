@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=70 format=3]
+[gd_resource type="Theme" load_steps=80 format=3]
 
 [ext_resource type="FontFile" path="res://assets/fonts/cinzel/Cinzel-Variable.ttf" id="1_cinzel"]
 [ext_resource type="FontFile" path="res://assets/fonts/noto_sans/NotoSans-Regular.ttf" id="2_noto_regular"]
@@ -451,6 +451,124 @@ expand_margin_left = 2.0
 expand_margin_top = 2.0
 expand_margin_right = 2.0
 expand_margin_bottom = 2.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_item_slot_normal"]
+bg_color = Color(0.094118, 0.137255, 0.290196, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.560784, 0.603922, 0.721569, 0.8)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_item_slot_hover"]
+bg_color = Color(0.152941, 0.211765, 0.423529, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.384314, 0.862745, 1, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+shadow_color = Color(0.384314, 0.862745, 1, 0.3)
+shadow_size = 4
+shadow_offset = Vector2(0, 2)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_item_slot_pressed"]
+bg_color = Color(0.05098, 0.082353, 0.188235, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.960784, 0.843137, 0.517647, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_item_slot_focus"]
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.384314, 0.862745, 1, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+draw_center = false
+expand_margin_left = 2.0
+expand_margin_top = 2.0
+expand_margin_right = 2.0
+expand_margin_bottom = 2.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_item_slot_disabled"]
+bg_color = Color(0.05098, 0.082353, 0.188235, 0.45)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.560784, 0.603922, 0.721569, 0.45)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_item_slot_equipped_normal"]
+bg_color = Color(0.094118, 0.137255, 0.290196, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.960784, 0.843137, 0.517647, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_item_slot_equipped_hover"]
+bg_color = Color(0.152941, 0.211765, 0.423529, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.960784, 0.843137, 0.517647, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+shadow_color = Color(0.384314, 0.862745, 1, 0.3)
+shadow_size = 4
+shadow_offset = Vector2(0, 2)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_item_slot_equipped_pressed"]
+bg_color = Color(0.05098, 0.082353, 0.188235, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.960784, 0.843137, 0.517647, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_item_slot_unavailable"]
+bg_color = Color(0.05098, 0.082353, 0.188235, 0.45)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.560784, 0.603922, 0.721569, 0.45)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_ignition_normal"]
 content_margin_left = 16.0
@@ -1014,6 +1132,72 @@ SiriusIgnitionButton/styles/pressed = SubResource("StyleBoxTexture_ignition_pres
 SiriusIgnitionButton/styles/hover_pressed = SubResource("StyleBoxTexture_ignition_hover_pressed")
 SiriusIgnitionButton/styles/focus = SubResource("StyleBoxTexture_ignition_focus")
 SiriusIgnitionButton/styles/disabled = SubResource("StyleBoxTexture_ignition_disabled")
+SiriusItemSlotButton/base_type = &"Button"
+SiriusItemSlotButton/colors/font_color = Color(0.968627, 0.960784, 1, 1)
+SiriusItemSlotButton/colors/font_hover_color = Color(0.968627, 0.960784, 1, 1)
+SiriusItemSlotButton/colors/font_pressed_color = Color(0.960784, 0.843137, 0.517647, 1)
+SiriusItemSlotButton/colors/font_hover_pressed_color = Color(0.960784, 0.843137, 0.517647, 1)
+SiriusItemSlotButton/colors/font_focus_color = Color(0.968627, 0.960784, 1, 1)
+SiriusItemSlotButton/colors/font_disabled_color = Color(0.780392, 0.807843, 0.909804, 0.45)
+SiriusItemSlotButton/colors/icon_normal_color = Color(1, 1, 1, 1)
+SiriusItemSlotButton/colors/icon_hover_color = Color(1, 1, 1, 1)
+SiriusItemSlotButton/colors/icon_pressed_color = Color(0.960784, 0.843137, 0.517647, 1)
+SiriusItemSlotButton/colors/icon_hover_pressed_color = Color(0.960784, 0.843137, 0.517647, 1)
+SiriusItemSlotButton/colors/icon_focus_color = Color(1, 1, 1, 1)
+SiriusItemSlotButton/colors/icon_disabled_color = Color(0.780392, 0.807843, 0.909804, 0.45)
+SiriusItemSlotButton/constants/h_separation = 4
+SiriusItemSlotButton/font_sizes/font_size = 14
+SiriusItemSlotButton/fonts/font = ExtResource("3_noto_medium")
+SiriusItemSlotButton/styles/normal = SubResource("StyleBoxFlat_item_slot_normal")
+SiriusItemSlotButton/styles/hover = SubResource("StyleBoxFlat_item_slot_hover")
+SiriusItemSlotButton/styles/pressed = SubResource("StyleBoxFlat_item_slot_pressed")
+SiriusItemSlotButton/styles/hover_pressed = SubResource("StyleBoxFlat_item_slot_pressed")
+SiriusItemSlotButton/styles/focus = SubResource("StyleBoxFlat_item_slot_focus")
+SiriusItemSlotButton/styles/disabled = SubResource("StyleBoxFlat_item_slot_disabled")
+SiriusItemSlotEquippedButton/base_type = &"Button"
+SiriusItemSlotEquippedButton/colors/font_color = Color(0.968627, 0.960784, 1, 1)
+SiriusItemSlotEquippedButton/colors/font_hover_color = Color(0.968627, 0.960784, 1, 1)
+SiriusItemSlotEquippedButton/colors/font_pressed_color = Color(0.960784, 0.843137, 0.517647, 1)
+SiriusItemSlotEquippedButton/colors/font_hover_pressed_color = Color(0.960784, 0.843137, 0.517647, 1)
+SiriusItemSlotEquippedButton/colors/font_focus_color = Color(0.968627, 0.960784, 1, 1)
+SiriusItemSlotEquippedButton/colors/font_disabled_color = Color(0.780392, 0.807843, 0.909804, 0.45)
+SiriusItemSlotEquippedButton/colors/icon_normal_color = Color(1, 1, 1, 1)
+SiriusItemSlotEquippedButton/colors/icon_hover_color = Color(1, 1, 1, 1)
+SiriusItemSlotEquippedButton/colors/icon_pressed_color = Color(0.960784, 0.843137, 0.517647, 1)
+SiriusItemSlotEquippedButton/colors/icon_hover_pressed_color = Color(0.960784, 0.843137, 0.517647, 1)
+SiriusItemSlotEquippedButton/colors/icon_focus_color = Color(1, 1, 1, 1)
+SiriusItemSlotEquippedButton/colors/icon_disabled_color = Color(0.780392, 0.807843, 0.909804, 0.45)
+SiriusItemSlotEquippedButton/constants/h_separation = 4
+SiriusItemSlotEquippedButton/font_sizes/font_size = 14
+SiriusItemSlotEquippedButton/fonts/font = ExtResource("3_noto_medium")
+SiriusItemSlotEquippedButton/styles/normal = SubResource("StyleBoxFlat_item_slot_equipped_normal")
+SiriusItemSlotEquippedButton/styles/hover = SubResource("StyleBoxFlat_item_slot_equipped_hover")
+SiriusItemSlotEquippedButton/styles/pressed = SubResource("StyleBoxFlat_item_slot_equipped_pressed")
+SiriusItemSlotEquippedButton/styles/hover_pressed = SubResource("StyleBoxFlat_item_slot_equipped_pressed")
+SiriusItemSlotEquippedButton/styles/focus = SubResource("StyleBoxFlat_item_slot_focus")
+SiriusItemSlotEquippedButton/styles/disabled = SubResource("StyleBoxFlat_item_slot_disabled")
+SiriusItemSlotUnavailableButton/base_type = &"Button"
+SiriusItemSlotUnavailableButton/colors/font_color = Color(0.780392, 0.807843, 0.909804, 0.45)
+SiriusItemSlotUnavailableButton/colors/font_hover_color = Color(0.780392, 0.807843, 0.909804, 0.45)
+SiriusItemSlotUnavailableButton/colors/font_pressed_color = Color(0.780392, 0.807843, 0.909804, 0.45)
+SiriusItemSlotUnavailableButton/colors/font_hover_pressed_color = Color(0.780392, 0.807843, 0.909804, 0.45)
+SiriusItemSlotUnavailableButton/colors/font_focus_color = Color(0.968627, 0.960784, 1, 1)
+SiriusItemSlotUnavailableButton/colors/font_disabled_color = Color(0.780392, 0.807843, 0.909804, 0.45)
+SiriusItemSlotUnavailableButton/colors/icon_normal_color = Color(0.780392, 0.807843, 0.909804, 0.45)
+SiriusItemSlotUnavailableButton/colors/icon_hover_color = Color(0.780392, 0.807843, 0.909804, 0.45)
+SiriusItemSlotUnavailableButton/colors/icon_pressed_color = Color(0.780392, 0.807843, 0.909804, 0.45)
+SiriusItemSlotUnavailableButton/colors/icon_hover_pressed_color = Color(0.780392, 0.807843, 0.909804, 0.45)
+SiriusItemSlotUnavailableButton/colors/icon_focus_color = Color(0.968627, 0.960784, 1, 1)
+SiriusItemSlotUnavailableButton/colors/icon_disabled_color = Color(0.780392, 0.807843, 0.909804, 0.45)
+SiriusItemSlotUnavailableButton/constants/h_separation = 4
+SiriusItemSlotUnavailableButton/font_sizes/font_size = 14
+SiriusItemSlotUnavailableButton/fonts/font = ExtResource("3_noto_medium")
+SiriusItemSlotUnavailableButton/styles/normal = SubResource("StyleBoxFlat_item_slot_unavailable")
+SiriusItemSlotUnavailableButton/styles/hover = SubResource("StyleBoxFlat_item_slot_unavailable")
+SiriusItemSlotUnavailableButton/styles/pressed = SubResource("StyleBoxFlat_item_slot_unavailable")
+SiriusItemSlotUnavailableButton/styles/hover_pressed = SubResource("StyleBoxFlat_item_slot_unavailable")
+SiriusItemSlotUnavailableButton/styles/focus = SubResource("StyleBoxFlat_item_slot_focus")
+SiriusItemSlotUnavailableButton/styles/disabled = SubResource("StyleBoxFlat_item_slot_unavailable")
 SiriusContentPanel/base_type = &"Panel"
 SiriusContentPanel/styles/panel = SubResource("StyleBoxFlat_content_panel")
 SiriusFeaturePanel/base_type = &"Panel"

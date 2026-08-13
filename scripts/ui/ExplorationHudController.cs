@@ -1,5 +1,4 @@
 using Godot;
-using System;
 
 public readonly record struct ExplorationHudPlayerState(
     string Name,
@@ -56,30 +55,13 @@ public partial class ExplorationHudController : Control
 
     public void ApplyPlayerState(ExplorationHudPlayerState state)
     {
-        _playerName.Text = string.IsNullOrWhiteSpace(state.Name)
-            ? "Adventurer"
-            : state.Name;
-        _playerLevel.Text = $"Lv {state.Level}";
-
-        _healthBar.Current = state.CurrentHealth;
-        _healthBar.Maximum = state.MaxHealth;
-
-        _manaBar.Visible = state.MaxMana > 0;
-        if (_manaBar.Visible)
-        {
-            _manaBar.Current = state.CurrentMana;
-            _manaBar.Maximum = state.MaxMana;
-        }
-
-        _experienceBar.Visible = state.ExperienceToNext > 0;
-        if (_experienceBar.Visible)
-        {
-            _experienceBar.MaxValue = state.ExperienceToNext;
-            _experienceBar.Value = Math.Clamp(
-                state.Experience,
-                0,
-                state.ExperienceToNext);
-        }
+        SiriusPlayerSummaryPresenter.Apply(
+            state,
+            _playerName,
+            _playerLevel,
+            _healthBar,
+            _manaBar,
+            _experienceBar);
 
         _portrait.Visible = _portrait.Texture != null;
     }

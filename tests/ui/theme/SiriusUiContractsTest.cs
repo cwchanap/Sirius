@@ -51,6 +51,24 @@ public partial class SiriusUiContractsTest : Node
     }
 
     [TestCase]
+    public void ItemSlotVisualState_ContainsOnlyApprovedValues()
+    {
+        AssertThat(string.Join(",", Enum.GetNames<SiriusItemSlotVisualState>()))
+            .IsEqual("Empty,Available,Equipped,Unsupported");
+    }
+
+    [TestCase]
+    public void ItemSlotThemeTypes_ExposeExactStableNames()
+    {
+        AssertThat(SiriusThemeTypes.ItemSlotButton.ToString())
+            .IsEqual("SiriusItemSlotButton");
+        AssertThat(SiriusThemeTypes.ItemSlotEquippedButton.ToString())
+            .IsEqual("SiriusItemSlotEquippedButton");
+        AssertThat(SiriusThemeTypes.ItemSlotUnavailableButton.ToString())
+            .IsEqual("SiriusItemSlotUnavailableButton");
+    }
+
+    [TestCase]
     public void ClosedEnums_ContainOnlyApprovedValues()
     {
         AssertThat(Enum.GetValues<SiriusUiSeverity>()).ContainsExactly(

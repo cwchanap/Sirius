@@ -46,6 +46,9 @@ public static class SiriusUiMetrics
     public static Vector2 IgnitionSize(bool compact) =>
         compact ? new Vector2(80, 80) : new Vector2(96, 96);
 
+    public static Vector2 ItemSlotSize(bool compact) =>
+        compact ? new Vector2(48, 48) : new Vector2(56, 56);
+
     public static int TooltipMaximum(bool compact) => compact ? 280 : 360;
 
     public static int ModalWidth(SiriusModalSizeClass sizeClass) => sizeClass switch

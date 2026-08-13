@@ -1,0 +1,54 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/components/SiriusItemSlotController.cs" id="1_item_slot"]
+[ext_resource type="Theme" path="res://resources/ui/theme/SiriusTheme.tres" id="2_sirius_theme"]
+
+[node name="SiriusItemSlot" type="Button"]
+custom_minimum_size = Vector2(56, 56)
+focus_mode = 2
+disabled = false
+theme = ExtResource("2_sirius_theme")
+theme_type_variation = &"SiriusItemSlotButton"
+script = ExtResource("1_item_slot")
+
+[node name="Icon" type="TextureRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="QuantityLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -4.0
+offset_top = -22.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"SiriusNumericCompact"
+horizontal_alignment = 2
+
+[node name="StateLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 12
+anchor_right = 1.0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -20.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"SiriusMetadataCompact"
+horizontal_alignment = 1

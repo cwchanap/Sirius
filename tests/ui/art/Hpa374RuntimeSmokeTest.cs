@@ -83,26 +83,28 @@ public partial class Hpa374RuntimeSmokeTest : Node
 
         var equipmentHeading = _inventoryMenu.GetNode<TextureRect>("%EquipmentTitleIcon");
         var itemHeading = _inventoryMenu.GetNode<TextureRect>("%InventoryTitleIcon");
-        var weapon = _inventoryMenu.GetNode<PanelContainer>("%WeaponSlot")
-            .GetNode<TextureButton>("Button");
-        var locked = _inventoryMenu.GetNode<PanelContainer>("%AccessorySlot4")
-            .GetNode<TextureButton>("Button");
+        var weapon = _inventoryMenu.GetNode<SiriusItemSlotController>("%WeaponSlot");
+        var accessory = _inventoryMenu.GetNode<SiriusItemSlotController>("%AccessorySlot0");
+        var weaponIcon = weapon.GetNode<TextureRect>("%Icon");
+        var accessoryIcon = accessory.GetNode<TextureRect>("%Icon");
         var close = _inventoryMenu.GetNode<Button>("%CloseButton");
 
         AssertThat(_inventoryMenu.Visible).IsTrue();
         AssertThat(equipmentHeading.Texture!.GetSize()).IsEqual(new Vector2(24, 24));
         AssertThat(itemHeading.Texture!.GetSize()).IsEqual(new Vector2(24, 24));
-        AssertThat(weapon.TextureNormal!.GetSize()).IsEqual(new Vector2(32, 32));
-        AssertThat(locked.Disabled).IsTrue();
-        AssertThat(locked.TextureDisabled!.GetSize()).IsEqual(new Vector2(32, 32));
+        AssertThat(weaponIcon.Texture!.GetSize()).IsEqual(new Vector2(32, 32));
+        AssertThat(weaponIcon.StretchMode).IsEqual(TextureRect.StretchModeEnum.KeepCentered);
+        AssertThat(accessoryIcon.Texture!.GetSize()).IsEqual(new Vector2(32, 32));
+        AssertThat(accessoryIcon.StretchMode).IsEqual(TextureRect.StretchModeEnum.KeepCentered);
         AssertThat(close.Text).StartsWith("Close [");
 
         var sword = EquipmentCatalog.CreateWoodenSword();
         AssertThat(_gameManager.Player.TryEquip(sword, out _)).IsTrue();
         _inventoryMenu.OpenMenu();
-        AssertThat(weapon.TextureNormal!.ResourcePath).IsEqual(sword.AssetPath);
-        AssertThat(weapon.TextureNormal.ResourcePath)
+        AssertThat(weaponIcon.Texture!.ResourcePath).IsEqual(sword.AssetPath);
+        AssertThat(weaponIcon.Texture.ResourcePath)
             .IsNotEqual(UiArtCatalog.GetIconPath(UiIconId.Weapon, UiIconSize.Feature));
+        AssertThat(weaponIcon.StretchMode).IsEqual(TextureRect.StretchModeEnum.KeepAspectCentered);
 
         var rendered = _viewport.GetTexture().GetImage();
         if (DisplayServer.GetName().ToString() == "headless")

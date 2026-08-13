@@ -373,6 +373,15 @@ public partial class InventoryMenuController : Control
 				? weapon
 				: _equipmentSlots.Values.FirstOrDefault()
 		};
+		// The page-specific target may be unfocusable after a compact→standard
+		// resize: an empty Items page falls back to _itemsTab, which is a child
+		// of the now-hidden CompactTabs; a Skills page with no active skill has
+		// a disabled _activeSkillSelector. In both cases CanGrabFocus rejects the
+		// target and focus would be silently dropped. Fall back to the always-
+		// focusable CloseButton before grabbing focus, mirroring the final
+		// fallback in ResolvePendingFocusRestore.
+		if (!CanGrabFocus(target))
+			target = _closeButton;
 		if (CanGrabFocus(target))
 			target!.GrabFocus();
 	}

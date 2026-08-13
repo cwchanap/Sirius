@@ -6,159 +6,173 @@
 
 ## 1. Decision summary
 
-Replace the fixed editor-like Inventory screen with one scene-authored, full-screen Sirius surface while preserving the existing inventory, equipment, consumable, active-skill, pause, and rollback rules.
+Replace the fixed editor-like Inventory workbench with one scene-authored, full-screen Sirius surface while preserving the existing inventory, equipment, consumable, active-skill, pause, and rollback rules.
 
-The implementation stays deliberately small:
+Keep the architecture deliberately small:
 
-- keep `InventoryMenuController` as the one feature controller and existing domain-operation caller;
-- keep `Game` and the gameplay `UIScreenHost` as lifecycle owners;
-- add one reusable presentational leaf, `SiriusItemSlot`, for primary equipment, accessories, and inventory entries;
-- render exactly the current inventory entries dynamically instead of authoring 24 or 100 catalogue slots;
-- use one shared scene tree for standard and compact layouts;
-- use compact `Equipment`, `Items`, and `Skills` page buttons patterned after the existing Settings page-selection approach;
-- keep focused-item detail passive and ephemeral rather than adding HPA-375's persistent selection/comparison model;
-- preserve focus across refresh/reflow with screen-local identity keys, never raw dynamic `Control` references.
+- one `InventoryMenuController`; no presenter, view model, repository/facade, generic collection renderer, or navigation service;
+- `Game` / gameplay `UIScreenHost` remain lifecycle owners;
+- one reusable `SiriusItemSlot` leaf for primary equipment, accessories, and dynamic inventory entries;
+- a dynamic current-entry catalogue rather than 24 authored slots or 100 placeholders;
+- one scene tree; compact mode uses visibility-selected Equipment / Items / Skills pages;
+- one small shared player-summary presenter because Exploration HUD and Inventory are now two concrete consumers of the same name/HP/MP/EXP fallback rules;
+- screen-local semantic focus restoration for catalogue mutations; no persistent selected-item model;
+- spatial Godot focus navigation first; explicit focus-neighbour overrides only if behavioural tests prove a specific boundary fails.
 
-No inventory view model, presenter, repository/facade, generic collection renderer, navigation service, compatibility layer, or new domain protocol is introduced.
+HPA-375 comparison, filtering, persistent selection, and user sorting remain out of scope.
 
-## 2. Why HPA-357 is next
+## 2. Current-state findings
 
-The Sirius delivery order places Inventory parity immediately after Settings and Save/Load and before full-screen Battle. The Theme, `UIScreenHost`, Pause, Settings, Main Menu, exploration HUD, and Save/Load migrations are already available to reuse.
-
-HPA-357 is blocked only by the completed UI foundation workstream. It also unlocks HPA-375 inventory enhancements and contributes to the final UI hardening gate.
-
-## 3. Current-state findings
-
-### 3.1 Presentation is still fixed and split between scene and controller
+### 2.1 Presentation is fixed and split between scene and controller
 
 `scenes/ui/InventoryMenu.tscn` currently uses a fixed 1240×760 centred panel, local `StyleBoxFlat` resources, a two-pane `HSplitContainer`, six accessory placeholders, and 24 authored inventory slots.
 
-`InventoryMenuController` then overrides slot geometry to 108×108 panels / 96×96 buttons and builds local base/equipped/locked `StyleBoxFlat` instances in C#. The same presentation concern therefore lives in both `.tscn` and C#.
+`InventoryMenuController` then overrides slot geometry to 108×108 panels / 96×96 buttons and creates base/equipped/locked `StyleBoxFlat` instances in C#. HPA-357 moves geometry and styling back into the shared Theme / scene system.
 
-HPA-357 removes that duplication and uses the shared Sirius Theme instead.
+### 2.2 Domain operations are already narrow enough
 
-### 3.2 Domain operations are already narrow enough
-
-The controller already delegates working behavior to existing domain objects:
+Keep the existing domain seams:
 
 - entries come from `Character.Inventory`;
 - ordering is ordinal `DisplayName` sorting;
 - equip delegates to `Character.TryEquip`;
-- unequip delegates to `Character.Unequip` and rolls back when the removed item cannot return to inventory;
+- unequip delegates to `Character.Unequip`, retaining the existing inventory-return rollback;
 - consumable use removes first, applies the effect, and attempts rollback on failure;
-- battle-only consumables are rejected outside battle;
-- active-skill selection delegates to `Character.EquipActiveSkill`, with explicit `None` preserved.
+- battle-only consumables remain unavailable outside battle;
+- active-skill selection delegates to `Character.EquipActiveSkill`, including explicit `None`.
 
-Those rules stay where they are.
+Do not move those rules to a new layer.
 
-### 3.3 The fixed catalogue is a real parity limitation
+### 2.3 The fixed catalogue is a real parity limitation
 
-`Inventory.MaxItemTypes` supports up to 100 item types, but the current UI displays only the 24 authored slot nodes and warns when additional entries are hidden.
+`Inventory.MaxItemTypes` supports up to 100 item types while the current UI displays only the 24 authored slot nodes and warns that extra entries are hidden.
 
-HPA-357 removes this presentation cap by creating/reusing one visual slot per current entry inside a scrollable catalogue. It does not pre-create 100 empty nodes and does not change inventory capacity.
+HPA-357 removes only that presentation cap. It creates/reuses one slot per current entry under a scroll container; it does not change inventory capacity.
 
-### 3.4 The current icon pipeline has two distinct contracts
+### 2.4 Slot art already has a tested two-mode contract
 
-Current Inventory tests and `Hpa374RuntimeSmokeTest` distinguish:
+Current Inventory/HPA-374 coverage distinguishes:
 
 - generated slot/type glyphs: 32 px native art, centered without upscaling;
-- populated item art: aspect-preserving scaling to the available slot region.
+- populated item art: aspect-preserving scaling inside the slot.
 
-`UiIconPresenter.Apply(Button, ...)` is not a substitute because it uses the Button icon API and `icon_max_width`; that would erase the tested glyph-vs-item presentation distinction.
+`UiIconPresenter` already owns this distinction for the legacy `TextureButton` path. HPA-357 should move that ownership to `TextureRect` rather than hand-implement the same rule inside the new slot and leave dead `TextureButton` presenter APIs behind.
 
-`SiriusItemSlot` therefore keeps the root as a focusable `Button` but owns a passive `%Icon` `TextureRect`. Glyph presentation uses `UiIconPresenter.Apply(TextureRect, ...)` and then `TextureRect.StretchModeEnum.KeepCentered`; item presentation uses the current loaded item texture with `KeepAspectCentered`. The root Button never uses `Button.Icon`.
+Add two narrow APIs:
 
-### 3.5 Host integration already exists
+```csharp
+public static bool ApplyGlyph(TextureRect target, UiIconId id, UiIconSize size);
+public static void ApplyItem(TextureRect target, Texture2D? texture);
+```
 
-`Game.TryOpenInventory` already registers Inventory with `UIScreenHost`, including root-vs-Pause parentage, tree-pause ownership, cursor ownership, topmost Cancel, `toggle_inventory`, focus restoration, and external node lifetime.
+`ApplyGlyph` loads the generated icon, uses `ExpandMode.IgnoreSize`, and sets `KeepCentered`. `ApplyItem` uses `ExpandMode.IgnoreSize` and `KeepAspectCentered`.
 
-HPA-357 keeps that hosting path. The only host policy correction is changing Inventory from inherited HUD visibility to `UIHudPolicy.Hidden` while open.
+After Inventory migrates, delete the now-unused `UiIconPresenter` `TextureButton` overload/helpers (`Apply(TextureButton, ...)`, `ApplyTexture`, `ApplyGlyphTexture`, `SetSlotTextures`). Keep the existing general `Apply(TextureRect, ...)` and `Apply(Button, ...)` APIs for their current consumers.
 
-### 3.6 The domain exposes four accessory slots, not six
+### 2.5 Host integration already exists
 
-`EquipmentSet.AccessorySlotCount` is `4`. The current fifth and sixth scene placeholders are always locked but have no unlock rule or persisted/domain state.
+`Game.TryOpenInventory` already owns root-vs-Pause parentage, pause policy, gameplay block, cursor, topmost Cancel / `toggle_inventory`, external-node lifetime, and focus restoration through `UIScreenHost`.
 
-The redesigned screen authors exactly four accessory slots. `SiriusItemSlotVisualState.Locked` remains a valid reusable visual state and component contract, but HPA-357 does not render fake locked accessory positions for a progression system that does not exist.
+The only host-policy change remains:
 
-## 4. Goals
+```csharp
+Hud = UIHudPolicy.Hidden,
+```
+
+Do not add an Inventory host wrapper/factory.
+
+### 2.6 Four accessory slots exist, but current Inventory only targets slot 0
+
+`EquipmentSet.AccessorySlotCount` is `4`, and `Character.TryEquip(..., accessorySlot)` / `EquipmentSet.TryEquip(..., accessoryIndex)` already support all four indices. Current `InventoryMenuController.EquipFromInventory` uses the two-argument overload, so accessories always target index 0; a second accessory replaces the first even while slots 1–3 remain empty.
+
+The redesign should not replace two fake locked placeholders with three visually reachable but functionally unreachable slots. This is a UI routing defect, not a new domain system.
+
+For an accessory equipped from Inventory:
+
+1. choose the first empty accessory index `0 .. AccessorySlotCount - 1`;
+2. if all are occupied, fall back to index 0 to preserve the existing replacement behavior;
+3. pass that index to the existing `Character.TryEquip` overload;
+4. restore post-mutation focus to that exact accessory slot.
+
+No unlock progression, new domain API, or persistence change is introduced.
+
+### 2.7 Player-summary fallback rules already have a second consumer
+
+`ExplorationHudController.ApplyPlayerState` already defines tested presentation rules for:
+
+- blank name → `Adventurer`;
+- HP current/maximum binding;
+- MP visibility only when `MaxMana > 0`;
+- EXP visibility only when `ExperienceToNext > 0`, with clamped value.
+
+Inventory needs the same rules. Duplicating them in `RefreshCharacterSummary` would create two policies that can drift.
+
+Add one small static `SiriusPlayerSummaryPresenter` that applies an existing `ExplorationHudPlayerState` to already-bound common controls (`Label` name/level, `SiriusStatBar` HP/MP, `ProgressBar` EXP). `ExplorationHudController.ApplyPlayerState` and `InventoryMenuController` both call it. Do not extract a new IdentityStrip scene/component.
+
+Inventory still owns its additional effective ATK/DEF/SPD and exact `Gold: {value}` copy.
+
+## 3. Goals
 
 1. Ship a responsive RPG-style character/equipment/inventory/active-skill screen using the existing Sirius Theme.
-2. Preserve all currently supported inventory/equipment operations and rollback behavior.
-3. Show every current inventory item type instead of truncating after 24 entries.
-4. Preserve the existing HPA-374 icon behavior for native slot glyphs versus scaled item art.
-5. Make item/equipment information reachable through mouse, keyboard, and gamepad focus.
-6. Provide a deliberate compact navigation model at 640×360.
-7. Keep lifecycle, pause, Cancel, cursor, HUD, and parent restoration owned by `UIScreenHost`.
-8. Preserve valid focus through catalogue mutation/reflow without creating persistent selected-item state.
-9. Create only the reusable slot primitive that this migration proves it needs.
+2. Preserve current equip/unequip/consume/rollback/active-skill semantics.
+3. Make all four existing accessory slots reachable using the existing indexed equip API.
+4. Show every current inventory item type instead of truncating after 24 entries.
+5. Preserve the HPA-374 native-glyph versus scaled-item-art contract.
+6. Share the existing HUD name/HP/MP/EXP fallback policy rather than duplicate it.
+7. Make tooltip/detail information reachable through mouse, keyboard, and gamepad focus.
+8. Provide deliberate compact Equipment / Items / Skills navigation at 640×360.
+9. Preserve valid focus after catalogue mutation/reflow without persistent selection state.
+10. Keep lifecycle, pause, Cancel, cursor, HUD, and parent restoration owned by `UIScreenHost`.
 
-## 5. Non-goals
+## 4. Non-goals
 
 HPA-357 does not add:
 
 - persistent selected-item state;
 - equipment comparison;
-- category filtering;
+- category filters;
 - user sorting;
 - Drop, Sell, Favourite, Lock, or bulk actions;
-- inventory pagination as a domain concept;
+- accessory unlock/progression rules;
 - battle item-selection redesign;
-- new accessory unlock rules or fake future accessory slots;
-- passive-skill loadout editing beyond current supported behavior;
+- passive-skill editing beyond current supported behavior;
 - inventory persistence changes;
-- a generic UI collection renderer;
-- a generic screen presenter/view-model layer;
+- new InputMap actions for page cycling;
+- a generic collection renderer;
+- a generic screen presenter/view-model;
 - a navigation service;
-- new InputMap actions for compact page cycling;
 - new art assets;
 - HPA-375 behavior.
 
-## 6. Approaches considered
+## 5. Chosen architecture
 
-### Approach A — restyle the existing fixed grid
-
-Keep the 24 authored slots, replace local colors with Theme values, and add a compact size mode.
-
-**Rejected.** Item types beyond slot 24 remain invisible, and the fixed two-pane composition stays brittle at 640×360.
-
-### Approach B — generic inventory presentation framework
-
-Introduce inventory/equipment view models, a generic collection renderer, slot factories, navigation abstractions, and separate presenters for standard/compact modes.
-
-**Rejected.** Only one screen needs these behaviors. The existing controller/domain boundaries are sufficient.
-
-### Approach C — one screen controller plus one reusable slot leaf
-
-Keep domain operations in `InventoryMenuController`, rewrite the scene around the Sirius Theme, introduce a small slot component that owns only visual/input presentation, and dynamically instantiate inventory slots from current sorted entries.
-
-**Chosen.** It fixes the actual player-facing constraints without manufacturing another architecture layer.
-
-## 7. Architecture
-
-### 7.1 Ownership
+### 5.1 Ownership
 
 `Game`
-: Owns creation of the Inventory view, `UIScreenHost` registration, parentage, pause, gameplay blocking, HUD policy, cursor, topmost Cancel/toggle handling, and parent/gameplay focus restoration.
+: Keeps `UIScreenHost` registration/lifecycle ownership. HPA-357 changes only Inventory HUD policy to Hidden.
 
 `InventoryMenuController`
-: Owns binding current `Character` state into the scene, compact-page state, dynamic catalogue slot instances, ephemeral focus summary, screen-local focus identity/restoration, and invocation of the existing character/inventory operations.
+: Binds player state, owns compact page state, creates/rebinds dynamic catalogue slots, owns ephemeral focus summary and screen-local semantic focus restoration, chooses the existing accessory index for accessory equip, and invokes existing domain operations.
 
 `SiriusItemSlotController`
-: Owns one slot's Theme variation, glyph/item-art presentation, quantity/state labels, tooltip, focusability, and guarded activation signal. It has no knowledge of `Item`, `Character`, `Inventory`, equipment transactions, or `GameManager`.
+: Owns one slot's visual state, glyph/item-art presentation, labels, tooltip, focusability, and guarded activation. It has no `Item`, `Character`, `Inventory`, `EquipmentSet`, or `GameManager` dependency.
+
+`SiriusPlayerSummaryPresenter`
+: Owns only the already-shared name/level/HP/MP/EXP presentation policy. It does not own character state, mutation, scene structure, focus, or Inventory-specific statistics.
 
 `Character`, `Inventory`, `EquipmentSet`, `SkillCatalog`
-: Continue to own domain state and rules.
+: Remain domain owners.
 
-### 7.2 Slot component
+### 5.2 Slot component
 
 Create:
 
 - `scripts/ui/components/SiriusItemSlotController.cs`
 - `scenes/ui/components/SiriusItemSlot.tscn`
 
-The root is a focusable `Button`. It contains passive `%Icon` `TextureRect`, `%QuantityLabel`, and `%StateLabel` children with `MouseFilter.Ignore`.
+The root is a focusable `Button` with passive `%Icon: TextureRect`, `%QuantityLabel`, and `%StateLabel` children.
 
-The public component surface is deliberately small:
+Use four states only:
 
 ```csharp
 public enum SiriusItemSlotVisualState
@@ -166,56 +180,56 @@ public enum SiriusItemSlotVisualState
     Empty,
     Available,
     Equipped,
-    Locked,
     Unsupported
-}
-
-public partial class SiriusItemSlotController : Button
-{
-    [Signal] public delegate void ActivatedEventHandler();
-
-    public bool Actionable { get; private set; }
-
-    public void SetCompact(bool compact);
-
-    public void PresentGlyph(
-        UiIconId iconId,
-        string quantityText,
-        string stateText,
-        string tooltipText,
-        SiriusItemSlotVisualState state,
-        bool actionable);
-
-    public void PresentItem(
-        Texture2D? texture,
-        string quantityText,
-        string stateText,
-        string tooltipText,
-        SiriusItemSlotVisualState state,
-        bool actionable);
 }
 ```
 
-`PresentGlyph` calls `UiIconPresenter.Apply(%Icon, iconId, UiIconSize.Feature)` and then uses `KeepCentered`, so a 32 px glyph remains 32 px at both 56×56 and 48×48 slot sizes.
+There is no production `Locked` consumer after fake accessory placeholders are removed; adding that enum later is trivial if a real consumer appears.
 
-`PresentItem` uses the loaded item texture with `ExpandMode.IgnoreSize` and `KeepAspectCentered`, matching the current populated-item behavior without adding a new `UiIconPresenter` overload for one consumer.
+`Actionable` is derived, never passed independently:
 
-`Pressed` emits `Activated` only when `Actionable` is true. Empty, Locked, and Unsupported remain natively focusable and non-disabled so keyboard/gamepad users can read the reason.
+```csharp
+public bool Actionable =>
+    _state is SiriusItemSlotVisualState.Available
+        or SiriusItemSlotVisualState.Equipped;
+```
 
-The Theme receives only three slot-specific Button variations: normal, equipped, and unavailable. Focus remains cyan and independent from the equipped gold state.
+Public binding surface:
 
-`SiriusUiMetrics` receives exactly one new proven metric:
+```csharp
+public void SetCompact(bool compact);
+
+public void PresentGlyph(
+    UiIconId iconId,
+    string quantityText,
+    string stateText,
+    string tooltipText,
+    SiriusItemSlotVisualState state);
+
+public void PresentItem(
+    Texture2D? texture,
+    string quantityText,
+    string stateText,
+    string tooltipText,
+    SiriusItemSlotVisualState state);
+```
+
+`PresentGlyph` delegates to `UiIconPresenter.ApplyGlyph`; `PresentItem` delegates to `UiIconPresenter.ApplyItem`.
+
+Empty/Unsupported remain natively focusable and non-disabled, but `Pressed` emits `Activated` only when `Actionable` is true.
+
+The Theme still needs exactly three Button variations: normal, equipped, unavailable. The enum and Theme names are closed contracts and are pinned in `SiriusUiContractsTest`.
+
+`SiriusUiMetrics` gains exactly:
 
 ```csharp
 public static Vector2 ItemSlotSize(bool compact) =>
     compact ? new Vector2(48, 48) : new Vector2(56, 56);
 ```
 
-No generic slot configuration object or renderer is added.
+### 5.3 Scene structure
 
-### 7.3 Scene structure
-
-Rewrite `scenes/ui/InventoryMenu.tscn` around the shared Theme and full-screen safe-frame policy. Do not use `SiriusModalShell`; Inventory is a screen, not a sized dialog.
+Inventory remains a full-screen SafeFrame screen, not `SiriusModalShell`.
 
 Conceptual tree:
 
@@ -249,73 +263,72 @@ InventoryMenu
             │       └── InventoryScroll
             │           └── InventoryGrid
             ├── FocusSummary
-            └── Footer
-                └── CloseButton
+            └── Footer/CloseButton
 ```
 
-The root owns `SiriusTheme.tres`. Standard-mode heading nodes remain explicit and stable: `%EquipmentTitleIcon`, `%EquipmentTitleLabel`, `%InventoryTitleIcon`, and `%InventoryTitleLabel`.
+Stable heading names remain `%EquipmentTitleIcon`, `%EquipmentTitleLabel`, `%InventoryTitleIcon`, `%InventoryTitleLabel` because existing tests/HPA-374 smoke consume them.
 
-The five primary equipment slots and exactly four accessory slots are explicit scene-authored `SiriusItemSlot` instances. `%InventoryGrid` starts empty and contains only current data-driven entries at runtime.
+Author five primary equipment slots and exactly `%AccessorySlot0` through `%AccessorySlot3`. `%InventoryGrid` starts empty.
 
-Reuse the hero sheet atlas crop `Rect2(0, 0, 96, 96)` already used by `ExplorationHud.tscn`.
+Reuse the same hero sheet `AtlasTexture` crop `Rect2(0, 0, 96, 96)` as Exploration HUD.
 
-### 7.4 Character summary and fallback contract
+`%FocusSummary` is a plain `Label` with `AutowrapMode.WordSmart`; no BBCode is produced, so `RichTextLabel` adds parsing/escaping surface without value. Keep its container bounded so long text cannot enlarge the screen.
 
-Reuse the exploration HUD's presentation fallbacks instead of creating slightly different Inventory behavior:
+### 5.4 Shared player summary
 
-- blank/whitespace player name renders `Adventurer`;
-- HP uses current value and effective maximum;
-- MP is hidden when `MaxMana <= 0`, otherwise current/maximum is bound;
-- EXP is hidden when `ExperienceToNext <= 0`, otherwise its range/value is bound without inventing a fake denominator;
-- portrait is hidden only when its texture is unavailable;
-- Gold keeps the existing Inventory copy exactly: `Gold: {value}`.
+Inventory creates the existing `ExplorationHudPlayerState` from current player values (using effective max HP) and calls the same `SiriusPlayerSummaryPresenter.Apply(...)` used by Exploration HUD.
 
-Effective ATK/DEF/SPD come from existing `Character.GetEffective*` methods so equipment changes immediately refresh the summary.
+Inventory then adds:
 
-At compact size, name, level, HP, MP when supported, and Gold remain continuously readable. ATK/DEF/SPD and EXP stay reachable from Equipment without dropping essential text below the approved compact minimum.
+```text
+ATK = player.GetEffectiveAttack()
+DEF = player.GetEffectiveDefense()
+SPD = player.GetEffectiveSpeed()
+Gold = $"Gold: {player.Gold}"
+```
 
-### 7.5 Equipment and accessories
+No duplicate blank-name, MP visibility, EXP visibility, or EXP clamp policy remains in Inventory.
 
-The five primary slots bind directly to their existing `EquipmentSlotType` values.
+### 5.5 Equipment and accessories
 
-The accessory arc authors exactly `%AccessorySlot0` through `%AccessorySlot3`, matching `EquipmentSet.AccessorySlotCount`.
+Primary slot mapping:
 
-Visual mapping:
+- populated → `Equipped`, item art, actionable;
+- empty → `Empty`, type glyph, non-actionable.
 
-- populated primary/accessory slot → `Equipped`, actionable, `PresentItem`, existing tooltip/focus summary;
-- empty primary slot → `Empty`, non-actionable, `PresentGlyph(UiArtCatalog.ForEquipmentSlot(slotType), ...)`;
-- empty accessory slot → `Empty`, non-actionable, `PresentGlyph(UiIconId.Accessory, ...)`.
+Accessory mapping:
 
-No `%AccessorySlot4` / `%AccessorySlot5` or permanent fake lock presentation remains.
+- populated → `Equipped`, item art, actionable;
+- empty → `Empty`, accessory glyph, non-actionable.
 
-`Locked` stays tested at the component level for a real future consumer, but this ticket does not pretend there is an unlock progression rule.
+Accessory equip target:
 
-Activating an equipped slot invokes the existing unequip path. No new equipment transaction API is added.
+```text
+first empty accessory index
+else index 0 when all four are occupied
+```
 
-### 7.6 Dynamic inventory catalogue
+This makes all four authored slots real without adding an unlock system.
 
-Replace `_inventorySlotEntries` and the 24 authored nodes with a dynamic list of `SiriusItemSlotController` instances under `%InventoryGrid`.
+### 5.6 Dynamic inventory catalogue
 
-On refresh:
+Replace `_inventorySlotEntries` and 24 authored catalogue nodes with a dynamic list of `SiriusItemSlotController` instances.
+
+Refresh algorithm:
 
 1. read `Player.Inventory.GetAllEntries()`;
-2. sort by `Item.DisplayName` using `StringComparison.Ordinal`;
-3. grow/reuse/shrink slots to match the current entry count;
-4. bind item art with `PresentItem` and quantity;
-5. map equipment to `Available` + actionable;
-6. map supported out-of-battle consumables to `Available` + actionable;
-7. map battle-only consumables and unsupported item categories to `Unsupported` + non-actionable with a readable reason;
-8. remove extra visual slots when the count decreases.
+2. sort by `DisplayName` with `StringComparison.Ordinal`;
+3. grow/reuse/shrink slot nodes to equal current entry count;
+4. rebuild the refresh-scoped slot → `InventoryEntry` map;
+5. bind equipment and supported out-of-battle consumables as `Available`;
+6. bind battle-only/unsupported items as `Unsupported` with readable reason;
+7. remove extra visual nodes when the count shrinks.
 
-The catalogue is inside a `ScrollContainer`; inventory capacity remains a domain concern.
+The slot → `InventoryEntry` map is valid only until the next catalogue refresh. Never retain an `InventoryEntry` from that map across an Inventory mutation; the domain owns those live mutable entries.
 
-A private screen-local binding from visual slot to current `InventoryEntry` is sufficient for activation. No item view model is introduced.
+### 5.7 Semantic focus restoration
 
-### 7.7 Screen-local focus identity and refresh restoration
-
-Dynamic slots can be rebound to a different item or freed after equip/use. Therefore the screen must never remember a dynamic `Control` as semantic focus identity.
-
-Use an in-instance key based only on existing identity:
+Dynamic controls may be rebound or freed. Semantic focus identity is therefore:
 
 ```csharp
 private readonly record struct InventoryFocusKey(
@@ -324,284 +337,183 @@ private readonly record struct InventoryFocusKey(
     string? ItemId);
 ```
 
-Interpretation:
+Before mutation/reflow, capture the key and current catalogue index. After refresh:
 
-- primary equipment → `EquipmentSlot` only;
-- accessory → `EquipmentSlotType.Accessory` + `AccessoryIndex`;
-- inventory catalogue → `ItemId` only.
+1. restore the same equipment/accessory/item identity if it still exists;
+2. after equipment equip, focus the resulting equipment slot;
+3. after accessory equip, focus the exact chosen accessory index;
+4. after consuming the last copy of an item, focus the entry now at the previous index, else the previous last item;
+5. otherwise use active-page fallback.
 
-Before a mutation or responsive reflow, capture the current key and, for an inventory item, its current catalogue index. After `RefreshUI`/rebind:
+After rebind, explicitly recompute `%FocusSummary` from the current focus even if `FocusEntered` did not fire.
 
-1. resolve the same equipment/accessory/item identity when it still exists;
-2. if an equipped inventory item disappeared because it moved into equipment, focus its resulting equipment slot (accessories use the existing slot-0 equip behavior unless the domain call changes);
-3. if a consumed final item disappeared, focus the entry now occupying the previous index, otherwise the previous last entry;
-4. if no matching content remains, use the active-page fallback.
+This state is per screen instance and is not HPA-375 selected-item state.
 
-After every refresh/rebind, explicitly refresh `%FocusSummary` from the resolved current focus. Do not rely on `FocusEntered` firing again when a surviving control stays focused.
+### 5.8 Compact pages and input
 
-This key is never persisted and never becomes selected-item state.
+Follow Settings' page-button model: one scene-authored `ButtonGroup`, named handlers, one `SetCompactPage(InventoryPage)` method. Do not use a `TabContainer` as the content host because standard Inventory shows Equipment + Skills + Items simultaneously.
 
-### 7.8 Focus summary
+Input:
 
-`%FocusSummary` is a passive `RichTextLabel`, updated by slot focus/mouse enter and active-skill focus/selection. It exposes the same description, quantity, bonuses, slot/category, effect, and availability reason that current tooltips expose.
+- mouse: click page button;
+- keyboard / D-pad: normal Godot spatial focus + activate button;
+- gamepad LB/RB: raw shoulder buttons cycle pages while visible + compact;
+- no new `inventory_page_*` InputMap actions.
 
-It:
+Do **not** pre-build a `LinkVertical`/focus-neighbour maintenance layer. First assert behavior through actual `SubViewport.PushInput`:
 
-- does not survive screen destruction;
-- does not control actions;
-- does not add comparison;
-- follows current focus/hover only;
-- is re-pushed after catalogue rebind;
-- never stores domain selection.
+- focused page tab + `ui_down` reaches first page control;
+- first page control + `ui_up` returns to the page tab;
+- last page control + `ui_down` reaches Close.
 
-### 7.9 Responsive behavior
+If one of those concrete boundaries fails after the scene exists, add only the minimum explicit `FocusNeighbor*` assignment needed for that boundary. Do not introduce a generic focus-link helper or recompute-all-neighbours invariant unless a failing test proves it necessary.
 
-Use `SiriusUiMetrics.IsCompact` and `SafeFrameInsets`.
+### 5.9 Lifecycle integration
 
-#### Standard
+Keep `Game.SetupInventoryMenu`, `TryOpenInventory`, `TryCloseInventory`, external node lifetime, parent handle behavior, `CloseRequested`, Cancel/toggle ownership, and `InitialFocus = () => _inventoryMenu.InitialFocusTarget`.
 
-At 800×450 and above:
+Change only Inventory HUD policy to Hidden.
 
-- compact page buttons hidden;
-- Character/Equipment/Skills and Items visible together;
-- Items receives flexible width and vertical scroll;
-- content remains inside the 1600 px max-width safe frame;
-- slots use 56×56 geometry.
+Root Inventory continues to own tree pause/gameplay block through the host. Pause-child Inventory inherits the paused parent and does not take a second pause/block lease.
 
-#### Compact
-
-Below 800 logical width or 450 logical height:
-
-- a Settings-style three-button selector is visible;
-- persistent identity strip remains visible;
-- exactly one of Equipment, Items, or Skills is visible;
-- the same content nodes are reused;
-- slots use 48×48 geometry;
-- supporting telemetry is reduced before essential state/action text.
-
-Do not use a `TabContainer` as the content host because standard mode needs Equipment + Skills + Items visible simultaneously. The page buttons only control visibility.
-
-### 7.10 Compact page navigation
-
-Use scene-authored toggle buttons in one `ButtonGroup`, following the existing Settings controller pattern: named button handlers call one feature-local `SetCompactPage(InventoryPage)` method.
-
-Input behavior:
-
-- Mouse: click Equipment / Items / Skills.
-- Keyboard/gamepad D-pad: normal focus navigation across the tab buttons; activation selects the page.
-- Gamepad LB/RB: raw `JoyButton.LeftShoulder` / `RightShoulder` cycles pages while Inventory is visible and compact.
-- No new `inventory_page_left/right` InputMap actions.
-
-The existing `_Input` path already observes input hints while Inventory is visible. Shoulder handling remains in that controller callback and must work when root Inventory is hosted with `ProcessPolicy.WhenPaused`; tests exercise it with a paused SubViewport rather than moving page behavior into `GameplayPauseHostTest`.
-
-Compact focus neighbours are explicit after each page/catalogue refresh:
-
-- selected tab `ui_down` → first focusable control on its page;
-- first focusable page control `ui_up` → that page's tab;
-- final focusable control on the active page `ui_down` → Close;
-- Close `ui_up` → final focusable control on the active page;
-- tab left/right neighbours remain within the three-button selector.
-
-Dynamic Items neighbours are recomputed after catalogue growth/shrink.
-
-### 7.11 Initial focus
-
-`InitialFocusTarget` resolves current visible content, not Close-first presentation.
-
-Fallback order:
-
-1. restorable identity on the active compact page / current standard layout;
-2. first primary equipment slot for Equipment/standard;
-3. first inventory slot for Items;
-4. active-skill selector for Skills;
-5. active compact page button;
-6. Close.
-
-No `Dictionary<InventoryPage, Control>` is used for dynamic catalogue identity.
-
-### 7.12 Lifecycle integration
-
-Keep `Game.SetupInventoryMenu`, `TryOpenInventory`, `TryCloseInventory`, parent handle behavior, external node lifetime, and `CloseRequested` ownership.
-
-Change only:
-
-```csharp
-Hud = UIHudPolicy.Hidden,
-InitialFocus = () => _inventoryMenu.InitialFocusTarget,
-```
-
-Root Inventory still owns tree pause and gameplay block. Pause-child Inventory inherits the already-paused parent and does not acquire another pause/gameplay-block lease.
-
-`InventoryMenuController` never writes `SceneTree.Paused` and never consumes Cancel/toggle as a terminal action. `UIScreenHost` remains the lifecycle owner.
-
-## 8. File ownership
+## 6. File ownership
 
 ### Create
 
 - `scripts/ui/components/SiriusItemSlotController.cs`
 - `scenes/ui/components/SiriusItemSlot.tscn`
+- `scripts/ui/SiriusPlayerSummaryPresenter.cs`
 - `tests/ui/components/SiriusItemSlotControllerTest.cs`
 - `tests/ui/InventoryMenuSceneTest.cs`
 
 ### Modify
 
-- `resources/ui/theme/SiriusTheme.tres` — only proven slot Button variations.
-- `scripts/ui/theme/SiriusThemeTypes.cs` — names for slot variations.
-- `scripts/ui/theme/SiriusUiMetrics.cs` — one 56/48 slot-size helper.
-- `tests/ui/theme/SiriusUiMetricsTest.cs` — slot metric contract.
-- `scenes/ui/InventoryMenu.tscn` — responsive full-screen scene and exactly four accessories.
-- `scripts/ui/InventoryMenuController.cs` — binding, dynamic slots, character fallback contract, compact navigation, identity-based focus restoration; existing domain calls stay here.
-- `tests/ui/InventoryMenuControllerTest.cs` — migrate old `TextureButton`/heading assumptions and add parity/focus/navigation coverage.
-- `tests/ui/art/Hpa374RuntimeSmokeTest.cs` — migrate the Inventory art smoke to `%Icon` and four real accessories while retaining glyph-vs-item-art assertions.
-- `scripts/game/Game.cs` — Inventory HUD policy only.
-- `tests/game/GameplayPauseHostTest.cs` — direct/Pause-child host policy and parent restoration only.
-- `tests/game/GameInputLifecycleTest.cs` — only if existing Inventory lifecycle assertions need path migration.
-- `docs/ui/hpa-376/ui-lifecycle-contract.md` — reconcile Inventory evidence only if stale.
+- `scripts/ui/art/UiIconPresenter.cs` — add TextureRect glyph/item APIs; remove dead TextureButton slot APIs after Inventory migration.
+- `resources/ui/theme/SiriusTheme.tres` — three slot Button variations only.
+- `scripts/ui/theme/SiriusThemeTypes.cs` — three typed slot variation names.
+- `scripts/ui/theme/SiriusUiMetrics.cs` — one 56/48 slot metric.
+- `tests/ui/theme/SiriusUiMetricsTest.cs` — slot metric.
+- `tests/ui/theme/SiriusUiContractsTest.cs` — pin four-state enum and three Theme names.
+- `scripts/ui/ExplorationHudController.cs` — delegate common fallback binding to `SiriusPlayerSummaryPresenter`.
+- `tests/ui/ExplorationHudControllerTest.cs` — retain/adjust common fallback regressions around the shared presenter.
+- `scenes/ui/InventoryMenu.tscn` — full responsive rewrite; four real accessory slots.
+- `scripts/ui/InventoryMenuController.cs` — scene binding, dynamic catalogue, accessory target selection, focus identity, compact page behavior.
+- `tests/ui/InventoryMenuControllerTest.cs` — parity/catalogue/accessory/focus/summary migration.
+- `tests/ui/art/Hpa374RuntimeSmokeTest.cs` — migrate art smoke to `%Icon` `TextureRect` and four real accessories.
+- `scripts/game/Game.cs` — Inventory `Hud` policy only.
+- `tests/game/GameplayPauseHostTest.cs` — Inventory host policy/restoration.
 
-No `Character`, `Inventory`, `EquipmentSet`, save-format, skill-domain, generic UI host, or navigation framework file should need modification.
+### Audit-only unless stale evidence exists
 
-## 9. Test strategy
+- `tests/game/GameInputLifecycleTest.cs`
+- `docs/ui/hpa-376/ui-lifecycle-contract.md`
 
-Use focused coverage rather than a viewport × input × item-state Cartesian matrix.
+No `Character`, `Inventory`, `EquipmentSet`, save-format, or skill-domain production file changes are expected.
 
-### Slot component
+## 7. Test strategy
+
+### Slot/presenter contracts
 
 Cover:
 
-- 56/48 sizing from `SiriusUiMetrics`;
-- `PresentGlyph` keeps 32 px generated art centered without upscaling;
-- `PresentItem` uses aspect-preserving scaled item art;
-- Available emits one activation;
-- Empty/Locked/Unsupported remain focusable but do not activate;
-- Equipped and focused state can coexist;
-- quantity/state labels update and clear without stale text;
-- Button `Icon` is not used.
+- four and only four `SiriusItemSlotVisualState` values;
+- exact three stable Theme names;
+- 56/48 slot metric;
+- `ApplyGlyph(TextureRect)` keeps generated 32 px glyphs native/centered;
+- `ApplyItem(TextureRect)` scales item art aspect-preserving;
+- `Actionable` is true only for Available/Equipped;
+- Empty/Unsupported remain focusable but do not activate;
+- labels clear stale content;
+- shared player presenter retains Adventurer / MP / EXP / clamp behavior through existing HUD tests.
 
-### Existing HPA-374 art contract
+### Inventory parity
 
-Migrate `Hpa374RuntimeSmokeTest.InventoryArtRendersAtVerificationSize` in the same atomic Inventory cutover:
+Cover:
 
-- heading icons remain 24 px generated art;
-- empty weapon/accessory `%Icon` textures remain 32 px and use `KeepCentered`;
-- populated equipment uses the real item resource path and `KeepAspectCentered`;
-- Close keeps binding-aware copy.
+- exact `Gold: 321` copy;
+- shared HUD fallbacks visible through Inventory;
+- deterministic alphabetical catalogue;
+- >24 current item types render;
+- primary equipment equip/unequip and existing rollback;
+- first accessory fills slot 0, second fills slot 1 without replacing slot 0;
+- with all four accessories occupied, the next accessory uses existing slot-0 replacement behavior;
+- focus after accessory equip lands on the chosen index;
+- consumable success/failure rollback;
+- battle-only item unavailable;
+- active skill select/explicit None;
+- mutation focus restoration and summary refresh;
+- `_inventoryEntryBySlot` is treated as refresh-scoped only.
 
-Do not keep the old fake `%AccessorySlot4` locked-state assertion.
+### Responsive/keyboard/gamepad
 
-### Inventory controller/domain parity
+Use `SiriusUiMetrics.VerificationViewports` for fit smoke and focus viewports for deeper checks.
 
-Preserve or add focused tests for:
+At 640×360 use actual `SubViewport.PushInput` to prove:
 
-- exact Gold copy (`Gold: 321`);
-- blank-name → `Adventurer`;
-- MP hidden when unsupported;
-- EXP hidden when `ExperienceToNext <= 0`;
-- deterministic alphabetical entry order;
-- more than 24 item types render and are reachable;
-- equipment activation equips through existing `TryEquip` path;
-- equipment-slot activation unequips and returns the item to inventory;
-- failed unequip return restores original equipment;
-- out-of-battle consumable success removes one item and refreshes stats;
-- failed consumable application attempts rollback;
-- battle-only consumable is shown unavailable and cannot mutate inventory;
-- active skill can be selected and explicitly cleared;
-- the scene authors exactly `EquipmentSet.AccessorySlotCount` accessory controls and no fake extra positions;
-- focus summary follows keyboard focus and mouse hover;
-- activation that mutates catalogue restores focus by identity/fallback and never leaves focus on a freed/rebound semantic item;
-- focus summary is refreshed after rebind even if the surviving control remains focused.
+- exactly one compact page visible;
+- tab + `ui_down` reaches first page control;
+- first page control + `ui_up` returns to tab;
+- final page control + `ui_down` reaches Close;
+- LB/RB cycles pages while Inventory is `ProcessMode.WhenPaused` and tree paused.
 
-### Responsive scene and page input
+Tests assert focus outcomes, not `FocusNeighbor*` properties.
 
-Use all `SiriusUiMetrics.VerificationViewports` for fit smoke and the focus verification viewports for deeper checks.
+### HPA-374 / host
 
-At 1280×720 assert:
+Migrate HPA-374 Inventory smoke atomically with the scene rewrite. Preserve heading sizes, native glyph size/stretch, real item asset/stretch, and binding-aware Close copy.
 
-- standard heading/identity/Equipment/Skills/Items regions are visible;
-- compact selector is hidden;
-- content is inside safe frame;
-- slots use 56×56;
-- Items scroll has non-zero page size.
+Update real Game host tests for `UIHudPolicy.Hidden` in direct and Pause-child Inventory; keep compact page tests out of host suite.
 
-At 640×360 assert:
+## 8. Implementation shape
 
-- compact selector is visible;
-- exactly one content page is active;
-- identity and Close remain usable;
-- slots use 48×48;
-- long focus summary wraps/scrolls without expanding the screen;
-- tab ↔ page ↔ Close focus-neighbour path works;
-- raw LB/RB cycles Equipment → Items → Skills without new InputMap actions;
-- the shoulder path still works while the menu's process mode is `WhenPaused` and the scene tree is paused.
+Three reviewable slices:
 
-Shoulder/page tests live in `InventoryMenuControllerTest` / `InventoryMenuSceneTest`, not `GameplayPauseHostTest`.
+1. **Slot/shared-presentation seam:** `SiriusItemSlot`, Theme/metric contracts, `UiIconPresenter` TextureRect APIs, dead TextureButton presenter removal, and shared player-summary presenter.
+2. **Atomic Inventory cutover:** scene rewrite + old/HPA-374 test migration + dynamic catalogue + all four accessory targeting + compact pages + semantic focus restoration. End this task with the full test suite because it replaces a large `.tscn` used by the real game.
+3. **Host policy/final verification:** change only Inventory HUD policy in `Game`, run lifecycle/full-suite/build/stale-path/scope audits.
 
-### Host lifecycle
+## 9. Risks and mitigations
 
-Update the real `Game.tscn` integration tests to prove:
+### Dynamic catalogue focus drift
 
-- direct Inventory uses `UIHudPolicy.Hidden`, pauses the tree, blocks gameplay, and restores state on close;
-- Pause-child Inventory keeps Pause as parent, keeps the tree paused, hides gameplay HUD while active, and restores Pause focus/HUD policy on close;
-- `toggle_inventory` and Cancel still close only the topmost Inventory entry;
-- reopening reuses the external Inventory view without stale handles;
-- teardown leaves no Inventory entry or input/pause lease.
+Use semantic keys + previous index, never raw dynamic Control identity. Explicitly refresh summary after rebind.
 
-Do not test compact shoulder cycling in the host suite.
+### Accessory UI lies about usable slots
 
-## 10. Risks and mitigations
+Select the first empty existing accessory index; fall back to slot 0 only when full. No new domain rule.
 
-### Risk: catalogue mutation leaves focus on freed or semantically rebound nodes
+### Shared HUD/Inventory fallback drift
 
-Use `InventoryFocusKey` (`EquipmentSlotType`, accessory index, item ID) plus previous catalogue index. Capture before mutation, resolve after rebind, and explicitly re-push the focus summary. Never use a dynamic `Control` as the semantic restoration key.
+Move common fallback application to one tiny static presenter now that a second concrete screen consumes it; do not extract a scene framework.
 
-### Risk: icon rewrite regresses generated art sizing
+### Focus-neighbour maintenance creep
 
-Keep Button as the interactive root but move art to `%Icon` `TextureRect`; explicitly distinguish `PresentGlyph` (`KeepCentered`) from `PresentItem` (`KeepAspectCentered`) and migrate the HPA-374 smoke in the same task.
+Test spatial behavior first. Add only evidence-backed boundary overrides; no generic neighbour graph.
 
-### Risk: compact layout duplicates content
+### Art regression / dead presenter path
 
-Use one content tree and visibility selection. Do not use a second compact controller or a `TabContainer` that would hide standard-mode siblings.
+Move glyph/item distinction into `UiIconPresenter` TextureRect APIs, migrate HPA-374 smoke in the same task, and delete/audit the legacy TextureButton slot presenter path.
 
-### Risk: compact keyboard navigation strands focus on the tab row or page
+### HPA-357 expands into HPA-375
 
-Recompute explicit tab ↔ first page target ↔ last page target ↔ Close neighbours after page changes and dynamic catalogue refreshes.
+Keep focus summary passive and semantic focus restoration transient. No selected-item domain/view model exists.
 
-### Risk: fake locked accessory presentation survives the redesign
+## 10. Acceptance mapping
 
-Author exactly four accessory slots, matching `EquipmentSet.AccessorySlotCount`. Keep the generic Locked visual only as a component-level contract.
+- Clear character/equipment/accessory/inventory/skill hierarchy → full-screen responsive scene.
+- Four real accessory slots → existing indexed `TryEquip` first-empty routing.
+- Existing domain behavior → current controller operations retained and parity-tested.
+- Alphabetical/full catalogue → current ordinal sort + dynamic grow/reuse/shrink.
+- Consistent slot states → four-state leaf + three Theme variations.
+- Keyboard/gamepad information → focusable slot root + plain wrapped focus summary.
+- Compact usability → Settings-style page buttons + behavioral spatial focus tests + raw shoulders.
+- Shared identity rules → one common player-summary presenter used by HUD and Inventory.
+- Host restoration → existing `UIScreenHost`, only HUD policy corrected.
+- HPA-374 art behavior → new TextureRect presenter APIs + migrated smoke.
+- No speculative framework → explicit non-goals and small file boundaries.
 
-### Risk: HPA-357 expands into HPA-375
+## 11. Design self-review
 
-Focus identity is transient restoration infrastructure only. No persistent selected-item state, comparison, filters, user ordering, or new actions.
+The architecture remains one controller and one new UI leaf. The new shared player-summary helper and TextureRect presenter methods are justified by second concrete consumers and replace duplicated/dead code rather than establish frameworks.
 
-### Risk: host behavior is accidentally rewritten
-
-Treat `TryOpenInventory` as an existing contract. Change HUD policy only; `InitialFocusTarget` continues to plug into the existing host spec.
-
-## 11. Acceptance mapping
-
-- Clear character/equipment/accessory/inventory/consumable/skill hierarchy → responsive full-screen scene + identity strip + three content areas.
-- Preserve equip/unequip/consume/quantity/skill behavior → existing controller operations retained and parity-tested.
-- Alphabetical ordering → same ordinal sort before dynamic slot binding.
-- Every current item type visible → grow/reuse/shrink catalogue, no authored capacity cap.
-- Consistent slot states → `SiriusItemSlot` normal/equipped/unavailable Theme plus glyph/item-art contract.
-- Keyboard/gamepad traversal → focusable Button root, focus summary, Settings-style compact selector, explicit neighbours, raw shoulders.
-- Narrow layout → compact Equipment/Items/Skills visibility pages in the same scene tree.
-- Host restoration → existing `UIScreenHost` flow with HUD-hidden correction.
-- Existing art behavior → HPA-374 smoke migrated atomically.
-- No fake accessory progression → exactly four authored accessory slots.
-- All approved viewports → shared verification viewport sources.
-
-## 12. Design self-review
-
-The proposal intentionally adds only one reusable leaf because there are three concrete consumers of the same slot geometry. Everything else stays feature-local.
-
-The review-driven changes tighten existing contracts rather than add architecture:
-
-- icon art keeps the tested native-glyph/scaled-item distinction;
-- dynamic focus restoration uses stable in-instance identities, not raw `Control` memory;
-- old Inventory/HPA-374 tests migrate in the same atomic screen cutover;
-- compact navigation copies the existing Settings page-button pattern and adds only raw shoulder handling;
-- accessory presentation matches the four-slot domain reality;
-- identity/EXP/MP/Gold presentation matches existing HUD/Inventory fallbacks.
-
-The design still does not introduce HPA-375 behavior, a generic presenter/renderer, a navigation service, or any domain/save-format change.
+The latest review reduces surface area: no `Locked` enum member, no independent `actionable` parameter, no pre-emptive focus-neighbour machinery, and no `RichTextLabel` for plain detail text. Against that, it fixes two real current behaviors: shared HUD fallback ownership and reachability of the four accessory indices that the domain already supports.

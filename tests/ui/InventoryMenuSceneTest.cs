@@ -134,6 +134,34 @@ public partial class InventoryMenuSceneTest : Node
     }
 
     [TestCase]
+    public async Task Compact_ConstrainsActivePageSummaryAndFooterToViewport()
+    {
+        var size = new Vector2I(640, 360);
+        await Resize(size);
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var viewportRect = new Rect2(Vector2.Zero, size);
+        var activePage = _menu.GetNode<Control>("%EquipmentPage");
+        var summary = _menu.GetNode<Label>("%FocusSummary");
+        var close = _menu.GetNode<Button>("%CloseButton");
+
+        AssertThat(activePage.GetGlobalRect().Size.X).IsGreater(0f);
+        AssertThat(activePage.GetGlobalRect().Size.Y).IsGreater(0f);
+        AssertThat(activePage.GetGlobalRect().Intersects(viewportRect)).IsTrue();
+        AssertThat(viewportRect.Encloses(summary.GetGlobalRect())).IsTrue();
+        AssertThat(viewportRect.Encloses(close.GetGlobalRect())).IsTrue();
+
+        summary.Text = string.Join(
+            "\n",
+            Enumerable.Repeat("A long focus explanation that must remain bounded.", 8));
+        await AwaitFrames(2);
+
+        AssertThat(viewportRect.Encloses(summary.GetGlobalRect())).IsTrue();
+        AssertThat(viewportRect.Encloses(close.GetGlobalRect())).IsTrue();
+    }
+
+    [TestCase]
     public void AuthorsExactlyDomainAccessorySlotCount()
     {
         var slots = _menu.GetNode<Container>("%AccessorySlots")

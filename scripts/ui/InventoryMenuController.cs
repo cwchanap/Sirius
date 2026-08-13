@@ -272,12 +272,34 @@ public partial class InventoryMenuController : Control
 
 	private void RefreshLayout()
 	{
-		if (!GodotObject.IsInstanceValid(this) || _safeFrame == null)
+		// UIScreenHost detaches this view (RemoveChild) while closed but keeps
+		// the viewport SizeChanged connection alive for the view's lifetime, so
+		// a window resize while closed can reach us outside the scene tree.
+		// GetViewportRect() errors and returns an empty Rect2 in that state;
+		// bail out before touching it. OpenMenu() re-runs RefreshLayout() after
+		// reattachment, so no signal lifecycle work is needed here.
+		if (!GodotObject.IsInstanceValid(this) || _safeFrame == null || !IsInsideTree())
 			return;
 
 		var viewportSize = GetViewportRect().Size;
 		var insets = SiriusUiMetrics.SafeFrameInsets(viewportSize);
+		var wasCompact = _isCompact;
 		_isCompact = insets.Compact;
+		// Crossing the compact breakpoint can hide the current focus owner:
+		// standard→compact hides every page except _activeCompactPage, and
+		// compact→standard hides CompactTabs. Capture the focus owner's
+		// semantic page before any visibility change so we can keep that page
+		// visible (standard→compact) or restore content focus (compact→standard)
+		// and prevent Godot from silently dropping focus on a hidden control.
+		Control? focusOwner = null;
+		InventoryPage? focusPage = null;
+		if (wasCompact != _isCompact)
+		{
+			focusOwner = GetViewport()?.GuiGetFocusOwner() as Control;
+			if (focusOwner != null)
+				focusPage = ResolveFocusPage(focusOwner);
+		}
+
 		_safeFrame.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
 		_safeFrame.OffsetLeft = insets.SideInset;
 		_safeFrame.OffsetTop = insets.Margin;
@@ -294,7 +316,65 @@ public partial class InventoryMenuController : Control
 		_healthBar.Compact = _isCompact;
 		_manaBar.Compact = _isCompact;
 		_compactTabs.Visible = _isCompact;
-		ApplyPageVisibility();
+
+		if (focusPage.HasValue && _isCompact)
+		{
+			// Standard → compact: select the compact page that contains the
+			// focus owner so it stays visible and retains focus. SetCompactPage
+			// also updates the tab button pressed state for that page.
+			SetCompactPage(focusPage.Value);
+		}
+		else
+		{
+			ApplyPageVisibility();
+		}
+
+		// Compact → standard: CompactTabs is now hidden. If the focus owner was
+		// a compact tab (or otherwise no longer visible), restore content focus
+		// on the corresponding page. Content controls were hidden only by page
+		// visibility in compact mode; in standard mode all pages are visible, so
+		// a surviving content focus owner keeps focus naturally.
+		if (focusOwner != null && !_isCompact && wasCompact && focusPage.HasValue)
+		{
+			if (!GodotObject.IsInstanceValid(focusOwner) || !focusOwner.IsVisibleInTree())
+				RestoreFocusForPage(focusPage.Value);
+		}
+	}
+
+	private InventoryPage? ResolveFocusPage(Control focused)
+	{
+		if (focused == _activeSkillSelector || focused == _skillsTab)
+			return InventoryPage.Skills;
+		if (focused == _itemsTab)
+			return InventoryPage.Items;
+		if (focused == _equipmentTab)
+			return InventoryPage.Equipment;
+
+		foreach (var pair in _equipmentSlots)
+			if (GodotObject.IsInstanceValid(pair.Value) && pair.Value.GetInstanceId() == focused.GetInstanceId())
+				return InventoryPage.Equipment;
+		foreach (var slot in _accessorySlots)
+			if (GodotObject.IsInstanceValid(slot) && slot.GetInstanceId() == focused.GetInstanceId())
+				return InventoryPage.Equipment;
+		foreach (var slot in _inventorySlots)
+			if (GodotObject.IsInstanceValid(slot) && slot.GetInstanceId() == focused.GetInstanceId())
+				return InventoryPage.Items;
+
+		return null;
+	}
+
+	private void RestoreFocusForPage(InventoryPage page)
+	{
+		Control? target = page switch
+		{
+			InventoryPage.Items => _inventorySlots.FirstOrDefault(CanGrabFocus) ?? (Control?)_itemsTab,
+			InventoryPage.Skills => _activeSkillSelector,
+			_ => _equipmentSlots.TryGetValue(EquipmentSlotType.Weapon, out var weapon)
+				? weapon
+				: _equipmentSlots.Values.FirstOrDefault()
+		};
+		if (CanGrabFocus(target))
+			target!.GrabFocus();
 	}
 
 	private void SetCompactPage(InventoryPage page)

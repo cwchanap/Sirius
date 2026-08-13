@@ -376,4 +376,111 @@ public partial class InventoryMenuSceneTest : Node
         selector.EmitSignal(OptionButton.SignalName.ItemSelected, 2L);
         AssertThat(_gameManager.Player.ActiveSkillId).IsNotEqual(activeSkillBefore);
     }
+
+    [TestCase]
+    public async Task ResizeWhileDetached_DoesNotCorruptLayoutAfterReattach()
+    {
+        // UIScreenHost detaches the view while closed but the viewport
+        // SizeChanged connection survives. Resizing across the compact
+        // breakpoint while detached must not invoke GetViewportRect() outside
+        // the tree; OpenMenu() re-runs RefreshLayout() after reattachment.
+        await Resize(new Vector2I(1280, 720));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+        _menu.CloseMenu();
+
+        var parent = _menu.GetParent();
+        parent.RemoveChild(_menu);
+        await AwaitFrames(1);
+        AssertThat(_menu.IsInsideTree()).IsFalse();
+
+        await Resize(new Vector2I(640, 360));
+
+        parent.AddChild(_menu);
+        await AwaitFrames(2);
+
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        AssertThat(_menu.IsInsideTree()).IsTrue();
+        AssertThat(_menu.GetNode<Control>("%CompactTabs").Visible).IsTrue();
+        AssertThat(VisiblePageCount()).IsEqual(1);
+    }
+
+    [TestCase]
+    public async Task StandardToCompact_PreservesFocusOnFocusedInventoryItem()
+    {
+        _gameManager.Player.Inventory.Clear();
+        AssertThat(_gameManager.Player.TryAddItem(ConsumableCatalog.CreateHealthPotion(), 1, out _)).IsTrue();
+
+        await Resize(new Vector2I(1280, 720));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var itemSlot = _menu.GetNode<Container>("%InventoryGrid")
+            .GetChildren()
+            .OfType<SiriusItemSlotController>()
+            .First(slot => slot.Actionable);
+        itemSlot.GrabFocus();
+        await AwaitFrames(1);
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(itemSlot);
+
+        await Resize(new Vector2I(640, 360));
+
+        AssertThat(_menu.GetNode<Control>("%CompactTabs").Visible).IsTrue();
+        AssertThat(_menu.GetNode<Button>("%ItemsTab").ButtonPressed).IsTrue();
+        AssertThat(itemSlot.IsVisibleInTree()).IsTrue();
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(itemSlot);
+    }
+
+    [TestCase]
+    public async Task StandardToCompact_PreservesFocusOnActiveSkillSelector()
+    {
+        SkillCatalog.GrantSkillsUpToLevel(_gameManager.Player, 3);
+
+        await Resize(new Vector2I(1280, 720));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var selector = _menu.GetNode<OptionButton>("%ActiveSkillSelector");
+        selector.GrabFocus();
+        await AwaitFrames(1);
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(selector);
+
+        await Resize(new Vector2I(640, 360));
+
+        AssertThat(_menu.GetNode<Button>("%SkillsTab").ButtonPressed).IsTrue();
+        AssertThat(selector.IsVisibleInTree()).IsTrue();
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(selector);
+    }
+
+    [TestCase]
+    public async Task CompactToStandard_RestoresContentFocusWhenCompactTabHidden()
+    {
+        _gameManager.Player.Inventory.Clear();
+        AssertThat(_gameManager.Player.TryAddItem(ConsumableCatalog.CreateHealthPotion(), 1, out _)).IsTrue();
+
+        await Resize(new Vector2I(640, 360));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var itemsTab = _menu.GetNode<Button>("%ItemsTab");
+        itemsTab.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+        itemsTab.GrabFocus();
+        await AwaitFrames(1);
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(itemsTab);
+
+        await Resize(new Vector2I(1280, 720));
+
+        AssertThat(_menu.GetNode<Control>("%CompactTabs").Visible).IsFalse();
+        AssertThat(itemsTab.IsVisibleInTree()).IsFalse();
+
+        var firstItem = _menu.GetNode<Container>("%InventoryGrid")
+            .GetChildren()
+            .OfType<SiriusItemSlotController>()
+            .First(slot => slot.Actionable);
+        AssertThat(firstItem.IsVisibleInTree()).IsTrue();
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(firstItem);
+    }
 }

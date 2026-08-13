@@ -211,6 +211,44 @@ public partial class SaveLoadScreenSceneTest : Node
         AssertThat(panelRect.End.Y).IsLessEqual(height + 0.5f);
     }
 
+    [TestCase]
+    public async Task CrossingCompactToStandard_RefreshesShellBodyMinimum()
+    {
+        await ResizeAndCreate(new Vector2I(640, 360));
+
+        var shell = _screen!.GetNode<SiriusModalShell>("%ModalShell");
+        var bodyScroll = shell.GetNode<ScrollContainer>("%BodyScroll");
+
+        await ResizeViewport(new Vector2I(1280, 720));
+
+        var grid = _screen.GetNode<GridContainer>("%CardsGrid");
+        var standardBodyMinimum = bodyScroll.CustomMinimumSize.Y;
+        var standardContent = shell.BodyHost.GetCombinedMinimumSize().Y;
+        GD.Print(
+            $"[SaveLoadScreenSceneTest] standard bodyCustomMin={standardBodyMinimum:F1} " +
+            $"contentMin={standardContent:F1} columns={grid.Columns}");
+
+        AssertThat(grid.Columns).IsEqual(2);
+        AssertThat(shell.Compact).IsFalse();
+        // The shell must measure the body AFTER the two-column reflow, so the
+        // body minimum tracks the fresh two-row content height rather than the
+        // stale one-column stack. With the original (pre-reflow) measurement
+        // the body minimum would stay at the ~448px stacked height.
+        AssertThat(standardBodyMinimum).IsLessEqual(standardContent + 1f);
+        AssertThat(standardBodyMinimum).IsGreaterEqual(standardContent - 1f);
+
+        var panelRect = _screen.GetNode<PanelContainer>("ModalShell/Panel").GetGlobalRect();
+        AssertThat(panelRect.End.X).IsLessEqual(1280.5f);
+        AssertThat(panelRect.End.Y).IsLessEqual(720.5f);
+    }
+
+    private async Task ResizeViewport(Vector2I size)
+    {
+        _container!.Size = size;
+        _viewport!.Size = size;
+        await AwaitFrames(3);
+    }
+
     private async Task ResizeAndCreate(Vector2I size, SaveLoadMode mode = SaveLoadMode.Save)
     {
         _container = new SubViewportContainer

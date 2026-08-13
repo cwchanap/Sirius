@@ -284,4 +284,90 @@ public partial class InventoryMenuSceneTest : Node
             _sceneTree.Paused = false;
         }
     }
+
+    [TestCase]
+    public async Task CompactShoulders_FromFocusedContentRestoreFocusOnNewPage()
+    {
+        await Resize(new Vector2I(640, 360));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var weapon = _menu.GetNode<SiriusItemSlotController>("%WeaponSlot");
+        var firstUsableItem = _menu.GetNode<Container>("%InventoryGrid")
+            .GetChildren()
+            .OfType<SiriusItemSlotController>()
+            .First(slot => slot.Actionable);
+        weapon.GrabFocus();
+
+        _viewport.PushInput(new InputEventJoypadButton
+        {
+            ButtonIndex = JoyButton.RightShoulder,
+            Pressed = true
+        });
+        await AwaitFrames(2);
+
+        AssertThat(_menu.GetNode<Button>("%ItemsTab").ButtonPressed).IsTrue();
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(firstUsableItem);
+        AssertThat(firstUsableItem.IsVisibleInTree()).IsTrue();
+    }
+
+    [TestCase]
+    public async Task CompactItems_HidesCharacterColumnAndUsesFullContentWidth()
+    {
+        var size = new Vector2I(640, 360);
+        await Resize(size);
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        _menu.GetNode<Button>("%ItemsTab").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var safeFrame = _menu.GetNode<Control>("%SafeFrame");
+        var characterColumn = _menu.GetNode<Control>("%CharacterColumn");
+        var itemsPage = _menu.GetNode<Control>("%ItemsPage");
+
+        AssertThat(characterColumn.Visible).IsFalse();
+        AssertThat(itemsPage.GetGlobalRect().Size.X).IsGreater(safeFrame.GetGlobalRect().Size.X * 0.8f);
+        AssertThat(new Rect2(Vector2.Zero, size).Encloses(itemsPage.GetGlobalRect())).IsTrue();
+    }
+
+    [TestCase]
+    public async Task ReattachedPresentation_RetainsCloseTabsSkillAndResizeBehavior()
+    {
+        await Resize(new Vector2I(1280, 720));
+        SkillCatalog.GrantSkillsUpToLevel(_gameManager.Player, 3);
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var parent = _menu.GetParent();
+        parent.RemoveChild(_menu);
+        await AwaitFrames(1);
+        parent.AddChild(_menu);
+        await AwaitFrames(2);
+
+        var closeRequests = 0;
+        _menu.CloseRequested += () => closeRequests++;
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var close = _menu.GetNode<Button>("%CloseButton");
+        close.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(closeRequests).IsEqual(1);
+
+        await Resize(new Vector2I(640, 360));
+        AssertThat(_menu.GetNode<Control>("%CompactTabs").Visible).IsTrue();
+
+        var itemsTab = _menu.GetNode<Button>("%ItemsTab");
+        itemsTab.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(itemsTab.ButtonPressed).IsTrue();
+        AssertThat(_menu.GetNode<Control>("%ItemsPage").Visible).IsTrue();
+        AssertThat(_menu.GetNode<Control>("%EquipmentPage").Visible).IsFalse();
+
+        _menu.GetNode<Button>("%SkillsTab").EmitSignal(Button.SignalName.Pressed);
+        var selector = _menu.GetNode<OptionButton>("%ActiveSkillSelector");
+        var activeSkillBefore = _gameManager.Player.ActiveSkillId;
+        selector.Select(2);
+        selector.EmitSignal(OptionButton.SignalName.ItemSelected, 2L);
+        AssertThat(_gameManager.Player.ActiveSkillId).IsNotEqual(activeSkillBefore);
+    }
 }

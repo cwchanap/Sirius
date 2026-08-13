@@ -32,6 +32,7 @@ public partial class InventoryMenuController : Control
 	private Control _equipmentPage = null!;
 	private Control _itemsPage = null!;
 	private Control _skillsPage = null!;
+	private Control _characterColumn = null!;
 	private Control _safeFrame = null!;
 	private GridContainer _inventoryGrid = null!;
 	private OptionButton _activeSkillSelector = null!;
@@ -143,26 +144,6 @@ public partial class InventoryMenuController : Control
 		Hide();
 	}
 
-	public override void _ExitTree()
-	{
-		if (_activeSkillSelector != null)
-			_activeSkillSelector.ItemSelected -= OnActiveSkillSelectorItemSelected;
-
-		if (_compactTabs != null && GodotObject.IsInstanceValid(_compactTabs))
-		{
-			if (_equipmentTab != null) _equipmentTab.Pressed -= OnEquipmentTabPressed;
-			if (_itemsTab != null) _itemsTab.Pressed -= OnItemsTabPressed;
-			if (_skillsTab != null) _skillsTab.Pressed -= OnSkillsTabPressed;
-		}
-
-		if (_closeButton != null)
-			_closeButton.Pressed -= OnCloseButtonPressed;
-
-		var viewport = GetViewport();
-		if (viewport != null)
-			viewport.SizeChanged -= RefreshLayout;
-	}
-
 	public override void _Input(InputEvent @event)
 	{
 		if (_inputHintPresenter.Observe(@event) && Visible)
@@ -190,6 +171,7 @@ public partial class InventoryMenuController : Control
 		_equipmentPage = GetNode<Control>("%EquipmentPage");
 		_itemsPage = GetNode<Control>("%ItemsPage");
 		_skillsPage = GetNode<Control>("%SkillsPage");
+		_characterColumn = GetNode<Control>("%CharacterColumn");
 		_inventoryGrid = GetNode<GridContainer>("%InventoryGrid");
 		_activeSkillSelector = GetNode<OptionButton>("%ActiveSkillSelector");
 		_activeSkillSummary = GetNode<Label>("%ActiveSkillSummary");
@@ -213,6 +195,9 @@ public partial class InventoryMenuController : Control
 
 	private void BindSignals()
 	{
+		// This view is detached and reattached by UIScreenHost without another
+		// _Ready() call. Keep intrinsic connections for the view's entire lifetime;
+		// Godot disconnects them when the node is finally freed.
 		_equipmentTab.Pressed += OnEquipmentTabPressed;
 		_itemsTab.Pressed += OnItemsTabPressed;
 		_skillsTab.Pressed += OnSkillsTabPressed;
@@ -325,12 +310,14 @@ public partial class InventoryMenuController : Control
 	{
 		if (_isCompact)
 		{
+			_characterColumn.Visible = _activeCompactPage != InventoryPage.Items;
 			_equipmentPage.Visible = _activeCompactPage == InventoryPage.Equipment;
 			_itemsPage.Visible = _activeCompactPage == InventoryPage.Items;
 			_skillsPage.Visible = _activeCompactPage == InventoryPage.Skills;
 		}
 		else
 		{
+			_characterColumn.Visible = true;
 			_equipmentPage.Visible = true;
 			_itemsPage.Visible = true;
 			_skillsPage.Visible = true;
@@ -342,6 +329,30 @@ public partial class InventoryMenuController : Control
 		var page = (int)_activeCompactPage;
 		page = (page + direction + 3) % 3;
 		SetCompactPage((InventoryPage)page);
+		RestoreCompactPageFocus();
+	}
+
+	private void RestoreCompactPageFocus()
+	{
+		Control? target = _activeCompactPage switch
+		{
+			InventoryPage.Items => _inventorySlots.FirstOrDefault(CanGrabFocus),
+			InventoryPage.Skills => _activeSkillSelector,
+			_ => _equipmentSlots.TryGetValue(EquipmentSlotType.Weapon, out var weapon)
+				? weapon
+				: _equipmentSlots.Values.FirstOrDefault()
+		};
+
+		if (!CanGrabFocus(target))
+			target = _activeCompactPage switch
+			{
+				InventoryPage.Items => _itemsTab,
+				InventoryPage.Skills => _skillsTab,
+				_ => _equipmentTab
+			};
+
+		if (CanGrabFocus(target))
+			target!.GrabFocus();
 	}
 
 	private void OnEquipmentTabPressed() => SetCompactPage(InventoryPage.Equipment);
@@ -528,7 +539,7 @@ public partial class InventoryMenuController : Control
 			: string.Empty;
 
 		slot.SetCompact(_isCompact);
-		slot.Disabled = state == SiriusItemSlotVisualState.Unsupported;
+		slot.Disabled = false;
 		slot.PresentItem(
 			entry.Item.LoadAssetOrDefault<Texture2D>(),
 			quantity,

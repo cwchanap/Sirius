@@ -562,8 +562,7 @@ public partial class MainMenu : Control
 
         if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
         {
-            screen.LoadSlotSelected -= OnHostedLoadSlotSelected;
-            screen.Closed -= OnHostedLoadClosed;
+            ClearHostedLoad(screen);
             screen.QueueFree();
             return false;
         }

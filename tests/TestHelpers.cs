@@ -174,4 +174,50 @@ public static class TestHelpers
 
         return result;
     }
+
+    /// <summary>
+    /// Build a SaveData fixture suitable for writing to any slot. Centralized
+    /// so save-touching tests share one source of truth for the shape of a
+    /// "valid" save (version, character stats, position). The caller may override
+    /// <paramref name="characterName"/> when a test asserts on a specific hero
+    /// name; all other fields use the canonical fixture values.
+    /// </summary>
+    public static SaveData CreateValidSaveData(string characterName = "Aster") => new()
+    {
+        Version = SaveData.CurrentVersion,
+        CurrentFloorIndex = 0,
+        PlayerPosition = new Vector2IDto { X = 6, Y = 50 },
+        Character = new CharacterSaveData
+        {
+            Name = characterName,
+            Level = 4,
+            MaxHealth = 100,
+            CurrentHealth = 100,
+            Attack = 20,
+            Defense = 10,
+            Speed = 15,
+            ExperienceToNext = 100
+        },
+        SaveTimestamp = DateTime.UtcNow
+    };
+
+    /// <summary>
+    /// Write a valid SaveData fixture (via <see cref="CreateValidSaveData"/>)
+    /// to <paramref name="slot"/>. Slot 3 routes through
+    /// <see cref="SaveManager.AutoSave"/>; all other slots go through
+    /// <see cref="SaveManager.SaveGame"/>. Asserts the underlying write succeeded.
+    /// </summary>
+    public static void WriteValidSlot(int slot, string characterName = "Aster")
+    {
+        var manager = SaveManager.Instance;
+        AssertThat(manager).IsNotNull();
+        if (manager == null)
+            return;
+
+        var data = CreateValidSaveData(characterName);
+        var success = slot == 3
+            ? manager.AutoSave(data)
+            : manager.SaveGame(slot, data);
+        AssertThat(success).IsTrue();
+    }
 }

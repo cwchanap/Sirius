@@ -552,6 +552,33 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
+    public void CatalogueUnsupportedEntry_RemainsFocusableButNeverActivates()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        var unsupported = new GeneralItem
+        {
+            Id = "unsupported_menu_item",
+            DisplayName = "Unsupported Menu Item"
+        };
+        AssertThat(player.TryAddItem(unsupported, 1, out _)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+
+        var slot = FindInventorySlotByTooltip(unsupported.DisplayName);
+        var activations = 0;
+        slot.Activated += () => activations++;
+
+        AssertThat(slot.Disabled).IsFalse();
+        slot.GrabFocus();
+        AssertThat(slot.HasFocus()).IsTrue();
+        slot.EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(activations).IsEqual(0);
+        AssertThat(player.Inventory.GetQuantity(unsupported.Id)).IsEqual(1);
+    }
+
+    [TestCase]
     public async Task PrimaryUnequip_WhenInventoryIsFull_RollsBackThroughMenuActivation()
     {
         var player = _gameManager.Player;

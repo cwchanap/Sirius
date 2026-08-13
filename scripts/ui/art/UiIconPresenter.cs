@@ -11,13 +11,6 @@ public static class UiIconPresenter
 		return texture != null;
 	}
 
-	public static bool Apply(TextureButton target, UiIconId id, UiIconSize size)
-	{
-		var texture = UiArtCatalog.LoadIcon(id, size);
-		ApplyGlyphTexture(target, texture);
-		return texture != null;
-	}
-
 	public static bool ApplyGlyph(TextureRect target, UiIconId id, UiIconSize size)
 	{
 		var texture = UiArtCatalog.LoadIcon(id, size);
@@ -32,24 +25,6 @@ public static class UiIconPresenter
 		target.Texture = texture;
 		target.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
 		target.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
-	}
-
-	internal static void ApplyTexture(TextureButton target, Texture2D? texture) =>
-		SetSlotTextures(target, texture, TextureButton.StretchModeEnum.KeepAspectCentered);
-
-	internal static void ApplyGlyphTexture(TextureButton target, Texture2D? texture) =>
-		SetSlotTextures(target, texture, TextureButton.StretchModeEnum.KeepCentered);
-
-	private static void SetSlotTextures(TextureButton target, Texture2D? texture,
-		TextureButton.StretchModeEnum stretchMode)
-	{
-		target.TextureNormal = texture;
-		target.TextureHover = texture;
-		target.TexturePressed = texture;
-		target.TextureDisabled = texture;
-		target.TextureFocused = texture;
-		target.StretchMode = stretchMode;
-		target.IgnoreTextureSize = true;
 	}
 
 	public static bool Apply(Button target, UiIconId id, UiIconSize size)

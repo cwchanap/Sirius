@@ -794,7 +794,8 @@ public partial class InventoryMenuController : Control
 
 	private static bool CanGrabFocus(Control? target) =>
 		target != null && GodotObject.IsInstanceValid(target) && target.IsVisibleInTree() &&
-		target.FocusMode != Control.FocusModeEnum.None;
+		target.FocusMode != Control.FocusModeEnum.None &&
+		(target is not BaseButton button || !button.Disabled);
 
 	private void RefreshFocusSummaryFromCurrentFocus()
 	{

@@ -154,6 +154,30 @@ public partial class InventoryMenuSceneTest : Node
     }
 
     [TestCase]
+    public async Task CompactSkillsWithoutActiveSkill_FallsBackToSkillsTabForInitialFocus()
+    {
+        _gameManager.Player.KnownSkillIds.Clear();
+        _gameManager.Player.ActiveSkillId = null;
+        _gameManager.Player.ActiveSkillExplicitlyNone = true;
+
+        await Resize(new Vector2I(640, 360));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var skillsTab = _menu.GetNode<Button>("%SkillsTab");
+        var selector = _menu.GetNode<OptionButton>("%ActiveSkillSelector");
+        var close = _menu.GetNode<Button>("%CloseButton");
+
+        skillsTab.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        AssertThat(skillsTab.ButtonPressed).IsTrue();
+        AssertThat(selector.Disabled).IsTrue();
+        AssertThat(_menu.InitialFocusTarget).IsEqual(skillsTab);
+        AssertThat(_menu.InitialFocusTarget).IsNotEqual(close);
+    }
+
+    [TestCase]
     public async Task Compact_ConstrainsActivePageSummaryAndFooterToViewport()
     {
         var size = new Vector2I(640, 360);

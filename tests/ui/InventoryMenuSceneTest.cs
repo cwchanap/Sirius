@@ -318,6 +318,68 @@ public partial class InventoryMenuSceneTest : Node
     }
 
     [TestCase]
+    public async Task CompactToStandard_EmptyItemsPage_FallsBackToCloseButtonForFocus()
+    {
+        // Empty inventory: compact Items page falls back to %ItemsTab for focus
+        // (a child of the hidden-in-standard CompactTabs). Resizing to standard
+        // must not drop focus silently — it should fall back to the always-
+        // focusable CloseButton.
+        _gameManager.Player.Inventory.Clear();
+
+        await Resize(new Vector2I(640, 360));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var itemsTab = _menu.GetNode<Button>("%ItemsTab");
+        itemsTab.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+        // Simulate the RestoreCompactPageFocus fallback state: the tab itself
+        // holds focus because no inventory slot is focusable.
+        itemsTab.GrabFocus();
+        await AwaitFrames(1);
+        AssertThat(itemsTab.HasFocus()).IsTrue();
+
+        await Resize(new Vector2I(1280, 720));
+        await AwaitFrames(2);
+
+        var close = _menu.GetNode<Button>("%CloseButton");
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(close);
+        AssertThat(close.IsVisibleInTree()).IsTrue();
+    }
+
+    [TestCase]
+    public async Task CompactToStandard_DisabledSkillsSelector_FallsBackToCloseButtonForFocus()
+    {
+        // No active skill: compact Skills page falls back to %SkillsTab for focus
+        // (a child of CompactTabs) and the selector is disabled. Resizing to
+        // standard must fall back to CloseButton rather than dropping focus on
+        // the disabled selector.
+        _gameManager.Player.KnownSkillIds.Clear();
+        _gameManager.Player.ActiveSkillId = null;
+        _gameManager.Player.ActiveSkillExplicitlyNone = true;
+
+        await Resize(new Vector2I(640, 360));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var skillsTab = _menu.GetNode<Button>("%SkillsTab");
+        skillsTab.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+        // Simulate the RestoreCompactPageFocus fallback state: the tab itself
+        // holds focus because the active-skill selector is disabled.
+        skillsTab.GrabFocus();
+        await AwaitFrames(1);
+        AssertThat(skillsTab.HasFocus()).IsTrue();
+
+        await Resize(new Vector2I(1280, 720));
+        await AwaitFrames(2);
+
+        var close = _menu.GetNode<Button>("%CloseButton");
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(close);
+        AssertThat(close.IsVisibleInTree()).IsTrue();
+    }
+
+    [TestCase]
     public async Task CompactItems_HidesCharacterColumnAndUsesFullContentWidth()
     {
         var size = new Vector2I(640, 360);

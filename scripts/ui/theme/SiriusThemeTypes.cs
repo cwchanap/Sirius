@@ -24,6 +24,9 @@ public static class SiriusThemeTypes
     public static readonly StringName WarningButton = "SiriusWarningButton";
     public static readonly StringName DestructiveButton = "SiriusDestructiveButton";
     public static readonly StringName IgnitionButton = "SiriusIgnitionButton";
+    public static readonly StringName ItemSlotButton = "SiriusItemSlotButton";
+    public static readonly StringName ItemSlotEquippedButton = "SiriusItemSlotEquippedButton";
+    public static readonly StringName ItemSlotUnavailableButton = "SiriusItemSlotUnavailableButton";
 
     public static readonly StringName ContentPanel = "SiriusContentPanel";
     public static readonly StringName FeaturePanel = "SiriusFeaturePanel";

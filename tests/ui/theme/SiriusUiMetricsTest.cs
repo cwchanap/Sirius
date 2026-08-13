@@ -24,4 +24,11 @@ public partial class SiriusUiMetricsTest : Node
         AssertThat(ultrawide.Margin).IsEqual(24f);
         AssertThat(ultrawide.SideInset).IsEqual(480f);
     }
+
+    [TestCase]
+    public void ItemSlotSize_UsesApprovedGeometry()
+    {
+        AssertThat(SiriusUiMetrics.ItemSlotSize(false)).IsEqual(new Vector2(56, 56));
+        AssertThat(SiriusUiMetrics.ItemSlotSize(true)).IsEqual(new Vector2(48, 48));
+    }
 }

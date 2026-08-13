@@ -125,6 +125,43 @@ public partial class SaveOverwriteConfirmationControllerTest : Node
         }
     }
 
+    [TestCase]
+    public async Task CompactViewport_SetsShellCompactAndButtonMinimums()
+    {
+        await Instantiate(0);
+
+        var shell = _confirmation!.GetNode<SiriusModalShell>("%ModalShell");
+        var overwrite = _confirmation.GetNode<Button>("%OverwriteButton");
+        var cancel = _confirmation.GetNode<Button>("%CancelButton");
+        var target = SiriusUiMetrics.MinimumTarget(true);
+
+        AssertThat(shell.Compact).IsTrue();
+        AssertThat(overwrite.CustomMinimumSize.Y).IsEqual(target.Y);
+        AssertThat(cancel.CustomMinimumSize.Y).IsEqual(target.Y);
+    }
+
+    [TestCase]
+    public async Task CrossingCompactToStandard_UpdatesShellAndButtonMinimums()
+    {
+        await Instantiate(0);
+
+        var shell = _confirmation!.GetNode<SiriusModalShell>("%ModalShell");
+        var overwrite = _confirmation.GetNode<Button>("%OverwriteButton");
+        var cancel = _confirmation.GetNode<Button>("%CancelButton");
+
+        AssertThat(shell.Compact).IsTrue();
+
+        _container!.Size = new Vector2I(1280, 720);
+        _viewport!.Size = new Vector2I(1280, 720);
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        var target = SiriusUiMetrics.MinimumTarget(false);
+        AssertThat(shell.Compact).IsFalse();
+        AssertThat(overwrite.CustomMinimumSize.Y).IsEqual(target.Y);
+        AssertThat(cancel.CustomMinimumSize.Y).IsEqual(target.Y);
+    }
+
     private async Task Instantiate(int slot)
     {
         var size = new Vector2I(640, 360);

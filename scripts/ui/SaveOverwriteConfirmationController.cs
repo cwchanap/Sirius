@@ -9,6 +9,7 @@ public partial class SaveOverwriteConfirmationController : Control
     private Label _message = null!;
     private Button _overwrite = null!;
     private Button _cancel = null!;
+    private SiriusModalShell _shell = null!;
     private bool _terminalEmitted;
 
     public int Slot
@@ -26,13 +27,16 @@ public partial class SaveOverwriteConfirmationController : Control
 
     public override void _Ready()
     {
+        _shell = GetNode<SiriusModalShell>("%ModalShell");
         _message = GetNode<Label>("%Message");
         _overwrite = GetNode<Button>("%OverwriteButton");
         _cancel = GetNode<Button>("%CancelButton");
         RefreshMessage();
+        RefreshLayout();
 
         _overwrite.Pressed += OnOverwrite;
         _cancel.Pressed += OnCancel;
+        Resized += OnResized;
     }
 
     public override void _ExitTree()
@@ -41,6 +45,25 @@ public partial class SaveOverwriteConfirmationController : Control
             _overwrite.Pressed -= OnOverwrite;
         if (_cancel != null)
             _cancel.Pressed -= OnCancel;
+        Resized -= OnResized;
+    }
+
+    private void OnResized() => RefreshLayout();
+
+    private void RefreshLayout()
+    {
+        if (_shell == null)
+            return;
+
+        var size = GetViewportRect().Size;
+        var compact = SiriusUiMetrics.IsCompact(size);
+        _shell.Compact = compact;
+
+        var target = SiriusUiMetrics.MinimumTarget(compact);
+        _overwrite.CustomMinimumSize = new Vector2(0, target.Y);
+        _cancel.CustomMinimumSize = new Vector2(0, target.Y);
+
+        _shell.RefreshPresentation(size);
     }
 
     private void RefreshMessage() =>

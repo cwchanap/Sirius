@@ -314,10 +314,10 @@ public partial class SaveLoadScreenController : Control
         var size = GetViewportRect().Size;
         var compact = SiriusUiMetrics.IsCompact(size);
         _shell.Compact = compact;
-        _shell.RefreshPresentation(size);
         _cardsGrid.Columns = compact ? 1 : 2;
         ApplyCardTypography(compact);
         ApplyMinimumTargets(compact);
+        _shell.RefreshPresentation(size);
     }
 
     private void ApplyCardTypography(bool compact)

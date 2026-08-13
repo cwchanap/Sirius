@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
@@ -504,28 +505,50 @@ public partial class InventoryMenuControllerTest : Node
     [TestCase]
     public void Catalogue_UsesOrdinalDisplayNameOrdering()
     {
-        _gameManager.Player.Inventory.Clear();
-        foreach (var (id, name) in new[]
+        var originalCulture = CultureInfo.CurrentCulture;
+        var originalUiCulture = CultureInfo.CurrentUICulture;
+        try
         {
-            ("order_gamma", "Gamma"),
-            ("order_alpha", "Alpha"),
-            ("order_beta", "Beta")
-        })
-        {
-            AssertThat(_gameManager.Player.TryAddItem(new EquipmentItem
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+
+            _gameManager.Player.Inventory.Clear();
+            var fixture = new[]
             {
-                Id = id,
-                DisplayName = name,
-                SlotType = EquipmentSlotType.Weapon
-            }, 1, out _)).IsTrue();
+                ("order_diaeresis", "ä"),
+                ("order_lower_a", "a"),
+                ("order_upper_b", "B"),
+                ("order_upper_a", "A")
+            };
+            foreach (var (id, name) in fixture)
+            {
+                AssertThat(_gameManager.Player.TryAddItem(new EquipmentItem
+                {
+                    Id = id,
+                    DisplayName = name,
+                    SlotType = EquipmentSlotType.Weapon
+                }, 1, out _)).IsTrue();
+            }
+
+            _inventoryMenu.OpenMenu();
+
+            var slots = _inventoryMenu.GetNode<Container>("%InventoryGrid")
+                .GetChildren().OfType<SiriusItemSlotController>().ToArray();
+            var actual = slots.Select(slot => slot.TooltipText.Split('\n')[0]).ToArray();
+            var expectedOrdinal = new[] { "A", "B", "a", "ä" };
+            var cultureAware = fixture
+                .Select(pair => pair.Item2)
+                .OrderBy(name => name, StringComparer.CurrentCulture)
+                .ToArray();
+
+            AssertThat(cultureAware.SequenceEqual(expectedOrdinal)).IsFalse();
+            AssertThat(actual).IsEqual(expectedOrdinal);
         }
-
-        _inventoryMenu.OpenMenu();
-
-        var slots = _inventoryMenu.GetNode<Container>("%InventoryGrid")
-            .GetChildren().OfType<SiriusItemSlotController>().ToArray();
-        AssertThat(slots.Select(slot => slot.TooltipText.Split('\n')[0]).ToArray())
-            .IsEqual(new[] { "Alpha", "Beta", "Gamma" });
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+            CultureInfo.CurrentUICulture = originalUiCulture;
+        }
     }
 
     [TestCase]

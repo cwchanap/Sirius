@@ -134,6 +134,26 @@ public partial class InventoryMenuSceneTest : Node
     }
 
     [TestCase]
+    public async Task InitialFocusTarget_UsesFirstVisibleContentControl()
+    {
+        var firstContent = _menu.GetNode<SiriusItemSlotController>("%WeaponSlot");
+        var close = _menu.GetNode<Button>("%CloseButton");
+
+        foreach (var size in new[] { new Vector2I(1280, 720), new Vector2I(640, 360) })
+        {
+            await Resize(size);
+            _menu.OpenMenu();
+            await AwaitFrames(2);
+
+            AssertThat(_menu.InitialFocusTarget).IsEqual(firstContent);
+            AssertThat(_menu.InitialFocusTarget).IsNotEqual(close);
+            AssertThat(_menu.InitialFocusTarget.IsVisibleInTree()).IsTrue();
+
+            _menu.CloseMenu();
+        }
+    }
+
+    [TestCase]
     public async Task Compact_ConstrainsActivePageSummaryAndFooterToViewport()
     {
         var size = new Vector2I(640, 360);

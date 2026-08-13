@@ -141,6 +141,7 @@ public partial class GameplayPauseHostTest : Node
         var tree = (SceneTree)Engine.GetMainLoop();
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
         var inventory = GetPrivateField<InventoryMenuController>(_game, "_inventoryMenu");
+        var gameUi = _game.GetNode<Control>("UI/GameUI");
         var modalLayer = host.GetNode<Control>("ModalLayer");
 
         AssertThat(inventory.GetParent()).IsNull();
@@ -159,12 +160,18 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(tree.Paused).IsTrue();
         AssertThat(host.ActiveEntries.Count).IsEqual(1);
 
-        var entry = host.ActiveEntries[0];
+        var entry = FindEntry(host, UIScreenKinds.Inventory);
         AssertThat(entry.Policy.Parent).IsNull();
         AssertThat(entry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.WhenPaused);
         AssertThat(entry.Policy.PauseTree).IsTrue();
         AssertThat(entry.Policy.BlockGameplayInput).IsTrue();
-        AssertThat(entry.Policy.Hud).IsEqual(UIHudPolicy.Inherit);
+        AssertThat(entry.Policy.Hud).IsEqual(UIHudPolicy.Hidden);
+        AssertThat(gameUi.Visible).IsFalse();
+
+        var focus = _viewport!.GuiGetFocusOwner();
+        AssertThat(focus).IsNotNull();
+        AssertThat(focus).IsEqual(inventory.InitialFocusTarget);
+        AssertThat(focus).IsNotEqual(inventory.GetNode<Button>("%CloseButton"));
 
         _viewport.PushInput(new InputEventAction
         {
@@ -176,6 +183,7 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(host.IsKindActive(UIScreenKinds.Inventory)).IsFalse();
         AssertThat(inventory.GetParent()).IsNull();
         AssertThat(tree.Paused).IsFalse();
+        AssertThat(gameUi.Visible).IsTrue();
 
         _viewport.PushInput(new InputEventAction
         {
@@ -341,6 +349,7 @@ public partial class GameplayPauseHostTest : Node
     {
         var tree = (SceneTree)Engine.GetMainLoop();
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameUi = _game.GetNode<Control>("UI/GameUI");
         var modalLayer = host.GetNode<Control>("ModalLayer");
 
         AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
@@ -362,9 +371,10 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(inventoryEntry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
         AssertThat(inventoryEntry.Policy.PauseTree).IsFalse();
         AssertThat(inventoryEntry.Policy.BlockGameplayInput).IsFalse();
-        AssertThat(inventoryEntry.Policy.Hud).IsEqual(UIHudPolicy.Inherit);
+        AssertThat(inventoryEntry.Policy.Hud).IsEqual(UIHudPolicy.Hidden);
         AssertThat(inventoryEntry.Policy.Cancel).IsEqual(UICancelPolicy.Close);
         AssertThat(tree.Paused).IsTrue();
+        AssertThat(gameUi.Visible).IsFalse();
 
         _viewport!.PushInput(new InputEventAction
         {
@@ -374,6 +384,9 @@ public partial class GameplayPauseHostTest : Node
         await AwaitFrames(3);
 
         AssertThat(inventory.GetParent()).IsNull();
+        AssertThat(gameUi.Visible).IsTrue();
+        AssertThat(FindEntry(host, UIScreenKinds.Pause).Policy.Hud)
+            .IsEqual(UIHudPolicy.Visible);
         AssertHostedChildReturnedToSamePause(host, pause, pauseEntry.Handle, inventoryButton);
     }
 

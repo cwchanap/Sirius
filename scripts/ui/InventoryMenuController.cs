@@ -52,7 +52,41 @@ public partial class InventoryMenuController : Control
 	private bool _isRefreshingActiveSkillSelector;
 	private PendingFocusRestore? _pendingFocusRestore;
 
-	public Control InitialFocusTarget => _closeButton;
+	public Control InitialFocusTarget => ResolveInitialFocusTarget();
+
+	private Control ResolveInitialFocusTarget()
+	{
+		var page = _isCompact ? _activeCompactPage : InventoryPage.Equipment;
+		Control? target = null;
+		if (page == InventoryPage.Items)
+			target = _inventorySlots.FirstOrDefault();
+		else if (page == InventoryPage.Skills)
+			target = _activeSkillSelector;
+		else if (_equipmentSlots.TryGetValue(EquipmentSlotType.Weapon, out var weapon))
+			target = weapon;
+		else
+			target = _equipmentSlots.Values.FirstOrDefault();
+
+		if (!CanGrabFocus(target) && page == InventoryPage.Equipment)
+			target = _equipmentSlots.Values.FirstOrDefault();
+
+		if (CanGrabFocus(target))
+			return target!;
+
+		if (_isCompact)
+		{
+			var tab = page switch
+			{
+				InventoryPage.Items => _itemsTab,
+				InventoryPage.Skills => _skillsTab,
+				_ => _equipmentTab
+			};
+			if (CanGrabFocus(tab))
+				return tab;
+		}
+
+		return _closeButton;
+	}
 
 	private enum InventoryPage
 	{

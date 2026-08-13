@@ -307,7 +307,7 @@ public partial class Game : Node2D
             PauseTree = !hasParent,
             BlockGameplayInput = !hasParent,
             Cursor = UICursorPolicy.Visible,
-            Hud = UIHudPolicy.Inherit,
+            Hud = UIHudPolicy.Hidden,
             LowerLayers = UILowerLayerPolicy.VisibleInert,
             Cancel = UICancelPolicy.Close,
             EntryCancelActions = new HashSet<StringName> { "toggle_inventory" },

@@ -288,6 +288,12 @@ public partial class InventoryMenuSceneTest : Node
     [TestCase]
     public async Task CompactShoulders_FromFocusedContentRestoreFocusOnNewPage()
     {
+        // Explicit precondition: one known actionable consumable in the inventory
+        // so the firstUsableItem lookup below is deterministic regardless of
+        // starter inventory changes.
+        _gameManager.Player.Inventory.Clear();
+        _gameManager.Player.TryAddItem(ConsumableCatalog.CreateHealthPotion(), 1, out _);
+
         await Resize(new Vector2I(640, 360));
         _menu.OpenMenu();
         await AwaitFrames(2);

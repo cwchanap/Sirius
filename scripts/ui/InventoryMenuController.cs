@@ -501,6 +501,7 @@ public partial class InventoryMenuController : Control
 			var last = _inventorySlots[^1];
 			_inventorySlots.RemoveAt(_inventorySlots.Count - 1);
 			_inventoryEntryBySlot.Remove(last);
+			_inventoryGrid.RemoveChild(last);
 			last.QueueFree();
 		}
 
@@ -548,17 +549,7 @@ public partial class InventoryMenuController : Control
 			state);
 	}
 
-	private static bool IsBattleOnly(ConsumableItem item)
-	{
-		try
-		{
-			return item.Effect?.RequiresBattle == true;
-		}
-		catch (InvalidOperationException)
-		{
-			return false;
-		}
-	}
+	private static bool IsBattleOnly(ConsumableItem item) => item.RequiresBattle;
 
 	private void OnInventorySlotActivated(SiriusItemSlotController slot)
 	{
@@ -674,17 +665,24 @@ public partial class InventoryMenuController : Control
 				? InventoryFocusKey.ForAccessory(accessoryIndex)
 				: InventoryFocusKey.ForEquipment(item.SlotType));
 
+		// Remove from inventory before equipping so a swap can always re-add the
+		// replaced item, even when the inventory is at its distinct-type limit.
+		if (!_gameManager.Player.TryRemoveItem(item.Id, 1))
+		{
+			GD.PrintErr($"[InventoryMenuController] Failed to remove '{item.DisplayName}' from inventory before equipping.");
+			return;
+		}
+
 		if (!_gameManager.Player.TryEquip(item, out var replacedItem, accessoryIndex))
 		{
 			GD.Print($"Failed to equip {item.DisplayName}");
+			if (!_gameManager.Player.TryAddItem(item, 1, out _))
+				GD.PrintErr($"[InventoryMenuController] ROLLBACK FAILED for '{item.DisplayName}' — item lost permanently!");
 			return;
 		}
 
 		if (replacedItem != null && !_gameManager.Player.TryAddItem(replacedItem, 1, out _))
 			GD.PrintErr($"[InventoryMenuController] Failed to return '{replacedItem.DisplayName}' to inventory after swap — item lost!");
-
-		if (!_gameManager.Player.TryRemoveItem(item.Id, 1))
-			GD.PrintErr($"[InventoryMenuController] Failed to remove '{item.DisplayName}' from inventory after equipping — possible duplication!");
 
 		RefreshUI();
 	}
@@ -702,13 +700,14 @@ public partial class InventoryMenuController : Control
 		{
 			var slotIndex = _inventorySlots.FindIndex(slot =>
 				GodotObject.IsInstanceValid(slot) && slot.GetInstanceId() == itemSlot.GetInstanceId());
-			if (slotIndex < 0 || !_inventoryEntryBySlot.TryGetValue(_inventorySlots[slotIndex], out var entry))
+			if (slotIndex >= 0 && _inventoryEntryBySlot.TryGetValue(_inventorySlots[slotIndex], out var entry))
+			{
+				_pendingFocusRestore = new PendingFocusRestore(
+					InventoryFocusKey.ForItem(entry.Item.Id),
+					slotIndex);
 				return;
-
-			_pendingFocusRestore = new PendingFocusRestore(
-				InventoryFocusKey.ForItem(entry.Item.Id),
-				slotIndex);
-			return;
+			}
+			// Not a catalogue slot — fall through to equipment/accessory scans.
 		}
 
 		foreach (var pair in _equipmentSlots)

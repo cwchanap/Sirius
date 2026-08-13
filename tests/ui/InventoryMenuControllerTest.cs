@@ -444,6 +444,19 @@ public partial class InventoryMenuControllerTest : Node
         AssetPath = "res://assets/sprites/items/consumables/warding_charm.png"
     };
 
+    private static void FillInventoryToCapacity(Character player)
+    {
+        for (var index = 0; index < player.Inventory.MaxItemTypes; index++)
+        {
+            AssertThat(player.TryAddItem(new EquipmentItem
+            {
+                Id = $"capacity_fill_{index:000}",
+                DisplayName = $"Capacity Fill {index:000}",
+                SlotType = EquipmentSlotType.Weapon
+            }, 1, out _)).IsTrue();
+        }
+    }
+
     [TestCase]
     public void OpenMenu_UsesSharedFallbacksAndExactGoldCopy()
     {
@@ -486,6 +499,113 @@ public partial class InventoryMenuControllerTest : Node
         AssertThat(slots.Length).IsEqual(30);
         AssertThat(slots[0].TooltipText).Contains("Item 00");
         AssertThat(slots[^1].TooltipText).Contains("Item 29");
+    }
+
+    [TestCase]
+    public void Catalogue_UsesOrdinalDisplayNameOrdering()
+    {
+        _gameManager.Player.Inventory.Clear();
+        foreach (var (id, name) in new[]
+        {
+            ("order_gamma", "Gamma"),
+            ("order_alpha", "Alpha"),
+            ("order_beta", "Beta")
+        })
+        {
+            AssertThat(_gameManager.Player.TryAddItem(new EquipmentItem
+            {
+                Id = id,
+                DisplayName = name,
+                SlotType = EquipmentSlotType.Weapon
+            }, 1, out _)).IsTrue();
+        }
+
+        _inventoryMenu.OpenMenu();
+
+        var slots = _inventoryMenu.GetNode<Container>("%InventoryGrid")
+            .GetChildren().OfType<SiriusItemSlotController>().ToArray();
+        AssertThat(slots.Select(slot => slot.TooltipText.Split('\n')[0]).ToArray())
+            .IsEqual(new[] { "Alpha", "Beta", "Gamma" });
+    }
+
+    [TestCase]
+    public async Task PrimaryUnequip_WhenInventoryIsFull_RollsBackThroughMenuActivation()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(player.TryEquip(sword, out _)).IsTrue();
+        FillInventoryToCapacity(player);
+        AssertThat(player.Inventory.ItemTypeCount).IsEqual(player.Inventory.MaxItemTypes);
+
+        _inventoryMenu.OpenMenu();
+        var weapon = GetSlot("%WeaponSlot");
+        weapon.EmitSignal(Button.SignalName.Pressed);
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+        AssertThat(player.Equipment.GetEquipped(EquipmentSlotType.Weapon)).IsEqual(sword);
+        AssertThat(player.Inventory.ContainsItem(sword.Id)).IsFalse();
+        AssertThat(weapon.Actionable).IsTrue();
+    }
+
+    [TestCase]
+    public async Task AccessoryUnequip_WhenInventoryIsFull_RollsBackThroughMenuActivation()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        var charm = CreateAccessory("rollback_accessory", "Rollback Accessory");
+        AssertThat(player.TryEquip(charm, out _, 0)).IsTrue();
+        FillInventoryToCapacity(player);
+        AssertThat(player.Inventory.ItemTypeCount).IsEqual(player.Inventory.MaxItemTypes);
+
+        _inventoryMenu.OpenMenu();
+        var accessory = GetSlot("%AccessorySlot0");
+        accessory.EmitSignal(Button.SignalName.Pressed);
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+        AssertThat(player.Equipment.GetEquipped(EquipmentSlotType.Accessory, 0)).IsEqual(charm);
+        AssertThat(player.Inventory.ContainsItem(charm.Id)).IsFalse();
+        AssertThat(accessory.Actionable).IsTrue();
+    }
+
+    [TestCase]
+    public async Task FailedConsumableApplication_RollsBackThroughMenuActivation()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        var broken = new ConsumableItem
+        {
+            Id = "broken_menu_consumable",
+            DisplayName = "Broken Menu Consumable"
+        };
+        AssertThat(player.TryAddItem(broken, 1, out _)).IsTrue();
+        _inventoryMenu.OpenMenu();
+
+        var slot = FindInventorySlotByTooltip(broken.DisplayName);
+        slot.EmitSignal(Button.SignalName.Pressed);
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+        AssertThat(player.GetItemQuantity(broken.Id)).IsEqual(1);
+        AssertThat(slot.TooltipText).Contains(broken.DisplayName);
+    }
+
+    [TestCase]
+    public void SelectingNoActiveSkillThroughMenu_PersistsExplicitNone()
+    {
+        var player = _gameManager.Player;
+        SkillCatalog.GrantSkillsUpToLevel(player, 1);
+        AssertThat(player.ActiveSkillId).IsEqual("power_strike");
+        _inventoryMenu.OpenMenu();
+
+        var selector = _inventoryMenu.GetNode<OptionButton>("%ActiveSkillSelector");
+        selector.Select(0);
+        selector.EmitSignal(OptionButton.SignalName.ItemSelected, 0L);
+
+        AssertThat(player.ActiveSkillId).IsNull();
+        AssertThat(player.ActiveSkillExplicitlyNone).IsTrue();
+        SkillCatalog.GrantSkillsUpToLevel(player, 3);
+        AssertThat(player.ActiveSkillId).IsNull();
+        AssertThat(selector.TooltipText).Contains("No active skill equipped");
     }
 
     [TestCase]

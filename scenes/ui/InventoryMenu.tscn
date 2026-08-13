@@ -217,86 +217,95 @@ button_group = SubResource("ButtonGroup_pages")
 text = "Skills"
 theme_type_variation = &"SiriusSecondaryButton"
 
-[node name="ResponsiveContent" type="HBoxContainer" parent="SafeFrame/ScreenSurface/Content"]
+[node name="PageScroll" type="ScrollContainer" parent="SafeFrame/ScreenSurface/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+follow_focus = true
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 1
+
+[node name="ResponsiveContent" type="HBoxContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 8
 
-[node name="CharacterColumn" type="VBoxContainer" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent"]
+[node name="CharacterColumn" type="VBoxContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 8
 
-[node name="EquipmentPage" type="PanelContainer" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn"]
+[node name="EquipmentPage" type="PanelContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_type_variation = &"SiriusContentPanel"
 
-[node name="EquipmentContent" type="VBoxContainer" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage"]
+[node name="EquipmentContent" type="VBoxContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="EquipmentTitleRow" type="HBoxContainer" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent"]
+[node name="EquipmentTitleRow" type="HBoxContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="EquipmentTitleIcon" type="TextureRect" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/EquipmentTitleRow"]
+[node name="EquipmentTitleIcon" type="TextureRect" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/EquipmentTitleRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(24, 24)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="EquipmentTitleLabel" type="Label" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/EquipmentTitleRow"]
+[node name="EquipmentTitleLabel" type="Label" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/EquipmentTitleRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"SiriusTitleCompact"
 text = "Equipment"
 
-[node name="EquipmentSlots" type="VBoxContainer" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent"]
+[node name="EquipmentSlots" type="VBoxContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 5
 
-[node name="WeaponSlot" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/EquipmentSlots" instance=ExtResource("3_item_slot")]
+[node name="WeaponSlot" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/EquipmentSlots" instance=ExtResource("3_item_slot")]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="HelmetSlot" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/EquipmentSlots" instance=ExtResource("3_item_slot")]
+[node name="HelmetSlot" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/EquipmentSlots" instance=ExtResource("3_item_slot")]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ArmorSlot" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/EquipmentSlots" instance=ExtResource("3_item_slot")]
+[node name="ArmorSlot" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/EquipmentSlots" instance=ExtResource("3_item_slot")]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ShieldSlot" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/EquipmentSlots" instance=ExtResource("3_item_slot")]
+[node name="ShieldSlot" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/EquipmentSlots" instance=ExtResource("3_item_slot")]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ShoeSlot" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/EquipmentSlots" instance=ExtResource("3_item_slot")]
+[node name="ShoeSlot" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/EquipmentSlots" instance=ExtResource("3_item_slot")]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="AccessoryTitle" type="Label" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent"]
+[node name="AccessoryTitle" type="Label" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent"]
 layout_mode = 2
 text = "Accessories"
 theme_type_variation = &"SiriusMetadata"
 
-[node name="AccessorySlots" type="GridContainer" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent"]
+[node name="AccessorySlots" type="GridContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -304,45 +313,45 @@ theme_override_constants/h_separation = 5
 theme_override_constants/v_separation = 5
 columns = 4
 
-[node name="AccessorySlot0" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/AccessorySlots" instance=ExtResource("3_item_slot")]
+[node name="AccessorySlot0" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/AccessorySlots" instance=ExtResource("3_item_slot")]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="AccessorySlot1" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/AccessorySlots" instance=ExtResource("3_item_slot")]
+[node name="AccessorySlot1" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/AccessorySlots" instance=ExtResource("3_item_slot")]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="AccessorySlot2" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/AccessorySlots" instance=ExtResource("3_item_slot")]
+[node name="AccessorySlot2" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/AccessorySlots" instance=ExtResource("3_item_slot")]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="AccessorySlot3" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/AccessorySlots" instance=ExtResource("3_item_slot")]
+[node name="AccessorySlot3" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/EquipmentPage/EquipmentContent/AccessorySlots" instance=ExtResource("3_item_slot")]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="SkillsPage" type="PanelContainer" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn"]
+[node name="SkillsPage" type="PanelContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"SiriusContentPanel"
 
-[node name="SkillsContent" type="VBoxContainer" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/SkillsPage"]
+[node name="SkillsContent" type="VBoxContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/SkillsPage"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="SkillsTitle" type="Label" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/SkillsPage/SkillsContent"]
+[node name="SkillsTitle" type="Label" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/SkillsPage/SkillsContent"]
 layout_mode = 2
 text = "Active Skill"
 theme_type_variation = &"SiriusTitleCompact"
 
-[node name="ActiveSkillSelector" type="OptionButton" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/SkillsPage/SkillsContent"]
+[node name="ActiveSkillSelector" type="OptionButton" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/SkillsPage/SkillsContent"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 tooltip_text = "Select the active skill that auto-fires in battle."
 
-[node name="ActiveSkillSummary" type="Label" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/CharacterColumn/SkillsPage/SkillsContent"]
+[node name="ActiveSkillSummary" type="Label" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn/SkillsPage/SkillsContent"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -350,36 +359,36 @@ autowrap_mode = 3
 theme_type_variation = &"SiriusBodyCompact"
 text = "No active skill equipped."
 
-[node name="ItemsPage" type="PanelContainer" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent"]
+[node name="ItemsPage" type="PanelContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_type_variation = &"SiriusContentPanel"
 
-[node name="ItemsContent" type="VBoxContainer" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/ItemsPage"]
+[node name="ItemsContent" type="VBoxContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/ItemsPage"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="InventoryTitleRow" type="HBoxContainer" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/ItemsPage/ItemsContent"]
+[node name="InventoryTitleRow" type="HBoxContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/ItemsPage/ItemsContent"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="InventoryTitleIcon" type="TextureRect" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/ItemsPage/ItemsContent/InventoryTitleRow"]
+[node name="InventoryTitleIcon" type="TextureRect" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/ItemsPage/ItemsContent/InventoryTitleRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(24, 24)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="InventoryTitleLabel" type="Label" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/ItemsPage/ItemsContent/InventoryTitleRow"]
+[node name="InventoryTitleLabel" type="Label" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/ItemsPage/ItemsContent/InventoryTitleRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"SiriusTitleCompact"
 text = "Items"
 
-[node name="InventoryScroll" type="ScrollContainer" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/ItemsPage/ItemsContent"]
+[node name="InventoryScroll" type="ScrollContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/ItemsPage/ItemsContent"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -388,7 +397,7 @@ follow_focus = true
 horizontal_scroll_mode = 1
 vertical_scroll_mode = 1
 
-[node name="InventoryGrid" type="GridContainer" parent="SafeFrame/ScreenSurface/Content/ResponsiveContent/ItemsPage/ItemsContent/InventoryScroll"]
+[node name="InventoryGrid" type="GridContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/ItemsPage/ItemsContent/InventoryScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -399,10 +408,11 @@ columns = 6
 [node name="FocusSummary" type="Label" parent="SafeFrame/ScreenSurface/Content"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 32)
+custom_maximum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_horizontal = 3
 autowrap_mode = 3
-clip_text = false
+clip_text = true
 theme_type_variation = &"SiriusBodyCompact"
 text = ""
 

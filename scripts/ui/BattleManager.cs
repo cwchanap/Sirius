@@ -306,14 +306,6 @@ public partial class BattleManager : Control
         }
 
         StopBattleRuntime();
-        _phase = BattlePhase.Result;
-        ResolvedResult ??= new BattleResultSummary(
-            false,
-            0,
-            0,
-            _player?.Level ?? 0,
-            _player?.Level ?? 0,
-            LootResult.Empty);
         EmitBattleFinishedOnce(false, true);
         RequestDismiss();
     }
@@ -327,8 +319,6 @@ public partial class BattleManager : Control
         if (player == null || enemy == null)
         {
             GD.PrintErr($"[BattleManager] StartBattle called with null {(player == null ? "player" : "enemy")}; aborting battle.");
-            _phase = BattlePhase.Result;
-            ResolvedResult = new BattleResultSummary(false, 0, 0, 0, 0, LootResult.Empty);
             EmitBattleFinishedOnce(false, true);
             RequestDismiss();
             return;

@@ -327,7 +327,10 @@ public void RequestCancel()
 {
     if (_phase == BattlePhase.Result)
     {
-        RequestDismiss();
+        // Cancel is consumed during Result. Only a victory result may dismiss;
+        // defeat stays on screen until host teardown owns the exit.
+        if (ResolvedResult?.PlayerWon == true)
+            RequestDismiss();
         return;
     }
 
@@ -351,13 +354,17 @@ This temporary internal `_itemPanel` check disappears in Task 3 when `%CureOverl
 
 - [ ] **Step 6: Replace native Continue**
 
-At victory/defeat tail:
+At victory/defeat tail (Continue is shown and focused only for victory Results;
+defeat relies on host teardown, never Continue):
 
 ```csharp
 _phase = BattlePhase.Result;
-_continueButton.Visible = true;
-_continueButton.Disabled = false;
-_continueButton.GrabFocus();
+if (playerWon)
+{
+    _continueButton.Visible = true;
+    _continueButton.Disabled = false;
+    _continueButton.GrabFocus();
+}
 EmitBattleFinishedOnce(playerWon, false);
 ```
 

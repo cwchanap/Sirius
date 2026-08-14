@@ -44,6 +44,8 @@ public partial class BattleManager : Control
     private Label _enemyAttack = null!;
     private Label _enemyDefense = null!;
     private Label _enemySpeed = null!;
+    private Label _playerStatus = null!;
+    private Label _enemyStatus = null!;
     private Label _phaseLabel = null!;
     private Label _activeSkillSummary = null!;
     private Label _preparationItemDetails = null!;
@@ -293,6 +295,8 @@ public partial class BattleManager : Control
         _enemyAttack = GetNode<Label>("%EnemyAttack");
         _enemyDefense = GetNode<Label>("%EnemyDefense");
         _enemySpeed = GetNode<Label>("%EnemySpeed");
+        _playerStatus = GetNode<Label>("%PlayerStatus");
+        _enemyStatus = GetNode<Label>("%EnemyStatus");
         _phaseLabel = GetNode<Label>("%PhaseLabel");
         _activeSkillSummary = GetNode<Label>("%ActiveSkillSummary");
         _preparationItemDetails = GetNode<Label>("%PreparationItemDetails");
@@ -309,7 +313,7 @@ public partial class BattleManager : Control
         _enemyHealth = GetNode<SiriusStatBar>("%EnemyHealth");
         _preparationItemRail = GetNode<Container>("%PreparationItemRail");
         _cureItemList = GetNode<Container>("%CureItemList");
-        _preparationContent = GetNode<VBoxContainer>("SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent");
+        _preparationContent = GetNode<VBoxContainer>("%PreparationContent");
         _beginBattleButton = GetNode<Button>("%BeginBattleButton");
         _cureButton = GetNode<Button>("%CureButton");
         _continueButton = GetNode<Button>("%ContinueButton");
@@ -399,9 +403,9 @@ public partial class BattleManager : Control
 
         if (_player != null)
         {
-            RefreshPreparationItems();
+            RefreshPreparationItemsDeferred();
             if (_cureOverlay.Visible)
-                RefreshCureItems();
+                RefreshCureItemsDeferred();
         }
         RefreshEventFeed();
         SetPhasePresentation();
@@ -507,30 +511,13 @@ public partial class BattleManager : Control
         _preparationErrorMessage = null;
         _preparationItemDetails.Text = string.Empty;
 
-        if (_beginBattleButton == null)
-        {
-            // Determine turn order with tie-break logic (alternate on equal speeds)
-            int playerSpeed = _player.GetEffectiveSpeed();
-            int enemySpeed = _enemy.GetEffectiveSpeed();
-            if (playerSpeed == enemySpeed)
-            {
-                _playerTurn = !_playerActedLast;
-            }
-            else
-            {
-                _playerTurn = playerSpeed > enemySpeed;
-            }
-            _playerActedLast = !_playerTurn;
-            _battleInProgress = true;
-            _phase = BattlePhase.AutomaticCombat;
-            if (_escapeButton != null)
-                _escapeButton.Visible = true;
-            _battleTimer.Start();
-            GD.Print($"StartButton not present; auto-battle started. Turn order: {(_playerTurn ? "Player" : "Enemy")} first.");
-        }
-        RefreshPreparationItems();
+        RefreshPreparationItemsDeferred();
         SetPhasePresentation();
     }
+
+    private void RefreshPreparationItemsDeferred() => CallDeferred(nameof(RefreshPreparationItems));
+
+    private void RefreshCureItemsDeferred() => CallDeferred(nameof(RefreshCureItems));
 
     private void RefreshPreparationItems()
     {
@@ -626,7 +613,7 @@ public partial class BattleManager : Control
         _selectedConsumable = item;
         _preparationItemDetails.Text = $"Selected: {item.DisplayName}";
         _preparationItemDetails.Visible = true;
-        RefreshPreparationItems();
+        RefreshPreparationItemsDeferred();
     }
 
     private void ClearPreparationSelection()
@@ -635,13 +622,13 @@ public partial class BattleManager : Control
         _selectedConsumable = null;
         _preparationItemDetails.Text = "No item selected. Begin without one.";
         _preparationItemDetails.Visible = true;
-        RefreshPreparationItems();
+        RefreshPreparationItemsDeferred();
     }
 
     private void ChangePreparationPage(int direction)
     {
         _preparationPage += direction;
-        RefreshPreparationItems();
+        RefreshPreparationItemsDeferred();
     }
 
 
@@ -776,10 +763,8 @@ public partial class BattleManager : Control
         _preparationItemDetails.Text = message;
         _preparationItemDetails.Visible = true;
         _phase = BattlePhase.Preparation;
-        _preparationPanel.Visible = true;
-        _automaticCombatPanel.Visible = false;
-        _resultPanel.Visible = false;
         _cureOverlay.Visible = false;
+        SetPhasePresentation();
         _automaticActionProgress.Value = 0;
         if (_battleTimer != null && IsInstanceValid(_battleTimer))
             _battleTimer.Stop();
@@ -791,9 +776,16 @@ public partial class BattleManager : Control
             return;
         _battleTimer.Stop();
         _curePage = 0;
-        RefreshCureItems();
         _cureOverlay.Visible = true;
         SetPhasePresentation();
+        CallDeferred(nameof(PopulateCureOverlayAndFocus));
+    }
+
+    private void PopulateCureOverlayAndFocus()
+    {
+        if (!_cureOverlay.Visible)
+            return;
+        RefreshCureItems();
         FindFirstCureFocusTarget().GrabFocus();
     }
 
@@ -843,7 +835,7 @@ public partial class BattleManager : Control
 
             var quantity = _player.Inventory.GetQuantity(item.Id);
             slot.SetCompact(_isCompact);
-            slot.Disabled = false;
+            slot.Disabled = !isCureItem;
             slot.PresentItem(
                 item.LoadAssetOrDefault<Texture2D>(),
                 quantity > 1 ? $"×{quantity}" : string.Empty,
@@ -863,7 +855,7 @@ public partial class BattleManager : Control
     private void ChangeCurePage(int direction)
     {
         _curePage += direction;
-        RefreshCureItems();
+        RefreshCureItemsDeferred();
     }
 
     private void OnCombatItemSelected(ConsumableItem item)
@@ -871,30 +863,32 @@ public partial class BattleManager : Control
         if (_player == null || !_player.IsAlive)
             return;
 
-        if (item.Effect is CureStatusEffect cureEffect)
+        // Non-cure selections leave the overlay open; they are presented as
+        // disabled "BATTLE START ONLY" slots and should never reach here.
+        if (item.Effect is not CureStatusEffect cureEffect)
+            return;
+
+        if (!_player.TryRemoveItem(item.Id, 1))
         {
-            if (_player.TryRemoveItem(item.Id, 1))
-            {
-                if (cureEffect.Apply(_player))
-                {
-                    UpdateUI();
-                    AppendCombatEvent($"{item.DisplayName} cured status effects.");
-                }
-                else
-                {
-                    var rollbackSuccess = _player.TryAddItem(item, 1, out _);
-                    if (!rollbackSuccess)
-                        GD.PrintErr($"[BattleManager] ROLLBACK FAILED for '{item.DisplayName}' — item lost permanently!");
-                    UpdateUI();
-                }
-            }
-            else
-            {
-                GD.PushWarning($"[BattleManager] Could not consume '{item.DisplayName}'; item not removed.");
-            }
+            GD.PushWarning($"[BattleManager] Could not consume '{item.DisplayName}'; item not removed.");
+            return;
         }
 
-        RefreshCureItems();
+        if (cureEffect.Apply(_player))
+        {
+            UpdateUI();
+            AppendCombatEvent($"{item.DisplayName} cured status effects.");
+        }
+        else
+        {
+            var rollbackSuccess = _player.TryAddItem(item, 1, out _);
+            if (!rollbackSuccess)
+                GD.PrintErr($"[BattleManager] ROLLBACK FAILED for '{item.DisplayName}' — item lost permanently!");
+            UpdateUI();
+            return;
+        }
+
+        RefreshCureItemsDeferred();
         CloseCureOverlay();
     }
 
@@ -1092,44 +1086,15 @@ public partial class BattleManager : Control
             ? "No active skill equipped."
             : $"{activeSkill.DisplayName} auto-fires every {activeSkill.ActivePeriod} player turns (MP {activeSkill.ManaCost}).";
 
-        var playerStatus = GetNode<Label>("%PlayerStatus");
-        var enemyStatus = GetNode<Label>("%EnemyStatus");
-        playerStatus.Text = BuildStatusText(_player.ActiveBuffs);
-        enemyStatus.Text = BuildStatusText(_enemy.ActiveStatusEffects);
-        playerStatus.Visible = playerStatus.Text.Length > 0;
-        enemyStatus.Visible = enemyStatus.Text.Length > 0;
+        _playerStatus.Text = BuildStatusText(_player.ActiveBuffs);
+        _enemyStatus.Text = BuildStatusText(_enemy.ActiveStatusEffects);
+        _playerStatus.Visible = _playerStatus.Text.Length > 0;
+        _enemyStatus.Visible = _enemyStatus.Text.Length > 0;
     }
 
     // -------------------------------------------------------------------------
     // Status effect UI helpers
     // -------------------------------------------------------------------------
-
-    private Label? _playerStatusLabel;
-    private Label? _enemyStatusLabel;
-
-    /// <summary>
-    /// Lazily creates a status label as a child of the given container path if one
-    /// doesn't exist yet, then updates its text. Uses GetNodeOrNull so it is safe
-    /// when the scene node is absent.
-    /// </summary>
-    private void UpdateStatusLabel(ref Label? labelRef, string containerPath, StatusEffectSet? effects)
-    {
-        if (effects == null) return;
-
-        var container = GetNodeOrNull<Godot.Container>(containerPath);
-        if (container == null) return;
-
-        if (labelRef == null || !Godot.GodotObject.IsInstanceValid(labelRef))
-        {
-            labelRef = new Label { Name = "StatusEffectLabel" };
-            labelRef.HorizontalAlignment = Godot.HorizontalAlignment.Left;
-            container.AddChild(labelRef);
-        }
-
-        string text = BuildStatusText(effects);
-        labelRef.Text    = text;
-        labelRef.Visible = text.Length > 0;
-    }
 
     private static string BuildStatusText(StatusEffectSet effects)
     {
@@ -1564,6 +1529,9 @@ public partial class BattleManager : Control
             return;
 
         StopBattleRuntime();
+        // Refresh before rewards/level math so PlayerStatus/EnemyStatus drop
+        // the cleared effect tags while the result panel is being composed.
+        UpdateUI();
         _phase = BattlePhase.Result;
 
         int previousLevel = _player.Level;

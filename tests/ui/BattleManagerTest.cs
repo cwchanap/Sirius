@@ -642,9 +642,10 @@ public partial class BattleManagerTest : Node
     }
 
     [TestCase]
-    public void StopBattleRuntime_KillsTrackedVisualTweens()
+    public async Task StopBattleRuntime_KillsTrackedVisualTweens()
     {
-        WithBattleManager(battleManager =>
+        var manager = await CreateReadyBattleManager();
+        try
         {
             var field = typeof(BattleManager).GetField(
                 "_visualTweens", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -652,15 +653,19 @@ public partial class BattleManagerTest : Node
             if (field is null)
                 return;
 
-            var tweens = (System.Collections.Generic.HashSet<Tween>)field.GetValue(battleManager)!;
+            var tweens = (System.Collections.Generic.HashSet<Tween>)field.GetValue(manager)!;
             var sprite = new AnimatedSprite2D();
-            battleManager.AddChild(sprite);
-            InvokePrivateMethod(battleManager, "PlayAttackAnimation", sprite);
+            manager.AddChild(sprite);
+            InvokePrivateMethod(manager, "PlayAttackAnimation", sprite);
             AssertThat(tweens.Count).IsGreater(0);
-            InvokePrivateMethod(battleManager, "StopBattleRuntime");
+            InvokePrivateMethod(manager, "StopBattleRuntime");
             AssertThat(tweens.Count).IsEqual(0);
             sprite.Free();
-        });
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
     }
 
     [TestCase]

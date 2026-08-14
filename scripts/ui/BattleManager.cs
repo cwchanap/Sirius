@@ -68,6 +68,8 @@ public partial class BattleManager : Control
     private Button? _previousItemPage;
     private Button? _nextItemPage;
     private Button? _clearPreparationItemButton;
+    private Button? _previousCurePage;
+    private Button? _nextCurePage;
     private Button? _cancelCureButton;
     
     // Animation and Visual References
@@ -93,6 +95,7 @@ public partial class BattleManager : Control
     private readonly Dictionary<SiriusItemSlotController, ConsumableItem> _cureItemBySlot = new();
     private List<ConsumableItem> _preparationItems = new();
     private int _preparationPage;
+    private int _curePage;
     private ConsumableItem? _selectedConsumable;
 
     private bool _isCompact;
@@ -207,6 +210,8 @@ public partial class BattleManager : Control
         _previousItemPage!.Pressed += () => ChangePreparationPage(-1);
         _nextItemPage!.Pressed += () => ChangePreparationPage(1);
         _clearPreparationItemButton!.Pressed += ClearPreparationSelection;
+        _previousCurePage!.Pressed += () => ChangeCurePage(-1);
+        _nextCurePage!.Pressed += () => ChangeCurePage(1);
         _cancelCureButton!.Pressed += CloseCureOverlay;
 
         var viewport = GetViewport();
@@ -270,6 +275,8 @@ public partial class BattleManager : Control
         _previousItemPage = GetNode<Button>("%PreviousItemPage");
         _nextItemPage = GetNode<Button>("%NextItemPage");
         _clearPreparationItemButton = GetNode<Button>("%ClearPreparationItemButton");
+        _previousCurePage = GetNode<Button>("%PreviousCurePage");
+        _nextCurePage = GetNode<Button>("%NextCurePage");
         _cancelCureButton = GetNode<Button>("%CancelCureButton");
     }
     
@@ -314,8 +321,16 @@ public partial class BattleManager : Control
 
         var insets = SiriusUiMetrics.SafeFrameInsets(GetViewportRect().Size);
         _isCompact = insets.Compact;
+        var minimumTarget = SiriusUiMetrics.MinimumTarget(_isCompact);
 
         _preparationContent.AddThemeConstantOverride("separation", _isCompact ? 2 : 6);
+        _previousItemPage!.CustomMinimumSize = minimumTarget;
+        _nextItemPage!.CustomMinimumSize = minimumTarget;
+        _clearPreparationItemButton!.CustomMinimumSize = minimumTarget;
+        _previousCurePage!.CustomMinimumSize = minimumTarget;
+        _nextCurePage!.CustomMinimumSize = minimumTarget;
+        _cancelCureButton!.CustomMinimumSize = minimumTarget;
+        _cureItemList.CustomMinimumSize = new Vector2(0, SiriusUiMetrics.ItemSlotSize(_isCompact).Y);
 
         _safeFrame.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         _safeFrame.OffsetLeft = insets.SideInset;
@@ -423,6 +438,7 @@ public partial class BattleManager : Control
         _playerActionPoints = 0f;
         _enemyActionPoints = 0f;
         _preparationPage = 0;
+        _curePage = 0;
         _combatEvents.Clear();
 
         // Reset battle-scoped skill state
@@ -714,6 +730,7 @@ public partial class BattleManager : Control
         if (!_battleInProgress || _phase != BattlePhase.AutomaticCombat)
             return;
         _battleTimer.Stop();
+        _curePage = 0;
         RefreshCureItems();
         _cureOverlay.Visible = true;
         SetPhasePresentation();
@@ -741,10 +758,18 @@ public partial class BattleManager : Control
             .Select(entry => entry.Item)
             .OfType<ConsumableItem>()
             .ToList();
-        ReconcileSlots(_cureItemList, _cureSlots, items.Count, _cureItemBySlot, OnCombatItemSelected);
-        for (var index = 0; index < items.Count; index++)
+        var pageSize = _isCompact ? 3 : 4;
+        var pageCount = Math.Max(1, (items.Count + pageSize - 1) / pageSize);
+        _curePage = Math.Clamp(_curePage, 0, pageCount - 1);
+        var pageItems = items
+            .Skip(_curePage * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        ReconcileSlots(_cureItemList, _cureSlots, pageItems.Count, _cureItemBySlot, OnCombatItemSelected);
+        for (var index = 0; index < pageItems.Count; index++)
         {
-            var item = items[index];
+            var item = pageItems[index];
             var slot = _cureSlots[index];
             _cureItemBySlot[slot] = item;
             var isCureItem = false;
@@ -768,6 +793,17 @@ public partial class BattleManager : Control
                     : $"{BuildConsumableTooltip(item)}\nBATTLE START ONLY",
                 isCureItem ? SiriusItemSlotVisualState.Available : SiriusItemSlotVisualState.Unsupported);
         }
+
+        _previousCurePage!.Visible = pageCount > 1;
+        _nextCurePage!.Visible = pageCount > 1;
+        _previousCurePage.Disabled = _curePage == 0;
+        _nextCurePage.Disabled = _curePage >= pageCount - 1;
+    }
+
+    private void ChangeCurePage(int direction)
+    {
+        _curePage += direction;
+        RefreshCureItems();
     }
 
     private void OnCombatItemSelected(ConsumableItem item)

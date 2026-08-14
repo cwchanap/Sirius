@@ -239,7 +239,7 @@ theme_override_constants/separation = 6
 
 [node name="PreviousItemPage" type="Button" parent="SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent/PreparationPager"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(40, 40)
+custom_minimum_size = Vector2(44, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"SiriusSecondaryButton"
@@ -247,7 +247,7 @@ text = "Previous"
 
 [node name="NextItemPage" type="Button" parent="SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent/PreparationPager"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(40, 40)
+custom_minimum_size = Vector2(44, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"SiriusSecondaryButton"
@@ -255,7 +255,7 @@ text = "Next"
 
 [node name="ClearPreparationItemButton" type="Button" parent="SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(40, 40)
+custom_minimum_size = Vector2(44, 44)
 layout_mode = 2
 theme_type_variation = &"SiriusTertiaryButton"
 text = "Use no item"
@@ -519,6 +519,26 @@ custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 alignment = 1
 theme_override_constants/separation = 6
+
+[node name="CurePager" type="HBoxContainer" parent="CureOverlay/CurePanel/CureContent"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PreviousCurePage" type="Button" parent="CureOverlay/CurePanel/CureContent/CurePager"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusSecondaryButton"
+text = "Previous"
+
+[node name="NextCurePage" type="Button" parent="CureOverlay/CurePanel/CureContent/CurePager"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusSecondaryButton"
+text = "Next"
 
 [node name="CancelCureButton" type="Button" parent="CureOverlay/CurePanel/CureContent"]
 unique_name_in_owner = true

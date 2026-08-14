@@ -77,6 +77,10 @@ public partial class BattleManager : Control
     private AnimatedSprite2D? _enemySprite;
     private Label? _playerDamageLabel;
     private Label? _enemyDamageLabel;
+    private Vector2 _playerDamageRestingPosition;
+    private Vector2 _enemyDamageRestingPosition;
+    private Vector2 _playerSpriteRestingScale = Vector2.One;
+    private Vector2 _enemySpriteRestingScale = Vector2.One;
 
     // Auto-battle properties
     private Timer _battleTimer = null!;
@@ -97,6 +101,7 @@ public partial class BattleManager : Control
     private int _preparationPage;
     private int _curePage;
     private ConsumableItem? _selectedConsumable;
+    private string? _preparationErrorMessage;
 
     private bool _isCompact;
     private readonly Queue<string> _combatEvents = new();
@@ -123,7 +128,8 @@ public partial class BattleManager : Control
     {
         foreach (var slot in _cureSlots)
         {
-            if (GodotObject.IsInstanceValid(slot) && slot.Visible && !slot.Disabled)
+            if (GodotObject.IsInstanceValid(slot) && slot.IsVisibleInTree() &&
+                !slot.Disabled && slot.Actionable)
                 return slot;
         }
 
@@ -160,6 +166,37 @@ public partial class BattleManager : Control
         _player?.ActiveBuffs.Clear();
         _enemy?.ActiveStatusEffects.Clear();
         KillVisualTweens();
+        ResetVisualFeedback();
+    }
+
+    private void CaptureRestingVisualState()
+    {
+        if (_playerDamageLabel != null)
+            _playerDamageRestingPosition = _playerDamageLabel.Position;
+        if (_enemyDamageLabel != null)
+            _enemyDamageRestingPosition = _enemyDamageLabel.Position;
+        if (_playerSprite != null)
+            _playerSpriteRestingScale = _playerSprite.Scale;
+        if (_enemySprite != null)
+            _enemySpriteRestingScale = _enemySprite.Scale;
+    }
+
+    private void ResetVisualFeedback()
+    {
+        if (_playerDamageLabel != null)
+        {
+            _playerDamageLabel.Position = _playerDamageRestingPosition;
+            _playerDamageLabel.Modulate = new Color(1, 0, 0, 0);
+        }
+        if (_enemyDamageLabel != null)
+        {
+            _enemyDamageLabel.Position = _enemyDamageRestingPosition;
+            _enemyDamageLabel.Modulate = new Color(1, 0, 0, 0);
+        }
+        if (_playerSprite != null)
+            _playerSprite.Scale = _playerSpriteRestingScale;
+        if (_enemySprite != null)
+            _enemySprite.Scale = _enemySpriteRestingScale;
     }
 
     private Tween CreateTrackedTween()
@@ -193,6 +230,7 @@ public partial class BattleManager : Control
         _enemySprite = GetNodeOrNull<AnimatedSprite2D>("%EnemySpriteContainer/EnemySprite");
         _playerDamageLabel = GetNodeOrNull<Label>("%PlayerDamageLabel");
         _enemyDamageLabel = GetNodeOrNull<Label>("%EnemyDamageLabel");
+        CaptureRestingVisualState();
 
         if (_playerSprite == null)
             GD.PushWarning("[BattleManager] PlayerSprite not found — attack animation visuals will be skipped.");
@@ -458,6 +496,7 @@ public partial class BattleManager : Control
 
         // Setup character animations
         SetupCharacterAnimations();
+        CaptureRestingVisualState();
         
         GD.Print($"Battle begins! {_player.Name} vs {_enemy.Name}");
         GD.Print($"Turn order: {(_playerTurn ? "Player" : "Enemy")} goes first!");
@@ -465,6 +504,8 @@ public partial class BattleManager : Control
         
         UpdateUI();
         _selectedConsumable = null;
+        _preparationErrorMessage = null;
+        _preparationItemDetails.Text = string.Empty;
 
         if (_beginBattleButton == null)
         {
@@ -528,7 +569,9 @@ public partial class BattleManager : Control
         }
 
         _preparationItemDetails.Visible = true;
-        if (_preparationItems.Count == 0)
+        if (_preparationErrorMessage != null)
+            _preparationItemDetails.Text = _preparationErrorMessage;
+        else if (_preparationItems.Count == 0)
             _preparationItemDetails.Text = "No consumables in inventory. Begin without one.";
         else if (_selectedConsumable != null)
             _preparationItemDetails.Text = $"Selected: {_selectedConsumable.DisplayName}";
@@ -579,6 +622,7 @@ public partial class BattleManager : Control
 
     private void OnPreparationItemPressed(ConsumableItem item)
     {
+        _preparationErrorMessage = null;
         _selectedConsumable = item;
         _preparationItemDetails.Text = $"Selected: {item.DisplayName}";
         _preparationItemDetails.Visible = true;
@@ -587,6 +631,7 @@ public partial class BattleManager : Control
 
     private void ClearPreparationSelection()
     {
+        _preparationErrorMessage = null;
         _selectedConsumable = null;
         _preparationItemDetails.Text = "No item selected. Begin without one.";
         _preparationItemDetails.Visible = true;
@@ -698,6 +743,8 @@ public partial class BattleManager : Control
                 _selectedConsumable = null;
         }
 
+        _preparationErrorMessage = null;
+
         // Determine turn order using effective speed (accounts for pre-battle consumables)
         // If speeds are equal, alternate based on who acted last to avoid AP starvation
         int playerSpeed = _player.GetEffectiveSpeed();
@@ -717,6 +764,7 @@ public partial class BattleManager : Control
         _phase = BattlePhase.AutomaticCombat;
         _currentActionLabel.Text = $"{(_playerTurn ? _player.Name : _enemy.Name)} acts first.";
         SetPhasePresentation();
+        _escapeButton!.GrabFocus();
         GD.Print("Battle started by user");
         AppendCombatEvent("Automatic combat started.");
         _battleTimer.Start();
@@ -724,6 +772,7 @@ public partial class BattleManager : Control
 
     private void ShowPreparationError(string message)
     {
+        _preparationErrorMessage = message;
         _preparationItemDetails.Text = message;
         _preparationItemDetails.Visible = true;
         _phase = BattlePhase.Preparation;

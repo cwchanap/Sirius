@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using System;
+using System.Reflection;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
 
@@ -459,6 +460,59 @@ public partial class BattleManagerTest : Node
         {
             await FreeManager(manager);
         }
+    }
+
+    [TestCase]
+    public async Task BattleFinished_VictoryLeavesResultVisibleUntilExplicitDismissal()
+    {
+        var manager = await CreateReadyBattleManager();
+        int count = 0;
+        manager.BattleFinished += (_, escaped) =>
+        {
+            if (!escaped) count++;
+        };
+
+        try
+        {
+            var method = typeof(BattleManager).GetMethod(
+                "EndBattle",
+                BindingFlags.NonPublic | BindingFlags.Instance)
+                ?? throw new InvalidOperationException("EndBattle not found.");
+
+            method.Invoke(manager, new object[] { true });
+
+            AssertThat(count).IsEqual(1);
+            AssertThat(manager.Visible).IsTrue();
+            AssertThat(manager.GetOkButton().Visible).IsTrue();
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
+    [TestCase]
+    public void BattleResultSummary_VictoryStoresResolvedRewards()
+    {
+        var loot = new LootResult();
+        loot.Add(ConsumableCatalog.CreateHealthPotion(), 2);
+        var result = new BattleResultSummary(true, 25, 10, 1, 2, loot);
+
+        AssertThat(result.ExperienceGained).IsEqual(25);
+        AssertThat(result.GoldGained).IsEqual(10);
+        AssertThat(result.PreviousLevel).IsEqual(1);
+        AssertThat(result.NewLevel).IsEqual(2);
+        AssertThat(result.Loot.DroppedItems.Count).IsEqual(1);
+    }
+
+    [TestCase]
+    public void BattleResultSummary_DefeatStoresZeroRewards()
+    {
+        var result = new BattleResultSummary(false, 0, 0, 3, 3, LootResult.Empty);
+        AssertThat(result.PlayerWon).IsFalse();
+        AssertThat(result.ExperienceGained).IsEqual(0);
+        AssertThat(result.GoldGained).IsEqual(0);
+        AssertThat(result.Loot.HasDrops).IsFalse();
     }
 
     private async Task<BattleManager> CreateReadyBattleManager()

@@ -122,9 +122,9 @@ clip_contents = true
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 8.0
-offset_top = 8.0
+offset_top = 38.0
 offset_right = 88.0
-offset_bottom = 36.0
+offset_bottom = 66.0
 mouse_filter = 2
 modulate = Color(1, 0, 0, 0)
 theme_type_variation = &"SiriusNumeric"
@@ -199,6 +199,7 @@ size_flags_vertical = 3
 theme_type_variation = &"SiriusContentPanel"
 
 [node name="PreparationContent" type="VBoxContainer" parent="SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 6
 
@@ -412,9 +413,9 @@ clip_contents = true
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 8.0
-offset_top = 8.0
+offset_top = 38.0
 offset_right = 88.0
-offset_bottom = 36.0
+offset_bottom = 66.0
 mouse_filter = 2
 modulate = Color(1, 0, 0, 0)
 theme_type_variation = &"SiriusNumeric"

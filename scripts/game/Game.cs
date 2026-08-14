@@ -1774,6 +1774,11 @@ public partial class Game : Node2D
             return;
         }
 
+        // Signal subscriptions live here (not in _Ready) because a fresh
+        // BattleManager is instantiated per encounter; Game._Ready cannot bind
+        // to an instance that does not exist yet. Every teardown path
+        // (ClearBattlePresentation, CleanupBattleManager, and the host-unavailable
+        // fallbacks below) unsubscribes symmetrically.
         battle.BattleFinished += OnBattleFinished;
         battle.DismissRequested += OnBattleDismissRequested;
 

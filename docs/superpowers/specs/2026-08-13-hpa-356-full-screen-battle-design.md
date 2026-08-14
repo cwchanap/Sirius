@@ -177,8 +177,14 @@ private enum BattlePhase
 Cure overlay visible     -> close cure overlay only
 Preparation              -> immediate escape + dismiss
 Automatic Combat         -> immediate escape + dismiss
-Result                   -> dismiss only; no second result emission
+Result (victory)         -> dismiss only; no second result emission
+Result (defeat)          -> Cancel is consumed with no dismiss and no second
+                            result emission; host teardown owns the exit
 ```
+
+Continue is shown and focused only for victory Results; defeat never presents
+Continue, so Cancel during a defeat Result has nothing to activate and is
+consumed silently.
 
 `InitialFocusTarget` resolves to Begin Battle, Escape, or Continue by phase, with the first actionable cure/Cancel owning focus while the cure overlay is visible.
 

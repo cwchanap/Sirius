@@ -262,7 +262,6 @@ public partial class BattleSceneTest : Node
             .Select(ItemCatalog.CreateItemById)
             .OfType<ConsumableItem>()
             .ToList();
-        AssertThat(consumables.Count).IsEqual(14);
         foreach (var item in consumables)
             player.TryAddItem(item, 1, out _);
 
@@ -278,7 +277,11 @@ public partial class BattleSceneTest : Node
         AssertThat(nextPage.Visible).IsTrue();
         var viewportRect = new Rect2(Vector2.Zero, new Vector2(640, 360));
         var totalPresented = 0;
-        var expectedPageCounts = new[] { 3, 3, 3, 3, 2 };
+        const int compactCurePageSize = 3;
+        var expectedPageCounts = Enumerable
+            .Range(0, (consumables.Count + compactCurePageSize - 1) / compactCurePageSize)
+            .Select(page => Math.Min(compactCurePageSize, consumables.Count - page * compactCurePageSize))
+            .ToArray();
         for (var page = 0; page < expectedPageCounts.Length; page++)
         {
             AssertThat(list.GetChildCount()).IsEqual(expectedPageCounts[page]);

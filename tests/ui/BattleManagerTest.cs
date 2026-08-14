@@ -565,7 +565,14 @@ public partial class BattleManagerTest : Node
             AssertThat(GetPrivateField<Timer>(manager, "_battleTimer").IsStopped()).IsTrue();
             AssertThat(manager.GetNode<Control>("%PreparationPanel").Visible).IsTrue();
             AssertThat(manager.GetNode<Control>("%AutomaticCombatPanel").Visible).IsFalse();
-            AssertThat(manager.GetNode<Label>("%PreparationItemDetails").Text).Contains("Broken Item");
+            var details = manager.GetNode<Label>("%PreparationItemDetails");
+            var failureMessage = details.Text;
+            AssertThat(failureMessage).Contains("Broken Item");
+
+            InvokePrivateMethod(manager, "ChangePreparationPage", 1);
+            AssertThat(details.Text).IsEqual(failureMessage);
+            InvokePrivateMethod(manager, "RefreshLayout");
+            AssertThat(details.Text).IsEqual(failureMessage);
         }
         finally
         {

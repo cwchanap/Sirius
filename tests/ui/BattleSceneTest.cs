@@ -124,6 +124,60 @@ public partial class BattleSceneTest : Node
     }
 
     [TestCase]
+    public async Task BeginBattlePlacesFocusOnEscape()
+    {
+        _battle.StartBattle(TestHelpers.CreateTestCharacter(), Enemy.CreateGoblin());
+        InvokePrivateMethod(_battle, "OnStartButtonPressed");
+        await AwaitFrames(1);
+
+        AssertThat(_viewport.GuiGetFocusOwner())
+            .IsEqual(_battle.GetNode<Button>("%EscapeButton"));
+    }
+
+    [TestCase]
+    public async Task CureFocusSkipsUnsupportedItems()
+    {
+        var player = TestHelpers.CreateTestCharacter();
+        player.TryAddItem(ConsumableCatalog.CreateHealthPotion(), 1, out _);
+        player.TryAddItem(ConsumableCatalog.CreateAntidote(), 1, out _);
+
+        _battle.StartBattle(player, Enemy.CreateGoblin());
+        InvokePrivateMethod(_battle, "OnStartButtonPressed");
+        InvokePrivateMethod(_battle, "OpenCureOverlay");
+        await AwaitFrames(1);
+
+        var list = _battle.GetNode<Container>("%CureItemList");
+        var unsupported = (SiriusItemSlotController)list.GetChild(0);
+        var actionable = (SiriusItemSlotController)list.GetChild(1);
+        AssertThat(unsupported.Actionable).IsFalse();
+        AssertThat(actionable.Actionable).IsTrue();
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(actionable);
+        AssertThat(_battle.InitialFocusTarget).IsEqual(actionable);
+    }
+
+    [TestCase]
+    public async Task VictoryLethalResultResetsDamageFeedback()
+    {
+        await AssertLethalResultResetsDamageFeedback(playerWon: true);
+    }
+
+    [TestCase]
+    public async Task DefeatLethalResultResetsDamageFeedback()
+    {
+        await AssertLethalResultResetsDamageFeedback(playerWon: false);
+    }
+
+    [TestCase]
+    public void AuthoredStatusLabelsUseStandardMetadataVariation()
+    {
+        foreach (var path in new[] { "%PlayerStatus", "%EnemyStatus" })
+        {
+            var label = _battle.GetNode<Label>(path);
+            AssertThat(label.ThemeTypeVariation.ToString()).IsEqual("SiriusMetadata");
+        }
+    }
+
+    [TestCase]
     public async Task ActorDamageFeedbackRemainsInsideAuthoredActorRegionsAtRest()
     {
         await AwaitFrames(2);
@@ -312,6 +366,49 @@ public partial class BattleSceneTest : Node
     {
         for (var index = 0; index < count; index++)
             await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+    }
+
+    private async Task AssertLethalResultResetsDamageFeedback(bool playerWon)
+    {
+        var player = TestHelpers.CreateTestCharacter();
+        var enemy = Enemy.CreateGoblin();
+        _battle.StartBattle(player, enemy);
+        await AwaitFrames(2);
+        InvokePrivateMethod(_battle, "OnStartButtonPressed");
+
+        var playerDamage = _battle.GetNode<Label>("%PlayerDamageLabel");
+        var enemyDamage = _battle.GetNode<Label>("%EnemyDamageLabel");
+        var playerSprite = _battle.GetNode<AnimatedSprite2D>("%PlayerSpriteContainer/PlayerSprite");
+        var enemySprite = _battle.GetNode<AnimatedSprite2D>("%EnemySpriteContainer/EnemySprite");
+        var playerDamagePosition = playerDamage.Position;
+        var enemyDamagePosition = enemyDamage.Position;
+        var playerSpriteScale = playerSprite.Scale;
+        var enemySpriteScale = enemySprite.Scale;
+
+        if (playerWon)
+        {
+            enemy.CurrentHealth = 1;
+            InvokePrivateMethod(_battle, "PlayerAttack");
+        }
+        else
+        {
+            player.CurrentHealth = 1;
+            InvokePrivateMethod(_battle, "EnemyTurn", false);
+        }
+
+        await AwaitFrames(1);
+        var endBattle = typeof(BattleManager).GetMethod(
+            "EndBattle", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("EndBattle not found.");
+        endBattle.Invoke(_battle, new object[] { playerWon });
+        await AwaitFrames(1);
+
+        AssertThat(playerDamage.Modulate.A).IsEqual(0f);
+        AssertThat(enemyDamage.Modulate.A).IsEqual(0f);
+        AssertThat(playerDamage.Position).IsEqual(playerDamagePosition);
+        AssertThat(enemyDamage.Position).IsEqual(enemyDamagePosition);
+        AssertThat(playerSprite.Scale).IsEqual(playerSpriteScale);
+        AssertThat(enemySprite.Scale).IsEqual(enemySpriteScale);
     }
 
     private static void InvokePrivateMethod(object instance, string methodName, params object[]? arguments)

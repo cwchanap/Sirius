@@ -1,8 +1,12 @@
-[gd_scene load_steps=2 format=3 uid="uid://b5k8kal2m3n4o"]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" uid="uid://d1ag5wb7all3y" path="res://scripts/ui/BattleManager.cs" id="1_battle_manager"]
+[ext_resource type="Theme" path="res://resources/ui/theme/SiriusTheme.tres" id="2_sirius_theme"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusStatBar.tscn" id="3_stat_bar"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusItemSlot.tscn" id="4_item_slot"]
+[ext_resource type="Texture2D" path="res://assets/sprites/ui/ui_battle_background.png" id="5_battle_background"]
 
-[node name="BattleDialog" type="Control"]
+[node name="BattleScreen" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -10,153 +14,515 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 1
+theme = ExtResource("2_sirius_theme")
 script = ExtResource("1_battle_manager")
 
-[node name="BattleContent" type="VBoxContainer" parent="."]
+[node name="BattleBackground" type="TextureRect" parent="."]
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 8.0
-offset_right = -8.0
-offset_bottom = -50.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("5_battle_background")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Scrim" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_type_variation = &"SiriusScrim"
+
+[node name="SafeFrame" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="BattleArena" type="HBoxContainer" parent="BattleContent"]
-layout_mode = 2
-size_flags_vertical = 3
+[node name="BattleContent" type="VBoxContainer" parent="SafeFrame"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 8
 
-[node name="LeftSide" type="VBoxContainer" parent="BattleContent/BattleArena"]
+[node name="Header" type="PanelContainer" parent="SafeFrame/BattleContent"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_type_variation = &"SiriusHudPlate"
+
+[node name="HeaderContent" type="HBoxContainer" parent="SafeFrame/BattleContent/Header"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="EncounterLabel" type="Label" parent="SafeFrame/BattleContent/Header/HeaderContent"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+theme_type_variation = &"SiriusSection"
+text = "BATTLE"
+vertical_alignment = 1
 
-[node name="PlayerSpriteContainer" type="Control" parent="BattleContent/BattleArena/LeftSide"]
+[node name="PhaseLabel" type="Label" parent="SafeFrame/BattleContent/Header/HeaderContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"SiriusMetadata"
+text = "PREPARATION"
+vertical_alignment = 1
+
+[node name="ActorField" type="HBoxContainer" parent="SafeFrame/BattleContent"]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_constants/separation = 12
 
-[node name="PlayerSprite" type="AnimatedSprite2D" parent="BattleContent/BattleArena/LeftSide/PlayerSpriteContainer"]
+[node name="PlayerAnchor" type="VBoxContainer" parent="SafeFrame/BattleContent/ActorField"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 4
 
-[node name="PlayerStatsContainer" type="VBoxContainer" parent="BattleContent/BattleArena/LeftSide"]
+[node name="PlayerName" type="Label" parent="SafeFrame/BattleContent/ActorField/PlayerAnchor"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+theme_type_variation = &"SiriusSection"
+text = "PLAYER"
+horizontal_alignment = 1
+
+[node name="PlayerLevel" type="Label" parent="SafeFrame/BattleContent/ActorField/PlayerAnchor"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+theme_type_variation = &"SiriusMetadata"
+text = "Lv 1"
+horizontal_alignment = 1
+
+[node name="PlayerSpriteContainer" type="Control" parent="SafeFrame/BattleContent/ActorField/PlayerAnchor"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
 size_flags_vertical = 3
-alignment = 1
+clip_contents = true
 
-[node name="PlayerLevel" type="Label" parent="BattleContent/BattleArena/LeftSide/PlayerStatsContainer"]
-layout_mode = 2
-text = "Lv: 1"
-horizontal_alignment = 1
+[node name="PlayerSprite" type="AnimatedSprite2D" parent="SafeFrame/BattleContent/ActorField/PlayerAnchor/PlayerSpriteContainer"]
 
-[node name="PlayerHealth" type="Label" parent="BattleContent/BattleArena/LeftSide/PlayerStatsContainer"]
-layout_mode = 2
-text = "HP: 100/100"
-horizontal_alignment = 1
-
-[node name="PlayerAttack" type="Label" parent="BattleContent/BattleArena/LeftSide/PlayerStatsContainer"]
-layout_mode = 2
-text = "ATK: 10"
-horizontal_alignment = 1
-
-[node name="PlayerDefense" type="Label" parent="BattleContent/BattleArena/LeftSide/PlayerStatsContainer"]
-layout_mode = 2
-text = "DEF: 5"
-horizontal_alignment = 1
-
-[node name="PlayerSpeed" type="Label" parent="BattleContent/BattleArena/LeftSide/PlayerStatsContainer"]
-layout_mode = 2
-text = "SPD: 5"
-horizontal_alignment = 1
-
-[node name="PlayerDamageLabel" type="Label" parent="BattleContent/BattleArena/LeftSide/PlayerStatsContainer"]
+[node name="PlayerDamageLabel" type="Label" parent="SafeFrame/BattleContent/ActorField/PlayerAnchor/PlayerSpriteContainer"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 88.0
+offset_bottom = 36.0
+mouse_filter = 2
 modulate = Color(1, 0, 0, 0)
-layout_mode = 2
+theme_type_variation = &"SiriusNumeric"
 text = "-50"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="RightSide" type="VBoxContainer" parent="BattleContent/BattleArena"]
+[node name="PlayerHealth" parent="SafeFrame/BattleContent/ActorField/PlayerAnchor" instance=ExtResource("3_stat_bar")]
+unique_name_in_owner = true
+layout_mode = 2
+kind = 0
+current = 100.0
+maximum = 100.0
+label = "HP"
+
+[node name="PlayerMana" parent="SafeFrame/BattleContent/ActorField/PlayerAnchor" instance=ExtResource("3_stat_bar")]
+unique_name_in_owner = true
+layout_mode = 2
+kind = 1
+current = 100.0
+maximum = 100.0
+label = "MP"
+
+[node name="PlayerTelemetry" type="HBoxContainer" parent="SafeFrame/BattleContent/ActorField/PlayerAnchor"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="PlayerAttack" type="Label" parent="SafeFrame/BattleContent/ActorField/PlayerAnchor/PlayerTelemetry"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+theme_type_variation = &"SiriusMetadata"
+text = "ATK: 0"
+horizontal_alignment = 1
 
-[node name="EnemySpriteContainer" type="Control" parent="BattleContent/BattleArena/RightSide"]
+[node name="PlayerDefense" type="Label" parent="SafeFrame/BattleContent/ActorField/PlayerAnchor/PlayerTelemetry"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusMetadata"
+text = "DEF: 0"
+horizontal_alignment = 1
+
+[node name="PlayerSpeed" type="Label" parent="SafeFrame/BattleContent/ActorField/PlayerAnchor/PlayerTelemetry"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusMetadata"
+text = "SPD: 0"
+horizontal_alignment = 1
+
+[node name="PlayerStatus" type="Label" parent="SafeFrame/BattleContent/ActorField/PlayerAnchor"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+theme_type_variation = &"SiriusMetadataCompact"
+text = ""
+horizontal_alignment = 1
+
+[node name="CenterFlow" type="VBoxContainer" parent="SafeFrame/BattleContent/ActorField"]
+layout_mode = 2
+size_flags_horizontal = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(260, 0)
+theme_override_constants/separation = 8
+
+[node name="PreparationPanel" type="PanelContainer" parent="SafeFrame/BattleContent/ActorField/CenterFlow"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
+theme_type_variation = &"SiriusContentPanel"
 
-[node name="EnemySprite" type="AnimatedSprite2D" parent="BattleContent/BattleArena/RightSide/EnemySpriteContainer"]
-
-[node name="EnemyStatsContainer" type="VBoxContainer" parent="BattleContent/BattleArena/RightSide"]
+[node name="PreparationContent" type="VBoxContainer" parent="SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel"]
 layout_mode = 2
-size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="PreparationTitle" type="Label" parent="SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent"]
+layout_mode = 2
+theme_type_variation = &"SiriusSection"
+text = "PREPARATION"
+horizontal_alignment = 1
+
+[node name="ActiveSkillSummary" type="Label" parent="SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+theme_type_variation = &"SiriusMetadata"
+text = "No active skill equipped."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="PreparationItemRail" type="HBoxContainer" parent="SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
 alignment = 1
+theme_override_constants/separation = 6
 
-[node name="EnemyLevel" type="Label" parent="BattleContent/BattleArena/RightSide/EnemyStatsContainer"]
+[node name="PreparationItemDetails" type="Label" parent="SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
-text = "Lv: 1"
+theme_type_variation = &"SiriusMetadata"
+text = "Choose an optional consumable, or begin without one."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="PreparationPager" type="HBoxContainer" parent="SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PreviousItemPage" type="Button" parent="SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent/PreparationPager"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusSecondaryButton"
+text = "Previous"
+
+[node name="NextItemPage" type="Button" parent="SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent/PreparationPager"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusSecondaryButton"
+text = "Next"
+
+[node name="ClearPreparationItemButton" type="Button" parent="SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+theme_type_variation = &"SiriusTertiaryButton"
+text = "Use no item"
+
+[node name="BeginBattleButton" type="Button" parent="SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 44)
+layout_mode = 2
+theme_type_variation = &"SiriusIgnitionButton"
+text = "Begin Battle"
+
+[node name="AutomaticCombatPanel" type="PanelContainer" parent="SafeFrame/BattleContent/ActorField/CenterFlow"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"SiriusContentPanel"
+
+[node name="AutomaticCombatContent" type="VBoxContainer" parent="SafeFrame/BattleContent/ActorField/CenterFlow/AutomaticCombatPanel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="CurrentActionLabel" type="Label" parent="SafeFrame/BattleContent/ActorField/CenterFlow/AutomaticCombatPanel/AutomaticCombatContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+theme_type_variation = &"SiriusSection"
+text = "AUTOMATIC COMBAT"
 horizontal_alignment = 1
 
-[node name="EnemyHealth" type="Label" parent="BattleContent/BattleArena/RightSide/EnemyStatsContainer"]
+[node name="AutomaticActionProgress" type="ProgressBar" parent="SafeFrame/BattleContent/ActorField/CenterFlow/AutomaticCombatPanel/AutomaticCombatContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 10)
 layout_mode = 2
-text = "HP: 50/50"
+show_percentage = false
+theme_type_variation = &"SiriusExpBar"
+
+[node name="EventFeed" type="Label" parent="SafeFrame/BattleContent/ActorField/CenterFlow/AutomaticCombatPanel/AutomaticCombatContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"SiriusMetadata"
+text = ""
+autowrap_mode = 2
+
+[node name="CombatActions" type="HBoxContainer" parent="SafeFrame/BattleContent/ActorField/CenterFlow/AutomaticCombatPanel/AutomaticCombatContent"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="CureButton" type="Button" parent="SafeFrame/BattleContent/ActorField/CenterFlow/AutomaticCombatPanel/AutomaticCombatContent/CombatActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusSecondaryButton"
+text = "Cure"
+
+[node name="EscapeButton" type="Button" parent="SafeFrame/BattleContent/ActorField/CenterFlow/AutomaticCombatPanel/AutomaticCombatContent/CombatActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusDestructiveButton"
+text = "Escape"
+
+[node name="ResultPanel" type="PanelContainer" parent="SafeFrame/BattleContent/ActorField/CenterFlow"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"SiriusContentPanel"
+
+[node name="ResultContent" type="VBoxContainer" parent="SafeFrame/BattleContent/ActorField/CenterFlow/ResultPanel"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="ResultTitle" type="Label" parent="SafeFrame/BattleContent/ActorField/CenterFlow/ResultPanel/ResultContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"SiriusTitle"
+text = "VICTORY"
 horizontal_alignment = 1
 
-[node name="EnemyAttack" type="Label" parent="BattleContent/BattleArena/RightSide/EnemyStatsContainer"]
+[node name="ExperienceResult" type="Label" parent="SafeFrame/BattleContent/ActorField/CenterFlow/ResultPanel/ResultContent"]
+unique_name_in_owner = true
 layout_mode = 2
-text = "ATK: 8"
+theme_type_variation = &"SiriusBody"
+text = "Experience: 0"
 horizontal_alignment = 1
 
-[node name="EnemyDefense" type="Label" parent="BattleContent/BattleArena/RightSide/EnemyStatsContainer"]
+[node name="GoldResult" type="Label" parent="SafeFrame/BattleContent/ActorField/CenterFlow/ResultPanel/ResultContent"]
+unique_name_in_owner = true
 layout_mode = 2
-text = "DEF: 3"
+theme_type_variation = &"SiriusBody"
+text = "Gold: 0"
 horizontal_alignment = 1
 
-[node name="EnemySpeed" type="Label" parent="BattleContent/BattleArena/RightSide/EnemyStatsContainer"]
+[node name="LevelResult" type="Label" parent="SafeFrame/BattleContent/ActorField/CenterFlow/ResultPanel/ResultContent"]
+unique_name_in_owner = true
 layout_mode = 2
-text = "SPD: 3"
+theme_type_variation = &"SiriusMetadata"
+text = "Level: 1"
 horizontal_alignment = 1
 
-[node name="EnemyDamageLabel" type="Label" parent="BattleContent/BattleArena/RightSide/EnemyStatsContainer"]
+[node name="LootResultList" type="Label" parent="SafeFrame/BattleContent/ActorField/CenterFlow/ResultPanel/ResultContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_type_variation = &"SiriusMetadata"
+text = "No loot."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ContinueButton" type="Button" parent="SafeFrame/BattleContent/ActorField/CenterFlow/ResultPanel/ResultContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 44)
+layout_mode = 2
+theme_type_variation = &"SiriusPrimaryButton"
+text = "Continue"
+
+[node name="EnemyAnchor" type="VBoxContainer" parent="SafeFrame/BattleContent/ActorField"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 4
+
+[node name="EnemyName" type="Label" parent="SafeFrame/BattleContent/ActorField/EnemyAnchor"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+theme_type_variation = &"SiriusSection"
+text = "ENEMY"
+horizontal_alignment = 1
+
+[node name="EnemyLevel" type="Label" parent="SafeFrame/BattleContent/ActorField/EnemyAnchor"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+theme_type_variation = &"SiriusMetadata"
+text = "Lv 1"
+horizontal_alignment = 1
+
+[node name="EnemySpriteContainer" type="Control" parent="SafeFrame/BattleContent/ActorField/EnemyAnchor"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+size_flags_vertical = 3
+clip_contents = true
+
+[node name="EnemySprite" type="AnimatedSprite2D" parent="SafeFrame/BattleContent/ActorField/EnemyAnchor/EnemySpriteContainer"]
+
+[node name="EnemyDamageLabel" type="Label" parent="SafeFrame/BattleContent/ActorField/EnemyAnchor/EnemySpriteContainer"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 88.0
+offset_bottom = 36.0
+mouse_filter = 2
 modulate = Color(1, 0, 0, 0)
-layout_mode = 2
+theme_type_variation = &"SiriusNumeric"
 text = "-30"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ActionButtons" type="HBoxContainer" parent="BattleContent"]
+[node name="EnemyHealth" parent="SafeFrame/BattleContent/ActorField/EnemyAnchor" instance=ExtResource("3_stat_bar")]
+unique_name_in_owner = true
 layout_mode = 2
+kind = 0
+current = 50.0
+maximum = 50.0
+label = "HP"
 
-[node name="AttackButton" type="Button" parent="BattleContent/ActionButtons"]
+[node name="EnemyTelemetry" type="HBoxContainer" parent="SafeFrame/BattleContent/ActorField/EnemyAnchor"]
 layout_mode = 2
-size_flags_horizontal = 3
-text = "Attack"
+theme_override_constants/separation = 4
 
-[node name="DefendButton" type="Button" parent="BattleContent/ActionButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Defend"
-
-[node name="RunButton" type="Button" parent="BattleContent/ActionButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Run"
-
-[node name="ItemButton" type="Button" parent="BattleContent/ActionButtons"]
+[node name="EnemyAttack" type="Label" parent="SafeFrame/BattleContent/ActorField/EnemyAnchor/EnemyTelemetry"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Item"
+theme_type_variation = &"SiriusMetadata"
+text = "ATK: 0"
+horizontal_alignment = 1
 
-[node name="StartButton" type="Button" parent="BattleContent/ActionButtons"]
+[node name="EnemyDefense" type="Label" parent="SafeFrame/BattleContent/ActorField/EnemyAnchor/EnemyTelemetry"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Start"
+theme_type_variation = &"SiriusMetadata"
+text = "DEF: 0"
+horizontal_alignment = 1
 
-[node name="ContinueButton" type="Button" parent="BattleContent/ActionButtons"]
+[node name="EnemySpeed" type="Label" parent="SafeFrame/BattleContent/ActorField/EnemyAnchor/EnemyTelemetry"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusMetadata"
+text = "SPD: 0"
+horizontal_alignment = 1
+
+[node name="EnemyStatus" type="Label" parent="SafeFrame/BattleContent/ActorField/EnemyAnchor"]
+unique_name_in_owner = true
 visible = false
+custom_minimum_size = Vector2(0, 18)
 layout_mode = 2
-size_flags_horizontal = 3
-text = "Continue"
+theme_type_variation = &"SiriusMetadataCompact"
+text = ""
+horizontal_alignment = 1
 
-[node name="EscapeButton" type="Button" parent="BattleContent/ActionButtons"]
+[node name="CureOverlay" type="Control" parent="."]
+unique_name_in_owner = true
 visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="CureScrim" type="Panel" parent="CureOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_type_variation = &"SiriusChildScrim"
+
+[node name="CurePanel" type="PanelContainer" parent="CureOverlay"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -296.0
+offset_top = -156.0
+offset_right = 296.0
+offset_bottom = 156.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"SiriusModalPanel"
+
+[node name="CureContent" type="VBoxContainer" parent="CureOverlay/CurePanel"]
 layout_mode = 2
-size_flags_horizontal = 3
-text = "Escape"
+theme_override_constants/separation = 6
+
+[node name="CureTitle" type="Label" parent="CureOverlay/CurePanel/CureContent"]
+layout_mode = 2
+theme_type_variation = &"SiriusSection"
+text = "CURE STATUS"
+horizontal_alignment = 1
+
+[node name="CureItemList" type="HBoxContainer" parent="CureOverlay/CurePanel/CureContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 6
+
+[node name="CancelCureButton" type="Button" parent="CureOverlay/CurePanel/CureContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 44)
+layout_mode = 2
+theme_type_variation = &"SiriusSecondaryButton"
+text = "Cancel"

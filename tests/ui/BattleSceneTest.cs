@@ -252,6 +252,40 @@ public partial class BattleSceneTest : Node
     }
 
     [TestCase]
+    public async Task OpenCureReconcilesPagingAfterStandardToCompactResize()
+    {
+        var player = TestHelpers.CreateTestCharacter();
+        foreach (var item in new ConsumableItem[]
+                 {
+                     ConsumableCatalog.CreateHealthPotion(),
+                     ConsumableCatalog.CreateManaPotion(),
+                     ConsumableCatalog.CreateStrengthTonic(),
+                     ConsumableCatalog.CreateIronSkin(),
+                     ConsumableCatalog.CreateSwiftnessDraught()
+                 })
+            player.TryAddItem(item, 1, out _);
+
+        _battle.StartBattle(player, Enemy.CreateGoblin());
+        await AwaitFrames(2);
+        InvokePrivateMethod(_battle, "OnStartButtonPressed");
+        InvokePrivateMethod(_battle, "OpenCureOverlay");
+        await AwaitFrames(2);
+
+        var list = _battle.GetNode<Container>("%CureItemList");
+        var nextPage = _battle.GetNode<Button>("%NextCurePage");
+        AssertThat(list.GetChildCount()).IsEqual(4);
+        AssertThat(nextPage.Visible).IsTrue();
+
+        _viewport.Size = new Vector2I(640, 360);
+        _viewportContainer.Size = new Vector2(640, 360);
+        await AwaitFrames(2);
+
+        AssertThat(list.GetChildCount()).IsEqual(3);
+        AssertThat(nextPage.Visible).IsTrue();
+        AssertThat(_battle.GetNode<Button>("%PreviousCurePage").Disabled).IsTrue();
+    }
+
+    [TestCase]
     public async Task CompactResultsKeepContinueInsideSafeFrame()
     {
         _viewport.Size = new Vector2I(640, 360);

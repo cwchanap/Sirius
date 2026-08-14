@@ -355,7 +355,11 @@ public partial class BattleManager : Control
         _enemySpeed.Visible = showPrepTelemetry;
 
         if (_player != null)
+        {
             RefreshPreparationItems();
+            if (_cureOverlay.Visible)
+                RefreshCureItems();
+        }
         RefreshEventFeed();
         SetPhasePresentation();
     }

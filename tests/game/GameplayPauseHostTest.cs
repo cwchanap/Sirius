@@ -141,6 +141,57 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
+    public async Task BattleDefeat_ResultCancelLeavesBattleHostedAndBlockedUntilTeardown()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameManager = _game.GetNode<GameManager>("GameManager");
+
+        gameManager.StartBattle(Enemy.CreateGoblin());
+        await AwaitFrames(2);
+        var battle = GetPrivateField<BattleManager>(_game, "_battleManager");
+        InvokePrivateVoid(battle, "EndBattle", false);
+        await AwaitFrames(2);
+
+        AssertThat(gameManager.IsInBattle).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Battle)).IsTrue();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsTrue();
+        AssertThat(tree.Paused).IsFalse();
+
+        battle.RequestCancel();
+        await AwaitFrames(1);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Battle)).IsTrue();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsTrue();
+        AssertThat(battle.Visible).IsTrue();
+    }
+
+    [TestCase]
+    public async Task BattleDefeat_ContinueLeavesBattleHostedAndBlockedUntilTeardown()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameManager = _game.GetNode<GameManager>("GameManager");
+
+        gameManager.StartBattle(Enemy.CreateGoblin());
+        await AwaitFrames(2);
+        var battle = GetPrivateField<BattleManager>(_game, "_battleManager");
+        InvokePrivateVoid(battle, "EndBattle", false);
+        await AwaitFrames(2);
+
+        var continueButton = battle.GetNode<Button>("%ContinueButton");
+        continueButton.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Battle)).IsTrue();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsTrue();
+        AssertThat(battle.Visible).IsTrue();
+        AssertThat(continueButton.Visible).IsFalse();
+        AssertThat(continueButton.Disabled).IsTrue();
+        AssertThat(tree.Paused).IsFalse();
+    }
+
+    [TestCase]
     public void GameSceneHostPrepareForTeardown_ClosesEntryAndRestoresIncomingState()
     {
         var host = _game!.GetNodeOrNull<UIScreenHost>("UI/UIScreenHost");

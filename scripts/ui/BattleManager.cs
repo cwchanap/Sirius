@@ -112,7 +112,8 @@ public partial class BattleManager : Control
         BattlePhase.AutomaticCombat => _cureOverlay.Visible
             ? FindFirstCureFocusTarget()
             : _escapeButton,
-        BattlePhase.Result => _continueButton,
+        BattlePhase.Result when _continueButton is { Visible: true, Disabled: false } => _continueButton,
+        BattlePhase.Result => null,
         _ => null
     };
 
@@ -131,6 +132,9 @@ public partial class BattleManager : Control
 
     private void RequestDismiss()
     {
+        if (_phase == BattlePhase.Result && ResolvedResult?.PlayerWon != true)
+            return;
+
         if (_dismissRequested)
             return;
 
@@ -290,7 +294,8 @@ public partial class BattleManager : Control
 
         if (_phase == BattlePhase.Result)
         {
-            RequestDismiss();
+            if (ResolvedResult?.PlayerWon == true)
+                RequestDismiss();
             return;
         }
 
@@ -375,7 +380,9 @@ public partial class BattleManager : Control
         _cureButton.Visible = _phase == BattlePhase.AutomaticCombat && !_cureOverlay.Visible;
         _escapeButton.Visible = _phase == BattlePhase.AutomaticCombat && !_cureOverlay.Visible;
         _beginBattleButton.Visible = _phase == BattlePhase.Preparation;
-        _continueButton.Visible = _phase == BattlePhase.Result;
+        bool resultCanDismiss = _phase == BattlePhase.Result && ResolvedResult?.PlayerWon == true;
+        _continueButton.Visible = resultCanDismiss;
+        _continueButton.Disabled = !resultCanDismiss;
         _automaticActionProgress.Value = _phase == BattlePhase.AutomaticCombat ? _automaticActionProgress.Value : 0;
         _phaseLabel.Text = _phase switch
         {
@@ -1617,9 +1624,8 @@ public partial class BattleManager : Control
 
         if (_continueButton != null)
         {
-            _continueButton.Visible = true;
-            _continueButton.Disabled = false;
-            _continueButton.GrabFocus();
+            if (result.PlayerWon)
+                _continueButton.GrabFocus();
         }
         if (_escapeButton != null)
             _escapeButton.Visible = false;

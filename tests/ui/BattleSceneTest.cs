@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
@@ -61,7 +62,8 @@ public partial class BattleSceneTest : Node
                      "%SafeFrame", "%PreparationPanel", "%AutomaticCombatPanel",
                      "%ResultPanel", "%CureOverlay", "%PlayerSpriteContainer",
                      "%EnemySpriteContainer", "%PlayerDamageLabel", "%EnemyDamageLabel",
-                     "%BeginBattleButton", "%CureButton", "%EscapeButton", "%ContinueButton"
+                     "%BeginBattleButton", "%CureButton", "%EscapeButton", "%ContinueButton",
+                     "%PreviousCurePage", "%NextCurePage"
                  })
         {
             AssertThat(_battle.GetNodeOrNull(path)).IsNotNull();
@@ -106,7 +108,11 @@ public partial class BattleSceneTest : Node
             AssertThat(safeFrame.OffsetBottom).IsEqual(-insets.Margin);
             AssertThat(new Rect2(Vector2.Zero, size).Encloses(safeFrame.GetGlobalRect())).IsTrue();
 
-            foreach (var path in new[] { "%BeginBattleButton", "%CureButton", "%EscapeButton", "%ContinueButton" })
+            foreach (var path in new[]
+                     {
+                         "%BeginBattleButton", "%CureButton", "%EscapeButton", "%ContinueButton",
+                         "%PreviousItemPage", "%NextItemPage", "%ClearPreparationItemButton"
+                     })
             {
                 var button = _battle.GetNode<Button>(path);
                 AssertThat(button.Size.Y).IsGreaterEqual(SiriusUiMetrics.MinimumTarget(insets.Compact).Y);
@@ -191,6 +197,61 @@ public partial class BattleSceneTest : Node
     }
 
     [TestCase]
+    public async Task CompactCurePagesTheFullConsumableCatalogInsideTheViewport()
+    {
+        _viewport.Size = new Vector2I(640, 360);
+        _viewportContainer.Size = new Vector2(640, 360);
+        await AwaitFrames(2);
+
+        var player = TestHelpers.CreateTestCharacter();
+        var consumables = ItemCatalog.GetAllItemIds()
+            .Select(ItemCatalog.CreateItemById)
+            .OfType<ConsumableItem>()
+            .ToList();
+        AssertThat(consumables.Count).IsEqual(14);
+        foreach (var item in consumables)
+            player.TryAddItem(item, 1, out _);
+
+        _battle.StartBattle(player, Enemy.CreateGoblin());
+        InvokePrivateMethod(_battle, "OnStartButtonPressed");
+        InvokePrivateMethod(_battle, "OpenCureOverlay");
+        await AwaitFrames(2);
+
+        var list = _battle.GetNode<Container>("%CureItemList");
+        var previousPage = _battle.GetNode<Button>("%PreviousCurePage");
+        var nextPage = _battle.GetNode<Button>("%NextCurePage");
+        AssertThat(previousPage.Visible).IsTrue();
+        AssertThat(nextPage.Visible).IsTrue();
+        var viewportRect = new Rect2(Vector2.Zero, new Vector2(640, 360));
+        var totalPresented = 0;
+        var expectedPageCounts = new[] { 3, 3, 3, 3, 2 };
+        for (var page = 0; page < expectedPageCounts.Length; page++)
+        {
+            AssertThat(list.GetChildCount()).IsEqual(expectedPageCounts[page]);
+            totalPresented += list.GetChildCount();
+            foreach (var child in list.GetChildren())
+            {
+                var slot = (Control)child;
+                AssertThat(viewportRect.Encloses(slot.GetGlobalRect()))
+                    .OverrideFailureMessage($"Cure slot {slot.GetGlobalRect()} is outside compact viewport")
+                    .IsTrue();
+            }
+
+            if (page < expectedPageCounts.Length - 1)
+            {
+                InvokePrivateMethod(_battle, "ChangeCurePage", 1);
+                await AwaitFrames(1);
+            }
+        }
+
+        AssertThat(totalPresented).IsEqual(consumables.Count);
+        AssertThat(previousPage.Disabled).IsFalse();
+        AssertThat(nextPage.Disabled).IsTrue();
+        foreach (var path in new[] { "%PreviousCurePage", "%NextCurePage", "%CancelCureButton" })
+            AssertThat(viewportRect.Encloses(_battle.GetNode<Control>(path).GetGlobalRect())).IsTrue();
+    }
+
+    [TestCase]
     public async Task CompactResultsKeepContinueInsideSafeFrame()
     {
         _viewport.Size = new Vector2I(640, 360);
@@ -217,5 +278,13 @@ public partial class BattleSceneTest : Node
     {
         for (var index = 0; index < count; index++)
             await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+    }
+
+    private static void InvokePrivateMethod(object instance, string methodName, params object[]? arguments)
+    {
+        var method = instance.GetType().GetMethod(
+            methodName, BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException($"{methodName} not found.");
+        method.Invoke(instance, arguments);
     }
 }

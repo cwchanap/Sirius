@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
@@ -491,7 +492,7 @@ public partial class BattleManagerTest : Node
             AssertThat(finishedCount).IsEqual(1);
             AssertThat(dismissCount).IsEqual(1);
             AssertThat(manager.Visible).IsTrue();
-            AssertThat(manager.GetNode<Button>("BattleContent/ActionButtons/ContinueButton").Visible).IsTrue();
+            AssertThat(manager.GetNode<Button>("%ContinueButton").Visible).IsTrue();
         }
         finally
         {
@@ -521,7 +522,7 @@ public partial class BattleManagerTest : Node
             method.Invoke(manager, new object[] { true });
             AssertThat(finishedCount).IsEqual(1);
             AssertThat(manager.Visible).IsTrue();
-            var continueButton = manager.GetNode<Button>("BattleContent/ActionButtons/ContinueButton");
+            var continueButton = manager.GetNode<Button>("%ContinueButton");
             AssertThat(continueButton.Visible).IsTrue();
 
             continueButton.EmitSignal(Button.SignalName.Pressed);
@@ -532,6 +533,127 @@ public partial class BattleManagerTest : Node
         {
             await FreeManager(manager);
         }
+    }
+
+    [TestCase]
+    public async Task PreparationApplyFailure_StaysInPreparationWithReadableFeedback()
+    {
+        var manager = await CreateReadyBattleManager();
+        var brokenItem = new ConsumableItem
+        {
+            Id = "task3_broken_item",
+            DisplayName = "Broken Item",
+            Description = "A deliberately invalid item for the preparation error path."
+        };
+        try
+        {
+            AssertThat(manager.GetNodeOrNull<Control>("%PreparationPanel")).IsNotNull();
+            AssertThat(manager.GetNodeOrNull<Control>("%AutomaticCombatPanel")).IsNotNull();
+            AssertThat(manager.GetNodeOrNull<Label>("%PreparationItemDetails")).IsNotNull();
+            if (manager.GetNodeOrNull<Control>("%PreparationPanel") is null)
+                return;
+
+            var player = GetPrivateField<Character>(manager, "_player");
+            player.TryAddItem(brokenItem, 1, out _);
+            SetPrivateField(manager, "_selectedConsumable", brokenItem);
+
+            var finishedCount = 0;
+            manager.BattleFinished += (_, _) => finishedCount++;
+            InvokePrivateMethod(manager, "OnStartButtonPressed");
+
+            AssertThat(finishedCount).IsEqual(0);
+            AssertThat(GetPrivateField<Timer>(manager, "_battleTimer").IsStopped()).IsTrue();
+            AssertThat(manager.GetNode<Control>("%PreparationPanel").Visible).IsTrue();
+            AssertThat(manager.GetNode<Control>("%AutomaticCombatPanel").Visible).IsFalse();
+            AssertThat(manager.GetNode<Label>("%PreparationItemDetails").Text).Contains("Broken Item");
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
+    [TestCase]
+    public async Task CancelWithCureOpen_ClosesOnlyCureAndResumesCombatTimer()
+    {
+        var manager = await CreateReadyBattleManager();
+        try
+        {
+            AssertThat(manager.GetNodeOrNull<Control>("%CureOverlay")).IsNotNull();
+            if (manager.GetNodeOrNull<Control>("%CureOverlay") is null)
+                return;
+
+            InvokePrivateMethod(manager, "OnStartButtonPressed");
+            InvokePrivateMethod(manager, "OpenCureOverlay");
+            var overlay = manager.GetNode<Control>("%CureOverlay");
+            AssertThat(overlay.Visible).IsTrue();
+
+            var finishedCount = 0;
+            var dismissCount = 0;
+            manager.BattleFinished += (_, _) => finishedCount++;
+            manager.DismissRequested += () => dismissCount++;
+            manager.RequestCancel();
+
+            AssertThat(overlay.Visible).IsFalse();
+            AssertThat(GetPrivateField<Timer>(manager, "_battleTimer").IsStopped()).IsFalse();
+            AssertThat(finishedCount).IsEqual(0);
+            AssertThat(dismissCount).IsEqual(0);
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
+    [TestCase]
+    public async Task EventFeed_RefreshTrimsStandardFiveRowsToCompactThreeRows()
+    {
+        var manager = await CreateReadyBattleManager();
+        try
+        {
+            AssertThat(manager.GetNodeOrNull<Label>("%EventFeed")).IsNotNull();
+            if (manager.GetNodeOrNull<Label>("%EventFeed") is null)
+                return;
+
+            SetPrivateField(manager, "_isCompact", false);
+            InvokePrivateMethod(manager, "RefreshEventFeed");
+            foreach (var text in Enumerable.Range(1, 5).Select(index => $"Event {index}"))
+                InvokePrivateMethod(manager, "AppendCombatEvent", text);
+
+            AssertThat(manager.GetNode<Label>("%EventFeed").Text.Split('\n')).HasSize(5);
+            SetPrivateField(manager, "_isCompact", true);
+            InvokePrivateMethod(manager, "RefreshEventFeed");
+
+            AssertThat(manager.GetNode<Label>("%EventFeed").Text.Split('\n')).HasSize(3);
+            AssertThat(!manager.GetNode<Label>("%EventFeed").Text.Contains("Event 1", StringComparison.Ordinal)).IsTrue();
+            AssertThat(manager.GetNode<Label>("%EventFeed").Text).Contains("Event 5");
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
+    [TestCase]
+    public void StopBattleRuntime_KillsTrackedVisualTweens()
+    {
+        WithBattleManager(battleManager =>
+        {
+            var field = typeof(BattleManager).GetField(
+                "_visualTweens", BindingFlags.NonPublic | BindingFlags.Instance);
+            AssertThat(field).IsNotNull();
+            if (field is null)
+                return;
+
+            var tweens = (System.Collections.Generic.HashSet<Tween>)field.GetValue(battleManager)!;
+            var sprite = new AnimatedSprite2D();
+            battleManager.AddChild(sprite);
+            InvokePrivateMethod(battleManager, "PlayAttackAnimation", sprite);
+            AssertThat(tweens.Count).IsGreater(0);
+            InvokePrivateMethod(battleManager, "StopBattleRuntime");
+            AssertThat(tweens.Count).IsEqual(0);
+            sprite.Free();
+        });
     }
 
     [TestCase]
@@ -608,11 +730,11 @@ public partial class BattleManagerTest : Node
         field.SetValue(instance, value);
     }
 
-    private static void InvokePrivateMethod(object instance, string methodName)
+    private static void InvokePrivateMethod(object instance, string methodName, params object[]? arguments)
     {
         var method = instance.GetType().GetMethod(methodName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         if (method == null)
             throw new InvalidOperationException($"Method '{methodName}' not found.");
-        method.Invoke(instance, null);
+        method.Invoke(instance, arguments);
     }
 }

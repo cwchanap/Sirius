@@ -112,6 +112,38 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public async Task BattleStart_HostsBlockingControlWithoutPausingTree()
+    {
+        var game = await InstantiateRealGameScene();
+        try
+        {
+            var tree = (SceneTree)Engine.GetMainLoop();
+            var manager = game.GetNode<GameManager>("GameManager");
+            var host = game.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+            manager.StartBattle(Enemy.CreateGoblin());
+            await AwaitFrames(2);
+
+            var battle = GetPrivateField<BattleManager>(game, "_battleManager");
+            AssertThat(host.IsKindActive(UIScreenKinds.Battle)).IsTrue();
+            AssertThat(host.ActiveEntries.Count).IsEqual(1);
+            AssertThat(battle.GetParent()).IsEqual(host.GetNode<Control>("ScreenLayer"));
+            AssertThat(tree.Paused).IsFalse();
+            AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsTrue();
+
+            battle.RequestCancel();
+            await AwaitFrames(2);
+            AssertThat(host.IsKindActive(UIScreenKinds.Battle)).IsFalse();
+            AssertThat(manager.IsInBattle).IsFalse();
+        }
+        finally
+        {
+            game.Free();
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
     public async Task GameSceneUsesExplorationHudWithoutPrototypeHud()
     {
         var game = await InstantiateRealGameScene();

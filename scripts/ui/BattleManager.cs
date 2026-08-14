@@ -2,9 +2,20 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-public partial class BattleManager : AcceptDialog
+public partial class BattleManager : Control
 {
     [Signal] public delegate void BattleFinishedEventHandler(bool playerWon, bool playerEscaped);
+    [Signal] public delegate void DismissRequestedEventHandler();
+
+    private enum BattlePhase
+    {
+        Preparation,
+        AutomaticCombat,
+        Result
+    }
+
+    private BattlePhase _phase = BattlePhase.Preparation;
+    private bool _dismissRequested;
     
     private Character _player = null!;
     private Enemy _enemy = null!;
@@ -31,6 +42,8 @@ public partial class BattleManager : AcceptDialog
     private Button _runButton = null!;
     private Button? _itemButton;
     private Button? _startButton;
+    private Button? _continueButton;
+    private Button? _escapeButton;
     
     // Animation and Visual References
     private AnimatedSprite2D? _playerSprite;
@@ -43,7 +56,7 @@ public partial class BattleManager : AcceptDialog
     private Timer _battleTimer = null!;
     private bool _battleInProgress = false;
     private bool _playerDefendedLastTurn = false;
-    private bool _resultEmitted = false; // Guards against double-emission in the common case; timer stop and signal emit must always be called together
+    private bool _resultEmitted = false; // Guards against duplicate BattleFinished emissions.
     private readonly Random _rng = new();
     private LootResult? _pendingLootDisplay;
     private bool _playerActedLast = false;
@@ -56,6 +69,60 @@ public partial class BattleManager : AcceptDialog
     private int _playerSkillTurnCount = 0;
     private readonly Dictionary<string, int> _passiveSkillCooldowns = new(); // skillId → turns until next fire
     private Label? _playerManaLabel;
+
+    public Control? InitialFocusTarget => _phase switch
+    {
+        BattlePhase.Preparation => _startButton,
+        BattlePhase.AutomaticCombat => _itemPanel != null && _itemPanel.Visible
+            ? FindFirstLegacyItemPanelFocusTarget()
+            : _escapeButton,
+        BattlePhase.Result => _continueButton,
+        _ => null
+    };
+
+    public BattleResultSummary? ResolvedResult { get; private set; }
+
+    private Control FindFirstLegacyItemPanelFocusTarget()
+    {
+        if (_itemPanel != null && IsInstanceValid(_itemPanel))
+        {
+            foreach (var child in _itemPanel.GetChildren())
+            {
+                if (child is Button button && button.Visible && !button.Disabled)
+                    return button;
+            }
+        }
+
+        return _escapeButton!;
+    }
+
+    private void RequestDismiss()
+    {
+        if (_dismissRequested)
+            return;
+
+        _dismissRequested = true;
+        EmitSignal(SignalName.DismissRequested);
+    }
+
+    private void EmitBattleFinishedOnce(bool playerWon, bool playerEscaped)
+    {
+        if (_resultEmitted)
+            return;
+
+        _resultEmitted = true;
+        EmitSignal(SignalName.BattleFinished, playerWon, playerEscaped);
+    }
+
+    private void StopBattleRuntime()
+    {
+        if (_battleTimer != null && IsInstanceValid(_battleTimer))
+            _battleTimer.Stop();
+
+        _battleInProgress = false;
+        _player?.ActiveBuffs.Clear();
+        _enemy?.ActiveStatusEffects.Clear();
+    }
     
     public override void _Ready()
     {
@@ -80,6 +147,8 @@ public partial class BattleManager : AcceptDialog
         _runButton = GetNode<Button>("BattleContent/ActionButtons/RunButton");
         _itemButton = GetNodeOrNull<Button>("BattleContent/ActionButtons/ItemButton");
         _startButton = GetNodeOrNull<Button>("BattleContent/ActionButtons/StartButton");
+        _continueButton = GetNodeOrNull<Button>("BattleContent/ActionButtons/ContinueButton");
+        _escapeButton = GetNodeOrNull<Button>("BattleContent/ActionButtons/EscapeButton");
 
         // Verify all UI elements are loaded
         if (_enemyLevelLabel == null) GD.PrintErr("ERROR: EnemyLevelLabel not found!");
@@ -136,6 +205,18 @@ public partial class BattleManager : AcceptDialog
             _startButton.Disabled = false;
             _startButton.Pressed += OnStartButtonPressed;
         }
+        if (_continueButton != null)
+        {
+            _continueButton.Visible = false;
+            _continueButton.Disabled = true;
+            _continueButton.Pressed += RequestDismiss;
+        }
+        if (_escapeButton != null)
+        {
+            _escapeButton.Visible = false;
+            _escapeButton.Disabled = false;
+            _escapeButton.Pressed += RequestCancel;
+        }
         
         // Initialize damage labels as invisible
         if (_playerDamageLabel != null)
@@ -148,15 +229,9 @@ public partial class BattleManager : AcceptDialog
         _battleTimer.WaitTime = 1.5; // 1.5 seconds between actions for visual feedback
         _battleTimer.Timeout += OnBattleTurnTimer;
         AddChild(_battleTimer);
-        
-        // Set dialog title and properties
-        Title = "Battle!";
-        GetOkButton().Text = "Close";
-        GetOkButton().Visible = false; // Hide the OK button initially
-        
-        // Connect close signals (window X and ESC)
-        CloseRequested += OnCloseRequested; // Window close button
-        Canceled += OnCloseRequested;       // ESC key path
+
+        _phase = BattlePhase.Preparation;
+        _dismissRequested = false;
     }
     
     private void AddBattleBackground()
@@ -212,39 +287,35 @@ public partial class BattleManager : AcceptDialog
         MoveChild(backgroundRect, 0);
     }
     
-    private void OnCloseRequested()
+    public void RequestCancel()
     {
-        // Always resolve battle state when the dialog is closed, including
-        // the case where the user closes before pressing Start.
-        if (!_resultEmitted)
+        if (_phase == BattlePhase.Result)
         {
-            if (_battleInProgress && _player != null && _enemy != null && _player.IsAlive && _enemy.IsAlive)
-            {
-                GD.Print("Battle interrupted via window close - treating as escape");
-                _battleInProgress = false;
-                _battleTimer.Stop();
-                EndBattleWithEscape(); // Emits BattleFinished and sets _resultEmitted
-            }
-            else
-            {
-                GD.Print("Battle dialog closed before start or after result - emitting escape to unlock input");
-                _resultEmitted = true;
-                EmitSignal(SignalName.BattleFinished, false, true); // Treat as escaped
-            }
+            RequestDismiss();
+            return;
         }
 
-        // Close and free the dialog so it cannot keep any input focus
-        Hide();
-        QueueFree();
-    }
+        if (_phase == BattlePhase.AutomaticCombat &&
+            _itemPanel != null && IsInstanceValid(_itemPanel) && _itemPanel.Visible)
+        {
+            _itemPanel.Visible = false;
+            if (_player.IsAlive && _enemy.IsAlive)
+                _battleTimer.Start();
+            _escapeButton?.GrabFocus();
+            return;
+        }
 
-    // Allow the game scene to programmatically request closing the battle dialog
-    // (e.g., when ESC is pressed). This reuses the same logic as the window's
-    // close button and guarantees the battle state is resolved.
-    public void ForceCloseAsEscape()
-    {
-        GD.Print("ForceCloseAsEscape invoked by Game");
-        OnCloseRequested();
+        StopBattleRuntime();
+        _phase = BattlePhase.Result;
+        ResolvedResult ??= new BattleResultSummary(
+            false,
+            0,
+            0,
+            _player?.Level ?? 0,
+            _player?.Level ?? 0,
+            LootResult.Empty);
+        EmitBattleFinishedOnce(false, true);
+        RequestDismiss();
     }
     
     /// <summary>
@@ -256,10 +327,10 @@ public partial class BattleManager : AcceptDialog
         if (player == null || enemy == null)
         {
             GD.PrintErr($"[BattleManager] StartBattle called with null {(player == null ? "player" : "enemy")}; aborting battle.");
-            _resultEmitted = true;
-            EmitSignal(SignalName.BattleFinished, false, true);
-            Hide();
-            QueueFree();
+            _phase = BattlePhase.Result;
+            ResolvedResult = new BattleResultSummary(false, 0, 0, 0, 0, LootResult.Empty);
+            EmitBattleFinishedOnce(false, true);
+            RequestDismiss();
             return;
         }
 
@@ -270,6 +341,18 @@ public partial class BattleManager : AcceptDialog
         _playerTurn = true; // Placeholder; determined after pre-battle consumables in OnStartButtonPressed()
         _playerActedLast = false; // Reset turn tracking for dynamic speed-based turn order
         _battleInProgress = false;
+        _phase = BattlePhase.Preparation;
+        _dismissRequested = false;
+        _resultEmitted = false;
+        ResolvedResult = null;
+
+        if (_continueButton != null)
+        {
+            _continueButton.Visible = false;
+            _continueButton.Disabled = true;
+        }
+        if (_escapeButton != null)
+            _escapeButton.Visible = false;
 
         // Initialize action points for speed-based turn frequency
         _playerActionPoints = 0f;
@@ -313,6 +396,9 @@ public partial class BattleManager : AcceptDialog
             }
             _playerActedLast = !_playerTurn;
             _battleInProgress = true;
+            _phase = BattlePhase.AutomaticCombat;
+            if (_escapeButton != null)
+                _escapeButton.Visible = true;
             _battleTimer.Start();
             GD.Print($"StartButton not present; auto-battle started. Turn order: {(_playerTurn ? "Player" : "Enemy")} first.");
         }
@@ -526,6 +612,7 @@ public partial class BattleManager : AcceptDialog
         }
 
         _battleInProgress = true;
+        _phase = BattlePhase.AutomaticCombat;
         if (_startButton != null)
         {
             _startButton.Visible = false;
@@ -535,6 +622,8 @@ public partial class BattleManager : AcceptDialog
             _itemButton.Visible = true;
             _itemButton.Disabled = false;
         }
+        if (_escapeButton != null)
+            _escapeButton.Visible = true;
         GD.Print("Battle started by user");
         _battleTimer.Start();
     }
@@ -1378,10 +1467,16 @@ public partial class BattleManager : AcceptDialog
     {
         GD.Print($"BattleManager.EndBattle called: playerWon = {playerWon}");
 
-        _battleInProgress = false;
-        _battleTimer.Stop();
-        _player.ActiveBuffs.Clear();
-        _enemy.ActiveStatusEffects.Clear();
+        if (_resultEmitted)
+            return;
+
+        StopBattleRuntime();
+        _phase = BattlePhase.Result;
+
+        int previousLevel = _player.Level;
+        int experienceGained = 0;
+        int goldGained = 0;
+        var resolvedLoot = LootResult.Empty;
 
         // Add spacing and clear result display
         GD.Print("=== BATTLE RESULT ===");
@@ -1395,6 +1490,8 @@ public partial class BattleManager : AcceptDialog
             int oldLevel = _player.Level;
             _player.GainExperience(_enemy.ExperienceReward);
             _player.GainGold(_enemy.GoldReward);
+            experienceGained = _enemy.ExperienceReward;
+            goldGained = _enemy.GoldReward;
             
             // Check if player leveled up
             if (_player.Level > oldLevel)
@@ -1416,6 +1513,7 @@ public partial class BattleManager : AcceptDialog
             var lootResult = lootTable == null
                 ? LootResult.Empty
                 : LootManager.RollLoot(lootTable, _rng);
+            resolvedLoot = lootResult;
             if (lootResult.HasDrops)
             {
                 LootManager.AwardLootToCharacter(lootResult, _player);
@@ -1440,40 +1538,26 @@ public partial class BattleManager : AcceptDialog
         }
         
         GD.Print("=====================");
-        
-        // Show the close button
-        GetOkButton().Visible = true;
-        GetOkButton().Text = "Continue";
-        
-        // Emit the signal immediately instead of waiting
+
+        ResolvedResult = new BattleResultSummary(
+            playerWon,
+            experienceGained,
+            goldGained,
+            previousLevel,
+            _player.Level,
+            resolvedLoot);
+
+        if (_continueButton != null)
+        {
+            _continueButton.Visible = true;
+            _continueButton.Disabled = false;
+            _continueButton.GrabFocus();
+        }
+        if (_escapeButton != null)
+            _escapeButton.Visible = false;
+
         GD.Print("BattleManager emitting BattleFinished signal immediately");
-        _resultEmitted = true;
-        EmitSignal(SignalName.BattleFinished, playerWon, false); // false for not escaped
-    }
-    
-    private void EndBattleWithEscape()
-    {
-        GD.Print("BattleManager.EndBattleWithEscape called: Player escaped");
-
-        _battleInProgress = false;
-        _battleTimer.Stop();
-        _player.ActiveBuffs.Clear();
-        _enemy.ActiveStatusEffects.Clear();
-
-        // Add spacing and clear result display
-        GD.Print("=== BATTLE RESULT ===");
-        GD.Print($"🏃 ESCAPED! {_player.Name} fled from battle!");
-        GD.Print("No experience gained from escaping.");
-        GD.Print("=====================");
-        
-        // Show the close button
-        GetOkButton().Visible = true;
-        GetOkButton().Text = "Continue";
-        
-        // Emit the signal immediately instead of waiting
-        GD.Print("BattleManager emitting BattleFinished signal with escape immediately");
-        _resultEmitted = true;
-        EmitSignal(SignalName.BattleFinished, false, true); // false for not won, true for escaped
+        EmitBattleFinishedOnce(playerWon, false);
     }
     
     private void ShowPendingLootDisplay()

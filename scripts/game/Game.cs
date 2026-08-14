@@ -15,7 +15,7 @@ public partial class Game : Node2D
     private Control _gameUI;
     private ExplorationHudController _explorationHud = null!;
     private Camera2D _camera;
-    private BattleManager _battleManager;
+    private BattleManager? _battleManager;
     private Vector2I _lastEnemyPosition; // Store enemy position for after battle
     private NpcInteractionController _npcInteractionController;
     private PuzzleTrapController? _puzzleTrapController;
@@ -35,6 +35,7 @@ public partial class Game : Node2D
     private Action? _defeatReturnHandler;
     private UIScreenHost? _screenHost;
     private UIScreenHandle? _inventoryHandle;
+    private UIScreenHandle? _battleHandle;
     private UIScreenHandle? _pauseHandle;
     private PauseScreenController? _pauseScreen;
     private UIScreenHandle? _hostedSettingsHandle;
@@ -1754,39 +1755,75 @@ public partial class Game : Node2D
         GD.Print($"Starting battle with {enemy.Name}");
         UpdateInteractionPrompt();
 
-        // Don't hide game UI - battle will be shown as a popup dialog
-
         // Load battle scene
         var battleScene = GD.Load<PackedScene>("res://scenes/ui/BattleScene.tscn");
         if (battleScene == null)
         {
             GD.PrintErr("ERROR: Failed to load battle scene!");
+            _gameManager.ResetBattleState();
+            UpdateInteractionPrompt();
             return;
         }
 
-        _battleManager = battleScene.Instantiate<BattleManager>();
-        if (_battleManager == null)
+        var battle = battleScene.Instantiate<BattleManager>();
+        if (battle == null)
         {
             GD.PrintErr("ERROR: Failed to instantiate BattleManager!");
+            _gameManager.ResetBattleState();
+            UpdateInteractionPrompt();
             return;
         }
 
-        GetNode("UI").AddChild(_battleManager);
+        battle.BattleFinished += OnBattleFinished;
+        battle.DismissRequested += OnBattleDismissRequested;
 
-        // Connect battle signals
-        _battleManager.BattleFinished += OnBattleFinished;
-        _battleManager.Confirmed += OnBattleDialogConfirmed; // Handle OK button press
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost))
+        {
+            GD.PrintErr("ERROR: UIScreenHost is unavailable; refusing to present Battle directly.");
+            battle.BattleFinished -= OnBattleFinished;
+            battle.DismissRequested -= OnBattleDismissRequested;
+            battle.QueueFree();
+            _gameManager.ResetBattleState();
+            UpdateInteractionPrompt();
+            return;
+        }
 
-        // Ensure dialog is properly configured
-        _battleManager.PopupWindow = true;
-        _battleManager.Exclusive = true;
+        var result = _screenHost.TryPresent(battle, new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.Battle,
+            Layer = UIScreenLayer.Screen,
+            InputPriority = UIInputPriority.Blocking,
+            ProcessPolicy = UIProcessPolicy.Always,
+            PauseTree = false,
+            BlockGameplayInput = true,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Hidden,
+            LowerLayers = UILowerLayerPolicy.Hidden,
+            Cancel = UICancelPolicy.Consume,
+            InitialFocus = () => battle.InitialFocusTarget,
+            InterceptCancel = _ =>
+            {
+                battle.RequestCancel();
+                return UIInputInterception.ConsumeHere;
+            },
+            Cleanup = _ => ClearBattlePresentation(battle),
+            NodeLifetime = UINodeLifetime.QueueFree
+        });
 
-        // Show the battle dialog
-        _battleManager.PopupCentered();
-        GD.Print("Battle dialog should now be visible");
+        if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
+        {
+            GD.PrintErr($"ERROR: Failed to host Battle screen ({result.Status}).");
+            battle.BattleFinished -= OnBattleFinished;
+            battle.DismissRequested -= OnBattleDismissRequested;
+            battle.QueueFree();
+            _gameManager.ResetBattleState();
+            UpdateInteractionPrompt();
+            return;
+        }
 
-        // Start the battle
-        _battleManager.StartBattle(_gameManager.Player, enemy);
+        _battleManager = battle;
+        _battleHandle = result.Handle.Value;
+        battle.StartBattle(_gameManager.Player, enemy);
         GD.Print("Battle started successfully");
     }
 
@@ -1796,35 +1833,45 @@ public partial class Game : Node2D
         // Battle logic is now handled in OnBattleFinished
     }
 
-    private void CleanupBattleManager()
+    private void ClearBattlePresentation(BattleManager battle)
     {
-        if (_battleManager != null)
-        {
-            if (GodotObject.IsInstanceValid(_battleManager))
-            {
-                _battleManager.BattleFinished -= OnBattleFinished;
-                _battleManager.Confirmed -= OnBattleDialogConfirmed;
-                _battleManager.QueueFree();
-            }
-
+        battle.BattleFinished -= OnBattleFinished;
+        battle.DismissRequested -= OnBattleDismissRequested;
+        if (ReferenceEquals(_battleManager, battle))
             _battleManager = null;
-        }
+        _battleHandle = null;
     }
 
-    private void OnBattleDialogConfirmed()
+    private void OnBattleDismissRequested()
     {
-        GD.Print("Battle dialog confirmed (OK button pressed)");
-        // Clean up the battle dialog
-        CleanupBattleManager();
+        if (_screenHost == null || !_battleHandle.HasValue)
+            return;
 
-        // Ensure battle state is properly reset (safety check)
-        if (_gameManager.IsInBattle)
+        _screenHost.TryClose(_battleHandle.Value, UIScreenCloseReason.ExplicitAction);
+    }
+
+    private void CleanupBattleManager()
+    {
+        var battle = _battleManager;
+        if (battle == null || !GodotObject.IsInstanceValid(battle))
         {
-            GD.Print("WARNING: Battle state still active after dialog close, forcing reset");
-            // Pass false to avoid triggering auto-save on a potentially lost/escaped battle.
-            // This is a safety fallback; normal battle completion handles victory auto-save.
-            _gameManager.EndBattle(false);
+            _battleManager = null;
+            _battleHandle = null;
+            return;
         }
+
+        if (_screenHost != null && _battleHandle.HasValue &&
+            _screenHost.IsActive(_battleHandle.Value))
+        {
+            _screenHost.TryClose(_battleHandle.Value, UIScreenCloseReason.HostTeardown);
+            return;
+        }
+
+        battle.BattleFinished -= OnBattleFinished;
+        battle.DismissRequested -= OnBattleDismissRequested;
+        battle.QueueFree();
+        _battleManager = null;
+        _battleHandle = null;
     }
 
     private void OnBattleFinished(bool playerWon, bool playerEscaped)
@@ -1838,8 +1885,8 @@ public partial class Game : Node2D
             return;
         }
         
-        // Disconnect BattleFinished to prevent multiple calls.
-        // Keep Confirmed connected so the dialog can still be cleaned up when user presses Continue.
+        // Disconnect BattleFinished to prevent multiple calls. DismissRequested
+        // remains connected until the hosted Control is explicitly dismissed.
         _battleManager.BattleFinished -= OnBattleFinished;
         
         // End the battle in game manager FIRST to allow player movement
@@ -1931,29 +1978,6 @@ public partial class Game : Node2D
         {
             _activeErrorPopup.QueueFree();
             _activeErrorPopup = null;
-            return UIRootCancelResult.Consumed;
-        }
-
-        if (_battleManager != null && IsInstanceValid(_battleManager) && _battleManager.Visible)
-        {
-            _battleManager.ForceCloseAsEscape();
-            return UIRootCancelResult.Consumed;
-        }
-
-        if (_gameManager.IsInBattle)
-        {
-            if (_battleManager != null && IsInstanceValid(_battleManager))
-            {
-                GD.Print("ESC pressed during battle - requesting battle dialog to close as escape");
-                _battleManager.ForceCloseAsEscape();
-            }
-            else
-            {
-                GD.PrintErr("ESC pressed during battle but BattleManager is null - forcing EndBattle(escaped)");
-                _gameManager.EndBattle(false);
-                UpdatePlayerUI();
-            }
-
             return UIRootCancelResult.Consumed;
         }
 

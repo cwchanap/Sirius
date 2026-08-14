@@ -115,30 +115,61 @@ public partial class GameInputLifecycleTest : Node
         TestHelpers.ReportSaveFileMismatches(_saveFiles, nameof(GameInputLifecycleTest));
     }
     [TestCase]
-    public async Task ConfiguredKeyboardCancel_BattleResultClosesNativeDialogWithoutOpeningHostedPause()
+    public async Task ConfiguredCancel_DuringHostedBattleEscapesWithoutOpeningPause()
     {
         ConfigureCancelBindings(Key.P);
-        await ReplaceWithHostedLifecycleFixture();
+        _realGame = await InstantiateGameScene(_viewport!);
+        var gameManager = _realGame.GetNode<GameManager>("GameManager");
+        var host = _realGame.GetNode<UIScreenHost>("UI/UIScreenHost");
 
-        var scene = GD.Load<PackedScene>("res://scenes/ui/BattleScene.tscn")
-            ?? throw new InvalidOperationException("Failed to load BattleScene.tscn.");
-        var battle = scene.Instantiate<BattleManager>();
-        _game!.GetNode<CanvasLayer>("UI").AddChild(battle);
-        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
-        SetPrivateField(battle, "_resultEmitted", true);
-        battle.PopupCentered();
-        SetPrivateField(_game, "_battleManager", battle);
-        AssertThat(_gameManager!.IsInBattle).IsFalse();
+        gameManager.StartBattle(Enemy.CreateGoblin());
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Battle)).IsTrue();
+        PushPhysicalKeyDown(Key.P);
+        await AwaitFrames(1);
+        try
+        {
+            AssertThat(_viewport!.IsInputHandled()).IsTrue();
+            AssertThat(gameManager.IsInBattle).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.Battle)).IsFalse();
+        }
+        finally
+        {
+            ReleasePhysicalKey(Key.P);
+        }
+    }
+
+    [TestCase]
+    public async Task BattleResultCancel_ClosesBattleWithoutOpeningPauseOrReemittingResult()
+    {
+        ConfigureCancelBindings(Key.P);
+        _realGame = await InstantiateGameScene(_viewport!);
+
+        var gameManager = _realGame.GetNode<GameManager>("GameManager");
+        var host = _realGame.GetNode<UIScreenHost>("UI/UIScreenHost");
+        gameManager.StartBattle(Enemy.CreateGoblin());
+        await AwaitFrames(2);
+        var battle = GetPrivateField<BattleManager>(_realGame, "_battleManager");
+        int finishedCount = 0;
+        battle.BattleFinished += (_, _) => finishedCount++;
+        InvokePrivate(battle, "EndBattle", true);
+        await AwaitFrames(1);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Battle)).IsTrue();
+        AssertThat(gameManager.IsInBattle).IsFalse();
+        AssertThat(finishedCount).IsEqual(1);
 
         PushPhysicalKeyDown(Key.P);
         await AwaitFrames(1);
 
-        var host = _game.GetNode<UIScreenHost>("UI/UIScreenHost");
         try
         {
             AssertThat(_viewport!.IsInputHandled()).IsTrue();
-            AssertThat(GodotObject.IsInstanceValid(battle)).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.Battle)).IsFalse();
             AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+            AssertThat(finishedCount).IsEqual(1);
         }
         finally
         {
@@ -213,29 +244,6 @@ public partial class GameInputLifecycleTest : Node
         AssertThat(GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup")).IsNull();
         AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
-    }
-
-    [TestCase]
-    public async Task ConfiguredKeyboardCancel_BattleWithoutDialogEndsBattleWithoutOpeningHostedPause()
-    {
-        ConfigureCancelBindings(Key.P);
-        await ReplaceWithHostedLifecycleFixture();
-        _gameManager!.StartBattle(Enemy.CreateGoblin());
-
-        PushPhysicalKeyDown(Key.P);
-        await AwaitFrames(1);
-
-        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
-        try
-        {
-            AssertThat(_viewport!.IsInputHandled()).IsTrue();
-            AssertThat(_gameManager.IsInBattle).IsFalse();
-            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
-        }
-        finally
-        {
-            ReleasePhysicalKey(Key.P);
-        }
     }
 
     [TestCase]
@@ -688,7 +696,8 @@ public partial class GameInputLifecycleTest : Node
             var battle = GetPrivateField<BattleManager>(game, "_battleManager");
             AssertThat(GodotObject.IsInstanceValid(battle)).IsTrue();
 
-            battle.ForceCloseAsEscape();
+            battle.RequestCancel();
+            await AwaitFrames(2);
 
             AssertThat(promptPlate.Visible).IsTrue();
             AssertThat(prompt.Prompt).IsEqual("Open");

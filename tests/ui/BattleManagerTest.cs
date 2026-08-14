@@ -412,21 +412,24 @@ public partial class BattleManagerTest : Node
     }
 
     [TestCase]
-    public async Task ForceCloseDuringPreparation_EmitsOnceAndClosesImmediately()
+    public async Task RequestCancelDuringPreparation_EmitsEscapeAndDismissOnce()
     {
         var manager = await CreateReadyBattleManager();
-        int count = 0;
+        int finishedCount = 0;
+        int dismissCount = 0;
         bool escaped = false;
-        manager.BattleFinished += (_, wasEscaped) => { count++; escaped = wasEscaped; };
+        manager.BattleFinished += (_, wasEscaped) => { finishedCount++; escaped = wasEscaped; };
+        manager.DismissRequested += () => dismissCount++;
         try
         {
-            manager.ForceCloseAsEscape();
-            manager.ForceCloseAsEscape();
+            manager.RequestCancel();
+            manager.RequestCancel();
 
-            AssertThat(count).IsEqual(1);
+            AssertThat(finishedCount).IsEqual(1);
             AssertThat(escaped).IsTrue();
-            AssertThat(manager.Visible).IsFalse();
-            AssertThat(manager.IsQueuedForDeletion()).IsTrue();
+            AssertThat(dismissCount).IsEqual(1);
+            AssertThat(manager.Visible).IsTrue();
+            AssertThat(manager.IsQueuedForDeletion()).IsFalse();
         }
         finally
         {
@@ -435,7 +438,7 @@ public partial class BattleManagerTest : Node
     }
 
     [TestCase]
-    public async Task ForceCloseDuringAutomaticCombat_StopsTimerClearsEffectsEmitsOnceAndClosesImmediately()
+    public async Task RequestCancelDuringAutomaticCombat_StopsTimerClearsEffectsAndDismissesOnce()
     {
         var manager = await CreateReadyBattleManager();
         var player = GetPrivateField<Character>(manager, "_player");
@@ -443,18 +446,21 @@ public partial class BattleManagerTest : Node
         player.ActiveBuffs.Add(new ActiveStatusEffect(StatusEffectType.Strength, 2, 2));
         enemy.ActiveStatusEffects.Add(new ActiveStatusEffect(StatusEffectType.Poison, 1, 2));
         InvokePrivateMethod(manager, "OnStartButtonPressed");
-        int count = 0;
-        manager.BattleFinished += (_, _) => count++;
+        int finishedCount = 0;
+        int dismissCount = 0;
+        manager.BattleFinished += (_, _) => finishedCount++;
+        manager.DismissRequested += () => dismissCount++;
         try
         {
-            manager.ForceCloseAsEscape();
+            manager.RequestCancel();
 
             AssertThat(GetPrivateField<Timer>(manager, "_battleTimer").IsStopped()).IsTrue();
             AssertThat(player.ActiveBuffs.HasAny).IsFalse();
             AssertThat(enemy.ActiveStatusEffects.HasAny).IsFalse();
-            AssertThat(count).IsEqual(1);
-            AssertThat(manager.Visible).IsFalse();
-            AssertThat(manager.IsQueuedForDeletion()).IsTrue();
+            AssertThat(finishedCount).IsEqual(1);
+            AssertThat(dismissCount).IsEqual(1);
+            AssertThat(manager.Visible).IsTrue();
+            AssertThat(manager.IsQueuedForDeletion()).IsFalse();
         }
         finally
         {
@@ -463,14 +469,13 @@ public partial class BattleManagerTest : Node
     }
 
     [TestCase]
-    public async Task BattleFinished_VictoryLeavesResultVisibleUntilExplicitDismissal()
+    public async Task RequestCancelDuringResult_DismissesWithoutSecondBattleFinished()
     {
         var manager = await CreateReadyBattleManager();
-        int count = 0;
-        manager.BattleFinished += (_, escaped) =>
-        {
-            if (!escaped) count++;
-        };
+        int finishedCount = 0;
+        int dismissCount = 0;
+        manager.BattleFinished += (_, _) => finishedCount++;
+        manager.DismissRequested += () => dismissCount++;
 
         try
         {
@@ -480,10 +485,48 @@ public partial class BattleManagerTest : Node
                 ?? throw new InvalidOperationException("EndBattle not found.");
 
             method.Invoke(manager, new object[] { true });
+            manager.RequestCancel();
+            manager.RequestCancel();
 
-            AssertThat(count).IsEqual(1);
+            AssertThat(finishedCount).IsEqual(1);
+            AssertThat(dismissCount).IsEqual(1);
             AssertThat(manager.Visible).IsTrue();
-            AssertThat(manager.GetOkButton().Visible).IsTrue();
+            AssertThat(manager.GetNode<Button>("BattleContent/ActionButtons/ContinueButton").Visible).IsTrue();
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
+    [TestCase]
+    public async Task Victory_EmitsOnceAndLeavesControlVisibleUntilDismissRequested()
+    {
+        var manager = await CreateReadyBattleManager();
+        int finishedCount = 0;
+        int dismissCount = 0;
+        manager.BattleFinished += (_, escaped) =>
+        {
+            if (!escaped) finishedCount++;
+        };
+        manager.DismissRequested += () => dismissCount++;
+
+        try
+        {
+            var method = typeof(BattleManager).GetMethod(
+                "EndBattle",
+                BindingFlags.NonPublic | BindingFlags.Instance)
+                ?? throw new InvalidOperationException("EndBattle not found.");
+
+            method.Invoke(manager, new object[] { true });
+            AssertThat(finishedCount).IsEqual(1);
+            AssertThat(manager.Visible).IsTrue();
+            var continueButton = manager.GetNode<Button>("BattleContent/ActionButtons/ContinueButton");
+            AssertThat(continueButton.Visible).IsTrue();
+
+            continueButton.EmitSignal(Button.SignalName.Pressed);
+            AssertThat(dismissCount).IsEqual(1);
+            AssertThat(manager.Visible).IsTrue();
         }
         finally
         {
@@ -522,7 +565,6 @@ public partial class BattleManagerTest : Node
         var manager = scene.Instantiate<BattleManager>();
         ((SceneTree)Engine.GetMainLoop()).Root.AddChild(manager);
         await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
-        manager.PopupCentered();
         manager.StartBattle(TestHelpers.CreateTestCharacter(), Enemy.CreateGoblin());
         return manager;
     }

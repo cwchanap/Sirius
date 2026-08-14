@@ -88,6 +88,59 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
+    public async Task Battle_HostsAsBlockingScreenWithoutPausingTree()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameUi = _game.GetNode<Control>("UI/GameUI");
+        var gameManager = _game.GetNode<GameManager>("GameManager");
+
+        gameManager.StartBattle(Enemy.CreateGoblin());
+        await AwaitFrames(2);
+
+        var battle = GetPrivateField<BattleManager>(_game, "_battleManager");
+        AssertThat(host.ActiveEntries.Count).IsEqual(1);
+        var entry = FindEntry(host, UIScreenKinds.Battle);
+        AssertThat(battle.GetParent()).IsEqual(host.GetNode<Control>("ScreenLayer"));
+        AssertThat(tree.Paused).IsFalse();
+        AssertThat(entry.Policy.PauseTree).IsFalse();
+        AssertThat(entry.Policy.BlockGameplayInput).IsTrue();
+        AssertThat(entry.Policy.Hud).IsEqual(UIHudPolicy.Hidden);
+        AssertThat(entry.Policy.Cursor).IsEqual(UICursorPolicy.Visible);
+        AssertThat(gameUi.Visible).IsFalse();
+
+        var close = host.TryClose(entry.Handle, UIScreenCloseReason.ExplicitAction);
+        AssertThat(close.Status).IsEqual(UIScreenCloseStatus.Closed);
+        if (gameManager.IsInBattle)
+            gameManager.EndBattle(false);
+    }
+
+    [TestCase]
+    public async Task BattleVictory_RemainsHostedAfterBattleFinishedUntilDismissal()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameManager = _game.GetNode<GameManager>("GameManager");
+
+        gameManager.StartBattle(Enemy.CreateGoblin());
+        await AwaitFrames(2);
+        var battle = GetPrivateField<BattleManager>(_game, "_battleManager");
+        InvokePrivateVoid(battle, "EndBattle", true);
+        await AwaitFrames(2);
+
+        AssertThat(gameManager.IsInBattle).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Battle)).IsTrue();
+        AssertThat(host.ActiveEntries.Count).IsEqual(1);
+        AssertThat(battle.Visible).IsTrue();
+        AssertThat(tree.Paused).IsFalse();
+
+        var close = host.TryClose(
+            FindEntry(host, UIScreenKinds.Battle).Handle,
+            UIScreenCloseReason.ExplicitAction);
+        AssertThat(close.Status).IsEqual(UIScreenCloseStatus.Closed);
+    }
+
+    [TestCase]
     public void GameSceneHostPrepareForTeardown_ClosesEntryAndRestoresIncomingState()
     {
         var host = _game!.GetNodeOrNull<UIScreenHost>("UI/UIScreenHost");

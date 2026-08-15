@@ -515,13 +515,13 @@ public async Task ShowSaveError_WithoutActiveSaveLoadReturnsFalseAndDoesNotOpenP
 }
 ```
 
-The production implementation in Step 9 must also call `GD.PushError`; the boolean gives the test a deterministic seam without inventing log-capture infrastructure.
+The production implementation in Step 8 must also call `GD.PushError`; the boolean gives the test a deterministic seam without inventing log-capture infrastructure.
 
 - [ ] **Step 4: Run RED**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
-  --filter "FullyQualifiedName~MainMenuTest|FullyQualifiedName~GameplayPauseHostTest.HostedSaveLoad_LoadFailure|FullyQualifiedName~GameInputLifecycleTest.ConfiguredKeyboardCancel_.*Recoverable|FullyQualifiedName~GameTest.ShowSaveError"
+  --filter "FullyQualifiedName~MainMenuTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameTest.ShowSaveError"
 ```
 
 Expected: FAIL against current native/close-parent behavior.

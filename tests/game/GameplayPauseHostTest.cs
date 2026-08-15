@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using GdUnit4;
@@ -844,30 +845,7 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
-    public async Task HostedSaveLoad_ValidSaveCardHostsConfirmOverwriteChild()
-    {
-        TestHelpers.WriteValidSlot(0);
-        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
-        var modalLayer = host.GetNode<Control>("ModalLayer");
-        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
-        await AwaitFrames(2);
-        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
-        pause.GetNode<Button>("%SaveButton").EmitSignal(Button.SignalName.Pressed);
-        await AwaitFrames(2);
-
-        var saveScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
-        saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
-        await AwaitFrames(2);
-
-        var confirmation = FindDirectChild<SaveOverwriteConfirmationController>(modalLayer);
-        AssertThat(host.IsKindActive(UIScreenKinds.ConfirmOverwrite)).IsTrue();
-        AssertThat(confirmation.GetParent()).IsEqual(modalLayer);
-        AssertThat(FindEntry(host, UIScreenKinds.ConfirmOverwrite).Policy.Parent)
-            .IsEqual(FindEntry(host, UIScreenKinds.SaveLoad).Handle);
-    }
-
-    [TestCase]
-    public async Task HostedOverwrite_CancelClosesOnlyConfirmationAndRestoresSaveLoad()
+    public async Task HostedOverwrite_UsesSharedPromptAndCancelRestoresSaveLoad()
     {
         TestHelpers.WriteValidSlot(0);
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
@@ -881,18 +859,32 @@ public partial class GameplayPauseHostTest : Node
         var saveScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
         saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(2);
-        var confirmation = FindDirectChild<SaveOverwriteConfirmationController>(modalLayer);
-        confirmation.GetNode<Button>("%CancelButton").EmitSignal(Button.SignalName.Pressed);
+
+        var prompt = FindDirectChild<SiriusPrompt>(modalLayer);
+        var promptEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt);
+        AssertThat(promptEntry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+        AssertThat(prompt.GetParent()).IsEqual(modalLayer);
+        AssertThat(promptEntry.Policy.Parent).IsEqual(FindEntry(host, UIScreenKinds.SaveLoad).Handle);
+        AssertThat(promptEntry.Policy.InputPriority).IsEqual(UIInputPriority.Blocking);
+        AssertThat(promptEntry.Policy.ExclusiveGroup)
+            .IsEqual(UIScreenExclusiveGroups.BlockingPrompt);
+        AssertThat(promptEntry.Policy.PauseTree).IsFalse();
+        AssertThat(promptEntry.Policy.BlockGameplayInput).IsFalse();
+        AssertThat(prompt.GetNode<Label>("%Message").Text)
+            .IsEqual("Slot 1 already contains save data. Overwrite it?");
+        AssertThat(_viewport!.GuiGetFocusOwner()).IsEqual(prompt.InitialFocusTarget);
+
+        prompt.GetNode<Button>("%CancelButton").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(3);
 
-        AssertThat(GodotObject.IsInstanceValid(confirmation)).IsFalse();
-        AssertThat(host.IsKindActive(UIScreenKinds.ConfirmOverwrite)).IsFalse();
+        AssertThat(GodotObject.IsInstanceValid(prompt)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
         AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
         AssertHostedChildRemainsAboveSamePause(host, pause, pauseEntry.Handle);
     }
 
     [TestCase]
-    public async Task HostedOverwrite_ConfirmInvokesExistingSavePathOnce()
+    public async Task HostedOverwrite_PrimaryInvokesSaveOnce()
     {
         TestHelpers.WriteValidSlot(0);
         var manager = SaveManager.Instance;
@@ -920,13 +912,15 @@ public partial class GameplayPauseHostTest : Node
             var saveScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
             saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
             await AwaitFrames(2);
-            var confirmation = FindDirectChild<SaveOverwriteConfirmationController>(modalLayer);
-            confirmation.GetNode<Button>("%OverwriteButton").EmitSignal(Button.SignalName.Pressed);
-            confirmation.GetNode<Button>("%OverwriteButton").EmitSignal(Button.SignalName.Pressed);
+            var prompt = FindDirectChild<SiriusPrompt>(modalLayer);
+            var primary = prompt.GetNode<Button>("%PrimaryButton");
+
+            primary.EmitSignal(Button.SignalName.Pressed);
+            primary.EmitSignal(Button.SignalName.Pressed);
             await AwaitFrames(4);
 
             AssertThat(completions).IsEqual(1);
-            AssertThat(host.IsKindActive(UIScreenKinds.ConfirmOverwrite)).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
             AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
             AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
         }
@@ -937,7 +931,7 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
-    public async Task HostedOverwrite_UsesExistingConfirmOverwriteKindAndBlockingPromptGroup()
+    public async Task HostedPrompt_ProgrammaticCloseClearsHandleAndGroup()
     {
         TestHelpers.WriteValidSlot(0);
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
@@ -951,18 +945,66 @@ public partial class GameplayPauseHostTest : Node
         saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(2);
 
-        var saveLoadEntry = FindEntry(host, UIScreenKinds.SaveLoad);
-        var confirmEntry = FindEntry(host, UIScreenKinds.ConfirmOverwrite);
-        AssertThat(confirmEntry.Policy.Kind).IsEqual(UIScreenKinds.ConfirmOverwrite);
-        AssertThat(confirmEntry.Policy.Parent).IsEqual(saveLoadEntry.Handle);
-        AssertThat(confirmEntry.Policy.InputPriority).IsEqual(UIInputPriority.Blocking);
-        AssertThat(confirmEntry.Policy.ExclusiveGroup).IsEqual(UIScreenExclusiveGroups.BlockingPrompt);
-        AssertThat(confirmEntry.Policy.PauseTree).IsFalse();
-        AssertThat(confirmEntry.Policy.Cancel).IsEqual(UICancelPolicy.Close);
+        var prompt = FindDirectChild<SiriusPrompt>(modalLayer);
+        var promptEntry = FindEntry(host, UIScreenKinds.Prompt);
+        AssertThat(GetPrivateField<UIScreenHandle?>(_game, "_hostedPromptHandle"))
+            .IsEqual(promptEntry.Handle);
+        AssertThat(GetPrivateField<SiriusPrompt?>(_game, "_hostedPrompt")).IsEqual(prompt);
+
+        var close = host.TryClose(promptEntry.Handle, UIScreenCloseReason.ExplicitAction);
+        AssertThat(close.Status).IsEqual(UIScreenCloseStatus.Closed);
+        await AwaitFrames(2);
+
+        AssertThat(GodotObject.IsInstanceValid(prompt)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+        AssertThat(GetPrivateField<UIScreenHandle?>(_game, "_hostedPromptHandle")).IsNull();
+        AssertThat(GetPrivateField<SiriusPrompt?>(_game, "_hostedPrompt")).IsNull();
+        AssertThat(host.ActiveEntries.Any(e =>
+            e.Policy.ExclusiveGroup == UIScreenExclusiveGroups.BlockingPrompt)).IsFalse();
+
+        // The released group must admit a fresh prompt presentation.
+        saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
     }
 
     [TestCase]
-    public async Task PauseChildReturnConfirmation_CancelClosesOnlyTheHostedChild()
+    public async Task HostedPrompt_ParentCloseClearsDescendantReferences()
+    {
+        TestHelpers.WriteValidSlot(0);
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%SaveButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+        var saveScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
+        saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var prompt = FindDirectChild<SiriusPrompt>(modalLayer);
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+
+        saveScreen.GetNode<Button>("%CancelButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(3);
+
+        AssertThat(GodotObject.IsInstanceValid(prompt)).IsFalse();
+        AssertThat(GodotObject.IsInstanceValid(saveScreen)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(GetPrivateField<UIScreenHandle?>(_game, "_hostedPromptHandle")).IsNull();
+        AssertThat(GetPrivateField<SiriusPrompt?>(_game, "_hostedPrompt")).IsNull();
+        AssertThat(GetPrivateField<UIScreenHandle?>(_game, "_hostedSaveLoadHandle")).IsNull();
+        AssertThat(GetPrivateField<SaveLoadScreenController?>(_game, "_hostedSaveLoadScreen")).IsNull();
+        AssertHostedChildRemainsAboveSamePause(host, pause, FindEntry(host, UIScreenKinds.Pause).Handle);
+    }
+
+    [TestCase]
+    public async Task PauseReturnToTitle_UsesSharedPromptAndCancelRestoresPause()
     {
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
         var modalLayer = host.GetNode<Control>("ModalLayer");
@@ -977,30 +1019,33 @@ public partial class GameplayPauseHostTest : Node
         returnButton.EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(2);
 
-        var confirmation = FindDirectChild<PauseReturnToTitleConfirmationController>(modalLayer);
-        var confirmationEntry = FindEntry(host, UIScreenKinds.ConfirmQuitToMain);
-        AssertThat(confirmation.GetParent()).IsEqual(modalLayer);
-        AssertThat(confirmationEntry.Policy.Parent).IsEqual(pauseEntry.Handle);
-        AssertThat(confirmationEntry.Policy.Layer).IsEqual(UIScreenLayer.Modal);
-        AssertThat(confirmationEntry.Policy.InputPriority).IsEqual(UIInputPriority.Blocking);
-        AssertThat(confirmationEntry.Policy.ExclusiveGroup)
+        var prompt = FindDirectChild<SiriusPrompt>(modalLayer);
+        var promptEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt);
+        AssertThat(promptEntry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+        AssertThat(prompt.GetParent()).IsEqual(modalLayer);
+        AssertThat(promptEntry.Policy.Parent).IsEqual(pauseEntry.Handle);
+        AssertThat(promptEntry.Policy.Layer).IsEqual(UIScreenLayer.Modal);
+        AssertThat(promptEntry.Policy.InputPriority).IsEqual(UIInputPriority.Blocking);
+        AssertThat(promptEntry.Policy.ExclusiveGroup)
             .IsEqual(UIScreenExclusiveGroups.BlockingPrompt);
-        AssertThat(confirmationEntry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
-        AssertThat(confirmationEntry.Policy.PauseTree).IsFalse();
-        AssertThat(confirmationEntry.Policy.BlockGameplayInput).IsFalse();
-        AssertThat(confirmationEntry.Policy.Hud).IsEqual(UIHudPolicy.Inherit);
-        AssertThat(confirmationEntry.Policy.Cancel).IsEqual(UICancelPolicy.Close);
+        AssertThat(promptEntry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
+        AssertThat(promptEntry.Policy.PauseTree).IsFalse();
+        AssertThat(promptEntry.Policy.BlockGameplayInput).IsFalse();
+        AssertThat(promptEntry.Policy.Hud).IsEqual(UIHudPolicy.Inherit);
+        AssertThat(prompt.GetNode<Label>("%Message").Text)
+            .IsEqual("Unsaved progress will be lost.");
+        AssertThat(_viewport!.GuiGetFocusOwner()).IsEqual(prompt.InitialFocusTarget);
 
-        confirmation.GetNode<Button>("%CancelButton")
-            .EmitSignal(Button.SignalName.Pressed);
+        prompt.GetNode<Button>("%CancelButton").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(3);
 
-        AssertThat(GodotObject.IsInstanceValid(confirmation)).IsFalse();
+        AssertThat(GodotObject.IsInstanceValid(prompt)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
         AssertHostedChildReturnedToSamePause(host, pause, pauseEntry.Handle, returnButton);
     }
 
     [TestCase]
-    public async Task PauseChildReturnConfirmation_ConfirmRoutesThroughReturnToMainMenuOnSinglePress()
+    public async Task PauseReturnToTitle_PrimaryRequestsNavigationOnce()
     {
         var navigationGame = await CreateReturnTrackingGame();
         var navigationRequests = 0;
@@ -1019,11 +1064,12 @@ public partial class GameplayPauseHostTest : Node
                 .EmitSignal(Button.SignalName.Pressed);
             await AwaitFrames(2);
 
-            var confirmation = FindDirectChild<PauseReturnToTitleConfirmationController>(
+            var prompt = FindDirectChild<SiriusPrompt>(
                 host.GetNode<Control>("ModalLayer"));
-            var confirmButton = confirmation.GetNode<Button>("%ReturnToTitleButton");
+            var primary = prompt.GetNode<Button>("%PrimaryButton");
 
-            confirmButton.EmitSignal(Button.SignalName.Pressed);
+            primary.EmitSignal(Button.SignalName.Pressed);
+            primary.EmitSignal(Button.SignalName.Pressed);
 
             AssertThat(navigationRequests).IsEqual(1);
         }
@@ -1130,7 +1176,7 @@ public partial class GameplayPauseHostTest : Node
         saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(1);
 
-        AssertThat(host.IsKindActive(UIScreenKinds.ConfirmOverwrite)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
         var handled = host.TryHandleInput(new InputEventAction
         {
             Action = "ui_cancel",
@@ -1138,7 +1184,7 @@ public partial class GameplayPauseHostTest : Node
         });
 
         AssertThat(handled).IsEqual(UIInputDispatchResult.Consumed);
-        AssertThat(host.IsKindActive(UIScreenKinds.ConfirmOverwrite)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
         AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
         AssertHostedChildRemainsAboveSamePause(host, pause, pauseEntry.Handle);
     }

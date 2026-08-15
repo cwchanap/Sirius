@@ -2,6 +2,7 @@ using GdUnit4;
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
@@ -455,13 +456,15 @@ public partial class GameInputLifecycleTest : Node
         saveLoad.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(2);
 
-        AssertThat(host.IsKindActive(UIScreenKinds.ConfirmOverwrite)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+        AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Prompt))
+            .IsEqual(1);
         AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
         PushPhysicalKey(Key.P);
         await AwaitFrames(2);
 
-        AssertThat(host.IsKindActive(UIScreenKinds.ConfirmOverwrite)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
         AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
         AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();

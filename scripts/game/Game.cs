@@ -42,10 +42,10 @@ public partial class Game : Node2D
     private SettingsMenuController? _hostedSettingsMenu;
     private UIScreenHandle? _hostedSaveLoadHandle;
     private SaveLoadScreenController? _hostedSaveLoadScreen;
-    private UIScreenHandle? _hostedOverwriteHandle;
-    private SaveOverwriteConfirmationController? _hostedOverwriteConfirmation;
-    private UIScreenHandle? _hostedReturnConfirmationHandle;
-    private PauseReturnToTitleConfirmationController? _hostedReturnConfirmation;
+    private UIScreenHandle? _hostedPromptHandle;
+    private SiriusPrompt? _hostedPrompt;
+    private Action? _hostedPromptPrimaryAction;
+    private Action? _hostedPromptCancelAction;
     private bool _presentationGameplayBlocked;
     private static readonly IReadOnlySet<StringName> GameplayCoreCancelActions =
         new HashSet<StringName> { "pause_menu", "ui_cancel" };
@@ -368,8 +368,19 @@ public partial class Game : Node2D
 
     private void OnHostedPauseSettingsRequested() => TryOpenHostedSettings();
 
-    private void OnHostedPauseReturnToTitleRequested() =>
-        TryOpenHostedReturnConfirmation();
+    private void OnHostedPauseReturnToTitleRequested()
+    {
+        if (!_pauseHandle.HasValue)
+            return;
+
+        TryOpenHostedPrompt(
+            SiriusPromptVariant.DestructiveConfirmation,
+            "Return to Title?",
+            "Unsaved progress will be lost.",
+            "Return to Title",
+            onPrimary: ReturnToMainMenu,
+            parent: _pauseHandle);
+    }
 
     private bool TryOpenHostedSettings()
     {
@@ -558,92 +569,161 @@ public partial class Game : Node2D
         return true;
     }
 
-    private void OnHostedOverwriteRequested(int slot) =>
-        TryOpenHostedOverwriteConfirmation(slot);
+    private void OnHostedOverwriteRequested(int slot)
+    {
+        if (!_hostedSaveLoadHandle.HasValue)
+            return;
 
-    private bool TryOpenHostedOverwriteConfirmation(int slot)
+        TryOpenHostedPrompt(
+            SiriusPromptVariant.DestructiveConfirmation,
+            "Overwrite Save?",
+            $"Slot {slot + 1} already contains save data. Overwrite it?",
+            "Overwrite",
+            onPrimary: () => OnHostedSaveSlotSelected(slot),
+            parent: _hostedSaveLoadHandle);
+    }
+
+    private bool TryOpenHostedPrompt(
+        SiriusPromptVariant variant,
+        string title,
+        string message,
+        string primaryActionText,
+        Action? onPrimary = null,
+        string cancelActionText = "Cancel",
+        Action? onCancel = null,
+        UIScreenHandle? parent = null,
+        Control? restoreFocus = null,
+        bool blockGameplayInput = false)
     {
         if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
-            !_hostedSaveLoadHandle.HasValue ||
-            !_screenHost.IsActive(_hostedSaveLoadHandle.Value))
+            _sceneChangeCommitted)
         {
             return false;
         }
 
-        if (_hostedOverwriteHandle.HasValue)
+        if (_hostedPromptHandle.HasValue)
         {
-            if (_screenHost.IsActive(_hostedOverwriteHandle.Value))
+            if (_screenHost.IsActive(_hostedPromptHandle.Value))
                 return false;
 
-            if (_hostedOverwriteConfirmation != null)
-                ClearHostedOverwriteConfirmation(_hostedOverwriteConfirmation);
+            if (_hostedPrompt != null)
+                ClearHostedPrompt(_hostedPrompt);
             else
-                _hostedOverwriteHandle = null;
+                _hostedPromptHandle = null;
         }
 
-        if (_screenHost.IsKindActive(UIScreenKinds.ConfirmOverwrite))
+        if (_screenHost.IsKindActive(UIScreenKinds.Prompt))
             return false;
 
-        var scene = GD.Load<PackedScene>(
-            "res://scenes/ui/SaveOverwriteConfirmation.tscn");
+        var scene = GD.Load<PackedScene>("res://scenes/ui/components/SiriusPrompt.tscn");
         if (scene == null)
         {
-            GD.PushError("[Game] SaveOverwriteConfirmation.tscn not found.");
+            GD.PushError("[Game] SiriusPrompt.tscn not found.");
             return false;
         }
 
-        var confirmation = scene.Instantiate<SaveOverwriteConfirmationController>();
-        if (confirmation == null)
+        var prompt = scene.Instantiate<SiriusPrompt>();
+        if (prompt == null)
         {
-            GD.PushError(
-                "[Game] Failed to instantiate SaveOverwriteConfirmationController.");
+            GD.PushError("[Game] Failed to instantiate SiriusPrompt.");
             return false;
         }
 
-        confirmation.Slot = slot;
-        confirmation.OverwriteConfirmed += OnHostedOverwriteConfirmed;
-        confirmation.CancelRequested += OnHostedOverwriteCancelled;
+        prompt.Configure(variant, title, message, primaryActionText, cancelActionText);
+        _hostedPromptPrimaryAction = onPrimary;
+        _hostedPromptCancelAction = onCancel;
+        prompt.PrimaryRequested += OnHostedPromptPrimaryRequested;
+        prompt.CancelRequested += OnHostedPromptCancelRequested;
 
-        var result = _screenHost.TryPresent(confirmation, new UIScreenEntrySpec
+        var result = _screenHost.TryPresent(prompt, new UIScreenEntrySpec
         {
-            Kind = UIScreenKinds.ConfirmOverwrite,
+            Kind = UIScreenKinds.Prompt,
             Layer = UIScreenLayer.Modal,
             InputPriority = UIInputPriority.Blocking,
             ProcessPolicy = UIProcessPolicy.Always,
-            Parent = _hostedSaveLoadHandle,
+            Parent = parent,
             ExclusiveGroup = UIScreenExclusiveGroups.BlockingPrompt,
             PauseTree = false,
-            BlockGameplayInput = false,
+            BlockGameplayInput = blockGameplayInput,
             Cursor = UICursorPolicy.Visible,
             Hud = UIHudPolicy.Inherit,
             LowerLayers = UILowerLayerPolicy.VisibleInert,
-            Cancel = UICancelPolicy.Close,
-            InitialFocus = () => confirmation.InitialFocusTarget,
-            SetPresented = visible => confirmation.Visible = visible,
-            Cleanup = _ => ClearHostedOverwriteConfirmation(confirmation),
+            Cancel = UICancelPolicy.Consume,
+            InterceptCancel = _ =>
+            {
+                prompt.RequestCancel();
+                return UIInputInterception.ConsumeHere;
+            },
+            InitialFocus = () => prompt.InitialFocusTarget,
+            RestoreFocus = restoreFocus == null ? null : () => restoreFocus,
+            Cleanup = _ => ClearHostedPrompt(prompt),
             NodeLifetime = UINodeLifetime.QueueFree
         });
         if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
         {
-            ClearHostedOverwriteConfirmation(confirmation);
-            if (GodotObject.IsInstanceValid(confirmation))
-                confirmation.QueueFree();
+            prompt.PrimaryRequested -= OnHostedPromptPrimaryRequested;
+            prompt.CancelRequested -= OnHostedPromptCancelRequested;
+            _hostedPromptPrimaryAction = null;
+            _hostedPromptCancelAction = null;
+            prompt.QueueFree();
             return false;
         }
 
-        _hostedOverwriteHandle = result.Handle.Value;
-        _hostedOverwriteConfirmation = confirmation;
+        _hostedPromptHandle = result.Handle.Value;
+        _hostedPrompt = prompt;
         return true;
     }
 
-    private void OnHostedOverwriteConfirmed(int slot)
+    private void OnHostedPromptPrimaryRequested()
     {
-        TryCloseHostedOverwriteConfirmation(UIScreenCloseReason.ExplicitAction);
-        OnHostedSaveSlotSelected(slot);
+        var action = _hostedPromptPrimaryAction;
+        TryCloseHostedPrompt(UIScreenCloseReason.ExplicitAction);
+        action?.Invoke();
     }
 
-    private void OnHostedOverwriteCancelled() =>
-        TryCloseHostedOverwriteConfirmation(UIScreenCloseReason.ExplicitAction);
+    private void OnHostedPromptCancelRequested()
+    {
+        var action = _hostedPromptCancelAction;
+        TryCloseHostedPrompt(UIScreenCloseReason.ExplicitAction);
+        action?.Invoke();
+    }
+
+    private bool TryCloseHostedPrompt(UIScreenCloseReason reason)
+    {
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
+            !_hostedPromptHandle.HasValue)
+        {
+            return false;
+        }
+
+        var result = _screenHost.TryClose(_hostedPromptHandle.Value, reason);
+        if (result.Status == UIScreenCloseStatus.StaleHandle)
+        {
+            if (_hostedPrompt != null)
+                ClearHostedPrompt(_hostedPrompt);
+            else
+                _hostedPromptHandle = null;
+        }
+
+        return result.Status == UIScreenCloseStatus.Closed;
+    }
+
+    private void ClearHostedPrompt(SiriusPrompt prompt)
+    {
+        if (GodotObject.IsInstanceValid(prompt))
+        {
+            prompt.PrimaryRequested -= OnHostedPromptPrimaryRequested;
+            prompt.CancelRequested -= OnHostedPromptCancelRequested;
+        }
+
+        if (ReferenceEquals(_hostedPrompt, prompt))
+        {
+            _hostedPromptHandle = null;
+            _hostedPrompt = null;
+            _hostedPromptPrimaryAction = null;
+            _hostedPromptCancelAction = null;
+        }
+    }
 
     private void OnHostedSaveSlotSelected(int slot)
     {
@@ -776,152 +856,6 @@ public partial class Game : Node2D
         {
             _hostedSaveLoadHandle = null;
             _hostedSaveLoadScreen = null;
-        }
-    }
-
-    private bool TryCloseHostedOverwriteConfirmation(UIScreenCloseReason reason)
-    {
-        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
-            !_hostedOverwriteHandle.HasValue)
-        {
-            return false;
-        }
-
-        var result = _screenHost.TryClose(_hostedOverwriteHandle.Value, reason);
-        if (result.Status == UIScreenCloseStatus.StaleHandle)
-        {
-            if (_hostedOverwriteConfirmation != null)
-                ClearHostedOverwriteConfirmation(_hostedOverwriteConfirmation);
-            else
-                _hostedOverwriteHandle = null;
-        }
-
-        return result.Status == UIScreenCloseStatus.Closed;
-    }
-
-    private void ClearHostedOverwriteConfirmation(
-        SaveOverwriteConfirmationController confirmation)
-    {
-        if (GodotObject.IsInstanceValid(confirmation))
-        {
-            confirmation.OverwriteConfirmed -= OnHostedOverwriteConfirmed;
-            confirmation.CancelRequested -= OnHostedOverwriteCancelled;
-        }
-
-        if (ReferenceEquals(_hostedOverwriteConfirmation, confirmation))
-        {
-            _hostedOverwriteHandle = null;
-            _hostedOverwriteConfirmation = null;
-        }
-    }
-
-    private bool TryOpenHostedReturnConfirmation()
-    {
-        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
-            !_pauseHandle.HasValue || !_screenHost.IsActive(_pauseHandle.Value))
-        {
-            return false;
-        }
-
-        if (_hostedReturnConfirmationHandle.HasValue)
-        {
-            if (_screenHost.IsActive(_hostedReturnConfirmationHandle.Value))
-                return false;
-
-            if (_hostedReturnConfirmation != null)
-                ClearHostedReturnConfirmation(_hostedReturnConfirmation);
-            else
-                _hostedReturnConfirmationHandle = null;
-        }
-
-        if (_screenHost.IsKindActive(UIScreenKinds.ConfirmQuitToMain))
-            return false;
-
-        var scene = GD.Load<PackedScene>("res://scenes/ui/PauseReturnToTitleConfirmation.tscn");
-        if (scene == null)
-        {
-            GD.PushError("[Game] PauseReturnToTitleConfirmation.tscn not found.");
-            return false;
-        }
-
-        var confirmation = scene.Instantiate<PauseReturnToTitleConfirmationController>();
-        if (confirmation == null)
-        {
-            GD.PushError("[Game] Failed to instantiate PauseReturnToTitleConfirmationController.");
-            return false;
-        }
-
-        confirmation.ReturnToTitleConfirmed += OnHostedReturnToTitleConfirmed;
-        confirmation.CancelRequested += OnHostedReturnConfirmationCancelled;
-        var result = _screenHost.TryPresent(confirmation, new UIScreenEntrySpec
-        {
-            Kind = UIScreenKinds.ConfirmQuitToMain,
-            Layer = UIScreenLayer.Modal,
-            InputPriority = UIInputPriority.Blocking,
-            ProcessPolicy = UIProcessPolicy.Always,
-            Parent = _pauseHandle,
-            ExclusiveGroup = UIScreenExclusiveGroups.BlockingPrompt,
-            PauseTree = false,
-            BlockGameplayInput = false,
-            Cursor = UICursorPolicy.Visible,
-            Hud = UIHudPolicy.Inherit,
-            LowerLayers = UILowerLayerPolicy.VisibleInert,
-            Cancel = UICancelPolicy.Close,
-            InitialFocus = () => confirmation.InitialFocusTarget,
-            Cleanup = _ => ClearHostedReturnConfirmation(confirmation),
-            NodeLifetime = UINodeLifetime.QueueFree
-        });
-        if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
-        {
-            confirmation.ReturnToTitleConfirmed -= OnHostedReturnToTitleConfirmed;
-            confirmation.CancelRequested -= OnHostedReturnConfirmationCancelled;
-            confirmation.QueueFree();
-            return false;
-        }
-
-        _hostedReturnConfirmationHandle = result.Handle.Value;
-        _hostedReturnConfirmation = confirmation;
-        return true;
-    }
-
-    private void OnHostedReturnToTitleConfirmed() => ReturnToMainMenu();
-
-    private void OnHostedReturnConfirmationCancelled() =>
-        TryCloseHostedReturnConfirmation(UIScreenCloseReason.ExplicitAction);
-
-    private bool TryCloseHostedReturnConfirmation(UIScreenCloseReason reason)
-    {
-        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
-            !_hostedReturnConfirmationHandle.HasValue)
-        {
-            return false;
-        }
-
-        var result = _screenHost.TryClose(_hostedReturnConfirmationHandle.Value, reason);
-        if (result.Status == UIScreenCloseStatus.StaleHandle)
-        {
-            if (_hostedReturnConfirmation != null)
-                ClearHostedReturnConfirmation(_hostedReturnConfirmation);
-            else
-                _hostedReturnConfirmationHandle = null;
-        }
-
-        return result.Status == UIScreenCloseStatus.Closed;
-    }
-
-    private void ClearHostedReturnConfirmation(
-        PauseReturnToTitleConfirmationController confirmation)
-    {
-        if (GodotObject.IsInstanceValid(confirmation))
-        {
-            confirmation.ReturnToTitleConfirmed -= OnHostedReturnToTitleConfirmed;
-            confirmation.CancelRequested -= OnHostedReturnConfirmationCancelled;
-        }
-
-        if (ReferenceEquals(_hostedReturnConfirmation, confirmation))
-        {
-            _hostedReturnConfirmationHandle = null;
-            _hostedReturnConfirmation = null;
         }
     }
 

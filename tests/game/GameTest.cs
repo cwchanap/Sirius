@@ -112,6 +112,22 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public async Task ShowSaveError_WithoutHostedSaveLoadReturnsFalseAndDoesNotOpenPrompt()
+    {
+        await ReplaceWithHostedFixture();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+        var opened = InvokePrivate<bool>(
+            _game,
+            "ShowSaveError",
+            "Failed to save game.",
+            "Save Failed");
+
+        AssertThat(opened).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+    }
+
+    [TestCase]
     public async Task BattleStart_HostsBlockingControlWithoutPausingTree()
     {
         var game = await InstantiateRealGameScene();

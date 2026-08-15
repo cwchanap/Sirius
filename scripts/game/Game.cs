@@ -30,7 +30,6 @@ public partial class Game : Node2D
     private int _pendingSaveSpawnFloorIndex = -1;
     private bool _hasShownCorruptedSaveError;
 
-    private AcceptDialog? _activeErrorPopup;
     private SceneTreeTimer? _defeatReturnTimer;
     private Action? _defeatReturnHandler;
     private UIScreenHost? _screenHost;
@@ -730,7 +729,6 @@ public partial class Game : Node2D
         if (_gameManager.IsInNpcInteraction)
         {
             GD.PrintErr("Save blocked: NPC interaction in progress.");
-            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
             ShowSaveError("Cannot save during NPC interaction.");
             return;
         }
@@ -738,7 +736,6 @@ public partial class Game : Node2D
         if (_gameManager.IsInWorldInteraction)
         {
             GD.PrintErr("Save/load blocked: world interaction in progress.");
-            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
             ShowSaveError("Cannot save or load while opening treasure.");
             return;
         }
@@ -746,7 +743,6 @@ public partial class Game : Node2D
         if (_gameManager.IsInBattle)
         {
             GD.PrintErr("Save blocked: Battle in progress.");
-            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
             ShowSaveError("Cannot save during battle.");
             return;
         }
@@ -754,7 +750,6 @@ public partial class Game : Node2D
         if (_gameManager.Player != null && !_gameManager.Player.IsAlive)
         {
             GD.PrintErr("Save blocked: Player is defeated.");
-            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
             ShowSaveError("Cannot save while defeated.");
             return;
         }
@@ -763,7 +758,6 @@ public partial class Game : Node2D
         if (saveData == null)
         {
             GD.PrintErr("Save failed: unable to collect save data.");
-            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
             ShowSaveError("Unable to collect save data.");
             return;
         }
@@ -771,7 +765,6 @@ public partial class Game : Node2D
         if (SaveManager.Instance == null)
         {
             GD.PushError("Save failed: SaveManager not initialized.");
-            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
             ShowSaveError("Save system unavailable.");
             return;
         }
@@ -785,7 +778,6 @@ public partial class Game : Node2D
         else
         {
             GD.PrintErr($"Save failed for slot {slot}.");
-            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
             ShowSaveError("Failed to save game.");
         }
     }
@@ -795,7 +787,6 @@ public partial class Game : Node2D
         if (_gameManager.IsInWorldInteraction)
         {
             GD.PrintErr("Save/load blocked: world interaction in progress.");
-            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
             ShowSaveError("Cannot save or load while opening treasure.", "Load Failed");
             return;
         }
@@ -806,7 +797,6 @@ public partial class Game : Node2D
 
         if (saveData == null || SaveManager.Instance == null)
         {
-            TryCloseHostedSaveLoad(UIScreenCloseReason.ExplicitAction);
             ShowSaveError("Failed to load save file.", "Load Failed");
             return;
         }
@@ -1913,13 +1903,6 @@ public partial class Game : Node2D
         if (_gameManager == null)
             return UIRootCancelResult.Declined;
 
-        if (_activeErrorPopup != null && IsInstanceValid(_activeErrorPopup))
-        {
-            _activeErrorPopup.QueueFree();
-            _activeErrorPopup = null;
-            return UIRootCancelResult.Consumed;
-        }
-
         if (_puzzleRiddleDialog != null && IsInstanceValid(_puzzleRiddleDialog))
             return UIRootCancelResult.Declined;
 
@@ -1985,41 +1968,23 @@ public partial class Game : Node2D
             ShowCorruptedSaveError();
         }
     }
-    private void ShowSaveError(string message, string title = "Save Failed")
+    private bool ShowSaveError(string message, string title = "Save Failed")
     {
-        // Dismiss any previous error popup before creating a new one.
-        if (_activeErrorPopup != null && IsInstanceValid(_activeErrorPopup))
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
+            !_hostedSaveLoadHandle.HasValue ||
+            !_screenHost.IsActive(_hostedSaveLoadHandle.Value))
         {
-            _activeErrorPopup.QueueFree();
-            _activeErrorPopup = null;
+            GD.PushError(
+                "[Game] Cannot show save/load error without an active Save/Load parent.");
+            return false;
         }
 
-        var popup = new AcceptDialog();
-        popup.Title = title;
-        popup.DialogText = message;
-        // Process while paused: save/load errors surface beneath an active
-        // hosted Pause that owns the tree-pause lease, so the dialog must keep
-        // processing Confirmed/Canceled and direct button input.
-        popup.ProcessMode = ProcessModeEnum.Always;
-        GetNode("UI").AddChild(popup);
-        popup.PopupCentered();
-        _activeErrorPopup = popup;
-
-        // Clean up when confirmed or canceled
-        popup.Confirmed += () =>
-        {
-            if (IsInstanceValid(popup))
-                popup.QueueFree();
-            if (_activeErrorPopup == popup)
-                _activeErrorPopup = null;
-        };
-        popup.Canceled += () =>
-        {
-            if (IsInstanceValid(popup))
-                popup.QueueFree();
-            if (_activeErrorPopup == popup)
-                _activeErrorPopup = null;
-        };
+        return TryOpenHostedPrompt(
+            SiriusPromptVariant.RecoverableError,
+            title,
+            message,
+            "OK",
+            parent: _hostedSaveLoadHandle);
     }
 
     private void ShowCorruptedSaveError()
@@ -2201,13 +2166,6 @@ public partial class Game : Node2D
         }
 
         CleanupPuzzleRiddleDialog(endWorldInteraction: false);
-
-        // Clean up error popup if it exists
-        if (_activeErrorPopup != null && IsInstanceValid(_activeErrorPopup))
-        {
-            _activeErrorPopup.QueueFree();
-            _activeErrorPopup = null;
-        }
 
         CleanupBattleManager();
 

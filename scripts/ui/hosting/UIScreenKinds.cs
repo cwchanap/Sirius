@@ -18,6 +18,7 @@ public static class UIScreenKinds
     public static readonly StringName RewardToast = "reward_toast";
     public static readonly StringName RewardAcknowledgement = "reward_acknowledgement";
     public static readonly StringName Transition = "transition";
+    public static readonly StringName Prompt = "prompt";
 }
 
 public static class UIScreenExclusiveGroups

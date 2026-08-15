@@ -101,9 +101,9 @@ Do not change audit-only files without a focused failing regression.
 
 ### Prompt -> Prompt transition is new
 
-**Risk:** overwrite Primary closes one Prompt, save then fails, and the save path opens a new recoverable Prompt. Opening while the host is still draining would return `HostMutating`; opening before cleanup would also hit the single `Prompt` kind guard.
+**Risk:** overwrite Primary closes one Prompt, save eligibility can change before the press is handled, and the save path can immediately open a recoverable Prompt. Opening while the host is still draining would return `HostMutating`; opening before cleanup would also hit the single `Prompt` kind guard.
 
-**Mitigation:** `TryClose(...)` drains synchronously before returning; domain closure runs afterward. Task 3B adds `HostedOverwrite_PrimaryWithFailingSaveOpensErrorPromptUnderSaveLoad` to pin the chain.
+**Mitigation:** `TryClose(...)` drains synchronously before returning; domain closure runs afterward. Task 3B pins the chain by opening overwrite, starting NPC interaction, then pressing Primary so `OnHostedSaveSlotSelected` immediately follows its existing “cannot save during NPC interaction” error branch and must open a new recoverable Prompt under retained Save/Load.
 
 ### Root host-policy copies can drift
 
@@ -585,9 +585,9 @@ Do not retain the old `Callable.From(...).CallDeferred()` wrapper: that wrapper 
 - [ ] **Step 6: Map remaining Main Menu calls**
 
 ```text
-No save files                  -> Warning
+No save files                    -> Warning
 Settings/Load screen unavailable -> RecoverableError
-Continue/manual load failure   -> RecoverableError
+Continue/manual load failure     -> RecoverableError
 ```
 
 Root prompts use invoking root control as `RestoreFocus`; child prompts pass parent and no root restore target.
@@ -627,7 +627,7 @@ Replace old direct-popup tests with:
 ConfiguredKeyboardCancel_RecoverablePromptDoesNotFallThroughToParents
 ConfiguredKeyboardCancel_PausedRecoverablePromptRemainsDismissible
 HostedSaveLoad_LoadFailureKeepsSaveLoadAndHostsPrompt
-HostedOverwrite_PrimaryWithFailingSaveOpensErrorPromptUnderSaveLoad
+HostedOverwrite_PrimaryWithNpcInteractionOpensErrorPromptUnderSaveLoad
 ```
 
 Build the real paused chain:
@@ -652,21 +652,32 @@ After one configured Cancel assert Prompt inactive, SaveLoad + Pause still activ
 
 This replaces the old native `ProcessModeEnum.Always` proof with the hosted `UIProcessPolicy.Always` contract.
 
-- [ ] **Step 2: Define the overwrite -> failure -> error Prompt regression**
+- [ ] **Step 2: Pin the Prompt -> Prompt chain with existing domain state**
 
-Use the existing valid-save overwrite journey, but make the actual `SaveManager.SaveGame`/save seam fail using the repository's existing test seam or a minimally introduced protected override only if current tests already use that pattern. After destructive Prompt Primary:
+Implement `HostedOverwrite_PrimaryWithNpcInteractionOpensErrorPromptUnderSaveLoad` without adding a save-manager seam:
+
+1. open Pause;
+2. open Save mode;
+3. ensure slot 0 contains a valid save so selecting it opens the destructive overwrite Prompt;
+4. after the overwrite Prompt is active, call `_gameManager.StartNpcInteraction()`;
+5. emit `%PrimaryButton.Pressed` on the overwrite Prompt.
+
+The first Prompt's Primary closure calls `OnHostedSaveSlotSelected(0)`. Because NPC interaction is now active, that existing domain branch must call `ShowSaveError("Cannot save during NPC interaction.")`.
+
+After the press assert:
 
 ```text
-SaveLoad remains active
-first Prompt is gone
-new Prompt is active
+Pause active
+SaveLoad active
+old destructive Prompt no longer alive/registered
+one new Prompt active
 new Prompt parent == SaveLoad handle
-new Prompt variant/chrome is RecoverableError
+new Prompt message == "Cannot save during NPC interaction."
 ```
 
-The test must fail if the follow-up open receives `HostMutating` or `DuplicateKind` and no second Prompt appears.
+This test fails if the follow-up open occurs during `_drainingCloseQueue` (`HostMutating`) or before cleanup clears the old `Prompt` kind.
 
-Place this test in Task 3B—not Task 2—because recoverable gameplay Prompt presentation does not exist until this task.
+End NPC interaction in test cleanup so fixture state does not leak.
 
 - [ ] **Step 3: Add missing-parent loud-failure test**
 
@@ -759,7 +770,7 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
 dotnet build Sirius.sln --no-restore --nologo
 ```
 
-Expected: PASS / 0 build errors. The overwrite -> failed save chain opens the second Prompt only after the first Prompt close returns.
+Expected: PASS / 0 build errors. The overwrite -> NPC-blocked save chain opens the second Prompt only after the first Prompt close returns.
 
 - [ ] **Step 9: Commit Task 3B**
 
@@ -1023,7 +1034,7 @@ Before merging implementation:
 - [ ] No `SiriusPrompt.SpecFor(...)` / prompt service / host facade exists.
 - [ ] Root handlers capture -> close attempt -> invoke closure unconditionally.
 - [ ] Save/Load errors retain Save/Load parent; paused Prompt is `Always` and Cancel does not fall through.
-- [ ] Overwrite -> failed save -> recoverable Prompt chain is covered.
+- [ ] Overwrite -> NPC-interaction error -> recoverable Prompt chain is covered without a new save-manager seam.
 - [ ] Pause return-to-title has explicit one-shot terminal coverage.
 - [ ] Overwrite's primary is intentionally `SiriusDestructiveButton`.
 - [ ] Main Menu calls `RefreshActionAvailability()` on Prompt open and cleanup and no longer defers child error open after a removed parent close.

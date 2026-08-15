@@ -6,10 +6,6 @@ public static class UIScreenKinds
     public static readonly StringName Settings = "settings";
     public static readonly StringName Inventory = "inventory";
     public static readonly StringName SaveLoad = "save_load";
-    public static readonly StringName ConfirmOverwrite = "confirm_overwrite";
-    public static readonly StringName ConfirmQuitToMain = "confirm_quit_to_main";
-    public static readonly StringName SaveError = "save_error";
-    public static readonly StringName CorruptSaveError = "corrupt_save_error";
     public static readonly StringName Dialogue = "dialogue";
     public static readonly StringName Shop = "shop";
     public static readonly StringName Heal = "heal";

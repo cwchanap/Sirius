@@ -1995,28 +1995,19 @@ public partial class Game : Node2D
         }
         _hasShownCorruptedSaveError = true;
 
-        var popup = new AcceptDialog();
-        popup.Title = "Load Failed";
-        popup.DialogText = "Save file is corrupted or invalid.\nReturning to main menu.";
-        GetNode("UI").AddChild(popup);
-        popup.PopupCentered();
+        var opened = TryOpenHostedPrompt(
+            SiriusPromptVariant.RecoverableError,
+            "Load Failed",
+            "Save file is corrupted or invalid.\nReturning to main menu.",
+            "Return to Title",
+            onPrimary: ReturnToMainMenu,
+            blockGameplayInput: true);
 
-        // Disable input processing to prevent additional interactions during error state
-        SetProcessInput(false);
-
-        // Guard against double invocation (both Confirmed and Canceled can fire)
-        bool handled = false;
-        Action cleanupAndReturn = () =>
+        if (!opened)
         {
-            if (handled) return;
-            handled = true;
-            if (IsInstanceValid(popup))
-                popup.QueueFree();
-            RequestSceneChange(MainMenuScenePath);
-        };
-
-        popup.Confirmed += cleanupAndReturn;
-        popup.Canceled += cleanupAndReturn;
+            GD.PushError("[Game] Failed to present corrupted-save error; returning to title.");
+            ReturnToMainMenu();
+        }
     }
 
     private void OnPlayerStatsChanged()

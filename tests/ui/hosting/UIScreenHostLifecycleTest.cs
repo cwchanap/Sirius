@@ -11,6 +11,8 @@ using static UIScreenHostTestSupport;
 [RequireGodotRuntime]
 public partial class UIScreenHostLifecycleTest : Node
 {
+    private static readonly StringName ErrorFixture = "error_fixture";
+
     [TestCase]
     public async Task LowerLayerEffects_NestedOwnersWeakenWithoutReplacingControlBaseline()
     {
@@ -992,7 +994,7 @@ public partial class UIScreenHostLifecycleTest : Node
                 }).Handle!.Value;
             var childHandle = fixture.Host.TryPresent(
                 childWindow,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(ErrorFixture) with
                 {
                     Parent = parentHandle,
                     Layer = UIScreenLayer.Modal,
@@ -1501,7 +1503,7 @@ public partial class UIScreenHostLifecycleTest : Node
                 }).Handle!.Value;
             fixture.Host.TryPresent(
                 childWindow,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(ErrorFixture) with
                 {
                     Parent = parent,
                     Layer = UIScreenLayer.Modal,

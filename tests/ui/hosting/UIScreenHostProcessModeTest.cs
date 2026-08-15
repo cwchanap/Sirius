@@ -8,6 +8,8 @@ using static GdUnit4.Assertions;
 [RequireGodotRuntime]
 public partial class UIScreenHostProcessModeTest : Node
 {
+    private static readonly StringName ErrorFixture = "error_fixture";
+
     [TestCase]
     public async Task Scene_HasRequiredProcessModesAndVisibleSink()
     {
@@ -713,13 +715,13 @@ public partial class UIScreenHostProcessModeTest : Node
         var window = fixture.Track(new ClosesSelfByKindOnReadyWindow
         {
             Host = fixture.Host,
-            Kind = UIScreenKinds.SaveError
+            Kind = ErrorFixture
         });
         try
         {
             var result = fixture.Host.TryPresent(
                 window,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(ErrorFixture) with
                 {
                     Layer = UIScreenLayer.Modal,
                     NodeLifetime = UINodeLifetime.Hide
@@ -728,7 +730,7 @@ public partial class UIScreenHostProcessModeTest : Node
             AssertThat(result.Status).IsEqual(UIScreenOpenStatus.InvalidNode);
             AssertThat(result.Handle).IsNull();
             AssertThat(fixture.Host.ActiveEntries.Count).IsEqual(0);
-            AssertThat(fixture.Host.IsKindActive(UIScreenKinds.SaveError)).IsFalse();
+            AssertThat(fixture.Host.IsKindActive(ErrorFixture)).IsFalse();
             AssertThat(fixture.Host.Diagnostics.FocusStates.Count).IsEqual(0);
             AssertThat(window.GetParent()).IsNull();
         }

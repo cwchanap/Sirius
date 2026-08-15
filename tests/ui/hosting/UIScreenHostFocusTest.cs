@@ -10,6 +10,9 @@ using static UIScreenHostTestSupport;
 public partial class UIScreenHostFocusTest : Node
 {
     private static readonly StringName UiCancelAction = "ui_cancel";
+    private static readonly StringName ErrorFixture = "error_fixture";
+    private static readonly StringName BlockingFixtureA = "blocking_fixture_a";
+    private static readonly StringName BlockingFixtureB = "blocking_fixture_b";
 
     [TestCase]
     public async Task BlockingControlWithoutFocusableDescendant_UsesRootSink()
@@ -52,7 +55,7 @@ public partial class UIScreenHostFocusTest : Node
         {
             var opened = fixture.Host.TryPresent(
                 window,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(ErrorFixture) with
                 {
                     Layer = UIScreenLayer.Modal,
                     InputPriority = UIInputPriority.Blocking
@@ -94,7 +97,7 @@ public partial class UIScreenHostFocusTest : Node
         {
             var opened = fixture.Host.TryPresent(
                 window,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(ErrorFixture) with
                 {
                     Layer = UIScreenLayer.Modal,
                     InputPriority = UIInputPriority.Blocking
@@ -608,7 +611,7 @@ public partial class UIScreenHostFocusTest : Node
 
             var child = fixture.Host.TryPresent(
                 childWindow,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(ErrorFixture) with
                 {
                     Parent = parent,
                     Layer = UIScreenLayer.Modal,
@@ -2057,7 +2060,7 @@ public partial class UIScreenHostFocusTest : Node
         {
             HigherResult = Host.TryPresent(
                 HigherView,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(ErrorFixture) with
                 {
                     Layer = UIScreenLayer.Modal,
                     InputPriority = UIInputPriority.Blocking,
@@ -2359,14 +2362,14 @@ public partial class UIScreenHostFocusTest : Node
             // U2 (opened second) is the top input owner.
             fixture.Host.TryPresent(
                 u1View,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(BlockingFixtureA) with
                 {
                     Layer = UIScreenLayer.Modal,
                     InputPriority = UIInputPriority.Blocking
                 });
             fixture.Host.TryPresent(
                 u2View,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.ConfirmQuitToMain) with
+                UIScreenHostTestSupport.Spec(BlockingFixtureB) with
                 {
                     Layer = UIScreenLayer.Modal,
                     InputPriority = UIInputPriority.Blocking
@@ -2705,7 +2708,7 @@ public partial class UIScreenHostFocusTest : Node
             // absent from _entries.
             var candidateOpened = fixture.Host.TryPresent(
                 candidateView,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(ErrorFixture) with
                 {
                     Layer = UIScreenLayer.Modal,
                     InputPriority = UIInputPriority.Blocking,

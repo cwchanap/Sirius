@@ -8,6 +8,10 @@ using static GdUnit4.Assertions;
 [RequireGodotRuntime]
 public partial class UIScreenStackModelTest : Node
 {
+    private static readonly StringName BlockingPromptA = "blocking_prompt_a";
+    private static readonly StringName BlockingPromptB = "blocking_prompt_b";
+    private static readonly StringName ModalFixture = "modal_fixture";
+
     [TestCase]
     public void Open_DuplicateKind_IsRejectedWithoutMutation()
     {
@@ -114,16 +118,16 @@ public partial class UIScreenStackModelTest : Node
     }
 
     [TestCase]
-    public void Open_DifferentConfirmationKindsShareBlockingPromptGroup()
+    public void Open_DifferentFixtureKindsShareBlockingPromptGroup()
     {
         var model = new UIScreenStackModel();
-        var first = model.Open(UIScreenHostTestSupport.Policy(UIScreenKinds.ConfirmOverwrite) with
+        var first = model.Open(UIScreenHostTestSupport.Policy(BlockingPromptA) with
         {
             InputPriority = UIInputPriority.Blocking,
             ExclusiveGroup = UIScreenExclusiveGroups.BlockingPrompt
         });
 
-        var second = model.Open(UIScreenHostTestSupport.Policy(UIScreenKinds.ConfirmQuitToMain) with
+        var second = model.Open(UIScreenHostTestSupport.Policy(BlockingPromptB) with
         {
             InputPriority = UIInputPriority.Blocking,
             ExclusiveGroup = UIScreenExclusiveGroups.BlockingPrompt
@@ -223,13 +227,13 @@ public partial class UIScreenStackModelTest : Node
         var model = new UIScreenStackModel();
         var pause = model.Open(UIScreenHostTestSupport.Policy(UIScreenKinds.Pause)).Handle!.Value;
         var settings = model.Open(UIScreenHostTestSupport.Policy(UIScreenKinds.Settings) with { Parent = pause }).Handle!.Value;
-        var confirm = model.Open(UIScreenHostTestSupport.Policy(UIScreenKinds.ConfirmQuitToMain) with { Parent = settings }).Handle!.Value;
+        var modal = model.Open(UIScreenHostTestSupport.Policy(ModalFixture) with { Parent = settings }).Handle!.Value;
 
         var result = model.Close(pause);
 
         AssertThat(result.Status).IsEqual(UIScreenCloseStatus.Closed);
         AssertThat(result.ClosedEntries.Select(entry => entry.Handle).ToArray())
-            .ContainsExactly(confirm, settings, pause);
+            .ContainsExactly(modal, settings, pause);
         AssertThat(model.Entries.Count).IsEqual(0);
     }
 
@@ -444,7 +448,7 @@ public partial class UIScreenStackModelTest : Node
         {
             Parent = pause
         }).Handle!.Value;
-        var modal = model.Open(UIScreenHostTestSupport.Policy(UIScreenKinds.ConfirmQuitToMain) with
+        var modal = model.Open(UIScreenHostTestSupport.Policy(ModalFixture) with
         {
             InputPriority = UIInputPriority.Modal
         }).Handle!.Value;

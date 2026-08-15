@@ -698,13 +698,17 @@ public partial class BattleManagerTest : Node
         var manager = await CreateReadyBattleManager();
         try
         {
+            var ironSkin = ConsumableCatalog.CreateIronSkin();
+            var strengthTonic = ConsumableCatalog.CreateStrengthTonic();
             var player = GetPrivateField<Character>(manager, "_player");
             player.TryAddItem(ConsumableCatalog.CreateHealthPotion(), 1, out _);
             player.TryAddItem(ConsumableCatalog.CreateManaPotion(), 1, out _);
-            player.TryAddItem(ConsumableCatalog.CreateStrengthTonic(), 1, out _);
-            player.TryAddItem(ConsumableCatalog.CreateIronSkin(), 1, out _);
+            player.TryAddItem(strengthTonic, 1, out _);
+            player.TryAddItem(ironSkin, 1, out _);
 
-            // Standard layout renders 4 slots/page; populate and focus slot 4.
+            var details = manager.GetNode<Label>("%PreparationItemDetails");
+
+            // Standard layout renders 4 slots/page; populate and focus slot 4 (Iron Skin).
             SetPrivateField(manager, "_isCompact", false);
             InvokePrivateMethod(manager, "RefreshPreparationItems");
             await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
@@ -713,6 +717,8 @@ public partial class BattleManagerTest : Node
             AssertThat(slots.Count).IsEqual(4);
             slots[^1].GrabFocus();
             AssertThat(slots[^1].HasFocus()).IsTrue();
+            AssertThat(details.Text).Contains(ironSkin.DisplayName)
+                .OverrideFailureMessage($"Focusing slot 4 should show {ironSkin.DisplayName} details, got: {details.Text}");
 
             // Compact layout shrinks to 3 slots/page; the focused slot 4 is removed.
             SetPrivateField(manager, "_isCompact", true);
@@ -729,6 +735,16 @@ public partial class BattleManagerTest : Node
             // The restored focus owner must be a surviving preparation slot, not a freed node.
             AssertThat(slotsAfter.Contains(focusOwner)).IsTrue()
                 .OverrideFailureMessage("Focus should move to a surviving preparation slot after the focused slot was removed.");
+
+            // Focus restoration must also refresh %PreparationItemDetails to
+            // describe the surviving focused slot (Strength Tonic, slot 3), not
+            // linger on the removed item (Iron Skin, slot 4). GrabFocus fires
+            // FocusEntered after the new bindings are installed so the focused
+            // callback resolves the correct item.
+            AssertThat(details.Text).Contains(strengthTonic.DisplayName)
+                .OverrideFailureMessage($"Details should describe the surviving focused slot ({strengthTonic.DisplayName}) after the shrink, got: {details.Text}");
+            AssertThat(details.Text.Contains(ironSkin.DisplayName)).IsFalse()
+                .OverrideFailureMessage($"Details should no longer describe the removed item ({ironSkin.DisplayName}) after the shrink, got: {details.Text}");
         }
         finally
         {

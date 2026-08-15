@@ -536,7 +536,7 @@ public partial class BattleManager : Control
             .Take(pageSize)
             .ToList();
 
-        ReconcileSlots(_preparationItemRail, _preparationSlots, pageItems.Count,
+        var focusTarget = ReconcileSlots(_preparationItemRail, _preparationSlots, pageItems.Count,
             _preparationItemBySlot, OnPreparationItemPressed, OnPreparationItemFocused);
         for (var index = 0; index < pageItems.Count; index++)
         {
@@ -565,13 +565,17 @@ public partial class BattleManager : Control
         else if (string.IsNullOrWhiteSpace(_preparationItemDetails.Text))
             _preparationItemDetails.Text = "Choose an optional consumable, or begin without one.";
 
+        // Restore focus after the new bindings are installed so FocusEntered
+        // resolves the surviving slot's item and updates %PreparationItemDetails.
+        focusTarget?.GrabFocus();
+
         _previousItemPage!.Visible = pageCount > 1;
         _nextItemPage!.Visible = pageCount > 1;
         _previousItemPage.Disabled = _preparationPage == 0;
         _nextItemPage.Disabled = _preparationPage >= pageCount - 1;
     }
 
-    private void ReconcileSlots(
+    private SiriusItemSlotController? ReconcileSlots(
         Container parent,
         List<SiriusItemSlotController> slots,
         int requiredCount,
@@ -621,8 +625,17 @@ public partial class BattleManager : Control
         for (var index = 0; index < slots.Count; index++)
             slots[index].SetCompact(_isCompact);
 
+        // Return the surviving slot that should receive focus rather than
+        // calling GrabFocus here. GrabFocus fires FocusEntered synchronously,
+        // which resolves the focused item through `bindings`; but `bindings`
+        // was just cleared and is repopulated by the caller AFTER this method
+        // returns. Calling GrabFocus now would fire FocusEntered while
+        // `bindings` is empty, so the focused callback is skipped and the
+        // details panel keeps describing the removed item. The caller grabs
+        // focus once the new bindings are installed.
         if (focusToRestore != null && slots.Count > 0)
-            slots[^1].GrabFocus();
+            return slots[^1];
+        return null;
     }
 
     private string BuildConsumableTooltip(ConsumableItem item) =>
@@ -852,7 +865,7 @@ public partial class BattleManager : Control
             .Take(pageSize)
             .ToList();
 
-        ReconcileSlots(_cureItemList, _cureSlots, pageItems.Count, _cureItemBySlot, OnCombatItemSelected);
+        var cureFocusTarget = ReconcileSlots(_cureItemList, _cureSlots, pageItems.Count, _cureItemBySlot, OnCombatItemSelected);
         for (var index = 0; index < pageItems.Count; index++)
         {
             var item = pageItems[index];
@@ -879,6 +892,9 @@ public partial class BattleManager : Control
                     : $"{BuildConsumableTooltip(item)}\nBATTLE START ONLY",
                 isCureItem ? SiriusItemSlotVisualState.Available : SiriusItemSlotVisualState.Unsupported);
         }
+
+        // Restore focus after the new bindings are installed (see RefreshPreparationItems).
+        cureFocusTarget?.GrabFocus();
 
         _previousCurePage!.Visible = pageCount > 1;
         _nextCurePage!.Visible = pageCount > 1;

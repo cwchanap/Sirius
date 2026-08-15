@@ -28,8 +28,8 @@ public partial class MainMenu : Control
     private UIScreenHandle? _settingsHandle;
     private SettingsMenuController? _settingsMenu;
     private UIScreenHandle? _messageHandle;
-    private AcceptDialog? _messageDialog;
-    private Action? _messageCloseDelegate;
+    private SiriusPrompt? _messagePrompt;
+    private Action? _messagePrimaryAction;
 
     private SaveSlotInfo? _continueSave;
     private Button[] _rootActions = Array.Empty<Button>();
@@ -188,6 +188,7 @@ public partial class MainMenu : Control
             _loadHandle.HasValue)
         {
             TryOpenMessage(
+                SiriusPromptVariant.RecoverableError,
                 "Load Failed",
                 "Failed to load the selected save.",
                 restoreFocus: null,
@@ -196,6 +197,7 @@ public partial class MainMenu : Control
         }
 
         TryOpenMessage(
+            SiriusPromptVariant.RecoverableError,
             "Load Failed",
             "Failed to load the selected save.",
             _continueButton);
@@ -362,7 +364,11 @@ public partial class MainMenu : Control
         if (saveManager == null || !IsInstanceValid(saveManager))
         {
             GD.PushError("MainMenu: SaveManager is not initialized.");
-            TryOpenMessage("Load Failed", "Save system unavailable.", _loadButton);
+            TryOpenMessage(
+                SiriusPromptVariant.RecoverableError,
+                "Load Failed",
+                "Save system unavailable.",
+                _loadButton);
             return;
         }
 
@@ -378,7 +384,11 @@ public partial class MainMenu : Control
 
         if (!anySaveExists)
         {
-            TryOpenMessage("Load Game", "No save files found!", _loadButton);
+            TryOpenMessage(
+                SiriusPromptVariant.Warning,
+                "Load Game",
+                "No save files found!",
+                _loadButton);
             return;
         }
 
@@ -410,14 +420,22 @@ public partial class MainMenu : Control
         var scene = GD.Load<PackedScene>("res://scenes/ui/SettingsMenu.tscn");
         if (scene == null)
         {
-            TryOpenMessage("Settings", "Settings unavailable.", _settingsButton);
+            TryOpenMessage(
+                SiriusPromptVariant.RecoverableError,
+                "Settings",
+                "Settings unavailable.",
+                _settingsButton);
             return false;
         }
 
         var settings = scene.Instantiate<SettingsMenuController>();
         if (settings == null)
         {
-            TryOpenMessage("Settings", "Settings unavailable.", _settingsButton);
+            TryOpenMessage(
+                SiriusPromptVariant.RecoverableError,
+                "Settings",
+                "Settings unavailable.",
+                _settingsButton);
             return false;
         }
 
@@ -526,14 +544,22 @@ public partial class MainMenu : Control
         var scene = GD.Load<PackedScene>("res://scenes/ui/SaveLoadScreen.tscn");
         if (scene == null)
         {
-            TryOpenMessage("Load Game", "Load screen unavailable.", restoreTarget);
+            TryOpenMessage(
+                SiriusPromptVariant.RecoverableError,
+                "Load Game",
+                "Load screen unavailable.",
+                restoreTarget);
             return false;
         }
 
         var screen = scene.Instantiate<SaveLoadScreenController>();
         if (screen == null)
         {
-            TryOpenMessage("Load Game", "Load screen unavailable.", restoreTarget);
+            TryOpenMessage(
+                SiriusPromptVariant.RecoverableError,
+                "Load Game",
+                "Load screen unavailable.",
+                restoreTarget);
             return false;
         }
 
@@ -584,16 +610,15 @@ public partial class MainMenu : Control
         var manager = SaveManager.Instance;
         if (saveData == null || manager == null)
         {
-            TryCloseHostedLoad(UIScreenCloseReason.ExplicitAction);
-            Callable.From(() =>
+            if (_loadHandle.HasValue)
             {
-                if (!GodotObject.IsInstanceValid(this) || !IsInsideTree())
-                    return;
                 TryOpenMessage(
+                    SiriusPromptVariant.RecoverableError,
                     "Load Failed",
                     "Failed to load save file.",
-                    _loadButton);
-            }).CallDeferred();
+                    restoreFocus: null,
+                    parent: _loadHandle);
+            }
             return;
         }
 
@@ -678,42 +703,43 @@ public partial class MainMenu : Control
     }
 
     private bool TryOpenMessage(
+        SiriusPromptVariant variant,
         string title,
         string message,
         Control? restoreFocus,
-        UIScreenHandle? parent = null)
+        UIScreenHandle? parent = null,
+        Action? onPrimary = null)
     {
         if (_screenHost == null || !IsInstanceValid(_screenHost) ||
-            _screenHost.IsKindActive(UIScreenKinds.SaveError))
+            _screenHost.IsKindActive(UIScreenKinds.Prompt))
         {
             return false;
         }
 
-        var popup = new AcceptDialog
+        var scene = GD.Load<PackedScene>("res://scenes/ui/components/SiriusPrompt.tscn");
+        if (scene == null)
         {
-            Title = title,
-            DialogText = message,
-            Exclusive = true,
-            Theme = GD.Load<Theme>(SiriusThemeTypes.ResourcePath)
-        };
+            GD.PushError("MainMenu: SiriusPrompt.tscn not found.");
+            return false;
+        }
 
-        var handled = false;
-        Action close = () =>
+        var prompt = scene.Instantiate<SiriusPrompt>();
+        if (prompt == null)
         {
-            if (handled)
-                return;
-            handled = true;
-            TryCloseHostedMessage(UIScreenCloseReason.ExplicitAction);
-        };
+            GD.PushError("MainMenu: Failed to instantiate SiriusPrompt.");
+            return false;
+        }
 
-        _messageCloseDelegate = close;
-        popup.Confirmed += close;
-        popup.Canceled += close;
-        popup.CloseRequested += close;
+        prompt.Configure(variant, title, message, "OK");
+        _messagePrimaryAction = onPrimary;
+        prompt.PrimaryRequested += OnMessagePrimaryRequested;
+        // One-action prompts route both the visible Primary and the configured
+        // Cancel through the same terminal handling.
+        prompt.CancelRequested += OnMessagePrimaryRequested;
 
-        var result = _screenHost.TryPresent(popup, new UIScreenEntrySpec
+        var result = _screenHost.TryPresent(prompt, new UIScreenEntrySpec
         {
-            Kind = UIScreenKinds.SaveError,
+            Kind = UIScreenKinds.Prompt,
             Layer = UIScreenLayer.Modal,
             InputPriority = UIInputPriority.Blocking,
             ProcessPolicy = UIProcessPolicy.Always,
@@ -724,35 +750,42 @@ public partial class MainMenu : Control
             Cursor = UICursorPolicy.Visible,
             Hud = UIHudPolicy.Inherit,
             LowerLayers = UILowerLayerPolicy.VisibleInert,
-            Cancel = UICancelPolicy.Close,
-            InitialFocus = () => popup.GetOkButton(),
+            Cancel = UICancelPolicy.Consume,
+            InterceptCancel = _ =>
+            {
+                prompt.RequestCancel();
+                return UIInputInterception.ConsumeHere;
+            },
+            InitialFocus = () => prompt.InitialFocusTarget,
             RestoreFocus = parent.HasValue || restoreFocus == null
                 ? null
                 : () => restoreFocus,
-            SetPresented = visible =>
-            {
-                if (visible) popup.PopupCentered();
-                else popup.Hide();
-            },
-            Cleanup = _ => ClearHostedMessage(popup),
+            Cleanup = _ => ClearHostedMessage(prompt),
             NodeLifetime = UINodeLifetime.QueueFree
         });
 
         if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
         {
-            popup.Confirmed -= close;
-            popup.Canceled -= close;
-            popup.CloseRequested -= close;
-            _messageCloseDelegate = null;
-            popup.QueueFree();
+            prompt.PrimaryRequested -= OnMessagePrimaryRequested;
+            prompt.CancelRequested -= OnMessagePrimaryRequested;
+            _messagePrimaryAction = null;
+            prompt.QueueFree();
             return false;
         }
 
         _messageHandle = result.Handle.Value;
-        _messageDialog = popup;
-        popup.PopupCentered();
+        _messagePrompt = prompt;
         RefreshActionAvailability();
         return true;
+    }
+
+    private void OnMessagePrimaryRequested()
+    {
+        // Capture -> close attempt -> invoke unconditionally; never gate a
+        // domain closure on the close result.
+        var action = _messagePrimaryAction;
+        TryCloseHostedMessage(UIScreenCloseReason.ExplicitAction);
+        action?.Invoke();
     }
 
     private bool TryCloseHostedMessage(UIScreenCloseReason reason)
@@ -766,8 +799,8 @@ public partial class MainMenu : Control
         var result = _screenHost.TryClose(_messageHandle.Value, reason);
         if (result.Status == UIScreenCloseStatus.StaleHandle)
         {
-            if (_messageDialog != null)
-                ClearHostedMessage(_messageDialog);
+            if (_messagePrompt != null)
+                ClearHostedMessage(_messagePrompt);
             else
                 _messageHandle = null;
         }
@@ -775,22 +808,19 @@ public partial class MainMenu : Control
         return result.Status == UIScreenCloseStatus.Closed;
     }
 
-    private void ClearHostedMessage(AcceptDialog popup)
+    private void ClearHostedMessage(SiriusPrompt prompt)
     {
-        if (IsInstanceValid(popup) && _messageCloseDelegate != null)
+        if (IsInstanceValid(prompt))
         {
-            popup.Confirmed -= _messageCloseDelegate;
-            popup.Canceled -= _messageCloseDelegate;
-            popup.CloseRequested -= _messageCloseDelegate;
+            prompt.PrimaryRequested -= OnMessagePrimaryRequested;
+            prompt.CancelRequested -= OnMessagePrimaryRequested;
         }
 
-        if (ReferenceEquals(_messageDialog, popup))
+        if (ReferenceEquals(_messagePrompt, prompt))
         {
-            if (IsInstanceValid(popup))
-                popup.QueueFree();
             _messageHandle = null;
-            _messageDialog = null;
-            _messageCloseDelegate = null;
+            _messagePrompt = null;
+            _messagePrimaryAction = null;
         }
 
         RefreshActionAvailability();

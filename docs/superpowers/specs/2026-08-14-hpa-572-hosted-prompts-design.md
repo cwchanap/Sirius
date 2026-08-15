@@ -190,8 +190,8 @@ Do not retarget every host unit-test fixture to `Prompt`. Several host tests del
 When old product kinds disappear, host tests replace them with test-local `StringName` identities such as:
 
 ```csharp
-private static readonly StringName ModalA = "modal_a";
-private static readonly StringName ModalB = "modal_b";
+private static readonly StringName ModalA = new("modal_a");
+private static readonly StringName ModalB = new("modal_b");
 ```
 
 The local kinds preserve each test's intended host behavior without keeping dead product identities in `UIScreenKinds`.

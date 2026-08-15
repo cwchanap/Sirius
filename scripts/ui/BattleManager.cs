@@ -536,7 +536,7 @@ public partial class BattleManager : Control
             .Take(pageSize)
             .ToList();
 
-        var focusTarget = ReconcileSlots(_preparationItemRail, _preparationSlots, pageItems.Count,
+        var reconciliation = ReconcileSlots(_preparationItemRail, _preparationSlots, pageItems.Count,
             _preparationItemBySlot, OnPreparationItemPressed, OnPreparationItemFocused);
         for (var index = 0; index < pageItems.Count; index++)
         {
@@ -565,9 +565,12 @@ public partial class BattleManager : Control
         else if (string.IsNullOrWhiteSpace(_preparationItemDetails.Text))
             _preparationItemDetails.Text = "Choose an optional consumable, or begin without one.";
 
-        // Restore focus after the new bindings are installed so FocusEntered
-        // resolves the surviving slot's item and updates %PreparationItemDetails.
-        focusTarget?.GrabFocus();
+        // Resolve focus after the new bindings are installed. Responsive
+        // repaging (standard↔compact) can rebind a surviving focused slot to a
+        // different item without firing FocusEntered; in that case keep focus
+        // on the slot but manually refresh %PreparationItemDetails to the new
+        // binding so focus, details, and activation stay coherent.
+        ApplyReconciledFocus(reconciliation, _preparationSlots, _preparationItemBySlot, OnPreparationItemFocused);
 
         _previousItemPage!.Visible = pageCount > 1;
         _nextItemPage!.Visible = pageCount > 1;
@@ -575,7 +578,7 @@ public partial class BattleManager : Control
         _nextItemPage.Disabled = _preparationPage >= pageCount - 1;
     }
 
-    private SiriusItemSlotController? ReconcileSlots(
+    private SlotReconciliation ReconcileSlots(
         Container parent,
         List<SiriusItemSlotController> slots,
         int requiredCount,
@@ -583,6 +586,25 @@ public partial class BattleManager : Control
         Action<ConsumableItem> activated,
         Action<ConsumableItem>? focused = null)
     {
+        // Capture the currently-focused slot and its bound item before any
+        // mutation. Responsive repaging (standard↔compact) can rebind a
+        // surviving focused slot to a different item without removing it; in
+        // that case FocusEntered never fires and %PreparationItemDetails would
+        // keep describing the old item while activation uses the new one. The
+        // caller resolves the correct focus target after installing the new
+        // page bindings (see ApplyReconciledFocus).
+        ConsumableItem? focusedItem = null;
+        SiriusItemSlotController? focusedSlot = null;
+        foreach (var kvp in bindings)
+        {
+            if (GodotObject.IsInstanceValid(kvp.Key) && kvp.Key.HasFocus())
+            {
+                focusedSlot = kvp.Key;
+                focusedItem = kvp.Value;
+                break;
+            }
+        }
+
         while (slots.Count < requiredCount)
         {
             var slot = _itemSlotScene.Instantiate<SiriusItemSlotController>();
@@ -625,17 +647,91 @@ public partial class BattleManager : Control
         for (var index = 0; index < slots.Count; index++)
             slots[index].SetCompact(_isCompact);
 
-        // Return the surviving slot that should receive focus rather than
+        // Report the removed-slot fallback (nearest surviving slot) rather than
         // calling GrabFocus here. GrabFocus fires FocusEntered synchronously,
         // which resolves the focused item through `bindings`; but `bindings`
         // was just cleared and is repopulated by the caller AFTER this method
         // returns. Calling GrabFocus now would fire FocusEntered while
         // `bindings` is empty, so the focused callback is skipped and the
-        // details panel keeps describing the removed item. The caller grabs
+        // details panel keeps describing the removed item. The caller applies
         // focus once the new bindings are installed.
+        SiriusItemSlotController? removedSlotFallback = null;
         if (focusToRestore != null && slots.Count > 0)
-            return slots[^1];
+            removedSlotFallback = slots[^1];
+
+        return new SlotReconciliation(focusedItem, focusedSlot, removedSlotFallback);
+    }
+
+    /// <summary>
+    /// Result of <see cref="ReconcileSlots"/>. The caller installs the new page
+    /// bindings, then calls <see cref="ApplyReconciledFocus"/> to (re)establish
+    /// focus on the slot bound to the previously-focused item, or the
+    /// documented fallback when that item left the page.
+    /// </summary>
+    private readonly record struct SlotReconciliation(
+        ConsumableItem? FocusedItem,
+        SiriusItemSlotController? FocusedSlot,
+        SiriusItemSlotController? RemovedSlotFallback);
+
+    /// <summary>
+    /// Resolves the slot that should own focus after a page rebuild. If the
+    /// previously-focused item is still on the page, focus its (possibly new)
+    /// slot so the user keeps the same item. Otherwise fall back to the nearest
+    /// surviving slot when the focused slot was removed, or keep focus on the
+    /// surviving focused slot (now rebound to a different item).
+    /// </summary>
+    private SiriusItemSlotController? ResolveReconciledFocus(
+        SlotReconciliation reconciliation,
+        List<SiriusItemSlotController> slots,
+        Dictionary<SiriusItemSlotController, ConsumableItem> bindings)
+    {
+        if (reconciliation.FocusedItem == null)
+            return null;
+
+        foreach (var kvp in bindings)
+        {
+            if (kvp.Value.Id == reconciliation.FocusedItem.Id)
+                return kvp.Key;
+        }
+
+        if (reconciliation.RemovedSlotFallback != null)
+            return reconciliation.RemovedSlotFallback;
+        if (reconciliation.FocusedSlot != null
+            && GodotObject.IsInstanceValid(reconciliation.FocusedSlot)
+            && slots.Contains(reconciliation.FocusedSlot))
+            return reconciliation.FocusedSlot;
         return null;
+    }
+
+    /// <summary>
+    /// Applies the reconciled focus target after new page bindings are
+    /// installed. When the target already owns focus (a surviving slot that was
+    /// rebound to a different item without firing FocusEntered), manually invoke
+    /// <paramref name="onFocused"/> so the details panel matches the new
+    /// binding. When the target is a different slot, GrabFocus fires
+    /// FocusEntered, which resolves the item through the bindings.
+    /// </summary>
+    private void ApplyReconciledFocus(
+        SlotReconciliation reconciliation,
+        List<SiriusItemSlotController> slots,
+        Dictionary<SiriusItemSlotController, ConsumableItem> bindings,
+        Action<ConsumableItem>? onFocused = null)
+    {
+        var target = ResolveReconciledFocus(reconciliation, slots, bindings);
+        if (target == null)
+            return;
+
+        if (target.HasFocus())
+        {
+            if (onFocused != null
+                && bindings.TryGetValue(target, out var boundItem)
+                && boundItem.Id != reconciliation.FocusedItem?.Id)
+                onFocused(boundItem);
+        }
+        else
+        {
+            target.GrabFocus();
+        }
     }
 
     private string BuildConsumableTooltip(ConsumableItem item) =>
@@ -865,7 +961,7 @@ public partial class BattleManager : Control
             .Take(pageSize)
             .ToList();
 
-        var cureFocusTarget = ReconcileSlots(_cureItemList, _cureSlots, pageItems.Count, _cureItemBySlot, OnCombatItemSelected);
+        var cureReconciliation = ReconcileSlots(_cureItemList, _cureSlots, pageItems.Count, _cureItemBySlot, OnCombatItemSelected);
         for (var index = 0; index < pageItems.Count; index++)
         {
             var item = pageItems[index];
@@ -893,8 +989,12 @@ public partial class BattleManager : Control
                 isCureItem ? SiriusItemSlotVisualState.Available : SiriusItemSlotVisualState.Unsupported);
         }
 
-        // Restore focus after the new bindings are installed (see RefreshPreparationItems).
-        cureFocusTarget?.GrabFocus();
+        // Resolve focus after the new bindings are installed (see
+        // RefreshPreparationItems). The Cure page has no details panel, so no
+        // onFocused callback is needed; the identity rule still keeps focus on
+        // the slot bound to the previously-focused item when it remains on the
+        // page, or the documented fallback otherwise.
+        ApplyReconciledFocus(cureReconciliation, _cureSlots, _cureItemBySlot);
 
         _previousCurePage!.Visible = pageCount > 1;
         _nextCurePage!.Visible = pageCount > 1;

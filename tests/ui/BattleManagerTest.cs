@@ -692,6 +692,85 @@ public partial class BattleManagerTest : Node
         AssertThat(result.Loot.HasDrops).IsFalse();
     }
 
+    [TestCase]
+    public async Task ReconcileSlots_ShrinkRemovesFocusedSlot_RestoresFocusToSurvivingSlot()
+    {
+        var manager = await CreateReadyBattleManager();
+        try
+        {
+            var player = GetPrivateField<Character>(manager, "_player");
+            player.TryAddItem(ConsumableCatalog.CreateHealthPotion(), 1, out _);
+            player.TryAddItem(ConsumableCatalog.CreateManaPotion(), 1, out _);
+            player.TryAddItem(ConsumableCatalog.CreateStrengthTonic(), 1, out _);
+            player.TryAddItem(ConsumableCatalog.CreateIronSkin(), 1, out _);
+
+            // Standard layout renders 4 slots/page; populate and focus slot 4.
+            SetPrivateField(manager, "_isCompact", false);
+            InvokePrivateMethod(manager, "RefreshPreparationItems");
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+            var slots = GetPrivateField<System.Collections.Generic.List<SiriusItemSlotController>>(manager, "_preparationSlots");
+            AssertThat(slots.Count).IsEqual(4);
+            slots[^1].GrabFocus();
+            AssertThat(slots[^1].HasFocus()).IsTrue();
+
+            // Compact layout shrinks to 3 slots/page; the focused slot 4 is removed.
+            SetPrivateField(manager, "_isCompact", true);
+            InvokePrivateMethod(manager, "RefreshPreparationItems");
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+            var slotsAfter = GetPrivateField<System.Collections.Generic.List<SiriusItemSlotController>>(manager, "_preparationSlots");
+            AssertThat(slotsAfter.Count).IsEqual(3);
+
+            var focusOwner = manager.GetViewport().GuiGetFocusOwner();
+            AssertThat(focusOwner).IsNotNull()
+                .OverrideFailureMessage("Focus owner must not be null after the focused slot was removed by the standard→compact shrink.");
+            AssertThat(focusOwner.IsInsideTree()).IsTrue();
+            // The restored focus owner must be a surviving preparation slot, not a freed node.
+            AssertThat(slotsAfter.Contains(focusOwner)).IsTrue()
+                .OverrideFailureMessage("Focus should move to a surviving preparation slot after the focused slot was removed.");
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
+    [TestCase]
+    public async Task PreparationSlot_FocusEntered_UpdatesPreparationItemDetails()
+    {
+        var manager = await CreateReadyBattleManager();
+        try
+        {
+            var potion = ConsumableCatalog.CreateHealthPotion();
+            var tonic = ConsumableCatalog.CreateStrengthTonic();
+            var player = GetPrivateField<Character>(manager, "_player");
+            player.TryAddItem(potion, 1, out _);
+            player.TryAddItem(tonic, 1, out _);
+
+            SetPrivateField(manager, "_isCompact", false);
+            InvokePrivateMethod(manager, "RefreshPreparationItems");
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+            var slots = GetPrivateField<System.Collections.Generic.List<SiriusItemSlotController>>(manager, "_preparationSlots");
+            AssertThat(slots.Count).IsEqual(2);
+
+            var details = manager.GetNode<Label>("%PreparationItemDetails");
+
+            slots[0].GrabFocus();
+            AssertThat(details.Text).Contains(potion.DisplayName)
+                .OverrideFailureMessage($"Focusing slot 0 should show {potion.DisplayName} details, got: {details.Text}");
+
+            slots[1].GrabFocus();
+            AssertThat(details.Text).Contains(tonic.DisplayName)
+                .OverrideFailureMessage($"Focusing slot 1 should show {tonic.DisplayName} details, got: {details.Text}");
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
     private async Task<BattleManager> CreateReadyBattleManager()
     {
         var scene = GD.Load<PackedScene>("res://scenes/ui/BattleScene.tscn")

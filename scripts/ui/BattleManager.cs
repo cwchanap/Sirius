@@ -537,7 +537,7 @@ public partial class BattleManager : Control
             .ToList();
 
         ReconcileSlots(_preparationItemRail, _preparationSlots, pageItems.Count,
-            _preparationItemBySlot, OnPreparationItemPressed);
+            _preparationItemBySlot, OnPreparationItemPressed, OnPreparationItemFocused);
         for (var index = 0; index < pageItems.Count; index++)
         {
             var item = pageItems[index];
@@ -576,7 +576,8 @@ public partial class BattleManager : Control
         List<SiriusItemSlotController> slots,
         int requiredCount,
         Dictionary<SiriusItemSlotController, ConsumableItem> bindings,
-        Action<ConsumableItem> activated)
+        Action<ConsumableItem> activated,
+        Action<ConsumableItem>? focused = null)
     {
         while (slots.Count < requiredCount)
         {
@@ -588,11 +589,28 @@ public partial class BattleManager : Control
                 if (bindings.TryGetValue(captured, out var item))
                     activated(item);
             };
+            if (focused != null)
+            {
+                slot.FocusEntered += () =>
+                {
+                    if (bindings.TryGetValue(captured, out var item))
+                        focused(item);
+                };
+            }
             slots.Add(slot);
         }
+
+        // If a slot that currently owns keyboard/controller focus is about to be
+        // removed by the shrink below, remember it so focus can be moved to the
+        // nearest surviving slot afterward. Otherwise Godot's focus-owner-based
+        // UI navigation is left without an owner until the next explicit focus
+        // transition.
+        Control? focusToRestore = null;
         while (slots.Count > requiredCount)
         {
             var slot = slots[^1];
+            if (focusToRestore == null && GodotObject.IsInstanceValid(slot) && slot.HasFocus())
+                focusToRestore = slot;
             slots.RemoveAt(slots.Count - 1);
             bindings.Remove(slot);
             parent.RemoveChild(slot);
@@ -602,6 +620,9 @@ public partial class BattleManager : Control
         bindings.Clear();
         for (var index = 0; index < slots.Count; index++)
             slots[index].SetCompact(_isCompact);
+
+        if (focusToRestore != null && slots.Count > 0)
+            slots[^1].GrabFocus();
     }
 
     private string BuildConsumableTooltip(ConsumableItem item) =>
@@ -614,6 +635,19 @@ public partial class BattleManager : Control
         _preparationItemDetails.Text = $"Selected: {item.DisplayName}";
         _preparationItemDetails.Visible = true;
         RefreshPreparationItemsDeferred();
+    }
+
+    private void OnPreparationItemFocused(ConsumableItem item)
+    {
+        // Per HPA-356 §7: focus updates %PreparationItemDetails. Selection
+        // (Activated) and slot presentation are separate concerns, so focus
+        // shows the focused item's details without changing _selectedConsumable.
+        // Persistent error messages stay visible until the next selection
+        // attempt clears them (see OnPreparationItemPressed).
+        if (_preparationErrorMessage != null)
+            return;
+        _preparationItemDetails.Text = BuildConsumableTooltip(item);
+        _preparationItemDetails.Visible = true;
     }
 
     private void ClearPreparationSelection()

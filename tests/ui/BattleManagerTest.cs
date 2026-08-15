@@ -861,6 +861,74 @@ public partial class BattleManagerTest : Node
         }
     }
 
+    [TestCase]
+    public async Task RefreshPreparationItems_WithSelectedAndFocusedDifferent_KeepsDetailsOnFocusedItem()
+    {
+        var manager = await CreateReadyBattleManager();
+        try
+        {
+            // Two distinct consumables so the page renders two slots without
+            // repaging. Inventory preserves insertion order, so slot 0 = A
+            // (Health Potion) and slot 1 = B (Strength Tonic).
+            var potion = ConsumableCatalog.CreateHealthPotion();
+            var tonic = ConsumableCatalog.CreateStrengthTonic();
+            var player = GetPrivateField<Character>(manager, "_player");
+            player.TryAddItem(potion, 1, out _);
+            player.TryAddItem(tonic, 1, out _);
+
+            SetPrivateField(manager, "_isCompact", false);
+            InvokePrivateMethod(manager, "RefreshPreparationItems");
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+            var slots = GetPrivateField<System.Collections.Generic.List<SiriusItemSlotController>>(manager, "_preparationSlots");
+            AssertThat(slots.Count).IsEqual(2);
+            var details = manager.GetNode<Label>("%PreparationItemDetails");
+
+            // Select item A (Health Potion) via press. This sets
+            // _selectedConsumable = A and schedules a deferred refresh that
+            // writes "Selected: Health Potion" to %PreparationItemDetails.
+            InvokePrivateMethod(manager, "OnPreparationItemPressed", potion);
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+            AssertThat(details.Text).Contains(potion.DisplayName)
+                .OverrideFailureMessage($"After selecting A, details should describe A, got: {details.Text}");
+            AssertThat(GetPrivateField<ConsumableItem>(manager, "_selectedConsumable")!.Id).IsEqual(potion.Id);
+
+            // Move focus to item B (Strength Tonic). FocusEntered fires and
+            // details switch to B's tooltip (focus owns details per HPA-356 §7).
+            slots[1].GrabFocus();
+            AssertThat(slots[1].HasFocus()).IsTrue();
+            AssertThat(details.Text).Contains(tonic.DisplayName)
+                .OverrideFailureMessage($"Focusing slot 1 should show {tonic.DisplayName} details, got: {details.Text}");
+
+            // A refresh occurs without repaging or rebinding B (e.g. a layout
+            // refresh that does not change page size). RefreshPreparationItems
+            // writes "Selected: A" before ApplyReconciledFocus runs; the
+            // reconciler must re-push B's details so focus, details, and
+            // activation stay coherent even when the focused slot's binding
+            // did not change.
+            InvokePrivateMethod(manager, "RefreshPreparationItems");
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+            AssertThat(slots[1].HasFocus()).IsTrue()
+                .OverrideFailureMessage("Focus should remain on slot 1 after the no-op refresh.");
+            AssertThat(details.Text).Contains(tonic.DisplayName)
+                .OverrideFailureMessage($"Details should still describe the focused item ({tonic.DisplayName}) after the refresh, got: {details.Text}");
+            AssertThat(details.Text.Contains(potion.DisplayName)).IsFalse()
+                .OverrideFailureMessage($"Details should not describe the selected-but-not-focused item ({potion.DisplayName}) after the refresh, got: {details.Text}");
+
+            // Action identity: the focused slot's binding must match what the
+            // details panel describes, so activating the slot uses B.
+            var bindings = GetPrivateField<System.Collections.Generic.Dictionary<SiriusItemSlotController, ConsumableItem>>(manager, "_preparationItemBySlot");
+            AssertThat(bindings.TryGetValue(slots[1], out var boundItem)).IsTrue();
+            AssertThat(boundItem.Id).IsEqual(tonic.Id)
+                .OverrideFailureMessage($"The focused slot's binding should be {tonic.DisplayName} ({tonic.Id}) to match the details panel, got {boundItem.DisplayName} ({boundItem.Id}).");
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
     private async Task<BattleManager> CreateReadyBattleManager()
     {
         var scene = GD.Load<PackedScene>("res://scenes/ui/BattleScene.tscn")

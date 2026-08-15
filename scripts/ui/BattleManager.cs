@@ -1044,7 +1044,6 @@ public partial class BattleManager : Control
             return;
         }
 
-        RefreshCureItemsDeferred();
         CloseCureOverlay();
     }
 

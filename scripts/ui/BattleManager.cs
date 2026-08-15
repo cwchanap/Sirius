@@ -706,10 +706,17 @@ public partial class BattleManager : Control
     /// <summary>
     /// Applies the reconciled focus target after new page bindings are
     /// installed. When the target already owns focus (a surviving slot that was
-    /// rebound to a different item without firing FocusEntered), manually invoke
-    /// <paramref name="onFocused"/> so the details panel matches the new
-    /// binding. When the target is a different slot, GrabFocus fires
-    /// FocusEntered, which resolves the item through the bindings.
+    /// rebound, or simply rebound to the same item), manually invoke
+    /// <paramref name="onFocused"/> so the details panel matches the focused
+    /// binding. This is required even when the binding did not change, because
+    /// the caller (<see cref="RefreshPreparationItems"/>) overwrites
+    /// %PreparationItemDetails with the selected-item text before this method
+    /// runs; without re-pushing, a refresh with selected A and focused B would
+    /// leave the details panel describing A while focus and activation use B.
+    /// <see cref="OnPreparationItemFocused"/> preserves persistent error
+    /// messages, so re-invoking it is safe. When the target is a different
+    /// slot, GrabFocus fires FocusEntered, which resolves the item through the
+    /// bindings.
     /// </summary>
     private void ApplyReconciledFocus(
         SlotReconciliation reconciliation,
@@ -724,8 +731,7 @@ public partial class BattleManager : Control
         if (target.HasFocus())
         {
             if (onFocused != null
-                && bindings.TryGetValue(target, out var boundItem)
-                && boundItem.Id != reconciliation.FocusedItem?.Id)
+                && bindings.TryGetValue(target, out var boundItem))
                 onFocused(boundItem);
         }
         else

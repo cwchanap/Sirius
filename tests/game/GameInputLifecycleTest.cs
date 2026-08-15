@@ -178,73 +178,70 @@ public partial class GameInputLifecycleTest : Node
         }
     }
 
+    // Replaces the native error-popup cancel proof. The hosted RecoverableError
+    // Prompt owns Cancel==Consume, so a configured cancel dismisses only the
+    // Prompt: Save/Load stays open and the Pause entry is untouched (no root
+    // Pause fallback toggling the chain).
     [TestCase]
-    public async Task ConfiguredKeyboardCancel_ErrorDismissesBeforeOpeningHostedPause()
+    public async Task ConfiguredKeyboardCancel_RecoverablePromptDoesNotFallThroughToParents()
     {
         ConfigureCancelBindings(Key.P);
         await ReplaceWithHostedLifecycleFixture();
+        SaveManager.Instance?.DeleteSave(0);
 
-        var error = new AcceptDialog();
-        SetPrivateField(_game!, "_activeErrorPopup", error);
+        var host = await OpenPausedSaveLoadErrorPrompt();
 
-        PushPhysicalKeyDown(Key.P);
-        await AwaitFrames(1);
+        var pauseEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Pause);
+        var promptEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt);
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
+        AssertThat(promptEntry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
+        AssertThat(promptEntry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
 
-        var host = _game.GetNode<UIScreenHost>("UI/UIScreenHost");
-        try
-        {
-            AssertThat(_viewport!.IsInputHandled()).IsTrue();
-            AssertThat(GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup")).IsNull();
-            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
-        }
-        finally
-        {
-            ReleasePhysicalKey(Key.P);
-        }
+        PushPhysicalKey(Key.P);
+        await AwaitFrames(3);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
+        // No root Pause fallback ran: the same Pause entry still owns the chain.
+        AssertThat(host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Pause).Handle)
+            .IsEqual(pauseEntry.Handle);
     }
 
-    // Protects the ProcessModeEnum.Always fix in Game.ShowSaveError: a
-    // save/load error surfacing beneath an active hosted Pause (which owns the
-    // tree-pause lease) must keep processing so it stays dismissible while
-    // SceneTree.Paused is true, and dismissing it must not drop the Pause
-    // lease. The sibling test above only assigns a bare AcceptDialog to
-    // _activeErrorPopup and never opens Pause, so it never exercises this
-    // paused-processing requirement.
+    // Protects the hosted replacement for the ProcessModeEnum.Always fix in
+    // Game.ShowSaveError: the error surfaces beneath an active hosted Pause
+    // (which owns the tree-pause lease) and must stay dismissible while
+    // SceneTree.Paused is true, without dropping the Pause lease.
     [TestCase]
-    public async Task ConfiguredKeyboardCancel_PausedErrorPopupRemainsDismissibleWhilePauseActive()
+    public async Task ConfiguredKeyboardCancel_PausedRecoverablePromptRemainsDismissible()
     {
         ConfigureCancelBindings(Key.P);
-        _viewport!.GuiEmbedSubwindows = true;
         await ReplaceWithHostedLifecycleFixture();
+        SaveManager.Instance?.DeleteSave(0);
 
-        // Open the hosted Pause so it owns the tree-pause lease.
+        var host = await OpenPausedSaveLoadErrorPrompt();
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
+        var promptEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt);
+        AssertThat(promptEntry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
+        AssertThat(promptEntry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+
+        // The Always process policy keeps the hosted error dismissible while
+        // the tree stays paused beneath the Pause lease.
         PushPhysicalKey(Key.P);
-        await AwaitFrames(2);
+        await AwaitFrames(3);
 
-        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
         AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
-
-        // Surface a real save/load error through the production ShowSaveError
-        // path (the one that required ProcessModeEnum.Always to remain
-        // dismissible while the tree is paused).
-        InvokePrivate(_game, "ShowSaveError", "Cannot save during battle.", "Save Failed");
-        await AwaitFrames(1);
-
-        var popup = GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup");
-        AssertThat(popup).IsNotNull();
-        AssertThat(popup!.ProcessMode).IsEqual(ProcessModeEnum.Always);
-        AssertThat(popup.GetParent()).IsNotNull();
-        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
-
-        // Dismiss the popup while the tree is still paused; the Confirmed
-        // handler must free it and clear _activeErrorPopup.
-        popup.EmitSignal(AcceptDialog.SignalName.Confirmed);
-        await AwaitFrames(2);
-
-        AssertThat(GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup")).IsNull();
-        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
-        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
     }
 
     [TestCase]
@@ -829,6 +826,39 @@ public partial class GameInputLifecycleTest : Node
         _gameManager = gameManager;
         _viewport!.AddChild(game);
         await AwaitFrames(2);
+    }
+
+    // Builds the real paused chain Pause -> Save/Load -> RecoverableError
+    // Prompt through production handlers: open Pause with the configured key,
+    // open Load mode, then force a load failure so OnHostedLoadSlotSelected
+    // surfaces ShowSaveError beneath the still-open Save/Load parent.
+    private async Task<UIScreenHost> OpenPausedSaveLoadErrorPrompt()
+    {
+        PushPhysicalKey(Key.P);
+        await AwaitFrames(2);
+
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%LoadButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var loadScreen = FindDirectChild<SaveLoadScreenController>(
+            host.GetNode<Control>("ModalLayer"));
+        var slotInfos = GetPrivateField<SaveSlotInfo[]>(loadScreen, "_slotInfos");
+        slotInfos[0] = new SaveSlotInfo
+        {
+            Exists = true,
+            State = SaveSlotState.Valid,
+            SlotIndex = 0,
+            PlayerName = "Missing",
+            PlayerLevel = 1
+        };
+        loadScreen.GetNode<Button>("%Slot0Card").Disabled = false;
+        loadScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+        return host;
     }
 
     private static async Task<Game> InstantiateGameScene(Node parent)

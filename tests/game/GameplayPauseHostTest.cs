@@ -790,7 +790,7 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
-    public async Task HostedSaveLoad_LoadFailureClosesChildBeforeError()
+    public async Task HostedSaveLoad_LoadFailureKeepsSaveLoadAndHostsPrompt()
     {
         var manager = SaveManager.Instance;
         AssertThat(manager).IsNotNull();
@@ -819,9 +819,24 @@ public partial class GameplayPauseHostTest : Node
         loadScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(2);
 
-        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+        // The failed load must keep Save/Load open and host the error Prompt
+        // as its child instead of closing the parent first.
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
-        AssertThat(GetPrivateField<AcceptDialog?>(_game, "_activeErrorPopup")).IsNotNull();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+        var prompt = FindDirectChild<SiriusPrompt>(host.GetNode<Control>("ModalLayer"));
+        AssertThat(prompt.GetNode<Label>("%Message").Text).IsEqual("Failed to load save file.");
+        AssertThat(host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt).Policy.Parent)
+            .IsEqual(FindEntry(host, UIScreenKinds.SaveLoad).Handle);
+
+        // Dismissing the error returns to the same open Save/Load parent.
+        prompt.GetNode<Button>("%PrimaryButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(GodotObject.IsInstanceValid(prompt)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
     }
 
     [TestCase]
@@ -927,6 +942,53 @@ public partial class GameplayPauseHostTest : Node
         finally
         {
             manager.SaveCompleted -= OnSaveCompleted;
+        }
+    }
+
+    [TestCase]
+    public async Task HostedOverwrite_PrimaryWithNpcInteractionOpensErrorPromptUnderSaveLoad()
+    {
+        TestHelpers.WriteValidSlot(0);
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
+        AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
+        await AwaitFrames(2);
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        pause.GetNode<Button>("%SaveButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+        var saveScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
+        saveScreen.GetNode<Button>("%Slot0Card").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var overwritePrompt = FindDirectChild<SiriusPrompt>(modalLayer);
+        AssertThat(overwritePrompt.GetNode<Label>("%Message").Text)
+            .IsEqual("Slot 1 already contains save data. Overwrite it?");
+        var gameManager = _game!.GetNode<GameManager>("GameManager");
+        gameManager.StartNpcInteraction();
+        try
+        {
+            // The first Prompt's Primary closure calls OnHostedSaveSlotSelected(0);
+            // the NPC-interaction branch must open a second Prompt beneath the
+            // still-open Save/Load instead of closing it.
+            overwritePrompt.GetNode<Button>("%PrimaryButton")
+                .EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(3);
+
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+            AssertThat(GodotObject.IsInstanceValid(overwritePrompt)).IsFalse();
+            AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Prompt))
+                .IsEqual(1);
+
+            var errorPrompt = FindDirectChild<SiriusPrompt>(modalLayer);
+            AssertThat(host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt).Policy.Parent)
+                .IsEqual(FindEntry(host, UIScreenKinds.SaveLoad).Handle);
+            AssertThat(errorPrompt.GetNode<Label>("%Message").Text)
+                .IsEqual("Cannot save during NPC interaction.");
+        }
+        finally
+        {
+            gameManager.EndNpcInteraction();
         }
     }
 

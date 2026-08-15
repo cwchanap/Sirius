@@ -787,6 +787,80 @@ public partial class BattleManagerTest : Node
         }
     }
 
+    [TestCase]
+    public async Task ReconcileSlots_StandardToCompactRebindsSurvivingFocusedSlot_KeepsFocusDetailsActionCoherent()
+    {
+        var manager = await CreateReadyBattleManager();
+        try
+        {
+            // 8 consumables so page index 1 exists under both 4/page (standard)
+            // and 3/page (compact) paging. Inventory preserves insertion order,
+            // so the page windows are deterministic.
+            var regenPotion = ConsumableCatalog.CreateRegenPotion();
+            var antidote = ConsumableCatalog.CreateAntidote();
+            var player = GetPrivateField<Character>(manager, "_player");
+            player.TryAddItem(ConsumableCatalog.CreateHealthPotion(), 1, out _);
+            player.TryAddItem(ConsumableCatalog.CreateManaPotion(), 1, out _);
+            player.TryAddItem(ConsumableCatalog.CreateStrengthTonic(), 1, out _);
+            player.TryAddItem(ConsumableCatalog.CreateIronSkin(), 1, out _);
+            player.TryAddItem(ConsumableCatalog.CreateSwiftnessDraught(), 1, out _);
+            player.TryAddItem(antidote, 1, out _);
+            player.TryAddItem(regenPotion, 1, out _);
+            player.TryAddItem(ConsumableCatalog.CreatePoisonVial(), 1, out _);
+
+            var details = manager.GetNode<Label>("%PreparationItemDetails");
+
+            // Standard page 1 (4/page) = [Swiftness, Antidote, Regen, Poison].
+            // Focus slot 2 -> Regen Potion.
+            SetPrivateField(manager, "_isCompact", false);
+            SetPrivateField(manager, "_preparationPage", 1);
+            InvokePrivateMethod(manager, "RefreshPreparationItems");
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+            var slots = GetPrivateField<System.Collections.Generic.List<SiriusItemSlotController>>(manager, "_preparationSlots");
+            AssertThat(slots.Count).IsEqual(4);
+            slots[2].GrabFocus();
+            AssertThat(slots[2].HasFocus()).IsTrue();
+            AssertThat(details.Text).Contains(regenPotion.DisplayName)
+                .OverrideFailureMessage($"Focusing slot 2 on standard page 1 should show {regenPotion.DisplayName} details, got: {details.Text}");
+
+            // Compact page 1 (3/page) = [Iron Skin, Swiftness, Antidote]. Slot 3
+            // is removed; slot 2 survives but is rebound from Regen Potion to
+            // Antidote. Focus never leaves the Control, so FocusEntered does not
+            // fire on its own.
+            SetPrivateField(manager, "_isCompact", true);
+            InvokePrivateMethod(manager, "RefreshPreparationItems");
+            await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+            var slotsAfter = GetPrivateField<System.Collections.Generic.List<SiriusItemSlotController>>(manager, "_preparationSlots");
+            AssertThat(slotsAfter.Count).IsEqual(3);
+
+            var focusOwner = manager.GetViewport().GuiGetFocusOwner();
+            AssertThat(focusOwner).IsNotNull()
+                .OverrideFailureMessage("Focus owner must not be null after the standard→compact rebind.");
+            AssertThat(slotsAfter.Contains(focusOwner)).IsTrue()
+                .OverrideFailureMessage("Focus should remain on a surviving preparation slot after the rebind.");
+
+            // Details must now describe the surviving slot's new binding
+            // (Antidote), not linger on the rebound item (Regen Potion).
+            AssertThat(details.Text).Contains(antidote.DisplayName)
+                .OverrideFailureMessage($"Details should describe the rebound slot ({antidote.DisplayName}) after the resize, got: {details.Text}");
+            AssertThat(details.Text.Contains(regenPotion.DisplayName)).IsFalse()
+                .OverrideFailureMessage($"Details should no longer describe the rebound-away item ({regenPotion.DisplayName}) after the resize, got: {details.Text}");
+
+            // Action identity: the focused slot's binding must match what the
+            // details panel describes, so activating the slot uses Antidote.
+            var bindings = GetPrivateField<System.Collections.Generic.Dictionary<SiriusItemSlotController, ConsumableItem>>(manager, "_preparationItemBySlot");
+            AssertThat(bindings.TryGetValue((SiriusItemSlotController)focusOwner, out var boundItem)).IsTrue();
+            AssertThat(boundItem.Id).IsEqual(antidote.Id)
+                .OverrideFailureMessage($"The focused slot's binding should be {antidote.DisplayName} ({antidote.Id}) to match the details panel, got {boundItem.DisplayName} ({boundItem.Id}).");
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
     private async Task<BattleManager> CreateReadyBattleManager()
     {
         var scene = GD.Load<PackedScene>("res://scenes/ui/BattleScene.tscn")

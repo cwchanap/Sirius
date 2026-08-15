@@ -617,7 +617,8 @@ public partial class MainMenu : Control
                     "Load Failed",
                     "Failed to load save file.",
                     restoreFocus: null,
-                    parent: _loadHandle);
+                    parent: _loadHandle,
+                    onPrimary: () => _loadScreen?.RearmAfterFailedTerminal());
             }
             return;
         }

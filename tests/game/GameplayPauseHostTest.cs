@@ -837,6 +837,16 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
         AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+
+        // The retained screen must be rearmed after the error: the one-way
+        // terminal latch is released and a further action works normally.
+        var cancel = loadScreen.GetNode<Button>("%CancelButton");
+        AssertThat(cancel.Disabled).IsFalse();
+        cancel.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
     }
 
     [TestCase]

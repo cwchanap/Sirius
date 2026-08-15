@@ -200,11 +200,14 @@ public partial class GameTest : Node
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
 
         InvokePrivate(_game!, "ShowCorruptedSaveError");
-        var promptEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt);
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
 
-        var close = host.TryClose(promptEntry.Handle, UIScreenCloseReason.Programmatic);
+        // Exercise the real root teardown path (scene change / host finalize)
+        // rather than a direct entry close.
+        var preparation = host.PrepareForTeardown();
 
-        AssertThat(close.Status).IsEqual(UIScreenCloseStatus.Closed);
+        AssertThat(preparation).IsEqual(UIScreenTeardownPreparationStatus.Complete);
+        AssertThat(host.ActiveEntries.Count).IsEqual(0);
         AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
         AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsFalse();
         AssertThat(GetPrivateField<UIScreenHandle?>(_game!, "_hostedPromptHandle")).IsNull();

@@ -621,6 +621,66 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
+    public async Task HostedLoadFailure_RearmsLoadScreenAfterAcknowledge()
+    {
+        var manager = SaveManager.Instance!;
+        try
+        {
+            for (var slot = 0; slot <= 3; slot++)
+                manager.DeleteSave(slot);
+
+            AssertThat(manager.SaveGame(0, ValidSaveData())).IsTrue();
+
+            InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
+            await AwaitFrames(2);
+
+            var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+            var modalLayer = host.GetNode<Control>("ModalLayer");
+            var loadScreen = GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen");
+            AssertThat(loadScreen).IsNotNull();
+
+            // Force a real slot press on a slot with no save file so the
+            // one-way terminal latch engages before the failure Prompt opens.
+            var slotInfos = GetPrivateField<SaveSlotInfo[]>(loadScreen!, "_slotInfos");
+            slotInfos[1] = new SaveSlotInfo
+            {
+                Exists = true,
+                State = SaveSlotState.Valid,
+                SlotIndex = 1,
+                PlayerName = "Missing",
+                PlayerLevel = 1
+            };
+            var slotCard = loadScreen.GetNode<Button>("%Slot1Card");
+            slotCard.Disabled = false;
+            slotCard.EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+            AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+
+            FindDirectChild<SiriusPrompt>(modalLayer)
+                .GetNode<Button>("%PrimaryButton").EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+
+            // The retained screen must be rearmed: the latch is released so a
+            // further action (Cancel) closes the Load screen normally.
+            AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+            var cancel = loadScreen.GetNode<Button>("%CancelButton");
+            AssertThat(cancel.Disabled).IsFalse();
+            cancel.EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+        }
+        finally
+        {
+            for (var slot = 0; slot <= 3; slot++)
+                manager.DeleteSave(slot);
+        }
+    }
+
+    [TestCase]
     public async Task HostedLoadSlotSelected_SetsPendingLoadAndUsesExistingSceneTransition()
     {
         var menu = await CreateTestableRootMenu();

@@ -278,6 +278,24 @@ public partial class SaveLoadScreenController : Control
         return true;
     }
 
+    /// <summary>
+    /// Releases the one-way terminal latch after a failed save/load operation
+    /// so the retained screen stays usable once the recoverable-error Prompt
+    /// is acknowledged. No-op when no terminal signal has been emitted.
+    /// </summary>
+    public void RearmAfterFailedTerminal()
+    {
+        if (!_terminalEmitted)
+            return;
+
+        _terminalEmitted = false;
+        if (_mainMenuButton != null)
+            _mainMenuButton.Disabled = false;
+        if (_cancelButton != null)
+            _cancelButton.Disabled = false;
+        RefreshSlotInfo();
+    }
+
     private void DisableAllActions()
     {
         if (_cards != null)

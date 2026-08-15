@@ -1984,6 +1984,7 @@ public partial class Game : Node2D
             title,
             message,
             "OK",
+            onPrimary: () => _hostedSaveLoadScreen?.RearmAfterFailedTerminal(),
             parent: _hostedSaveLoadHandle);
     }
 

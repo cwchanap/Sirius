@@ -94,21 +94,87 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
-    public void TryOpenMessage_CreatesOneHostedSaveErrorAndKeepsRootVisible()
+    public async Task RootPrompt_ConfiguredCancelUsesPromptLatchAndRestoresRoot()
     {
-        InvokePrivateAcrossHierarchy(
-            _menu,
-            "TryOpenMessage",
-            "Load Failed",
-            "Save system unavailable.",
-            _menu.GetNode<Button>("%LoadButton"),
-            null!);
+        var manager = SaveManager.Instance!;
+        for (var slot = 0; slot <= 3; slot++)
+            manager.DeleteSave(slot);
 
-        AssertThat(_menu.Visible).IsTrue();
+        InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
+        await AwaitFrames(2);
+
         var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
-        AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsTrue();
-        AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.SaveError))
-            .IsEqual(1);
+        var modalLayer = host.GetNode<Control>("ModalLayer");
+        var loadButton = _menu.GetNode<Button>("%LoadButton");
+        var promptEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt);
+        AssertThat(promptEntry.Policy.Parent).IsNull();
+        AssertThat(promptEntry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+        AssertThat(_menu.Visible).IsTrue();
+
+        foreach (var button in new[]
+        {
+            "%ContinueButton", "%NewGameButton", "%LoadButton",
+            "%SettingsButton", "%QuitButton"
+        })
+        {
+            AssertThat(_menu.GetNode<Button>(button).Disabled).IsTrue();
+        }
+
+        var prompt = FindDirectChild<SiriusPrompt>(modalLayer);
+        AssertThat(prompt.GetNode<Label>("%Message").Text).IsEqual("No save files found!");
+
+        // Warning prompts are one-action: the configured Cancel latches to the
+        // Primary terminal handling and must not fall through to the root.
+        var cancel = new InputEventAction { Action = "ui_cancel", Pressed = true };
+        AssertThat(host.TryHandleInput(cancel)).IsEqual(UIInputDispatchResult.Consumed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+        // ContinueButton is independently gated by the absence of a save;
+        // the remaining root actions must be re-enabled by cleanup.
+        foreach (var button in new[]
+        {
+            "%NewGameButton", "%LoadButton", "%SettingsButton", "%QuitButton"
+        })
+        {
+            AssertThat(_menu.GetNode<Button>(button).Disabled).IsFalse();
+        }
+
+        AssertThat(_menu.GetViewport().GuiGetFocusOwner()).IsEqual(loadButton);
+    }
+
+    [TestCase]
+    public async Task RootPrompt_TerminalCannotRunTwice()
+    {
+        var manager = SaveManager.Instance!;
+        for (var slot = 0; slot <= 3; slot++)
+            manager.DeleteSave(slot);
+
+        InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
+        await AwaitFrames(2);
+
+        var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
+        var prompt = FindDirectChild<SiriusPrompt>(modalLayer);
+
+        var primary = prompt.GetNode<Button>("%PrimaryButton");
+        primary.EmitSignal(Button.SignalName.Pressed);
+        primary.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Prompt))
+            .IsEqual(0);
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+        AssertThat(GodotObject.IsInstanceValid(prompt)).IsFalse();
+        // ContinueButton is independently gated by the absence of a save;
+        // the remaining root actions must be re-enabled by cleanup.
+        foreach (var button in new[]
+        {
+            "%NewGameButton", "%LoadButton", "%SettingsButton", "%QuitButton"
+        })
+        {
+            AssertThat(_menu.GetNode<Button>(button).Disabled).IsFalse();
+        }
     }
 
     [TestCase]
@@ -199,7 +265,7 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
-    public async Task LoadPressedWithNoSavesShowsMessageOnly()
+    public async Task LoadPressed_NoSaveFilesOpensWarningPromptAndRestoresLoadFocus()
     {
         var manager = SaveManager.Instance!;
         for (var slot = 0; slot <= 3; slot++)
@@ -209,8 +275,26 @@ public partial class MainMenuTest : Node
         await AwaitFrames(2);
 
         var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
-        AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsTrue();
+        var modalLayer = host.GetNode<Control>("ModalLayer");
         AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+        var promptEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt);
+        AssertThat(promptEntry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+        AssertThat(promptEntry.Policy.Parent).IsNull();
+
+        var prompt = FindDirectChild<SiriusPrompt>(modalLayer);
+        AssertThat(prompt.GetNode<Label>("%Message").Text).IsEqual("No save files found!");
+        AssertThat(prompt.GetNode<Button>("%CancelButton").Visible).IsFalse();
+        AssertThat(_menu.GetViewport().GuiGetFocusOwner()).IsEqual(prompt.InitialFocusTarget);
+
+        prompt.GetNode<Button>("%PrimaryButton").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+        AssertThat(_menu.GetNode<Button>("%LoadButton").Disabled).IsFalse();
+        AssertThat(_menu.GetViewport().GuiGetFocusOwner())
+            .IsEqual(_menu.GetNode<Button>("%LoadButton"));
     }
 
     [TestCase]
@@ -300,7 +384,7 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
-    public async Task LoadPressedWithoutSaveManagerShowsOneErrorOnly()
+    public async Task LoadUnavailable_OpensRecoverablePromptWithoutAcceptDialog()
     {
         PropertyInfo? property = null;
         object? original = null;
@@ -316,9 +400,20 @@ public partial class MainMenuTest : Node
             await AwaitFrames(2);
 
             var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
-            AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.SaveError))
+            var modalLayer = host.GetNode<Control>("ModalLayer");
+            AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Prompt))
                 .IsEqual(1);
             AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+            var promptEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt);
+            AssertThat(promptEntry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+            AssertThat(modalLayer.FindChildren("*", "AcceptDialog", true, false).Count)
+                .IsEqual(0);
+
+            var prompt = FindDirectChild<SiriusPrompt>(modalLayer);
+            AssertThat(prompt.GetNode<Label>("%Message").Text)
+                .IsEqual("Save system unavailable.");
+            AssertThat(prompt.GetNode<SiriusModalShell>("%ModalShell").Severity)
+                .IsEqual(SiriusUiSeverity.Error);
         }
         finally
         {
@@ -441,41 +536,41 @@ public partial class MainMenuTest : Node
     }
 
     [TestCase]
-    public async Task ContinueLoadFailure_HostsNewLoadScreenAndCanCancelSafely()
+    public async Task ContinueFailure_WithHostedLoadKeepsLoadParentAndShowsPrompt()
     {
         SetPrivateField(_menu, "_continueSave", EligibleSlot(3, DateTime.UtcNow));
         var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
-        var continueButton = _menu.GetNode<Button>("%ContinueButton");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
 
         InvokePrivateAcrossHierarchy(
             _menu, "HandleContinueLoadResult", new object[] { null! });
         await AwaitFrames(2);
 
-        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
-        AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsTrue();
         AssertThat(GetPrivateField<bool>(_menu, "_sceneChangeCommitted")).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+        var loadEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.SaveLoad);
+        var promptEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt);
+        AssertThat(promptEntry.Policy.Parent).IsEqual(loadEntry.Handle);
+        AssertThat(promptEntry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+
         var loadScreen = GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen");
         AssertThat(loadScreen).IsNotNull();
         AssertThat(loadScreen!.Mode).IsEqual(SaveLoadMode.Load);
+        var prompt = FindDirectChild<SiriusPrompt>(modalLayer);
+        AssertThat(prompt.GetNode<Label>("%Message").Text)
+            .IsEqual("Failed to load the selected save.");
 
-        var fallbackError = GetPrivateField<AcceptDialog?>(_menu, "_messageDialog");
-        AssertThat(fallbackError).IsNotNull();
-        fallbackError!.EmitSignal(AcceptDialog.SignalName.Confirmed);
+        prompt.GetNode<Button>("%PrimaryButton").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(2);
 
-        AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
         AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
-
-        var cancel = new InputEventAction { Action = "ui_cancel", Pressed = true };
-        AssertThat(host.TryHandleInput(cancel)).IsEqual(UIInputDispatchResult.Consumed);
-        await AwaitFrames(2);
-
-        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
-        AssertThat(_menu.GetViewport().GuiGetFocusOwner()).IsEqual(continueButton);
+        AssertThat(GodotObject.IsInstanceValid(loadScreen)).IsTrue();
     }
 
     [TestCase]
-    public async Task HostedLoadSlotSelected_FailureClosesLoadBeforeDeferredError()
+    public async Task HostedLoadFailure_KeepsLoadParentAfterAcknowledge()
     {
         var manager = SaveManager.Instance!;
         try
@@ -489,29 +584,34 @@ public partial class MainMenuTest : Node
             await AwaitFrames(2);
 
             var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+            var modalLayer = host.GetNode<Control>("ModalLayer");
             AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
             var loadScreen = GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen");
             AssertThat(loadScreen).IsNotNull();
 
+            // Slot 1 has no save file: the failure Prompt must open synchronously
+            // under the still-active Load entry (no close + deferred fallback).
             InvokePrivateAcrossHierarchy(_menu, "OnHostedLoadSlotSelected", 1);
-            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
-            AssertThat(loadScreen!.IsQueuedForDeletion()).IsTrue();
-            AssertThat(GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen")).IsNull();
+
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+            AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+            AssertThat(loadScreen!.IsQueuedForDeletion()).IsFalse();
+            AssertThat(GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen"))
+                .IsEqual(loadScreen);
+            var loadEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.SaveLoad);
+            var promptEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt);
+            AssertThat(promptEntry.Policy.Parent).IsEqual(loadEntry.Handle);
+            AssertThat(promptEntry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+            AssertThat(FindDirectChild<SiriusPrompt>(modalLayer)
+                .GetNode<Label>("%Message").Text).IsEqual("Failed to load save file.");
+
+            FindDirectChild<SiriusPrompt>(modalLayer)
+                .GetNode<Button>("%PrimaryButton").EmitSignal(Button.SignalName.Pressed);
             await AwaitFrames(2);
 
-            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
-            AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.SaveError))
-                .IsEqual(1);
-
-            var error = GetPrivateField<AcceptDialog?>(_menu, "_messageDialog");
-            AssertThat(error).IsNotNull();
-            error!.EmitSignal(AcceptDialog.SignalName.Confirmed);
-            await AwaitFrames(2);
-
-            AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsFalse();
-            AssertThat(_menu.GetNode<Button>("%LoadButton").Disabled).IsFalse();
-            AssertThat(_menu.GetViewport().GuiGetFocusOwner())
-                .IsEqual(_menu.GetNode<Button>("%LoadButton"));
+            AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+            AssertThat(GodotObject.IsInstanceValid(loadScreen)).IsTrue();
         }
         finally
         {
@@ -561,23 +661,26 @@ public partial class MainMenuTest : Node
     {
         var loadButton = _menu.GetNode<Button>("%LoadButton");
         var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+        var modalLayer = host.GetNode<Control>("ModalLayer");
 
         AssertThat((bool)InvokePrivateAcrossHierarchy(
-            _menu, "TryOpenMessage", "Load Failed", "First", loadButton, null!)!).IsTrue();
+            _menu, "TryOpenMessage", SiriusPromptVariant.Warning,
+            "Load Failed", "First", loadButton, null!, null!)!).IsTrue();
         AssertThat((bool)InvokePrivateAcrossHierarchy(
-            _menu, "TryOpenMessage", "Load Failed", "Second", loadButton, null!)!).IsFalse();
-        AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.SaveError))
+            _menu, "TryOpenMessage", SiriusPromptVariant.Warning,
+            "Load Failed", "Second", loadButton, null!, null!)!).IsFalse();
+        AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Prompt))
             .IsEqual(1);
 
-        var popup = GetPrivateField<AcceptDialog?>(_menu, "_messageDialog");
-        AssertThat(popup).IsNotNull();
-        popup!.EmitSignal(AcceptDialog.SignalName.Confirmed);
-        popup.EmitSignal(AcceptDialog.SignalName.Canceled);
+        var prompt = FindDirectChild<SiriusPrompt>(modalLayer);
+        AssertThat(prompt.GetNode<Label>("%Message").Text).IsEqual("First");
+        prompt.GetNode<Button>("%PrimaryButton").EmitSignal(Button.SignalName.Pressed);
 
         await AwaitFrames(2);
 
-        AssertThat(host.IsKindActive(UIScreenKinds.SaveError)).IsFalse();
-        AssertThat(GetPrivateField<AcceptDialog?>(_menu, "_messageDialog")).IsNull();
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+        AssertThat(GetPrivateField<SiriusPrompt?>(_menu, "_messagePrompt")).IsNull();
+        AssertThat(GetPrivateField<UIScreenHandle?>(_menu, "_messageHandle")).IsNull();
         AssertThat(_menu.GetNode<Button>("%LoadButton").Disabled).IsFalse();
         AssertThat(_menu.GetViewport().GuiGetFocusOwner())
             .IsEqual(loadButton);
@@ -757,6 +860,17 @@ public partial class MainMenuTest : Node
         _sceneTree.Root.AddChild(menu);
         await AwaitFrames(1);
         return menu;
+    }
+
+    private static T FindDirectChild<T>(Node parent) where T : Node
+    {
+        foreach (var child in parent.GetChildren())
+        {
+            if (child is T typed)
+                return typed;
+        }
+
+        throw new InvalidOperationException($"Direct child '{typeof(T).Name}' was not found.");
     }
 
     private static SaveSlotInfo EligibleSlot(int slot, DateTime timestamp) => new()

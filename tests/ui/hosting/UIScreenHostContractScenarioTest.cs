@@ -11,6 +11,8 @@ using static UIScreenHostTestSupport;
 public partial class UIScreenHostContractScenarioTest : Node
 {
     private static readonly StringName UiCancelAction = "ui_cancel";
+    private static readonly StringName ConfirmationFixture = "confirmation_fixture";
+    private static readonly StringName ErrorFixture = "error_fixture";
 
     [TestCase]
     public async Task InventoryChildOfPause_PausesWorldHidesHudAndReturnsToPause()
@@ -159,7 +161,7 @@ public partial class UIScreenHostContractScenarioTest : Node
                 }));
             var child = Open(fixture.Host.TryPresent(
                 confirmation,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.ConfirmOverwrite) with
+                UIScreenHostTestSupport.Spec(ConfirmationFixture) with
                 {
                     Parent = parent,
                     Layer = UIScreenLayer.Modal,
@@ -196,7 +198,7 @@ public partial class UIScreenHostContractScenarioTest : Node
         {
             var modal = Open(fixture.Host.TryPresent(
                 modalView,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(ErrorFixture) with
                 {
                     Layer = UIScreenLayer.Modal,
                     InputPriority = UIInputPriority.Blocking,

@@ -1,6 +1,7 @@
 using GdUnit4;
 using Godot;
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
@@ -125,6 +126,118 @@ public partial class GameTest : Node
 
         AssertThat(opened).IsFalse();
         AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+    }
+
+    [TestCase]
+    public async Task CorruptedSave_OpensRootRecoverablePromptAndBlocksGameplayWithoutTreePause()
+    {
+        await ReplaceWithHostedFixture();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+        InvokePrivate(_game, "ShowCorruptedSaveError");
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsTrue();
+        AssertThat(_game.GetTree().Paused).IsFalse();
+        AssertThat(_game.IsProcessingInput()).IsTrue();
+        var promptEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt);
+        AssertThat(promptEntry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+    }
+
+    [TestCase]
+    public async Task CorruptedSave_PrimaryRequestsMainMenuExactlyOnce()
+    {
+        await ReplaceWithHostedFixture();
+
+        InvokePrivate(_game!, "ShowCorruptedSaveError");
+
+        var prompt = GetPrivateField<SiriusPrompt>(_game!, "_hostedPrompt");
+        var primary = prompt.GetNode<Button>("%PrimaryButton");
+        primary.EmitSignal(Button.SignalName.Pressed);
+        primary.EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(_game!.ReturnToMainMenuCalls).IsEqual(1);
+        AssertThat(_game.GetNode<UIScreenHost>("UI/UIScreenHost")
+            .IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+    }
+
+    [TestCase]
+    public async Task CorruptedSave_ConfiguredCancelMapsToPrimaryAndRequestsMainMenuExactlyOnce()
+    {
+        await ReplaceWithHostedFixture();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+        InvokePrivate(_game!, "ShowCorruptedSaveError");
+
+        var handled = host.TryHandleInput(new InputEventAction
+        {
+            Action = "ui_cancel",
+            Pressed = true
+        });
+
+        AssertThat(handled).IsEqual(UIInputDispatchResult.Consumed);
+        AssertThat(_game!.ReturnToMainMenuCalls).IsEqual(1);
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+    }
+
+    [TestCase]
+    public async Task CorruptedSave_SecondDetectionDoesNotOpenSecondPrompt()
+    {
+        await ReplaceWithHostedFixture();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+        InvokePrivate(_game!, "ShowCorruptedSaveError");
+        InvokePrivate(_game!, "ShowCorruptedSaveError");
+
+        AssertThat(host.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Prompt))
+            .IsEqual(1);
+    }
+
+    [TestCase]
+    public async Task CorruptedSave_RootTeardownClearsPromptAndGameplayBlock()
+    {
+        await ReplaceWithHostedFixture();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+        InvokePrivate(_game!, "ShowCorruptedSaveError");
+        var promptEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt);
+
+        var close = host.TryClose(promptEntry.Handle, UIScreenCloseReason.Programmatic);
+
+        AssertThat(close.Status).IsEqual(UIScreenCloseStatus.Closed);
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsFalse();
+        AssertThat(GetPrivateField<UIScreenHandle?>(_game!, "_hostedPromptHandle")).IsNull();
+        AssertThat(GetPrivateField<SiriusPrompt?>(_game!, "_hostedPrompt")).IsNull();
+    }
+
+    [TestCase]
+    public async Task CorruptedSave_PresentationFailureStillReturnsToTitle()
+    {
+        // A fresh TestableGame without a production host: the host open attempt
+        // fails and the mandatory navigation fallback must run. Built locally so
+        // the test never depends on the shared fixture field.
+        var game = new TestableGame();
+        _viewport!.AddChild(game);
+        await AwaitFrames(1);
+        try
+        {
+            InvokePrivate(game, "ShowCorruptedSaveError");
+
+            AssertThat(game.ReturnToMainMenuCalls).IsEqual(1);
+            AssertThat(GetPrivateField<UIScreenHandle?>(game, "_hostedPromptHandle")).IsNull();
+            AssertThat(GetPrivateField<SiriusPrompt?>(game, "_hostedPrompt")).IsNull();
+
+            // The one-shot latch must not produce a second navigation on re-detection.
+            InvokePrivate(game, "ShowCorruptedSaveError");
+            AssertThat(game.ReturnToMainMenuCalls).IsEqual(1);
+        }
+        finally
+        {
+            if (IsInstanceValid(game))
+                game.Free();
+            await AwaitFrames(1);
+        }
     }
 
     [TestCase]
@@ -1232,6 +1345,13 @@ public partial class GameTest : Node
 
     public partial class TestableGame : Game
     {
+        public int ReturnToMainMenuCalls { get; private set; }
+
+        protected override void ReturnToMainMenu()
+        {
+            ReturnToMainMenuCalls++;
+        }
+
         public override void _Ready()
         {
         }

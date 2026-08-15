@@ -11,6 +11,7 @@ public partial class UIScreenHostInputTest : Node
     private static readonly StringName PauseMenuAction = "pause_menu";
     private static readonly StringName UiCancelAction = "ui_cancel";
     private static readonly StringName ToggleInventoryAction = "toggle_inventory";
+    private static readonly StringName ErrorFixture = "error_fixture";
 
     [TestCase]
     public async Task PhysicalInputMatchingTwoCoreActions_TraversesInterceptorOnce()
@@ -223,7 +224,7 @@ public partial class UIScreenHostInputTest : Node
         {
             var opened = fixture.Host.TryPresent(
                 view,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(ErrorFixture) with
                 {
                     Cancel = UICancelPolicy.PassThrough
                 });

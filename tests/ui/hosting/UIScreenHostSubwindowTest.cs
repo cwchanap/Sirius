@@ -8,6 +8,8 @@ using static GdUnit4.Assertions;
 [RequireGodotRuntime]
 public partial class UIScreenHostSubwindowTest : Node
 {
+    private static readonly StringName SubwindowFixture = "subwindow_fixture";
+
     [TestCase]
     public async Task LowerLayerEffects_WindowStrongestOwnerWeakensAndRestoresExactBaseline()
     {
@@ -137,7 +139,7 @@ public partial class UIScreenHostSubwindowTest : Node
         {
             var result = fixture.Host.TryPresent(
                 dialog,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(SubwindowFixture) with
                 {
                     Layer = UIScreenLayer.Modal,
                     ProcessPolicy = UIProcessPolicy.Always
@@ -166,7 +168,7 @@ public partial class UIScreenHostSubwindowTest : Node
         {
             var result = fixture.Host.TryPresent(
                 dialog,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(SubwindowFixture) with
                 {
                     Layer = UIScreenLayer.Modal
                 });
@@ -196,13 +198,13 @@ public partial class UIScreenHostSubwindowTest : Node
         {
             var active = fixture.Host.TryPresent(
                 activeView,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError));
+                UIScreenHostTestSupport.Spec(SubwindowFixture));
             AssertThat(active.Status).IsEqual(UIScreenOpenStatus.Opened);
             var childrenBefore = fixture.Host.GetChildren();
 
             var rejected = fixture.Host.TryPresent(
                 rejectedWindow,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(SubwindowFixture) with
                 {
                     Layer = UIScreenLayer.Modal,
                     InputPriority = UIInputPriority.Blocking,
@@ -240,7 +242,7 @@ public partial class UIScreenHostSubwindowTest : Node
         {
             var opened = fixture.Host.TryPresent(
                 dialog,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.SaveError) with
+                UIScreenHostTestSupport.Spec(SubwindowFixture) with
                 {
                     Layer = UIScreenLayer.Hud,
                     ProcessPolicy = UIProcessPolicy.InheritHost,

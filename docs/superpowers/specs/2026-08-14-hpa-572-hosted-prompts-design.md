@@ -33,7 +33,8 @@ Add:
 
 - `scenes/ui/SiriusPrompt.tscn`
 - `scripts/ui/SiriusPromptController.cs`
-- `SiriusPromptVariant` in the existing UI type area or beside the controller, whichever keeps the enum local without creating a new abstraction file solely for one enum.
+
+Define `SiriusPromptVariant` in `SiriusPromptController.cs` immediately before the controller. The enum is feature-local and does not justify another abstraction file.
 
 `SiriusPrompt.tscn` instances `SiriusModalShell` and authors one message label plus two action buttons. The controller configures the existing nodes; it does not construct controls at runtime.
 
@@ -57,24 +58,32 @@ No extra severity or prompt type is added for success messages, rewards, toasts,
 
 ### 3. Small configuration surface
 
-The controller needs only the data required to render the prompt:
+The controller stores only the data required to render the prompt:
 
 - `Variant`
 - `Title`
 - `Message`
 - `PrimaryActionText`
-- optional `CancelActionText` for the two confirmation variants
+- `CancelActionText` for the two confirmation variants
 
-The scene provides sensible authored defaults so tests/showcase instantiation remains valid before configuration.
+The scene provides sensible authored defaults so plain scene instantiation remains valid before configuration.
 
-The controller exposes:
+Expose this narrow controller surface:
 
-- `Control InitialFocusTarget`
-- one terminal event for primary action
-- one terminal event for cancel action
-- a method/property configuration surface usable before or after `_Ready`
+```csharp
+public Control InitialFocusTarget { get; }
+public void Configure(
+    SiriusPromptVariant variant,
+    string title,
+    string message,
+    string primaryActionText,
+    string cancelActionText = "Cancel");
+public void RequestCancel();
+```
 
-The controller guards terminal emission with one boolean latch. Button presses and host-routed Cancel therefore cannot invoke the owning action twice.
+`Configure(...)` is valid before or after `_Ready`; before-ready calls store values and `_Ready` applies them. `RequestCancel()` routes configured Cancel through the same terminal latch as the visible buttons.
+
+The controller emits one primary-action signal and one cancel-action signal. It guards terminal emission with one boolean latch, so a visible action and host-routed Cancel cannot invoke the owning action twice.
 
 Do not add callbacks, async tasks, recovery delegates, host handles, navigation logic, or domain result payloads to `SiriusPromptController`.
 
@@ -96,8 +105,12 @@ Common host policy:
 - `PauseTree = false`
 - `Cursor = UICursorPolicy.Visible`
 - `LowerLayers = UILowerLayerPolicy.VisibleInert`
+- `Cancel = UICancelPolicy.Consume`
+- `InterceptCancel = _ => { prompt.RequestCancel(); return UIInputInterception.ConsumeHere; }`
 - `NodeLifetime = UINodeLifetime.QueueFree`
 - `InitialFocus = () => prompt.InitialFocusTarget`
+
+The prompt's terminal signal handler performs the domain callback, if any, and closes the prompt through the root-owned host handle. The `InterceptCancel` path therefore shares the controller latch and cannot bypass required blocking-error behavior by closing the entry directly.
 
 Parent/lease policy remains root-owned:
 
@@ -218,13 +231,13 @@ The shared scene must remain usable at the repository's minimum verification vie
 
 ### Child-first Cancel
 
-The host remains the top-level Cancel authority. Prompt-specific Cancel handling maps the input to the same latched controller terminal event as the corresponding visible button:
+The host remains the top-level Cancel authority. Every prompt entry consumes static Cancel and uses `InterceptCancel` to call `SiriusPromptController.RequestCancel()`:
 
-- confirmation variants -> Cancel result,
-- warning/recoverable error -> Primary acknowledgement,
-- blocking error -> Primary mandatory action.
+- confirmation variants -> Cancel signal,
+- warning/recoverable error -> Primary acknowledgement signal,
+- blocking error -> Primary mandatory-action signal.
 
-The root then closes the prompt through `UIScreenHost.TryClose(...)`. The same input event must not fall through to the parent or root fallback.
+The owning root handles that terminal signal and closes the prompt through `UIScreenHost.TryClose(...)`. The same input event is consumed at the prompt and cannot fall through to the parent or root fallback.
 
 ### Focus
 
@@ -255,7 +268,7 @@ Add focused controller/scene tests covering:
 - all five variants map to the expected severity, buttons, button styles, and initial focus;
 - informational and destructive confirmations emit Cancel/Primary exactly once;
 - warning and recoverable error acknowledge exactly once;
-- blocking error maps both visible primary and configured Cancel to the same primary terminal result;
+- blocking error maps both visible primary and `RequestCancel()` to the same primary terminal result;
 - repeated activation after a terminal result is ignored;
 - compact and standard layouts use existing minimum target sizing;
 - long wrapped text at the minimum viewport remains inside the modal and is scrollable/reachable as needed.

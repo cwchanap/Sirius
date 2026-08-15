@@ -4,28 +4,28 @@
 
 **Goal:** Replace Sirius's duplicate confirmation scenes and remaining Main Menu/gameplay native error dialogs with one scene-authored modal prompt component while preserving domain ownership, parent retention, paused-tree input, focus, Cancel priority, and teardown behavior.
 
-**Architecture:** Add one reusable `SiriusPrompt` component beside `SiriusModalShell` and `SiriusToastShell`. `Game` and `MainMenu` keep local `UIScreenHost` registration, prompt handles, and domain closures; no prompt service, presenter, queue, singleton, router, or host facade is introduced. Ship only the three presentation variants used by current consumers; corrupted-save blocking remains a host policy, not a prompt variant.
+**Architecture:** Add one reusable `SiriusPrompt` component beside `SiriusModalShell` and `SiriusToastShell`. `Game` and `MainMenu` keep local `UIScreenHost` registration, prompt handles, and domain closures; no prompt service, presenter, queue, singleton, router, or host facade is introduced. Ship only the three presentation variants used by current consumers; corrupted-save blocking is a host policy, not a prompt variant.
 
 **Tech Stack:** Godot 4.6, C#/.NET 8, GdUnit4, existing Sirius Theme/UI components and `UIScreenHost`.
 
 ## Global Constraints
 
-- Support exactly three presentation variants: `DestructiveConfirmation`, `Warning`, and `RecoverableError`.
-- Do not add `InformationalConfirmation` until a real two-button Info confirmation caller exists.
-- Do not add `BlockingError`; corrupted-save uses `RecoverableError` chrome plus `UIScreenEntrySpec.BlockGameplayInput = true`.
-- Reuse `SiriusModalShell`, `SiriusUiSeverity`, existing button theme variations, `SiriusUiMetrics.MinimumTarget(...)`, and `UIScreenExclusiveGroups.BlockingPrompt`.
-- `SiriusContextPrompt` remains a HUD input-hint component and is not reused or modified.
-- Keep domain actions in `Game` / `MainMenu`; `SiriusPrompt` owns chrome and at-most-once terminal intent only.
-- Every hosted prompt uses `Cancel = UICancelPolicy.Consume` plus `InterceptCancel -> prompt.RequestCancel()`; do not use `Cancel = Close`.
-- `DestructiveConfirmation` focuses Cancel first; `Warning` and `RecoverableError` focus their only primary action.
-- Child prompts keep their logical parent active/inert and restore the parent through `UIScreenHost` focus handling.
-- Save/Load errors keep active Save/Load open. `Game.ShowSaveError(...)` must log an error if the expected Save/Load parent is absent; no silent no-op and no native fallback.
-- A recoverable prompt under Pause -> Save/Load must remain dismissible while `SceneTree.Paused == true`; `UIProcessPolicy.Always` is the replacement for native `ProcessMode.Always`.
-- Corrupted-save keeps `Game` input processing enabled and acquires only the host gameplay-block lease.
-- Collapse product prompt kinds to one `UIScreenKinds.Prompt`; host unit tests that need multiple identities use test-local `StringName`s.
-- Do not migrate `DialogueDialog`, `ShopDialog`, `HealDialog`, `PuzzleRiddleDialog`, or Reward presentation.
-- Do not add Theme tokens, icons, metrics, `SiriusModalShell` APIs, or `UIScreenHost` APIs unless a focused RED test proves a shared contract defect.
-- No compatibility shims are required for deleted prompt scenes/controllers/kinds.
+- Support exactly `DestructiveConfirmation`, `Warning`, and `RecoverableError`.
+- Do not add `InformationalConfirmation` until a real two-button Info caller exists.
+- Do not add `BlockingError`; corrupted-save uses `RecoverableError` plus `BlockGameplayInput = true`.
+- Reuse `SiriusModalShell`, `SiriusUiSeverity`, current button variations, `SiriusUiMetrics.MinimumTarget(...)`, and `UIScreenExclusiveGroups.BlockingPrompt`.
+- `SiriusContextPrompt` remains a HUD input-hint component; do not reuse or modify it.
+- `SiriusPrompt` owns chrome and one-shot terminal intent only. `Game` / `MainMenu` own domain closures and host handles.
+- Every Prompt entry uses `Cancel = UICancelPolicy.Consume` plus `InterceptCancel -> prompt.RequestCancel()`; never use `Cancel = Close` for this component.
+- `DestructiveConfirmation` focuses Cancel. One-action variants focus Primary.
+- Child prompts keep their logical parent active/inert and rely on host focus restoration.
+- Failed Save/Load keeps active Save/Load open. Missing expected gameplay Save/Load parent is a logged error, not a silent no-op or native fallback.
+- Pause -> Save/Load -> Prompt must remain dismissible while `SceneTree.Paused == true`; Prompt uses `UIProcessPolicy.Always`.
+- Corrupted-save leaves `Game` input processing enabled and acquires only the host gameplay-block lease.
+- Collapse product prompt kinds to `UIScreenKinds.Prompt`; host unit tests that need distinct kinds use test-local `StringName`s.
+- Do not migrate Dialogue, Shop, Heal, Puzzle/Riddle, or Reward presentation.
+- Add no Theme/icon/metric, `SiriusModalShell`, or `UIScreenHost` API unless a focused RED test proves a shared defect.
+- No compatibility shims for deleted prompt scenes/controllers/kinds.
 
 ---
 
@@ -33,24 +33,22 @@
 
 ### Create
 
-- `scenes/ui/components/SiriusPrompt.tscn` — shared modal leaf built on `SiriusModalShell`.
-- `scripts/ui/components/SiriusPrompt.cs` — three-variant presentation mapping, responsive sizing, terminal latch, Cancel mapping.
-- `tests/ui/components/SiriusPromptTest.cs` — variant, terminal, responsive, long-text, and scene-contract coverage.
+- `scenes/ui/components/SiriusPrompt.tscn`
+- `scripts/ui/components/SiriusPrompt.cs`
+- `tests/ui/components/SiriusPromptTest.cs`
 
-### Modify: production and integration
+### Modify — production/integration
 
-- `scripts/ui/hosting/UIScreenKinds.cs` — add `Prompt`; remove old prompt-only product kinds after all references migrate.
-- `scripts/game/Game.cs` — local hosted-prompt plumbing, overwrite, return-to-title, Save/Load errors, corrupted-save error.
-- `scripts/ui/MainMenu.cs` — replace hosted native messages with `SiriusPrompt`; retain Load parent on failures.
-- `tests/game/GameplayPauseHostTest.cs` — nested prompt parent retention, paused-tree behavior, focus, programmatic close/teardown.
-- `tests/game/GameInputLifecycleTest.cs` — configured Cancel child-first behavior; replace `_activeErrorPopup` characterization.
-- `tests/game/GameTest.cs` — corrupted-save gameplay block and exactly-once transition coverage where the existing fixture is the best seam.
-- `tests/ui/MainMenuTest.cs` — root warning/error, Load-parent retention, root focus, no native message dialog.
-- `docs/ui/hpa-376/ui-lifecycle-contract.md` — update only migrated prompt/error rows.
+- `scripts/ui/hosting/UIScreenKinds.cs`
+- `scripts/game/Game.cs`
+- `scripts/ui/MainMenu.cs`
+- `tests/game/GameplayPauseHostTest.cs`
+- `tests/game/GameInputLifecycleTest.cs`
+- `tests/game/GameTest.cs`
+- `tests/ui/MainMenuTest.cs`
+- `docs/ui/hpa-376/ui-lifecycle-contract.md`
 
-### Modify: host test fixture identities
-
-These tests currently use prompt product kinds as generic host fixtures. Retarget those references to test-local `StringName`s before deleting the product constants:
+### Modify — host fixture identities
 
 - `tests/ui/hosting/UIScreenStackModelTest.cs`
 - `tests/ui/hosting/UIScreenHostSubwindowTest.cs`
@@ -79,7 +77,7 @@ These tests currently use prompt product kinds as generic host fixtures. Retarge
 - `scripts/ui/hosting/UIScreenHost.cs`
 - `scripts/ui/hosting/UIScreenEntrySpec.cs`
 
-Do not change audit-only files unless a focused RED test proves their current contract is broken.
+Do not change audit-only files without a focused failing regression.
 
 ---
 
@@ -91,9 +89,7 @@ Do not change audit-only files unless a focused RED test proves their current co
 - Create: `tests/ui/components/SiriusPromptTest.cs`
 - Modify: `scripts/ui/hosting/UIScreenKinds.cs`
 
-**Interfaces:**
-- Consumes: `SiriusModalShell`, `SiriusUiSeverity`, `SiriusThemeTypes`, `SiriusUiMetrics.MinimumTarget(...)`.
-- Produces:
+**Produces:**
 
 ```csharp
 public enum SiriusPromptVariant
@@ -121,100 +117,55 @@ public partial class SiriusPrompt : Control
 }
 ```
 
-Also add, but do **not** yet remove old kinds:
+Also add `UIScreenKinds.Prompt = "prompt"`; keep old prompt kinds until Task 4.
 
-```csharp
-public static readonly StringName Prompt = "prompt";
+- [ ] **Step 1: Write RED variant/terminal tests**
+
+Create `tests/ui/components/SiriusPromptTest.cs` using the same `SubViewportContainer` + `SubViewport` style as other component tests. Default to `640x360`; provide a resize helper for `1280x720` that awaits two process frames.
+
+Add these tests:
+
+```text
+Variants_MapSeverityButtonsThemeAndInitialFocus
+Destructive_PrimaryThenCancelEmitsOnlyPrimaryOnce
+Destructive_CancelThenPrimaryEmitsOnlyCancelOnce
+Warning_RequestCancelEmitsPrimaryOnce
+RecoverableError_RequestCancelEmitsPrimaryOnce
+RepeatedPrimaryPress_EmitsOnce
+CompactViewport_UsesCompactShellAndMinimumTargets
+CrossingCompactToStandard_RefreshesShellAndTargets
+LongMessage_MinimumViewportStaysInsideShellAndCanScroll
+Scene_UsesModalShellAndContainsNoAcceptDialog
 ```
 
-### 1A — RED component tests
-
-- [ ] **Step 1: Create the component test fixture**
-
-Create `tests/ui/components/SiriusPromptTest.cs` with a `SubViewportContainer` + `SubViewport` fixture. Default the fixture to `640x360`; provide a helper that resizes both container and viewport to `1280x720` and awaits two process frames.
-
-Use:
-
-```csharp
-private const string ScenePath = "res://scenes/ui/components/SiriusPrompt.tscn";
-```
-
-- [ ] **Step 2: Add RED variant mapping coverage**
-
-Add one table-driven test with these cases:
+Use this mapping in `Variants_MapSeverityButtonsThemeAndInitialFocus`:
 
 ```csharp
 var cases = new[]
 {
     (SiriusPromptVariant.DestructiveConfirmation,
-        SiriusUiSeverity.Warning,
-        true,
-        SiriusThemeTypes.DestructiveButton),
+        SiriusUiSeverity.Warning, true, SiriusThemeTypes.DestructiveButton),
     (SiriusPromptVariant.Warning,
-        SiriusUiSeverity.Warning,
-        false,
-        SiriusThemeTypes.PrimaryButton),
+        SiriusUiSeverity.Warning, false, SiriusThemeTypes.PrimaryButton),
     (SiriusPromptVariant.RecoverableError,
-        SiriusUiSeverity.Error,
-        false,
-        SiriusThemeTypes.PrimaryButton)
+        SiriusUiSeverity.Error, false, SiriusThemeTypes.PrimaryButton)
 };
 ```
 
-For each case configure title/message/action text and assert:
+For destructive assert `%CancelButton.Visible` and `InitialFocusTarget == %CancelButton`; otherwise assert Cancel hidden and initial focus equals `%PrimaryButton`.
 
-```text
-%ModalShell.Severity
-%Message.Text
-%PrimaryButton.Text
-%PrimaryButton.ThemeTypeVariation
-%CancelButton.Visible
-InitialFocusTarget
-```
-
-`DestructiveConfirmation` must focus `%CancelButton`; one-action variants must focus `%PrimaryButton`.
-
-- [ ] **Step 3: Add RED terminal-latch tests**
-
-Add:
-
-```text
-DestructiveConfirmation_PrimaryThenCancelEmitsOnlyPrimaryOnce
-DestructiveConfirmation_CancelThenPrimaryEmitsOnlyCancelOnce
-Warning_RequestCancelMapsToPrimaryOnce
-RecoverableError_RequestCancelMapsToPrimaryOnce
-RepeatedPrimaryPress_EmitsOnlyOnce
-```
-
-Each test subscribes counters to `PrimaryRequested` / `CancelRequested`, emits the relevant button signal and/or calls `RequestCancel()`, and asserts total terminal emissions equal one.
-
-- [ ] **Step 4: Add RED layout/scene tests**
-
-Add:
-
-```text
-CompactViewport_UsesCompactShellAndMinimumTargets
-CrossingCompactToStandard_RefreshesShellAndTargets
-LongMessage_MinimumViewportRemainsInsideShellAndScrollableIfNeeded
-Scene_UsesSiriusModalShellAndContainsNoAcceptDialog
-```
-
-The long-message test should use several wrapped sentences, await layout frames, assert the shell panel stays within the `640x360` viewport, and assert either the full message fits or the shell body scroll has positive overflow. Do not hard-code an invented scroll amount.
-
-- [ ] **Step 5: Run RED**
+- [ ] **Step 2: Run RED**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~SiriusPromptTest"
 ```
 
-Expected: compile/test failure because the component and enum do not exist.
+Expected: compile/test failure because the enum/class/scene do not exist.
 
-### 1B — minimal component implementation
+- [ ] **Step 3: Author the scene**
 
-- [ ] **Step 6: Author the component scene**
-
-Create this stable tree:
+Create:
 
 ```text
 SiriusPrompt (Control, full rect)
@@ -227,9 +178,9 @@ SiriusPrompt (Control, full rect)
             └── PrimaryButton (Button, unique, SiriusPrimaryButton)
 ```
 
-Author both buttons with 44px minimum height as a safe editor/default state.
+Author both buttons at 44px minimum height for a safe default editor state.
 
-- [ ] **Step 7: Implement stored configuration and node binding**
+- [ ] **Step 4: Implement stored configuration**
 
 Use:
 
@@ -250,19 +201,18 @@ public Control InitialFocusTarget =>
     _variant == SiriusPromptVariant.DestructiveConfirmation ? _cancel : _primary;
 ```
 
-`Configure(...)` stores non-null strings and calls `RefreshPresentation()` when ready. `_Ready()` binds `%ModalShell`, `%Message`, `%PrimaryButton`, `%CancelButton`, wires the two `Pressed` signals and `Resized`, then refreshes.
+`Configure(...)` stores values and refreshes when ready. `_Ready()` binds `%ModalShell`, `%Message`, `%PrimaryButton`, `%CancelButton`, subscribes button/resize handlers, and refreshes.
 
-- [ ] **Step 8: Implement exact visual mappings**
+- [ ] **Step 5: Implement exact visual mapping**
 
 ```csharp
-private static SiriusUiSeverity SeverityFor(SiriusPromptVariant variant) =>
-    variant switch
-    {
-        SiriusPromptVariant.DestructiveConfirmation => SiriusUiSeverity.Warning,
-        SiriusPromptVariant.Warning => SiriusUiSeverity.Warning,
-        SiriusPromptVariant.RecoverableError => SiriusUiSeverity.Error,
-        _ => throw new ArgumentOutOfRangeException(nameof(variant), variant, null)
-    };
+private static SiriusUiSeverity SeverityFor(SiriusPromptVariant variant) => variant switch
+{
+    SiriusPromptVariant.DestructiveConfirmation => SiriusUiSeverity.Warning,
+    SiriusPromptVariant.Warning => SiriusUiSeverity.Warning,
+    SiriusPromptVariant.RecoverableError => SiriusUiSeverity.Error,
+    _ => throw new ArgumentOutOfRangeException(nameof(variant), variant, null)
+};
 
 private static StringName PrimaryThemeFor(SiriusPromptVariant variant) =>
     variant == SiriusPromptVariant.DestructiveConfirmation
@@ -270,30 +220,9 @@ private static StringName PrimaryThemeFor(SiriusPromptVariant variant) =>
         : SiriusThemeTypes.PrimaryButton;
 ```
 
-Refresh from `GetViewportRect().Size`:
+In `RefreshPresentation()` derive compact from the viewport, assign shell title/severity/compact, message text, button text/visibility/themes, and both action heights from `SiriusUiMetrics.MinimumTarget(compact)`; call `_shell.RefreshPresentation(size)`.
 
-```csharp
-var size = GetViewportRect().Size;
-var compact = SiriusUiMetrics.IsCompact(size);
-var target = SiriusUiMetrics.MinimumTarget(compact);
-
-_shell.Title = _title;
-_shell.Severity = SeverityFor(_variant);
-_shell.Compact = compact;
-_shell.RefreshPresentation(size);
-
-_messageLabel.Text = _message;
-_primary.Text = _primaryActionText;
-_primary.ThemeTypeVariation = PrimaryThemeFor(_variant);
-_primary.CustomMinimumSize = new Vector2(0, target.Y);
-
-_cancel.Visible = _variant == SiriusPromptVariant.DestructiveConfirmation;
-_cancel.Text = _cancelActionText;
-_cancel.ThemeTypeVariation = SiriusThemeTypes.SecondaryButton;
-_cancel.CustomMinimumSize = new Vector2(0, target.Y);
-```
-
-- [ ] **Step 9: Implement the one-shot terminal contract**
+- [ ] **Step 6: Implement one-shot terminal behavior**
 
 ```csharp
 private void EmitPrimaryOnce()
@@ -319,47 +248,37 @@ public void RequestCancel()
 }
 ```
 
-Wire `_primary.Pressed` to `EmitPrimaryOnce` and `_cancel.Pressed` to `EmitCancelOnce`. `_ExitTree()` disconnects button/resize handlers. Never reset `_terminalEmitted`.
+Wire Primary/Cancel buttons to the two methods. `_ExitTree()` unsubscribes handlers. Never reset `_terminalEmitted`.
 
-- [ ] **Step 10: Run GREEN plus shell regressions**
+- [ ] **Step 7: Run GREEN and shared-component regressions**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~SiriusPromptTest|FullyQualifiedName~SiriusModalShellTest|FullyQualifiedName~SiriusContextPromptTest"
-
 dotnet build Sirius.sln --no-restore --nologo
 ```
 
-Expected: PASS / 0 build errors. No audit-only file changes.
+Expected: PASS / 0 build errors with audit-only files unchanged.
 
-- [ ] **Step 11: Commit Task 1**
+- [ ] **Step 8: Commit Task 1**
 
 ```bash
-git add scenes/ui/components/SiriusPrompt.tscn \
-  scripts/ui/components/SiriusPrompt.cs \
-  scripts/ui/hosting/UIScreenKinds.cs \
-  tests/ui/components/SiriusPromptTest.cs
+git add scenes/ui/components/SiriusPrompt.tscn scripts/ui/components/SiriusPrompt.cs \
+  tests/ui/components/SiriusPromptTest.cs scripts/ui/hosting/UIScreenKinds.cs
 git commit -m "feat(ui): add shared Sirius prompt"
 ```
 
 ---
 
-## Task 2: Migrate Save overwrite and Pause return-to-title
+## Task 2: Replace the two dedicated destructive confirmations
 
 **Files:**
 - Modify: `scripts/game/Game.cs`
 - Modify: `tests/game/GameplayPauseHostTest.cs`
 - Modify: `tests/game/GameInputLifecycleTest.cs`
-- Delete: `scenes/ui/SaveOverwriteConfirmation.tscn`
-- Delete: `scripts/ui/SaveOverwriteConfirmationController.cs`
-- Delete: `tests/ui/SaveOverwriteConfirmationControllerTest.cs`
-- Delete: `scenes/ui/PauseReturnToTitleConfirmation.tscn`
-- Delete: `scripts/ui/PauseReturnToTitleConfirmationController.cs`
-- Delete: `tests/ui/PauseReturnToTitleConfirmationControllerTest.cs`
+- Delete the six SaveOverwrite/PauseReturn confirmation scene/controller/test files listed in the File Map.
 
-**Interfaces:**
-- Consumes: `SiriusPrompt.Configure(...)`, `RequestCancel()`, `PrimaryRequested`, `CancelRequested`, `UIScreenKinds.Prompt`.
-- Produces this Game-local seam for Tasks 3-4:
+**Produces Game-local seam:**
 
 ```csharp
 private bool TryOpenHostedPrompt(
@@ -373,61 +292,40 @@ private bool TryOpenHostedPrompt(
     UIScreenHandle? parent = null,
     Control? restoreFocus = null,
     bool blockGameplayInput = false);
-```
 
-with fields:
-
-```csharp
 private UIScreenHandle? _hostedPromptHandle;
 private SiriusPrompt? _hostedPrompt;
 private Action? _hostedPromptPrimaryAction;
 private Action? _hostedPromptCancelAction;
 ```
 
-### 2A — RED integration tests
+- [ ] **Step 1: Write RED host tests**
 
-- [ ] **Step 1: Add shared-prompt destructive confirmation tests**
-
-In `GameplayPauseHostTest.cs`, add/replace:
+Add/replace in `GameplayPauseHostTest.cs`:
 
 ```text
 HostedOverwrite_UsesSharedPromptAndCancelRestoresSaveLoad
-HostedOverwrite_PrimaryInvokesSavePathOnce
+HostedOverwrite_PrimaryInvokesSaveOnce
 PauseReturnToTitle_UsesSharedPromptAndCancelRestoresPause
 PauseReturnToTitle_PrimaryRequestsNavigationOnce
-HostedPrompt_ProgrammaticCloseClearsHandleAndBlockingGroup
-HostedPrompt_ParentCloseRemovesDescendantAndClearsReferences
+HostedPrompt_ProgrammaticCloseClearsHandleAndGroup
+HostedPrompt_ParentCloseClearsDescendantReferences
 ```
 
-For the first/third tests assert `UIScreenKinds.Prompt` is the only prompt kind active, the prompt's parent is the expected Save/Load or Pause handle, Cancel is initial focus, and closing the prompt leaves the parent active.
+Update the overwrite configured-Cancel test in `GameInputLifecycleTest.cs` to expect one `UIScreenKinds.Prompt` child. One configured Cancel closes only Prompt; Save/Load and Pause remain active.
 
-- [ ] **Step 2: Migrate the configured overwrite Cancel expectation**
-
-In `GameInputLifecycleTest.cs`, change the overwrite journey to expect a `Prompt` child. One configured Cancel must close only Prompt; Save/Load and Pause remain active and the input event is handled.
-
-- [ ] **Step 3: Run RED**
+- [ ] **Step 2: Run RED**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~GameplayPauseHostTest.HostedOverwrite|FullyQualifiedName~GameplayPauseHostTest.PauseReturnToTitle|FullyQualifiedName~GameplayPauseHostTest.HostedPrompt|FullyQualifiedName~GameInputLifecycleTest.ConfiguredKeyboardCancel_SaveLoadOverwrite"
 ```
 
-Expected: FAIL because production still opens dedicated scenes/kinds.
+Expected: FAIL because production still uses dedicated confirmation scenes/kinds.
 
-### 2B — Game-local prompt host seam
+- [ ] **Step 3: Implement `TryOpenHostedPrompt` with the existing host contract**
 
-- [ ] **Step 4: Add Game prompt fields and loading path**
-
-`TryOpenHostedPrompt(...)` must:
-
-1. reject missing/invalid `_screenHost` or committed scene teardown;
-2. reject an active `_hostedPromptHandle` or active `UIScreenKinds.Prompt`;
-3. load `res://scenes/ui/components/SiriusPrompt.tscn`;
-4. instantiate/configure a fresh `SiriusPrompt`;
-5. store and subscribe the two root-owned closures;
-6. call `TryPresent` with the policy below.
-
-- [ ] **Step 5: Use the exact host policy**
+Load `res://scenes/ui/components/SiriusPrompt.tscn`, configure the prompt, store root closures, subscribe signals, and present exactly as:
 
 ```csharp
 var result = _screenHost.TryPresent(prompt, new UIScreenEntrySpec
@@ -456,11 +354,9 @@ var result = _screenHost.TryPresent(prompt, new UIScreenEntrySpec
 });
 ```
 
-On registration failure disconnect signals, clear stored closures only if they belong to this candidate, and queue the unhosted node directly.
+Reject missing/invalid host, committed teardown, an active Prompt handle, or `IsKindActive(UIScreenKinds.Prompt)`. On failed registration disconnect/clear only this candidate and queue it directly.
 
-- [ ] **Step 6: Implement close/cleanup with callback capture-before-close**
-
-Use:
+- [ ] **Step 4: Implement callback capture-before-close**
 
 ```csharp
 private void OnHostedPromptPrimaryRequested()
@@ -478,9 +374,9 @@ private void OnHostedPromptCancelRequested()
 }
 ```
 
-`ClearHostedPrompt(SiriusPrompt prompt)` disconnects signals and clears handle/view/actions only when `ReferenceEquals(_hostedPrompt, prompt)`. The capture before `TryClose(...)` is mandatory because cleanup clears the stored action synchronously.
+`ClearHostedPrompt(SiriusPrompt prompt)` unsubscribes and clears handle/view/actions only for the currently-owned prompt. Capture is required because host cleanup runs synchronously inside close.
 
-- [ ] **Step 7: Replace Save overwrite**
+- [ ] **Step 5: Replace Save overwrite**
 
 ```csharp
 private void OnHostedOverwriteRequested(int slot)
@@ -494,14 +390,13 @@ private void OnHostedOverwriteRequested(int slot)
         $"Slot {slot + 1} already contains save data. Overwrite it?",
         "Overwrite",
         onPrimary: () => OnHostedSaveSlotSelected(slot),
-        cancelActionText: "Cancel",
         parent: _hostedSaveLoadHandle);
 }
 ```
 
-The captured slot remains root-owned. Cancel has no domain callback.
+Cancel has no domain closure. The slot remains captured by `Game`, not the component.
 
-- [ ] **Step 8: Replace Pause return-to-title**
+- [ ] **Step 6: Replace Pause return-to-title**
 
 ```csharp
 private void OnHostedPauseReturnToTitleRequested()
@@ -515,29 +410,25 @@ private void OnHostedPauseReturnToTitleRequested()
         "Unsaved progress will be lost.",
         "Return to Title",
         onPrimary: ReturnToMainMenu,
-        cancelActionText: "Cancel",
         parent: _pauseHandle);
 }
 ```
 
-`ReturnToMainMenu()` remains teardown-safe and unchanged.
+Keep `ReturnToMainMenu()` / `RequestSceneChange(...)` unchanged.
 
-- [ ] **Step 9: Delete dedicated confirmation implementations**
+- [ ] **Step 7: Delete dedicated implementations and migrate useful assertions**
 
-Delete all six scene/controller/test files listed in this task. Useful leaf behavior is now in `SiriusPromptTest`; host/domain behavior remains in Game integration tests. Do not keep wrapper scenes or old class names.
+Delete all six feature-specific confirmation files. Leaf latch/layout/focus coverage now belongs to `SiriusPromptTest`; parent/domain behavior belongs to host/input tests. Do not keep wrapper scenes or old type names.
 
-- [ ] **Step 10: Run GREEN and build**
+- [ ] **Step 8: Run GREEN/build and commit**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~SiriusPromptTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameInputLifecycleTest"
-
 dotnet build Sirius.sln --no-restore --nologo
 ```
 
-Expected: PASS; no reference to either deleted controller/scene in active scripts/scenes/tests.
-
-- [ ] **Step 11: Commit Task 2**
+Expected: PASS / 0 errors.
 
 ```bash
 git add scripts/game/Game.cs tests/game/GameplayPauseHostTest.cs tests/game/GameInputLifecycleTest.cs \
@@ -548,7 +439,7 @@ git commit -m "refactor(ui): share destructive prompts"
 
 ---
 
-## Task 3: Migrate recoverable Main Menu/gameplay errors and preserve paused-tree behavior
+## Task 3: Migrate recoverable errors without losing paused-tree coverage
 
 **Files:**
 - Modify: `scripts/ui/MainMenu.cs`
@@ -556,36 +447,23 @@ git commit -m "refactor(ui): share destructive prompts"
 - Modify: `tests/ui/MainMenuTest.cs`
 - Modify: `tests/game/GameplayPauseHostTest.cs`
 - Modify: `tests/game/GameInputLifecycleTest.cs`
+- Modify: `tests/game/GameTest.cs`
 
-**Interfaces:**
-- Consumes: Game-local prompt seam from Task 2.
-- Produces: one MainMenu-local prompt seam with the same `SiriusPrompt`/host contract but no shared helper class.
-- Removes: `_activeErrorPopup` and its root-Cancel special case after hosted regressions replace them.
+**Produces:** MainMenu-local prompt helper using the same component/host policy; `Game.ShowSaveError(...)` becomes a `bool`-returning hosted-child seam.
 
-### 3A — Main Menu RED tests
+- [ ] **Step 1: Write RED Main Menu tests**
 
-- [ ] **Step 1: Add root warning/recoverable tests**
-
-In `MainMenuTest.cs`, add/replace:
+Add/replace:
 
 ```text
 LoadPressed_NoSaveFilesOpensWarningPromptAndRestoresLoadFocus
 LoadUnavailable_OpensRecoverablePromptWithoutAcceptDialog
-RootPrompt_ConfiguredTerminalCannotRunTwice
+ContinueFailure_WithHostedLoadKeepsLoadParentAndShowsPrompt
+HostedLoadFailure_KeepsLoadParentAfterAcknowledge
+RootPrompt_TerminalCannotRunTwice
 ```
 
-Assert `UIScreenKinds.Prompt`, no native `AcceptDialog`, root remains present/inert while prompt is active, and the invoking button regains focus after acknowledgement.
-
-- [ ] **Step 2: Add Load-parent retention tests**
-
-Add:
-
-```text
-ContinueFailure_WithHostedLoadKeepsLoadParentAndShowsRecoverablePrompt
-HostedLoadFailure_KeepsLoadParentAndRestoresLoadAfterAcknowledge
-```
-
-While the error is open:
+For Load-parent failures assert while open:
 
 ```csharp
 AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
@@ -593,87 +471,78 @@ AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
 AssertThat(loadScreen.Visible).IsTrue();
 ```
 
-After acknowledgement Prompt is gone and SaveLoad remains active.
+After acknowledgement Prompt is gone and SaveLoad remains.
 
-### 3B — gameplay paused-tree RED tests
+- [ ] **Step 2: Rewrite RED gameplay error tests onto the hosted chain**
 
-- [ ] **Step 3: Rewrite the old unhosted error tests before deleting `_activeErrorPopup`**
-
-Replace the current tests that directly assign or inspect `_activeErrorPopup` with hosted journeys:
+Replace the current `_activeErrorPopup` tests with:
 
 ```text
-ConfiguredKeyboardCancel_RecoverablePromptClosesBeforePauseOrSaveLoad
-ConfiguredKeyboardCancel_PausedRecoverablePromptRemainsDismissibleWhilePauseActive
+ConfiguredKeyboardCancel_RecoverablePromptDoesNotFallThroughToParents
+ConfiguredKeyboardCancel_PausedRecoverablePromptRemainsDismissible
+HostedSaveLoad_LoadFailureKeepsSaveLoadAndHostsPrompt
 ```
 
-Both tests must construct the real chain:
+Build the real chain:
 
 ```text
 Pause -> Save/Load -> RecoverableError Prompt
 ```
 
-and assert:
+Before Cancel assert Pause + SaveLoad + Prompt active and `SceneTree.Paused == true`. After one configured Cancel assert Prompt inactive, SaveLoad + Pause still active, tree still paused, and the same event did not close a parent/open another Pause.
+
+This replaces the old native `ProcessMode.Always` regression: Prompt's `UIProcessPolicy.Always` now proves dismissibility under the active Pause lease.
+
+- [ ] **Step 3: Add RED missing-parent test using the existing reflection helper**
+
+In `GameTest.cs`:
 
 ```csharp
-AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
-AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
-AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
-AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
+[TestCase]
+public async Task ShowSaveError_WithoutActiveSaveLoadReturnsFalseAndDoesNotOpenPrompt()
+{
+    await ReplaceWithHostedFixture();
+    var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+    var opened = InvokePrivate<bool>(
+        _game,
+        "ShowSaveError",
+        "Failed to save game.",
+        "Save Failed");
+
+    AssertThat(opened).IsFalse();
+    AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
+}
 ```
 
-After one configured Cancel, assert Prompt is gone, SaveLoad and Pause remain, the tree is still paused, and the same input did not fall through to close the parent or invoke the root fallback.
+The production implementation in Step 9 must also call `GD.PushError`; the boolean gives the test a deterministic seam without inventing log-capture infrastructure.
 
-This is the replacement for the old native `ProcessModeEnum.Always` characterization: the prompt's `UIProcessPolicy.Always` is now what makes the child responsive under Pause.
-
-- [ ] **Step 4: Rewrite the gameplay load-failure expectation**
-
-Change `HostedSaveLoad_LoadFailureClosesChildBeforeError` into:
-
-```text
-HostedSaveLoad_LoadFailureKeepsChildAndHostsRecoverablePrompt
-```
-
-Trigger the same missing slot data, then assert Pause + SaveLoad + Prompt are all active. Acknowledge Prompt and assert SaveLoad + Pause remain.
-
-- [ ] **Step 5: Add missing-parent loud-failure coverage**
-
-Add a focused Game test that invokes `ShowSaveError(...)` without active hosted Save/Load and captures Godot error output using the repository's existing error-monitoring helper/pattern. Assert no `UIScreenKinds.Prompt` entry is created and the expected error text identifies the missing Save/Load parent.
-
-Do not add a fallback root prompt solely to satisfy this test.
-
-- [ ] **Step 6: Run RED**
+- [ ] **Step 4: Run RED**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~MainMenuTest|FullyQualifiedName~GameplayPauseHostTest.HostedSaveLoad_LoadFailure|FullyQualifiedName~GameInputLifecycleTest.ConfiguredKeyboardCancel_.*Recoverable|FullyQualifiedName~GameTest.ShowSaveError"
 ```
 
-Expected: FAIL against the current native/close-parent behavior.
+Expected: FAIL against current native/close-parent behavior.
 
-### 3C — Main Menu hosted prompt seam
+- [ ] **Step 5: Replace Main Menu native message state with a root-local Prompt helper**
 
-- [ ] **Step 7: Replace Main Menu native message fields/helper**
+Replace `_messageDialog : AcceptDialog` / `_messageCloseDelegate` with `SiriusPrompt` state. Load `res://scenes/ui/components/SiriusPrompt.tscn` and use the same `BlockingPrompt`, `Always`, `Cancel = Consume`, `InterceptCancel -> RequestCancel()` policy as Game.
 
-Replace `_messageDialog : AcceptDialog` and `_messageCloseDelegate` with:
+Map:
 
-```csharp
-private UIScreenHandle? _messageHandle;
-private SiriusPrompt? _messagePrompt;
-private Action? _messagePrimaryAction;
-private Action? _messageCancelAction;
+```text
+no save files                 -> Warning
+Settings/Load unavailable     -> RecoverableError
+Continue/manual load failure  -> RecoverableError
 ```
 
-Keep the helper root-local; do not extract a shared presenter.
+For root messages use invoking button `RestoreFocus`; for a child message pass the parent handle and no root restore target.
 
-- [ ] **Step 8: Implement `TryOpenMessage` on the shared component**
+- [ ] **Step 6: Keep Main Menu Load active on load failure**
 
-Load `res://scenes/ui/components/SiriusPrompt.tscn`, configure either `Warning` or `RecoverableError`, and present with the same common host policy from Task 2. For a logical parent, pass `Parent = parent` and omit root `RestoreFocus`; for a root message, use the invoking control as `RestoreFocus`.
-
-Main Menu only needs one-action prompts in this task, so both Primary and configured Cancel acknowledge through the same Primary signal.
-
-- [ ] **Step 9: Preserve Main Menu Load as parent on failure**
-
-Change `OnHostedLoadSlotSelected` failure from close + deferred root message to direct child presentation:
+Change the failure branch in `OnHostedLoadSlotSelected` from close + deferred root message to direct child presentation:
 
 ```csharp
 if (saveData == null || manager == null)
@@ -691,24 +560,18 @@ if (saveData == null || manager == null)
 }
 ```
 
-Do not close Load and do not defer a root prompt.
+Do not close Load and do not defer a new root message.
 
-Map no-save to `Warning`; unavailable/failure paths to `RecoverableError`.
+- [ ] **Step 7: Move every gameplay failure before Save/Load close**
 
-### 3D — gameplay Save/Load errors
+In `OnHostedSaveSlotSelected` and `OnHostedLoadSlotSelected`, remove `TryCloseHostedSaveLoad(...)` immediately before every failure `ShowSaveError(...)` call. Successful save/load keeps existing terminal close/navigation behavior.
 
-- [ ] **Step 10: Move every gameplay failure before parent close**
+- [ ] **Step 8: Change `ShowSaveError` to a loud, testable hosted-child seam**
 
-For each failure branch in `OnHostedSaveSlotSelected` and `OnHostedLoadSlotSelected`, delete the preceding `TryCloseHostedSaveLoad(...)` and call `ShowSaveError(...)` while `_hostedSaveLoadHandle` is still active.
-
-Successful save/load terminal paths keep their existing close/navigation behavior.
-
-- [ ] **Step 11: Rewrite `ShowSaveError` as a hosted child with loud missing-parent handling**
-
-Keep a simple private method:
+Use exactly:
 
 ```csharp
-private void ShowSaveError(string message, string title = "Save Failed")
+private bool ShowSaveError(string message, string title = "Save Failed")
 {
     if (_screenHost == null ||
         !GodotObject.IsInstanceValid(_screenHost) ||
@@ -716,59 +579,48 @@ private void ShowSaveError(string message, string title = "Save Failed")
         !_screenHost.IsActive(_hostedSaveLoadHandle.Value))
     {
         GD.PushError("[Game] Cannot show save/load error without an active Save/Load parent.");
-        return;
+        return false;
     }
 
-    if (!TryOpenHostedPrompt(
-            SiriusPromptVariant.RecoverableError,
-            title,
-            message,
-            "OK",
-            parent: _hostedSaveLoadHandle))
-    {
+    var opened = TryOpenHostedPrompt(
+        SiriusPromptVariant.RecoverableError,
+        title,
+        message,
+        "OK",
+        parent: _hostedSaveLoadHandle);
+
+    if (!opened)
         GD.PushError("[Game] Failed to present hosted save/load error prompt.");
-    }
+
+    return opened;
 }
 ```
 
-No root/native fallback.
+Existing production callers may ignore the return value. Do not create a root/native fallback.
 
-- [ ] **Step 12: Delete `_activeErrorPopup` ownership only after hosted tests exist**
+- [ ] **Step 9: Delete native `_activeErrorPopup` ownership after hosted tests exist**
 
-Delete:
+Delete the field, its `_ExitTree` cleanup, `ShowSaveError` native dialog/signals, and `HandleGameplayRootCancel`'s special branch. Do not replace that root branch: active Prompt is now the top input owner and consumes Cancel before root fallback.
 
-```text
-_activeErrorPopup field
-HandleGameplayRootCancel branch that frees _activeErrorPopup
-ShowSaveError native AcceptDialog creation
-native Confirmed/Canceled handlers
-_ExitTree cleanup for _activeErrorPopup
-```
-
-Do not add a replacement branch to `HandleGameplayRootCancel`: active Prompt is now the top input owner and consumes configured Cancel through the host before root fallback.
-
-- [ ] **Step 13: Run GREEN and build**
+- [ ] **Step 10: Run GREEN/build and commit**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~MainMenuTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameTest|FullyQualifiedName~SiriusPromptTest"
-
 dotnet build Sirius.sln --no-restore --nologo
 ```
 
-Expected: PASS. The paused recoverable prompt closes while Pause remains tree-pause owner; SaveLoad remains active after recoverable acknowledgement; `MainMenu.cs` has no native message `AcceptDialog`.
-
-- [ ] **Step 14: Commit Task 3**
+Expected: PASS / 0 errors. A recoverable child remains dismissible while Pause keeps the tree paused; SaveLoad stays active after acknowledgement.
 
 ```bash
-git add scripts/ui/MainMenu.cs scripts/game/Game.cs \
-  tests/ui/MainMenuTest.cs tests/game/GameplayPauseHostTest.cs tests/game/GameInputLifecycleTest.cs tests/game/GameTest.cs
+git add scripts/ui/MainMenu.cs scripts/game/Game.cs tests/ui/MainMenuTest.cs \
+  tests/game/GameplayPauseHostTest.cs tests/game/GameInputLifecycleTest.cs tests/game/GameTest.cs
 git commit -m "refactor(ui): host recoverable prompts"
 ```
 
 ---
 
-## Task 4: Migrate corrupted-save presentation, retire product prompt kinds, and preserve host-test semantics
+## Task 4: Migrate corrupted-save presentation and retire product prompt kinds safely
 
 **Files:**
 - Modify: `scripts/game/Game.cs`
@@ -776,30 +628,18 @@ git commit -m "refactor(ui): host recoverable prompts"
 - Modify: `tests/game/GameTest.cs`
 - Modify: `tests/game/GameInputLifecycleTest.cs`
 - Modify: `tests/game/GameplayPauseHostTest.cs`
-- Modify: `tests/ui/hosting/UIScreenStackModelTest.cs`
-- Modify: `tests/ui/hosting/UIScreenHostSubwindowTest.cs`
-- Modify: `tests/ui/hosting/UIScreenHostInputTest.cs`
-- Modify: `tests/ui/hosting/UIScreenHostFocusTest.cs`
-- Modify: `tests/ui/hosting/UIScreenHostLifecycleTest.cs`
-- Modify: `tests/ui/hosting/UIScreenHostContractScenarioTest.cs`
-- Modify: `tests/ui/hosting/UIScreenHostProcessModeTest.cs`
+- Modify all seven host fixture test files from the File Map.
 - Modify: `docs/ui/hpa-376/ui-lifecycle-contract.md`
 
-**Interfaces:**
-- Consumes: Game-local `TryOpenHostedPrompt(...)` from Task 2.
-- Produces: no new public API; removes native corrupted-save ownership and dead product prompt kinds.
+- [ ] **Step 1: Write RED corrupted-save tests**
 
-### 4A — corrupted-save RED coverage
-
-- [ ] **Step 1: Add root corrupted-save prompt tests**
-
-Cover:
+Add:
 
 ```text
 CorruptedSave_OpensRecoverablePromptWithGameplayBlockWithoutTreePause
-CorruptedSave_PrimaryRequestsMainMenuExactlyOnce
-CorruptedSave_ConfiguredCancelMapsToPrimaryAndRequestsMainMenuExactlyOnce
-CorruptedSave_SecondDetectionDoesNotOpenSecondPrompt
+CorruptedSave_PrimaryRequestsMainMenuOnce
+CorruptedSave_ConfiguredCancelRequestsMainMenuOnce
+CorruptedSave_SecondDetectionDoesNotStackPrompt
 CorruptedSave_RootTeardownClearsPromptAndGameplayBlock
 ```
 
@@ -812,7 +652,7 @@ AssertThat(game.GetTree().Paused).IsFalse();
 AssertThat(game.IsProcessingInput()).IsTrue();
 ```
 
-The last assertion proves `SetProcessInput(false)` is gone; host presentation blocking is the replacement.
+The last assertion proves manual `SetProcessInput(false)` is gone.
 
 - [ ] **Step 2: Run corrupted-save RED**
 
@@ -821,11 +661,11 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~GameTest.CorruptedSave|FullyQualifiedName~GameInputLifecycleTest.CorruptedSave|FullyQualifiedName~GameplayPauseHostTest.CorruptedSave"
 ```
 
-Expected: FAIL because production still uses an unhosted native dialog/manual input disable.
+Expected: FAIL against current native/manual-input behavior.
 
-- [ ] **Step 3: Replace `ShowCorruptedSaveError()` presentation only**
+- [ ] **Step 3: Replace only corrupted-save presentation**
 
-Keep `_hasShownCorruptedSaveError` and the existing domain validation/initialization-abort flow. Replace native presentation with:
+Keep `_hasShownCorruptedSaveError` and current validation/abort semantics. Use:
 
 ```csharp
 private void ShowCorruptedSaveError()
@@ -848,19 +688,11 @@ private void ShowCorruptedSaveError()
 }
 ```
 
-Do not call `SetProcessInput(false)`. Do not add a native fallback. `RecoverableError.RequestCancel()` maps configured Cancel to Primary, so both visible action and Cancel take the same one-shot return path.
+Delete `SetProcessInput(false)` and native Confirmed/Canceled/local `handled` plumbing. Do not add a native fallback. `RecoverableError.RequestCancel()` already maps Cancel to Primary.
 
-### 4B — retarget host fixture kinds before deleting constants
+- [ ] **Step 4: Add test-local host kinds before deleting product constants**
 
-- [ ] **Step 4: Add test-local kind identities in every affected host suite**
-
-Do **not** add a shared test-kind registry and do **not** add more product constants. Define only the identities a test file needs, for example:
-
-```csharp
-private static readonly StringName ModalFixture = new("modal_fixture");
-```
-
-and in `UIScreenStackModelTest` where two simultaneous kinds are required:
+Do not add a shared test-kind registry. Add only file-local identities. In `UIScreenStackModelTest.cs` use:
 
 ```csharp
 private static readonly StringName BlockingPromptA = new("blocking_prompt_a");
@@ -868,48 +700,46 @@ private static readonly StringName BlockingPromptB = new("blocking_prompt_b");
 private static readonly StringName ModalFixture = new("modal_fixture");
 ```
 
-- [ ] **Step 5: Preserve `ExclusiveGroupConflict` coverage explicitly**
+For the other affected suites, a local `ModalFixture = new("modal_fixture")` is enough unless the test needs multiple simultaneous kinds.
 
-Rewrite `Open_DifferentConfirmationKindsShareBlockingPromptGroup` to use `BlockingPromptA` and `BlockingPromptB`, both in `UIScreenExclusiveGroups.BlockingPrompt`.
+- [ ] **Step 5: Preserve the exclusive-group test's actual contract**
 
-Keep the assertion:
+Rewrite `Open_DifferentConfirmationKindsShareBlockingPromptGroup` to open `BlockingPromptA` then `BlockingPromptB`, both in `UIScreenExclusiveGroups.BlockingPrompt`.
+
+Keep:
 
 ```csharp
 AssertThat(second.Status).IsEqual(UIScreenOpenStatus.ExclusiveGroupConflict);
 ```
 
-Never use `UIScreenKinds.Prompt` for both sides; that would produce `DuplicateKind` and stop testing the group contract.
+Never use `UIScreenKinds.Prompt` for both sides; that would exercise `DuplicateKind` instead.
 
-- [ ] **Step 6: Retarget the remaining generic fixture references file-by-file**
+- [ ] **Step 6: Retarget all remaining generic prompt-kind fixtures**
 
-Replace deleted `SaveError`, `ConfirmOverwrite`, or `ConfirmQuitToMain` identities only where they are generic host stand-ins:
+Replace product-kind stand-ins without changing the tested host policy:
 
 ```text
-UIScreenStackModelTest.cs              -> local blocking/modal fixture kinds
-UIScreenHostSubwindowTest.cs           -> local modal fixture kind
-UIScreenHostInputTest.cs               -> local modal fixture kind
-UIScreenHostFocusTest.cs               -> local modal/confirmation fixture kind(s)
-UIScreenHostLifecycleTest.cs           -> local modal fixture kind
-UIScreenHostContractScenarioTest.cs    -> local modal/confirmation fixture kind(s)
-UIScreenHostProcessModeTest.cs         -> local modal fixture kind
+UIScreenStackModelTest.cs              -> local blocking/modal kinds
+UIScreenHostSubwindowTest.cs           -> local modal kind
+UIScreenHostInputTest.cs               -> local modal kind
+UIScreenHostFocusTest.cs               -> local modal/confirmation kind(s)
+UIScreenHostLifecycleTest.cs           -> local modal kind
+UIScreenHostContractScenarioTest.cs    -> local modal/confirmation kind(s)
+UIScreenHostProcessModeTest.cs         -> local modal kind
 ```
 
-Do not change the host policy under test—only the arbitrary identity used by the fixture.
-
-- [ ] **Step 7: Run host tests before removing product constants**
+- [ ] **Step 7: Run host suites before deleting constants**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~UIScreenStackModelTest|FullyQualifiedName~UIScreenHostSubwindowTest|FullyQualifiedName~UIScreenHostInputTest|FullyQualifiedName~UIScreenHostFocusTest|FullyQualifiedName~UIScreenHostLifecycleTest|FullyQualifiedName~UIScreenHostContractScenarioTest|FullyQualifiedName~UIScreenHostProcessModeTest"
 ```
 
-Expected: PASS with original semantic assertions intact, especially `ExclusiveGroupConflict`.
+Expected: PASS, including the original `ExclusiveGroupConflict` assertion.
 
-### 4C — delete old product kinds and finish lifecycle docs
+- [ ] **Step 8: Delete obsolete product kinds**
 
-- [ ] **Step 8: Remove prompt-only product kinds**
-
-After production and test fixtures no longer require them, delete:
+Remove from `UIScreenKinds.cs`:
 
 ```csharp
 ConfirmOverwrite
@@ -918,56 +748,39 @@ SaveError
 CorruptSaveError
 ```
 
-Keep `UIScreenKinds.Prompt` and `UIScreenExclusiveGroups.BlockingPrompt`.
+Keep `Prompt` and `UIScreenExclusiveGroups.BlockingPrompt`.
 
-- [ ] **Step 9: Reconcile only changed HPA-376 rows**
+- [ ] **Step 9: Reconcile only migrated HPA-376 rows**
 
-Update rows describing:
+Update `MAIN-MESSAGE`, Pause Save/Load nested prompt behavior, Pause return-to-title, and corrupted-save/error rows. Record:
 
 ```text
-MAIN-MESSAGE
-PAUSE-SAVELOAD nested overwrite/error behavior
-PAUSE-QUIT-TO-MAIN
-corrupted-save/load blocking-error behavior
+scene-authored SiriusPrompt under ui/components
+one product Prompt kind
+three presentation variants only
+Save/Load parent retention
+Pause remains sole tree-pause owner; Prompt uses Always
+configured Cancel -> RequestCancel child-first
+corrupted save = RecoverableError chrome + host gameplay block
+one-shot terminal latch + host focus/teardown cleanup
 ```
 
-Record final facts:
+Do not rewrite Dialogue/Shop/Heal/Puzzle/Reward rows.
 
-- one scene-authored `SiriusPrompt` component;
-- one product `Prompt` kind;
-- destructive/warning/recoverable presentation only;
-- Save/Load parent retention;
-- Pause keeps the single tree-pause lease while child prompt uses `Always`;
-- configured Cancel is child-first through `RequestCancel()`;
-- corrupted save uses RecoverableError chrome plus host gameplay block;
-- exactly-once terminal latch and host focus/teardown cleanup.
-
-Do not rewrite Dialogue/Shop/Healing/Puzzle/Reward rows or claim they are migrated.
-
-### 4D — final verification
-
-- [ ] **Step 10: Run focused GREEN**
+- [ ] **Step 10: Run focused + full verification**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore \
   --filter "FullyQualifiedName~SiriusPromptTest|FullyQualifiedName~MainMenuTest|FullyQualifiedName~GameTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~UIScreenStackModelTest|FullyQualifiedName~UIScreenHost"
-```
 
-Expected: PASS.
-
-- [ ] **Step 11: Run full validation**
-
-```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo
 dotnet build Sirius.sln --no-restore --nologo
 git diff --check
 ```
 
-Expected: full suite PASS, 0 build errors, clean diff check.
+Expected: focused/full suites PASS, 0 build errors, clean diff check.
 
-- [ ] **Step 12: Run stale-reference audits**
-
-Dedicated confirmations must be gone:
+- [ ] **Step 11: Run stale-reference audits**
 
 ```bash
 rg -n "SaveOverwriteConfirmation|PauseReturnToTitleConfirmation" scripts scenes tests
@@ -975,15 +788,11 @@ rg -n "SaveOverwriteConfirmation|PauseReturnToTitleConfirmation" scripts scenes 
 
 Expected: no matches.
 
-Old product kinds must be gone from active code/tests:
-
 ```bash
 rg -n "UIScreenKinds\.(ConfirmOverwrite|ConfirmQuitToMain|SaveError|CorruptSaveError)" scripts tests
 ```
 
 Expected: no matches.
-
-Migrated roots must contain no native prompt construction:
 
 ```bash
 rg -n "AcceptDialog" scripts/game/Game.cs scripts/ui/MainMenu.cs
@@ -991,25 +800,21 @@ rg -n "AcceptDialog" scripts/game/Game.cs scripts/ui/MainMenu.cs
 
 Expected: no matches.
 
-The new modal component must live only under component paths:
-
 ```bash
 rg -n "SiriusPrompt" scripts/ui/components scenes/ui/components tests/ui/components scripts/game/Game.cs scripts/ui/MainMenu.cs
 ```
 
-Expected: matches for the shared component and its two root consumers; no top-level `scripts/ui/SiriusPromptController.cs` / `scenes/ui/SiriusPrompt.tscn` files.
+Expected: shared component + root consumers only; no top-level `scripts/ui/SiriusPromptController.cs` or `scenes/ui/SiriusPrompt.tscn`.
 
-Deferred legacy dialogs are allowed:
+Deferred legacy native dialogs are allowed:
 
 ```bash
 rg -n "AcceptDialog" scripts/ui/DialogueDialog.cs scripts/ui/ShopDialog.cs scripts/ui/HealDialog.cs scripts/ui/PuzzleRiddleDialog.cs
 ```
 
-Expected: matches are allowed and are not HPA-572 cleanup failures.
+- [ ] **Step 12: Scope audit and commit Task 4**
 
-- [ ] **Step 13: Scope-audit the production diff**
-
-The implementation diff may contain only:
+Allowed implementation scope:
 
 ```text
 shared SiriusPrompt component + test
@@ -1022,8 +827,6 @@ HPA-376 lifecycle contract
 ```
 
 Reject unrelated refactors or new shared APIs.
-
-- [ ] **Step 14: Commit Task 4**
 
 ```bash
 git add scripts/game/Game.cs scripts/ui/hosting/UIScreenKinds.cs \
@@ -1039,4 +842,4 @@ git commit -m "refactor(ui): finish hosted prompt migration"
 
 ## Final implementation handoff
 
-After the four task commits, run the complete validation in Task 4 again from the final branch head. The implementation is complete only when the full suite/build pass, stale-reference audits return the expected results, and the changed-file scope matches this plan.
+After all four task commits, rerun Task 4's complete validation from the final branch head. The implementation is complete only when the full suite/build pass, the paused-tree Prompt regression remains green, the exclusive-group test still proves `ExclusiveGroupConflict`, stale-reference audits return the expected results, and the changed-file scope matches this plan.

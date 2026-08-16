@@ -56,6 +56,7 @@ public static class SiriusUiMetrics
         SiriusModalSizeClass.Small => 420,
         SiriusModalSizeClass.Medium => 640,
         SiriusModalSizeClass.Large => 960,
+        SiriusModalSizeClass.Full => (int)MaximumContentWidth,
         _ => throw new ArgumentOutOfRangeException(nameof(sizeClass), sizeClass, null)
     };
 }

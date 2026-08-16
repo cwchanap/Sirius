@@ -79,7 +79,8 @@ public partial class SiriusUiContractsTest : Node
         AssertThat(Enum.GetValues<SiriusModalSizeClass>()).ContainsExactly(
             SiriusModalSizeClass.Small,
             SiriusModalSizeClass.Medium,
-            SiriusModalSizeClass.Large);
+            SiriusModalSizeClass.Large,
+            SiriusModalSizeClass.Full);
         AssertThat(Enum.GetValues<SiriusStatBarKind>()).ContainsExactly(
             SiriusStatBarKind.Health,
             SiriusStatBarKind.Mana,
@@ -145,6 +146,8 @@ public partial class SiriusUiContractsTest : Node
         AssertThat(SiriusUiMetrics.ModalWidth(SiriusModalSizeClass.Small)).IsEqual(420);
         AssertThat(SiriusUiMetrics.ModalWidth(SiriusModalSizeClass.Medium)).IsEqual(640);
         AssertThat(SiriusUiMetrics.ModalWidth(SiriusModalSizeClass.Large)).IsEqual(960);
+        AssertThat(SiriusUiMetrics.ModalWidth(SiriusModalSizeClass.Full))
+            .IsEqual((int)SiriusUiMetrics.MaximumContentWidth);
         AssertThrown(() => SiriusUiMetrics.ModalWidth((SiriusModalSizeClass)99))
             .IsInstanceOf<ArgumentOutOfRangeException>();
         AssertThat(SiriusUiMetrics.VerificationViewports).ContainsExactly(

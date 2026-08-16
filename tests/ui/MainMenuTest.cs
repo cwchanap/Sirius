@@ -662,16 +662,27 @@ public partial class MainMenuTest : Node
                 .GetNode<Button>("%PrimaryButton").EmitSignal(Button.SignalName.Pressed);
             await AwaitFrames(2);
 
-            // The retained screen must be rearmed: the latch is released so a
-            // further action (Cancel) closes the Load screen normally.
+            // The retained screen must be rearmed: the latch is released so
+            // selecting another slot is accepted.
             AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
             AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
-            var cancel = loadScreen.GetNode<Button>("%CancelButton");
-            AssertThat(cancel.Disabled).IsFalse();
-            cancel.EmitSignal(Button.SignalName.Pressed);
+            slotInfos[2] = new SaveSlotInfo
+            {
+                Exists = true,
+                State = SaveSlotState.Valid,
+                SlotIndex = 2,
+                PlayerName = "Missing",
+                PlayerLevel = 1
+            };
+            var slot2Card = loadScreen.GetNode<Button>("%Slot2Card");
+            slot2Card.Disabled = false;
+            slot2Card.EmitSignal(Button.SignalName.Pressed);
             await AwaitFrames(2);
 
-            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+            // The new selection was accepted: a fresh error Prompt opened
+            // under the same retained Load parent.
+            AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
         }
         finally
         {

@@ -44,7 +44,6 @@ public partial class Game : Node2D
     private UIScreenHandle? _hostedPromptHandle;
     private SiriusPrompt? _hostedPrompt;
     private Action? _hostedPromptPrimaryAction;
-    private Action? _hostedPromptCancelAction;
     private bool _presentationGameplayBlocked;
     private static readonly IReadOnlySet<StringName> GameplayCoreCancelActions =
         new HashSet<StringName> { "pause_menu", "ui_cancel" };
@@ -589,9 +588,7 @@ public partial class Game : Node2D
         string primaryActionText,
         Action? onPrimary = null,
         string cancelActionText = "Cancel",
-        Action? onCancel = null,
         UIScreenHandle? parent = null,
-        Control? restoreFocus = null,
         bool blockGameplayInput = false)
     {
         if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
@@ -630,7 +627,6 @@ public partial class Game : Node2D
 
         prompt.Configure(variant, title, message, primaryActionText, cancelActionText);
         _hostedPromptPrimaryAction = onPrimary;
-        _hostedPromptCancelAction = onCancel;
         prompt.PrimaryRequested += OnHostedPromptPrimaryRequested;
         prompt.CancelRequested += OnHostedPromptCancelRequested;
 
@@ -654,7 +650,6 @@ public partial class Game : Node2D
                 return UIInputInterception.ConsumeHere;
             },
             InitialFocus = () => prompt.InitialFocusTarget,
-            RestoreFocus = restoreFocus == null ? null : () => restoreFocus,
             Cleanup = _ => ClearHostedPrompt(prompt),
             NodeLifetime = UINodeLifetime.QueueFree
         });
@@ -663,7 +658,6 @@ public partial class Game : Node2D
             prompt.PrimaryRequested -= OnHostedPromptPrimaryRequested;
             prompt.CancelRequested -= OnHostedPromptCancelRequested;
             _hostedPromptPrimaryAction = null;
-            _hostedPromptCancelAction = null;
             prompt.QueueFree();
             return false;
         }
@@ -682,9 +676,7 @@ public partial class Game : Node2D
 
     private void OnHostedPromptCancelRequested()
     {
-        var action = _hostedPromptCancelAction;
         TryCloseHostedPrompt(UIScreenCloseReason.ExplicitAction);
-        action?.Invoke();
     }
 
     private bool TryCloseHostedPrompt(UIScreenCloseReason reason)
@@ -720,7 +712,6 @@ public partial class Game : Node2D
             _hostedPromptHandle = null;
             _hostedPrompt = null;
             _hostedPromptPrimaryAction = null;
-            _hostedPromptCancelAction = null;
         }
     }
 

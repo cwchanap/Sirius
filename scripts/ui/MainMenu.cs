@@ -418,19 +418,10 @@ public partial class MainMenu : Control
             return false;
 
         var scene = GD.Load<PackedScene>("res://scenes/ui/SettingsMenu.tscn");
-        if (scene == null)
-        {
-            TryOpenMessage(
-                SiriusPromptVariant.RecoverableError,
-                "Settings",
-                "Settings unavailable.",
-                _settingsButton);
-            return false;
-        }
-
-        var settings = scene.Instantiate<SettingsMenuController>();
+        var settings = scene?.Instantiate<SettingsMenuController>();
         if (settings == null)
         {
+            GD.PushError("MainMenu: Failed to instantiate SettingsMenuController.");
             TryOpenMessage(
                 SiriusPromptVariant.RecoverableError,
                 "Settings",
@@ -542,19 +533,10 @@ public partial class MainMenu : Control
 
         var restoreTarget = restoreFocus ?? _loadButton;
         var scene = GD.Load<PackedScene>("res://scenes/ui/SaveLoadScreen.tscn");
-        if (scene == null)
-        {
-            TryOpenMessage(
-                SiriusPromptVariant.RecoverableError,
-                "Load Game",
-                "Load screen unavailable.",
-                restoreTarget);
-            return false;
-        }
-
-        var screen = scene.Instantiate<SaveLoadScreenController>();
+        var screen = scene?.Instantiate<SaveLoadScreenController>();
         if (screen == null)
         {
+            GD.PushError("MainMenu: Failed to instantiate SaveLoadScreenController.");
             TryOpenMessage(
                 SiriusPromptVariant.RecoverableError,
                 "Load Game",
@@ -712,6 +694,7 @@ public partial class MainMenu : Control
         Action? onPrimary = null)
     {
         if (_screenHost == null || !IsInstanceValid(_screenHost) ||
+            _sceneChangeCommitted ||
             _screenHost.IsKindActive(UIScreenKinds.Prompt))
         {
             return false;

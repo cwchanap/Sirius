@@ -516,7 +516,7 @@ var promptEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.
 AssertThat(promptEntry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
 ```
 
-For Load-parent tests assert SaveLoad + Prompt active while error is shown, then Prompt gone and SaveLoad still active after acknowledgement.
+For Load-parent tests assert SaveLoad + Prompt active while error is shown, then Prompt gone and SaveLoad still active after acknowledgement. After acknowledging the failure, select another slot and verify it is accepted (the terminal latch was released by `RearmAfterFailedTerminal`).
 
 For root prompts assert root actions become unavailable while Prompt is active and become available again after cleanup, preserving the current `RefreshActionAvailability()` behavior.
 
@@ -572,11 +572,14 @@ if (saveData == null || manager == null)
             "Load Failed",
             "Failed to load save file.",
             restoreFocus: null,
-            parent: _loadHandle);
+            parent: _loadHandle,
+            onPrimary: () => _loadScreen?.RearmAfterFailedTerminal());
     }
     return;
 }
 ```
+
+The `onPrimary` closure is the post-close acknowledgement action: `OnMessagePrimaryRequested` captures it, attempts the Prompt close, then invokes it unconditionally. `RearmAfterFailedTerminal` releases the Save/Load screen's one-way terminal latch so the user can select another slot.
 
 Do not call `TryCloseHostedLoad(...)` first.
 
@@ -648,7 +651,7 @@ AssertThat(promptEntry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
 AssertThat(promptEntry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
 ```
 
-After one configured Cancel assert Prompt inactive, SaveLoad + Pause still active, tree still paused, and no root Pause fallback ran.
+After one configured Cancel assert Prompt inactive, SaveLoad + Pause still active, tree still paused, and no root Pause fallback ran. For `HostedSaveLoad_LoadFailureKeepsSaveLoadAndHostsPrompt`, after acknowledging the failure Prompt, select another slot and verify it is accepted (the terminal latch was released by `RearmAfterFailedTerminal`).
 
 This replaces the old native `ProcessModeEnum.Always` proof with the hosted `UIProcessPolicy.Always` contract.
 
@@ -731,9 +734,12 @@ private bool ShowSaveError(string message, string title = "Save Failed")
         title,
         message,
         "OK",
+        onPrimary: () => _hostedSaveLoadScreen?.RearmAfterFailedTerminal(),
         parent: _hostedSaveLoadHandle);
 }
 ```
+
+The `onPrimary` closure is the post-close acknowledgement action: `OnHostedPromptPrimaryRequested` captures it, attempts the Prompt close, then invokes it unconditionally. `RearmAfterFailedTerminal` releases the Save/Load screen's one-way terminal latch so the user can select another slot.
 
 No native/root fallback.
 

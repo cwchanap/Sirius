@@ -839,13 +839,23 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
 
         // The retained screen must be rearmed after the error: the one-way
-        // terminal latch is released and a further action works normally.
-        var cancel = loadScreen.GetNode<Button>("%CancelButton");
-        AssertThat(cancel.Disabled).IsFalse();
-        cancel.EmitSignal(Button.SignalName.Pressed);
+        // terminal latch is released and selecting another slot is accepted.
+        slotInfos[1] = new SaveSlotInfo
+        {
+            Exists = true,
+            State = SaveSlotState.Valid,
+            SlotIndex = 1,
+            PlayerName = "Missing",
+            PlayerLevel = 1
+        };
+        loadScreen.GetNode<Button>("%Slot1Card").Disabled = false;
+        loadScreen.GetNode<Button>("%Slot1Card").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(2);
 
-        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsFalse();
+        // The new selection was accepted: a fresh error Prompt opened under
+        // the same retained Save/Load parent.
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
     }
 
@@ -1050,6 +1060,7 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(InvokePrivateBool(_game, "TryOpenPause")).IsTrue();
         await AwaitFrames(2);
         var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        var pauseHandle = FindEntry(host, UIScreenKinds.Pause).Handle;
         pause.GetNode<Button>("%SaveButton").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(2);
         var saveScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
@@ -1072,7 +1083,7 @@ public partial class GameplayPauseHostTest : Node
         AssertThat(GetPrivateField<SiriusPrompt?>(_game, "_hostedPrompt")).IsNull();
         AssertThat(GetPrivateField<UIScreenHandle?>(_game, "_hostedSaveLoadHandle")).IsNull();
         AssertThat(GetPrivateField<SaveLoadScreenController?>(_game, "_hostedSaveLoadScreen")).IsNull();
-        AssertHostedChildRemainsAboveSamePause(host, pause, FindEntry(host, UIScreenKinds.Pause).Handle);
+        AssertHostedChildRemainsAboveSamePause(host, pause, pauseHandle);
     }
 
     [TestCase]

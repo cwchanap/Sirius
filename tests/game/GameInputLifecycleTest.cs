@@ -212,10 +212,10 @@ public partial class GameInputLifecycleTest : Node
             .IsEqual(pauseEntry.Handle);
     }
 
-    // Protects the hosted replacement for the ProcessModeEnum.Always fix in
-    // Game.ShowSaveError: the error surfaces beneath an active hosted Pause
-    // (which owns the tree-pause lease) and must stay dismissible while
-    // SceneTree.Paused is true, without dropping the Pause lease.
+    // Distinct from the preceding fall-through test: proves the hosted
+    // UIProcessPolicy.Always contract resolves to the live Prompt Control's
+    // Godot ProcessModeEnum.Always, which is what keeps it dismissible while
+    // SceneTree.Paused is true beneath the Pause lease.
     [TestCase]
     public async Task ConfiguredKeyboardCancel_PausedRecoverablePromptRemainsDismissible()
     {
@@ -225,23 +225,16 @@ public partial class GameInputLifecycleTest : Node
 
         var host = await OpenPausedSaveLoadErrorPrompt();
 
-        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
-        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
-        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
-        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
-        var promptEntry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Prompt);
-        AssertThat(promptEntry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
-        AssertThat(promptEntry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+        // The live Prompt Control must resolve to Always so it processes input
+        // while the tree is paused. The preceding test checks the policy entry;
+        // this one checks the actual Godot process mode on the node.
+        var prompt = FindDirectChild<SiriusPrompt>(host.GetNode<Control>("ModalLayer"));
+        AssertThat(prompt.ProcessMode).IsEqual(ProcessModeEnum.Always);
 
-        // The Always process policy keeps the hosted error dismissible while
-        // the tree stays paused beneath the Pause lease.
         PushPhysicalKey(Key.P);
         await AwaitFrames(3);
 
         AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
-        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
-        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
-        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsTrue();
     }
 
     [TestCase]

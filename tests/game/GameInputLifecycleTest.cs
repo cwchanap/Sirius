@@ -334,6 +334,62 @@ public partial class GameInputLifecycleTest : Node
     }
 
     [TestCase]
+    public async Task ConfiguredKeyboardCancel_ClosesHostedDialogueThroughRealRoute()
+    {
+        ConfigureCancelBindings(Key.P);
+        _realGame = await InstantiateGameScene(_viewport!);
+        var gameManager = _realGame.GetNode<GameManager>("GameManager");
+        var host = _realGame.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var internalPosition = FindNpcInternalPosition(_realGame, "village_shopkeeper");
+
+        InvokePrivate(_realGame, "OnNpcInteracted", internalPosition);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsTrue();
+
+        PushPhysicalKeyDown(Key.P);
+        await AwaitFrames(2);
+
+        try
+        {
+            AssertThat(_viewport!.IsInputHandled()).IsTrue();
+            AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+            AssertThat(gameManager.IsInNpcInteraction).IsFalse();
+        }
+        finally
+        {
+            ReleasePhysicalKey(Key.P);
+        }
+    }
+
+    [TestCase]
+    public async Task ConfiguredControllerCancel_ClosesHostedDialogueThroughRealRoute()
+    {
+        var controllerBinding = new InputEventJoypadButton
+        {
+            ButtonIndex = (JoyButton)10
+        };
+        ConfigureCancelBindings(Key.P, controllerBinding);
+        _realGame = await InstantiateGameScene(_viewport!);
+        var gameManager = _realGame.GetNode<GameManager>("GameManager");
+        var host = _realGame.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var internalPosition = FindNpcInternalPosition(_realGame, "village_shopkeeper");
+
+        InvokePrivate(_realGame, "OnNpcInteracted", internalPosition);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsTrue();
+
+        PushPhysicalJoypadButtonPressAndRelease((JoyButton)10);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        AssertThat(gameManager.IsInNpcInteraction).IsFalse();
+    }
+
+    [TestCase]
     public async Task ConfiguredKeyboardPauseMenu_OpensHostedPauseThenResumesTreeOnSecondPhysicalAction()
     {
         ConfigureCancelBindings(Key.P);
@@ -760,6 +816,21 @@ public partial class GameInputLifecycleTest : Node
         }
 
         throw new InvalidOperationException($"Direct child '{typeof(T).Name}' was not found.");
+    }
+
+    private static Vector2I FindNpcInternalPosition(Game game, string npcId)
+    {
+        var grid = game.GetNode<FloorManager>("FloorManager").CurrentGridMap;
+        var floorRoot = grid.GetParent();
+        var spawn = game.GetTree().GetNodesInGroup("NpcSpawn")
+            .OfType<NpcSpawn>()
+            .Single(node => node.NpcId == npcId && node.BelongsToFloor(floorRoot));
+        var origin = GetPrivateField<Vector2I>(grid, "_tilemapOrigin");
+        var internalPosition = spawn.GridPosition - origin;
+
+        AssertThat(grid.InternalGridToTilemapCoords(internalPosition))
+            .IsEqual(spawn.GridPosition);
+        return internalPosition;
     }
 
     private void ConfigureCancelBindings(Key pauseKey, InputEvent? controllerBinding = null)

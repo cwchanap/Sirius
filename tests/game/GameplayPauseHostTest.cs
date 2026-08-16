@@ -193,6 +193,93 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
+    public async Task NpcDialogue_HostsAsBlockingScreenWithoutPausingTree()
+    {
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameUi = _game.GetNode<Control>("UI/GameUI");
+        var gameManager = _game.GetNode<GameManager>("GameManager");
+        var internalPosition = FindNpcInternalPosition(_game, "village_shopkeeper");
+
+        InvokePrivateVoid(_game, "OnNpcInteracted", internalPosition);
+        await AwaitFrames(2);
+
+        var entry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Dialogue);
+        AssertThat(gameManager.IsInNpcInteraction).IsTrue();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+        AssertThat(entry.Policy.BlockGameplayInput).IsTrue();
+        AssertThat(entry.Policy.PauseTree).IsFalse();
+        AssertThat(entry.Policy.Hud).IsEqual(UIHudPolicy.Visible);
+        AssertThat(entry.Policy.Cursor).IsEqual(UICursorPolicy.Visible);
+        AssertThat(entry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+        AssertThat(gameUi.Visible).IsTrue();
+    }
+
+    [TestCase]
+    public async Task NpcDialogue_GoodbyeCompletesThroughRealRoute()
+    {
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameUi = _game.GetNode<Control>("UI/GameUI");
+        var gameManager = _game.GetNode<GameManager>("GameManager");
+        var floorManager = _game.GetNode<FloorManager>("FloorManager");
+        var gridMap = floorManager.CurrentGridMap;
+        var playerController = _game.GetNode<PlayerController>("PlayerController");
+        var internalPosition = FindNpcInternalPosition(_game, "village_shopkeeper");
+
+        var box = new TreasureBoxSpawn
+        {
+            Name = "TreasureBox_NpcDialogueRouteTest",
+            TreasureBoxId = "TreasureBox_NpcDialogueRouteTest",
+            GridPosition = new Vector2I(9, 50),
+            RewardGold = 1
+        };
+        gridMap.AddChild(box);
+        box.AddToGroup("TreasureBoxSpawn");
+        SetPrivateField(gridMap, "_grid", new int[gridMap.GridWidth, gridMap.GridHeight]);
+        SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 50));
+        SetPrivateField(playerController, "_lastFacingDirection", Vector2I.Right);
+        gridMap.CallDeferred(nameof(GridMap.RegisterStaticTreasureBoxes));
+        await AwaitFrames(3);
+
+        InvokePrivateVoid(_game, "OnNpcInteracted", internalPosition);
+        await AwaitFrames(2);
+
+        var dialogue = FindDirectChild<DialogueScreenController>(
+            host.GetNode<Control>("ModalLayer"));
+        FindButton(dialogue, "Goodbye.").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
+        AssertThat(gameManager.IsInNpcInteraction).IsFalse();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsFalse();
+        AssertThat(gameUi.Visible).IsTrue();
+
+        var hud = _game.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+        AssertThat(hud.GetNode<PanelContainer>("%PromptPlate").Visible).IsTrue();
+        AssertThat(hud.GetNode<SiriusContextPrompt>("%ContextPrompt").Prompt)
+            .IsEqual("Open");
+    }
+
+    [TestCase]
+    public async Task NpcDialogue_TreeExitClearsDomainFlagAndHostEntries()
+    {
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameManager = _game.GetNode<GameManager>("GameManager");
+        var internalPosition = FindNpcInternalPosition(_game, "village_shopkeeper");
+
+        InvokePrivateVoid(_game, "OnNpcInteracted", internalPosition);
+        await AwaitFrames(2);
+
+        AssertThat(gameManager.IsInNpcInteraction).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsTrue();
+
+        _viewport!.RemoveChild(_game!); // executes real _ExitTree() on the Game subtree
+
+        AssertThat(gameManager.IsInNpcInteraction).IsFalse();
+        AssertThat(host.ActiveEntries.Count).IsEqual(0);
+    }
+
+    [TestCase]
     public void GameSceneHostPrepareForTeardown_ClosesEntryAndRestoresIncomingState()
     {
         var host = _game!.GetNodeOrNull<UIScreenHost>("UI/UIScreenHost");
@@ -1442,6 +1529,51 @@ public partial class GameplayPauseHostTest : Node
         }
 
         throw new InvalidOperationException($"Direct child '{typeof(T).Name}' was not found.");
+    }
+
+    private static Vector2I FindNpcInternalPosition(Game game, string npcId)
+    {
+        var grid = game.GetNode<FloorManager>("FloorManager").CurrentGridMap;
+        var floorRoot = grid.GetParent();
+        var spawn = game.GetTree().GetNodesInGroup("NpcSpawn")
+            .OfType<NpcSpawn>()
+            .Single(node => node.NpcId == npcId && node.BelongsToFloor(floorRoot));
+        var origin = GetPrivateField<Vector2I>(grid, "_tilemapOrigin");
+        var internalPosition = spawn.GridPosition - origin;
+
+        AssertThat(grid.InternalGridToTilemapCoords(internalPosition))
+            .IsEqual(spawn.GridPosition);
+        return internalPosition;
+    }
+
+    private static Button FindButton(Node node, string text)
+    {
+        if (node is Button button && button.Text == text)
+            return button;
+
+        foreach (Node child in node.GetChildren())
+        {
+            var found = FindButtonOrNull(child, text);
+            if (found != null)
+                return found;
+        }
+
+        throw new InvalidOperationException($"Button '{text}' not found.");
+    }
+
+    private static Button? FindButtonOrNull(Node node, string text)
+    {
+        if (node is Button button && button.Text == text)
+            return button;
+
+        foreach (Node child in node.GetChildren())
+        {
+            var found = FindButtonOrNull(child, text);
+            if (found != null)
+                return found;
+        }
+
+        return null;
     }
 
     private static async Task AwaitFrames(int frameCount)

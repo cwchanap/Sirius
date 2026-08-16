@@ -146,7 +146,23 @@ public class NpcInteractionController
     private void OnDialogueOutcome(int outcomeInt)
     {
         var outcome = (DialogueOutcomeType)outcomeInt;
-        CloseDialoguePresentation(UIScreenCloseReason.Programmatic);
+        // CloseDialoguePresentation calls _screenHost.TryClose, whose
+        // Recompute publishes the unblocked state via GameplayInputBlockChanged
+        // / EffectiveStateChanged. A throwing subscriber escapes TryClose and
+        // would skip the outcome switch below — for CloseAndReturn that means
+        // Finish() is never called and GameManager.IsInNpcInteraction latches.
+        // The host's Cleanup callback (ClearDialoguePresentation) has already
+        // run by the time Recompute publishes, so the Dialogue entry is gone
+        // and its signals are disconnected; swallowing the publication
+        // exception and proceeding to the outcome switch is safe.
+        try
+        {
+            CloseDialoguePresentation(UIScreenCloseReason.Programmatic);
+        }
+        catch (Exception ex)
+        {
+            GD.PushError($"[NpcInteractionController] Close publication failed during dialogue outcome: {ex.Message}");
+        }
 
         switch (outcome)
         {
@@ -168,7 +184,23 @@ public class NpcInteractionController
 
     private void OnDialogueClosed()
     {
-        CloseDialoguePresentation(UIScreenCloseReason.Programmatic);
+        // Same publication-exception concern as OnDialogueOutcome: TryClose's
+        // Recompute publishes the unblocked state and a throwing subscriber
+        // escapes TryClose. Without catching it here, Finish() is never
+        // called, InteractionComplete never fires, and
+        // GameManager.IsInNpcInteraction latches. By the time Recompute
+        // publishes, the host's Cleanup (ClearDialoguePresentation) has
+        // already unsubscribed the dialogue signals and cleared
+        // _dialogueScreen/_dialogueHandle, so the Dialogue is gone; swallowing
+        // the publication exception and proceeding to Finish() is safe.
+        try
+        {
+            CloseDialoguePresentation(UIScreenCloseReason.Programmatic);
+        }
+        catch (Exception ex)
+        {
+            GD.PushError($"[NpcInteractionController] Close publication failed during dialogue closed: {ex.Message}");
+        }
         Finish();
     }
 
@@ -261,9 +293,26 @@ public class NpcInteractionController
     {
         if (_finished) return;
         _finished = true;
-        CloseDialoguePresentation(UIScreenCloseReason.Programmatic);
-        CleanupShopDialog();
-        CleanupHealDialog();
+        // CloseDialoguePresentation / CleanupShopDialog / CleanupHealDialog can
+        // throw via the same TryClose → Recompute publication path. _finished is
+        // set BEFORE cleanup so a re-entrant Finish() (e.g. from a signal fired
+        // during cleanup) is a no-op. But that means a throw here would skip
+        // InteractionComplete and leave GameManager.IsInNpcInteraction latched
+        // forever — every later Finish() retry is a no-op because _finished is
+        // already true. Wrap the cleanup so InteractionComplete always fires;
+        // the entry is already gone by the time a publication exception escapes
+        // TryClose (the host's Cleanup ran first), so proceeding to
+        // InteractionComplete is safe.
+        try
+        {
+            CloseDialoguePresentation(UIScreenCloseReason.Programmatic);
+            CleanupShopDialog();
+            CleanupHealDialog();
+        }
+        catch (Exception ex)
+        {
+            GD.PushError($"[NpcInteractionController] Cleanup during finish failed: {ex.Message}");
+        }
         InteractionComplete?.Invoke();
     }
 }

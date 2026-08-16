@@ -1059,7 +1059,7 @@ public partial class Game : Node2D
             GD.PushError($"[Game] NpcInteractionController.Begin() threw: {ex.Message}. Ending NPC interaction.");
             _npcInteractionController.InteractionComplete -= OnNpcInteractionComplete;
             _npcInteractionController = null;
-            _gameManager.EndNpcInteraction();
+            EndNpcInteractionIfActive();
             UpdateInteractionPrompt();
         }
     }
@@ -1493,6 +1493,16 @@ public partial class Game : Node2D
         _explorationHud.HideInteractionPrompt();
     }
 
+    private void EndNpcInteractionIfActive()
+    {
+        if (_gameManager != null &&
+            GodotObject.IsInstanceValid(_gameManager) &&
+            _gameManager.IsInNpcInteraction)
+        {
+            _gameManager.EndNpcInteraction();
+        }
+    }
+
     private void OnNpcInteractionComplete()
     {
         if (_npcInteractionController != null)
@@ -1500,7 +1510,7 @@ public partial class Game : Node2D
             _npcInteractionController.InteractionComplete -= OnNpcInteractionComplete;
         }
 
-        _gameManager.EndNpcInteraction();
+        EndNpcInteractionIfActive();
         _npcInteractionController = null;
         UpdatePlayerUI();
         UpdateInteractionPrompt();
@@ -1514,10 +1524,7 @@ public partial class Game : Node2D
             return;
         }
 
-        if (_gameManager.IsInNpcInteraction)
-        {
-            _gameManager.EndNpcInteraction();
-        }
+        EndNpcInteractionIfActive();
     }
 
     private Enemy CreateEnemyByArea(Vector2I position)
@@ -2163,6 +2170,8 @@ public partial class Game : Node2D
             _npcInteractionController.Finish();
             _npcInteractionController = null;
         }
+
+        EndNpcInteractionIfActive();
 
         CleanupPuzzleRiddleDialog(endWorldInteraction: false);
 

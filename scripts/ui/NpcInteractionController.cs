@@ -120,6 +120,25 @@ public class NpcInteractionController
             return;
         }
 
+        // TryPresent() can return Opened even when an EffectiveStateChanged /
+        // GameplayInputBlockChanged subscriber synchronously closed the entry
+        // during the final post-commit publication. UIScreenHost documents and
+        // tests this contract: the entry may already be closed when
+        // TryPresent() returns. In that case Cleanup already ran
+        // ClearDialoguePresentation(screen), which unsubscribed the dialogue
+        // signals but could not clear the controller state because
+        // _dialogueScreen was still null at that point (assigned below).
+        // Retaining the stale screen/handle would leave no visible Dialogue
+        // and no future terminal signal to call Finish(), while
+        // GameManager.IsInNpcInteraction stays true — a soft-lock. The close
+        // path already freed/queued the view and unsubscribed the signals, so
+        // just finish without touching the screen again.
+        if (!_screenHost.IsActive(result.Handle.Value))
+        {
+            Finish();
+            return;
+        }
+
         _dialogueScreen = screen;
         _dialogueHandle = result.Handle.Value;
     }

@@ -2,44 +2,47 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace native `DialogueDialog` with one scene-authored bottom Dialogue surface hosted by the gameplay `UIScreenHost`, preserving current dialogue-tree behavior and exactly-once NPC-interaction cleanup.
+**Goal:** Replace native `DialogueDialog` with one scene-authored wide bottom Dialogue surface hosted by the gameplay `UIScreenHost`, preserving current dialogue-tree behavior and exactly-once NPC-interaction cleanup.
 
-**Architecture:** Keep `NpcInteractionController` as the single Dialogue → Shop/Heal orchestration owner. Move the existing traversal/choice logic into a scene-backed `Control`, configure it safely before it enters the scene tree, present it through the existing host, and leave Shop/Heal native for HPA-570. `Game` remains the domain-flag/root lifecycle owner and gains only the host guard plus teardown-safe interaction ending.
+**Architecture:** Keep `NpcInteractionController` as the single Dialogue → Shop/Heal orchestration owner. Move existing traversal/choice behavior into a pre-ready-safe scene-backed `Control`, present it through the existing gameplay host, and leave Shop/Heal native for HPA-570. Dialogue owns only one local responsive-layout method; `Game` remains the domain/root lifecycle owner.
 
-**Tech Stack:** Godot 4.6.2, C#/.NET 8, GdUnit4, existing Sirius Theme, `SiriusModalShell`, and `UIScreenHost`.
+**Tech Stack:** Godot 4.6.2, C#/.NET 8, GdUnit4, existing Sirius Theme, `SiriusModalShell`, `SiriusUiMetrics`, and `UIScreenHost`.
 
-## Global constraints
+## Global Constraints
 
-- Reuse `SiriusModalShell`; do not add another shell or modal framework.
-- Reuse `UIScreenKinds.Dialogue`; do not add host kinds, host APIs, policy factories, or exclusive groups.
+- Reuse `SiriusModalShell`; do not add another shell, placement enum, or modal framework.
+- Reuse `UIScreenKinds.Dialogue`; do not add host kinds, exclusive groups, policy factories, or host APIs.
 - Keep `NpcInteractionController` as orchestration owner; do not move dialogue progression into `Game`.
-- Preserve condition evaluation, branching, `GrantFlag`, outcomes, leaf completion, and exactly-once terminal/domain side effects.
+- Preserve `IDialogueCondition.Evaluate(...)`, branching, `GrantFlag`, outcomes, leaf completion, and exactly-once terminal/domain side effects.
 - Dialogue never pauses the scene tree.
-- Keep world and gameplay HUD visible beneath the Dialogue surface.
-- Follow the HPA-373 bottom interaction composition; do not leave the shell centered like a desktop dialog.
-- Use the shell's existing body scroll as the only scroll owner.
-- Do not add portrait assets, portrait model fields, or infer a portrait contract from `NpcData.SpriteType`.
+- Keep world context and the gameplay HUD visible beneath Dialogue.
+- Follow HPA-373 §9.8: final Dialogue is a **wide bottom panel centred inside the safe frame**, not a 960 px Pause modal moved downward.
+- Set `SiriusModalShell.Compact` on every layout refresh before calling `RefreshPresentation(...)`.
+- Derive final Dialogue width/bottom inset from `SiriusUiMetrics.SafeFrameInsets(...)`; add no new metric.
+- Use the shell-owned body scroll as the single scroll owner; disable internal `RichTextLabel` scrolling.
+- Resolve shell-owned `%Panel` / `%BodyScroll` through `%ModalShell`; do not treat them as DialogueScreen-owned unique names.
+- Do not add portrait assets/model fields or infer portrait semantics from `NpcData.SpriteType`.
 - Shop and Heal remain native dialogs in this ticket.
 - No presenter, view model, interaction service, navigation service, event bus, host facade, typewriter/history/auto-advance, persistence, quest redesign, Theme token, or metric additions.
 - No compatibility shim for deleted `DialogueDialog`.
 
 ---
 
-## File structure
+## File Structure
 
 ### Create
 
-- `scenes/ui/DialogueScreen.tscn` — scene-authored bottom Dialogue surface using `SiriusModalShell`.
-- `scripts/ui/DialogueScreenController.cs` — pre-ready-safe configuration, dialogue traversal, dynamic choices, focus, and one-shot terminal signals.
-- `tests/ui/DialogueScreenControllerTest.cs` — migrated terminal regressions plus condition, progression, focus, structure, and compact-scroll coverage.
+- `scenes/ui/DialogueScreen.tscn` — static bottom Dialogue chrome using `SiriusModalShell`.
+- `scripts/ui/DialogueScreenController.cs` — pre-ready configuration, traversal, dynamic choices, focus, responsive bottom layout, and terminal latch.
+- `tests/ui/DialogueScreenControllerTest.cs` — terminal parity, conditions, progression, focus, ownership, wide-bottom layout, and compact-scroll coverage.
 
 ### Modify
 
 - `scripts/ui/NpcInteractionController.cs` — host Dialogue while retaining Shop/Heal orchestration.
-- `scripts/game/Game.cs` — validate host before starting interaction and end the NPC flag safely on completion/reset/teardown.
-- `tests/ui/NpcInteractionControllerTest.cs` — use a real host fixture and inspect `ModalLayer`.
-- `tests/game/GameplayPauseHostTest.cs` — prove production host policy, HUD/world retention, no tree pause, and restoration.
-- `tests/game/GameInputLifecycleTest.cs` — prove configured physical Cancel does not fall through to Pause and teardown clears the domain interaction.
+- `scripts/game/Game.cs` — pass the host in the Task 2 constructor cutover, then add the Task 3 host guard and guarded domain cleanup.
+- `tests/ui/NpcInteractionControllerTest.cs` — reuse `UIScreenHostTestSupport.CreateHost(...)` and inspect `ModalLayer` / active entries.
+- `tests/game/GameplayPauseHostTest.cs` — prove the actual `Game.tscn` NPC route and hosted lifecycle.
+- `tests/game/GameInputLifecycleTest.cs` — prove configured physical keyboard/controller Cancel does not fall through to Pause.
 - `docs/ui/hpa-376/ui-lifecycle-contract.md` — record the final hosted Dialogue/NPC cleanup contract.
 
 ### Delete after equivalent hosted coverage is green
@@ -51,6 +54,7 @@
 
 - `scripts/data/npc/DialogueTree.cs`
 - `scripts/data/npc/DialogueCatalog.cs`
+- `scripts/data/npc/DialogueCondition.cs`
 - `scripts/data/npc/NpcData.cs`
 - `scripts/game/NpcSpawn.cs`
 - `scripts/ui/components/SiriusModalShell.cs`
@@ -63,57 +67,74 @@
 
 ---
 
-## Risks and mitigations
+## Risks and Mitigations
 
-### Configuring an unparented scene can dereference unbound nodes
+### Pre-ready configuration can touch unbound scene nodes
 
-**Risk:** `NpcInteractionController` must configure the candidate before `UIScreenHost.TryPresent(...)`, but `%ModalShell`, `%DialogueText`, and `%ChoicesContainer` are not bound until `_Ready()`.
+**Risk:** the candidate is unparented before `TryPresent`, so `%ModalShell` and authored body nodes are not bound yet.
 
-**Mitigation:** expose `TryStartDialogue(...)`, store validated model state before `_Ready()`, and render from `_Ready()` when the host attaches the node. Add a direct pre-ready regression.
+**Mitigation:** `TryStartDialogue(...)` validates/stores data only; `_Ready()` binds nodes and renders the stored root. A test calls `TryStartDialogue(...)` before `AddChild(...)`.
 
 ### Invalid root can emit before a host handle exists
 
-**Risk:** emitting `DialogueClosed` during `TryPresent(...)` would re-enter orchestration before `_dialogueHandle` is stored.
+**Risk:** emitting `DialogueClosed` during candidate preparation can re-enter orchestration before `_dialogueHandle` exists.
 
-**Mitigation:** `TryStartDialogue(...)` returns `false` for a null root and emits nothing. `NpcInteractionController` terminates the interaction before presentation.
+**Mitigation:** `TryStartDialogue(...)` returns `false` and emits nothing for a missing root. `NpcInteractionController` owns the terminal failure.
 
-### Host-attached Dialogue is not a child of the legacy UI parent
+### Shell unique names belong to the shell instance
 
-**Risk:** tests that search `_uiParent.GetChildren()` will falsely report no screen because `UIScreenHost` reparents the `Control` under `ModalLayer`.
+**Risk:** `screen.GetNode("%Panel")` / `screen.GetNode("%BodyScroll")` lookups fail because those nodes are owned by `SiriusModalShell.tscn`.
 
-**Mitigation:** controller tests inspect `host.GetNode<Control>("ModalLayer")` and `host.ActiveEntries`.
+**Mitigation:** bind them through `_shell.GetNode<...>("%Panel")` and `_shell.GetNode<...>("%BodyScroll")`. Dialogue-authored nodes remain screen-owned unique names.
+
+### Large modal width under-builds the approved Dialogue composition
+
+**Risk:** `SiriusModalSizeClass.Large` caps standard width at 960 px, while HPA-373 specifies a wide safe-frame bottom surface.
+
+**Mitigation:** `RefreshLayout()` sets shell compact state, lets the shell refresh chrome/body height, then overrides only this scene's panel width to the existing safe-frame content width and applies the safe bottom margin. No shell API changes.
 
 ### Queued old choices can remain focusable for one frame
 
-**Risk:** `QueueFree()` alone leaves old buttons in the tree/layout until the frame ends, allowing duplicate choice sets or stale focus during progression.
+**Risk:** `QueueFree()` without removal leaves stale buttons in layout/focus order until frame end.
 
-**Mitigation:** remove each old button from `%ChoicesContainer` immediately, then queue it for deletion before adding/focusing the new actions.
+**Mitigation:** `RemoveChild` each old dynamic action immediately, then `QueueFree()` it before creating/focusing replacements.
 
-### Teardown currently unsubscribes before ending the domain interaction
+### Constructor cutover can leave an intermediate non-building commit
 
-**Risk:** `Game._ExitTree()` currently detaches `InteractionComplete` and calls `Finish()`, so `GameManager.EndNpcInteraction()` is not reached through the normal callback.
+**Risk:** changing `NpcInteractionController` to require `UIScreenHost` without changing the sole production caller in `Game` breaks Task 2's build gate.
 
-**Mitigation:** add one guarded `EndNpcInteractionIfActive()` helper used by normal completion, reset fallback, startup failure, and `_ExitTree()` after controller cleanup.
+**Mitigation:** Task 2 changes the constructor and `Game` call together. Task 2 uses `_screenHost!` only as the compile-time bridge under the already-required production host; Task 3 replaces it with the explicit pre-`StartNpcInteraction` host validation.
 
-### Long text can accidentally create nested scrolling
+### Teardown currently unsubscribes before domain completion
 
-**Risk:** an internally scrolling `RichTextLabel` inside `SiriusModalShell.BodyScroll` produces poor keyboard/gamepad behavior and unreliable measured height.
+**Risk:** `Game._ExitTree()` removes `InteractionComplete`, then calls `Finish()`, so `OnNpcInteractionComplete()` cannot clear `IsInNpcInteraction`.
 
-**Mitigation:** use `FitContent = true`, disable `RichTextLabel` internal scrolling, and keep `%BodyScroll` as the single scroll owner. Test measured compact layout and follow-focus scrolling.
+**Mitigation:** Task 3 adds one guarded `EndNpcInteractionIfActive()` helper used by normal completion, startup failure, reset fallback, and `_ExitTree()` after controller cleanup.
+
+### Production integration tests can accidentally test only the flag
+
+**Risk:** `GameManager.StartNpcInteraction()` does not open Dialogue, so a flag-only test cannot prove `OnNpcInteracted` / controller / host integration.
+
+**Mitigation:** use the real `Game.tscn`, find an authored Floor GF `NpcSpawn`, derive the internal position, invoke private `OnNpcInteracted(...)`, and assert the hosted Dialogue entry before testing Cancel/completion/teardown. Keep the existing flag-only test for the native Shop/Heal phase.
 
 ---
 
-## Task 1: Add the scene-authored Dialogue screen additively
+## Task 1: Add the Scene-Authored Dialogue Screen Additively
 
 **Files:**
 - Create: `scenes/ui/DialogueScreen.tscn`
 - Create: `scripts/ui/DialogueScreenController.cs`
 - Create: `tests/ui/DialogueScreenControllerTest.cs`
-- Read-only reference: `scripts/ui/DialogueDialog.cs`
-- Read-only reference: `scripts/ui/components/SiriusModalShell.cs`
-- Read-only reference: `docs/ui/hpa-373/wireframes/screen-wireframes.svg`
+- Read-only: `scripts/ui/DialogueDialog.cs`
+- Read-only: `scripts/data/npc/DialogueCondition.cs`
+- Read-only: `scripts/ui/PauseScreenController.cs`
+- Read-only: `scripts/ui/BattleManager.cs`
+- Read-only: `scripts/ui/components/SiriusModalShell.cs`
+- Read-only: `docs/superpowers/specs/2026-07-25-sirius-ui-visual-language-design.md`
 
-**Produces:**
+**Interfaces:**
+- Consumes: `NpcData`, `DialogueTree`, `DialogueNode`, `DialogueChoice`, `IDialogueCondition.Evaluate(...)`, `Character`, `HashSet<string>`.
+- Produces:
 
 ```csharp
 public partial class DialogueScreenController : Control
@@ -133,14 +154,14 @@ public partial class DialogueScreenController : Control
 }
 ```
 
-- [ ] **Step 1: Write RED tests for pre-ready configuration and terminal parity**
+- [ ] **Step 1: Write RED pre-ready and terminal-parity tests**
 
-Create `DialogueScreenControllerTest` with both an unparented candidate helper and a 640×360 `SubViewport` fixture.
+Create `DialogueScreenControllerTest` with an unparented candidate helper plus a `SubViewport` fixture.
 
-Add these first:
+Add:
 
 ```text
-TryStartDialogue_BeforeReady_RendersRootAfterEnteringTree
+TryStartDialogue_BeforeReady_RendersAfterAttach
 TryStartDialogue_MissingRootReturnsFalseWithoutTerminalSignal
 RequestCancelTwice_EmitsDialogueClosedOnce
 OutcomeThenCancel_EmitsOutcomeOnly
@@ -148,7 +169,20 @@ SecondQueuedTerminalChoice_GrantsOnlyFirstFlag
 Scene_UsesSiriusModalShellAndContainsNoAcceptDialog
 ```
 
-The pre-ready test must call `TryStartDialogue(...)` before `AddChild(screen)`, then add it and await layout frames before asserting title, text, and choices.
+The pre-ready test must execute in this order:
+
+```csharp
+var packed = GD.Load<PackedScene>("res://scenes/ui/DialogueScreen.tscn");
+var screen = packed.Instantiate<DialogueScreenController>();
+
+AssertThat(screen.TryStartDialogue(npc, tree, player, flags)).IsTrue();
+AssertThat(screen.IsNodeReady()).IsFalse();
+
+_viewport.AddChild(screen);
+await AwaitFrames(2);
+
+AssertThat(screen.GetNode<Label>("%SpeakerLabel").Text).IsEqual(tree.Root!.SpeakerName);
+```
 
 - [ ] **Step 2: Run RED**
 
@@ -157,47 +191,66 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
   --filter "FullyQualifiedName~DialogueScreenControllerTest"
 ```
 
-Expected: compile/test failure because the scene and controller do not exist.
+Expected: compile/test failure because the scene/controller do not exist.
 
-- [ ] **Step 3: Author static scene chrome**
+- [ ] **Step 3: Author static scene chrome and ownership correctly**
 
 Create:
 
 ```text
 DialogueScreen (Control, full rect)
-└── ModalShell (%ModalShell, SiriusModalShell, SizeClass=Large)
-    └── Panel (%Panel, scene-specific bottom-center anchor override)
-        └── Margin/RootLayout
-            └── BodyScroll (%BodyScroll, inherited single scroll owner)
-                └── BodyHost
-                    ├── SpeakerLabel (%SpeakerLabel)
-                    ├── DialogueText (%DialogueText)
-                    └── ChoicesContainer (%ChoicesContainer)
+└── ModalShell (%ModalShell, SiriusModalShell)
+    └── Panel (shell-owned %Panel; Dialogue scene overrides bottom placement)
+        └── Margin/RootLayout/BodyScroll/BodyHost
+            ├── SpeakerLabel (%SpeakerLabel)
+            ├── DialogueText (%DialogueText)
+            └── ChoicesContainer (%ChoicesContainer)
 ```
 
-Requirements:
+Author these properties:
 
-- no scrim;
-- `%Panel` is bottom-centered with the normal Sirius safe bottom margin at standard and compact viewports;
-- `%DialogueText` is a wrapping `RichTextLabel` with `fit_content = true`, selection disabled, and internal scrolling disabled;
-- `%ChoicesContainer` is a `VBoxContainer` with existing Sirius separation/theme behavior;
-- no portrait node;
-- no hard-coded 480×320 native-dialog size;
-- static controls are scene-authored; only data-driven choice buttons are dynamic.
+```text
+ModalShell: SizeClass = Large as editor/fallback chrome only
+Panel: anchors bottom-centre; horizontal grow Both; vertical grow Begin
+DialogueText: FitContent = true; word-smart wrap; selection disabled; internal scroll disabled
+ChoicesContainer: vertical; horizontal ExpandFill
+No scrim
+No portrait node
+```
 
-Do not change `SiriusModalShell` to support this one composition. Override/adjust the inherited `%Panel` only from `DialogueScreen`.
+`SizeClass = Large` is **not** the final runtime width contract; Step 5 overrides panel width from the safe frame.
 
-- [ ] **Step 4: Implement pre-ready-safe stored configuration**
-
-Use stored state rather than touching bound nodes from an unparented candidate:
+- [ ] **Step 4: Implement pre-ready storage and correct shell-node binding**
 
 ```csharp
+private SiriusModalShell _shell = null!;
+private PanelContainer _panel = null!;
+private ScrollContainer _bodyScroll = null!;
+private Label _speakerLabel = null!;
+private RichTextLabel _textLabel = null!;
+private VBoxContainer _choicesContainer = null!;
+
 private NpcData? _npc;
 private DialogueTree? _tree;
 private Character? _player;
 private HashSet<string>? _questFlags;
 private DialogueNode? _currentNode;
 private bool _terminalEmitted;
+
+public override void _Ready()
+{
+    _shell = GetNode<SiriusModalShell>("%ModalShell");
+    _panel = _shell.GetNode<PanelContainer>("%Panel");
+    _bodyScroll = _shell.GetNode<ScrollContainer>("%BodyScroll");
+    _speakerLabel = GetNode<Label>("%SpeakerLabel");
+    _textLabel = GetNode<RichTextLabel>("%DialogueText");
+    _choicesContainer = GetNode<VBoxContainer>("%ChoicesContainer");
+
+    Resized += OnResized;
+    RefreshLayout();
+    if (_currentNode != null)
+        ShowNode(_currentNode);
+}
 
 public bool TryStartDialogue(
     NpcData npc,
@@ -222,73 +275,145 @@ public bool TryStartDialogue(
 }
 ```
 
-`_Ready()` binds `%ModalShell`, `%Panel`, `%SpeakerLabel`, `%DialogueText`, and `%ChoicesContainer`, applies the bottom-layout/compact presentation, subscribes resize handling, and calls `ShowNode(_currentNode)` when stored data exists.
+`_ExitTree()` unsubscribes `Resized`. `TryStartDialogue(...)` emits nothing on invalid root.
 
-Do not emit a terminal signal from `TryStartDialogue(...)` when the root is invalid.
-
-- [ ] **Step 5: Move current traversal and side-effect order intact**
-
-`ShowNode(...)` must:
+- [ ] **Step 5: Implement local compact + safe-frame bottom layout**
 
 ```csharp
-_modalShell.Title = _npc?.DisplayName ?? string.Empty;
-_speakerLabel.Text = node.SpeakerName ?? string.Empty;
-_speakerLabel.Visible = !string.IsNullOrWhiteSpace(node.SpeakerName);
-_textLabel.Text = node.Text ?? string.Empty;
+private void OnResized() => RefreshLayout();
+
+private void RefreshLayout()
+{
+    if (!IsNodeReady())
+        return;
+
+    var size = GetViewportRect().Size;
+    var insets = SiriusUiMetrics.SafeFrameInsets(size);
+
+    _shell.Compact = insets.Compact;
+    _shell.RefreshPresentation(size);
+
+    var contentWidth = Mathf.Max(0f, size.X - insets.SideInset * 2f);
+    _panel.CustomMinimumSize = new Vector2(
+        contentWidth,
+        _panel.CustomMinimumSize.Y);
+    _panel.OffsetBottom = -insets.Margin;
+
+    var minimumTarget = SiriusUiMetrics.MinimumTarget(insets.Compact);
+    foreach (var child in _choicesContainer.GetChildren())
+    {
+        if (child is Button action)
+            action.CustomMinimumSize = new Vector2(0f, minimumTarget.Y);
+    }
+}
 ```
 
-Then:
+Do not add `SiriusModalShell.Placement`, a Dialogue width metric, or a shared layout helper.
 
-1. remove every old dynamic action from `%ChoicesContainer` immediately;
-2. queue removed buttons for deletion;
-3. evaluate `choice.Condition.IsMet(_player, _questFlags)` exactly as the retired implementation;
-4. add one wrapped Sirius button per visible choice;
-5. create one `Farewell.` button when no choices are visible;
-6. set `InitialFocusTarget` to the first live action;
-7. defer focus to that live action.
+- [ ] **Step 6: Move `ShowNode` / `OnChoicePressed` semantics intact**
 
-`OnChoicePressed(...)` keeps the terminal guard before `GrantFlag`, preserves outcome ordering, follows `NextNodeId`, and logs/closes once on a broken next ID.
+Clear old actions immediately:
 
-`RequestCancel()` calls the same `EmitClosedOnce()` latch used by the leaf action.
+```csharp
+foreach (Node child in _choicesContainer.GetChildren())
+{
+    _choicesContainer.RemoveChild(child);
+    child.QueueFree();
+}
+```
 
-The controller never hides or frees itself.
+Use the existing condition contract exactly:
 
-- [ ] **Step 6: Add condition, progression, leaf, and gamepad-focus tests**
+```csharp
+var visibleChoices = new List<DialogueChoice>();
+foreach (var choice in node.Choices)
+{
+    if (choice.Condition.Evaluate(_player!, _questFlags!))
+        visibleChoices.Add(choice);
+}
+```
+
+For each visible choice:
+
+```csharp
+var button = new Button
+{
+    Text = choice.Label,
+    AutowrapMode = TextServer.AutowrapMode.WordSmart,
+    ThemeTypeVariation = SiriusThemeTypes.SecondaryButton
+};
+var captured = choice;
+button.Pressed += () => OnChoicePressed(captured);
+_choicesContainer.AddChild(button);
+```
+
+When `visibleChoices.Count == 0`, create one `Farewell.` button wired to `EmitClosedOnce`.
+
+After actions are created:
+
+```csharp
+InitialFocusTarget = _choicesContainer.GetChildren().OfType<Button>().FirstOrDefault();
+RefreshLayout();
+if (InitialFocusTarget != null)
+    Callable.From(InitialFocusTarget.GrabFocus).CallDeferred();
+```
+
+Keep the existing early `_terminalEmitted` guard before `GrantFlag`. Preserve outcome ordering and broken-`NextNodeId` close behavior. `RequestCancel()` calls `EmitClosedOnce()`.
+
+- [ ] **Step 7: Add condition, progression, focus, and ownership tests**
 
 Add:
 
 ```text
-ConditionalChoices_RenderOnlyMetConditions
-NonterminalChoice_ReplacesOldActionsAndFocusesFirstNewAction
+ConditionalChoices_UsesEvaluateAndRendersOnlyMetConditions
+NonterminalChoice_RemovesOldActionsBeforeRenderingNextNode
 Leaf_RendersSingleFarewellAction
 GamepadAccept_OnFocusedChoiceAdvancesOnce
 BrokenNextNode_ClosesOnce
 SpeakerName_BlankHidesSpeakerLabel
+ShellInternals_AreResolvedThroughModalShell
 ```
 
-After progression, assert old buttons are no longer children of `%ChoicesContainer` before waiting for their queued deletion.
-
-- [ ] **Step 7: Add responsive bottom-surface and long-content tests**
-
-At both 640×360 and 1280×720:
-
-- await at least two process frames after layout;
-- assert `%Panel` is inside the viewport safe frame;
-- assert the panel bottom is aligned to the safe bottom margin within a small layout tolerance;
-- assert it is not vertically centered;
-- assert all action targets meet `SiriusUiMetrics.MinimumTarget(compact).Y`.
-
-For long content at 640×360, create multi-paragraph text plus enough long choices to exceed the body. Assert:
+For shell internals, use:
 
 ```csharp
-var bodyScroll = screen.GetNode<ScrollContainer>("%BodyScroll");
+var shell = screen.GetNode<SiriusModalShell>("%ModalShell");
+var panel = shell.GetNode<PanelContainer>("%Panel");
+var bodyScroll = shell.GetNode<ScrollContainer>("%BodyScroll");
+```
+
+Do not use `screen.GetNode("%Panel")` or `screen.GetNode("%BodyScroll")`.
+
+- [ ] **Step 8: Add wide-bottom and 640×360 scroll regressions**
+
+At 640×360, 1280×720, and 1920×1080, await at least two layout frames and assert:
+
+```csharp
+var size = new Vector2(viewport.Size.X, viewport.Size.Y);
+var insets = SiriusUiMetrics.SafeFrameInsets(size);
+var shell = screen.GetNode<SiriusModalShell>("%ModalShell");
+var panel = shell.GetNode<PanelContainer>("%Panel");
+
+AssertThat(shell.Compact).IsEqual(insets.Compact);
+AssertThat(panel.Size.X).IsApproximately(size.X - insets.SideInset * 2f, 2f);
+AssertThat(panel.Position.X).IsGreaterEqual(insets.SideInset - 2f);
+AssertThat(panel.Position.X + panel.Size.X).IsLessEqual(size.X - insets.SideInset + 2f);
+AssertThat(panel.Position.Y + panel.Size.Y).IsApproximately(size.Y - insets.Margin, 2f);
+```
+
+At 1920×1080, also assert `panel.Size.X > SiriusUiMetrics.ModalWidth(SiriusModalSizeClass.Large)` so the test rejects a bottom-anchored 960 px Pause modal.
+
+For long content at 640×360:
+
+```csharp
+var bodyScroll = shell.GetNode<ScrollContainer>("%BodyScroll");
 var bar = bodyScroll.GetVScrollBar();
 AssertThat(bar.MaxValue).IsGreater(bar.Page);
 ```
 
-Focus the final choice and await a frame; assert `bodyScroll.ScrollVertical > 0` so follow-focus behavior is real, not only theoretically scrollable.
+Focus the final choice and await a frame; assert `bodyScroll.ScrollVertical > 0` to prove follow-focus scrolling.
 
-- [ ] **Step 8: Run the additive screen suites**
+- [ ] **Step 9: Run additive screen suites**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
@@ -297,7 +422,7 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
 
 Expected: both suites pass while the native implementation still exists.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add scenes/ui/DialogueScreen.tscn scripts/ui/DialogueScreenController.cs tests/ui/DialogueScreenControllerTest.cs
@@ -306,34 +431,56 @@ git commit -m "feat(ui): add scene-authored dialogue screen"
 
 ---
 
-## Task 2: Cut `NpcInteractionController` over to hosted Dialogue
+## Task 2: Cut `NpcInteractionController` Over to Hosted Dialogue and Keep the Tree Building
 
 **Files:**
 - Modify: `scripts/ui/NpcInteractionController.cs`
+- Modify: `scripts/game/Game.cs` — constructor-call argument only in this task
 - Modify: `tests/ui/NpcInteractionControllerTest.cs`
+- Test: `tests/game/GameTest.cs` for compile/regression gate
 - Delete after green: `scripts/ui/DialogueDialog.cs`
 - Delete after green: `tests/ui/DialogueDialogTest.cs`
 
-**Produces:** one hosted Dialogue handle owned by the existing interaction controller; Shop/Heal remain unchanged.
+**Interfaces:**
+- Consumes: Task 1 `DialogueScreenController`, existing `UIScreenHost`, `UIScreenKinds.Dialogue`, and `UIScreenHostTestSupport.CreateHost(...)`.
+- Produces: hosted Dialogue lifetime owned by `NpcInteractionController`; native Shop/Heal unchanged.
 
-- [ ] **Step 1: Convert the controller fixture to a real host and make it RED**
+- [ ] **Step 1: Reuse the existing host fixture and write RED controller tests**
 
-Load `res://scenes/ui/UIScreenHost.tscn`, configure it using the same options pattern as current host tests, and keep the legacy `_uiParent` only for Shop/Heal.
+Setup:
 
-Update `CreateController(...)` to pass `_screenHost`.
+```csharp
+private HostFixture _hostFixture = null!;
+private UIScreenHost _screenHost = null!;
 
-Hosted Dialogue lookup must use the host layer:
+[BeforeTest]
+public async Task Setup()
+{
+    _sceneTree = (SceneTree)Engine.GetMainLoop();
+    _hostFixture = await UIScreenHostTestSupport.CreateHost(this);
+    _screenHost = _hostFixture.Host;
+
+    _uiParent = new Node { Name = "LegacyNpcUiParent" };
+    _sceneTree.Root.AddChild(_uiParent);
+}
+```
+
+Cleanup uses:
+
+```csharp
+await UIScreenHostTestSupport.DisposeFixture(_hostFixture);
+```
+
+Do not manually load/configure another `UIScreenHost.tscn` fixture.
+
+Hosted-screen lookup:
 
 ```csharp
 var modalLayer = _screenHost.GetNode<Control>("ModalLayer");
-var dialogue = modalLayer.GetChildren()
-    .OfType<DialogueScreenController>()
-    .Single();
+var dialogue = modalLayer.GetChildren().OfType<DialogueScreenController>().Single();
 ```
 
-Do not search `_uiParent.GetChildren()` for a host-owned screen.
-
-Rewrite/add:
+Add/convert:
 
 ```text
 Begin_HostsOneDialogueEntry
@@ -341,21 +488,23 @@ DialogueCancel_ClosesHostedEntryAndCompletesOnce
 Finish_WhileDialogueActive_ClosesHostedEntryAndCompletesOnce
 MissingTree_CreatesNoHostedEntryAndCompletesOnce
 InvalidRoot_CreatesNoHostedEntryAndCompletesOnce
+ShopOutcome_ClosesDialogueBeforeNativeShop
+HealOutcome_ClosesDialogueBeforeNativeHeal
+RejectedPresentation_FreesCandidateAndCompletesOnce
 ```
 
-Run the suite and expect constructor/type failures.
+- [ ] **Step 2: Run controller suite RED**
 
-- [ ] **Step 2: Add the narrow host dependency and hosted state**
-
-Keep existing Shop/Heal fields. Add only:
-
-```csharp
-private readonly UIScreenHost _screenHost;
-private DialogueScreenController? _dialogueScreen;
-private UIScreenHandle? _dialogueHandle;
+```bash
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
+  --filter "FullyQualifiedName~NpcInteractionControllerTest"
 ```
 
-Constructor:
+Expected: compile failures because the constructor/hosted fields have not moved yet.
+
+- [ ] **Step 3: Change the constructor and sole production caller in the same slice**
+
+Controller signature:
 
 ```csharp
 public NpcInteractionController(
@@ -367,11 +516,29 @@ public NpcInteractionController(
     HashSet<string> questFlags)
 ```
 
-Do not add callbacks, interfaces, a presenter, or a host wrapper.
+Add:
 
-- [ ] **Step 3: Replace `Begin()` with load → configure → present**
+```csharp
+private readonly UIScreenHost _screenHost;
+private DialogueScreenController? _dialogueScreen;
+private UIScreenHandle? _dialogueHandle;
+```
 
-After resolving the tree:
+In `Game.OnNpcInteracted`, change only the constructor call in Task 2:
+
+```csharp
+_npcInteractionController = new NpcInteractionController(
+    _gameManager,
+    _screenHost!,
+    GetNode("UI"),
+    npcData,
+    _gameManager.Player,
+    _questFlags);
+```
+
+The null-forgiving operator is temporary sequencing only. Production `Game.tscn` already requires the host; Task 3 replaces this with the explicit pre-start guard. Do not move `StartNpcInteraction()` or teardown behavior yet.
+
+- [ ] **Step 4: Replace native `Begin()` construction with configure → present**
 
 ```csharp
 var packed = GD.Load<PackedScene>("res://scenes/ui/DialogueScreen.tscn");
@@ -382,14 +549,7 @@ if (packed == null)
     return;
 }
 
-var screen = packed.InstantiateOrNull<DialogueScreenController>();
-if (screen == null)
-{
-    GD.PushError("[NpcInteractionController] Failed to instantiate DialogueScreenController.");
-    Finish();
-    return;
-}
-
+var screen = packed.Instantiate<DialogueScreenController>();
 screen.DialogueOutcome += OnDialogueOutcome;
 screen.DialogueClosed += OnDialogueClosed;
 
@@ -403,9 +563,7 @@ if (!screen.TryStartDialogue(_npc, tree, _player, _questFlags))
 }
 ```
 
-Use the existing repository's preferred packed-scene instantiate helper; if `InstantiateOrNull<T>()` is not present, use `Instantiate<T>()` with the established error handling. Do not add a helper solely for this call.
-
-Then call:
+Present:
 
 ```csharp
 var result = _screenHost.TryPresent(screen, new UIScreenEntrySpec
@@ -431,93 +589,81 @@ var result = _screenHost.TryPresent(screen, new UIScreenEntrySpec
 });
 ```
 
-If `result.Status != UIScreenOpenStatus.Opened` or `result.Handle == null`, disconnect/free the rejected candidate if it is still valid and call `Finish()`.
+On rejection, disconnect, queue-free the unhosted candidate, and call `Finish()`. Store `_dialogueScreen` / `_dialogueHandle` only after `Opened` with a handle.
 
-Only after a successful return assign:
-
-```csharp
-_dialogueScreen = screen;
-_dialogueHandle = result.Handle;
-```
-
-The pre-ready screen contract guarantees `_Ready()` renders without emitting a terminal signal during this open transaction.
-
-- [ ] **Step 4: Close through the host before continuing orchestration**
-
-`OnDialogueOutcome(...)` captures the enum, closes Dialogue, then opens the existing child or finishes:
+- [ ] **Step 5: Route terminal outcomes through synchronous host close**
 
 ```csharp
-private void OnDialogueOutcome(int outcomeValue)
+private void OnDialogueOutcome(int outcomeInt)
 {
-    var outcome = (DialogueOutcomeType)outcomeValue;
+    var outcome = (DialogueOutcomeType)outcomeInt;
     CloseDialoguePresentation(UIScreenCloseReason.ExplicitAction);
 
     switch (outcome)
     {
         case DialogueOutcomeType.OpenShop:
             OpenShop();
-            return;
+            break;
         case DialogueOutcomeType.Heal:
             OpenHeal();
-            return;
+            break;
         case DialogueOutcomeType.CloseAndReturn:
             Finish();
-            return;
+            break;
         default:
-            GD.PushWarning($"[NpcInteractionController] Unsupported dialogue outcome: {outcome}.");
+            GD.PushWarning($"[NpcInteractionController] Unhandled DialogueOutcomeType value {outcomeInt} — treating as CloseAndReturn.");
             Finish();
-            return;
+            break;
     }
+}
+
+private void OnDialogueClosed()
+{
+    CloseDialoguePresentation(UIScreenCloseReason.ExplicitAction);
+    Finish();
 }
 ```
 
-`OnDialogueClosed()` closes with `ExplicitAction` and calls `Finish()`.
+`ClearDialoguePresentation(screen)` disconnects signals and clears local references only when they refer to that screen. `Finish()` closes active Dialogue, cleans native Shop/Heal, and emits `InteractionComplete` once.
 
-`CloseDialoguePresentation(...)` must:
+- [ ] **Step 6: Prove atomic Dialogue → native child replacement**
 
-- copy and clear the local handle before calling the host, preventing re-entrant double-close;
-- call `TryClose(...)` when a handle exists;
-- tolerate `AlreadyClosed`, `StaleHandle`, and `HostTearingDown` by clearing local state/signals;
-- never emit a second terminal signal.
-
-`ClearDialoguePresentation(screen)` disconnects signals and clears fields only when they still reference that screen. Host `Cleanup` remains the node-lifetime authority.
-
-`Finish()` sets `_finished` before cleanup, closes active Dialogue with `Programmatic`, cleans legacy Shop/Heal, and invokes `InteractionComplete` once.
-
-- [ ] **Step 5: Preserve Dialogue → Shop/Heal sequencing**
-
-Update existing tests to press hosted Dialogue choices, then assert before using the native child:
+Before touching Shop/Heal in the existing tests:
 
 ```csharp
 AssertThat(_screenHost.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
-AssertThat(_screenHost.GetNode<Control>("ModalLayer")
-    .GetChildren().OfType<DialogueScreenController>().Any()).IsFalse();
+AssertThat(
+    _screenHost.GetNode<Control>("ModalLayer")
+        .GetChildren().OfType<DialogueScreenController>().Any()).IsFalse();
 ```
 
-Then retain current Shop/Heal close/cancel and exactly-once completion assertions. `GameManager.IsInNpcInteraction` remains owned by `Game`, so the controller fixture only proves it does not emit `InteractionComplete` during the successful transition.
+Then preserve existing Shop/Heal Cancel and exactly-once completion assertions under `_uiParent`.
 
-- [ ] **Step 6: Add presentation-rejection coverage using host state**
+- [ ] **Step 7: Prove host rejection using the existing fixture**
 
-Open a fixture entry with `Kind = UIScreenKinds.Dialogue`, then call `Begin()` on the candidate controller. Assert:
+Pre-register another view with the same kind:
 
-- the candidate is rejected with no second Dialogue child;
-- `InteractionComplete` emits once;
-- no Shop/Heal child is created;
-- the pre-existing fixture entry remains active.
+```csharp
+var existing = _hostFixture.Track(new Control());
+var opened = _screenHost.TryPresent(
+    existing,
+    UIScreenHostTestSupport.Spec(UIScreenKinds.Dialogue));
+AssertThat(opened.Status).IsEqual(UIScreenOpenStatus.Opened);
+```
 
-Do not add dependency injection solely to synthesize a host failure.
+Then call `controller.Begin()` and assert the candidate does not remain in `ModalLayer`, no Shop/Heal opens, and completion emits once. Do not add a production injection seam.
 
-- [ ] **Step 7: Run controller-focused gates**
+- [ ] **Step 8: Run Task 2 compile/test gate before deleting native Dialogue**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
-  --filter "FullyQualifiedName~DialogueScreenControllerTest|FullyQualifiedName~NpcInteractionControllerTest"
+  --filter "FullyQualifiedName~DialogueScreenControllerTest|FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~GameTest"
 dotnet build Sirius.sln --no-restore --nologo
 ```
 
-Expected: all pass, build has 0 errors.
+Expected: all selected tests pass and build has 0 errors. This gate proves the constructor call moved with the signature.
 
-- [ ] **Step 8: Delete native Dialogue after hosted cutover is green**
+- [ ] **Step 9: Delete native Dialogue after the hosted cutover is green**
 
 Delete:
 
@@ -526,66 +672,89 @@ scripts/ui/DialogueDialog.cs
 tests/ui/DialogueDialogTest.cs
 ```
 
-Run:
+Audit:
 
 ```bash
 rg -n "DialogueDialog|new DialogueDialog" scripts scenes tests
 ```
 
-Expected: no active references.
+Expected: zero active matches.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add scripts/ui/NpcInteractionController.cs tests/ui/NpcInteractionControllerTest.cs \
-  scripts/ui/DialogueDialog.cs tests/ui/DialogueDialogTest.cs
+git add \
+  scripts/ui/NpcInteractionController.cs \
+  scripts/game/Game.cs \
+  tests/ui/NpcInteractionControllerTest.cs \
+  scripts/ui/DialogueDialog.cs \
+  tests/ui/DialogueDialogTest.cs
 git commit -m "feat(ui): host NPC dialogue through UIScreenHost"
 ```
 
 ---
 
-## Task 3: Integrate Game ownership and pin input/teardown behavior
+## Task 3: Add Production Host Guard, Domain Teardown, and Real NPC-Route Regressions
 
 **Files:**
 - Modify: `scripts/game/Game.cs`
 - Modify: `tests/game/GameplayPauseHostTest.cs`
 - Modify: `tests/game/GameInputLifecycleTest.cs`
-- Modify only when a focused test requires it: `scripts/ui/NpcInteractionController.cs`
-- Modify only when a focused test requires it: `scripts/ui/DialogueScreenController.cs`
+- Modify only if evidence requires: `scripts/ui/DialogueScreenController.cs`
+- Modify only if evidence requires: `scripts/ui/NpcInteractionController.cs`
 
-- [ ] **Step 1: Add root lifecycle tests first**
+**Interfaces:**
+- Consumes: Task 2 hosted `NpcInteractionController` and current production `Game.tscn` / Floor GF `NpcSpawn` data.
+- Produces: explicit host validation, one guarded domain-end helper, and end-to-end evidence that real NPC interaction owns Cancel/teardown correctly.
 
-Add production/synthetic fixture regressions for:
+- [ ] **Step 1: Write RED production-route helper/tests before changing `Game` cleanup**
+
+In `GameplayPauseHostTest`, add a helper that exercises the same coordinate contract as `OnNpcInteracted`:
+
+```csharp
+private static Vector2I FindNpcInternalPosition(Game game, string npcId)
+{
+    var grid = game.GetNode<FloorManager>("FloorManager").CurrentGridMap;
+    var floorRoot = grid.GetParent();
+    var spawn = game.GetTree().GetNodesInGroup("NpcSpawn")
+        .OfType<NpcSpawn>()
+        .Single(candidate =>
+            candidate.BelongsToFloor(floorRoot) &&
+            candidate.NpcId == npcId);
+
+    var origin = GetPrivateField<Vector2I>(grid, "_tilemapOrigin");
+    var internalPosition = spawn.GridPosition - origin;
+    AssertThat(grid.InternalGridToTilemapCoords(internalPosition))
+        .IsEqual(spawn.GridPosition);
+    return internalPosition;
+}
+```
+
+Use authored Floor GF `village_shopkeeper` or `village_healer`; do not create a fake host-only Dialogue entry.
+
+Open production Dialogue with the existing reflection helper:
+
+```csharp
+var internalPosition = FindNpcInternalPosition(_game!, "village_shopkeeper");
+InvokePrivateVoid(_game!, "OnNpcInteracted", internalPosition);
+await AwaitFrames(2);
+AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsTrue();
+```
+
+Add:
 
 ```text
-NpcInteraction_HostsDialogueWithoutPausingAndKeepsHudVisible
-ConfiguredKeyboardCancel_ClosesDialogueWithoutOpeningPause
-ConfiguredControllerCancel_ClosesDialogueWithoutOpeningPause
-DialogueCompletion_RestoresPromptAndGameplaySuppression
-GameTeardown_DuringDialogueEndsNpcInteractionAndClosesHostEntry
+NpcDialogue_RealRouteHostsModalWithoutPausingTree
+NpcDialogue_NormalTerminalRestoresGameplay
+NpcDialogue_GameExitClearsDomainFlagAfterControllerUnsubscribe
+NpcDialogue_MissingHostDoesNotStartDomainInteraction
 ```
 
-While active, assert the real host policy:
+- [ ] **Step 2: Implement the pre-`StartNpcInteraction` host guard and remove Task 2's null-forgiving call**
 
 ```csharp
-var entry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Dialogue);
-AssertThat(entry.Policy.InputPriority).IsEqual(UIInputPriority.Modal);
-AssertThat(entry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
-AssertThat(entry.Policy.PauseTree).IsFalse();
-AssertThat(entry.Policy.BlockGameplayInput).IsTrue();
-AssertThat(entry.Policy.Hud).IsEqual(UIHudPolicy.Visible);
-AssertThat(entry.Policy.LowerLayers).IsEqual(UILowerLayerPolicy.VisibleInert);
-AssertThat(entry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
-AssertThat(sceneTree.Paused).IsFalse();
-AssertThat(gameManager.IsInNpcInteraction).IsTrue();
-```
-
-- [ ] **Step 2: Validate the host before starting the domain interaction**
-
-In `OnNpcInteracted(...)`, check `_screenHost` before `StartNpcInteraction()`:
-
-```csharp
-if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost))
+var screenHost = _screenHost;
+if (screenHost == null || !GodotObject.IsInstanceValid(screenHost))
 {
     GD.PushError("[Game] Cannot start NPC interaction without UIScreenHost.");
     UpdateInteractionPrompt();
@@ -593,159 +762,255 @@ if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost))
 }
 
 _gameManager.StartNpcInteraction();
+UpdateInteractionPrompt();
+
 _npcInteractionController = new NpcInteractionController(
     _gameManager,
-    _screenHost,
+    screenHost,
     GetNode("UI"),
     npcData,
     _gameManager.Player,
     _questFlags);
 ```
 
-Keep the existing try/catch, but route its failure through the guarded domain-end helper from Step 3.
+The guard runs before the domain flag is set. No fallback native Dialogue is created.
 
-Do not add a Dialogue handle or outcome callbacks to `Game`.
-
-- [ ] **Step 3: Centralize one guarded domain-end operation in `Game`**
-
-Add:
+- [ ] **Step 3: Add one guarded domain-end helper and use it on every root-owned cleanup path**
 
 ```csharp
 private void EndNpcInteractionIfActive()
 {
-    if (_gameManager != null && _gameManager.IsInNpcInteraction)
+    if (_gameManager != null &&
+        GodotObject.IsInstanceValid(_gameManager) &&
+        _gameManager.IsInNpcInteraction)
+    {
         _gameManager.EndNpcInteraction();
+    }
 }
 ```
 
-Use it in:
+Update normal completion:
 
-- `OnNpcInteractionComplete()` after disconnecting the completed controller;
-- `OnNpcInteractionResetRequested()` when no controller exists;
-- the `OnNpcInteracted(...)` catch/failure path;
-- `_ExitTree()` after controller cleanup.
+```csharp
+private void OnNpcInteractionComplete()
+{
+    if (_npcInteractionController != null)
+        _npcInteractionController.InteractionComplete -= OnNpcInteractionComplete;
 
-`OnNpcInteractionComplete()` remains the normal owner of prompt/player-UI refresh. The helper only owns the flag transition.
+    EndNpcInteractionIfActive();
+    _npcInteractionController = null;
+    UpdatePlayerUI();
+    UpdateInteractionPrompt();
+}
+```
 
-- [ ] **Step 4: Fix teardown order explicitly**
+Update `Begin()` exception fallback to call `EndNpcInteractionIfActive()` instead of directly ending. Update `OnNpcInteractionResetRequested()` fallback the same way.
 
-In `_ExitTree()`:
+In `_ExitTree()` preserve the required order:
 
-1. capture `_npcInteractionController`;
-2. unsubscribe `InteractionComplete` to prevent UI refresh during teardown;
-3. call `Finish()` so any hosted Dialogue closes;
-4. clear the field;
-5. call `EndNpcInteractionIfActive()`.
+```csharp
+if (_npcInteractionController != null)
+{
+    _npcInteractionController.InteractionComplete -= OnNpcInteractionComplete;
+    _npcInteractionController.Finish();
+    _npcInteractionController = null;
+}
+EndNpcInteractionIfActive();
+```
 
-This is intentionally different from normal completion: teardown performs cleanup without relying on an event whose subscriber has been removed.
+This explicitly covers the existing unsubscribe-before-`Finish()` teardown path.
 
-Add an assertion that a second reset/teardown attempt does not re-open, re-close, or leave `IsInNpcInteraction` true.
+- [ ] **Step 4: Pin the production hosted policy on the real NPC route**
 
-- [ ] **Step 5: Prove configured Cancel is consumed at the host**
+After `OnNpcInteracted(...)`:
 
-Use the existing input-map helpers in `GameInputLifecycleTest` for one keyboard binding and one joypad binding. For each:
+```csharp
+var tree = (SceneTree)Engine.GetMainLoop();
+var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+var gameUi = _game.GetNode<Control>("UI/GameUI");
+var gameManager = _game.GetNode<GameManager>("GameManager");
+var entry = FindEntry(host, UIScreenKinds.Dialogue);
 
-- start a real NPC interaction;
-- confirm Dialogue is topmost;
-- push the configured physical event;
-- await host cleanup/restoration;
-- assert Dialogue closed, Pause never opened, `IsInNpcInteraction` is false, and the viewport reports the input handled.
+AssertThat(gameManager.IsInNpcInteraction).IsTrue();
+AssertThat(tree.Paused).IsFalse();
+AssertThat(entry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
+AssertThat(entry.Policy.PauseTree).IsFalse();
+AssertThat(entry.Policy.BlockGameplayInput).IsTrue();
+AssertThat(entry.Policy.Cursor).IsEqual(UICursorPolicy.Visible);
+AssertThat(entry.Policy.Hud).IsEqual(UIHudPolicy.Visible);
+AssertThat(entry.Policy.LowerLayers).IsEqual(UILowerLayerPolicy.VisibleInert);
+AssertThat(entry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+AssertThat(gameUi.Visible).IsTrue();
+```
 
-Do not call `RequestCancel()` directly in these tests; Task 2 already covers that seam.
+Also assert the `DialogueScreenController` parent is `host.GetNode<Control>("ModalLayer")`.
 
-- [ ] **Step 6: Prove normal terminal restoration**
+- [ ] **Step 5: Prove normal completion restores the domain through the real route**
 
-Progress a villager path to its terminal action and assert:
+Use the shopkeeper root's existing `Goodbye.` choice:
 
-- Dialogue entry is gone;
-- tree is still unpaused;
-- `host.CurrentState.IsPresentationGameplayBlocked` is false;
-- `GameManager.IsInNpcInteraction` is false;
-- the exploration interaction prompt is recomputed when the NPC remains adjacent;
-- no stale Dialogue focus owner remains.
+```csharp
+var dialogue = host.GetNode<Control>("ModalLayer")
+    .GetChildren().OfType<DialogueScreenController>().Single();
+FindButton(dialogue, "Goodbye.").EmitSignal(Button.SignalName.Pressed);
+await AwaitFrames(2);
 
-Use existing fixture probes/reflection patterns; do not add public test-only state.
+AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
+AssertThat(gameManager.IsInNpcInteraction).IsFalse();
+AssertThat(tree.Paused).IsFalse();
+AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsFalse();
+```
 
-- [ ] **Step 7: Run integration gates**
+Use the existing interaction-prompt fixture/probe pattern to assert the prompt recomputes when an interactable remains adjacent; do not add a public Game getter.
+
+- [ ] **Step 6: Prove physical keyboard and controller Cancel do not fall through to Pause**
+
+In `GameInputLifecycleTest`, keep the existing flag-only `ConfiguredKeyboardCancel_NpcInteractionDeclinesForNativeHandler` unchanged. It still documents the native Shop/Heal phase where `IsInNpcInteraction` is true but no hosted Dialogue entry exists.
+
+Add a real hosted route using `InstantiateGameScene(_viewport!)`, the same `FindNpcInternalPosition` helper pattern, and private `OnNpcInteracted(...)` invocation.
+
+Keyboard:
+
+```csharp
+ConfigureCancelBindings(Key.P);
+// open real Dialogue
+PushPhysicalKeyDown(Key.P);
+await AwaitFrames(2);
+try
+{
+    AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
+    AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+    AssertThat(gameManager.IsInNpcInteraction).IsFalse();
+}
+finally
+{
+    ReleasePhysicalKey(Key.P);
+}
+```
+
+Controller uses the existing helpers:
+
+```csharp
+var button = (JoyButton)10;
+ConfigureCancelBindings(Key.P, new InputEventJoypadButton { ButtonIndex = button });
+// open real Dialogue
+PushPhysicalJoypadButtonPressAndRelease(button);
+await AwaitFrames(2);
+
+AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
+AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+AssertThat(gameManager.IsInNpcInteraction).IsFalse();
+```
+
+Do not replace these with `GameManager.StartNpcInteraction()` alone.
+
+- [ ] **Step 7: Prove teardown clears the flag after the completion subscriber is removed**
+
+Open real hosted Dialogue, capture the `GameManager`, then detach the Game node without immediately freeing it:
+
+```csharp
+AssertThat(gameManager.IsInNpcInteraction).IsTrue();
+_viewport!.RemoveChild(_game!);
+await AwaitFrames(1);
+AssertThat(gameManager.IsInNpcInteraction).IsFalse();
+```
+
+The detached Game remains valid for the assertion and can be freed during test cleanup. This specifically exercises `Game._ExitTree()` after `InteractionComplete` is unsubscribed.
+
+- [ ] **Step 8: Run production lifecycle/input gate**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
   --filter "FullyQualifiedName~DialogueScreenControllerTest|FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameTest"
+dotnet build Sirius.sln --no-restore --nologo
 ```
 
-Expected: 0 failures.
+Expected: selected suites pass and build has 0 errors.
 
-If focus fails after node replacement, adjust only the screen's deferred first-live-action focus. Do not add manual directional neighbors without a failing navigation regression.
-
-If compact scrolling fails, fix only the Dialogue scene/controller layout. Do not modify `SiriusModalShell` without a separate shell-level RED test.
-
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add scripts/game/Game.cs tests/game/GameplayPauseHostTest.cs tests/game/GameInputLifecycleTest.cs \
-  scripts/ui/NpcInteractionController.cs scripts/ui/DialogueScreenController.cs
+git add \
+  scripts/game/Game.cs \
+  tests/game/GameplayPauseHostTest.cs \
+  tests/game/GameInputLifecycleTest.cs \
+  scripts/ui/DialogueScreenController.cs \
+  scripts/ui/NpcInteractionController.cs
 git commit -m "test(ui): pin hosted dialogue gameplay lifecycle"
 ```
 
+Only stage the two production controller files when the RED integration tests required a minimal fix there.
+
 ---
 
-## Task 4: Reconcile lifecycle docs and complete verification
+## Task 4: Reconcile Lifecycle Docs and Run Final Verification
 
 **Files:**
 - Modify: `docs/ui/hpa-376/ui-lifecycle-contract.md`
-- Audit: all files changed in Tasks 1–3
+- Audit: every HPA-569 production/test file from Tasks 1–3
+
+**Interfaces:**
+- Consumes: final hosted behavior.
+- Produces: accurate lifecycle documentation and verification evidence; no runtime API.
 
 - [ ] **Step 1: Update only the Dialogue/NPC lifecycle rows**
 
 Record:
 
-- scene-authored `DialogueScreenController : Control`;
-- bottom `SiriusModalShell` composition with world/HUD visible;
-- `NpcInteractionController` owns the host handle and Dialogue → Shop/Heal transition;
-- `PauseTree = false`, `BlockGameplayInput = true`, `UIInputPriority.Modal`;
-- `Cancel = Consume` and `InterceptCancel -> RequestCancel() -> ConsumeHere`;
-- first-live-action focus on open and node progression;
-- one-shot terminal/domain side effects;
-- host close before native Shop/Heal open;
-- invalid data/presentation failure finish once;
-- `Finish()` closes hosted Dialogue;
-- `Game._ExitTree()` ends the NPC domain flag after unsubscribed cleanup;
-- HPA-570 still owns Shop/Heal migration.
+```text
+DialogueScreenController : Control is scene-authored and bottom-aligned.
+NpcInteractionController owns the Dialogue host handle and Dialogue → Shop/Heal transition.
+PauseTree=false; BlockGameplayInput=true; HUD/world retained; cursor visible.
+Cancel=Consume and InterceptCancel→RequestCancel()→ConsumeHere.
+Conditions continue to use IDialogueCondition.Evaluate(...).
+Host closes Dialogue before native Shop/Heal opens.
+Game.EndNpcInteractionIfActive() covers normal completion, startup failure, reset fallback, and teardown.
+HPA-570 still owns Shop/Heal presentation migration.
+```
 
-Do not rewrite unrelated lifecycle rows.
+Do not rewrite unrelated HPA-376 rows.
 
-- [ ] **Step 2: Run stale-path and scope audits**
+- [ ] **Step 2: Run stale-contract and scope audits**
 
 ```bash
-rg -n "DialogueDialog|new DialogueDialog" scripts scenes tests docs
+rg -n "DialogueDialog|new DialogueDialog" scripts scenes tests
+rg -n "Condition\.IsMet|UIInputInterception\.Consumed" scripts scenes tests
 rg -n "UIScreenKinds\.Dialogue|DialogueScreenController|DialogueScreen\.tscn" scripts scenes tests docs/ui/hpa-376
-rg -n "UIInputInterception\.Consumed" docs scripts tests
 ```
 
 Expected:
 
-- no `DialogueDialog` references;
-- every active Dialogue presentation path uses the hosted screen;
-- no invalid `UIInputInterception.Consumed` references.
+- zero `DialogueDialog` references;
+- zero invented `Condition.IsMet` or invalid interception-enum references;
+- every active Dialogue presentation path points at the hosted screen.
 
-Audit the diff for prohibited scope:
+Scope:
 
 ```bash
 git diff --name-only origin/main...HEAD
 ```
 
-Confirm there are no Shop/Heal presentation migrations, portrait/model/assets, host API/kind changes, Theme/metric additions, quest changes, or new presentation/service abstractions.
+Reject unrelated Shop/Heal migration, portrait/model changes, host API/kind changes, Theme/metric additions, or new service/presenter/router abstractions.
 
-- [ ] **Step 3: Run focused Dialogue and neighboring interaction suites**
+- [ ] **Step 3: Run focused HPA-569 suites**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
-  --filter "FullyQualifiedName~Dialogue|FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~ShopDialogTest|FullyQualifiedName~HealDialogTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameInputLifecycleTest"
+  --filter "FullyQualifiedName~DialogueScreenControllerTest|FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameInputLifecycleTest"
 ```
 
-Expected: 0 failures. Shop/Heal behavior remains unchanged.
+Expected: 0 failures.
 
-- [ ] **Step 4: Run full suite, build, and diff checks**
+- [ ] **Step 4: Run dialogue-domain and neighboring interaction suites**
+
+```bash
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
+  --filter "FullyQualifiedName~Dialogue|FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~ShopDialogTest|FullyQualifiedName~HealDialogTest"
+```
+
+Expected: 0 failures. Shop/Heal domain/presentation behavior remains otherwise unchanged.
+
+- [ ] **Step 5: Run full suite, build, and diff check**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo
@@ -759,28 +1024,35 @@ Expected:
 - build has 0 errors;
 - diff check is clean.
 
-Record unchanged NuGet/orphan-node warning noise separately; do not convert it into HPA-569 scope.
+Record unchanged NuGet/orphan-node warning noise separately; do not turn pre-existing warning cleanup into HPA-569 work.
 
-- [ ] **Step 5: Commit lifecycle documentation/final cleanup**
+- [ ] **Step 6: Commit lifecycle documentation**
 
 ```bash
 git add docs/ui/hpa-376/ui-lifecycle-contract.md
 git commit -m "docs(ui): record hosted dialogue lifecycle"
 ```
 
-## Final review checklist
+## Final Review Checklist
 
-- [ ] Static Dialogue chrome is scene-authored and contains no `AcceptDialog`.
-- [ ] The Dialogue panel is a bottom in-world surface at 640×360 and 1280×720.
-- [ ] `SiriusModalShell` is reused without a new shared API unless a shell-level RED test required one.
-- [ ] Pre-ready configuration cannot touch unbound nodes or emit before host ownership exists.
-- [ ] `NpcInteractionController` remains the single Dialogue/Shop/Heal orchestration owner.
-- [ ] Host-attached tests inspect `ModalLayer`, not the legacy UI parent.
-- [ ] Dialogue conditions, branching, flags, outcomes, and leaf behavior match the retired implementation.
-- [ ] Configured Cancel and visible terminal actions share one terminal latch and use `ConsumeHere`.
-- [ ] Dialogue never pauses the scene tree; world/HUD remain visible and gameplay is inert.
-- [ ] Shop/Heal continue through their legacy dialogs after Dialogue closes.
-- [ ] 640×360 long content scrolls through the shell's single body scroll owner.
-- [ ] Normal completion, invalid data, host rejection, reset, and Game teardown end the NPC interaction once.
+Before HPA-569 implementation is considered complete:
+
+- [ ] Static Dialogue chrome is scene-authored.
+- [ ] Final panel is wide, bottom-aligned, safe-frame bounded, and uses compact mode at 640×360.
+- [ ] Shell-owned `%Panel` / `%BodyScroll` are accessed through `%ModalShell`.
+- [ ] `SiriusModalShell` API and `SiriusUiMetrics` remain unchanged.
+- [ ] `NpcInteractionController` remains the single NPC interaction orchestration owner.
+- [ ] The Task 2 constructor cutover and sole `Game` caller compile in the same commit.
+- [ ] Conditions use `IDialogueCondition.Evaluate(...)`; no alias/wrapper is added.
+- [ ] Dialogue tree semantics and quest-flag side effects match the retired implementation.
+- [ ] Configured Cancel and visible terminal actions share one terminal latch.
+- [ ] Dialogue never pauses the scene tree.
+- [ ] Gameplay input is blocked while hosted Dialogue is active and restored once afterward.
+- [ ] The real `OnNpcInteracted` path is covered through an authored `NpcSpawn`, not only a domain-flag fixture.
+- [ ] The flag-only NPC Cancel regression remains for native Shop/Heal.
+- [ ] Shop/Heal still work through their legacy dialogs after Dialogue outcomes.
+- [ ] 640×360 long content scrolls through the shell body and follow-focus reaches the final choice.
+- [ ] Teardown clears `IsInNpcInteraction` after `InteractionComplete` is unsubscribed.
+- [ ] `UIScreenHostTestSupport.CreateHost(...)` is reused in controller tests.
 - [ ] No native `DialogueDialog` references remain.
-- [ ] Focused suites, neighboring suites, full suite, build, stale-reference audit, scope audit, and diff check pass.
+- [ ] Full suite/build/diff-check pass before implementation completion is claimed.

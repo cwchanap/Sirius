@@ -237,6 +237,56 @@ public partial class GameInputLifecycleTest : Node
         AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsFalse();
     }
 
+    // When ShowSaveError is called but TryOpenHostedPrompt cannot present
+    // (e.g. a Prompt is already active), the retained Save/Load screen must
+    // still be rearmed so the user can select another slot. Without the
+    // fallback the terminal latch stays consumed and all actions stay disabled.
+    [TestCase]
+    public async Task ShowSaveError_PromptOpenFails_RearmsSaveLoadScreen()
+    {
+        ConfigureCancelBindings(Key.P);
+        await ReplaceWithHostedLifecycleFixture();
+        SaveManager.Instance?.DeleteSave(0);
+
+        // Opens Pause → Load → slot 0 failure → RecoverableError Prompt.
+        // The Save/Load terminal latch is now consumed and a Prompt is active.
+        var host = await OpenPausedSaveLoadErrorPrompt();
+        var modalLayer = host.GetNode<Control>("ModalLayer");
+        var loadScreen = FindDirectChild<SaveLoadScreenController>(modalLayer);
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+        AssertThat(GetPrivateField<bool>(loadScreen, "_terminalEmitted")).IsTrue();
+
+        // A second ShowSaveError while the Prompt is still open cannot present
+        // a new Prompt — TryOpenHostedPrompt returns false. The fallback must
+        // rearm the Save/Load screen so it is not permanently disabled.
+        var opened = InvokePrivate<bool>(
+            _game, "ShowSaveError", "Another error.", "Save Failed");
+
+        AssertThat(opened).IsFalse();
+        AssertThat(GetPrivateField<bool>(loadScreen, "_terminalEmitted")).IsFalse();
+
+        // The rearm must have re-enabled the slot cards so a new selection is
+        // accepted. Slot 1 is empty in Load mode, so we inject a Valid slot
+        // info to make the card pressable, mirroring the existing rearm test.
+        var slotInfos = GetPrivateField<SaveSlotInfo[]>(loadScreen, "_slotInfos");
+        slotInfos[1] = new SaveSlotInfo
+        {
+            Exists = true,
+            State = SaveSlotState.Valid,
+            SlotIndex = 1,
+            PlayerName = "Missing",
+            PlayerLevel = 1
+        };
+        var slot1Card = loadScreen.GetNode<Button>("%Slot1Card");
+        slot1Card.Disabled = false;
+        slot1Card.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        // A fresh error Prompt opened under the same retained Save/Load parent.
+        AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+        AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+    }
+
     [TestCase]
     public async Task ConfiguredKeyboardCancel_WorldInteractionConsumesWithoutOpeningHostedPause()
     {
@@ -888,6 +938,13 @@ public partial class GameInputLifecycleTest : Node
         var method = FindPrivateMethod(instance.GetType(), methodName)
             ?? throw new MissingMethodException(instance.GetType().FullName, methodName);
         method.Invoke(instance, arguments);
+    }
+
+    private static T InvokePrivate<T>(object instance, string methodName, params object?[] arguments)
+    {
+        var method = FindPrivateMethod(instance.GetType(), methodName)
+            ?? throw new MissingMethodException(instance.GetType().FullName, methodName);
+        return (T)method.Invoke(instance, arguments)!;
     }
 
     private static void SetPrivateField(object instance, string fieldName, object? value)

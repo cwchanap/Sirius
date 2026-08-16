@@ -1970,13 +1970,18 @@ public partial class Game : Node2D
             return false;
         }
 
-        return TryOpenHostedPrompt(
+        var opened = TryOpenHostedPrompt(
             SiriusPromptVariant.RecoverableError,
             title,
             message,
             "OK",
             onPrimary: () => _hostedSaveLoadScreen?.RearmAfterFailedTerminal(),
             parent: _hostedSaveLoadHandle);
+
+        if (!opened)
+            _hostedSaveLoadScreen?.RearmAfterFailedTerminal();
+
+        return opened;
     }
 
     private void ShowCorruptedSaveError()

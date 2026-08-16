@@ -594,13 +594,16 @@ public partial class MainMenu : Control
         {
             if (_loadHandle.HasValue)
             {
-                TryOpenMessage(
+                var opened = TryOpenMessage(
                     SiriusPromptVariant.RecoverableError,
                     "Load Failed",
                     "Failed to load save file.",
                     restoreFocus: null,
                     parent: _loadHandle,
                     onPrimary: () => _loadScreen?.RearmAfterFailedTerminal());
+
+                if (!opened)
+                    _loadScreen?.RearmAfterFailedTerminal();
             }
             return;
         }

@@ -691,6 +691,81 @@ public partial class MainMenuTest : Node
         }
     }
 
+    // When OnHostedLoadSlotSelected triggers a load failure but TryOpenMessage
+    // cannot present (a Prompt is already active), the retained Load screen
+    // must still be rearmed so the user can select another slot. Without the
+    // fallback the terminal latch stays consumed and all actions stay disabled.
+    [TestCase]
+    public async Task HostedLoadFailure_PromptOpenFails_RearmsLoadScreen()
+    {
+        var manager = SaveManager.Instance!;
+        try
+        {
+            for (var slot = 0; slot <= 3; slot++)
+                manager.DeleteSave(slot);
+
+            AssertThat(manager.SaveGame(0, ValidSaveData())).IsTrue();
+
+            InvokePrivateAcrossHierarchy(_menu, "_on_load_button_pressed");
+            await AwaitFrames(2);
+
+            var host = _menu.GetNode<UIScreenHost>("%UIScreenHost");
+            var loadScreen = GetPrivateField<SaveLoadScreenController?>(_menu, "_loadScreen");
+            AssertThat(loadScreen).IsNotNull();
+
+            // Force a real slot press on a slot with no save file so the
+            // one-way terminal latch engages and a failure Prompt opens.
+            var slotInfos = GetPrivateField<SaveSlotInfo[]>(loadScreen!, "_slotInfos");
+            slotInfos[1] = new SaveSlotInfo
+            {
+                Exists = true,
+                State = SaveSlotState.Valid,
+                SlotIndex = 1,
+                PlayerName = "Missing",
+                PlayerLevel = 1
+            };
+            var slotCard = loadScreen.GetNode<Button>("%Slot1Card");
+            slotCard.Disabled = false;
+            slotCard.EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+
+            AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+            AssertThat(GetPrivateField<bool>(loadScreen!, "_terminalEmitted")).IsTrue();
+
+            // A second OnHostedLoadSlotSelected while the Prompt is still open
+            // cannot present a new Prompt — TryOpenMessage returns false. The
+            // fallback must rearm the Load screen so it is not permanently
+            // disabled.
+            InvokePrivateAcrossHierarchy(_menu, "OnHostedLoadSlotSelected", 1);
+            await AwaitFrames(2);
+
+            AssertThat(GetPrivateField<bool>(loadScreen!, "_terminalEmitted")).IsFalse();
+
+            // The rearm must have re-enabled the slot cards so a new selection
+            // is accepted.
+            slotInfos[2] = new SaveSlotInfo
+            {
+                Exists = true,
+                State = SaveSlotState.Valid,
+                SlotIndex = 2,
+                PlayerName = "Missing",
+                PlayerLevel = 1
+            };
+            var slot2Card = loadScreen.GetNode<Button>("%Slot2Card");
+            slot2Card.Disabled = false;
+            slot2Card.EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+
+            AssertThat(host.IsKindActive(UIScreenKinds.Prompt)).IsTrue();
+            AssertThat(host.IsKindActive(UIScreenKinds.SaveLoad)).IsTrue();
+        }
+        finally
+        {
+            for (var slot = 0; slot <= 3; slot++)
+                manager.DeleteSave(slot);
+        }
+    }
+
     [TestCase]
     public async Task HostedLoadSlotSelected_SetsPendingLoadAndUsesExistingSceneTransition()
     {

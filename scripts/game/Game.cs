@@ -1057,7 +1057,8 @@ public partial class Game : Node2D
         catch (Exception ex)
         {
             GD.PushError($"[Game] NpcInteractionController.Begin() threw: {ex.Message}. Ending NPC interaction.");
-            _npcInteractionController.InteractionComplete -= OnNpcInteractionComplete;
+            if (_npcInteractionController != null)
+                _npcInteractionController.InteractionComplete -= OnNpcInteractionComplete;
             _npcInteractionController = null;
             EndNpcInteractionIfActive();
             UpdateInteractionPrompt();

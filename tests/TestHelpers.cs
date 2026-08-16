@@ -220,4 +220,76 @@ public static class TestHelpers
             : manager.SaveGame(slot, data);
         AssertThat(success).IsTrue();
     }
+
+    /// <summary>
+    /// Read a private instance field declared on <paramref name="instance"/> or
+    /// any of its base types. Walks the base-type chain so fields declared on a
+    /// base class are resolved without a type-specific overload.
+    /// </summary>
+    public static T GetPrivateField<T>(object instance, string fieldName)
+    {
+        for (var current = instance.GetType(); current != null; current = current.BaseType)
+        {
+            var field = current.GetField(
+                fieldName,
+                BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+            if (field != null)
+                return (T)field.GetValue(instance)!;
+        }
+
+        throw new MissingFieldException(instance.GetType().FullName, fieldName);
+    }
+
+    /// <summary>
+    /// Resolve the internal grid position (origin-relative) of the
+    /// <paramref name="npcId"/> spawn on the current floor. Asserts the
+    /// round-trip through <see cref="GridMap.InternalGridToTilemapCoords"/>
+    /// matches the spawn's <see cref="NpcSpawn.GridPosition"/>.
+    /// </summary>
+    public static Vector2I FindNpcInternalPosition(Game game, string npcId)
+    {
+        var grid = game.GetNode<FloorManager>("FloorManager").CurrentGridMap;
+        var floorRoot = grid.GetParent();
+        var spawn = game.GetTree().GetNodesInGroup("NpcSpawn")
+            .OfType<NpcSpawn>()
+            .Single(node => node.NpcId == npcId && node.BelongsToFloor(floorRoot));
+        var origin = GetPrivateField<Vector2I>(grid, "_tilemapOrigin");
+        var internalPosition = spawn.GridPosition - origin;
+
+        AssertThat(grid.InternalGridToTilemapCoords(internalPosition))
+            .IsEqual(spawn.GridPosition);
+        return internalPosition;
+    }
+
+    /// <summary>
+    /// Recursively search <paramref name="node"/> and its descendants for a
+    /// <see cref="Button"/> whose <see cref="Button.Text"/> equals
+    /// <paramref name="text"/>. Returns null when no match is found.
+    /// </summary>
+    public static Button? FindButtonOrNull(Node node, string text)
+    {
+        if (node is Button button && button.Text == text)
+            return button;
+
+        foreach (Node child in node.GetChildren())
+        {
+            var found = FindButtonOrNull(child, text);
+            if (found != null)
+                return found;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Recursively search for a <see cref="Button"/> whose
+    /// <see cref="Button.Text"/> equals <paramref name="text"/>, throwing when
+    /// no match is found. Delegates the traversal to
+    /// <see cref="FindButtonOrNull"/>.
+    /// </summary>
+    public static Button FindButton(Node node, string text)
+    {
+        return FindButtonOrNull(node, text)
+            ?? throw new InvalidOperationException($"Button '{text}' not found.");
+    }
 }

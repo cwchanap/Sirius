@@ -11,15 +11,19 @@ using static GdUnit4.Assertions;
 public partial class NpcInteractionControllerTest : Node
 {
     private SceneTree _sceneTree = null!;
+    private HostFixture _hostFixture = null!;
+    private UIScreenHost _screenHost = null!;
     private Node _uiParent = null!;
 
     [BeforeTest]
     public async Task Setup()
     {
         _sceneTree = (SceneTree)Engine.GetMainLoop();
-        _uiParent = new Node();
+        _hostFixture = await UIScreenHostTestSupport.CreateHost(this);
+        _screenHost = _hostFixture.Host;
+
+        _uiParent = new Node { Name = "LegacyNpcUiParent" };
         _sceneTree.Root.AddChild(_uiParent);
-        await AwaitTwoFrames();
     }
 
     [AfterTest]
@@ -28,37 +32,57 @@ public partial class NpcInteractionControllerTest : Node
         if (_uiParent != null && GodotObject.IsInstanceValid(_uiParent))
             _uiParent.QueueFree();
 
-        await AwaitTwoFrames();
+        await UIScreenHostTestSupport.DisposeFixture(_hostFixture);
+
         _uiParent = null!;
+        _hostFixture = null!;
+        _screenHost = null!;
         _sceneTree = null!;
     }
 
     [TestCase]
-    public async Task DialogueCancel_CompletesOnceAndFreesDialogue()
+    public void Begin_HostsOneDialogueEntry()
+    {
+        var controller = CreateController("old_farmer");
+        controller.Begin();
+
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
+            .IsEqual(1);
+        AssertThat(HostedDialogueCount()).IsEqual(1);
+    }
+
+    [TestCase]
+    public async Task DialogueCancel_ClosesHostedEntryAndCompletesOnce()
     {
         int completed = 0;
         var controller = CreateController("old_farmer");
         controller.InteractionComplete += () => completed++;
         controller.Begin();
 
-        var dialogue = _uiParent.GetChildren().OfType<DialogueDialog>().Single();
-        dialogue.EmitSignal(AcceptDialog.SignalName.Canceled);
-        controller.Finish();
+        HostedDialogue().RequestCancel();
         await AwaitTwoFrames();
 
         AssertThat(completed).IsEqual(1);
-        AssertThat(_uiParent.GetChildren().OfType<DialogueDialog>().Any()).IsFalse();
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
+            .IsEqual(0);
+        AssertThat(HostedDialogueCount()).IsEqual(0);
     }
 
     [TestCase]
-    public async Task ShopOutcome_ReplacesDialogue_AndShopCancelCompletesOnce()
+    public async Task ShopOutcome_ClosesHostedDialogueBeforeNativeShopOpens()
     {
         int completed = 0;
         var controller = CreateController("village_shopkeeper");
         controller.InteractionComplete += () => completed++;
         controller.Begin();
 
-        FindButton(_uiParent, "Browse your wares.").EmitSignal(Button.SignalName.Pressed);
+        FindButton(HostedDialogue(), "Browse your wares.").EmitSignal(Button.SignalName.Pressed);
+        await AwaitTwoFrames();
+
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
+            .IsEqual(0);
+        AssertThat(HostedDialogueCount()).IsEqual(0);
+
         var shop = _uiParent.GetChildren().OfType<ShopDialog>().Single();
         shop.EmitSignal(AcceptDialog.SignalName.Canceled);
         await AwaitTwoFrames();
@@ -68,14 +92,20 @@ public partial class NpcInteractionControllerTest : Node
     }
 
     [TestCase]
-    public async Task HealOutcome_ReplacesDialogue_AndCancelCompletesOnce()
+    public async Task HealOutcome_ClosesHostedDialogueBeforeNativeHealOpens()
     {
         int completed = 0;
         var controller = CreateController("village_healer");
         controller.InteractionComplete += () => completed++;
         controller.Begin();
 
-        FindButton(_uiParent, "Yes, heal me. (50 gold)").EmitSignal(Button.SignalName.Pressed);
+        FindButton(HostedDialogue(), "Yes, heal me. (50 gold)").EmitSignal(Button.SignalName.Pressed);
+        await AwaitTwoFrames();
+
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
+            .IsEqual(0);
+        AssertThat(HostedDialogueCount()).IsEqual(0);
+
         var heal = _uiParent.GetChildren().OfType<HealDialog>().Single();
         heal.EmitSignal(AcceptDialog.SignalName.Canceled);
         await AwaitTwoFrames();
@@ -85,7 +115,24 @@ public partial class NpcInteractionControllerTest : Node
     }
 
     [TestCase]
-    public void MissingDialogueTree_CompletesOnceAndCreatesNoDialog()
+    public async Task Finish_WhileDialogueActive_ClosesHostedEntryAndCompletesOnce()
+    {
+        int completed = 0;
+        var controller = CreateController("old_farmer");
+        controller.InteractionComplete += () => completed++;
+        controller.Begin();
+
+        controller.Finish();
+        await AwaitTwoFrames();
+
+        AssertThat(completed).IsEqual(1);
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
+            .IsEqual(0);
+        AssertThat(HostedDialogueCount()).IsEqual(0);
+    }
+
+    [TestCase]
+    public void MissingTree_CreatesNoHostedEntryAndCompletesOnce()
     {
         var npc = new NpcData
         {
@@ -98,12 +145,43 @@ public partial class NpcInteractionControllerTest : Node
         int completed = 0;
         var controller = CreateController(npc);
         controller.InteractionComplete += () => completed++;
-
         controller.Begin();
         controller.Finish();
 
         AssertThat(completed).IsEqual(1);
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
+            .IsEqual(0);
         AssertThat(_uiParent.GetChildren().Count).IsEqual(0);
+    }
+
+    [TestCase]
+    public void HostRejectsDialogue_CleansCandidateAndCompletesOnce()
+    {
+        var fixtureScreen = new Control();
+        AssertThat(_screenHost.TryPresent(fixtureScreen, new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.Dialogue,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Modal,
+            ProcessPolicy = UIProcessPolicy.Always,
+            PauseTree = false,
+            BlockGameplayInput = true,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Visible,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Consume,
+            NodeLifetime = UINodeLifetime.QueueFree
+        }).Status).IsEqual(UIScreenOpenStatus.Opened);
+
+        int completed = 0;
+        var controller = CreateController("old_farmer");
+        controller.InteractionComplete += () => completed++;
+        controller.Begin();
+
+        AssertThat(completed).IsEqual(1);
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
+            .IsEqual(1); // only the pre-existing fixture entry
+        AssertThat(HostedDialogueCount()).IsEqual(0);
     }
 
     private NpcInteractionController CreateController(string npcId)
@@ -117,10 +195,23 @@ public partial class NpcInteractionControllerTest : Node
     {
         return new NpcInteractionController(
             null!,
+            _screenHost,
             _uiParent,
             npc,
             TestHelpers.CreateTestCharacter(),
             new HashSet<string>());
+    }
+
+    private DialogueScreenController HostedDialogue()
+    {
+        var modalLayer = _screenHost.GetNode<Control>("ModalLayer");
+        return modalLayer.GetChildren().OfType<DialogueScreenController>().Single();
+    }
+
+    private int HostedDialogueCount()
+    {
+        var modalLayer = _screenHost.GetNode<Control>("ModalLayer");
+        return modalLayer.GetChildren().OfType<DialogueScreenController>().Count();
     }
 
     private async Task AwaitTwoFrames()

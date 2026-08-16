@@ -10,12 +10,14 @@ using System.Collections.Generic;
 public class NpcInteractionController
 {
     private readonly GameManager _gameManager;
+    private readonly UIScreenHost _screenHost;
     private readonly Node _uiParent;
     private readonly NpcData _npc;
     private readonly Character _player;
     private readonly HashSet<string> _questFlags;
 
-    private DialogueDialog _dialogueDialog;
+    private DialogueScreenController? _dialogueScreen;
+    private UIScreenHandle? _dialogueHandle;
     private ShopDialog _shopDialog;
     private HealDialog _healDialog;
     private bool _finished;
@@ -23,11 +25,16 @@ public class NpcInteractionController
     /// <summary>Fired when the interaction is fully complete and all dialogs have been cleaned up.</summary>
     public event Action InteractionComplete;
 
-    public NpcInteractionController(GameManager gameManager, Node uiParent,
-                                    NpcData npc, Character player,
-                                    HashSet<string> questFlags)
+    public NpcInteractionController(
+        GameManager gameManager,
+        UIScreenHost screenHost,
+        Node uiParent,
+        NpcData npc,
+        Character player,
+        HashSet<string> questFlags)
     {
         _gameManager = gameManager;
+        _screenHost = screenHost;
         _uiParent = uiParent;
         _npc = npc;
         _player = player;
@@ -45,18 +52,65 @@ public class NpcInteractionController
             return;
         }
 
-        _dialogueDialog = new DialogueDialog();
-        _uiParent.AddChild(_dialogueDialog);
-        _dialogueDialog.DialogueOutcome += OnDialogueOutcome;
-        _dialogueDialog.DialogueClosed += OnDialogueClosed;
-        _dialogueDialog.StartDialogue(_npc, tree, _player, _questFlags);
-        _dialogueDialog.PopupCentered();
+        var packed = GD.Load<PackedScene>("res://scenes/ui/DialogueScreen.tscn");
+        if (packed == null)
+        {
+            GD.PushError("[NpcInteractionController] DialogueScreen.tscn not found.");
+            Finish();
+            return;
+        }
+
+        var screen = packed.Instantiate<DialogueScreenController>();
+        if (!screen.TryStartDialogue(_npc, tree, _player, _questFlags))
+        {
+            GD.PushError($"[NpcInteractionController] Dialogue tree '{tree.TreeId}' has no usable root or screen was already started.");
+            screen.QueueFree();
+            Finish();
+            return;
+        }
+
+        screen.DialogueOutcome += OnDialogueOutcome;
+        screen.DialogueClosed += OnDialogueClosed;
+
+        var result = _screenHost.TryPresent(screen, new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.Dialogue,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Modal,
+            ProcessPolicy = UIProcessPolicy.Always,
+            PauseTree = false,
+            BlockGameplayInput = true,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Visible,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Consume,
+            InitialFocus = () => screen.InitialFocusTarget,
+            InterceptCancel = _ =>
+            {
+                screen.RequestCancel();
+                return UIInputInterception.ConsumeHere;
+            },
+            Cleanup = _ => ClearDialoguePresentation(screen),
+            NodeLifetime = UINodeLifetime.QueueFree
+        });
+
+        if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
+        {
+            screen.DialogueOutcome -= OnDialogueOutcome;
+            screen.DialogueClosed -= OnDialogueClosed;
+            screen.QueueFree();
+            Finish();
+            return;
+        }
+
+        _dialogueScreen = screen;
+        _dialogueHandle = result.Handle.Value;
     }
 
     private void OnDialogueOutcome(int outcomeInt)
     {
         var outcome = (DialogueOutcomeType)outcomeInt;
-        CleanupDialogueDialog();
+        CloseDialoguePresentation(UIScreenCloseReason.Programmatic);
 
         switch (outcome)
         {
@@ -78,8 +132,34 @@ public class NpcInteractionController
 
     private void OnDialogueClosed()
     {
-        CleanupDialogueDialog();
+        CloseDialoguePresentation(UIScreenCloseReason.Programmatic);
         Finish();
+    }
+
+    private void ClearDialoguePresentation(DialogueScreenController screen)
+    {
+        if (GodotObject.IsInstanceValid(screen))
+        {
+            screen.DialogueOutcome -= OnDialogueOutcome;
+            screen.DialogueClosed -= OnDialogueClosed;
+        }
+
+        if (ReferenceEquals(_dialogueScreen, screen))
+        {
+            _dialogueScreen = null;
+            _dialogueHandle = null;
+        }
+    }
+
+    private void CloseDialoguePresentation(UIScreenCloseReason reason)
+    {
+        if (_dialogueScreen == null || !_dialogueHandle.HasValue)
+            return;
+
+        var screen = _dialogueScreen;
+        var result = _screenHost.TryClose(_dialogueHandle.Value, reason);
+        if (result.Status == UIScreenCloseStatus.StaleHandle)
+            ClearDialoguePresentation(screen);
     }
 
     private void OpenShop()
@@ -121,16 +201,6 @@ public class NpcInteractionController
         Finish();
     }
 
-    private void CleanupDialogueDialog()
-    {
-        if (_dialogueDialog == null) return;
-        _dialogueDialog.DialogueOutcome -= OnDialogueOutcome;
-        _dialogueDialog.DialogueClosed -= OnDialogueClosed;
-        if (GodotObject.IsInstanceValid(_dialogueDialog))
-            _dialogueDialog.QueueFree();
-        _dialogueDialog = null;
-    }
-
     private void CleanupShopDialog()
     {
         if (_shopDialog == null) return;
@@ -155,7 +225,7 @@ public class NpcInteractionController
     {
         if (_finished) return;
         _finished = true;
-        CleanupDialogueDialog();
+        CloseDialoguePresentation(UIScreenCloseReason.Programmatic);
         CleanupShopDialog();
         CleanupHealDialog();
         InteractionComplete?.Invoke();

@@ -1033,11 +1033,22 @@ public partial class Game : Node2D
         var npcData = foundSpawn.GetNpcData();
         if (npcData == null) return;
 
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost))
+        {
+            GD.PushError("[Game] Cannot start NPC interaction without UIScreenHost.");
+            return;
+        }
+
         _gameManager.StartNpcInteraction();
         UpdateInteractionPrompt();
 
         _npcInteractionController = new NpcInteractionController(
-            _gameManager, GetNode("UI"), npcData, _gameManager.Player, _questFlags);
+            _gameManager,
+            _screenHost,
+            GetNode("UI"),
+            npcData,
+            _gameManager.Player,
+            _questFlags);
         _npcInteractionController.InteractionComplete += OnNpcInteractionComplete;
         try
         {

@@ -252,6 +252,87 @@ public partial class NpcInteractionControllerTest : Node
         AssertThat(HostedDialogueCount()).IsEqual(0);
     }
 
+    [TestCase]
+    public async Task Close_PublicationSubscriberThrows_CompletesOnceAndCleansEntry()
+    {
+        int completed = 0;
+        var controller = CreateController("old_farmer");
+        controller.InteractionComplete += () => completed++;
+
+        // Let the initial blocked publication succeed so Begin() completes
+        // normally and the Dialogue entry is hosted. Throw only when the close
+        // publishes the unblocked state — the publication that escapes TryClose
+        // and, without catching it in OnDialogueClosed, prevents Finish() from
+        // being reached. By the time Recompute publishes, the host's Cleanup
+        // callback (ClearDialoguePresentation) has already unsubscribed the
+        // dialogue signals and cleared _dialogueScreen/_dialogueHandle, so the
+        // Dialogue is gone but InteractionComplete never fires — leaving
+        // GameManager.IsInNpcInteraction latched. Throw only once so the
+        // recovery path's republish (if any) does not re-enter.
+        var thrown = false;
+        _screenHost.EffectiveStateChanged += state =>
+        {
+            if (!state.IsPresentationGameplayBlocked && !thrown)
+            {
+                thrown = true;
+                throw new InvalidOperationException("close publication boom");
+            }
+        };
+
+        controller.Begin();
+
+        // RequestCancel fires DialogueClosed synchronously, which calls
+        // OnDialogueClosed → CloseDialoguePresentation → TryClose → Recompute
+        // (publishes unblocked → throws). Without the fix the exception
+        // escapes RequestCancel and Finish() is never called.
+        HostedDialogue().RequestCancel();
+        await AwaitTwoFrames();
+
+        AssertThat(completed).IsEqual(1);
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
+            .IsEqual(0);
+        AssertThat(HostedDialogueCount()).IsEqual(0);
+    }
+
+    [TestCase]
+    public async Task Finish_PublicationSubscriberThrows_CompletesOnceAndCleansEntry()
+    {
+        int completed = 0;
+        var controller = CreateController("old_farmer");
+        controller.InteractionComplete += () => completed++;
+
+        // Parallel to Close_PublicationSubscriberThrows but exercises the
+        // Finish() trap directly: Finish() sets _finished = true BEFORE
+        // calling CloseDialoguePresentation. If that close publication throws,
+        // InteractionComplete is skipped and every later Finish() retry is a
+        // no-op (_finished is already true) — a permanent soft-lock. Throw
+        // only on the first unblocked publication so the recovery path does
+        // not re-enter.
+        var thrown = false;
+        _screenHost.EffectiveStateChanged += state =>
+        {
+            if (!state.IsPresentationGameplayBlocked && !thrown)
+            {
+                thrown = true;
+                throw new InvalidOperationException("finish publication boom");
+            }
+        };
+
+        controller.Begin();
+
+        // Finish() calls CloseDialoguePresentation, whose TryClose → Recompute
+        // publishes the unblocked state and throws. Without the fix the
+        // exception escapes Finish(), InteractionComplete never fires, and
+        // _finished is left true so no retry can recover.
+        controller.Finish();
+        await AwaitTwoFrames();
+
+        AssertThat(completed).IsEqual(1);
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
+            .IsEqual(0);
+        AssertThat(HostedDialogueCount()).IsEqual(0);
+    }
+
     private NpcInteractionController CreateController(string npcId)
     {
         var npc = NpcCatalog.GetById(npcId)

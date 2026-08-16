@@ -212,6 +212,46 @@ public partial class NpcInteractionControllerTest : Node
         AssertThat(HostedDialogueCount()).IsEqual(0);
     }
 
+    [TestCase]
+    public async Task Begin_PublicationSubscriberClosesDialogue_CompletesOnceAndLeavesNoStaleHandle()
+    {
+        int completed = 0;
+        var controller = CreateController("old_farmer");
+        controller.InteractionComplete += () => completed++;
+
+        // The host publishes EffectiveStateChanged after the entry commits; a
+        // subscriber that synchronously closes the Dialogue entry during that
+        // publication is a post-commit mutation. UIScreenHost documents that
+        // TryPresent() may return Opened with the entry already closed. Without
+        // the IsActive re-check in Begin(), the controller would retain a stale
+        // screen/handle, no terminal signal would fire (the close path already
+        // unsubscribed the dialogue signals), and the interaction would
+        // soft-lock with GameManager.IsInNpcInteraction stuck true. Close only
+        // once so the close-path's own republish does not re-enter.
+        var closed = false;
+        _screenHost.EffectiveStateChanged += _ =>
+        {
+            if (closed)
+                return;
+            var dialogueEntry = _screenHost.ActiveEntries
+                .FirstOrDefault(e => e.Policy.Kind == UIScreenKinds.Dialogue);
+            if (dialogueEntry == null)
+                return;
+            closed = true;
+            _screenHost.TryClose(dialogueEntry.Handle, UIScreenCloseReason.Programmatic);
+        };
+
+        controller.Begin();
+
+        AssertThat(completed).IsEqual(1);
+
+        await AwaitTwoFrames();
+
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
+            .IsEqual(0);
+        AssertThat(HostedDialogueCount()).IsEqual(0);
+    }
+
     private NpcInteractionController CreateController(string npcId)
     {
         var npc = NpcCatalog.GetById(npcId)

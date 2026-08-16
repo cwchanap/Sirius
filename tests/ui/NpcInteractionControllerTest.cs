@@ -184,6 +184,34 @@ public partial class NpcInteractionControllerTest : Node
         AssertThat(HostedDialogueCount()).IsEqual(0);
     }
 
+    [TestCase]
+    public async Task Begin_PublicationSubscriberThrows_CompletesOnceAndCleansOrphanedEntry()
+    {
+        int completed = 0;
+        var controller = CreateController("old_farmer");
+        controller.InteractionComplete += () => completed++;
+
+        // The host publishes EffectiveStateChanged after the entry commits;
+        // a throwing subscriber escapes TryPresent and leaves the entry
+        // hosted. Throw only on the blocked publication; the NodeFreed close
+        // republishes unblocked and must not throw again.
+        _screenHost.EffectiveStateChanged += state =>
+        {
+            if (state.IsPresentationGameplayBlocked)
+                throw new InvalidOperationException("publication boom");
+        };
+
+        AssertThrown(() => controller.Begin())
+            .IsInstanceOf<InvalidOperationException>();
+        AssertThat(completed).IsEqual(1);
+
+        await AwaitTwoFrames();
+
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
+            .IsEqual(0);
+        AssertThat(HostedDialogueCount()).IsEqual(0);
+    }
+
     private NpcInteractionController CreateController(string npcId)
     {
         var npc = NpcCatalog.GetById(npcId)

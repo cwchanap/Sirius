@@ -72,27 +72,44 @@ public class NpcInteractionController
         screen.DialogueOutcome += OnDialogueOutcome;
         screen.DialogueClosed += OnDialogueClosed;
 
-        var result = _screenHost.TryPresent(screen, new UIScreenEntrySpec
+        UIScreenOpenResult result;
+        try
         {
-            Kind = UIScreenKinds.Dialogue,
-            Layer = UIScreenLayer.Modal,
-            InputPriority = UIInputPriority.Modal,
-            ProcessPolicy = UIProcessPolicy.Always,
-            PauseTree = false,
-            BlockGameplayInput = true,
-            Cursor = UICursorPolicy.Visible,
-            Hud = UIHudPolicy.Visible,
-            LowerLayers = UILowerLayerPolicy.VisibleInert,
-            Cancel = UICancelPolicy.Consume,
-            InitialFocus = () => screen.InitialFocusTarget,
-            InterceptCancel = _ =>
+            result = _screenHost.TryPresent(screen, new UIScreenEntrySpec
             {
-                screen.RequestCancel();
-                return UIInputInterception.ConsumeHere;
-            },
-            Cleanup = _ => ClearDialoguePresentation(screen),
-            NodeLifetime = UINodeLifetime.QueueFree
-        });
+                Kind = UIScreenKinds.Dialogue,
+                Layer = UIScreenLayer.Modal,
+                InputPriority = UIInputPriority.Modal,
+                ProcessPolicy = UIProcessPolicy.Always,
+                PauseTree = false,
+                BlockGameplayInput = true,
+                Cursor = UICursorPolicy.Visible,
+                Hud = UIHudPolicy.Visible,
+                LowerLayers = UILowerLayerPolicy.VisibleInert,
+                Cancel = UICancelPolicy.Consume,
+                InitialFocus = () => screen.InitialFocusTarget,
+                InterceptCancel = _ =>
+                {
+                    screen.RequestCancel();
+                    return UIInputInterception.ConsumeHere;
+                },
+                Cleanup = _ => ClearDialoguePresentation(screen),
+                NodeLifetime = UINodeLifetime.QueueFree
+            });
+        }
+        catch (Exception)
+        {
+            // TryPresent can throw when a post-commit publication subscriber
+            // (GameplayInputBlockChanged / EffectiveStateChanged) fails. The
+            // entry may already be committed; freeing the view triggers the
+            // host's NodeFreed close, the designed recovery.
+            screen.DialogueOutcome -= OnDialogueOutcome;
+            screen.DialogueClosed -= OnDialogueClosed;
+            if (GodotObject.IsInstanceValid(screen))
+                screen.QueueFree();
+            Finish();
+            throw;
+        }
 
         if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
         {

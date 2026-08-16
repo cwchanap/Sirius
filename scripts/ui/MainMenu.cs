@@ -697,11 +697,24 @@ public partial class MainMenu : Control
         Action? onPrimary = null)
     {
         if (_screenHost == null || !IsInstanceValid(_screenHost) ||
-            _sceneChangeCommitted ||
-            _screenHost.IsKindActive(UIScreenKinds.Prompt))
+            _sceneChangeCommitted)
         {
             return false;
         }
+
+        if (_messageHandle.HasValue)
+        {
+            if (_screenHost.IsActive(_messageHandle.Value))
+                return false;
+
+            if (_messagePrompt != null)
+                ClearHostedMessage(_messagePrompt);
+            else
+                _messageHandle = null;
+        }
+
+        if (_screenHost.IsKindActive(UIScreenKinds.Prompt))
+            return false;
 
         var scene = GD.Load<PackedScene>("res://scenes/ui/components/SiriusPrompt.tscn");
         if (scene == null)

@@ -81,9 +81,12 @@ public partial class SiriusModalShell : Control
             : SiriusThemeTypes.Title;
         UiIconPresenter.Apply(_severityIcon, Severity.ToIconId(), UiIconSize.Default);
 
-        var width = Compact
-            ? availableSize.X - SiriusUiMetrics.SafeMargin(true) * 2
-            : Mathf.Min(SiriusUiMetrics.ModalWidth(SizeClass), availableSize.X * 0.90f);
+        var width = SizeClass == SiriusModalSizeClass.Full
+            ? Mathf.Min(SiriusUiMetrics.ModalWidth(SizeClass), availableSize.X)
+            : Compact
+                ? availableSize.X - SiriusUiMetrics.SafeMargin(true) * 2
+                : Mathf.Min(SiriusUiMetrics.ModalWidth(SizeClass), availableSize.X * 0.90f);
+
         _panel.CustomMinimumSize = new Vector2(Mathf.Max(0, width), 0);
         RefreshBodyHeight(availableSize);
     }

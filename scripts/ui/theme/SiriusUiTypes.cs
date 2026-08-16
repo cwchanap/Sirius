@@ -13,7 +13,8 @@ public enum SiriusModalSizeClass
 {
     Small,
     Medium,
-    Large
+    Large,
+    Full
 }
 
 public enum SiriusStatBarKind

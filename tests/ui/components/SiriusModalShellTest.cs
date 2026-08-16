@@ -130,6 +130,37 @@ public partial class SiriusModalShellTest : Node
     }
 
     [TestCase]
+    public async Task RefreshPresentation_FullFillsSuppliedSafeWidthAndSurvivesTitleMutation()
+    {
+        _shell.SizeClass = SiriusModalSizeClass.Full;
+        _shell.Compact = false;
+        var available = new Vector2(1232, 320);
+
+        _shell.RefreshPresentation(available);
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        var panel = _shell.GetNode<PanelContainer>("%Panel");
+        AssertThat(panel.CustomMinimumSize.X).IsEqual(1232f);
+
+        _shell.Title = "Mira the Merchant";
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        AssertThat(panel.CustomMinimumSize.X).IsEqual(1232f);
+    }
+
+    [TestCase]
+    public async Task RefreshPresentation_FullCompactUsesSuppliedSafeWidthWithoutSecondMargin()
+    {
+        _shell.SizeClass = SiriusModalSizeClass.Full;
+        _shell.Compact = true;
+        _shell.RefreshPresentation(new Vector2(616, 336));
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        var panel = _shell.GetNode<PanelContainer>("%Panel");
+        AssertThat(panel.CustomMinimumSize.X).IsEqual(616f);
+    }
+
+    [TestCase]
     public async Task RefreshPresentation_TallBodyAtMinimumViewportFitsAndScrolls()
     {
         var (viewport, shell) = await CreateViewportShell(new Vector2I(640, 360));

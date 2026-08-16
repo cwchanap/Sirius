@@ -198,7 +198,7 @@ public partial class GameplayPauseHostTest : Node
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
         var gameUi = _game.GetNode<Control>("UI/GameUI");
         var gameManager = _game.GetNode<GameManager>("GameManager");
-        var internalPosition = FindNpcInternalPosition(_game, "village_shopkeeper");
+        var internalPosition = TestHelpers.FindNpcInternalPosition(_game, "village_shopkeeper");
 
         InvokePrivateVoid(_game, "OnNpcInteracted", internalPosition);
         await AwaitFrames(2);
@@ -223,7 +223,7 @@ public partial class GameplayPauseHostTest : Node
         var floorManager = _game.GetNode<FloorManager>("FloorManager");
         var gridMap = floorManager.CurrentGridMap;
         var playerController = _game.GetNode<PlayerController>("PlayerController");
-        var internalPosition = FindNpcInternalPosition(_game, "village_shopkeeper");
+        var internalPosition = TestHelpers.FindNpcInternalPosition(_game, "village_shopkeeper");
 
         var box = new TreasureBoxSpawn
         {
@@ -245,7 +245,7 @@ public partial class GameplayPauseHostTest : Node
 
         var dialogue = FindDirectChild<DialogueScreenController>(
             host.GetNode<Control>("ModalLayer"));
-        FindButton(dialogue, "Goodbye.").EmitSignal(Button.SignalName.Pressed);
+        TestHelpers.FindButton(dialogue, "Goodbye.").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(2);
 
         AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
@@ -265,7 +265,7 @@ public partial class GameplayPauseHostTest : Node
     {
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
         var gameManager = _game.GetNode<GameManager>("GameManager");
-        var internalPosition = FindNpcInternalPosition(_game, "village_shopkeeper");
+        var internalPosition = TestHelpers.FindNpcInternalPosition(_game, "village_shopkeeper");
 
         InvokePrivateVoid(_game, "OnNpcInteracted", internalPosition);
         await AwaitFrames(2);
@@ -1529,51 +1529,6 @@ public partial class GameplayPauseHostTest : Node
         }
 
         throw new InvalidOperationException($"Direct child '{typeof(T).Name}' was not found.");
-    }
-
-    private static Vector2I FindNpcInternalPosition(Game game, string npcId)
-    {
-        var grid = game.GetNode<FloorManager>("FloorManager").CurrentGridMap;
-        var floorRoot = grid.GetParent();
-        var spawn = game.GetTree().GetNodesInGroup("NpcSpawn")
-            .OfType<NpcSpawn>()
-            .Single(node => node.NpcId == npcId && node.BelongsToFloor(floorRoot));
-        var origin = GetPrivateField<Vector2I>(grid, "_tilemapOrigin");
-        var internalPosition = spawn.GridPosition - origin;
-
-        AssertThat(grid.InternalGridToTilemapCoords(internalPosition))
-            .IsEqual(spawn.GridPosition);
-        return internalPosition;
-    }
-
-    private static Button FindButton(Node node, string text)
-    {
-        if (node is Button button && button.Text == text)
-            return button;
-
-        foreach (Node child in node.GetChildren())
-        {
-            var found = FindButtonOrNull(child, text);
-            if (found != null)
-                return found;
-        }
-
-        throw new InvalidOperationException($"Button '{text}' not found.");
-    }
-
-    private static Button? FindButtonOrNull(Node node, string text)
-    {
-        if (node is Button button && button.Text == text)
-            return button;
-
-        foreach (Node child in node.GetChildren())
-        {
-            var found = FindButtonOrNull(child, text);
-            if (found != null)
-                return found;
-        }
-
-        return null;
     }
 
     private static async Task AwaitFrames(int frameCount)

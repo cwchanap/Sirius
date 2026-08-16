@@ -156,7 +156,7 @@ public partial class DialogueScreenControllerTest : Node
                 TestHelpers.CreateTestCharacter(),
                 new HashSet<string>());
 
-            FindButton(screen, "Browse your wares.").EmitSignal(Button.SignalName.Pressed);
+            TestHelpers.FindButton(screen, "Browse your wares.").EmitSignal(Button.SignalName.Pressed);
             screen.RequestCancel();
 
             AssertThat(outcomes).IsEqual(1);
@@ -213,8 +213,8 @@ public partial class DialogueScreenControllerTest : Node
                 TestHelpers.CreateTestCharacter(),
                 flags);
 
-            FindButton(screen, "First terminal.").EmitSignal(Button.SignalName.Pressed);
-            FindButton(screen, "Second terminal.").EmitSignal(Button.SignalName.Pressed);
+            TestHelpers.FindButton(screen, "First terminal.").EmitSignal(Button.SignalName.Pressed);
+            TestHelpers.FindButton(screen, "Second terminal.").EmitSignal(Button.SignalName.Pressed);
 
             AssertThat(outcomes).IsEqual(1);
             AssertThat(flags.Contains("first_flag")).IsTrue();
@@ -300,17 +300,17 @@ public partial class DialogueScreenControllerTest : Node
                 TestHelpers.CreateTestCharacter(),
                 new HashSet<string>());
 
-            FindButton(screen, "Any advice for a new adventurer?")
+            TestHelpers.FindButton(screen, "Any advice for a new adventurer?")
                 .EmitSignal(Button.SignalName.Pressed);
             await AwaitFrames(1);
 
-            AssertThat(FindButtonOrNull(screen, "Browse your wares.")).IsNull();
-            AssertThat(FindButtonOrNull(screen, "Goodbye.")).IsNull();
-            AssertThat(FindButtonOrNull(screen, "I'll keep that in mind. Browse wares."))
+            AssertThat(TestHelpers.FindButtonOrNull(screen, "Browse your wares.")).IsNull();
+            AssertThat(TestHelpers.FindButtonOrNull(screen, "Goodbye.")).IsNull();
+            AssertThat(TestHelpers.FindButtonOrNull(screen, "I'll keep that in mind. Browse wares."))
                 .IsNotNull();
-            AssertThat(FindButtonOrNull(screen, "Thanks. Goodbye.")).IsNotNull();
+            AssertThat(TestHelpers.FindButtonOrNull(screen, "Thanks. Goodbye.")).IsNotNull();
             AssertThat(screen.InitialFocusTarget).IsEqual(
-                FindButton(screen, "I'll keep that in mind. Browse wares."));
+                TestHelpers.FindButton(screen, "I'll keep that in mind. Browse wares."));
         }
         finally
         {
@@ -352,7 +352,7 @@ public partial class DialogueScreenControllerTest : Node
                 .OfType<Button>()
                 .ToList();
             AssertThat(actions.Count).IsEqual(1);
-            var farewell = FindButton(screen, "Farewell.");
+            var farewell = TestHelpers.FindButton(screen, "Farewell.");
             AssertThat(farewell.ThemeTypeVariation)
                 .IsEqual(SiriusThemeTypes.SecondaryButton);
 
@@ -379,15 +379,15 @@ public partial class DialogueScreenControllerTest : Node
                 new HashSet<string>());
             await AwaitFrames(2);
 
-            var firstChoice = FindButton(screen, "I'm sorry to hear that.");
+            var firstChoice = TestHelpers.FindButton(screen, "I'm sorry to hear that.");
             AssertThat(firstChoice.HasFocus()).IsTrue();
             AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(firstChoice);
 
             firstChoice.EmitSignal(Button.SignalName.Pressed);
             await AwaitFrames(2);
 
-            AssertThat(FindButtonOrNull(screen, "I'm sorry to hear that.")).IsNull();
-            AssertThat(FindButtonOrNull(screen, "I'll keep an eye out. Goodbye.")).IsNotNull();
+            AssertThat(TestHelpers.FindButtonOrNull(screen, "I'm sorry to hear that.")).IsNull();
+            AssertThat(TestHelpers.FindButtonOrNull(screen, "I'll keep an eye out. Goodbye.")).IsNotNull();
         }
         finally
         {
@@ -432,7 +432,7 @@ public partial class DialogueScreenControllerTest : Node
                 TestHelpers.CreateTestCharacter(),
                 new HashSet<string>());
 
-            FindButton(screen, "Nowhere.").EmitSignal(Button.SignalName.Pressed);
+            TestHelpers.FindButton(screen, "Nowhere.").EmitSignal(Button.SignalName.Pressed);
 
             AssertThat(closed).IsEqual(1);
         }
@@ -647,30 +647,6 @@ public partial class DialogueScreenControllerTest : Node
             .OfType<Button>()
             .Select(b => b.Text)
             .ToArray();
-
-    private static Button FindButton(DialogueScreenController screen, string text)
-    {
-        var button = FindButtonOrNull(screen, text);
-        if (button != null)
-            return button;
-
-        throw new InvalidOperationException($"Button '{text}' not found.");
-    }
-
-    private static Button? FindButtonOrNull(Node node, string text)
-    {
-        if (node is Button button && button.Text == text)
-            return button;
-
-        foreach (Node child in node.GetChildren())
-        {
-            var found = FindButtonOrNull(child, text);
-            if (found != null)
-                return found;
-        }
-
-        return null;
-    }
 
     private static bool ContainsAcceptDialog(Node node)
     {

@@ -149,6 +149,25 @@ public partial class SiriusModalShellTest : Node
     }
 
     [TestCase]
+    public async Task RefreshPresentation_FullClampsToMaximumContentWidthWhenAvailableExceedsIt()
+    {
+        _shell.SizeClass = SiriusModalSizeClass.Full;
+        _shell.Compact = false;
+        var available = new Vector2(SiriusUiMetrics.MaximumContentWidth + 400f, 320);
+
+        _shell.RefreshPresentation(available);
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        var panel = _shell.GetNode<PanelContainer>("%Panel");
+        AssertThat(panel.CustomMinimumSize.X).IsEqual(SiriusUiMetrics.MaximumContentWidth);
+
+        _shell.Title = "Upper-bound clamp check";
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        AssertThat(panel.CustomMinimumSize.X).IsEqual(SiriusUiMetrics.MaximumContentWidth);
+    }
+
+    [TestCase]
     public async Task RefreshPresentation_FullCompactUsesSuppliedSafeWidthWithoutSecondMargin()
     {
         _shell.SizeClass = SiriusModalSizeClass.Full;

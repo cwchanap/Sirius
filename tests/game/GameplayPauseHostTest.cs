@@ -215,6 +215,75 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
+    public async Task NpcShopOutcome_HostsAsBlockingScreenWithoutPausingTree()
+    {
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameManager = _game.GetNode<GameManager>("GameManager");
+        var gameUi = _game.GetNode<Control>("UI/GameUI");
+        var internalPosition = TestHelpers.FindNpcInternalPosition(_game, "village_shopkeeper");
+
+        InvokePrivateVoid(_game, "OnNpcInteracted", internalPosition);
+        await AwaitFrames(2);
+
+        var dialogue = FindDirectChild<DialogueScreenController>(
+            host.GetNode<Control>("ModalLayer"));
+        TestHelpers.FindButton(dialogue, "Browse your wares.")
+            .EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
+        var entry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Shop);
+        AssertThat(gameManager.IsInNpcInteraction).IsTrue();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsTrue();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+        AssertThat(entry.Policy.BlockGameplayInput).IsTrue();
+        AssertThat(entry.Policy.PauseTree).IsFalse();
+        AssertThat(entry.Policy.Hud).IsEqual(UIHudPolicy.Hidden);
+        AssertThat(entry.Policy.Cursor).IsEqual(UICursorPolicy.Visible);
+        AssertThat(gameUi.Visible).IsFalse();
+
+        // End the interaction so teardown starts from a clean state.
+        FindDirectChild<ShopScreenController>(host.GetNode<Control>("ModalLayer"))
+            .RequestCancel();
+        await AwaitFrames(2);
+        AssertThat(gameManager.IsInNpcInteraction).IsFalse();
+    }
+
+    [TestCase]
+    public async Task NpcHealOutcome_HostsAsBlockingScreenWithoutPausingTree()
+    {
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameManager = _game.GetNode<GameManager>("GameManager");
+        var gameUi = _game.GetNode<Control>("UI/GameUI");
+        var internalPosition = TestHelpers.FindNpcInternalPosition(_game, "village_healer");
+
+        InvokePrivateVoid(_game, "OnNpcInteracted", internalPosition);
+        await AwaitFrames(2);
+
+        var dialogue = FindDirectChild<DialogueScreenController>(
+            host.GetNode<Control>("ModalLayer"));
+        TestHelpers.FindButton(dialogue, "Yes, heal me. (50 gold)")
+            .EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
+        var entry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Heal);
+        AssertThat(gameManager.IsInNpcInteraction).IsTrue();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsTrue();
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+        AssertThat(entry.Policy.BlockGameplayInput).IsTrue();
+        AssertThat(entry.Policy.PauseTree).IsFalse();
+        AssertThat(entry.Policy.Hud).IsEqual(UIHudPolicy.Hidden);
+        AssertThat(entry.Policy.Cursor).IsEqual(UICursorPolicy.Visible);
+        AssertThat(gameUi.Visible).IsFalse();
+
+        FindDirectChild<HealingScreenController>(host.GetNode<Control>("ModalLayer"))
+            .RequestCancel();
+        await AwaitFrames(2);
+        AssertThat(gameManager.IsInNpcInteraction).IsFalse();
+    }
+
+    [TestCase]
     public async Task NpcDialogue_GoodbyeCompletesThroughRealRoute()
     {
         var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");

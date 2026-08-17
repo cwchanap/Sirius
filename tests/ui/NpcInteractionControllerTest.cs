@@ -13,7 +13,6 @@ public partial class NpcInteractionControllerTest : Node
     private SceneTree _sceneTree = null!;
     private HostFixture _hostFixture = null!;
     private UIScreenHost _screenHost = null!;
-    private Node _uiParent = null!;
 
     [BeforeTest]
     public async Task Setup()
@@ -21,20 +20,13 @@ public partial class NpcInteractionControllerTest : Node
         _sceneTree = (SceneTree)Engine.GetMainLoop();
         _hostFixture = await UIScreenHostTestSupport.CreateHost(this);
         _screenHost = _hostFixture.Host;
-
-        _uiParent = new Node { Name = "LegacyNpcUiParent" };
-        _sceneTree.Root.AddChild(_uiParent);
     }
 
     [AfterTest]
     public async Task Cleanup()
     {
-        if (_uiParent != null && GodotObject.IsInstanceValid(_uiParent))
-            _uiParent.QueueFree();
-
         await UIScreenHostTestSupport.DisposeFixture(_hostFixture);
 
-        _uiParent = null!;
         _hostFixture = null!;
         _screenHost = null!;
         _sceneTree = null!;
@@ -69,7 +61,7 @@ public partial class NpcInteractionControllerTest : Node
     }
 
     [TestCase]
-    public async Task ShopOutcome_ClosesHostedDialogueBeforeNativeShopOpens()
+    public async Task ShopOutcome_ClosesHostedDialogueThenHostsSingleShopEntry()
     {
         int completed = 0;
         var controller = CreateController("village_shopkeeper");
@@ -79,20 +71,28 @@ public partial class NpcInteractionControllerTest : Node
         FindButton(HostedDialogue(), "Browse your wares.").EmitSignal(Button.SignalName.Pressed);
         await AwaitTwoFrames();
 
+        // Dialogue closes first...
         AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
             .IsEqual(0);
         AssertThat(HostedDialogueCount()).IsEqual(0);
 
-        var shop = _uiParent.GetChildren().OfType<ShopDialog>().Single();
-        shop.EmitSignal(AcceptDialog.SignalName.Canceled);
+        // ...then exactly one Shop host entry opens, with no native child.
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Shop))
+            .IsEqual(1);
+        AssertThat(HostedShopCount()).IsEqual(1);
+        AssertThat(NativeDialogCount<ShopDialog>()).IsEqual(0);
+
+        // Cancel closes the hosted entry and completes exactly once.
+        HostedShop().RequestCancel();
         await AwaitTwoFrames();
 
         AssertThat(completed).IsEqual(1);
-        AssertThat(_uiParent.GetChildren().Count).IsEqual(0);
+        AssertThat(_screenHost.ActiveEntries.Count).IsEqual(0);
+        AssertThat(HostedShopCount()).IsEqual(0);
     }
 
     [TestCase]
-    public async Task HealOutcome_ClosesHostedDialogueBeforeNativeHealOpens()
+    public async Task HealOutcome_ClosesHostedDialogueThenHostsSingleHealEntry()
     {
         int completed = 0;
         var controller = CreateController("village_healer");
@@ -102,16 +102,24 @@ public partial class NpcInteractionControllerTest : Node
         FindButton(HostedDialogue(), "Yes, heal me. (50 gold)").EmitSignal(Button.SignalName.Pressed);
         await AwaitTwoFrames();
 
+        // Dialogue closes first...
         AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
             .IsEqual(0);
         AssertThat(HostedDialogueCount()).IsEqual(0);
 
-        var heal = _uiParent.GetChildren().OfType<HealDialog>().Single();
-        heal.EmitSignal(AcceptDialog.SignalName.Canceled);
+        // ...then exactly one Heal host entry opens, with no native child.
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Heal))
+            .IsEqual(1);
+        AssertThat(HostedHealingCount()).IsEqual(1);
+        AssertThat(NativeDialogCount<HealDialog>()).IsEqual(0);
+
+        // Cancel closes the hosted entry and completes exactly once.
+        HostedHealing().RequestCancel();
         await AwaitTwoFrames();
 
         AssertThat(completed).IsEqual(1);
-        AssertThat(_uiParent.GetChildren().Count).IsEqual(0);
+        AssertThat(_screenHost.ActiveEntries.Count).IsEqual(0);
+        AssertThat(HostedHealingCount()).IsEqual(0);
     }
 
     [TestCase]
@@ -129,6 +137,223 @@ public partial class NpcInteractionControllerTest : Node
         AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
             .IsEqual(0);
         AssertThat(HostedDialogueCount()).IsEqual(0);
+    }
+
+    [TestCase]
+    public async Task Finish_WhileShopActive_ClosesHostedEntryAndCompletesOnce()
+    {
+        int completed = 0;
+        var controller = CreateController("village_shopkeeper");
+        controller.InteractionComplete += () => completed++;
+        controller.Begin();
+
+        FindButton(HostedDialogue(), "Browse your wares.").EmitSignal(Button.SignalName.Pressed);
+        await AwaitTwoFrames();
+
+        controller.Finish();
+        await AwaitTwoFrames();
+
+        AssertThat(completed).IsEqual(1);
+        AssertThat(_screenHost.ActiveEntries.Count).IsEqual(0);
+        AssertThat(HostedShopCount()).IsEqual(0);
+    }
+
+    [TestCase]
+    public async Task Finish_WhileHealActive_ClosesHostedEntryAndCompletesOnce()
+    {
+        int completed = 0;
+        var controller = CreateController("village_healer");
+        controller.InteractionComplete += () => completed++;
+        controller.Begin();
+
+        FindButton(HostedDialogue(), "Yes, heal me. (50 gold)").EmitSignal(Button.SignalName.Pressed);
+        await AwaitTwoFrames();
+
+        controller.Finish();
+        await AwaitTwoFrames();
+
+        AssertThat(completed).IsEqual(1);
+        AssertThat(_screenHost.ActiveEntries.Count).IsEqual(0);
+        AssertThat(HostedHealingCount()).IsEqual(0);
+    }
+
+    [TestCase]
+    public async Task ShopOutcome_InvalidShopId_OpensNoShopAndCompletesOnce()
+    {
+        var npc = new NpcData
+        {
+            NpcId = "broken_shop_test",
+            DisplayName = "Broken Shop",
+            NpcType = NpcType.Shopkeeper,
+            ShopId = "missing_shop",
+            DialogueTreeId = "shopkeeper_greeting",
+            SpriteType = "shopkeeper"
+        };
+        int completed = 0;
+        var controller = CreateController(npc);
+        controller.InteractionComplete += () => completed++;
+        controller.Begin();
+
+        FindButton(HostedDialogue(), "Browse your wares.").EmitSignal(Button.SignalName.Pressed);
+        await AwaitTwoFrames();
+
+        AssertThat(completed).IsEqual(1);
+        AssertThat(_screenHost.ActiveEntries.Count).IsEqual(0);
+        AssertThat(HostedShopCount()).IsEqual(0);
+        AssertThat(NativeDialogCount<ShopDialog>()).IsEqual(0);
+    }
+
+    [TestCase]
+    public async Task HostRejectsShop_CleansCandidateAndCompletesOnce()
+    {
+        // Occupy the Shop kind so the controller's open is rejected
+        // (DuplicateKind) — mirroring the Dialogue rejection technique.
+        var fixtureScreen = new Control();
+        AssertThat(_screenHost.TryPresent(fixtureScreen, new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.Shop,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Modal,
+            ProcessPolicy = UIProcessPolicy.Always,
+            PauseTree = false,
+            BlockGameplayInput = true,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Hidden,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Consume,
+            NodeLifetime = UINodeLifetime.QueueFree
+        }).Status).IsEqual(UIScreenOpenStatus.Opened);
+
+        int completed = 0;
+        var controller = CreateController("village_shopkeeper");
+        controller.InteractionComplete += () => completed++;
+        controller.Begin();
+
+        FindButton(HostedDialogue(), "Browse your wares.").EmitSignal(Button.SignalName.Pressed);
+        await AwaitTwoFrames();
+
+        // The rejected candidate leaked nowhere: no hosted ShopScreen child,
+        // only the pre-existing fixture entry remains, and the interaction
+        // completed exactly once.
+        AssertThat(completed).IsEqual(1);
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Shop))
+            .IsEqual(1); // only the pre-existing fixture entry
+        AssertThat(HostedShopCount()).IsEqual(0);
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
+            .IsEqual(0);
+    }
+
+    [TestCase]
+    public async Task Shop_PublicationSubscriberClosesShop_CompletesOnceAndLeavesNoStaleHandle()
+    {
+        int completed = 0;
+        var controller = CreateController("village_shopkeeper");
+        controller.InteractionComplete += () => completed++;
+
+        // The host publishes EffectiveStateChanged after the Shop entry
+        // commits; a subscriber that synchronously closes it during that
+        // publication is a post-commit mutation. Without the IsActive
+        // recheck in TryHostSurface the controller would retain a stale
+        // screen/handle, no terminal signal would fire, and the interaction
+        // would soft-lock. Close only once so the close-path's own republish
+        // does not re-enter.
+        var closed = false;
+        _screenHost.EffectiveStateChanged += _ =>
+        {
+            if (closed)
+                return;
+            var shopEntry = _screenHost.ActiveEntries
+                .FirstOrDefault(e => e.Policy.Kind == UIScreenKinds.Shop);
+            if (shopEntry == null)
+                return;
+            closed = true;
+            _screenHost.TryClose(shopEntry.Handle, UIScreenCloseReason.Programmatic);
+        };
+
+        controller.Begin();
+        FindButton(HostedDialogue(), "Browse your wares.").EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(completed).IsEqual(1);
+
+        await AwaitTwoFrames();
+
+        AssertThat(_screenHost.ActiveEntries.Count).IsEqual(0);
+        AssertThat(HostedShopCount()).IsEqual(0);
+    }
+
+    [TestCase]
+    public async Task Heal_PublicationSubscriberClosesHeal_CompletesOnceAndLeavesNoStaleHandle()
+    {
+        int completed = 0;
+        var controller = CreateController("village_healer");
+        controller.InteractionComplete += () => completed++;
+
+        var closed = false;
+        _screenHost.EffectiveStateChanged += _ =>
+        {
+            if (closed)
+                return;
+            var healEntry = _screenHost.ActiveEntries
+                .FirstOrDefault(e => e.Policy.Kind == UIScreenKinds.Heal);
+            if (healEntry == null)
+                return;
+            closed = true;
+            _screenHost.TryClose(healEntry.Handle, UIScreenCloseReason.Programmatic);
+        };
+
+        controller.Begin();
+        FindButton(HostedDialogue(), "Yes, heal me. (50 gold)").EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(completed).IsEqual(1);
+
+        await AwaitTwoFrames();
+
+        AssertThat(_screenHost.ActiveEntries.Count).IsEqual(0);
+        AssertThat(HostedHealingCount()).IsEqual(0);
+    }
+
+    [TestCase]
+    public async Task Shop_ClosePublicationSubscriberThrows_CompletesOnceAndCleansEntry()
+    {
+        int completed = 0;
+        var controller = CreateController("village_shopkeeper");
+        controller.InteractionComplete += () => completed++;
+
+        // The NPC route publishes several block/unblocked transitions
+        // (Dialogue open → Dialogue close → Shop open → Shop close). Arm the
+        // throw only for the unblocked publication after the Shop entry has
+        // committed, so it escapes the Shop close path — without the catch in
+        // OnShopClosed, Finish() would never fire and the interaction latch
+        // would stick. Throw only once so any recovery republish proceeds.
+        var shopCommitted = false;
+        var thrown = false;
+        _screenHost.EffectiveStateChanged += state =>
+        {
+            if (!state.IsPresentationGameplayBlocked)
+            {
+                if (shopCommitted && !thrown)
+                {
+                    thrown = true;
+                    throw new InvalidOperationException("shop close publication boom");
+                }
+                return;
+            }
+
+            shopCommitted = _screenHost.ActiveEntries
+                .Any(e => e.Policy.Kind == UIScreenKinds.Shop);
+        };
+
+        controller.Begin();
+        FindButton(HostedDialogue(), "Browse your wares.").EmitSignal(Button.SignalName.Pressed);
+        await AwaitTwoFrames();
+        AssertThat(thrown).IsFalse(); // the Dialogue-close publication passed cleanly
+
+        HostedShop().RequestCancel();
+        await AwaitTwoFrames();
+
+        AssertThat(completed).IsEqual(1);
+        AssertThat(_screenHost.ActiveEntries.Count).IsEqual(0);
+        AssertThat(HostedShopCount()).IsEqual(0);
     }
 
     [TestCase]
@@ -151,7 +376,8 @@ public partial class NpcInteractionControllerTest : Node
         AssertThat(completed).IsEqual(1);
         AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
             .IsEqual(0);
-        AssertThat(_uiParent.GetChildren().Count).IsEqual(0);
+        AssertThat(NativeDialogCount<ShopDialog>()).IsEqual(0);
+        AssertThat(NativeDialogCount<HealDialog>()).IsEqual(0);
     }
 
     [TestCase]
@@ -345,7 +571,6 @@ public partial class NpcInteractionControllerTest : Node
         return new NpcInteractionController(
             null!,
             _screenHost,
-            _uiParent,
             npc,
             TestHelpers.CreateTestCharacter(),
             new HashSet<string>());
@@ -361,6 +586,51 @@ public partial class NpcInteractionControllerTest : Node
     {
         var modalLayer = _screenHost.GetNode<Control>("ModalLayer");
         return modalLayer.GetChildren().OfType<DialogueScreenController>().Count();
+    }
+
+    private ShopScreenController HostedShop()
+    {
+        var modalLayer = _screenHost.GetNode<Control>("ModalLayer");
+        return modalLayer.GetChildren().OfType<ShopScreenController>().Single();
+    }
+
+    private int HostedShopCount()
+    {
+        var modalLayer = _screenHost.GetNode<Control>("ModalLayer");
+        return modalLayer.GetChildren().OfType<ShopScreenController>().Count();
+    }
+
+    private HealingScreenController HostedHealing()
+    {
+        var modalLayer = _screenHost.GetNode<Control>("ModalLayer");
+        return modalLayer.GetChildren().OfType<HealingScreenController>().Single();
+    }
+
+    private int HostedHealingCount()
+    {
+        var modalLayer = _screenHost.GetNode<Control>("ModalLayer");
+        return modalLayer.GetChildren().OfType<HealingScreenController>().Count();
+    }
+
+    /// <summary>
+    /// Counts native dialog windows anywhere under the scene root — the
+    /// "no native route" guard. The legacy controller parented ShopDialog /
+    /// HealDialog under an ad-hoc node, so the scan must not depend on any
+    /// specific parent.
+    /// </summary>
+    private static int NativeDialogCount<T>() where T : Node =>
+        CountDescendants<T>(((SceneTree)Engine.GetMainLoop()).Root);
+
+    private static int CountDescendants<T>(Node node) where T : Node
+    {
+        int count = 0;
+        foreach (Node child in node.GetChildren())
+        {
+            if (child is T)
+                count++;
+            count += CountDescendants<T>(child);
+        }
+        return count;
     }
 
     private async Task AwaitTwoFrames()

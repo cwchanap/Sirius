@@ -310,8 +310,14 @@ public partial class GameInputLifecycleTest : Node
         }
     }
 
+    // The native NPC-dialog phase is gone: hosted Dialogue/Shop/Heal entries
+    // consume a configured cancel at the host. What remains of the old
+    // "declines for native handler" contract is Game's root-fallback guard
+    // for a bare interaction latch — IsInNpcInteraction set with no hosted
+    // entry (e.g. a controller failure window) must decline rather than open
+    // Pause on top of a stuck interaction.
     [TestCase]
-    public async Task ConfiguredKeyboardCancel_NpcInteractionDeclinesForNativeHandler()
+    public async Task ConfiguredKeyboardCancel_BareNpcInteractionLatchDeclinesRootPause()
     {
         ConfigureCancelBindings(Key.P);
         await ReplaceWithHostedLifecycleFixture();
@@ -385,6 +391,141 @@ public partial class GameInputLifecycleTest : Node
         await AwaitFrames(2);
 
         AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        AssertThat(gameManager.IsInNpcInteraction).IsFalse();
+    }
+
+    [TestCase]
+    public async Task ConfiguredKeyboardCancel_ClosesHostedShopThroughRealRoute()
+    {
+        ConfigureCancelBindings(Key.P);
+        _realGame = await InstantiateGameScene(_viewport!);
+        var gameManager = _realGame.GetNode<GameManager>("GameManager");
+        var host = _realGame.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameUi = _realGame.GetNode<Control>("UI/GameUI");
+        var internalPosition = TestHelpers.FindNpcInternalPosition(_realGame, "village_shopkeeper");
+
+        InvokePrivate(_realGame, "OnNpcInteracted", internalPosition);
+        await AwaitFrames(2);
+
+        var dialogue = FindDirectChild<DialogueScreenController>(
+            host.GetNode<Control>("ModalLayer"));
+        TestHelpers.FindButton(dialogue, "Browse your wares.")
+            .EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        // Dialogue is gone; exactly the hosted Shop entry remains, blocking
+        // gameplay input without pausing the tree, with the HUD hidden and
+        // the cursor visible.
+        AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
+        AssertThat(host.ActiveEntries.Count).IsEqual(1);
+        var entry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Shop);
+        AssertThat(gameManager.IsInNpcInteraction).IsTrue();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsTrue();
+        AssertThat(entry.Policy.BlockGameplayInput).IsTrue();
+        AssertThat(entry.Policy.PauseTree).IsFalse();
+        AssertThat(entry.Policy.Hud).IsEqual(UIHudPolicy.Hidden);
+        AssertThat(entry.Policy.Cursor).IsEqual(UICursorPolicy.Visible);
+        AssertThat(entry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+        AssertThat(gameUi.Visible).IsFalse();
+        AssertThat(Input.MouseMode).IsEqual(Input.MouseModeEnum.Visible);
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+
+        PushPhysicalKeyDown(Key.P);
+        await AwaitFrames(2);
+
+        try
+        {
+            AssertThat(_viewport!.IsInputHandled()).IsTrue();
+            AssertThat(host.IsKindActive(UIScreenKinds.Shop)).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+            AssertThat(gameManager.IsInNpcInteraction).IsFalse();
+        }
+        finally
+        {
+            ReleasePhysicalKey(Key.P);
+        }
+    }
+
+    [TestCase]
+    public async Task ConfiguredKeyboardCancel_ClosesHostedHealingThroughRealRoute()
+    {
+        ConfigureCancelBindings(Key.P);
+        _realGame = await InstantiateGameScene(_viewport!);
+        var gameManager = _realGame.GetNode<GameManager>("GameManager");
+        var host = _realGame.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var gameUi = _realGame.GetNode<Control>("UI/GameUI");
+        var internalPosition = TestHelpers.FindNpcInternalPosition(_realGame, "village_healer");
+
+        InvokePrivate(_realGame, "OnNpcInteracted", internalPosition);
+        await AwaitFrames(2);
+
+        var dialogue = FindDirectChild<DialogueScreenController>(
+            host.GetNode<Control>("ModalLayer"));
+        TestHelpers.FindButton(dialogue, "Yes, heal me. (50 gold)")
+            .EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
+        AssertThat(host.ActiveEntries.Count).IsEqual(1);
+        var entry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Heal);
+        AssertThat(gameManager.IsInNpcInteraction).IsTrue();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsTrue();
+        AssertThat(entry.Policy.BlockGameplayInput).IsTrue();
+        AssertThat(entry.Policy.PauseTree).IsFalse();
+        AssertThat(entry.Policy.Hud).IsEqual(UIHudPolicy.Hidden);
+        AssertThat(entry.Policy.Cursor).IsEqual(UICursorPolicy.Visible);
+        AssertThat(entry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+        AssertThat(gameUi.Visible).IsFalse();
+        AssertThat(Input.MouseMode).IsEqual(Input.MouseModeEnum.Visible);
+        AssertThat(((SceneTree)Engine.GetMainLoop()).Paused).IsFalse();
+
+        PushPhysicalKeyDown(Key.P);
+        await AwaitFrames(2);
+
+        try
+        {
+            AssertThat(_viewport!.IsInputHandled()).IsTrue();
+            AssertThat(host.IsKindActive(UIScreenKinds.Heal)).IsFalse();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+            AssertThat(gameManager.IsInNpcInteraction).IsFalse();
+        }
+        finally
+        {
+            ReleasePhysicalKey(Key.P);
+        }
+    }
+
+    [TestCase]
+    public async Task ConfiguredControllerCancel_ClosesHostedHealingThroughRealRoute()
+    {
+        var controllerBinding = new InputEventJoypadButton
+        {
+            ButtonIndex = (JoyButton)10
+        };
+        ConfigureCancelBindings(Key.P, controllerBinding);
+        _realGame = await InstantiateGameScene(_viewport!);
+        var gameManager = _realGame.GetNode<GameManager>("GameManager");
+        var host = _realGame.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var internalPosition = TestHelpers.FindNpcInternalPosition(_realGame, "village_healer");
+
+        InvokePrivate(_realGame, "OnNpcInteracted", internalPosition);
+        await AwaitFrames(2);
+
+        var dialogue = FindDirectChild<DialogueScreenController>(
+            host.GetNode<Control>("ModalLayer"));
+        TestHelpers.FindButton(dialogue, "Yes, heal me. (50 gold)")
+            .EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
+        AssertThat(host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Heal))
+            .IsNotNull();
+
+        PushPhysicalJoypadButtonPressAndRelease((JoyButton)10);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Heal)).IsFalse();
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
         AssertThat(gameManager.IsInNpcInteraction).IsFalse();
     }

@@ -11,15 +11,16 @@ public class NpcInteractionController
 {
     private readonly GameManager _gameManager;
     private readonly UIScreenHost _screenHost;
-    private readonly Node _uiParent;
     private readonly NpcData _npc;
     private readonly Character _player;
     private readonly HashSet<string> _questFlags;
 
     private DialogueScreenController? _dialogueScreen;
     private UIScreenHandle? _dialogueHandle;
-    private ShopDialog _shopDialog;
-    private HealDialog _healDialog;
+    private ShopScreenController? _shopScreen;
+    private UIScreenHandle? _shopHandle;
+    private HealingScreenController? _healScreen;
+    private UIScreenHandle? _healHandle;
     private bool _finished;
 
     /// <summary>Fired when the interaction is fully complete and all dialogs have been cleaned up.</summary>
@@ -28,14 +29,12 @@ public class NpcInteractionController
     public NpcInteractionController(
         GameManager gameManager,
         UIScreenHost screenHost,
-        Node uiParent,
         NpcData npc,
         Character player,
         HashSet<string> questFlags)
     {
         _gameManager = gameManager;
         _screenHost = screenHost;
-        _uiParent = uiParent;
         _npc = npc;
         _player = player;
         _questFlags = questFlags;
@@ -292,52 +291,168 @@ public class NpcInteractionController
             return;
         }
 
-        _shopDialog = new ShopDialog();
-        _uiParent.AddChild(_shopDialog);
-        _shopDialog.ShopClosed += OnShopClosed;
-        _shopDialog.OpenShop(shopInventory, _player);
-        _shopDialog.PopupCentered();
+        var screen = GD.Load<PackedScene>("res://scenes/ui/ShopScreen.tscn")
+            .Instantiate<ShopScreenController>();
+        screen.TryOpenShop(shopInventory, _player);
+        screen.ShopClosed += OnShopClosed;
+
+        if (TryHostSurface(screen, new UIScreenEntrySpec
+            {
+                Kind = UIScreenKinds.Shop,
+                Layer = UIScreenLayer.Modal,
+                InputPriority = UIInputPriority.Modal,
+                ProcessPolicy = UIProcessPolicy.Always,
+                PauseTree = false,
+                BlockGameplayInput = true,
+                Cursor = UICursorPolicy.Visible,
+                Hud = UIHudPolicy.Hidden,
+                LowerLayers = UILowerLayerPolicy.VisibleInert,
+                Cancel = UICancelPolicy.Consume,
+                InitialFocus = () => screen.InitialFocusTarget,
+                InterceptCancel = _ =>
+                {
+                    screen.RequestCancel();
+                    return UIInputInterception.ConsumeHere;
+                },
+                Cleanup = _ => ClearShopPresentation(screen),
+                NodeLifetime = UINodeLifetime.QueueFree
+            },
+            () => screen.ShopClosed -= OnShopClosed,
+            out var handle))
+        {
+            _shopScreen = screen;
+            _shopHandle = handle;
+        }
     }
 
     private void OnShopClosed()
     {
-        CleanupShopDialog();
+        // Same publication-exception concern as OnDialogueClosed: TryClose's
+        // Recompute publishes the unblocked state and a throwing subscriber
+        // escapes TryClose. By then the host's Cleanup
+        // (ClearShopPresentation) has already unsubscribed the shop signal
+        // and cleared _shopScreen/_shopHandle, so swallowing the exception
+        // and proceeding to Finish() is safe — without it,
+        // GameManager.IsInNpcInteraction would latch.
+        try
+        {
+            CloseShopPresentation(UIScreenCloseReason.Programmatic);
+        }
+        catch (Exception ex)
+        {
+            GD.PushError($"[NpcInteractionController] Close publication failed during shop closed: {ex.Message}");
+        }
         Finish();
+    }
+
+    private void ClearShopPresentation(ShopScreenController screen)
+    {
+        if (GodotObject.IsInstanceValid(screen))
+            screen.ShopClosed -= OnShopClosed;
+
+        if (ReferenceEquals(_shopScreen, screen))
+        {
+            _shopScreen = null;
+            _shopHandle = null;
+        }
+    }
+
+    private void CloseShopPresentation(UIScreenCloseReason reason)
+    {
+        if (_shopScreen == null || !_shopHandle.HasValue)
+            return;
+
+        var screen = _shopScreen;
+        CloseHostedPresentation(
+            _shopHandle,
+            reason,
+            () => ClearShopPresentation(screen));
     }
 
     private void OpenHeal()
     {
-        _healDialog = new HealDialog();
-        _uiParent.AddChild(_healDialog);
-        _healDialog.HealComplete += OnHealDone;
-        _healDialog.HealCancelled += OnHealDone;
-        _healDialog.OpenHeal(_npc, _player);
-        _healDialog.PopupCentered();
+        var screen = GD.Load<PackedScene>("res://scenes/ui/HealingScreen.tscn")
+            .Instantiate<HealingScreenController>();
+        screen.TryOpenHeal(_npc, _player);
+        screen.HealComplete += OnHealDone;
+        screen.HealCancelled += OnHealDone;
+
+        if (TryHostSurface(screen, new UIScreenEntrySpec
+            {
+                Kind = UIScreenKinds.Heal,
+                Layer = UIScreenLayer.Modal,
+                InputPriority = UIInputPriority.Modal,
+                ProcessPolicy = UIProcessPolicy.Always,
+                PauseTree = false,
+                BlockGameplayInput = true,
+                Cursor = UICursorPolicy.Visible,
+                Hud = UIHudPolicy.Hidden,
+                LowerLayers = UILowerLayerPolicy.VisibleInert,
+                Cancel = UICancelPolicy.Consume,
+                InitialFocus = () => screen.InitialFocusTarget,
+                InterceptCancel = _ =>
+                {
+                    screen.RequestCancel();
+                    return UIInputInterception.ConsumeHere;
+                },
+                Cleanup = _ => ClearHealPresentation(screen),
+                NodeLifetime = UINodeLifetime.QueueFree
+            },
+            () =>
+            {
+                screen.HealComplete -= OnHealDone;
+                screen.HealCancelled -= OnHealDone;
+            },
+            out var handle))
+        {
+            _healScreen = screen;
+            _healHandle = handle;
+        }
     }
 
     private void OnHealDone()
     {
-        CleanupHealDialog();
+        // HealComplete and HealCancelled both terminate the interaction.
+        // Same publication-exception concern as OnDialogueClosed; by the
+        // time a close publication throws, ClearHealPresentation has
+        // already unsubscribed both signals and cleared the state, so
+        // swallowing it and proceeding to Finish() is safe.
+        try
+        {
+            CloseHealPresentation(UIScreenCloseReason.Programmatic);
+        }
+        catch (Exception ex)
+        {
+            GD.PushError($"[NpcInteractionController] Close publication failed during heal terminal: {ex.Message}");
+        }
         Finish();
     }
 
-    private void CleanupShopDialog()
+    private void ClearHealPresentation(HealingScreenController screen)
     {
-        if (_shopDialog == null) return;
-        _shopDialog.ShopClosed -= OnShopClosed;
-        if (GodotObject.IsInstanceValid(_shopDialog))
-            _shopDialog.QueueFree();
-        _shopDialog = null;
+        if (GodotObject.IsInstanceValid(screen))
+        {
+            screen.HealComplete -= OnHealDone;
+            screen.HealCancelled -= OnHealDone;
+        }
+
+        if (ReferenceEquals(_healScreen, screen))
+        {
+            _healScreen = null;
+            _healHandle = null;
+        }
     }
 
-    private void CleanupHealDialog()
+    private void CloseHealPresentation(UIScreenCloseReason reason)
     {
-        if (_healDialog == null) return;
-        _healDialog.HealComplete -= OnHealDone;
-        _healDialog.HealCancelled -= OnHealDone;
-        if (GodotObject.IsInstanceValid(_healDialog))
-            _healDialog.QueueFree();
-        _healDialog = null;
+        if (_healScreen == null || !_healHandle.HasValue)
+            return;
+
+        var screen = _healScreen;
+        CloseHostedPresentation(
+            _healHandle,
+            reason,
+            () => ClearHealPresentation(screen));
     }
 
     /// <summary>Cleans up all open dialogs and fires InteractionComplete. Safe to call multiple times.</summary>
@@ -345,21 +460,21 @@ public class NpcInteractionController
     {
         if (_finished) return;
         _finished = true;
-        // CloseDialoguePresentation / CleanupShopDialog / CleanupHealDialog can
-        // throw via the same TryClose → Recompute publication path. _finished is
-        // set BEFORE cleanup so a re-entrant Finish() (e.g. from a signal fired
-        // during cleanup) is a no-op. But that means a throw here would skip
-        // InteractionComplete and leave GameManager.IsInNpcInteraction latched
-        // forever — every later Finish() retry is a no-op because _finished is
-        // already true. Wrap the cleanup so InteractionComplete always fires;
-        // the entry is already gone by the time a publication exception escapes
-        // TryClose (the host's Cleanup ran first), so proceeding to
-        // InteractionComplete is safe.
+        // The per-surface Close*Presentation calls can throw via the same
+        // TryClose → Recompute publication path. _finished is set BEFORE
+        // cleanup so a re-entrant Finish() (e.g. from a signal fired during
+        // cleanup) is a no-op. But that means a throw here would skip
+        // InteractionComplete and leave GameManager.IsInNpcInteraction
+        // latched forever — every later Finish() retry is a no-op because
+        // _finished is already true. Wrap the cleanup so InteractionComplete
+        // always fires; each entry is already gone by the time a publication
+        // exception escapes TryClose (the host's Cleanup ran first), so
+        // proceeding to InteractionComplete is safe.
         try
         {
             CloseDialoguePresentation(UIScreenCloseReason.Programmatic);
-            CleanupShopDialog();
-            CleanupHealDialog();
+            CloseShopPresentation(UIScreenCloseReason.Programmatic);
+            CloseHealPresentation(UIScreenCloseReason.Programmatic);
         }
         catch (Exception ex)
         {

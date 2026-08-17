@@ -137,6 +137,96 @@ public partial class HealingScreenControllerTest : Node
         }
     }
 
+    // ---- Viewport geometry ----------------------------------------------------
+    // Integration-level geometry only: SiriusModalShellTest owns the exhaustive
+    // clamp math; these pin the authored screen's centring, size class, margin
+    // and reachability outcomes at the representative verification viewports.
+
+    [TestCase(1280, 720)]
+    [TestCase(1920, 1080)]
+    public async Task StandardHealing_IsCentredSmallWithinSafeMargins(int width, int height)
+    {
+        var fixture = await OpenMountedHealAsync(
+            CreatePlayer(currentHealth: 40, gold: 60), new Vector2I(width, height));
+        try
+        {
+            var shell = fixture.Screen.GetNode<SiriusModalShell>("%ModalShell");
+            var panel = shell.GetNode<PanelContainer>("%Panel");
+
+            AssertThat(shell.Compact).IsFalse();
+            AssertThat(shell.SizeClass).IsEqual(SiriusModalSizeClass.Small);
+
+            var margin = SiriusUiMetrics.SafeMargin(false);
+            var rect = panel.GetGlobalRect();
+
+            // Centred on the viewport in both axes — a Dialogue-style bottom
+            // band would pin the panel far below mid-screen.
+            AssertThat(rect.GetCenter().X).IsEqualApprox(width / 2f, 1f);
+            AssertThat(rect.GetCenter().Y).IsEqualApprox(height / 2f, 1f);
+
+            AssertThat(rect.Position.X).IsGreaterEqual(margin - 0.5f);
+            AssertThat(rect.Position.Y).IsGreaterEqual(margin - 0.5f);
+            AssertThat(rect.End.X).IsLessEqual(width - margin + 0.5f);
+            AssertThat(rect.End.Y).IsLessEqual(height - margin + 0.5f);
+
+            foreach (var buttonName in new[] { "%HealButton", "%CancelButton" })
+            {
+                var buttonRect = fixture.Screen.GetNode<Button>(buttonName).GetGlobalRect();
+                AssertThat(buttonRect.End.X).IsLessEqual(width - margin + 0.5f);
+                AssertThat(buttonRect.End.Y).IsLessEqual(height - margin + 0.5f);
+            }
+        }
+        finally
+        {
+            await FreeAsync(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task CompactHealing_UsesSingleTwelvePxMargin_ActionsStayReachable()
+    {
+        var fixture = await OpenMountedHealAsync(
+            CreatePlayer(currentHealth: 40, gold: 60), new Vector2I(640, 360));
+        try
+        {
+            var shell = fixture.Screen.GetNode<SiriusModalShell>("%ModalShell");
+            var panel = shell.GetNode<PanelContainer>("%Panel");
+
+            AssertThat(shell.Compact).IsTrue();
+
+            // The shell owns the compact margin; the screen must not re-apply
+            // it. One 12 px inset per side → width is exactly viewport minus
+            // 24, not 48.
+            var margin = SiriusUiMetrics.SafeMargin(true);
+            var rect = panel.GetGlobalRect();
+            AssertThat(rect.Position.X).IsEqualApprox(margin, 1f);
+            AssertThat(rect.End.X).IsEqualApprox(640f - margin, 1f);
+            AssertThat(rect.Size.X).IsEqualApprox(640f - margin * 2f, 1f);
+
+            AssertThat(rect.Position.Y).IsGreaterEqual(margin - 0.5f);
+            AssertThat(rect.End.Y).IsLessEqual(360f - margin + 0.5f);
+
+            // The short body never scrolls; both actions must remain fully
+            // visible inside the viewport-safe band.
+            foreach (var buttonName in new[] { "%HealButton", "%CancelButton" })
+            {
+                var buttonRect = fixture.Screen.GetNode<Button>(buttonName).GetGlobalRect();
+                AssertThat(buttonRect.Position.Y).IsGreaterEqual(margin - 0.5f);
+                AssertThat(buttonRect.End.Y).IsLessEqual(360f - margin + 0.5f);
+            }
+
+            // The whole body content stays visible above the actions (the
+            // shell body is never squeezed behind the action row).
+            var gold = fixture.Screen.GetNode<Label>("%GoldLabel");
+            AssertThat(gold.GetGlobalRect().End.Y).IsLessEqual(
+                fixture.Screen.GetNode<Button>("%HealButton").GetGlobalRect().Position.Y + 0.5f);
+        }
+        finally
+        {
+            await FreeAsync(fixture);
+        }
+    }
+
     // ---- Standing availability presentation --------------------------------
 
     [TestCase]
@@ -382,11 +472,14 @@ public partial class HealingScreenControllerTest : Node
         => await OpenMountedHealAsync(CreatePlayer(currentHealth, gold));
 
     private async Task<HealFixture> OpenMountedHealAsync(Character player)
+        => await OpenMountedHealAsync(player, new Vector2I(1280, 720));
+
+    private async Task<HealFixture> OpenMountedHealAsync(Character player, Vector2I viewportSize)
     {
         var screen = CreateUnparentedScreen();
         AssertThat(screen.TryOpenHeal(Healer(), player)).IsTrue();
 
-        var (container, viewport) = TestHelpers.MountInViewport(screen, new Vector2I(1280, 720));
+        var (container, viewport) = TestHelpers.MountInViewport(screen, viewportSize);
         await AwaitFrames(1);
         return new HealFixture(container, viewport, screen, player);
     }

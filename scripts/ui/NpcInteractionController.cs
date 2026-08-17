@@ -72,10 +72,7 @@ public class NpcInteractionController
         screen.DialogueOutcome += OnDialogueOutcome;
         screen.DialogueClosed += OnDialogueClosed;
 
-        UIScreenOpenResult result;
-        try
-        {
-            result = _screenHost.TryPresent(screen, new UIScreenEntrySpec
+        if (TryHostSurface(screen, new UIScreenEntrySpec
             {
                 Kind = UIScreenKinds.Dialogue,
                 Layer = UIScreenLayer.Modal,
@@ -95,7 +92,40 @@ public class NpcInteractionController
                 },
                 Cleanup = _ => ClearDialoguePresentation(screen),
                 NodeLifetime = UINodeLifetime.QueueFree
-            });
+            },
+            () =>
+            {
+                screen.DialogueOutcome -= OnDialogueOutcome;
+                screen.DialogueClosed -= OnDialogueClosed;
+            },
+            out var handle))
+        {
+            _dialogueScreen = screen;
+            _dialogueHandle = handle;
+        }
+    }
+
+    /// <summary>
+    /// Presents <paramref name="screen"/> through the host and returns its
+    /// active handle. Owns only the mechanical TryPresent protocol shared by
+    /// every hosted surface: publication-throw recovery (unsubscribe, free
+    /// the candidate, Finish, rethrow), rejected-open cleanup (unsubscribe,
+    /// free, Finish), the post-commit IsActive recheck, and finishing without
+    /// retaining state when the entry was closed synchronously during
+    /// publication. Callers own screen creation/configuration, signal
+    /// subscriptions, the explicit <see cref="UIScreenEntrySpec"/>, and
+    /// per-surface screen/handle retention.
+    /// </summary>
+    private bool TryHostSurface(
+        Control screen,
+        UIScreenEntrySpec spec,
+        Action unsubscribe,
+        out UIScreenHandle handle)
+    {
+        UIScreenOpenResult result;
+        try
+        {
+            result = _screenHost.TryPresent(screen, spec);
         }
         catch (Exception)
         {
@@ -103,8 +133,7 @@ public class NpcInteractionController
             // (GameplayInputBlockChanged / EffectiveStateChanged) fails. The
             // entry may already be committed; freeing the view triggers the
             // host's NodeFreed close, the designed recovery.
-            screen.DialogueOutcome -= OnDialogueOutcome;
-            screen.DialogueClosed -= OnDialogueClosed;
+            unsubscribe();
             if (GodotObject.IsInstanceValid(screen))
                 screen.QueueFree();
             Finish();
@@ -113,34 +142,56 @@ public class NpcInteractionController
 
         if (result.Status != UIScreenOpenStatus.Opened || !result.Handle.HasValue)
         {
-            screen.DialogueOutcome -= OnDialogueOutcome;
-            screen.DialogueClosed -= OnDialogueClosed;
-            screen.QueueFree();
+            unsubscribe();
+            if (GodotObject.IsInstanceValid(screen))
+                screen.QueueFree();
             Finish();
-            return;
+            handle = default;
+            return false;
         }
 
         // TryPresent() can return Opened even when an EffectiveStateChanged /
         // GameplayInputBlockChanged subscriber synchronously closed the entry
         // during the final post-commit publication. UIScreenHost documents and
         // tests this contract: the entry may already be closed when
-        // TryPresent() returns. In that case Cleanup already ran
-        // ClearDialoguePresentation(screen), which unsubscribed the dialogue
-        // signals but could not clear the controller state because
-        // _dialogueScreen was still null at that point (assigned below).
-        // Retaining the stale screen/handle would leave no visible Dialogue
-        // and no future terminal signal to call Finish(), while
-        // GameManager.IsInNpcInteraction stays true — a soft-lock. The close
-        // path already freed/queued the view and unsubscribed the signals, so
-        // just finish without touching the screen again.
+        // TryPresent() returns. In that case the close path already ran the
+        // spec Cleanup, which unsubscribed the surface signals but could not
+        // clear the caller's per-surface state because it is assigned only
+        // after this helper returns. Retaining the stale screen/handle would
+        // leave no visible screen and no future terminal signal to call
+        // Finish(), while GameManager.IsInNpcInteraction stays true — a
+        // soft-lock. The close path already freed/queued the view and
+        // unsubscribed the signals, so just finish without touching the
+        // screen again.
         if (!_screenHost.IsActive(result.Handle.Value))
         {
             Finish();
-            return;
+            handle = default;
+            return false;
         }
 
-        _dialogueScreen = screen;
-        _dialogueHandle = result.Handle.Value;
+        handle = result.Handle.Value;
+        return true;
+    }
+
+    /// <summary>
+    /// Closes the hosted entry behind <paramref name="handle"/>; on a stale
+    /// handle (already closed through another path) runs
+    /// <paramref name="clear"/> so the caller's screen/handle state does not
+    /// linger. Only the stale-close mechanics live here — callers keep their
+    /// own null-state guards before delegating.
+    /// </summary>
+    private void CloseHostedPresentation(
+        UIScreenHandle? handle,
+        UIScreenCloseReason reason,
+        Action clear)
+    {
+        if (!handle.HasValue)
+            return;
+
+        var result = _screenHost.TryClose(handle.Value, reason);
+        if (result.Status == UIScreenCloseStatus.StaleHandle)
+            clear();
     }
 
     private void OnDialogueOutcome(int outcomeInt)
@@ -225,9 +276,10 @@ public class NpcInteractionController
             return;
 
         var screen = _dialogueScreen;
-        var result = _screenHost.TryClose(_dialogueHandle.Value, reason);
-        if (result.Status == UIScreenCloseStatus.StaleHandle)
-            ClearDialoguePresentation(screen);
+        CloseHostedPresentation(
+            _dialogueHandle,
+            reason,
+            () => ClearDialoguePresentation(screen));
     }
 
     private void OpenShop()

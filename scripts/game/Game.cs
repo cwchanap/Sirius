@@ -1045,7 +1045,6 @@ public partial class Game : Node2D
         _npcInteractionController = new NpcInteractionController(
             _gameManager,
             _screenHost,
-            GetNode("UI"),
             npcData,
             _gameManager.Player,
             _questFlags);

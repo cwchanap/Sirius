@@ -3,7 +3,7 @@ using Godot;
 using static GdUnit4.Assertions;
 
 /// <summary>
-/// Tests the sell price formula used by ShopDialog:
+/// Tests the sell price formula used by ShopScreenController:
 ///   sell price = max(1, floor(item.Value * 0.5))
 ///
 /// Also tests the buy/sell gold flow via Character.TrySpendGold and GainGold.
@@ -12,39 +12,35 @@ using static GdUnit4.Assertions;
 [RequireGodotRuntime]
 public partial class ShopPricingTest : Node
 {
-    // Helper: mirrors ShopDialog's sell price formula exactly
-    private static int SellPrice(int itemValue)
-        => Mathf.Max(1, Mathf.FloorToInt(itemValue * 0.5f));
-
     // ---- Sell price formula -----------------------------------------------
 
     [TestCase]
     public void SellPrice_EvenValue_IsHalf()
     {
-        AssertThat(SellPrice(100)).IsEqual(50);
-        AssertThat(SellPrice(200)).IsEqual(100);
-        AssertThat(SellPrice(10)).IsEqual(5);
+        AssertThat(ShopScreenController.SellPrice(100)).IsEqual(50);
+        AssertThat(ShopScreenController.SellPrice(200)).IsEqual(100);
+        AssertThat(ShopScreenController.SellPrice(10)).IsEqual(5);
     }
 
     [TestCase]
     public void SellPrice_OddValue_IsFlooredHalf()
     {
-        AssertThat(SellPrice(101)).IsEqual(50);  // floor(50.5) = 50
-        AssertThat(SellPrice(7)).IsEqual(3);     // floor(3.5) = 3
-        AssertThat(SellPrice(1)).IsEqual(1);     // floor(0.5) = 0, clamped to 1
+        AssertThat(ShopScreenController.SellPrice(101)).IsEqual(50);  // floor(50.5) = 50
+        AssertThat(ShopScreenController.SellPrice(7)).IsEqual(3);     // floor(3.5) = 3
+        AssertThat(ShopScreenController.SellPrice(1)).IsEqual(1);     // floor(0.5) = 0, clamped to 1
     }
 
     [TestCase]
     public void SellPrice_ValueOne_MinimumIsOne()
     {
-        AssertThat(SellPrice(1)).IsEqual(1);
+        AssertThat(ShopScreenController.SellPrice(1)).IsEqual(1);
     }
 
     [TestCase]
     public void SellPrice_ValueZero_MinimumIsOne()
     {
         // An item with 0 value should still yield minimum 1 gold
-        AssertThat(SellPrice(0)).IsEqual(1);
+        AssertThat(ShopScreenController.SellPrice(0)).IsEqual(1);
     }
 
     // ---- Buy flow: spend gold, receive item --------------------------------
@@ -79,7 +75,7 @@ public partial class ShopPricingTest : Node
     {
         var player = CreatePlayer(gold: 100);
         int itemValue = 60;
-        int expectedSellPrice = SellPrice(itemValue); // 30
+        int expectedSellPrice = ShopScreenController.SellPrice(itemValue); // 30
 
         player.GainGold(expectedSellPrice);
 
@@ -94,7 +90,7 @@ public partial class ShopPricingTest : Node
         // Buying an item at full price then selling at 50% results in net loss of 50%
         var player = CreatePlayer(gold: 200);
         int itemValue = 100;
-        int sellPrice = SellPrice(itemValue);
+        int sellPrice = ShopScreenController.SellPrice(itemValue);
 
         player.TrySpendGold(itemValue);   // buy: pay 100
         player.GainGold(sellPrice);       // sell: receive 50
@@ -131,7 +127,7 @@ public partial class ShopPricingTest : Node
             {
                 var item = ItemCatalog.CreateItemById(entry.ItemId);
                 AssertThat(item).IsNotNull();
-                AssertThat(SellPrice(item!.Value)).IsGreaterEqual(1);
+                AssertThat(ShopScreenController.SellPrice(item!.Value)).IsGreaterEqual(1);
             }
         }
     }
@@ -150,7 +146,7 @@ public partial class ShopPricingTest : Node
             {
                 var item = ItemCatalog.CreateItemById(entry.ItemId);
                 AssertThat(item).IsNotNull();
-                AssertThat(SellPrice(item!.Value)).IsLessEqual(Mathf.Max(1, item.Value));
+                AssertThat(ShopScreenController.SellPrice(item!.Value)).IsLessEqual(Mathf.Max(1, item.Value));
             }
         }
     }

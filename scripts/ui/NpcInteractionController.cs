@@ -109,11 +109,13 @@ public class NpcInteractionController
     /// active handle. Owns only the mechanical TryPresent protocol shared by
     /// every hosted surface: publication-throw recovery (unsubscribe, free
     /// the candidate, Finish, rethrow), rejected-open cleanup (unsubscribe,
-    /// free, Finish), the post-commit IsActive recheck, and finishing without
+    /// free, Finish), the post-commit IsActive recheck, finishing without
     /// retaining state when the entry was closed synchronously during
-    /// publication. Callers own screen creation/configuration, signal
-    /// subscriptions, the explicit <see cref="UIScreenEntrySpec"/>, and
-    /// per-surface screen/handle retention.
+    /// publication, and mechanically closing the committed entry when a
+    /// publication subscriber synchronously finished the interaction.
+    /// Callers own screen creation/configuration, signal subscriptions, the
+    /// explicit <see cref="UIScreenEntrySpec"/>, and per-surface
+    /// screen/handle retention.
     /// </summary>
     private bool TryHostSurface(
         Control screen,
@@ -165,6 +167,31 @@ public class NpcInteractionController
         if (!_screenHost.IsActive(result.Handle.Value))
         {
             Finish();
+            handle = default;
+            return false;
+        }
+
+        // A final publication subscriber can also synchronously call
+        // Finish() (directly, or through the screen's terminal signal)
+        // WITHOUT closing the entry. Finish() ran while the caller's
+        // screen/handle state was still unretained, so its cleanup saw no
+        // handle, InteractionComplete has already fired, and the screen's
+        // terminal latch may already be spent — the entry can never be
+        // closed through its owner again and would block gameplay forever.
+        // Close the abandoned entry mechanically and report failure so the
+        // caller retains no state after completion.
+        if (_finished)
+        {
+            try
+            {
+                CloseHostedPresentation(
+                    result.Handle.Value, UIScreenCloseReason.Programmatic, unsubscribe);
+            }
+            catch (Exception ex)
+            {
+                GD.PushError($"[NpcInteractionController] Closing abandoned entry after synchronous finish failed: {ex.Message}");
+            }
+
             handle = default;
             return false;
         }
@@ -291,8 +318,15 @@ public class NpcInteractionController
             return;
         }
 
-        var screen = GD.Load<PackedScene>("res://scenes/ui/ShopScreen.tscn")
-            .Instantiate<ShopScreenController>();
+        var shopPacked = GD.Load<PackedScene>("res://scenes/ui/ShopScreen.tscn");
+        if (shopPacked == null)
+        {
+            GD.PushError("[NpcInteractionController] ShopScreen.tscn not found.");
+            Finish();
+            return;
+        }
+
+        var screen = shopPacked.Instantiate<ShopScreenController>();
         screen.TryOpenShop(shopInventory, _player);
         screen.ShopClosed += OnShopClosed;
 
@@ -371,8 +405,15 @@ public class NpcInteractionController
 
     private void OpenHeal()
     {
-        var screen = GD.Load<PackedScene>("res://scenes/ui/HealingScreen.tscn")
-            .Instantiate<HealingScreenController>();
+        var healPacked = GD.Load<PackedScene>("res://scenes/ui/HealingScreen.tscn");
+        if (healPacked == null)
+        {
+            GD.PushError("[NpcInteractionController] HealingScreen.tscn not found.");
+            Finish();
+            return;
+        }
+
+        var screen = healPacked.Instantiate<HealingScreenController>();
         screen.TryOpenHeal(_npc, _player);
         screen.HealComplete += OnHealDone;
         screen.HealCancelled += OnHealDone;

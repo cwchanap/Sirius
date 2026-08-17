@@ -793,6 +793,38 @@ public partial class ShopScreenControllerTest : Node
         }
     }
 
+    [TestCase]
+    public async Task Rebuild_RestoresFocusToFreshRowOfSameNonFirstItem()
+    {
+        // ClearContainer QueueFrees stale rows, which stay ahead of the
+        // freshly rendered rows in the child list; a first-match row lookup
+        // resolves to the queued button, the focusability guard rejects it,
+        // and semantic restore silently downgrades to the FIRST row. Focusing
+        // a non-first item and rebuilding via a different item's buy pins the
+        // regression: focus must return to that item's fresh row.
+        var fixture = await OpenMountedShopAsync(gold: 500);
+        try
+        {
+            var screen = fixture.Screen;
+            var buyList = screen.GetNode<VBoxContainer>("%BuyList");
+
+            var nonFirstButton = RowButton(buyList, "mana_potion")!;
+            nonFirstButton.GrabFocus();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(nonFirstButton);
+
+            RowButton(buyList, "health_potion")!.EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+
+            var freshButton = RowButton(buyList, "mana_potion")!;
+            AssertThat(freshButton == nonFirstButton).IsFalse();
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(freshButton);
+        }
+        finally
+        {
+            await FreeAsync(fixture);
+        }
+    }
+
     // ---- Fixture helpers -------------------------------------------------------
 
     private sealed record ShopFixture(

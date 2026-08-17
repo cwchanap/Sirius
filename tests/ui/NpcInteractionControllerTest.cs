@@ -313,6 +313,46 @@ public partial class NpcInteractionControllerTest : Node
     }
 
     [TestCase]
+    public async Task Shop_PublicationSubscriberFinishes_CompletesOnceAndClosesAbandonedEntry()
+    {
+        int completed = 0;
+        var controller = CreateController("village_shopkeeper");
+        controller.InteractionComplete += () => completed++;
+
+        // Unlike Shop_PublicationSubscriberClosesShop, this subscriber calls
+        // Finish() WITHOUT closing the entry while TryHostSurface is still
+        // on the stack, before OpenShop retains the screen/handle. Finish()
+        // cleanup sees no retained handle, so InteractionComplete fires with
+        // the committed Shop entry still active — and the screen's terminal
+        // latch may already be spent, so the entry can never be closed
+        // through its owner again. Without the _finished recheck in
+        // TryHostSurface the caller would retain the handle after
+        // completion and the entry would block forever.
+        var finished = false;
+        _screenHost.EffectiveStateChanged += _ =>
+        {
+            if (finished)
+                return;
+            var shopEntry = _screenHost.ActiveEntries
+                .FirstOrDefault(e => e.Policy.Kind == UIScreenKinds.Shop);
+            if (shopEntry == null)
+                return;
+            finished = true;
+            controller.Finish();
+        };
+
+        controller.Begin();
+        FindButton(HostedDialogue(), "Browse your wares.").EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(completed).IsEqual(1);
+
+        await AwaitTwoFrames();
+
+        AssertThat(_screenHost.ActiveEntries.Count).IsEqual(0);
+        AssertThat(HostedShopCount()).IsEqual(0);
+    }
+
+    [TestCase]
     public async Task Shop_ClosePublicationSubscriberThrows_CompletesOnceAndCleansEntry()
     {
         int completed = 0;

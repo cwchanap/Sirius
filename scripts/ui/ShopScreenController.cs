@@ -340,8 +340,10 @@ public partial class ShopScreenController : Control
     {
         // Semantic identity: re-grab the same item's action when it survived
         // the rebuild and is focusable; otherwise fall through the chain.
+        // FindRowButton already applies the focusability guard, so one call
+        // resolves both the check and the assignment.
         Control? target = null;
-        if (focusedItemId != null && CanGrabFocus(FindRowButton(activeTab, focusedItemId)))
+        if (focusedItemId != null)
             target = FindRowButton(activeTab, focusedItemId);
 
         if (target == null)
@@ -360,6 +362,12 @@ public partial class ShopScreenController : Control
         target?.GrabFocus();
     }
 
+    // Returns the first FOCUSABLE row button for the item. ClearContainer
+    // QueueFrees stale rows, which stay AHEAD of the freshly rendered rows
+    // in the child list; a plain first-match lookup resolves to a queued
+    // button that CanGrabFocus rejects, silently downgrading semantic
+    // restore to the first row. Skipping non-focusable matches finds the
+    // fresh row behind the stale one.
     private Button? FindRowButton(int activeTab, string itemId)
     {
         foreach (var child in ActiveList(activeTab).GetChildren())
@@ -369,7 +377,8 @@ public partial class ShopScreenController : Control
 
             foreach (var rowChild in row.GetChildren().OfType<Button>())
                 if (rowChild.HasMeta(RowItemIdMeta) &&
-                    rowChild.GetMeta(RowItemIdMeta).AsString() == itemId)
+                    rowChild.GetMeta(RowItemIdMeta).AsString() == itemId &&
+                    CanGrabFocus(rowChild))
                     return rowChild;
         }
 

@@ -80,7 +80,7 @@ public partial class NpcInteractionControllerTest : Node
         AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Shop))
             .IsEqual(1);
         AssertThat(HostedShopCount()).IsEqual(1);
-        AssertThat(NativeDialogCount<ShopDialog>()).IsEqual(0);
+        AssertThat(NativeAcceptDialogCount()).IsEqual(0);
 
         // Cancel closes the hosted entry and completes exactly once.
         HostedShop().RequestCancel();
@@ -111,7 +111,7 @@ public partial class NpcInteractionControllerTest : Node
         AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Heal))
             .IsEqual(1);
         AssertThat(HostedHealingCount()).IsEqual(1);
-        AssertThat(NativeDialogCount<HealDialog>()).IsEqual(0);
+        AssertThat(NativeAcceptDialogCount()).IsEqual(0);
 
         // Cancel closes the hosted entry and completes exactly once.
         HostedHealing().RequestCancel();
@@ -200,7 +200,7 @@ public partial class NpcInteractionControllerTest : Node
         AssertThat(completed).IsEqual(1);
         AssertThat(_screenHost.ActiveEntries.Count).IsEqual(0);
         AssertThat(HostedShopCount()).IsEqual(0);
-        AssertThat(NativeDialogCount<ShopDialog>()).IsEqual(0);
+        AssertThat(NativeAcceptDialogCount()).IsEqual(0);
     }
 
     [TestCase]
@@ -376,8 +376,7 @@ public partial class NpcInteractionControllerTest : Node
         AssertThat(completed).IsEqual(1);
         AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
             .IsEqual(0);
-        AssertThat(NativeDialogCount<ShopDialog>()).IsEqual(0);
-        AssertThat(NativeDialogCount<HealDialog>()).IsEqual(0);
+        AssertThat(NativeAcceptDialogCount()).IsEqual(0);
     }
 
     [TestCase]
@@ -613,22 +612,22 @@ public partial class NpcInteractionControllerTest : Node
     }
 
     /// <summary>
-    /// Counts native dialog windows anywhere under the scene root — the
-    /// "no native route" guard. The legacy controller parented ShopDialog /
-    /// HealDialog under an ad-hoc node, so the scan must not depend on any
-    /// specific parent.
+    /// Counts native AcceptDialog windows anywhere under the scene root —
+    /// the "no native child is created" guard. The legacy controller
+    /// parented its native dialogs under an ad-hoc node, so the scan must
+    /// not depend on any specific parent.
     /// </summary>
-    private static int NativeDialogCount<T>() where T : Node =>
-        CountDescendants<T>(((SceneTree)Engine.GetMainLoop()).Root);
+    private static int NativeAcceptDialogCount() =>
+        CountAcceptDialogs(((SceneTree)Engine.GetMainLoop()).Root);
 
-    private static int CountDescendants<T>(Node node) where T : Node
+    private static int CountAcceptDialogs(Node node)
     {
         int count = 0;
         foreach (Node child in node.GetChildren())
         {
-            if (child is T)
+            if (child is AcceptDialog)
                 count++;
-            count += CountDescendants<T>(child);
+            count += CountAcceptDialogs(child);
         }
         return count;
     }

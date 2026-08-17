@@ -141,6 +141,34 @@ public static class TestHelpers
             "Failed to reset GameManager singleton: no Instance setter or backing field found.");
     }
 
+    /// <summary>
+    /// Mount <paramref name="child"/> inside a stretched SubViewport fixture of
+    /// <paramref name="size"/> that is added to the runtime tree, giving hosted
+    /// screen controllers a real viewport for layout and focus assertions.
+    /// The caller owns freeing the returned container.
+    /// </summary>
+    public static (SubViewportContainer Container, SubViewport Viewport)
+        MountInViewport(Node child, Vector2I size)
+    {
+        var container = new SubViewportContainer
+        {
+            Size = size,
+            Stretch = true
+        };
+        ((SceneTree)Engine.GetMainLoop()).Root.AddChild(container);
+
+        var viewport = new SubViewport
+        {
+            Disable3D = true,
+            HandleInputLocally = true,
+            RenderTargetUpdateMode = SubViewport.UpdateMode.Always,
+            Size = size
+        };
+        container.AddChild(viewport);
+        viewport.AddChild(child);
+        return (container, viewport);
+    }
+
     public static Character CreateTestCharacter() => new Character
     {
         Name             = "TestHero",

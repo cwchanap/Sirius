@@ -33,7 +33,7 @@ This PRD outlines 16 features across 4 priority tiers that will transform Sirius
 
 **Overall completion: ~65% of PRD scope**
 
-**NPC system note:** `NpcData`, `DialogueTree` / `DialogueNode` / `DialogueChoice` / `DialogueCondition`, `ShopInventory`, `NpcCatalog` / `DialogueCatalog` / `ShopCatalog`, `DialogueDialog`, `ShopDialog`, `HealDialog`, `NpcInteractionController`, `GridMap` NPC support, `GameManager.IsInNpcInteraction`, `NpcSpawn`, and related tests are implemented.
+**NPC system note:** `NpcData`, `DialogueTree` / `DialogueNode` / `DialogueChoice` / `DialogueCondition`, `ShopInventory`, `NpcCatalog` / `DialogueCatalog` / `ShopCatalog`, `DialogueDialog`, `ShopScreen`, `HealingScreen`, `NpcInteractionController`, `GridMap` NPC support, `GameManager.IsInNpcInteraction`, `NpcSpawn`, and related tests are implemented.
 
 **Settings system note:** `SettingsData` and `SettingsManager` (autoload singleton) are fully implemented — Master/Music/SFX volume, Difficulty, Fullscreen, Resolution, keybindings (toggle_inventory, interact, pause_menu), and AutoSave toggle. Atomic writes with `.bak` backup recovery, identical to `SaveManager`. Test coverage in `tests/settings/`. **Missing**: in-game settings UI scene; `MainMenu.cs` still shows a stub ("Settings menu coming soon!"). The settings backend auto-applies on launch and is wired to `GameManager.AutoSaveEnabled`, but players cannot yet change settings from within the game.
 
@@ -1105,7 +1105,7 @@ public enum RoomType
 - **One-Liner**: Scene-placed NPCs with branching dialogue, a shop system, and a healer — interactable by walking into them on the grid
 - **Strategic Rationale**: NPCs provide story context, services, and break up combat monotony
 - **Success Metrics**: > 60% of players interact with NPCs
-- **Implementation Status**: Implemented. The current system uses `NpcData`, `DialogueTree` / `DialogueNode` / `DialogueChoice`, `DialogueDialog`, `ShopInventory` with `ShopDialog`, `HealDialog`, `NpcInteractionController`, and the `NpcCatalog` / `DialogueCatalog` / `ShopCatalog` registries, plus `GridMap` NPC support, `NpcSpawn`, and `GameManager.IsInNpcInteraction`. Remaining work is limited to content/polish expansions such as more NPC dialogue, quest hookups, and the future Town Hub feature.
+- **Implementation Status**: Implemented. The current system uses `NpcData`, `DialogueTree` / `DialogueNode` / `DialogueChoice`, `DialogueDialog`, `ShopInventory` with `ShopScreen`, `HealingScreen`, `NpcInteractionController`, and the `NpcCatalog` / `DialogueCatalog` / `ShopCatalog` registries, plus `GridMap` NPC support, `NpcSpawn`, and `GameManager.IsInNpcInteraction`. Remaining work is limited to content/polish expansions such as more NPC dialogue, quest hookups, and the future Town Hub feature.
 - **Scope Note**: Town hub (dedicated town area/floor) is intentionally out of scope here and tracked separately in Feature 3.5. NPCs are placed directly in existing floor scenes (FloorGF.tscn, Floor1F.tscn) as scene nodes, same as EnemySpawn nodes.
 
 #### Purpose and Problem Statement

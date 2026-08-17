@@ -72,7 +72,7 @@ scripts/
 ├── save/          # Persistence: SaveManager.cs, SaveData.cs, CharacterSaveData.cs, EquipmentSaveData.cs
 ├── settings/      # SettingsManager.cs (autoload), SettingsData.cs
 ├── tilemap_json/  # Tilemap import/export (TilemapJsonImporter.cs, TilemapJsonExporter.cs)
-└── ui/            # UI controllers (BattleManager.cs, MainMenu.cs, InventoryMenuController.cs, SaveLoadScreenController.cs, SaveOverwriteConfirmationController.cs, ShopDialog.cs, HealDialog.cs, DialogueDialog.cs, NpcInteractionController.cs)
+└── ui/            # UI controllers (BattleManager.cs, MainMenu.cs, InventoryMenuController.cs, SaveLoadScreenController.cs, SaveOverwriteConfirmationController.cs, ShopScreenController.cs, HealingScreenController.cs, DialogueDialog.cs, NpcInteractionController.cs)
 
 scenes/
 ├── game/          # Game.tscn, floors/ (FloorGF.tscn, Floor1F.tscn)
@@ -87,7 +87,7 @@ tests/             # GdUnit4 tests mirroring scripts/ structure
 ├── settings/      # SettingsDataTest.cs, SettingsManagerTest.cs
 ├── tilemap_json/  # FloorJsonModelTest.cs, TileConfigManagerTest.cs, TilemapJsonImporterTest.cs
 ├── tools/         # Python tests for tools/ scripts (run with pytest, NOT dotnet test)
-└── ui/            # BattleManagerTest.cs, ShopDialogTest.cs, InventoryMenuControllerTest.cs
+└── ui/            # BattleManagerTest.cs, ShopScreenControllerTest.cs, InventoryMenuControllerTest.cs
 
 assets/sprites/    # Sprite sheets and individual frames
 tools/             # Python utilities (see below)
@@ -144,8 +144,8 @@ Skills are stored in `SkillCatalog` (static registry) and referenced on `Charact
 NPCs follow the same catalog-and-spawn pattern as enemies. `NpcCatalog` is a static registry of `NpcData` objects, referenced by string `NpcId`. `NpcSpawn` is a scene node (mirroring `EnemySpawn`) placed in floor `.tscn` files with `NpcId` and `GridPosition` exports. `GridMap.RegisterStaticNpcSpawns()` picks them up via the `"NpcSpawn"` group.
 
 NPC types: `Villager`, `Shopkeeper`, `Blacksmith`, `QuestGiver`, `Healer`. Each type wires to a subsystem:
-- **Shopkeeper/Blacksmith**: `ShopCatalog` → `ShopInventory` → `ShopDialog`
-- **Healer**: `HealCost` field on `NpcData` → `HealDialog`
+- **Shopkeeper/Blacksmith**: `ShopCatalog` → `ShopInventory` → `ShopScreen`
+- **Healer**: `HealCost` field on `NpcData` → `HealingScreen`
 - **All**: `DialogueTreeId` → `DialogueCatalog` → `DialogueTree` (nodes + `DialogueChoice` options)
 
 `DialogueCondition` (`IDialogueCondition`) gates choice visibility on player level, quest flags, etc. Quest flags are stored in `GameManager` and persisted in `SaveData`.

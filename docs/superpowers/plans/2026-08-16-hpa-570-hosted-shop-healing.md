@@ -2,28 +2,32 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace native `ShopDialog` and `HealDialog` windows with scene-authored, host-managed Sirius Shop and Healing surfaces while preserving the currently shipped transaction/healing behavior and exactly-once NPC lifecycle.
+**Goal:** Replace native `ShopDialog` and `HealDialog` windows with scene-authored, host-managed Sirius Shop and Healing surfaces while preserving shipped Buy/Sell/Heal behavior and exactly-once NPC lifecycle.
 
-**Architecture:** Keep `NpcInteractionController` as the single Dialogue → Shop/Heal orchestration owner. Build two concrete controllers because Shop is a repeatable Buy/Sell catalogue while Healing is a one-shot confirmation. Reuse `SiriusModalShell`, `SiriusUiMetrics`, Sirius theme variations, `UIScreenHost`, and the already-defined `UIScreenKinds.Shop` / `UIScreenKinds.Heal`. Keep current Character/catalog APIs as the transaction boundary; add no transaction service, presenter, or generic host facade.
+**Architecture:** Keep `NpcInteractionController` as the single Dialogue → Shop/Heal orchestration owner. Build two concrete controllers because Shop is a repeatable Buy/Sell catalogue while Healing is a one-shot confirmation. Reuse `SiriusModalShell`, `SiriusUiMetrics`, Sirius theme variations, `UIScreenHost`, and existing `UIScreenKinds.Shop` / `UIScreenKinds.Heal`. Keep current Character/catalog APIs as the mutation boundary; add no transaction service, presenter, generic row type, or host facade.
 
 **Tech Stack:** Godot 4.6.2, C#/.NET 8, GdUnit4, existing Sirius Theme, `SiriusModalShell`, `SiriusUiMetrics`, and `UIScreenHost`.
 
 ## Global constraints
 
-- Preserve existing Buy behavior: `Item.Value`, affordability check, item add, gold rollback when inventory is full, player-stat notification, and list refresh.
-- Preserve existing Sell behavior: one item per activation at `max(1, floor(Item.Value * 0.5))`, removal before gold grant, player-stat notification, and `Nothing to sell.` empty state.
-- Treat HPA-570's “Selling” non-goal as “no new selling mechanics”; HPA-373 §9.9 and current production code both require existing Sell parity.
-- Preserve current two-second Shop feedback and latest-message-wins timer behavior.
-- Preserve Healing behavior: configured NPC cost, current/effective-max HP check, affordability check, full HP restore, stat notification, complete/cancel exactly once.
-- Add readable disabled reasons for insufficient gold and unavailable healing.
-- Add controller-local in-flight guards only; do not add async transaction infrastructure for synchronous operations.
+- Preserve Buy: `Item.Value`, affordability recheck, item add, gold rollback when inventory is full, stat notification, and list refresh.
+- Preserve Sell: one item per activation at `max(1, floor(Item.Value * 0.5))`, removal before gold grant, stat notification, and `Nothing to sell.`.
+- Treat HPA-570's “Selling” non-goal as “no new selling mechanics”; current production and HPA-373 require Sell parity.
+- Preserve the Shop two-second latest-message-wins **transient** feedback timer.
+- Keep standing disabled reasons separate from transient Shop feedback.
+- Healing has **no** feedback timer; keep its unavailable/validation message standing until state changes.
+- Preserve Heal: configured NPC cost, current/effective-max HP check, affordability check, full restore, stat notification, complete/cancel exactly once.
+- Add only controller-local `_operationInFlight` guards for synchronous callbacks.
 - Reuse `SiriusModalShell`; do not add another shell/frame abstraction.
-- Reuse `UIScreenKinds.Shop` and `UIScreenKinds.Heal`; do not add host kinds, exclusive groups, or host APIs.
-- Keep gameplay scene-tree running while Shop/Heal is open; block gameplay input through the host.
-- Keep one scene per screen. Compact behavior is responsive presentation, not a second controller or duplicated scene.
-- Dynamic Shop rows may be constructed by `ShopScreenController`; do not add a row component until reuse exists.
-- Do not add stock, quantity picker, buyback, party heal, status heal, new pricing, or new domain rules.
-- Do not keep a compatibility wrapper around `ShopDialog` or `HealDialog` after hosted parity is green.
+- **Shop uses `SiriusModalSizeClass.Large`; Healing uses `Small`; neither uses Dialogue's `Full` bottom band.**
+- Reuse `UIScreenKinds.Shop` and `UIScreenKinds.Heal`; do not add host kinds, `BlockingPrompt`, parent handles, incompatible-kind rules, or host APIs.
+- Shop/Heal host policy is explicit: `PauseTree = false`, `BlockGameplayInput = true`, cursor visible, **HUD hidden per HPA-373 §7.3**, lower layers visible/inert, Cancel consumed/intercepted, node lifetime QueueFree.
+- Do not change Dialogue's current `Hud = Visible` policy in this ticket; HPA-570 does not silently copy that known divergence either.
+- One scene per screen. Compact behavior is responsive presentation, not a second controller/scene.
+- Dynamic Shop rows stay controller-local; do not add a row component until another real consumer exists.
+- Focus restoration uses only active tab + stable item id; do not copy Inventory's pending-focus record machinery.
+- No stock mechanics, quantity picker, buyback, party/status heal, new pricing, or new domain rules.
+- Delete native dialogs after hosted parity is green; keep no compatibility wrapper.
 
 ---
 
@@ -45,6 +49,7 @@
 - `tests/ui/NpcInteractionControllerTest.cs`
 - `tests/game/GameplayPauseHostTest.cs`
 - `tests/game/GameInputLifecycleTest.cs`
+- `tests/data/npc/ShopPricingTest.cs`
 - `docs/ui/hpa-376/ui-lifecycle-contract.md`
 
 ### Delete after replacement coverage is green
@@ -54,7 +59,7 @@
 - `scripts/ui/HealDialog.cs`
 - `tests/ui/HealDialogTest.cs`
 
-### Audit only unless a focused failure proves a change is required
+### Audit only unless a focused failure proves a production change is required
 
 - `scripts/ui/hosting/UIScreenHost.cs`
 - `scripts/ui/hosting/UIScreenKinds.cs`
@@ -68,25 +73,25 @@
 
 ## Risk checklist
 
-### Existing Sell behavior is easy to drop because the ticket wording is stale
+### Wrong sibling geometry gets copied
 
-Port an explicit Sell parity test before deleting `ShopDialogTest`. No new Sell mechanics are added, but current Sell cannot disappear.
+Shop is a centred `Large` service surface. Healing is a centred `Small` service surface. Dialogue's `Full` lower-45% band is not a reusable default.
 
-### `TryPresent` can return `Opened` after a publication subscriber synchronously closed the entry
+### Standing disabled reason gets erased by transient feedback
 
-Use the HPA-569 pattern: supply host cleanup, then call `IsActive(handle)` before retaining the screen/handle. Never retain a stale handle.
+Shop row affordability is standing per-row text. `%FeedbackLabel` is timed operation feedback only. Healing uses one non-timed standing feedback/reason label and no timer.
 
-### Host close publication can throw after cleanup has already committed
+### `TryPresent` can return `Opened` after synchronous post-commit close
 
-Follow the existing Dialogue close/finish pattern. Cleanup clears signals and controller state before publication; terminal orchestration catches publication exceptions where needed so `InteractionComplete` still fires exactly once.
+Supply cleanup, then call `IsActive(handle)` before retaining the screen/handle. Never keep stale host state.
+
+### Host close publication can throw after cleanup already committed
+
+Preserve current Dialogue clear/close/finish ordering. Terminal orchestration still reaches exactly-once `InteractionComplete` after publication failure.
 
 ### Rebuilding Shop rows can destroy the focused node
 
-Capture the focused row's stable item id + Buy/Sell page before refresh. Restore that row when it still exists; otherwise focus the next available action, then the active tab/Close fallback. This state is ephemeral to the open screen only.
-
-### Disabled controls can become unexplained dead ends
-
-Every disabled Buy/Heal state gets readable reason text. Keep validation on activation too because gold/HP/inventory may change after render.
+Capture active tab + item id before mutation. Restore by semantic identity after rebuild; otherwise next valid action, tab, then Close. Never retain a queued `Control` as the restoration key.
 
 ---
 
@@ -113,18 +118,21 @@ public partial class ShopScreenController : Control
 }
 ```
 
-Keep this screen single-start, like `DialogueScreenController`. Configuration may happen before `_Ready()`; `_Ready()` binds authored nodes and renders stored state.
+The screen is single-start like `DialogueScreenController`. `TryOpenShop(...)` may run before `_Ready()` and stores validated state only; `_Ready()` binds authored nodes and renders it.
 
-- [ ] **Step 1: Write RED configuration and authored-scene tests**
+- [ ] **Step 1: Write RED scene/configuration tests**
 
 Add tests that:
 
 - load `res://scenes/ui/ShopScreen.tscn`
-- instantiate it as `ShopScreenController`
+- instantiate `ShopScreenController`
 - call `TryOpenShop(...)` before `AddChild(...)`
-- assert the title/gold/tabs/lists bind after `_Ready()`
-- reject a second start on the same screen instance
-- expose a non-null initial focus target after render
+- reject a second start
+- expose a non-null initial focus target
+- assert `%SafeFrame` + `%ModalShell` exist
+- assert the scene contains no `AcceptDialog`
+- assert `%ModalShell.SizeClass == SiriusModalSizeClass.Large`
+- assert standard layout is centred in the full safe frame, not Dialogue's bottom band
 
 Run:
 
@@ -135,95 +143,119 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
 
 Expected: FAIL because the scene/controller do not exist.
 
-- [ ] **Step 2: Author the stable Shop scene tree**
+- [ ] **Step 2: Author the stable Shop tree**
 
-Create a full-viewport `Control` with a safe-frame-owned `SiriusModalShell`. Author only stable structure:
+Create one full-viewport root with:
 
-- `%SafeFrame`
-- `%ModalShell`
-- `%GoldLabel`
-- `%FeedbackLabel`
-- `%ShopTabs`
-- `%BuyList`
-- `%SellList`
-- `%CloseButton`
+```text
+ShopScreen
+└── SafeFrame (%SafeFrame)
+    └── ModalShell (%ModalShell, SizeClass = Large)
+        ├── .../BodyHost
+        │   ├── GoldLabel (%GoldLabel)
+        │   ├── FeedbackLabel (%FeedbackLabel)
+        │   └── ShopTabs (%ShopTabs)
+        │       ├── Buy page → BuyList (%BuyList)
+        │       └── Sell page → SellList (%SellList)
+        └── .../ActionsHost
+            └── CloseButton (%CloseButton)
+```
 
-Use the shell body scroll/layout already provided by `SiriusModalShell`. Use Sirius theme variations and existing spacing/target metrics. Do not author fixed item rows.
+Use the shell-owned body scroll as the single overflow owner. Do not author fixed item rows or nested per-tab scroll containers unless a focused runtime failure requires them.
 
-- [ ] **Step 3: Bind responsive presentation in `ShopScreenController`**
+- [ ] **Step 3: Bind the centred responsive layout**
 
-On `_Ready()`:
+Follow Inventory's safe-frame placement, not Dialogue's band:
 
-- bind the unique-name nodes
-- connect Close
-- subscribe to `Resized`
-- compute `SiriusUiMetrics.SafeFrameInsets(GetViewportRect().Size)`
-- keep shell inside the safe frame
-- set `Compact` from the metric result
-- refresh shell using available safe size
-- re-render stored Shop state if `TryOpenShop(...)` ran pre-ready
+```csharp
+var size = GetViewportRect().Size;
+var insets = SiriusUiMetrics.SafeFrameInsets(size);
 
-Do not add a new breakpoint or hard-code a second compact scene.
+_safeFrame.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+_safeFrame.OffsetLeft = insets.SideInset;
+_safeFrame.OffsetTop = insets.Margin;
+_safeFrame.OffsetRight = -insets.SideInset;
+_safeFrame.OffsetBottom = -insets.Margin;
 
-- [ ] **Step 4: Port Buy behavior as tests before implementation**
+_shell.Compact = insets.Compact;
+_shell.RefreshPresentation(size);
+```
 
-Add tests for:
+Passing the full viewport size is deliberate for non-Full shells: the SafeFrame owns placement while `SiriusModalShell` owns its existing standard 90%/compact 12 px width/height margin policy once. Do not pass an already-inset compact width and subtract another shell margin.
 
-1. successful Buy deducts `Item.Value`, adds one item, and refreshes gold/list state
-2. insufficient gold disables the Buy action and exposes readable reason text
-3. inventory-full Buy rolls the spent gold back and shows `Inventory full!`
-4. missing catalog item is skipped safely rather than creating a substitute
+On `_Ready()` also bind nodes, connect Close, subscribe `Resized`, and render stored state.
 
-Then port the existing `ShopDialog` mutation sequence directly into `ShopScreenController` using `Character` and `ItemCatalog`; do not extract a service.
+- [ ] **Step 4: Port Buy with separate standing reason and transient feedback**
 
-Run the focused Shop suite after each RED/GREEN step.
+Write RED tests for:
 
-- [ ] **Step 5: Port Sell behavior explicitly**
+1. successful Buy deducts `Item.Value`, adds one item, and refreshes gold/lists
+2. insufficient gold disables Buy and shows standing per-row text `Not enough gold!`
+3. standing affordability remains visible after any unrelated transient feedback timeout
+4. inventory-full Buy rolls spent gold back and shows transient `Inventory full!`
+5. callback revalidation after state changed can show transient `Not enough gold!`
+6. missing catalogue item is skipped safely
+
+Each runtime Buy row should keep its own reason label (or equivalent non-timed row-local text). `%FeedbackLabel` must not own standing affordability.
+
+Port the existing mutation order directly; add no service.
+
+- [ ] **Step 5: Port Sell parity**
 
 Add tests proving:
 
-- sell price is `Mathf.Max(1, Mathf.FloorToInt(item.Value * 0.5f))`
+- price = `Mathf.Max(1, Mathf.FloorToInt(item.Value * 0.5f))`
 - one activation removes one item before granting gold
 - selling the last item immediately renders `Nothing to sell.`
-- failed removal shows feedback and refreshes without granting gold
+- failed removal grants no gold, shows transient `Item no longer available.`, and refreshes
 
-Implement from the current `ShopDialog` behavior without adding quantity selection, buyback, or new pricing.
+Do not add quantity selection, buyback, or a pricing abstraction.
 
-- [ ] **Step 6: Preserve feedback timer semantics**
+- [ ] **Step 6: Preserve Shop transient timer semantics**
 
-Port `ShowFeedback_KeepsLatestMessageVisible_UntilLatestTimerExpires` to the new controller. Keep one timer reference/handler; replacing feedback unsubscribes the previous timeout before creating the next two-second timer. Cancel the timer on close and `_ExitTree()`.
+Port `ShowFeedback_KeepsLatestMessageVisible_UntilLatestTimerExpires` to `ShopScreenController`.
 
-- [ ] **Step 7: Add local double-activation and terminal guards**
+Keep one timer + handler. New transient feedback unsubscribes the prior timeout before creating the next two-second timer. Cancel it on close and `_ExitTree()`.
 
-Use:
+This timer may hide only `%FeedbackLabel`; it must never clear row-local standing reasons.
+
+- [ ] **Step 7: Add local re-entrancy and terminal guards**
+
+Use only:
 
 ```csharp
 private bool _operationInFlight;
 private bool _terminalEmitted;
 ```
 
-Buy/Sell callbacks return immediately when `_operationInFlight` is true. Set/reset the flag in `try/finally` around synchronous transaction/refresh work. `RequestCancel()` emits `ShopClosed` once and cancels pending feedback.
+Buy/Sell callbacks return when `_operationInFlight`. Set/reset it in `try/finally` around synchronous mutation/refresh. `RequestCancel()` emits `ShopClosed` once and cancels transient feedback.
 
-Test re-entrant button signal invocation and `RequestCancel()` twice.
+Test re-entrant invocation and double `RequestCancel()`.
 
-- [ ] **Step 8: Preserve focus across list refresh**
+- [ ] **Step 8: Preserve semantic focus across rebuild**
 
-Before Buy/Sell mutation, capture active tab + focused item id. After refresh:
+Before Buy/Sell mutation capture:
 
-1. restore the same item's action if still present
-2. else focus the next valid action on the current page
-3. else focus the page control/Close fallback
+- active Buy/Sell tab
+- item id if focus is on a row action
 
-Test selling the currently focused last item and buying an item that causes list button enablement changes; the viewport must not retain focus on a queued node.
+After rebuild:
+
+1. same item action when still present
+2. otherwise next valid action on active page
+3. otherwise active tab
+4. otherwise Close
+
+Test selling the focused last item and a Buy refresh that changes enabled states. Assert focus does not remain on a queued/freed node.
 
 - [ ] **Step 9: Run Shop GREEN**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
-  --filter "FullyQualifiedName~ShopScreenControllerTest|FullyQualifiedName~ShopDialogTest"
+  --filter "FullyQualifiedName~ShopScreenControllerTest|FullyQualifiedName~ShopDialogTest|FullyQualifiedName~ShopPricingTest"
 ```
 
-Expected at this point: new Shop tests PASS and legacy Shop tests remain PASS because legacy deletion has not happened yet.
+Expected: new tests PASS and legacy tests remain green before deletion.
 
 ---
 
@@ -251,57 +283,81 @@ public partial class HealingScreenController : Control
 }
 ```
 
-- [ ] **Step 1: Write RED authored-scene/configuration tests**
+- [ ] **Step 1: Write RED scene/configuration tests**
 
-Cover pre-ready configuration, single-start behavior, initial focus, and required unique-name nodes.
+Cover:
 
-- [ ] **Step 2: Author the small Healing scene**
+- pre-ready `TryOpenHeal(...)`
+- second start rejected
+- no `AcceptDialog`
+- `%SafeFrame` + `%ModalShell`
+- `%ModalShell.SizeClass == SiriusModalSizeClass.Small`
+- `%HealButton` and `%CancelButton` are under shell `ActionsHost`
+- centred standard placement, not Dialogue's bottom band
+- initial focus Heal when enabled, No Thanks otherwise
 
-Create one full-viewport root with a safe-frame-owned small `SiriusModalShell` containing:
+- [ ] **Step 2: Author the Prompt-shaped small Healing scene**
 
-- `%HealthLabel`
-- `%CostLabel`
-- `%GoldLabel`
-- `%FeedbackLabel`
-- `%HealButton`
-- `%CancelButton`
+Create:
 
-Use Sirius primary/secondary button variations and existing minimum-target metrics.
+```text
+HealingScreen
+└── SafeFrame (%SafeFrame)
+    └── ModalShell (%ModalShell, SizeClass = Small)
+        ├── .../BodyHost
+        │   ├── HealthLabel (%HealthLabel)
+        │   ├── CostLabel (%CostLabel)
+        │   ├── GoldLabel (%GoldLabel)
+        │   └── FeedbackLabel (%FeedbackLabel)
+        └── .../ActionsHost
+            ├── CancelButton (%CancelButton, "No Thanks")
+            └── HealButton (%HealButton)
+```
 
-- [ ] **Step 3: Port availability presentation**
+Reuse the stable two-action `ActionsHost` composition from `SiriusPrompt.tscn`, not the `SiriusPrompt` controller/type.
 
-Render current/effective-max HP, heal cost, and player gold. Disable Heal when:
+- [ ] **Step 3: Bind the same centred layout**
 
-- current HP is already at effective max → reason `Already at full health.`
-- player gold is below `NpcData.HealCost` → reason `Not enough gold.`
+Use the same SafeFrame algorithm as Shop and call `_shell.RefreshPresentation(size)` with full viewport size. Author `Small` explicitly; `SiriusModalShell` defaults to Medium and relying on that default is a regression.
 
-Do not encode a new rule for non-positive `HealCost`; preserve the current warning and allow the configured behavior.
+- [ ] **Step 4: Port standing availability presentation**
 
-- [ ] **Step 4: Port Heal mutation and exactly-once terminal behavior**
+Render current/effective-max HP, cost, and gold. `%FeedbackLabel` is non-timed standing state:
 
-Add RED tests proving:
+- full HP → `You are already at full health.`
+- insufficient gold → `Not enough gold!`
+- otherwise clear it
 
-- successful Heal deducts the configured cost
-- `CurrentHealth` becomes `GetEffectiveMaxHealth()`
+Disable Heal for either unavailable state. Set `InitialFocusTarget` to Heal when enabled, else No Thanks.
+
+Do not create a timer for Healing. Preserve the current warning for non-positive `HealCost` without inventing a new rule.
+
+- [ ] **Step 5: Port Heal mutation and exactly-once terminal behavior**
+
+Add tests proving:
+
+- successful Heal deducts configured cost
+- HP becomes `GetEffectiveMaxHealth()`
 - successful Heal emits `HealComplete` once
-- Heal then Cancel does not emit `HealCancelled`
-- Cancel/RequestCancel twice emits `HealCancelled` once
-- insufficient gold cannot mutate HP/gold even if activation is invoked programmatically
+- Heal then Cancel emits no cancellation
+- RequestCancel twice emits `HealCancelled` once
+- programmatic activation while full/poor cannot mutate HP/gold and leaves the standing current reason
+- no `SceneTreeTimer` is created
 
-Implement the same mutation order as the current `HealDialog` and keep `GameManager.Instance?.NotifyPlayerStatsChanged()`.
+Keep `GameManager.Instance?.NotifyPlayerStatsChanged()`.
 
-- [ ] **Step 5: Add local in-flight guard**
+- [ ] **Step 6: Add local in-flight guard**
 
-Guard the Heal callback with `_operationInFlight` and the existing terminal latch. Reset the in-flight flag only when the screen remains non-terminal.
+Guard Heal with `_operationInFlight` plus terminal latch. Reset in-flight only when the screen remains non-terminal.
 
-- [ ] **Step 6: Run Healing GREEN**
+- [ ] **Step 7: Run Healing GREEN**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
   --filter "FullyQualifiedName~HealingScreenControllerTest|FullyQualifiedName~HealDialogTest"
 ```
 
-Expected: new and legacy Healing behavior tests PASS before cutover.
+Expected: new and legacy behavior suites PASS before cutover.
 
 ---
 
@@ -312,84 +368,122 @@ Expected: new and legacy Healing behavior tests PASS before cutover.
 - Modify: `scripts/game/Game.cs`
 - Modify: `tests/ui/NpcInteractionControllerTest.cs`
 
-**Target state:** `NpcInteractionController` owns three possible hosted surface/handle pairs—Dialogue, Shop, or Heal—but only one is active during the normal NPC flow.
+**Target state:** `NpcInteractionController` owns Dialogue, Shop, or Heal hosted screen/handle state, with one active in the normal NPC flow.
 
-- [ ] **Step 1: Convert native-flow tests to RED host expectations**
+- [ ] **Step 1: Replace the two native-transition tests with RED hosted expectations**
 
-Replace the current tests that locate `ShopDialog`/`HealDialog` children beneath `LegacyNpcUiParent` with assertions that:
+Replace these current tests, not merely add alongside them:
 
-- Dialogue closes before Shop opens
-- exactly one `UIScreenKinds.Shop` entry is active
-- Dialogue closes before Healing opens
-- exactly one `UIScreenKinds.Heal` entry is active
-- cancel closes that hosted entry and emits `InteractionComplete` once
+- `ShopOutcome_ClosesHostedDialogueBeforeNativeShopOpens`
+- `HealOutcome_ClosesHostedDialogueBeforeNativeHealOpens`
 
-Run:
+New assertions:
 
-```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
-  --filter "FullyQualifiedName~NpcInteractionControllerTest"
-```
+- Dialogue entry is gone before Shop/Heal is active
+- exactly one `UIScreenKinds.Shop` or `UIScreenKinds.Heal` entry exists
+- no native `ShopDialog`/`HealDialog` child is created
+- cancel closes the hosted entry and completes once
 
-Expected: FAIL because Shop/Heal still use native dialogs.
+- [ ] **Step 2: Replace native fields with explicit hosted state**
 
-- [ ] **Step 2: Replace native fields with hosted state**
+Replace native dialog fields with nullable pairs for:
 
-In `NpcInteractionController`, replace:
-
-```csharp
-private ShopDialog _shopDialog;
-private HealDialog _healDialog;
-```
-
-with nullable screen + handle pairs for `ShopScreenController` and `HealingScreenController`.
+- `ShopScreenController` + `UIScreenHandle?`
+- `HealingScreenController` + `UIScreenHandle?`
 
 Keep explicit methods:
 
 - `OpenShop`, `ClearShopPresentation`, `CloseShopPresentation`
 - `OpenHeal`, `ClearHealPresentation`, `CloseHealPresentation`
 
-Do not extract a generic transaction/presentation owner.
+Do not extract a shared hosted-surface helper in advance.
 
-- [ ] **Step 3: Host Shop using the HPA-569 lifecycle contract**
+- [ ] **Step 3: Host Shop with the full HPA-569 lifecycle contract**
 
-`OpenShop()`:
+`OpenShop()` order:
 
-1. resolve `ShopCatalog.GetById(_npc.ShopId)`; invalid data logs and `Finish()`es
+1. resolve `ShopCatalog.GetById(_npc.ShopId)`; invalid data logs then `Finish()`
 2. load/instantiate `ShopScreen.tscn`
 3. call `TryOpenShop(shopInventory, _player)` before presentation
 4. subscribe `ShopClosed`
-5. call `_screenHost.TryPresent(...)` with `Kind = UIScreenKinds.Shop`
-6. configure modal policy, gameplay blocking, visible cursor, visible/inert lower layers, initial focus, Cancel interception, cleanup, and `QueueFree`
-7. on exception, unsubscribe/queue-free candidate, `Finish()`, then preserve the existing exception behavior
-8. if not opened, clean candidate and `Finish()`
-9. if returned handle is already inactive, `Finish()` without retaining stale state
+5. call `TryPresent` inside `try`
+6. on thrown post-commit publication: unsubscribe/free candidate when valid, call `Finish()`, then preserve current exception behavior
+7. on rejected/no-handle result: unsubscribe/free candidate and `Finish()`
+8. on `Opened`, call `_screenHost.IsActive(handle)` before retaining state
+9. if already inactive: `Finish()` and return
 10. otherwise store screen + handle
 
-- [ ] **Step 4: Host Healing using the same explicit contract**
+Use this exact policy:
 
-Mirror the lifecycle shape with `HealingScreen.tscn`, `UIScreenKinds.Heal`, `HealComplete`, `HealCancelled`, and `RequestCancel()`.
+```csharp
+new UIScreenEntrySpec
+{
+    Kind = UIScreenKinds.Shop,
+    Layer = UIScreenLayer.Modal,
+    InputPriority = UIInputPriority.Modal,
+    ProcessPolicy = UIProcessPolicy.Always,
+    ExclusiveGroup = UIScreenExclusiveGroups.None,
+    PauseTree = false,
+    BlockGameplayInput = true,
+    Cursor = UICursorPolicy.Visible,
+    Hud = UIHudPolicy.Hidden,
+    LowerLayers = UILowerLayerPolicy.VisibleInert,
+    Cancel = UICancelPolicy.Consume,
+    InitialFocus = () => screen.InitialFocusTarget,
+    InterceptCancel = _ =>
+    {
+        screen.RequestCancel();
+        return UIInputInterception.ConsumeHere;
+    },
+    Cleanup = _ => ClearShopPresentation(screen),
+    NodeLifetime = UINodeLifetime.QueueFree
+}
+```
 
-On Heal complete/cancel, close the hosted entry and then call `Finish()` once.
+`Hud = Hidden` follows HPA-373 §7.3. Current hosted Dialogue uses Visible; do not change Dialogue here and do not copy that value into Shop.
 
-- [ ] **Step 5: Extend teardown/error coverage**
+- [ ] **Step 4: Host Healing with the same explicit policy values**
 
-Add focused tests for:
+Use:
+
+- `Kind = UIScreenKinds.Heal`
+- `Hud = UIHudPolicy.Hidden`
+- `Cleanup = _ => ClearHealPresentation(screen)`
+- initial focus from `HealingScreenController.InitialFocusTarget`
+- Cancel intercepted to `RequestCancel()`
+- no prompt exclusive group
+
+Wire both `HealComplete` and `HealCancelled` to terminal handling.
+
+- [ ] **Step 5: Preserve clear/close/finish ordering explicitly**
+
+For each hosted surface:
+
+- cleanup callback unsubscribes signals and clears matching screen/handle state
+- close method calls `TryClose`; stale handle clears local matching state
+- terminal handler calls close inside `try/catch`; a publication exception after cleanup must not skip `Finish()`
+- `Finish()` remains idempotent by setting `_finished = true` before cleanup, wrapping hosted close cleanup, and invoking `InteractionComplete` once even if publication throws
+
+Do not replace this with vague “mirror lifecycle” comments or a new host facade.
+
+- [ ] **Step 6: Extend error/teardown coverage**
+
+Add tests for both relevant surfaces where practical:
 
 - `Finish()` while Shop active closes Shop and completes once
 - `Finish()` while Heal active closes Heal and completes once
-- invalid Shop id opens no Shop entry and completes once
-- a pre-existing Shop/Heal entry that causes host rejection does not leak the candidate
-- a post-commit `EffectiveStateChanged` subscriber that synchronously closes the entry leaves no stale handle
-- a close publication exception still results in exactly-once `InteractionComplete`
+- invalid Shop id opens no Shop and completes once
+- host rejection leaks no candidate
+- synchronous `EffectiveStateChanged` close after commit leaves no stale handle
+- close publication exception still completes exactly once
 
-Follow the existing Dialogue tests rather than creating a new fake host.
+Reuse current Dialogue test technique; do not create a fake host.
 
-- [ ] **Step 6: Remove the legacy UI-parent constructor dependency**
+- [ ] **Step 7: Remove legacy UI-parent dependency**
 
-Once Shop/Heal no longer call `AddChild` on `_uiParent`, delete `_uiParent` from `NpcInteractionController` state and constructor. Update the sole production construction in `scripts/game/Game.cs` and all test helpers in the same commit. Do not leave an unused compatibility parameter.
+Once Shop/Heal no longer `AddChild` to `_uiParent`, delete that constructor/state parameter and update the sole `Game` caller plus test helpers in the same commit.
 
-- [ ] **Step 7: Run orchestration GREEN**
+- [ ] **Step 8: Run orchestration GREEN**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
@@ -400,7 +494,7 @@ Expected: PASS with no native Shop/Heal children and no stale hosted entries.
 
 ---
 
-## Task 4: Delete native dialogs and update production lifecycle coverage
+## Task 4: Replace native-phase production tests and delete native dialogs
 
 **Files:**
 - Delete: `scripts/ui/ShopDialog.cs`
@@ -409,48 +503,78 @@ Expected: PASS with no native Shop/Heal children and no stale hosted entries.
 - Delete: `tests/ui/HealDialogTest.cs`
 - Modify: `tests/game/GameplayPauseHostTest.cs`
 - Modify: `tests/game/GameInputLifecycleTest.cs`
+- Modify: `tests/data/npc/ShopPricingTest.cs`
 - Modify: `docs/ui/hpa-376/ui-lifecycle-contract.md`
 
-- [ ] **Step 1: Prove no production references remain**
+- [ ] **Step 1: Add real-route host policy/input-block tests before deleting native types**
 
-Search the repository for:
+Model the production path on `ConfiguredKeyboardCancel_ClosesHostedDialogueThroughRealRoute` rather than flag-only setup.
+
+Add real-route Shop and Healing cases that actually:
+
+1. instantiate `Game.tscn`
+2. invoke the relevant authored NPC interaction
+3. choose the Dialogue outcome that opens Shop/Heal
+4. assert the hosted entry is active
+5. assert `BlockGameplayInput = true`, `PauseTree = false`, `Hud = Hidden`, cursor visible, Cancel consumed, tree not paused
+6. press configured keyboard Cancel and prove the hosted entry closes, Pause does not open, and `IsInNpcInteraction` clears once
+7. add controller/gamepad Cancel coverage at least once across Shop/Healing to preserve device routing
+
+Delete or rewrite `ConfiguredKeyboardCancel_NpcInteractionDeclinesForNativeHandler`; once HPA-570 lands, it documents a production phase that no longer exists.
+
+- [ ] **Step 2: Replace native-transition test names/assumptions everywhere**
+
+Search for and rewrite assertions/comments describing:
 
 ```text
+NativeShop
+NativeHeal
+native handler
 ShopDialog
 HealDialog
 LegacyNpcUiParent
 ```
 
-Only deletion targets/history docs should remain before deletion. Do not add wrappers or aliases.
+Do not leave a test whose name claims a native phase after the classes are removed.
 
-- [ ] **Step 2: Delete native classes and superseded tests**
+- [ ] **Step 3: Retarget the pricing oracle comment**
 
-Delete the four files only after Tasks 1–3 are green.
+In `tests/data/npc/ShopPricingTest.cs`:
 
-- [ ] **Step 3: Update Game host/lifecycle tests left intentionally native by HPA-569**
+- update summary/helper comments from “used by ShopDialog” / “mirrors ShopDialog” to `ShopScreenController`
+- keep the existing local formula helper
+- do **not** add a `ShopPricing` production type solely for the test
 
-Audit `GameplayPauseHostTest` and `GameInputLifecycleTest` for Shop/Heal assumptions. Update them to assert production NPC interaction opens `UIScreenKinds.Shop` / `UIScreenKinds.Heal`, blocks gameplay input while active, and restores input exactly once after cancel/completion.
+- [ ] **Step 4: Delete native classes/tests**
 
-Do not duplicate detailed transaction tests here; these are production host/lifecycle tests.
+Only after Tasks 1–3 and the production-route host tests are green, delete:
 
-- [ ] **Step 4: Update the lifecycle contract**
+- `ShopDialog.cs`
+- `ShopDialogTest.cs`
+- `HealDialog.cs`
+- `HealDialogTest.cs`
 
-In `docs/ui/hpa-376/ui-lifecycle-contract.md`, document Shop and Heal as gameplay-hosted modal entries alongside Dialogue:
+- [ ] **Step 5: Update lifecycle documentation**
 
-- host kind
-- gameplay-input blocking
-- no scene-tree pause
-- cancel interception
-- node lifetime
-- orchestration owner (`NpcInteractionController`)
+In `docs/ui/hpa-376/ui-lifecycle-contract.md`, document Shop/Heal as hosted modal entries:
 
-Remove wording that describes Shop/Heal as native dialogs.
+- kinds Shop / Heal
+- `PauseTree = false`
+- gameplay input blocked
+- HUD hidden
+- cursor visible
+- lower layers visible/inert
+- Cancel intercepted/consumed
+- QueueFree node lifetime
+- `NpcInteractionController` orchestration owner
 
-- [ ] **Step 5: Run the migration blast radius**
+Remove native-dialog wording.
+
+- [ ] **Step 6: Run migration blast radius**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
-  --filter "FullyQualifiedName~ShopScreenControllerTest|FullyQualifiedName~HealingScreenControllerTest|FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameInputLifecycleTest"
+  --filter "FullyQualifiedName~ShopScreenControllerTest|FullyQualifiedName~HealingScreenControllerTest|FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~ShopPricingTest"
 ```
 
 Expected: PASS.
@@ -460,29 +584,33 @@ Expected: PASS.
 ## Task 5: Responsive/input verification and final regression pass
 
 **Files:**
-- Modify only the new scenes/controllers/tests if focused failures prove a fix is required.
+- Modify only new scenes/controllers/tests or directly affected lifecycle tests if focused failures prove a fix is required.
 
-- [ ] **Step 1: Add representative viewport assertions**
+- [ ] **Step 1: Pin representative viewport geometry**
 
-For both authored scenes, exercise at least:
+Exercise at least:
 
 - 640×360 compact
 - 1280×720 reference
 - 1920×1080 standard
 
-Assert the shell remains inside safe-frame bounds, compact metrics are applied at 640×360, required controls remain reachable, and list/body scrolling—not viewport clipping—handles overflow.
+Assert:
 
-Do not add screenshot/golden infrastructure for this ticket unless it already exists and is required by a current test.
+- Shop shell is Large in standard mode and centred inside SafeFrame
+- Healing shell is Small in standard mode and centred inside SafeFrame
+- neither uses the Dialogue bottom band or Full size class
+- compact shell remains inside the 12 px safe frame without double-subtracted margins
+- controls remain reachable and the shell body owns overflow
 
-- [ ] **Step 2: Verify keyboard/gamepad focus behavior**
+- [ ] **Step 2: Verify focus behavior**
 
 Cover:
 
-- initial Shop focus reaches a valid action
-- initial Healing focus prefers Heal when enabled and No Thanks when Heal is unavailable
-- host Cancel closes each surface
-- Shop row refresh never leaves focus on a queued/freed control
-- Buy/Sell tab switching keeps a usable focus target
+- Shop initial focus reaches a valid action
+- Healing initial focus is Heal when enabled, otherwise No Thanks
+- Buy/Sell tab switching retains a usable focus target
+- Shop rebuild never leaves focus on queued/freed controls
+- keyboard/gamepad host Cancel closes both screens without Pause fallthrough
 
 - [ ] **Step 3: Build**
 
@@ -490,9 +618,9 @@ Cover:
 dotnet build Sirius.sln --no-restore --nologo
 ```
 
-Expected: PASS with no `ShopDialog`/`HealDialog` references.
+Expected: PASS with no production `ShopDialog`/`HealDialog` references.
 
-- [ ] **Step 4: Run the full suite**
+- [ ] **Step 4: Run full suite**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo
@@ -500,16 +628,18 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo
 
 Expected: PASS.
 
-- [ ] **Step 5: Inspect the final diff for scope creep**
+- [ ] **Step 5: Inspect final diff for scope creep**
 
-The implementation diff should contain only:
+Expected implementation scope:
 
-- two authored scenes/controllers and their tests
-- NPC/Game host cutover
-- legacy Shop/Heal deletion
-- affected host/lifecycle tests and lifecycle documentation
+- two authored scenes/controllers + tests
+- `NpcInteractionController` / `Game` host cutover
+- native Shop/Heal deletion
+- affected production host/input tests
+- ShopPricing comment retarget
+- lifecycle documentation
 
-Reject accidental additions of transaction services, base controllers, new host kinds, new theme tokens, new shop/healing rules, or unrelated HPA-571/HPA-573/HPA-625 work.
+Reject transaction services, base controllers, row components, new host kinds/groups, new theme tokens, new shop/healing rules, or unrelated HPA-571/HPA-573/HPA-625 work.
 
 ---
 
@@ -517,13 +647,15 @@ Reject accidental additions of transaction services, base controllers, new host 
 
 HPA-570 is implementation-complete when:
 
-- Shop and Healing are authored Sirius scenes, not desktop dialogs.
-- `NpcInteractionController` presents them through `UIScreenHost` using existing Shop/Heal kinds.
+- Shop is a centred authored `Large` Sirius surface, not a desktop dialog or Dialogue bottom band.
+- Healing is a centred authored `Small` Sirius surface with actions in shell `ActionsHost`.
+- `NpcInteractionController` presents both through existing Shop/Heal host kinds with the explicit HPA-373 lifecycle policy.
 - current Buy **and Sell** behavior is preserved without new transaction mechanics.
-- current Healing behavior is preserved without new rules.
-- disabled Buy/Heal actions have readable reasons.
+- current Healing behavior is preserved without new rules or a new feedback timer.
+- disabled Buy/Heal actions have standing readable reasons that do not disappear with transient Shop feedback.
 - local re-entrant activation is guarded.
 - mouse/keyboard/gamepad focus remains usable after dynamic Shop refresh.
+- real-route Cancel/input-block tests replace the retired native-phase test.
 - every close/success/failure/teardown path restores gameplay and completes NPC interaction exactly once.
-- native Shop/Heal classes and their superseded tests are deleted.
-- focused migration tests, build, and full test suite are green.
+- native Shop/Heal classes/tests are deleted and `ShopPricingTest` no longer names the deleted class.
+- focused migration tests, build, and full suite are green.

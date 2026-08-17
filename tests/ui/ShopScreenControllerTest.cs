@@ -135,6 +135,127 @@ public partial class ShopScreenControllerTest : Node
         }
     }
 
+    // ---- Viewport geometry ----------------------------------------------------
+    // Integration-level geometry only: SiriusModalShellTest owns the exhaustive
+    // clamp math; these pin the authored screens' centring, size class, margin
+    // and scroll outcomes at the representative verification viewports.
+
+    [TestCase(1280, 720)]
+    [TestCase(1920, 1080)]
+    public async Task StandardShop_IsCentredLargeWithinSafeMargins(int width, int height)
+    {
+        var fixture = await OpenMountedShopAsync(
+            CreatePlayer(gold: 500),
+            ShopCatalog.GetById("village_general_store")!,
+            new Vector2I(width, height));
+        try
+        {
+            var shell = fixture.Screen.GetNode<SiriusModalShell>("%ModalShell");
+            var panel = shell.GetNode<PanelContainer>("%Panel");
+
+            AssertThat(shell.Compact).IsFalse();
+            AssertThat(shell.SizeClass).IsEqual(SiriusModalSizeClass.Large);
+
+            var margin = SiriusUiMetrics.SafeMargin(false);
+            var rect = panel.GetGlobalRect();
+
+            // Centred on the viewport in both axes — a Dialogue-style bottom
+            // band would pin the panel far below mid-screen.
+            AssertThat(rect.GetCenter().X).IsEqualApprox(width / 2f, 1f);
+            AssertThat(rect.GetCenter().Y).IsEqualApprox(height / 2f, 1f);
+
+            AssertThat(rect.Position.X).IsGreaterEqual(margin - 0.5f);
+            AssertThat(rect.Position.Y).IsGreaterEqual(margin - 0.5f);
+            AssertThat(rect.End.X).IsLessEqual(width - margin + 0.5f);
+            AssertThat(rect.End.Y).IsLessEqual(height - margin + 0.5f);
+        }
+        finally
+        {
+            await FreeAsync(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task CompactShop_AppliesTwelvePxMarginExactlyOnce()
+    {
+        var fixture = await OpenMountedShopAsync(
+            CreatePlayer(gold: 500),
+            ShopCatalog.GetById("village_general_store")!,
+            new Vector2I(640, 360));
+        try
+        {
+            var shell = fixture.Screen.GetNode<SiriusModalShell>("%ModalShell");
+            var panel = shell.GetNode<PanelContainer>("%Panel");
+
+            AssertThat(shell.Compact).IsTrue();
+
+            // The shell owns the compact margin; the screen must not re-apply
+            // it. One 12 px inset per side → width is exactly viewport minus
+            // 24, not 48.
+            var margin = SiriusUiMetrics.SafeMargin(true);
+            var rect = panel.GetGlobalRect();
+            AssertThat(rect.Position.X).IsEqualApprox(margin, 1f);
+            AssertThat(rect.End.X).IsEqualApprox(640f - margin, 1f);
+            AssertThat(rect.Size.X).IsEqualApprox(640f - margin * 2f, 1f);
+
+            AssertThat(rect.Position.Y).IsGreaterEqual(margin - 0.5f);
+            AssertThat(rect.End.Y).IsLessEqual(360f - margin + 0.5f);
+        }
+        finally
+        {
+            await FreeAsync(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task CompactShop_OverflowingBodyScrolls_KeepsRequiredControlsReachable()
+    {
+        var fixture = await OpenMountedShopAsync(
+            CreatePlayer(gold: 500),
+            ShopCatalog.GetById("village_general_store")!,
+            new Vector2I(640, 360));
+        try
+        {
+            var screen = fixture.Screen;
+            var shell = screen.GetNode<SiriusModalShell>("%ModalShell");
+            var bodyScroll = shell.GetNode<ScrollContainer>("%BodyScroll");
+            var close = screen.GetNode<Button>("%CloseButton");
+
+            // The eight store rows cannot fit the compact body budget: the
+            // shell body must scroll instead of growing past the safe margins.
+            AssertThat(bodyScroll.GetVScrollBar().MaxValue)
+                .IsGreater(bodyScroll.GetVScrollBar().Page);
+
+            // Required controls stay reachable: the shell-level Close action
+            // never leaves the viewport-safe band.
+            var margin = SiriusUiMetrics.SafeMargin(true);
+            var closeRect = close.GetGlobalRect();
+            AssertThat(closeRect.Position.Y).IsGreaterEqual(margin - 0.5f);
+            AssertThat(closeRect.End.Y).IsLessEqual(360f - margin + 0.5f);
+            // The scrolling body ends above the shell-level actions: no
+            // overlap even when the rows overflow the compact body budget.
+            AssertThat(closeRect.Position.Y)
+                .IsGreaterEqual(bodyScroll.GetGlobalRect().End.Y - 0.5f);
+
+            // Focus-follow keeps overflowing rows reachable: focusing the
+            // last row scrolls it into view inside the shell body.
+            var lastRow = screen.GetNode<VBoxContainer>("%BuyList")
+                .GetChildren().OfType<HBoxContainer>().Last();
+            lastRow.GetChildren().OfType<Button>().Single().GrabFocus();
+            await AwaitFrames(2);
+
+            AssertThat(bodyScroll.ScrollVertical).IsGreater(0);
+            var rowRect = lastRow.GetGlobalRect();
+            AssertThat(rowRect.Position.Y)
+                .IsGreaterEqual(bodyScroll.GetGlobalRect().Position.Y - 0.5f);
+            AssertThat(rowRect.End.Y).IsLessEqual(360f - margin + 0.5f);
+        }
+        finally
+        {
+            await FreeAsync(fixture);
+        }
+    }
+
     // ---- Buy ----------------------------------------------------------------
 
     [TestCase]
@@ -550,6 +671,47 @@ public partial class ShopScreenControllerTest : Node
     }
 
     [TestCase]
+    public async Task ShopTabSwitch_LeavesUsableFocusTarget()
+    {
+        var player = CreatePlayer(gold: 500);
+        player.TryAddItem(ItemCatalog.CreateItemById("health_potion")!, 1, out _);
+
+        var fixture = await OpenMountedShopAsync(
+            player, ShopCatalog.GetById("village_general_store")!);
+        try
+        {
+            var screen = fixture.Screen;
+            var tabs = screen.GetNode<TabContainer>("%ShopTabs");
+            AssertThat(fixture.Viewport.GuiGetFocusOwner()).IsEqual(
+                RowButton(screen.GetNode<VBoxContainer>("%BuyList"), "health_potion"));
+
+            tabs.CurrentTab = 1;
+            await AwaitFrames(1);
+
+            // Hiding the Buy tab releases its focus owner; the screen must
+            // resolve to a focusable control on the newly active tab.
+            var sellFocus = fixture.Viewport.GuiGetFocusOwner();
+            AssertThat(sellFocus).IsNotNull();
+            AssertThat(IsFocusable(sellFocus!)).IsTrue();
+            AssertThat(sellFocus).IsEqual(
+                RowButton(screen.GetNode<VBoxContainer>("%SellList"), "health_potion"));
+
+            tabs.CurrentTab = 0;
+            await AwaitFrames(1);
+
+            var buyFocus = fixture.Viewport.GuiGetFocusOwner();
+            AssertThat(buyFocus).IsNotNull();
+            AssertThat(IsFocusable(buyFocus!)).IsTrue();
+            AssertThat(buyFocus).IsEqual(
+                RowButton(screen.GetNode<VBoxContainer>("%BuyList"), "health_potion"));
+        }
+        finally
+        {
+            await FreeAsync(fixture);
+        }
+    }
+
+    [TestCase]
     public async Task SellFocusedLastItem_FocusLandsOnFocusableTarget()
     {
         var player = CreatePlayer(gold: 0);
@@ -651,11 +813,15 @@ public partial class ShopScreenControllerTest : Node
             CreatePlayer(gold), ShopCatalog.GetById("village_general_store")!);
 
     private async Task<ShopFixture> OpenMountedShopAsync(Character player, ShopInventory shop)
+        => await OpenMountedShopAsync(player, shop, new Vector2I(1280, 720));
+
+    private async Task<ShopFixture> OpenMountedShopAsync(
+        Character player, ShopInventory shop, Vector2I viewportSize)
     {
         var screen = CreateUnparentedScreen();
         AssertThat(screen.TryOpenShop(shop, player)).IsTrue();
 
-        var (container, viewport) = TestHelpers.MountInViewport(screen, new Vector2I(1280, 720));
+        var (container, viewport) = TestHelpers.MountInViewport(screen, viewportSize);
         await AwaitFrames(1);
         return new ShopFixture(container, viewport, screen, player);
     }

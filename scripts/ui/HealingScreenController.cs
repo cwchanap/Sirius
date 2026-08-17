@@ -74,6 +74,10 @@ public partial class HealingScreenController : Control
         if (_npc != null)
             Render();
         RefreshLayout();
+        // Labels added during _Ready have not been laid out yet, so the
+        // synchronous refresh under-measures the shell body; re-measure once
+        // this frame's layout pass has settled.
+        Callable.From(RefreshLayout).CallDeferred();
     }
 
     public override void _ExitTree()

@@ -74,22 +74,38 @@ public partial class ShopScreenController : Control
         _closeButton = GetNode<Button>("%CloseButton");
 
         _closeButton.Pressed += OnCloseButtonPressed;
+        _shopTabs.TabChanged += OnTabChanged;
         Resized += OnResized;
 
         if (_shop != null)
             RenderWithFocusRestore();
         RefreshLayout();
+        // Rows added during _Ready have not been laid out yet, so the
+        // synchronous refresh under-measures the shell body; re-measure once
+        // this frame's layout pass has settled.
+        Callable.From(RefreshLayout).CallDeferred();
     }
 
     public override void _ExitTree()
     {
         if (_closeButton != null)
             _closeButton.Pressed -= OnCloseButtonPressed;
+        if (_shopTabs != null)
+            _shopTabs.TabChanged -= OnTabChanged;
         Resized -= OnResized;
         CancelFeedbackTimer();
     }
 
     private void OnCloseButtonPressed() => RequestCancel();
+
+    // Hiding the previously active tab releases its focus owner, and the
+    // newly active page is not visible until after the TabChanged signal;
+    // re-resolve deferred so the new tab always has a usable focus target.
+    private void OnTabChanged(long activeTab)
+    {
+        var focusedItemId = FindFocusedRowItemId();
+        Callable.From(() => ResolveFocus((int)activeTab, focusedItemId)).CallDeferred();
+    }
 
     private void OnResized() => RefreshLayout();
 

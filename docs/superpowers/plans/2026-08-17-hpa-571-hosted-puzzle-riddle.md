@@ -437,6 +437,9 @@ if (openResult.Status != UIScreenOpenStatus.Opened || !openResult.Handle.HasValu
 
 if (!_screenHost.IsActive(openResult.Handle.Value))
 {
+    // A publication subscriber may already have closed the committed entry;
+    // its Cleanup callback has released the candidate. Retain nothing and only
+    // ensure the world latch is down.
     EndWorldInteractionIfActive();
     UpdateInteractionPrompt();
     return;
@@ -446,7 +449,7 @@ _puzzleRiddleScreen = screen;
 _puzzleRiddleHandle = openResult.Handle.Value;
 ```
 
-`ClearRejectedPuzzleRiddleCandidate` is a riddle-local cleanup routine or equivalent inline code, not a generic host service.
+`ClearRejectedPuzzleRiddleCandidate` is used only for candidate views that were not already cleaned by a committed host close. It unsubscribes the candidate's signals and frees it if still valid; it is riddle-local, not a generic host service.
 
 Do not change `NpcInteractionController.TryHostSurface`.
 
@@ -640,7 +643,9 @@ finally
 }
 ```
 
-`OpenPuzzleRiddle` catches/logs the publication failure. Assert:
+`OpenPuzzleRiddle` catches/logs the publication failure. The host may already have committed the candidate; freeing the still-valid candidate triggers host `NodeFreed` cleanup just as the existing NPC recovery relies on. Then the Game-specific catch ensures the world latch is down.
+
+Assert:
 
 ```csharp
 AssertThat(gameManager.IsInWorldInteraction).IsFalse();

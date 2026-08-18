@@ -2,7 +2,7 @@ using Godot;
 using System.Linq;
 
 /// <summary>
-/// Hosted Sirius riddle screen (replaces the native PuzzleRiddleDialog
+/// Hosted Sirius riddle screen (replaces the former native AcceptDialog riddle
 /// window). Presentation-only: renders one <see cref="PuzzleRiddleSpawn"/>'s
 /// prompt and answers, tracks the local AwaitingChoice → Resolving →
 /// Terminal phase, and emits presentation events. It never validates

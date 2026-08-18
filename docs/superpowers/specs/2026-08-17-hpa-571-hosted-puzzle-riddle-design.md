@@ -273,7 +273,7 @@ No parent handle or exclusive group is needed; `IsInWorldInteraction` already pr
 
 ## Host lifecycle hardening: keep the Game-shaped subset local
 
-`NpcInteractionController.TryHostSurface(...)` is a useful reference but is not directly reusable. Besides `Finish()` on failed presentation, it contains NPC-specific `_finished` recovery for a publication subscriber that synchronously finishes the orchestration without closing the newly committed entry. Turning that private helper into a cross-class abstraction would require owner-state callbacks and would modify the already-shipped NPC lifecycle for one new Game consumer.
+`NpcInteractionController.TryHostSurface(...)` is the correct behavioral reference but is not directly reusable. It is not just `TryPresent + Finish()`: after the `IsActive` recheck it also inspects the NPC owner's `_finished` state and mechanically closes an entry when a publication subscriber synchronously finished the NPC interaction before the caller retained its screen/handle. Generalizing that private helper for Game would therefore need both failure callbacks and owner-finished state/callback semantics, and would modify the already-shipped NPC lifecycle for one new Game consumer.
 
 HPA-571 therefore does **not** extract a shared helper and does not create a one-call-site private `Game.TryHostSurface`. The riddle path keeps the small Game-specific subset inline:
 
@@ -377,10 +377,10 @@ Do **not** add an integration test that tries to inject Cancel in the middle of 
 
 Cover:
 
-- host rejection;
+- host unavailable/rejection before world latch starts;
 - post-commit inactive-handle recheck;
 - publication throw cleanup;
-- stale close handle;
+- stale close handling through the idempotent riddle close/clear path;
 - root teardown while riddle is open intentionally ends the world latch before owner exit.
 
 ## Legacy cleanup
@@ -408,5 +408,5 @@ No compatibility wrapper remains.
 ## Follow-up ownership
 
 - HPA-573 owns generic reward feedback/queueing.
-- HPA-359 owns final cross-screen validation and release smoke coverage.
+- HPA-359 owns final cross-screen validation and release smoke coverage; if multiple Game-owned surfaces prove they need the same post-commit host hardening, consolidation belongs there or in the first concrete follow-up that supplies the second Game consumer.
 - New puzzle families or a reusable puzzle abstraction wait for a second real puzzle consumer.

@@ -2,35 +2,38 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the native puzzle/riddle `AcceptDialog` with a scene-authored, `UIScreenHost`-managed Sirius riddle surface while preserving puzzle domain rules and exactly-once world-interaction cleanup.
+**Goal:** Replace the native puzzle/riddle `AcceptDialog` with a scene-authored, `UIScreenHost`-managed Sirius riddle surface while preserving puzzle rules, answer/cancel mutual exclusion, and exactly-once world-interaction cleanup.
 
-**Architecture:** Keep `Game` as the world-riddle orchestration owner and keep `PuzzleTrapController` as the domain authority. Add one concrete `PuzzleRiddleScreen.tscn` + `PuzzleRiddleScreenController`, present it through the already-defined `UIScreenKinds.PuzzleRiddle`, and converge every close/failure/teardown path through the hosted cleanup callback. Do not add a puzzle framework, presenter/view-model layer, host facade, or domain service.
+**Architecture:** Keep `Game` as the world-riddle orchestration owner and `PuzzleTrapController` as the domain authority. Add one `PuzzleRiddleScreen.tscn` + `PuzzleRiddleScreenController`, present it through existing `UIScreenKinds.PuzzleRiddle`, and keep host open/close mechanics explicit in `Game`. Use a tiny presentation phase (`AwaitingChoice`, `Resolving`, `Terminal`) so answer resolution cannot race Cancel. No puzzle framework, presenter/view-model, host facade, new host API, or compatibility shim.
 
 **Tech Stack:** Godot 4.6.2, C#/.NET 8, GdUnit4, Sirius Theme, `SiriusModalShell`, `SiriusInputHint`, `SiriusUiMetrics`, `UIScreenHost`.
 
 **Spec:** `docs/superpowers/specs/2026-08-17-hpa-571-hosted-puzzle-riddle-design.md`
 
-## Global constraints
+## Global Constraints
 
+- Keep `Game` as the world-riddle owner; do not route riddles through `NpcInteractionController`.
 - Keep `PuzzleTrapController`, `PuzzleRiddleSpawn`, switch arming, answer validation, `MarkPuzzleSolved`, persistence, gate application, trap behavior, and wrong-answer damage rules unchanged.
-- Keep `Game` as the riddle orchestration owner; do not route world riddles through `NpcInteractionController`.
-- Add exactly one new production scene/controller pair for HPA-571.
-- Reuse `SiriusModalShell` with `SiriusModalSizeClass.Medium`; no new theme tokens or size metrics.
-- Do not add `%SafeFrame`; the centred non-Full shell owns width, compact margins, and body scrolling.
-- Reuse `UIScreenKinds.PuzzleRiddle`; no new kind, exclusive group, parent handle, incompatible-kind rule, or host API.
-- Host policy: Modal / Modal priority / Always / no tree pause / block gameplay / cursor visible / HUD hidden / lower layers visible-inert / Cancel consumed + intercepted / QueueFree lifetime.
-- Dynamic answer buttons stay controller-local; do not create a reusable choice-row component.
-- `%PromptLabel` remains BBCode-capable so current prompt rendering capability is not silently removed.
-- Dormant/unarmed response stays on the same hosted screen and rearms choices.
-- Wrong answer stays terminal for the current answer attempt; after readable terminal feedback, dismissal ends the world interaction and a retry requires a fresh interaction.
-- Success commits solved state before readable terminal feedback; dismissing the feedback only ends presentation.
-- No timers for puzzle feedback.
-- Every close, stale handle, rejected open, invalid surface, exception, root teardown, and host teardown must leave `GameManager.IsInWorldInteraction == false` exactly once.
-- Delete the native riddle dialog after replacement coverage is green; keep no compatibility shim.
+- Add exactly one new production scene/controller pair.
+- Reuse `SiriusModalShell` with `SiriusModalSizeClass.Medium`; no `%SafeFrame`, new theme tokens, or new metrics.
+- Reuse `UIScreenKinds.PuzzleRiddle`; no new kind, group, parent handle, incompatible-kind rule, or host API.
+- Host policy: `Modal` layer, `Modal` input priority, `Always`, no tree pause, gameplay blocked, HUD hidden, cursor visible, lower layers visible/inert, Cancel consumed/intercepted, `QueueFree` lifetime.
+- Dynamic answers remain controller-local.
+- Runtime answer buttons use Dialogue's local pattern: `SiriusSecondaryButton`, `WordSmart`, `ExpandFill`, and `SiriusUiMetrics.MinimumTarget(...)` height.
+- `%FeedbackLabel` starts hidden, uses `SiriusMetadata`, autowraps, and is never timed.
+- Keep `%CancelHint`: HPA-373 §9.11 explicitly requires Puzzle's active-device cancel hint. Mount it in fixed `ActionsHost` chrome beside the Cancel button, not in scrolling body content.
+- Presentation phase is `AwaitingChoice -> Resolving -> (AwaitingChoice | Terminal)`. Cancel and repeated choices are ignored during `Resolving`.
+- Dormant/unarmed response stays on the same hosted screen and returns to `AwaitingChoice`.
+- Wrong answer stays terminal for the current attempt. HPA-571 adds readable feedback before dismissal; retry still requires a fresh interaction.
+- Success commits solved state before readable terminal feedback; dismissal only ends presentation.
+- Wrong-answer feedback reports actual HP lost after the 1-HP floor, not configured `WrongAnswerDamage`.
+- Every close, stale handle, rejected open, invalid surface, publication exception, host teardown, and root teardown must leave `GameManager.IsInWorldInteraction == false` exactly once.
+- The `_puzzleRiddleDialog` field cutover must be compile-complete across production and both test suites in one task.
+- Delete `PuzzleRiddleDialog` only after hosted tests are green; leave no compatibility wrapper.
 
 ---
 
-## File structure
+## File Structure
 
 ### Create
 
@@ -50,10 +53,13 @@
 - `scripts/ui/PuzzleRiddleDialog.cs`
 - `tests/ui/PuzzleRiddleDialogTest.cs`
 
-### Reference only unless a focused failure proves otherwise
+### Reference only
 
 - `scripts/game/PuzzleTrapController.cs`
 - `scripts/game/PuzzleRiddleSpawn.cs`
+- `scripts/ui/DialogueScreenController.cs`
+- `scripts/ui/HealingScreenController.cs`
+- `scenes/ui/HealingScreen.tscn`
 - `scripts/ui/components/SiriusModalShell.cs`
 - `scenes/ui/components/SiriusModalShell.tscn`
 - `scripts/ui/components/SiriusInputHint.cs`
@@ -61,49 +67,53 @@
 - `scripts/ui/hosting/UIScreenHost.cs`
 - `scripts/ui/hosting/UIScreenKinds.cs`
 - `scripts/ui/theme/SiriusUiMetrics.cs`
-- `scripts/ui/NpcInteractionController.cs` — lifecycle-hardening reference only
-- `tests/ui/hosting/UIScreenHostLifecycleTest.cs` — host contract reference only
+- `scripts/ui/NpcInteractionController.cs` — lifecycle-hardening reference only; do not reuse its `Finish()`-specific helper.
 
 ---
 
-## Risk checklist
+## Risk Checklist
 
-### The UI accidentally becomes a second puzzle-domain owner
+### Answer and Cancel race while Game resolves a choice
 
-Do not call `PuzzleTrapController` from the new screen. The screen emits choice ids; `Game` resolves them through the existing controller and tells the screen which feedback phase to render.
+The native dialog protects answer/Cancel mutual exclusion with one latch. A pair of independent `_choicePending` / `_closedEmitted` booleans does not: Cancel could close the screen while `Game.OnPuzzleRiddleChoiceSelected(...)` is still resolving the answer.
 
-### Clear feedback changes retry semantics
+Use the explicit local phase. `RequestCancel()` ignores `Resolving`; only `RearmWithFeedback(...)` or `ShowTerminalFeedback(...)` can leave `Resolving`.
 
-Wrong answer may display a terminal result before dismissal, but choices stay unavailable. A new answer requires closing and starting a fresh world interaction, matching the existing attempt boundary.
+### Game cutover does not compile
 
-### Host publication closes the entry before Game retains it
+`_puzzleRiddleDialog` is referenced from `Game.cs`, `GameTest.cs`, and `GameInputLifecycleTest.cs`. Replace every field/type lookup and old cleanup call in the same task. Run a solution build at that gate.
 
-After `TryPresent` returns `Opened`, re-check `IsActive(handle)` before assigning `_puzzleRiddleScreen` / `_puzzleRiddleHandle`. If it is already closed, end/verify world-interaction cleanup and retain nothing.
+### Runtime answer styling regresses at compact size
 
-### A close-publication exception skips domain restoration
+Copy Dialogue's local `CreateActionButton` pattern and reapply `SiriusUiMetrics.MinimumTarget(_shell.Compact)` in `RefreshLayout()`. Assert 44 px standard / 40 px compact through the existing metric rather than hard-coded scene values.
 
-By the time host close publication throws, the entry Cleanup may already have run. Terminal handlers must catch/log the exception and rely on the idempotent cleanup convergence rather than aborting before `EndWorldInteraction`.
+### Cancel hint scrolls away
 
-### Compact content becomes unreachable
+HPA-373 requires the active-device cancel hint for Puzzle. Keep it, but place it in fixed `ActionsHost` chrome beside Cancel rather than in the shell body.
 
-Use one `SiriusModalShell` body scroll, not nested scroll owners. At 640×360, assert compact shell state and that focused final choices can be scrolled into view.
+### Native-dialog test gives a false negative
+
+Use recursive `ContainsAcceptDialog(...)`, plus explicit `GetNodeOrNull("%SafeFrame") == null` and `shell.GetParent() == screen`. Do not use `FindChild("*") is AcceptDialog`.
+
+### Wrong feedback overstates damage
+
+Capture health before `ApplyPuzzleDamage`, then subtract post-damage health. Display actual HP lost because the damage path floors at 1 HP.
 
 ---
 
-## Task 1: Build the scene-authored riddle surface
+## Task 1: Build the Authored Riddle Screen and Preserve Mutual Exclusion
 
 **Files:**
 - Create: `scenes/ui/PuzzleRiddleScreen.tscn`
 - Create: `scripts/ui/PuzzleRiddleScreenController.cs`
 - Create: `tests/ui/PuzzleRiddleScreenControllerTest.cs`
 - Reference: `scripts/ui/PuzzleRiddleDialog.cs`
-- Reference: `scripts/game/PuzzleRiddleSpawn.cs`
-- Reference: `scripts/ui/HealingScreenController.cs`
+- Reference: `tests/ui/PuzzleRiddleDialogTest.cs`
+- Reference: `scripts/ui/DialogueScreenController.cs`
 - Reference: `scenes/ui/HealingScreen.tscn`
 
 **Interfaces:**
-
-- Consumes: `PuzzleRiddleSpawn.RiddleId`, `PromptText`, and `GetChoices()`.
+- Consumes: `PuzzleRiddleSpawn.RiddleId`, `PromptText`, `GetChoices()`.
 - Produces:
 
 ```csharp
@@ -121,71 +131,91 @@ public partial class PuzzleRiddleScreenController : Control
 }
 ```
 
-The controller is presentation-only and one instance represents one world interaction.
+### 1.1 RED: authored structure and one-shot configuration
 
-- [ ] **Step 1: Write RED scene/configuration tests**
-
-Create `tests/ui/PuzzleRiddleScreenControllerTest.cs` and cover:
+- [ ] Create `PuzzleRiddleScreenControllerTest` with a `SubViewportContainer` + `SubViewport` fixture following existing UI tests.
+- [ ] Add recursive native-dialog detection:
 
 ```csharp
-[TestCase]
-public async Task Scene_IsAuthoredMediumSiriusSurface()
+private static bool ContainsAcceptDialog(Node node)
 {
-    var packed = GD.Load<PackedScene>("res://scenes/ui/PuzzleRiddleScreen.tscn");
-    AssertThat(packed).IsNotNull();
+    if (node is AcceptDialog)
+        return true;
 
-    var screen = packed!.Instantiate<PuzzleRiddleScreenController>();
-    _viewport.AddChild(screen);
-    await AwaitFrames(2);
+    foreach (Node child in node.GetChildren())
+    {
+        if (ContainsAcceptDialog(child))
+            return true;
+    }
 
-    AssertThat(screen.FindChild("*", recursive: true, owned: false) is AcceptDialog)
-        .IsFalse();
-    AssertThat(screen.GetNode<SiriusModalShell>("%ModalShell").SizeClass)
-        .IsEqual(SiriusModalSizeClass.Medium);
-    AssertThat(screen.GetNode<Button>("%CancelButton").Visible).IsTrue();
+    return false;
 }
 ```
 
-Also add tests for:
+- [ ] Add a failing structure test that asserts:
 
-- `TryOpenRiddle(...)` before `_Ready()` renders after attachment;
-- second `TryOpenRiddle(...)` is rejected;
-- blank `RiddleId` renders `Seal`;
-- no-choice riddle returns `false`;
-- first valid choice becomes `InitialFocusTarget`.
+```csharp
+var shell = screen.GetNode<SiriusModalShell>("%ModalShell");
+AssertThat(ContainsAcceptDialog(screen)).IsFalse();
+AssertThat(screen.GetNodeOrNull("%SafeFrame")).IsNull();
+AssertThat(shell.GetParent()).IsEqual(screen);
+AssertThat(shell.SizeClass).IsEqual(SiriusModalSizeClass.Medium);
+AssertThat(screen.GetNode<Button>("%CancelButton").Visible).IsTrue();
+AssertThat(screen.GetNode<SiriusInputHint>("%CancelHint").GetParent())
+    .IsEqual(shell.ActionsHost);
+```
 
-Run:
+- [ ] Add failing tests for pre-ready `TryOpenRiddle(...)`, second-start rejection, blank `RiddleId -> Seal`, no-choice rejection, and first-answer initial focus.
+- [ ] Run:
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
   --filter "FullyQualifiedName~PuzzleRiddleScreenControllerTest"
 ```
 
-Expected: FAIL because the scene/controller do not exist.
+Expected: FAIL because the new scene/controller do not exist.
 
-- [ ] **Step 2: Author the stable scene tree**
+### 1.2 GREEN: author the centred Medium scene
 
-Create:
+- [ ] Create:
 
 ```text
-PuzzleRiddleScreen (Control; full viewport)
+PuzzleRiddleScreen (full-viewport Control)
 └── ModalShell (%ModalShell; Medium)
     ├── .../BodyHost
     │   ├── FeedbackLabel (%FeedbackLabel)
     │   ├── PromptLabel (%PromptLabel; RichTextLabel; BBCode enabled)
-    │   ├── ChoicesContainer (%ChoicesContainer; VBoxContainer)
-    │   └── CancelHint (%CancelHint; SiriusInputHint)
+    │   └── ChoicesContainer (%ChoicesContainer; VBoxContainer)
     └── .../ActionsHost
+        ├── CancelHint (%CancelHint; SiriusInputHint)
         └── CancelButton (%CancelButton; "Cancel")
 ```
 
-Use existing Sirius body/metadata/secondary-button theme variations and 44 px minimum action height. Do not add a SafeFrame, second panel, or nested scroll container.
+- [ ] Give `%FeedbackLabel` the Healing defaults:
 
-- [ ] **Step 3: Implement pre-ready one-shot binding and responsive layout**
+```text
+visible = false
+theme_type_variation = "SiriusMetadata"
+autowrap_mode = WordSmart
+```
 
-Add stored configuration and bind authored nodes in `_Ready()`.
+- [ ] Keep `%CancelButton` as `SiriusSecondaryButton`. Do not hard-code answer rows in the scene.
 
-Use this layout shape:
+### 1.3 GREEN: local runtime-answer helper and responsive targets
+
+- [ ] Add the Dialogue-shaped local helper:
+
+```csharp
+private static Button CreateActionButton(string text) => new()
+{
+    Text = text,
+    AutowrapMode = TextServer.AutowrapMode.WordSmart,
+    ThemeTypeVariation = SiriusThemeTypes.SecondaryButton,
+    SizeFlagsHorizontal = SizeFlags.ExpandFill
+};
+```
+
+- [ ] In `RefreshLayout()`:
 
 ```csharp
 private void RefreshLayout()
@@ -197,85 +227,55 @@ private void RefreshLayout()
     _shell.Compact = SiriusUiMetrics.IsCompact(size);
     _cancelHint.Compact = _shell.Compact;
     _shell.RefreshPresentation(size);
+
+    var minimumTarget = SiriusUiMetrics.MinimumTarget(_shell.Compact);
+    foreach (var child in _choicesContainer.GetChildren())
+    {
+        if (child is Button action)
+            action.CustomMinimumSize = new Vector2(0f, minimumTarget.Y);
+    }
 }
 ```
 
-Subscribe `Resized` in `_Ready()` and unsubscribe it plus button handlers in `_ExitTree()`.
+- [ ] Subscribe `Resized` in `_Ready()` and unsubscribe in `_ExitTree()`.
+- [ ] Add tests for `SecondaryButton`, `WordSmart`, `ExpandFill`, 44 px standard target and 40 px compact target.
 
-`TryOpenRiddle` validates `riddle != null` and `riddle.GetChoices().Count > 0`, stores the riddle once, and renders immediately when ready.
+### 1.4 RED/GREEN: encode presentation phase, not two independent latches
 
-- [ ] **Step 4: Render choices and guard answer activation**
+- [ ] Add:
 
-Create one `Button` per `PuzzleRiddleChoice` in `%ChoicesContainer`.
+```csharp
+private enum PuzzleRiddlePresentationPhase
+{
+    AwaitingChoice,
+    Resolving,
+    Terminal
+}
 
-Use a local `_choicePending` guard:
+private PuzzleRiddlePresentationPhase _phase = PuzzleRiddlePresentationPhase.AwaitingChoice;
+private bool _closedEmitted;
+```
+
+- [ ] Choice activation must transition before emission:
 
 ```csharp
 private void EmitChoice(string choiceId)
 {
-    if (_choicePending || _closedEmitted)
+    if (_closedEmitted || _phase != PuzzleRiddlePresentationPhase.AwaitingChoice)
         return;
 
-    _choicePending = true;
+    _phase = PuzzleRiddlePresentationPhase.Resolving;
     SetChoicesEnabled(false);
     EmitSignal(SignalName.ChoiceSelected, choiceId);
 }
 ```
 
-Set `InitialFocusTarget` to the first focusable answer, falling back to `%CancelButton`.
-
-Test two sequential emissions from the same button produce one `ChoiceSelected` until Game resolves the result.
-
-- [ ] **Step 5: Implement nonterminal dormant rearm**
-
-Implement:
+- [ ] `RequestCancel()` must be phase-aware:
 
 ```csharp
-public void RearmWithFeedback(string message)
-{
-    if (_closedEmitted)
-        return;
-
-    _feedbackLabel.Text = message ?? string.Empty;
-    _feedbackLabel.Visible = !string.IsNullOrWhiteSpace(_feedbackLabel.Text);
-    _choicePending = false;
-    SetChoicesVisible(true);
-    SetChoicesEnabled(true);
-    _cancelButton.Text = "Cancel";
-    RefreshChoiceFocus();
-}
-```
-
-Test that `RearmWithFeedback("The mechanism is dormant.")`:
-
-- keeps the same prompt/choices;
-- displays the message;
-- permits exactly one new choice emission;
-- restores a valid choice focus target.
-
-- [ ] **Step 6: Implement terminal result presentation and final close latch**
-
-Implement:
-
-```csharp
-public void ShowTerminalFeedback(string message, string actionLabel)
-{
-    if (_closedEmitted)
-        return;
-
-    _feedbackLabel.Text = message ?? string.Empty;
-    _feedbackLabel.Visible = !string.IsNullOrWhiteSpace(_feedbackLabel.Text);
-    _choicePending = true;
-    SetChoicesEnabled(false);
-    SetChoicesVisible(false);
-    _cancelButton.Text = string.IsNullOrWhiteSpace(actionLabel) ? "Close" : actionLabel;
-    InitialFocusTarget = _cancelButton;
-    _cancelButton.GrabFocus();
-}
-
 public void RequestCancel()
 {
-    if (_closedEmitted)
+    if (_closedEmitted || _phase == PuzzleRiddlePresentationPhase.Resolving)
         return;
 
     _closedEmitted = true;
@@ -283,40 +283,52 @@ public void RequestCancel()
 }
 ```
 
-Wire `%CancelButton.Pressed` to `RequestCancel()`.
+- [ ] `RearmWithFeedback(...)` only exits `Resolving -> AwaitingChoice`; it shows standing feedback, reenables choices, restores first-answer/Cancel focus, and resets action label to `Cancel`.
+- [ ] `ShowTerminalFeedback(...)` only exits `Resolving -> Terminal`; it shows feedback, hides/disables answers, changes action label, and focuses the action button.
 
-Test:
+### 1.5 RED: port the proven choice/cancel mutual-exclusion contract
 
-- wrong terminal feedback hides/disables answers and focuses `Close`;
-- success terminal feedback focuses `Continue`;
-- terminal feedback never emits another answer;
-- button + repeated `RequestCancel()` emit `PuzzleRiddleClosed` once.
-
-- [ ] **Step 7: Prove 640×360 long-content behavior**
-
-Mount the screen in a 640×360 `SubViewport` and create a riddle with a long prompt plus enough long choices to exceed body height.
-
-Assert:
+- [ ] Add the replacement for `PuzzleRiddleDialogTest.ChoiceThenCancel_EmitsChoiceSelectedOnly`:
 
 ```csharp
-var shell = screen.GetNode<SiriusModalShell>("%ModalShell");
-var bodyScroll = shell.GetNode<ScrollContainer>("%BodyScroll");
-AssertThat(shell.Compact).IsTrue();
-AssertThat(bodyScroll.FollowFocus).IsTrue();
+[TestCase]
+public void ChoiceThenCancel_WhileResolving_EmitsChoiceOnly()
+{
+    int choices = 0;
+    int closed = 0;
+    screen.ChoiceSelected += _ => choices++;
+    screen.PuzzleRiddleClosed += () => closed++;
+
+    FindAnswer("Answer").EmitSignal(Button.SignalName.Pressed);
+    screen.RequestCancel();
+
+    AssertThat(choices).IsEqual(1);
+    AssertThat(closed).IsEqual(0);
+}
 ```
 
-Focus the final choice and await layout frames; assert the shell body can scroll so the focused control is within its visible body region. Do not introduce a second ScrollContainer to make the test pass.
+- [ ] Add repeated-choice-while-resolving coverage.
+- [ ] Add dormant rearm coverage proving one fresh answer is accepted after `RearmWithFeedback(...)`.
+- [ ] Add terminal coverage proving Close/Continue can emit final close once after `ShowTerminalFeedback(...)`.
 
-- [ ] **Step 8: Run Task 1 GREEN and commit**
+### 1.6 GREEN: compact long-content proof
+
+- [ ] At 640×360 create a long BBCode prompt and enough long choices to overflow the body.
+- [ ] Assert shell compact mode, CancelHint compact mode, `BodyScroll.FollowFocus == true`, 40 px answer targets, and final focused answer can be brought into the scroll viewport.
+- [ ] Do not add a nested ScrollContainer.
+
+### 1.7 Task 1 gate
+
+- [ ] Run:
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
   --filter "FullyQualifiedName~PuzzleRiddleScreenControllerTest|FullyQualifiedName~PuzzleRiddleDialogTest"
 ```
 
-Expected before legacy deletion: new screen tests PASS and old dialog tests still PASS.
+Expected: PASS. The legacy dialog still exists only as pre-cutover characterization.
 
-Commit:
+- [ ] Commit:
 
 ```bash
 git add scenes/ui/PuzzleRiddleScreen.tscn \
@@ -327,22 +339,24 @@ git commit -m "feat: add hosted puzzle riddle screen"
 
 ---
 
-## Task 2: Host the riddle from Game without changing puzzle rules
+## Task 2: Perform One Compile-Complete Game Host Cutover
 
 **Files:**
 - Modify: `scripts/game/Game.cs`
 - Modify: `tests/game/GameTest.cs`
+- Modify: `tests/game/GameInputLifecycleTest.cs`
 - Reference: `scripts/game/PuzzleTrapController.cs`
 - Reference: `scripts/ui/NpcInteractionController.cs`
 
 **Interfaces:**
+- Consumes: Task 1 `PuzzleRiddleScreenController` contract.
+- Produces: Game-owned hosted `_puzzleRiddleScreen` / `_puzzleRiddleHandle` lifecycle.
 
-- Consumes: Task 1 `PuzzleRiddleScreenController` interface and existing `UIScreenKinds.PuzzleRiddle`.
-- Produces: Game-owned `_puzzleRiddleScreen` / `_puzzleRiddleHandle` lifecycle and hosted world-riddle route.
+This task changes presentation ownership but intentionally preserves the **current external success/wrong close timing**. Task 3 enables the new readable terminal acknowledgement. This gives Task 2 a real GREEN gate instead of mixing field migration with changed UX assertions.
 
-- [ ] **Step 1: Write RED hosted-open/policy tests in `GameTest`**
+### 2.1 RED: hosted route and policy
 
-Retarget/add a real Game scene test that invokes an adjacent riddle and asserts:
+- [ ] Retarget/add a real `GameTest` that opens a riddle and asserts:
 
 ```csharp
 var host = game.GetNode<UIScreenHost>("UI/UIScreenHost");
@@ -360,13 +374,11 @@ AssertThat(entry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
 AssertThat(gameManager.IsInWorldInteraction).IsTrue();
 ```
 
-Also assert the native `PuzzleRiddleDialog` is no longer parented under `UI` once implementation lands.
+Expected before cutover: FAIL because the native dialog bypasses the host.
 
-Run the focused test and confirm RED against the current native route.
+### 2.2 Replace the field and cleanup surface atomically
 
-- [ ] **Step 2: Replace native riddle fields with hosted state**
-
-In `Game` replace:
+- [ ] In `Game` replace:
 
 ```csharp
 private PuzzleRiddleDialog? _puzzleRiddleDialog;
@@ -379,478 +391,319 @@ private PuzzleRiddleScreenController? _puzzleRiddleScreen;
 private UIScreenHandle? _puzzleRiddleHandle;
 ```
 
-Keep:
+Keep `_activePuzzleRiddle` and `_puzzleTrapController` unchanged.
+
+- [ ] In the **same edit**, replace `CleanupPuzzleRiddleDialog(...)` and every caller with:
 
 ```csharp
-private PuzzleRiddleSpawn? _activePuzzleRiddle;
+private void ClearPuzzleRiddlePresentation(PuzzleRiddleScreenController screen)
+private void ClosePuzzleRiddlePresentation(UIScreenCloseReason reason)
 ```
 
-Do not move `_puzzleTrapController` or `_activePuzzleRiddle` into the UI controller.
+`ClearPuzzleRiddlePresentation` unsubscribes signals, clears matching screen/handle, clears `_activePuzzleRiddle`, ends world interaction if active, and refreshes the prompt only while Game is inside the tree.
 
-- [ ] **Step 3: Replace `OpenPuzzleRiddle` with the scene + host route**
+`ClosePuzzleRiddlePresentation` uses host `TryClose(...)`; stale handle converges on the same clear path.
 
-Preserve existing blank-id / already-solved guards. Before starting world interaction, require a live `_screenHost` and load:
+### 2.3 Replace `OpenPuzzleRiddle(...)` with the explicit Game-owned host route
 
-```csharp
-var packed = GD.Load<PackedScene>("res://scenes/ui/PuzzleRiddleScreen.tscn");
-var screen = packed?.Instantiate<PuzzleRiddleScreenController>();
-```
-
-Reject/log when load/instantiation or `screen.TryOpenRiddle(riddle)` fails.
-
-Subscribe:
+- [ ] Preserve blank-`PuzzleId` and already-solved guards.
+- [ ] Require a live `_screenHost` **before** `StartWorldInteraction()`.
+- [ ] Load/instantiate `res://scenes/ui/PuzzleRiddleScreen.tscn` and call `TryOpenRiddle(riddle)` before starting the latch.
+- [ ] Subscribe:
 
 ```csharp
 screen.ChoiceSelected += OnPuzzleRiddleChoiceSelected;
 screen.PuzzleRiddleClosed += OnPuzzleRiddleClosed;
 ```
 
-Then set `_activePuzzleRiddle`, call `_gameManager.StartWorldInteraction()`, refresh the prompt, and present with exactly:
+- [ ] Set `_activePuzzleRiddle`, call `StartWorldInteraction()`, and refresh the exploration prompt.
+- [ ] Present with the exact spec from the design.
+- [ ] Inline only this Game-shaped failure protocol:
+  - rejected/no-handle -> unsubscribe/free candidate, end world interaction, log/return;
+  - publication exception -> converge on idempotent cleanup, log/return;
+  - `Opened` but `!IsActive(handle)` -> retain nothing and ensure world interaction is ended;
+  - otherwise retain `_puzzleRiddleScreen` and `_puzzleRiddleHandle`.
+- [ ] Do **not** extract `Game.TryHostSurface`.
+
+### 2.4 Keep Task 2 success/wrong externally immediate
+
+- [ ] Port existing answer/domain order unchanged.
+- [ ] Dormant result calls `screen.RearmWithFeedback(result.Message)` and stays open.
+- [ ] For solved/wrong results in this task only, move through the new controller's legal resolution path and immediately dismiss:
 
 ```csharp
-var spec = new UIScreenEntrySpec
-{
-    Kind = UIScreenKinds.PuzzleRiddle,
-    Layer = UIScreenLayer.Modal,
-    InputPriority = UIInputPriority.Modal,
-    ProcessPolicy = UIProcessPolicy.Always,
-    PauseTree = false,
-    BlockGameplayInput = true,
-    Cursor = UICursorPolicy.Visible,
-    Hud = UIHudPolicy.Hidden,
-    LowerLayers = UILowerLayerPolicy.VisibleInert,
-    Cancel = UICancelPolicy.Consume,
-    InitialFocus = () => screen.InitialFocusTarget,
-    InterceptCancel = _ =>
-    {
-        screen.RequestCancel();
-        return UIInputInterception.ConsumeHere;
-    },
-    Cleanup = _ => ClearPuzzleRiddlePresentation(screen),
-    NodeLifetime = UINodeLifetime.QueueFree
-};
+screen.ShowTerminalFeedback(result.Message, result.Solved ? "Continue" : "Close");
+screen.RequestCancel();
 ```
 
-Do not add a parent or exclusive group.
+This preserves existing Game tests' `IsInWorldInteraction == false` after the answer while avoiding an illegal `RequestCancel()` during `Resolving`.
 
-- [ ] **Step 4: Harden `TryPresent` locally without extracting a Game host facade**
+### 2.5 Retarget every old test field/type lookup in this same task
 
-Wrap only this new riddle publication with the same protocol already documented by the hosted NPC path:
+- [ ] In `GameTest.cs`, replace every `_puzzleRiddleDialog` / `PuzzleRiddleDialog` private-field lookup with `_puzzleRiddleScreen` / `PuzzleRiddleScreenController`.
+- [ ] In `GameInputLifecycleTest.cs`, do the same **now**, not in a later task.
+- [ ] Retarget button lookup to the new answer controls.
+- [ ] Retarget explicit close calls/signals to `screen.RequestCancel()`.
+- [ ] Keep success/wrong assertions immediate for this gate; Task 3 changes only those assertions that intentionally adopt the new acknowledgement UX.
 
-```csharp
-UIScreenOpenResult result;
-try
-{
-    result = _screenHost.TryPresent(screen, spec);
-}
-catch (Exception ex)
-{
-    screen.ChoiceSelected -= OnPuzzleRiddleChoiceSelected;
-    screen.PuzzleRiddleClosed -= OnPuzzleRiddleClosed;
-    if (GodotObject.IsInstanceValid(screen))
-        screen.QueueFree();
-    EndPuzzleRiddleWorldInteraction();
-    GD.PushError($"[Game] Failed to host puzzle riddle '{riddle.RiddleId}': {ex}");
-    return;
-}
-```
+### 2.6 Remove native-root Cancel special case
 
-For rejected/no-handle results, perform the same unsubscribe/free/interaction cleanup and return.
+- [ ] Delete the `_puzzleRiddleDialog` check from `HandleGameplayRootCancel()`.
+- [ ] Keep the bare `_gameManager.IsInWorldInteraction -> Consumed` fallback.
 
-Before retaining state:
+### 2.7 Task 2 compile/GREEN gate
 
-```csharp
-if (!_screenHost.IsActive(result.Handle.Value))
-{
-    EndPuzzleRiddleWorldInteraction();
-    return;
-}
-
-_puzzleRiddleScreen = screen;
-_puzzleRiddleHandle = result.Handle.Value;
-```
-
-Do not create `Game.TryHostSurface(...)` in this ticket.
-
-- [ ] **Step 5: Add one idempotent world-interaction cleanup primitive**
-
-Add a private helper with no presentation knowledge:
-
-```csharp
-private void EndPuzzleRiddleWorldInteraction()
-{
-    _activePuzzleRiddle = null;
-    if (_gameManager != null &&
-        GodotObject.IsInstanceValid(_gameManager) &&
-        _gameManager.IsInWorldInteraction)
-    {
-        _gameManager.EndWorldInteraction();
-    }
-
-    if (IsInsideTree())
-        UpdateInteractionPrompt();
-}
-```
-
-Host cleanup becomes:
-
-```csharp
-private void ClearPuzzleRiddlePresentation(PuzzleRiddleScreenController screen)
-{
-    if (GodotObject.IsInstanceValid(screen))
-    {
-        screen.ChoiceSelected -= OnPuzzleRiddleChoiceSelected;
-        screen.PuzzleRiddleClosed -= OnPuzzleRiddleClosed;
-    }
-
-    if (ReferenceEquals(_puzzleRiddleScreen, screen))
-    {
-        _puzzleRiddleScreen = null;
-        _puzzleRiddleHandle = null;
-    }
-
-    EndPuzzleRiddleWorldInteraction();
-}
-```
-
-When cleanup runs before `_puzzleRiddleScreen` is retained, `EndPuzzleRiddleWorldInteraction()` still clears the domain latch; the subsequent `IsActive` recheck prevents stale retention.
-
-- [ ] **Step 6: Add stale-safe hosted close**
-
-Implement a riddle-specific close method only:
-
-```csharp
-private void ClosePuzzleRiddlePresentation(UIScreenCloseReason reason)
-{
-    var screen = _puzzleRiddleScreen;
-    if (screen == null || !_puzzleRiddleHandle.HasValue ||
-        _screenHost == null || !GodotObject.IsInstanceValid(_screenHost))
-    {
-        EndPuzzleRiddleWorldInteraction();
-        return;
-    }
-
-    try
-    {
-        var result = _screenHost.TryClose(_puzzleRiddleHandle.Value, reason);
-        if (result.Status == UIScreenCloseStatus.StaleHandle)
-            ClearPuzzleRiddlePresentation(screen);
-    }
-    catch (Exception ex)
-    {
-        GD.PushError($"[Game] Puzzle riddle close publication failed: {ex.Message}");
-        ClearPuzzleRiddlePresentation(screen);
-    }
-}
-```
-
-Do not manually `QueueFree` an actively hosted screen; `UINodeLifetime.QueueFree` belongs to the host.
-
-- [ ] **Step 7: Run hosted-open GREEN**
+- [ ] Run build first:
 
 ```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
-  --filter "FullyQualifiedName~GameTest"
+dotnet build Sirius.sln --no-restore --nologo
 ```
 
-Expected: hosted policy/open tests PASS; existing domain tests may still need the result-presentation retarget in Task 3.
+Expected: 0 errors. This is the explicit proof that no old field/type reference was deferred.
 
-Commit:
+- [ ] Run:
 
 ```bash
-git add scripts/game/Game.cs tests/game/GameTest.cs
-git commit -m "feat: host puzzle riddle from gameplay"
+dotnet test Sirius.sln --settings test.runsettings.local --no-build --no-restore --nologo \
+  --filter "FullyQualifiedName~GameTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~PuzzleRiddleScreenControllerTest"
+```
+
+Expected: PASS with current success/wrong immediate-close semantics and hosted dormant/cancel behavior.
+
+- [ ] Commit:
+
+```bash
+git add scripts/game/Game.cs \
+  tests/game/GameTest.cs \
+  tests/game/GameInputLifecycleTest.cs
+git commit -m "feat: host puzzle riddles through ui screen host"
 ```
 
 ---
 
-## Task 3: Preserve result semantics with readable feedback
+## Task 3: Enable Readable Wrong/Success Terminal Feedback
 
 **Files:**
 - Modify: `scripts/game/Game.cs`
 - Modify: `tests/game/GameTest.cs`
-- Reference: `scripts/game/PuzzleTrapController.cs`
+- Modify: `tests/game/GameInputLifecycleTest.cs`
 
 **Interfaces:**
+- Consumes: hosted Game route from Task 2 and Task 1 `ShowTerminalFeedback(...)`.
+- Produces: HPA-571 terminal acknowledgement UX without moving domain logic.
 
-- Consumes: `PuzzleTrapController.TrySolveRiddle(...)` and Task 1 feedback methods.
-- Produces: exact existing puzzle mutations plus dormant/terminal presentation transitions.
+### 3.1 RED: success remains hosted until Continue
 
-- [ ] **Step 1: Write RED dormant/wrong/success tests against the real domain route**
-
-Keep the existing real puzzle fixtures and assert the new presentation behavior around the same domain outcomes.
-
-Dormant/unarmed:
+- [ ] Change the correct-answer real `GameTest` to assert, immediately after pressing the answer:
 
 ```csharp
+AssertThat(gameManager.IsPuzzleSolved(puzzleId)).IsTrue();
+AssertThat(gate.BlocksMovement).IsFalse();
 AssertThat(gameManager.IsInWorldInteraction).IsTrue();
 AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsTrue();
+
+var screen = GetPrivateField<PuzzleRiddleScreenController>(game, "_puzzleRiddleScreen");
+AssertThat(screen.GetNode<Button>("%CancelButton").Text).IsEqual("Continue");
 AssertThat(screen.GetNode<Label>("%FeedbackLabel").Text)
-    .IsEqual("The mechanism is dormant.");
+    .Contains("gate opens");
 ```
 
-Wrong answer:
+Then press `%CancelButton` and assert hosted entry/world interaction close exactly once.
 
-- health decreases by exactly `WrongAnswerDamage` and not below 1;
-- puzzle remains unsolved;
-- gate remains closed;
-- feedback contains `The seal rejects the answer.` and damage;
-- choices cannot emit another answer;
-- after `Close`, hosted riddle/world interaction end;
-- a fresh interaction can open a new riddle attempt.
+Expected before Task 3 implementation: FAIL because Task 2 immediately dismisses terminal feedback.
 
-Success:
+### 3.2 RED: wrong answer remains hosted and reports actual HP lost
 
-- `GameManager.IsPuzzleSolved(puzzleId)` is true exactly once;
-- existing gate solved state and grid registration still occur;
-- success feedback is `The gate opens.`;
-- choices are unavailable;
-- `Continue` dismisses presentation without re-applying solved state.
-
-Run those exact test methods and confirm RED.
-
-- [ ] **Step 2: Retarget `OnPuzzleRiddleChoiceSelected` without moving domain logic**
-
-Keep this existing resolution order:
+- [ ] Use a health value where configured damage exceeds available damage-to-1, e.g. health = 5 and `WrongAnswerDamage = 7`.
+- [ ] Assert after answer:
 
 ```csharp
-var result = _puzzleTrapController.TrySolveRiddle(riddle, choiceId);
-
-if (result.ShouldApplyPenalty)
-{
-    ApplyPuzzleDamage(riddle.WrongAnswerDamage);
-    _gameManager.NotifyPlayerStatsChanged();
-}
-
-if (result.Solved)
-{
-    ApplyPuzzleSolvedState(riddle.PuzzleId);
-    _gameManager.NotifyPlayerStatsChanged();
-}
+AssertThat(gameManager.Player.CurrentHealth).IsEqual(1);
+AssertThat(gameManager.IsPuzzleSolved(puzzleId)).IsFalse();
+AssertThat(gameManager.IsInWorldInteraction).IsTrue();
+AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsTrue();
+AssertThat(screen.GetNode<Button>("%CancelButton").Text).IsEqual("Close");
+AssertThat(screen.GetNode<Label>("%FeedbackLabel").Text).Contains("-4 HP");
 ```
 
-Then branch presentation only:
+The test must **not** expect `-7 HP`.
+
+Then dismiss and assert a fresh interaction can reopen the same unsolved riddle.
+
+### 3.3 GREEN: remove Task 2's immediate final dismissal
+
+- [ ] In `OnPuzzleRiddleChoiceSelected(...)` keep the existing domain order.
+- [ ] Wrong answer:
 
 ```csharp
-if (!result.Solved && !result.ShouldApplyPenalty)
-{
-    _puzzleRiddleScreen?.RearmWithFeedback(result.Message);
-    return;
-}
+var healthBefore = _gameManager.Player.CurrentHealth;
+ApplyPuzzleDamage(riddle.WrongAnswerDamage);
+var healthLost = healthBefore - _gameManager.Player.CurrentHealth;
+_gameManager.NotifyPlayerStatsChanged();
 
-if (result.ShouldApplyPenalty)
-{
-    _puzzleRiddleScreen?.ShowTerminalFeedback(
-        $"{result.Message} (-{riddle.WrongAnswerDamage} HP)",
-        "Close");
-    return;
-}
-
-_puzzleRiddleScreen?.ShowTerminalFeedback(result.Message, "Continue");
+screen.ShowTerminalFeedback(
+    healthLost > 0
+        ? $"{result.Message} (-{healthLost} HP)"
+        : result.Message,
+    "Close");
 ```
 
-Do not call close automatically for wrong/success; the readable terminal state is dismissed through the existing final-close signal.
-
-- [ ] **Step 3: Fail closed if the active screen/riddle disappears during resolution**
-
-At the top of the handler, if `_activePuzzleRiddle`, `_puzzleTrapController`, or `_puzzleRiddleScreen` is missing/invalid, call `ClosePuzzleRiddlePresentation(UIScreenCloseReason.Programmatic)` / `EndPuzzleRiddleWorldInteraction()` as applicable and return.
-
-Keep the existing broad exception boundary because a presentation failure must not crash gameplay. On exception, log and close the riddle presentation so the world latch cannot remain active.
-
-- [ ] **Step 4: Make `OnPuzzleRiddleClosed` final-only**
-
-Replace native cleanup with:
+- [ ] Success:
 
 ```csharp
-private void OnPuzzleRiddleClosed() =>
-    ClosePuzzleRiddlePresentation(UIScreenCloseReason.ExplicitAction);
+ApplyPuzzleSolvedState(riddle.PuzzleId);
+_gameManager.NotifyPlayerStatsChanged();
+screen.ShowTerminalFeedback(result.Message, "Continue");
 ```
 
-The host Cleanup callback owns final state clearing and prompt restoration.
+- [ ] Dormant remains:
 
-- [ ] **Step 5: Run domain + real-route GREEN**
+```csharp
+screen.RearmWithFeedback(result.Message);
+```
+
+- [ ] Remove the Task 2 immediate `screen.RequestCancel()` for solved/wrong results.
+
+### 3.4 Confirm domain mutation occurs before presentation only
+
+- [ ] Preserve/extend tests proving:
+  - wrong damage/stat notification happens once before terminal display;
+  - solved state/gate/grid mutation happens once before terminal display;
+  - repeated Close/Continue cannot reapply any domain mutation;
+  - the UI controller never calls `PuzzleTrapController` or grants/mutates domain state.
+
+### 3.5 Task 3 GREEN gate
+
+- [ ] Run:
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
-  --filter "FullyQualifiedName~PuzzleTrapControllerTest|FullyQualifiedName~GameTest"
+  --filter "FullyQualifiedName~GameTest|FullyQualifiedName~PuzzleRiddleScreenControllerTest|FullyQualifiedName~PuzzleTrapControllerTest"
 ```
 
-Expected: existing puzzle-domain assertions plus hosted result-state assertions PASS.
+Expected: PASS.
 
-Commit:
+- [ ] Commit:
 
 ```bash
-git add scripts/game/Game.cs tests/game/GameTest.cs
-git commit -m "feat: present puzzle riddle outcomes"
+git add scripts/game/Game.cs tests/game/GameTest.cs tests/game/GameInputLifecycleTest.cs
+git commit -m "feat: show puzzle resolution feedback"
 ```
 
 ---
 
-## Task 4: Move configured Cancel and teardown to UIScreenHost
+## Task 4: Harden Hosted Cancel, Failure, and Teardown Lifecycle
 
 **Files:**
 - Modify: `scripts/game/Game.cs`
-- Modify: `tests/game/GameInputLifecycleTest.cs`
 - Modify: `tests/game/GameTest.cs`
+- Modify: `tests/game/GameInputLifecycleTest.cs`
 - Reference: `tests/ui/hosting/UIScreenHostLifecycleTest.cs`
 
-**Interfaces:**
+### 4.1 Configured Cancel owns only the hosted riddle
 
-- Consumes: hosted riddle handle/cleanup from Tasks 2–3.
-- Produces: no native-dialog input dependency; teardown-safe final lifecycle.
+- [ ] Retarget the existing configured-keyboard Cancel test to assert:
+  - `UIScreenKinds.PuzzleRiddle` is active before Cancel;
+  - Cancel is consumed by the host;
+  - `PuzzleRiddleClosed` / hosted close happens once;
+  - world interaction clears;
+  - exploration prompt restores;
+  - Pause never opens.
 
-- [ ] **Step 1: Write RED configured keyboard/controller Cancel tests**
+- [ ] Add/retarget controller Cancel with the same outcome.
 
-Retarget `ConfiguredKeyboardCancel_ClosesTopmostRiddleAndRestoresGameplay` to assert:
+### 4.2 Preserve answer/cancel mutual exclusion through host interception
 
-```csharp
-AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsTrue();
-// push configured keyboard Cancel
-AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
-AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
-AssertThat(gameManager.IsInWorldInteraction).IsFalse();
-```
+The deterministic contract is owned by the screen unit test because Game's answer resolution is synchronous. Add an integration-level proof only at the host boundary: while the screen is manually held in `Resolving` by emitting a choice without returning a Game result, host `InterceptCancel -> RequestCancel()` must consume the input but leave the entry/world latch active. Then explicitly rearm/close the fixture.
 
-Add the equivalent configured controller Cancel proof. Use the same physical binding helpers already used by Dialogue tests.
+- [ ] Assert Cancel during `Resolving` does not emit close, does not clear `_activePuzzleRiddle`, and does not open Pause.
 
-Do not route these through `ui_close_dialog`; the host intercepts configured core Cancel directly.
+### 4.3 Host rejection and invalid surface fail closed
 
-- [ ] **Step 2: Remove the native riddle special case from root Cancel**
+- [ ] Add tests for:
+  - missing/unavailable host -> no world interaction starts;
+  - scene/controller rejection for no choices -> no world interaction starts;
+  - `TryPresent` rejected/no handle after latch start -> world interaction ends and candidate is freed;
+  - post-open `IsActive(handle) == false` -> retain no stale screen/handle and world interaction is clear.
 
-Delete:
+Use existing host test seams if available; do not add a production host facade solely for these tests.
 
-```csharp
-if (_puzzleRiddleDialog != null && IsInstanceValid(_puzzleRiddleDialog))
-    return UIRootCancelResult.Declined;
-```
+### 4.4 Close-publication exception still restores domain state
 
-Keep:
+- [ ] Add a regression where a host state-change subscriber throws during riddle close.
+- [ ] Assert host cleanup has cleared the riddle screen/handle and `IsInWorldInteraction == false` despite the publication exception.
+- [ ] Log the exception; do not rethrow from the user-input terminal handler in a way that skips restoration.
 
-```csharp
-if (_gameManager.IsInWorldInteraction)
-    return UIRootCancelResult.Consumed;
-```
+### 4.5 Root teardown closes hosted riddle safely
 
-The hosted entry receives Cancel before root fallback; the bare world latch remains fail-closed.
+- [ ] Update `_ExitTree()` to close the active hosted riddle with `HostTeardown` when the host/handle are valid, then fall back to local idempotent clear.
+- [ ] Add a real-route teardown test proving no hosted riddle entry and no world latch survive root teardown.
 
-- [ ] **Step 3: Add host-teardown cleanup to `Game._ExitTree()`**
+### 4.6 Task 4 GREEN gate
 
-Replace native `CleanupPuzzleRiddleDialog(endWorldInteraction: false)` with a hosted close attempt:
-
-```csharp
-ClosePuzzleRiddlePresentation(UIScreenCloseReason.HostTeardown);
-EndPuzzleRiddleWorldInteraction();
-```
-
-Both operations are idempotent. Do not rely on child free order to clear the GameManager latch.
-
-- [ ] **Step 4: Prove synchronous close during publication is not retained**
-
-Use the existing `UIScreenHost.EffectiveStateChanged`/gameplay-block publication seam in a focused fixture: when the PuzzleRiddle entry first publishes, synchronously close it. Invoke the real riddle-open method and assert after `TryPresent` returns:
-
-```csharp
-AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
-AssertThat(GetPrivateField<UIScreenHandle?>(game, "_puzzleRiddleHandle")).IsNull();
-AssertThat(GetPrivateField<PuzzleRiddleScreenController?>(game, "_puzzleRiddleScreen")).IsNull();
-AssertThat(gameManager.IsInWorldInteraction).IsFalse();
-```
-
-This is the regression for the post-commit `IsActive(handle)` recheck. Do not modify `UIScreenHost` to make the test easier.
-
-- [ ] **Step 5: Prove close-publication failure cannot latch world interaction**
-
-Attach a one-shot throwing `EffectiveStateChanged` or configured gameplay-block callback for the close publication, then dismiss the riddle.
-
-Assert the exception is logged/contained by the riddle close path and:
-
-```csharp
-AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
-AssertThat(gameManager.IsInWorldInteraction).IsFalse();
-```
-
-Reuse existing host-test patterns for installing/removing the throwing callback; do not add production hooks.
-
-- [ ] **Step 6: Prove scene/host teardown clears the riddle**
-
-Open a real hosted riddle, call the same teardown route used by scene replacement (`PrepareForTeardown()` or free the Game root as appropriate to the existing fixture), and assert no active PuzzleRiddle entry and no world latch remain.
-
-- [ ] **Step 7: Run lifecycle GREEN and commit**
+- [ ] Run:
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
   --filter "FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameTest|FullyQualifiedName~UIScreenHostLifecycleTest"
 ```
 
-Expected: configured keyboard/controller Cancel, publication race/failure, and teardown regressions PASS.
+Expected: PASS.
 
-Commit:
+- [ ] Commit:
 
 ```bash
-git add scripts/game/Game.cs tests/game/GameInputLifecycleTest.cs tests/game/GameTest.cs
-git commit -m "test: harden hosted riddle lifecycle"
+git add scripts/game/Game.cs tests/game/GameTest.cs tests/game/GameInputLifecycleTest.cs
+git commit -m "test: harden hosted puzzle riddle lifecycle"
 ```
 
 ---
 
-## Task 5: Delete the native riddle path and reconcile lifecycle documentation
+## Task 5: Remove Native Riddle UI and Reconcile Lifecycle Documentation
 
 **Files:**
 - Delete: `scripts/ui/PuzzleRiddleDialog.cs`
 - Delete: `tests/ui/PuzzleRiddleDialogTest.cs`
 - Modify: `docs/ui/hpa-376/ui-lifecycle-contract.md`
-- Verify: `scripts/game/Game.cs`
-- Verify: `tests/game/GameInputLifecycleTest.cs`
+- Verify: all HPA-571 production/test files
 
-**Interfaces:**
+### 5.1 Delete the legacy path
 
-- Consumes: completed hosted riddle route.
-- Produces: one production riddle presentation path and updated contract evidence.
+- [ ] Delete `PuzzleRiddleDialog.cs` and its dedicated test only after Tasks 1-4 are green.
+- [ ] Do not add an alias, wrapper, or compatibility class.
 
-- [ ] **Step 1: Delete the native dialog and its superseded unit suite**
+### 5.2 Update HPA-376
 
-```bash
-git rm scripts/ui/PuzzleRiddleDialog.cs tests/ui/PuzzleRiddleDialogTest.cs
-```
+- [ ] Rewrite `WORLD-RIDDLE` to record:
+  - hosted `UIScreenKinds.PuzzleRiddle` modal;
+  - no tree pause; gameplay blocked; HUD hidden; cursor visible;
+  - first answer initial focus;
+  - host-consumed/intercepted configured Cancel;
+  - `AwaitingChoice -> Resolving -> AwaitingChoice/Terminal` presentation behavior;
+  - answer/Cancel mutual exclusion while resolving;
+  - dormant same-entry rearm;
+  - wrong/success terminal acknowledgement before final close;
+  - exactly-once hosted cleanup/world restoration.
 
-Do not leave a wrapper subclass or forwarding adapter.
+- [ ] Rewrite `WORLD-CLEANUP` to point at the hosted clear/close path and root teardown behavior.
 
-- [ ] **Step 2: Update HPA-376 `WORLD-RIDDLE`**
+### 5.3 Active-source stale-reference audit
 
-Replace native `AcceptDialog` evidence with:
-
-- `Game.OpenPuzzleRiddle` + `PuzzleRiddleScreenController` + `UIScreenHost`;
-- hosted Modal/Always/no-tree-pause/block-gameplay policy;
-- HUD hidden, cursor visible, first-answer focus;
-- host-intercepted configured Cancel;
-- dormant in-place rearm;
-- wrong/success terminal feedback then final dismissal;
-- host Cleanup as the world-interaction convergence point.
-
-Keep the contract statement that puzzle-domain rules remain in `PuzzleTrapController`/`Game`.
-
-- [ ] **Step 3: Update HPA-376 `WORLD-CLEANUP` and evidence names**
-
-Document that host rejection, stale handles, publication exceptions, configured Cancel, and teardown all converge on idempotent `EndWorldInteraction()`.
-
-Replace `PuzzleRiddleDialogTest` evidence with `PuzzleRiddleScreenControllerTest` and the real-route hosted Game/Input tests.
-
-- [ ] **Step 4: Run stale-path searches**
+- [ ] Run:
 
 ```bash
-git grep -n "PuzzleRiddleDialog\|_puzzleRiddleDialog" -- scripts tests scenes docs/ui/hpa-376 || true
+rg -n "PuzzleRiddleDialog|_puzzleRiddleDialog|CleanupPuzzleRiddleDialog|ui_close_dialog" \
+  scripts scenes tests
 ```
 
-Expected: no production/test/lifecycle-contract references to the retired riddle dialog.
+Expected:
 
-Check riddle-specific `ui_close_dialog` coupling:
+- zero `PuzzleRiddleDialog`, `_puzzleRiddleDialog`, and `CleanupPuzzleRiddleDialog` matches;
+- any remaining `ui_close_dialog` matches belong only to other still-valid settings/native compatibility paths, not riddle handling.
 
-```bash
-git grep -n "ui_close_dialog" -- tests/game/GameInputLifecycleTest.cs scripts/game/Game.cs
-```
+### 5.4 Focused verification
 
-Expected: no riddle-specific native-dialog dispatch remains. Other settings compatibility coverage may remain.
-
-- [ ] **Step 5: Run focused HPA-571 verification**
+- [ ] Run:
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
@@ -859,58 +712,62 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
 
 Expected: PASS.
 
-- [ ] **Step 6: Run the full suite**
+### 5.5 Full verification
+
+- [ ] Run:
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo
+dotnet build Sirius.sln --no-restore --nologo
+git diff --check
 ```
 
-Expected: PASS with no new failures or riddle-owned orphan warnings.
+Expected: all tests pass, build has 0 errors, diff check is clean.
 
-- [ ] **Step 7: Review the final diff for scope**
+- [ ] Run scope audit:
 
 ```bash
-git diff main...HEAD -- \
-  scenes/ui/PuzzleRiddleScreen.tscn \
-  scripts/ui/PuzzleRiddleScreenController.cs \
-  scripts/game/Game.cs \
-  tests/ui/PuzzleRiddleScreenControllerTest.cs \
-  tests/game/GameTest.cs \
-  tests/game/GameInputLifecycleTest.cs \
+git diff --name-status main...HEAD
+```
+
+Expected HPA-571 scope only: new riddle screen/controller/tests, Game + two Game test suites, lifecycle doc, and legacy riddle deletion.
+
+### 5.6 Commit final cleanup
+
+- [ ] Commit:
+
+```bash
+git add -A scripts/ui/PuzzleRiddleDialog.cs \
+  tests/ui/PuzzleRiddleDialogTest.cs \
   docs/ui/hpa-376/ui-lifecycle-contract.md
-```
-
-Confirm there are no changes to:
-
-- `PuzzleTrapController.cs`;
-- `PuzzleRiddleSpawn.cs`;
-- save schema/persistence;
-- reward presentation;
-- `UIScreenHost` APIs;
-- theme tokens.
-
-- [ ] **Step 8: Commit legacy removal and documentation**
-
-```bash
-git add -A
 git commit -m "refactor: remove native puzzle riddle dialog"
 ```
 
 ---
 
-## Final acceptance checklist
+## Review-Driven Changes Applied to This Plan
 
-- [ ] `PuzzleRiddleDialog` / `AcceptDialog` riddle path is gone.
-- [ ] The new surface is authored in `PuzzleRiddleScreen.tscn` and uses the existing Medium `SiriusModalShell`.
-- [ ] `PuzzleTrapController` and `PuzzleRiddleSpawn` have no HPA-571 behavior changes.
-- [ ] Switch requirements, answer validation, damage, solved persistence, gate state, and trap behavior match current tests.
-- [ ] Dormant feedback rearms the same hosted screen.
-- [ ] Wrong answer is readable and remains terminal for that attempt; retry starts a fresh interaction.
-- [ ] Success is readable and does not reapply solved state on dismissal.
-- [ ] Long prompt/choice content is usable at 640×360 through the shell scroll.
-- [ ] First answer / terminal action focus is deterministic for keyboard and gamepad.
-- [ ] Configured keyboard and controller Cancel close only the riddle and never open Pause.
-- [ ] Rejected/invalid/exception/stale/teardown paths clear world interaction exactly once.
+Validated against current `main` before editing:
+
+1. **Accepted — choice/cancel latch hole.** Replace the two-boolean resolution model with `AwaitingChoice | Resolving | Terminal` plus one final-close latch. Port `ChoiceThenCancel_EmitsChoiceSelectedOnly` onto the new controller.
+2. **Accepted — Task 2 compile break.** The Game field/handle cutover now retargets all `GameTest` and `GameInputLifecycleTest` old-field/type lookups and all old Game cleanup calls in the same task. Task 2 preserves immediate success/wrong close so it has a real GREEN gate; Task 3 alone changes the acknowledgement UX.
+3. **Accepted — runtime answer machinery.** Copy Dialogue's local `CreateActionButton` pattern and apply `SiriusUiMetrics.MinimumTarget(...)` in `RefreshLayout()`.
+4. **Not accepted as proposed — remove `%CancelHint`.** HPA-373 §9.11 explicitly requires Puzzle's active-device cancel hint. Keep it using the existing component, but move it to fixed `ActionsHost` chrome so it cannot scroll away. No modal-wide abstraction is added.
+5. **Accepted — native-dialog test bug.** Use recursive `ContainsAcceptDialog` plus no-SafeFrame/direct-shell-parent assertions.
+6. **Accepted nits.** Show actual HP lost after the 1-HP floor and copy Healing's hidden `SiriusMetadata` feedback-label defaults.
+
+## Completion Checklist
+
+- [ ] One scene/controller; Game orchestration and PuzzleTrapController ownership unchanged.
+- [ ] Medium centred shell; no SafeFrame/new host API/puzzle framework.
+- [ ] Runtime choices use Sirius SecondaryButton + responsive minimum targets.
+- [ ] Puzzle-specific cancel hint stays fixed in action chrome per HPA-373.
+- [ ] Choice and Cancel remain mutually exclusive while resolving.
+- [ ] Dormant feedback rearms the same hosted entry.
+- [ ] Wrong/success results remain readable until explicit dismissal.
+- [ ] Wrong feedback reports actual HP lost.
+- [ ] Task 2 build/test gate is compile-complete across both Game test suites.
+- [ ] Every close/failure/teardown clears world interaction once.
+- [ ] Native riddle dialog removed with no compatibility shim.
 - [ ] HPA-376 documents the hosted route.
-- [ ] Focused tests pass.
-- [ ] Full suite passes.
+- [ ] Focused tests, full suite, build, `git diff --check`, and stale-reference audit pass.

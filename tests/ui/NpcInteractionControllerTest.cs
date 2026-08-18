@@ -244,6 +244,46 @@ public partial class NpcInteractionControllerTest : Node
     }
 
     [TestCase]
+    public async Task HostRejectsHeal_CleansCandidateAndCompletesOnce()
+    {
+        // Occupy the Heal kind so the controller's open is rejected
+        // (DuplicateKind) — mirroring the Shop rejection technique.
+        var fixtureScreen = new Control();
+        AssertThat(_screenHost.TryPresent(fixtureScreen, new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.Heal,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Modal,
+            ProcessPolicy = UIProcessPolicy.Always,
+            PauseTree = false,
+            BlockGameplayInput = true,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Hidden,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Consume,
+            NodeLifetime = UINodeLifetime.QueueFree
+        }).Status).IsEqual(UIScreenOpenStatus.Opened);
+
+        int completed = 0;
+        var controller = CreateController("village_healer");
+        controller.InteractionComplete += () => completed++;
+        controller.Begin();
+
+        FindButton(HostedDialogue(), "Yes, heal me. (50 gold)").EmitSignal(Button.SignalName.Pressed);
+        await AwaitTwoFrames();
+
+        // The rejected candidate leaked nowhere: no hosted HealingScreen
+        // child, only the pre-existing fixture entry remains, and the
+        // interaction completed exactly once.
+        AssertThat(completed).IsEqual(1);
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Heal))
+            .IsEqual(1); // only the pre-existing fixture entry
+        AssertThat(HostedHealingCount()).IsEqual(0);
+        AssertThat(_screenHost.ActiveEntries.Count(e => e.Policy.Kind == UIScreenKinds.Dialogue))
+            .IsEqual(0);
+    }
+
+    [TestCase]
     public async Task Shop_PublicationSubscriberClosesShop_CompletesOnceAndLeavesNoStaleHandle()
     {
         int completed = 0;
@@ -394,6 +434,51 @@ public partial class NpcInteractionControllerTest : Node
         AssertThat(completed).IsEqual(1);
         AssertThat(_screenHost.ActiveEntries.Count).IsEqual(0);
         AssertThat(HostedShopCount()).IsEqual(0);
+    }
+
+    [TestCase]
+    public async Task Heal_ClosePublicationSubscriberThrows_CompletesOnceAndCleansEntry()
+    {
+        int completed = 0;
+        var controller = CreateController("village_healer");
+        controller.InteractionComplete += () => completed++;
+
+        // Heal twin of the Shop close-publication test: the NPC route
+        // publishes several block/unblocked transitions (Dialogue open →
+        // Dialogue close → Heal open → Heal close). Arm the throw only for
+        // the unblocked publication after the Heal entry has committed, so
+        // it escapes the Heal close path — without the catch in OnHealDone,
+        // Finish() would never fire and the interaction latch would stick.
+        // Throw only once so any recovery republish proceeds.
+        var healCommitted = false;
+        var thrown = false;
+        _screenHost.EffectiveStateChanged += state =>
+        {
+            if (!state.IsPresentationGameplayBlocked)
+            {
+                if (healCommitted && !thrown)
+                {
+                    thrown = true;
+                    throw new InvalidOperationException("heal close publication boom");
+                }
+                return;
+            }
+
+            healCommitted = _screenHost.ActiveEntries
+                .Any(e => e.Policy.Kind == UIScreenKinds.Heal);
+        };
+
+        controller.Begin();
+        FindButton(HostedDialogue(), "Yes, heal me. (50 gold)").EmitSignal(Button.SignalName.Pressed);
+        await AwaitTwoFrames();
+        AssertThat(thrown).IsFalse(); // the Dialogue-close publication passed cleanly
+
+        HostedHealing().RequestCancel();
+        await AwaitTwoFrames();
+
+        AssertThat(completed).IsEqual(1);
+        AssertThat(_screenHost.ActiveEntries.Count).IsEqual(0);
+        AssertThat(HostedHealingCount()).IsEqual(0);
     }
 
     [TestCase]

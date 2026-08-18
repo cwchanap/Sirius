@@ -362,11 +362,8 @@ public partial class ShopScreenController : Control
     }
 
     // Returns the first FOCUSABLE row button for the item. ClearContainer
-    // QueueFrees stale rows, which stay AHEAD of the freshly rendered rows
-    // in the child list; a plain first-match lookup resolves to a queued
-    // button that CanGrabFocus rejects, silently downgrading semantic
-    // restore to the first row. Skipping non-focusable matches finds the
-    // fresh row behind the stale one.
+    // detaches stale rows up front, so the child list holds only the freshly
+    // rendered rows; the focusable skip guards against disabled rows.
     private Button? FindRowButton(int activeTab, string itemId)
     {
         foreach (var child in ActiveList(activeTab).GetChildren())
@@ -403,9 +400,9 @@ public partial class ShopScreenController : Control
         _shopTabs.GetTabControl(activeTab)?.Name == SellTabName ? _sellList : _buyList;
 
     // Equivalent to InventoryMenuController's focusability guard, plus a
-    // queued-subtree skip: rebuilds QueueFree stale rows, and children of a
-    // queued row are not themselves flagged, so walk the ancestors to reject
-    // the whole stale subtree (a stale grab would dangle after the frame ends).
+    // queued-subtree skip as a generic safety net: a control under any
+    // queue-freed ancestor (e.g. a host closing the whole screen this frame)
+    // would dangle after the frame ends.
     private static bool CanGrabFocus(Control? target)
     {
         if (target == null || !GodotObject.IsInstanceValid(target) || !target.IsVisibleInTree() ||
@@ -420,9 +417,14 @@ public partial class ShopScreenController : Control
         return true;
     }
 
+    // Detach before freeing (DialogueScreenController.ShowNode pattern) so
+    // refreshed lists never retain queued rows for the remainder of the frame.
     private static void ClearContainer(VBoxContainer container)
     {
         foreach (Node child in container.GetChildren())
+        {
+            container.RemoveChild(child);
             child.QueueFree();
+        }
     }
 }

@@ -74,7 +74,10 @@ public partial class SiriusModalShell : Control
         // once this frame's layout has settled. Consumers mount the shell
         // once; settling the first layout is the shell's own job, not a
         // per-controller deferred refresh.
-        Callable.From(RefreshIfReady).CallDeferred();
+        // Node-bound deferred call: cancelled if the shell is freed before
+        // the frame ends, unlike an unbound Callable which would invoke a
+        // disposed instance.
+        CallDeferred(MethodName.RefreshIfReady);
     }
 
     public void RefreshPresentation(Vector2 availableSize)

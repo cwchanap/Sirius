@@ -801,3 +801,10 @@ git commit -m "refactor: remove native puzzle riddle dialog"
 - [ ] Root teardown cleanup change is documented explicitly in HPA-376.
 - [ ] Native dialog/tests are deleted with no shim.
 - [ ] Focused tests, full tests, build, stale-reference audit, and diff check pass.
+
+## Review Disposition
+
+The second follow-up review was checked against current `main`:
+
+- **Accepted:** merge the old Tasks 2+3 into one final-UX Game cutover; add `TestHelpers.ContainsAcceptDialog`; name the `_ExitTree` world-latch completion as an intentional cleanup normalization; remove the unreachable mid-synchronous-resolve integration test; add compact prompt/feedback theme variations.
+- **Not adopted:** moving `NpcInteractionController.TryHostSurface` into a cross-class helper or creating a one-call-site private `Game.TryHostSurface`. The existing helper has NPC `_finished` semantics beyond the Game requirement, so HPA-571 keeps only the proven Game-shaped subset inline.

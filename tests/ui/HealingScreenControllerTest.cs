@@ -110,7 +110,7 @@ public partial class HealingScreenControllerTest : Node
     }
 
     [TestCase]
-    public void TryOpenHeal_RejectsNonPositiveHealCost()
+    public void TryOpenHeal_RejectsNegativeHealCost()
     {
         var screen = CreateUnparentedScreen();
         try
@@ -120,7 +120,7 @@ public partial class HealingScreenControllerTest : Node
                 NpcId = "test_healer",
                 DisplayName = "Test Healer",
                 NpcType = NpcType.Healer,
-                HealCost = 0
+                HealCost = -1
             };
             var player = CreatePlayer(currentHealth: 40, gold: 60);
 
@@ -133,6 +133,46 @@ public partial class HealingScreenControllerTest : Node
         finally
         {
             screen.Free();
+        }
+    }
+
+    [TestCase]
+    public async Task TryOpenHeal_AllowsZeroHealCost_FreeHeal()
+    {
+        // Preserves HealDialog's behavior: zero is a free heal (warned but
+        // allowed). TrySpendGold(0) succeeds, so the heal restores HP at
+        // no gold cost.
+        var screen = CreateUnparentedScreen();
+        var npc = new NpcData
+        {
+            NpcId = "test_healer",
+            DisplayName = "Test Healer",
+            NpcType = NpcType.Healer,
+            HealCost = 0
+        };
+        var player = CreatePlayer(currentHealth: 40, gold: 60);
+
+        AssertThat(screen.TryOpenHeal(npc, player)).IsTrue();
+
+        var (container, viewport) = TestHelpers.MountInViewport(screen, new Vector2I(1280, 720));
+        try
+        {
+            await AwaitFrames(2);
+
+            int complete = 0;
+            screen.HealComplete += () => complete++;
+
+            screen.GetNode<Button>("%HealButton").EmitSignal(Button.SignalName.Pressed);
+
+            AssertThat(player.Gold).IsEqual(60);   // no cost
+            AssertThat(player.CurrentHealth).IsEqual(player.GetEffectiveMaxHealth());
+            AssertThat(complete).IsEqual(1);
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(container))
+                container.QueueFree();
+            await AwaitFrames(1);
         }
     }
 

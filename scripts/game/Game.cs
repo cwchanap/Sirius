@@ -19,7 +19,8 @@ public partial class Game : Node2D
     private Vector2I _lastEnemyPosition; // Store enemy position for after battle
     private NpcInteractionController _npcInteractionController;
     private PuzzleTrapController? _puzzleTrapController;
-    private PuzzleRiddleDialog? _puzzleRiddleDialog;
+    private PuzzleRiddleScreenController? _puzzleRiddleScreen;
+    private UIScreenHandle? _puzzleRiddleHandle;
     private PuzzleRiddleSpawn? _activePuzzleRiddle;
     private readonly System.Collections.Generic.HashSet<string> _questFlags = new();
     private PlayerDisplay _playerDisplay; // Visual sprite for player when using baked TileMaps
@@ -1217,111 +1218,224 @@ public partial class Game : Node2D
             return;
         }
 
-        CleanupPuzzleRiddleDialog(endWorldInteraction: false);
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost))
+        {
+            GD.PushError("[Game] UIScreenHost is unavailable; refusing to open puzzle riddle.");
+            return;
+        }
+
+        var scene = GD.Load<PackedScene>("res://scenes/ui/PuzzleRiddleScreen.tscn");
+        if (scene == null)
+        {
+            GD.PushError("[Game] PuzzleRiddleScreen.tscn not found.");
+            return;
+        }
+
+        var screen = scene.Instantiate<PuzzleRiddleScreenController>();
+        if (screen == null || !screen.TryOpenRiddle(riddle))
+        {
+            GD.PushError($"[Game] Failed to open puzzle riddle '{riddle.RiddleId}'.");
+            if (screen != null && IsInstanceValid(screen))
+            {
+                screen.Free();
+            }
+
+            return;
+        }
+
+        screen.ChoiceSelected += OnPuzzleRiddleChoiceSelected;
+        screen.PuzzleRiddleClosed += OnPuzzleRiddleClosed;
+
         _activePuzzleRiddle = riddle;
         _gameManager.StartWorldInteraction();
         UpdateInteractionPrompt();
 
+        var spec = new UIScreenEntrySpec
+        {
+            Kind = UIScreenKinds.PuzzleRiddle,
+            Layer = UIScreenLayer.Modal,
+            InputPriority = UIInputPriority.Modal,
+            ProcessPolicy = UIProcessPolicy.Always,
+            PauseTree = false,
+            BlockGameplayInput = true,
+            Cursor = UICursorPolicy.Visible,
+            Hud = UIHudPolicy.Hidden,
+            LowerLayers = UILowerLayerPolicy.VisibleInert,
+            Cancel = UICancelPolicy.Consume,
+            InitialFocus = () => screen.InitialFocusTarget,
+            InterceptCancel = _ =>
+            {
+                screen.RequestCancel();
+                return UIInputInterception.ConsumeHere;
+            },
+            Cleanup = _ => ClearPuzzleRiddlePresentation(screen),
+            NodeLifetime = UINodeLifetime.QueueFree
+        };
+
+        UIScreenOpenResult openResult;
         try
         {
-            _puzzleRiddleDialog = new PuzzleRiddleDialog();
-            _puzzleRiddleDialog.ChoiceSelected += OnPuzzleRiddleChoiceSelected;
-            _puzzleRiddleDialog.PuzzleRiddleClosed += OnPuzzleRiddleClosed;
-            GetNode("UI").AddChild(_puzzleRiddleDialog);
-            _puzzleRiddleDialog.OpenRiddle(riddle);
+            openResult = _screenHost.TryPresent(screen, spec);
         }
-        // Intentionally broad: UI construction can fail in many ways (missing nodes,
-        // invalid scene state).  Catching all prevents a broken dialog from crashing
-        // the game — we log the error and clean up gracefully instead.
         catch (Exception ex)
         {
-            GD.PushError($"[Game] Failed to open puzzle riddle '{riddle.RiddleId}': {ex}");
-            CleanupPuzzleRiddleDialog();
-            if (IsInsideTree())
-            {
-                UpdateInteractionPrompt();
-            }
+            GD.PushError($"[Game] Failed to host puzzle riddle '{riddle.RiddleId}': {ex}");
+            ClearRejectedPuzzleRiddleCandidate(screen);
+            EndWorldInteractionIfActive();
+            UpdateInteractionPrompt();
+            return;
         }
+
+        if (openResult.Status != UIScreenOpenStatus.Opened || !openResult.Handle.HasValue)
+        {
+            ClearRejectedPuzzleRiddleCandidate(screen);
+            EndWorldInteractionIfActive();
+            UpdateInteractionPrompt();
+            return;
+        }
+
+        if (!_screenHost.IsActive(openResult.Handle.Value))
+        {
+            // A publication subscriber may already have closed the committed entry;
+            // its Cleanup callback has released the candidate. Retain nothing and only
+            // ensure the world latch is down.
+            EndWorldInteractionIfActive();
+            UpdateInteractionPrompt();
+            return;
+        }
+
+        _puzzleRiddleScreen = screen;
+        _puzzleRiddleHandle = openResult.Handle.Value;
     }
 
     private void OnPuzzleRiddleChoiceSelected(string choiceId)
     {
-        bool shouldCleanup = true;
         try
         {
             var riddle = _activePuzzleRiddle;
-            if (riddle == null || _puzzleTrapController == null)
+            var screen = _puzzleRiddleScreen;
+            if (riddle == null || screen == null || _puzzleTrapController == null)
             {
                 return;
             }
 
             var result = _puzzleTrapController.TrySolveRiddle(riddle, choiceId);
+
             if (result.ShouldApplyPenalty)
             {
+                var healthBefore = _gameManager.Player.CurrentHealth;
                 ApplyPuzzleDamage(riddle.WrongAnswerDamage);
                 _gameManager.NotifyPlayerStatsChanged();
-            }
+                var healthLost = healthBefore - _gameManager.Player.CurrentHealth;
 
-            if (result.Solved)
+                screen.ShowTerminalFeedback(
+                    $"{result.Message} (-{healthLost} HP)",
+                    "Close");
+            }
+            else if (result.Solved)
             {
                 ApplyPuzzleSolvedState(riddle.PuzzleId);
                 _gameManager.NotifyPlayerStatsChanged();
+                screen.ShowTerminalFeedback(result.Message, "Continue");
             }
-
-            // Neither solved nor penalized (e.g. switch not armed) — keep the
-            // dialog open so the player gets another chance after arming.
-            // Surface the message (e.g. "The mechanism is dormant.") so the
-            // player knows why their choice had no effect.
-            if (!result.Solved && !result.ShouldApplyPenalty)
+            else
             {
-                shouldCleanup = false;
-                if (_puzzleRiddleDialog != null && IsInstanceValid(_puzzleRiddleDialog)
-                    && !string.IsNullOrWhiteSpace(result.Message))
-                {
-                    _puzzleRiddleDialog.OpenRiddle(riddle, result.Message);
-                }
+                // Neither solved nor penalized (e.g. switch not armed) — rearm
+                // the same hosted screen so the player gets another chance.
+                screen.RearmWithFeedback(result.Message);
             }
         }
-        // Intentionally broad — see OpenPuzzleRiddle for rationale.
+        // Intentionally broad: presentation failures must not crash the game;
+        // the hosted entry still closes through its own cancel path.
         catch (Exception ex)
         {
             GD.PushError($"[Game] Failed to resolve puzzle riddle choice '{choiceId}': {ex}");
-        }
-
-        if (shouldCleanup)
-        {
-            CleanupPuzzleRiddleDialog();
-            if (IsInsideTree())
-            {
-                UpdateInteractionPrompt();
-            }
         }
     }
 
     private void OnPuzzleRiddleClosed()
     {
-        CleanupPuzzleRiddleDialog();
-        UpdateInteractionPrompt();
-    }
-
-    private void CleanupPuzzleRiddleDialog(bool endWorldInteraction = true)
-    {
-        if (_puzzleRiddleDialog != null)
+        // TryClose's Recompute publishes EffectiveStateChanged /
+        // GameplayInputBlockChanged; a throwing subscriber escapes TryClose
+        // after the host already ran the spec Cleanup
+        // (ClearPuzzleRiddlePresentation), which unsubscribed these signals
+        // and released the world latch. Swallowing the publication exception
+        // (mirroring the NPC close handlers) keeps the latch from leaking.
+        try
         {
-            if (IsInstanceValid(_puzzleRiddleDialog))
-            {
-                _puzzleRiddleDialog.ChoiceSelected -= OnPuzzleRiddleChoiceSelected;
-                _puzzleRiddleDialog.PuzzleRiddleClosed -= OnPuzzleRiddleClosed;
-                _puzzleRiddleDialog.QueueFree();
-            }
-
-            _puzzleRiddleDialog = null;
+            ClosePuzzleRiddlePresentation(UIScreenCloseReason.Programmatic);
+        }
+        catch (Exception ex)
+        {
+            GD.PushError($"[Game] Close publication failed during puzzle riddle closed: {ex.Message}");
         }
 
-        _activePuzzleRiddle = null;
-        if (endWorldInteraction && IsInstanceValid(_gameManager) && _gameManager.IsInWorldInteraction)
+        EndWorldInteractionIfActive();
+        if (IsInsideTree())
+        {
+            UpdateInteractionPrompt();
+        }
+    }
+
+    private void EndWorldInteractionIfActive()
+    {
+        if (_gameManager != null &&
+            GodotObject.IsInstanceValid(_gameManager) &&
+            _gameManager.IsInWorldInteraction)
         {
             _gameManager.EndWorldInteraction();
+        }
+    }
+
+    private void ClearPuzzleRiddlePresentation(PuzzleRiddleScreenController screen)
+    {
+        if (GodotObject.IsInstanceValid(screen))
+        {
+            screen.ChoiceSelected -= OnPuzzleRiddleChoiceSelected;
+            screen.PuzzleRiddleClosed -= OnPuzzleRiddleClosed;
+        }
+
+        if (ReferenceEquals(_puzzleRiddleScreen, screen))
+        {
+            _puzzleRiddleScreen = null;
+            _puzzleRiddleHandle = null;
+            _activePuzzleRiddle = null;
+        }
+
+        EndWorldInteractionIfActive();
+        if (IsInsideTree())
+        {
+            UpdateInteractionPrompt();
+        }
+    }
+
+    private void ClosePuzzleRiddlePresentation(UIScreenCloseReason reason)
+    {
+        if (_screenHost == null || !GodotObject.IsInstanceValid(_screenHost) ||
+            !_puzzleRiddleHandle.HasValue)
+        {
+            return;
+        }
+
+        var result = _screenHost.TryClose(_puzzleRiddleHandle.Value, reason);
+        if (result.Status == UIScreenCloseStatus.StaleHandle)
+        {
+            if (_puzzleRiddleScreen != null)
+                ClearPuzzleRiddlePresentation(_puzzleRiddleScreen);
+            else
+                _puzzleRiddleHandle = null;
+        }
+    }
+
+    private void ClearRejectedPuzzleRiddleCandidate(PuzzleRiddleScreenController screen)
+    {
+        // Riddle-local: releases candidate views that were never committed, so
+        // no host Cleanup callback will ever run for them.
+        if (GodotObject.IsInstanceValid(screen))
+        {
+            screen.ChoiceSelected -= OnPuzzleRiddleChoiceSelected;
+            screen.PuzzleRiddleClosed -= OnPuzzleRiddleClosed;
+            screen.QueueFree();
         }
     }
 
@@ -1912,7 +2026,7 @@ public partial class Game : Node2D
         if (_gameManager == null)
             return UIRootCancelResult.Declined;
 
-        if (_puzzleRiddleDialog != null && IsInstanceValid(_puzzleRiddleDialog))
+        if (_puzzleRiddleScreen != null && IsInstanceValid(_puzzleRiddleScreen))
             return UIRootCancelResult.Declined;
 
         if (_gameManager.IsInWorldInteraction)
@@ -2173,7 +2287,9 @@ public partial class Game : Node2D
 
         EndNpcInteractionIfActive();
 
-        CleanupPuzzleRiddleDialog(endWorldInteraction: false);
+        // Close the hosted riddle entry before scene teardown so its host
+        // record is released cleanly while the screen node is still valid.
+        ClosePuzzleRiddlePresentation(UIScreenCloseReason.NodeFreed);
 
         CleanupBattleManager();
 

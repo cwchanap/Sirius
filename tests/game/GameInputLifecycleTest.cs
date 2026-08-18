@@ -787,14 +787,17 @@ public partial class GameInputLifecycleTest : Node
         AssertThat(promptPlate.Visible).IsTrue();
         AssertThat(prompt.Prompt).IsEqual("Solve");
 
+        var host = _realGame.GetNode<UIScreenHost>("UI/UIScreenHost");
         InvokePrivate(_realGame, "OpenPuzzleRiddle", riddle);
-        var dialog = GetPrivateField<PuzzleRiddleDialog>(_realGame, "_puzzleRiddleDialog");
+        var screen = GetPrivateField<PuzzleRiddleScreenController>(
+            _realGame, "_puzzleRiddleScreen");
         int closedCount = 0;
-        dialog.PuzzleRiddleClosed += () => closedCount++;
+        screen.PuzzleRiddleClosed += () => closedCount++;
+        AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsTrue();
         AssertThat(gameManager.IsInWorldInteraction).IsTrue();
         AssertThat(promptPlate.Visible).IsFalse();
         await AwaitFrames(1);
-        AssertThat(dialog.Visible).IsTrue();
+        AssertThat(screen.Visible).IsTrue();
 
         _viewport.PushInput(new InputEventKey
         {
@@ -809,12 +812,11 @@ public partial class GameInputLifecycleTest : Node
         await AwaitFrames(2);
 
         AssertThat(closedCount).IsEqual(1);
-        AssertThat(GetPrivateField<PuzzleRiddleDialog?>(_realGame, "_puzzleRiddleDialog")).IsNull();
+        AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
         AssertThat(gameManager.IsInWorldInteraction).IsFalse();
         AssertThat(promptPlate.Visible).IsTrue();
         AssertThat(prompt.Prompt).IsEqual("Solve");
-        AssertThat(_realGame.GetNode<UIScreenHost>("UI/UIScreenHost")
-            .IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
     }
 
     [TestCase]

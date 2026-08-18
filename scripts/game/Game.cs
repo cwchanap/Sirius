@@ -1316,6 +1316,10 @@ public partial class Game : Node2D
             var screen = _puzzleRiddleScreen;
             if (riddle == null || screen == null || _puzzleTrapController == null)
             {
+                // The controller already entered Resolving, where both choices
+                // and Cancel are ignored — this handler is the only exit left,
+                // so a bare return would strand the hosted screen and latch.
+                AbandonHostedPuzzleRiddle($"active riddle state missing for choice '{choiceId}'");
                 return;
             }
 
@@ -1345,11 +1349,46 @@ public partial class Game : Node2D
                 screen.RearmWithFeedback(result.Message);
             }
         }
-        // Intentionally broad: presentation failures must not crash the game;
-        // the hosted entry still closes through its own cancel path.
+        // Intentionally broad: the controller sits in Resolving where Cancel
+        // is ignored, so a swallowed resolution failure must still close the
+        // hosted riddle or the game soft-locks behind the world latch.
         catch (Exception ex)
         {
             GD.PushError($"[Game] Failed to resolve puzzle riddle choice '{choiceId}': {ex}");
+            AbandonHostedPuzzleRiddle($"resolution failure for choice '{choiceId}'");
+        }
+    }
+
+    // Riddle-local last-resort exit: closes the hosted entry when possible and
+    // always converges on the idempotent local clear, so the world latch ends
+    // even when the close itself cannot run (host missing, no handle, or a
+    // throwing close publication).
+    private void AbandonHostedPuzzleRiddle(string cause)
+    {
+        GD.PushError($"[Game] Closing hosted puzzle riddle after {cause}.");
+        try
+        {
+            ClosePuzzleRiddlePresentation(UIScreenCloseReason.Programmatic);
+        }
+        catch (Exception closeEx)
+        {
+            GD.PushError($"[Game] Hosted puzzle riddle close after {cause} failed: {closeEx.Message}");
+        }
+
+        var screen = _puzzleRiddleScreen;
+        if (screen != null)
+        {
+            ClearPuzzleRiddlePresentation(screen);
+        }
+        else
+        {
+            _puzzleRiddleHandle = null;
+            _activePuzzleRiddle = null;
+            EndWorldInteractionIfActive();
+            if (IsInsideTree())
+            {
+                UpdateInteractionPrompt();
+            }
         }
     }
 
@@ -2287,9 +2326,31 @@ public partial class Game : Node2D
 
         EndNpcInteractionIfActive();
 
-        // Close the hosted riddle entry before scene teardown so its host
-        // record is released cleanly while the screen node is still valid.
-        ClosePuzzleRiddlePresentation(UIScreenCloseReason.NodeFreed);
+        // Close the hosted riddle entry with the teardown reason while the
+        // screen node is still valid; regardless of the close outcome (host
+        // missing, no handle, host tearing down, or close throwing), fall
+        // back to a local idempotent clear so the retained riddle
+        // presentation never outlives this node.
+        try
+        {
+            ClosePuzzleRiddlePresentation(UIScreenCloseReason.HostTeardown);
+        }
+        catch (Exception ex)
+        {
+            GD.PushError($"[Game] Hosted puzzle riddle teardown close failed: {ex.Message}");
+        }
+
+        var riddleScreen = _puzzleRiddleScreen;
+        if (riddleScreen != null)
+        {
+            ClearPuzzleRiddlePresentation(riddleScreen);
+        }
+        else
+        {
+            _puzzleRiddleHandle = null;
+            _activePuzzleRiddle = null;
+            EndWorldInteractionIfActive();
+        }
 
         CleanupBattleManager();
 

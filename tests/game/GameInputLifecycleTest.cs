@@ -819,6 +819,58 @@ public partial class GameInputLifecycleTest : Node
         AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
     }
 
+    // Controller/gamepad equivalent of the keyboard riddle-cancel test: a
+    // configured joypad cancel must close exactly one hosted riddle through
+    // the same hosted close path without opening Pause or leaking the latch.
+    [TestCase]
+    public async Task ConfiguredControllerCancel_DeclinesToTopmostRiddleWithoutOpeningHostedPause()
+    {
+        var controllerBinding = new InputEventJoypadButton
+        {
+            ButtonIndex = (JoyButton)10
+        };
+        ConfigureCancelBindings(Key.P, controllerBinding);
+        _viewport!.GuiEmbedSubwindows = true;
+        await FreeLifecycleFixture();
+        _realGame = await InstantiateGameScene(_viewport);
+
+        var floorManager = _realGame.GetNode<FloorManager>("FloorManager");
+        var gridMap = floorManager.CurrentGridMap;
+        var playerController = _realGame.GetNode<PlayerController>("PlayerController");
+        var gameManager = _realGame.GetNode<GameManager>("GameManager");
+        var riddle = CreateRuntimeRiddle(
+            "PuzzleRiddle_ConfiguredControllerCancelTest",
+            "Puzzle_ConfiguredControllerCancelTest",
+            new Vector2I(8, 51));
+        gridMap.AddChild(riddle);
+        riddle.AddToGroup("PuzzleRiddleSpawn");
+        SetPrivateField(gridMap, "_grid", new int[gridMap.GridWidth, gridMap.GridHeight]);
+        SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 50));
+        SetPrivateField(playerController, "_lastFacingDirection", Vector2I.Down);
+        gridMap.CallDeferred(nameof(GridMap.RegisterStaticPuzzleEntities));
+        await AwaitFrames(3);
+        InvokePrivate(_realGame, "UpdateInteractionPrompt");
+
+        var host = _realGame.GetNode<UIScreenHost>("UI/UIScreenHost");
+        InvokePrivate(_realGame, "OpenPuzzleRiddle", riddle);
+        var screen = GetPrivateField<PuzzleRiddleScreenController>(
+            _realGame, "_puzzleRiddleScreen");
+        int closedCount = 0;
+        screen.PuzzleRiddleClosed += () => closedCount++;
+        AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsTrue();
+        AssertThat(gameManager.IsInWorldInteraction).IsTrue();
+        await AwaitFrames(1);
+        AssertThat(screen.Visible).IsTrue();
+
+        PushPhysicalJoypadButtonPressAndRelease((JoyButton)10);
+        await AwaitFrames(2);
+
+        AssertThat(closedCount).IsEqual(1);
+        AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
+        AssertThat(gameManager.IsInWorldInteraction).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+    }
+
     [TestCase]
     public async Task DefeatReturnTimerIsOwnedAndDoesNotNavigateAfterCleanup()
     {

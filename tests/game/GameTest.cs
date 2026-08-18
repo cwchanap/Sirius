@@ -1021,6 +1021,133 @@ public partial class GameTest : Node
         }
     }
 
+    // The shared [Before] fixture has no UI/UIScreenHost child. Arm the
+    // puzzle controller so the only failing guard is the missing host —
+    // the open must reject before StartWorldInteraction latches the world.
+    [TestCase]
+    public void Game_OpenPuzzleRiddle_WithoutHost_FailsBeforeWorldLatchStarts()
+    {
+        SetPrivateField(_game!, "_puzzleTrapController", new PuzzleTrapController(_gameManager!));
+        var riddle = CreateRuntimeRiddle(
+            "PuzzleRiddle_NoHostTest",
+            "Puzzle_NoHostTest",
+            new Vector2I(8, 51));
+
+        InvokePrivate(_game, "OpenPuzzleRiddle", riddle);
+
+        AssertThat(_gameManager!.IsInWorldInteraction).IsFalse();
+        AssertThat(GetPrivateField<PuzzleRiddleScreenController?>(_game, "_puzzleRiddleScreen"))
+            .IsNull();
+    }
+
+    // Game-level regression of the host publication-callback contract: an
+    // EffectiveStateChanged subscriber closing the committed entry during
+    // publication leaves TryPresent returning Opened for a dead handle —
+    // only Game's post-Opened IsActive(handle) recheck prevents retention.
+    [TestCase]
+    public async Task Game_OpenPuzzleRiddle_PublicationSubscriberClosesEntry_RetainsNothing()
+    {
+        await ReplaceWithHostedFixture();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        SetPrivateField(_game, "_puzzleTrapController", new PuzzleTrapController(_gameManager!));
+        var riddle = CreateRuntimeRiddle(
+            "PuzzleRiddle_PublicationCloseTest",
+            "Puzzle_PublicationCloseTest",
+            new Vector2I(8, 51));
+
+        void CloseRiddleDuringPublication(UIScreenEffectiveState _)
+        {
+            var entry = host.ActiveEntries
+                .FirstOrDefault(e => e.Policy.Kind == UIScreenKinds.PuzzleRiddle);
+            if (entry != null)
+                host.TryClose(entry.Handle, UIScreenCloseReason.Programmatic);
+        }
+
+        host.EffectiveStateChanged += CloseRiddleDuringPublication;
+        try
+        {
+            InvokePrivate(_game, "OpenPuzzleRiddle", riddle);
+        }
+        finally
+        {
+            host.EffectiveStateChanged -= CloseRiddleDuringPublication;
+        }
+
+        AssertThat(_gameManager!.IsInWorldInteraction).IsFalse();
+        AssertThat(GetPrivateField<PuzzleRiddleScreenController?>(_game, "_puzzleRiddleScreen"))
+            .IsNull();
+        AssertThat(GetPrivateField<UIScreenHandle?>(_game, "_puzzleRiddleHandle"))
+            .IsNull();
+        AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
+    }
+
+    // A throwing EffectiveStateChanged handler escapes TryPresent after the
+    // candidate was committed. Game's catch frees the still-valid candidate
+    // (its deferred deletion drives the host's NodeFreed cleanup) and ends
+    // the world latch, so the publication failure cannot strand the world.
+    [TestCase]
+    public async Task Game_OpenPuzzleRiddle_PublicationException_DoesNotStrandWorldInteraction()
+    {
+        await ReplaceWithHostedFixture();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        SetPrivateField(_game, "_puzzleTrapController", new PuzzleTrapController(_gameManager!));
+        var riddle = CreateRuntimeRiddle(
+            "PuzzleRiddle_PublicationFailureTest",
+            "Puzzle_PublicationFailureTest",
+            new Vector2I(8, 51));
+
+        Action<UIScreenEffectiveState> throwing = _ =>
+            throw new InvalidOperationException("fixture publication failure");
+
+        host.EffectiveStateChanged += throwing;
+        try
+        {
+            InvokePrivate(_game, "OpenPuzzleRiddle", riddle);
+        }
+        finally
+        {
+            host.EffectiveStateChanged -= throwing;
+        }
+
+        await AwaitFrames(2);
+
+        AssertThat(_gameManager!.IsInWorldInteraction).IsFalse();
+        AssertThat(GetPrivateField<PuzzleRiddleScreenController?>(_game, "_puzzleRiddleScreen"))
+            .IsNull();
+        AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
+    }
+
+    // Root teardown must end an active riddle world-interaction before the
+    // owner exits. The fixture's Free() invokes _ExitTree() again, so the
+    // production cleanup has to stay idempotent.
+    [TestCase]
+    public async Task Game_RootTeardown_EndsHostedRiddleWorldLatch()
+    {
+        var game = await InstantiateRealGameScene();
+        try
+        {
+            var gameManager = game.GetNode<GameManager>("GameManager");
+            var riddle = CreateRuntimeRiddle(
+                "PuzzleRiddle_RootTeardownTest",
+                "Puzzle_RootTeardownTest",
+                new Vector2I(8, 51));
+
+            InvokePrivate(game, "OpenPuzzleRiddle", riddle);
+            AssertThat(gameManager.IsInWorldInteraction).IsTrue();
+
+            game._ExitTree();
+
+            AssertThat(gameManager.IsInWorldInteraction).IsFalse();
+            AssertThat(GetPrivateField<PuzzleRiddleScreenController?>(game, "_puzzleRiddleScreen"))
+                .IsNull();
+        }
+        finally
+        {
+            game.Free();
+            await AwaitFrames(1);
+        }
+    }
+
     [TestCase]
     public async Task Game_PuzzlePromptUsesUseForSwitchAndSolveForRiddle()
     {

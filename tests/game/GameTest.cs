@@ -644,6 +644,59 @@ public partial class GameTest : Node
     }
 
     [TestCase]
+    public async Task Game_OpenPuzzleRiddle_HostsScreenWithModalPolicy()
+    {
+        var sceneTree = (SceneTree)Engine.GetMainLoop();
+        var scene = GD.Load<PackedScene>("res://scenes/game/Game.tscn")
+            ?? throw new InvalidOperationException("Failed to load Game.tscn.");
+        Node? gameScene = null;
+
+        try
+        {
+            gameScene = scene.Instantiate();
+            sceneTree.Root.AddChild(gameScene);
+            await AwaitFrames(6);
+
+            var gridMap = gameScene.GetNode<FloorManager>("FloorManager").CurrentGridMap;
+            var gameManager = gameScene.GetNode<GameManager>("GameManager");
+            AssertThat(gridMap).IsNotNull();
+
+            var riddle = CreateRuntimeRiddle(
+                "PuzzleRiddle_HostedPolicyTest",
+                "Puzzle_RuntimeHostedPolicyTest",
+                new Vector2I(8, 51));
+            AddPuzzleNode(gridMap, riddle, "PuzzleRiddleSpawn");
+            await AwaitFrames(2);
+
+            InvokePrivate(gameScene, "OpenPuzzleRiddle", riddle);
+            await AwaitFrames(2);
+
+            var host = gameScene.GetNode<UIScreenHost>("UI/UIScreenHost");
+            var entry = host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.PuzzleRiddle);
+
+            AssertThat(entry.Policy.Layer).IsEqual(UIScreenLayer.Modal);
+            AssertThat(entry.Policy.InputPriority).IsEqual(UIInputPriority.Modal);
+            AssertThat(entry.Policy.ProcessPolicy).IsEqual(UIProcessPolicy.Always);
+            AssertThat(entry.Policy.PauseTree).IsFalse();
+            AssertThat(entry.Policy.BlockGameplayInput).IsTrue();
+            AssertThat(entry.Policy.Cursor).IsEqual(UICursorPolicy.Visible);
+            AssertThat(entry.Policy.Hud).IsEqual(UIHudPolicy.Hidden);
+            AssertThat(entry.Policy.LowerLayers).IsEqual(UILowerLayerPolicy.VisibleInert);
+            AssertThat(entry.Policy.Cancel).IsEqual(UICancelPolicy.Consume);
+            AssertThat(gameManager.IsInWorldInteraction).IsTrue();
+        }
+        finally
+        {
+            if (gameScene != null && IsInstanceValid(gameScene))
+            {
+                gameScene.Free();
+            }
+
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
     public async Task Game_SwitchThenCorrectRiddleSolvesPuzzleOpensGateAndDisablesTrap()
     {
         var sceneTree = (SceneTree)Engine.GetMainLoop();
@@ -712,24 +765,38 @@ public partial class GameTest : Node
             PressInteract(playerController);
             await AwaitFrames(3);
 
-            var dialog = GetPrivateField<PuzzleRiddleDialog?>(gameScene, "_puzzleRiddleDialog");
-            AssertThat(dialog).IsNotNull();
+            var host = gameScene.GetNode<UIScreenHost>("UI/UIScreenHost");
+            var screen = GetPrivateField<PuzzleRiddleScreenController?>(gameScene, "_puzzleRiddleScreen");
+            AssertThat(screen).IsNotNull();
 
             int statsChangedCount = 0;
             gameManager.PlayerStatsChanged += () => statsChangedCount++;
 
-            var eastStoneButton = FindButtonWithText(dialog!, "East Stone");
+            var eastStoneButton = FindButtonWithText(screen!, "East Stone");
             AssertThat(eastStoneButton).IsNotNull();
             eastStoneButton!.EmitSignal(Button.SignalName.Pressed);
             await AwaitFrames(3);
 
+            // The domain result lands immediately; the hosted riddle stays up
+            // in Terminal presenting the success message.
             AssertThat(gameManager.IsPuzzleSolved(puzzleId)).IsTrue();
             AssertThat(gate.BlocksMovement).IsFalse();
             AssertThat(freshGrid[10, 50]).IsEqual((int)GridMap.CellType.Empty);
             AssertThat(freshGrid[11, 50]).IsEqual((int)GridMap.CellType.Empty);
-            AssertThat(gameManager.IsInWorldInteraction).IsFalse();
             AssertThat(statsChangedCount).IsEqual(1);
-            AssertThat(GetPrivateField<PuzzleRiddleDialog?>(gameScene, "_puzzleRiddleDialog")).IsNull();
+            AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsTrue();
+            AssertThat(gameManager.IsInWorldInteraction).IsTrue();
+            AssertThat(FindLabelWithText(screen!, "gate opens")).IsNotNull();
+            var continueButton = FindButtonWithText(screen!, "Continue");
+            AssertThat(continueButton).IsNotNull();
+
+            // Only dismissing the terminal result releases the world.
+            continueButton!.EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+
+            AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
+            AssertThat(gameManager.IsInWorldInteraction).IsFalse();
+            AssertThat(GetPrivateField<PuzzleRiddleScreenController?>(gameScene, "_puzzleRiddleScreen")).IsNull();
         }
         finally
         {
@@ -796,26 +863,54 @@ public partial class GameTest : Node
             PressInteract(playerController);
             await AwaitFrames(3);
 
-            var dialog = GetPrivateField<PuzzleRiddleDialog?>(gameScene, "_puzzleRiddleDialog");
-            AssertThat(dialog).IsNotNull();
+            var host = gameScene.GetNode<UIScreenHost>("UI/UIScreenHost");
+            var screen = GetPrivateField<PuzzleRiddleScreenController?>(gameScene, "_puzzleRiddleScreen");
+            AssertThat(screen).IsNotNull();
 
-            dialog!.EmitSignal(PuzzleRiddleDialog.SignalName.ChoiceSelected, "north_stone");
+            var northStoneButton = FindButtonWithText(screen!, "North Stone");
+            AssertThat(northStoneButton).IsNotNull();
+            northStoneButton!.EmitSignal(Button.SignalName.Pressed);
             await AwaitFrames(3);
 
+            // Wrong answer: exact domain HP loss, still unsolved, terminal
+            // feedback reporting the actual loss, screen stays up until Close.
             AssertThat(gameManager.Player.CurrentHealth).IsEqual(23);
             AssertThat(gameManager.IsPuzzleSolved(puzzleId)).IsFalse();
-            AssertThat(gameManager.IsInWorldInteraction).IsFalse();
-            AssertThat(GetPrivateField<PuzzleRiddleDialog?>(gameScene, "_puzzleRiddleDialog")).IsNull();
+            AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsTrue();
+            AssertThat(gameManager.IsInWorldInteraction).IsTrue();
+            AssertThat(FindLabelWithText(screen!, "(-7 HP)")).IsNotNull();
+            var closeButton = FindButtonWithText(screen!, "Close");
+            AssertThat(closeButton).IsNotNull();
 
+            closeButton!.EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+
+            AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
+            AssertThat(gameManager.IsInWorldInteraction).IsFalse();
+
+            // After dismissal a fresh interaction opens a new screen, and the
+            // armed switch makes the retry solve.
             PressInteractRelease(playerController);
             await AwaitFrames(1);
             PressInteract(playerController);
             await AwaitFrames(3);
 
-            var retryDialog = GetPrivateField<PuzzleRiddleDialog?>(gameScene, "_puzzleRiddleDialog");
-            AssertThat(retryDialog).IsNotNull();
-            retryDialog!.EmitSignal(PuzzleRiddleDialog.SignalName.PuzzleRiddleClosed);
+            var retryScreen = GetPrivateField<PuzzleRiddleScreenController?>(gameScene, "_puzzleRiddleScreen");
+            AssertThat(retryScreen).IsNotNull();
+            AssertThat(ReferenceEquals(retryScreen, screen)).IsFalse();
+
+            var eastStoneButton = FindButtonWithText(retryScreen!, "East Stone");
+            AssertThat(eastStoneButton).IsNotNull();
+            eastStoneButton!.EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(3);
+
+            AssertThat(gameManager.IsPuzzleSolved(puzzleId)).IsTrue();
+            AssertThat(FindLabelWithText(retryScreen!, "gate opens")).IsNotNull();
+            retryScreen!.RequestCancel();
             await AwaitFrames(2);
+
+            AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
+            AssertThat(gameManager.IsInWorldInteraction).IsFalse();
         }
         finally
         {
@@ -829,7 +924,7 @@ public partial class GameTest : Node
     }
 
     [TestCase]
-    public async Task Game_DormantRiddleShowsMessageAndKeepsDialogOpen()
+    public async Task Game_DormantRiddleShowsFeedbackAndRearmsHostedScreen()
     {
         var sceneTree = (SceneTree)Engine.GetMainLoop();
         var scene = GD.Load<PackedScene>("res://scenes/game/Game.tscn")
@@ -875,28 +970,45 @@ public partial class GameTest : Node
             PressInteract(playerController);
             await AwaitFrames(3);
 
-            var dialog = GetPrivateField<PuzzleRiddleDialog?>(gameScene, "_puzzleRiddleDialog");
-            AssertThat(dialog).IsNotNull();
+            var host = gameScene.GetNode<UIScreenHost>("UI/UIScreenHost");
+            var screen = GetPrivateField<PuzzleRiddleScreenController?>(gameScene, "_puzzleRiddleScreen");
+            AssertThat(screen).IsNotNull();
+            var openedHandle = GetPrivateField<UIScreenHandle?>(gameScene, "_puzzleRiddleHandle");
 
             // Choose an answer before arming the switch — should show dormant message
-            var eastStoneButton = FindButtonWithText(dialog!, "East Stone");
+            var eastStoneButton = FindButtonWithText(screen!, "East Stone");
             AssertThat(eastStoneButton).IsNotNull();
             eastStoneButton!.EmitSignal(Button.SignalName.Pressed);
             await AwaitFrames(3);
 
-            // Dialog should remain open and still be valid
-            var dormantDialog = GetPrivateField<PuzzleRiddleDialog?>(gameScene, "_puzzleRiddleDialog");
-            AssertThat(dormantDialog).IsNotNull();
+            // Dormant: the same hosted screen and handle stay active, the
+            // feedback explains why, and the world latch is untouched.
+            var dormantScreen = GetPrivateField<PuzzleRiddleScreenController?>(gameScene, "_puzzleRiddleScreen");
+            AssertThat(ReferenceEquals(dormantScreen, screen)).IsTrue();
+            AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsTrue();
+            AssertThat(GetPrivateField<UIScreenHandle?>(gameScene, "_puzzleRiddleHandle")).IsEqual(openedHandle);
             AssertThat(gameManager.IsInWorldInteraction).IsTrue();
             AssertThat(gameManager.IsPuzzleSolved(puzzleId)).IsFalse();
+            AssertThat(FindLabelWithText(dormantScreen!, "dormant")).IsNotNull();
 
-            // The message label should now display the dormant message
-            var messageLabel = FindLabelWithText(dormantDialog!, "dormant");
-            AssertThat(messageLabel).IsNotNull();
+            // The rearmed screen accepts another choice.
+            var rearmedButton = FindButtonWithText(dormantScreen!, "East Stone");
+            AssertThat(rearmedButton).IsNotNull();
+            AssertThat(rearmedButton!.Disabled).IsFalse();
+            rearmedButton.EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(3);
 
-            // Close the dialog to clean up
-            dormantDialog!.EmitSignal(PuzzleRiddleDialog.SignalName.PuzzleRiddleClosed);
+            AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsTrue();
+            AssertThat(gameManager.IsInWorldInteraction).IsTrue();
+            AssertThat(FindLabelWithText(dormantScreen!, "dormant")).IsNotNull();
+
+            // Cancel closes the hosted riddle and releases the world.
+            dormantScreen!.RequestCancel();
             await AwaitFrames(2);
+
+            AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
+            AssertThat(gameManager.IsInWorldInteraction).IsFalse();
+            AssertThat(GetPrivateField<PuzzleRiddleScreenController?>(gameScene, "_puzzleRiddleScreen")).IsNull();
         }
         finally
         {

@@ -290,6 +290,23 @@ public static class TestHelpers
     }
 
     /// <summary>
+    /// Recursively search <paramref name="node"/> and its descendants for any
+    /// native <see cref="AcceptDialog"/>. Hosted-screen tests use this to pin
+    /// that a scene contains no residual native dialog windows.
+    /// </summary>
+    public static bool ContainsAcceptDialog(Node node)
+    {
+        if (node is AcceptDialog)
+            return true;
+
+        foreach (Node child in node.GetChildren())
+            if (ContainsAcceptDialog(child))
+                return true;
+
+        return false;
+    }
+
+    /// <summary>
     /// Recursively search <paramref name="node"/> and its descendants for a
     /// <see cref="Button"/> whose <see cref="Button.Text"/> equals
     /// <paramref name="text"/>. Returns null when no match is found.

@@ -1,0 +1,56 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/PuzzleRiddleScreenController.cs" id="1_riddle_screen"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusModalShell.tscn" id="2_modal_shell"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusInputHint.tscn" id="3_input_hint"]
+
+[node name="PuzzleRiddleScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_riddle_screen")
+
+[node name="ModalShell" parent="." instance=ExtResource("2_modal_shell")]
+unique_name_in_owner = true
+layout_mode = 1
+SizeClass = 1
+
+[node name="FeedbackLabel" type="Label" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"SiriusMetadata"
+autowrap_mode = 3
+
+[node name="PromptLabel" type="RichTextLabel" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"SiriusBody"
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+selection_enabled = false
+
+[node name="ChoicesContainer" type="VBoxContainer" parent="ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="CancelHint" parent="ModalShell/Panel/Margin/RootLayout/ActionsHost" instance=ExtResource("3_input_hint")]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+prompt = "Cancel"
+actions = [&"ui_cancel"]
+
+[node name="CancelButton" type="Button" parent="ModalShell/Panel/Margin/RootLayout/ActionsHost"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Cancel"
+theme_type_variation = &"SiriusSecondaryButton"

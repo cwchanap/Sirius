@@ -6,54 +6,54 @@
 
 ## Context
 
-HPA-571 is the next actionable child of the HPA-358 secondary-presentation workstream. HPA-569 (Dialogue), HPA-570 (Shop and Healing), and HPA-572 (shared confirmations/errors) are already complete, while HPA-573 Reward Feedback remains the next slice after Puzzle/Riddle.
+HPA-571 is the next actionable child of the HPA-358 secondary-presentation workstream. HPA-569 (Dialogue), HPA-570 (Shop and Healing), and HPA-572 (shared prompts) are complete; HPA-573 Reward Feedback follows Puzzle/Riddle.
 
-The current riddle path is still the legacy desktop-style exception:
+The remaining riddle path is still a legacy desktop-style exception:
 
-- `PuzzleRiddleDialog` derives from `AcceptDialog` and builds its labels and choice buttons in C# at runtime.
-- `Game` creates that native dialog directly under the gameplay `UI` canvas rather than presenting it through `UIScreenHost`.
+- `PuzzleRiddleDialog : AcceptDialog` builds its labels and answer buttons in C#.
+- `Game.OpenPuzzleRiddle(...)` creates that native dialog directly under the gameplay `UI` canvas.
+- `Game.CleanupPuzzleRiddleDialog(...)` owns riddle-node cleanup and the `IsInWorldInteraction` latch.
 - `PuzzleTrapController` already owns switch arming, answer validation, solved persistence, and result messages.
-- `Game` already owns wrong-answer damage, solved gate application, world-interaction state, and interaction-prompt restoration.
-- `UIScreenKinds.PuzzleRiddle` already exists, so the migration needs no new host kind.
+- `Game` already owns wrong-answer damage, gate/grid solved-state application, and exploration prompt restoration.
+- `UIScreenKinds.PuzzleRiddle` already exists.
 
-HPA-373 defines Puzzle as a medium Sirius modal with title, prompt, answers, validation feedback, a visible Cancel action, deterministic focus, and compact scrolling. HPA-376 records the existing world-interaction cleanup contract that this migration must preserve.
+HPA-373 §9.11 defines Puzzle as a medium Sirius panel with title, prompt, choices/input, validation feedback, a visible Cancel control, **and the active device's cancel hint**. HPA-376 freezes current answer/cancel mutual exclusion and world-interaction cleanup behavior.
 
 ## Goals
 
-- Replace the native `PuzzleRiddleDialog` with one scene-authored Sirius riddle surface.
+- Replace `PuzzleRiddleDialog` with one scene-authored Sirius riddle surface.
 - Present it through the existing gameplay `UIScreenHost` as `UIScreenKinds.PuzzleRiddle`.
-- Keep `PuzzleTrapController`, `PuzzleRiddleSpawn`, switch arming, answer validation, wrong-answer damage, solved persistence, and gate updates unchanged.
-- Make dormant/unarmed, wrong-answer, and success feedback readable inside the riddle surface.
-- Preserve the existing wrong-answer retry boundary: one answer attempt ends, then the player may start a fresh world interaction to retry.
-- Keep long prompts and long/many choices usable at 640×360 through the existing shell body scroll.
-- Give mouse, keyboard, and gamepad users deterministic initial focus and a visible Cancel affordance.
-- Converge cancellation, answer completion, invalid presentation data, host rejection, publication exceptions, node teardown, and scene teardown on exactly-once world-interaction cleanup.
+- Keep `Game` as the world-riddle orchestration owner.
+- Keep `PuzzleTrapController`, `PuzzleRiddleSpawn`, switch arming, answer validation, wrong-answer damage, solved persistence, and gate logic unchanged.
+- Make dormant/unarmed, wrong-answer, and success feedback readable in the riddle surface.
+- Preserve the current wrong-answer retry boundary: a wrong answer ends the current attempt; a retry starts from a fresh interaction after dismissing the result.
+- Preserve the proven mutual-exclusion rule: once an answer begins resolving, Cancel and further answers cannot race it.
+- Keep long prompts and choices usable at 640×360 through the existing shell body scroll.
+- Give keyboard/gamepad/mouse users deterministic focus, a visible Cancel action, and the HPA-373-required active-device cancel hint.
+- Converge cancellation, answer completion, invalid presentation data, host rejection, stale handles, publication exceptions, node teardown, and scene teardown on idempotent world-interaction cleanup.
 
 ## Non-goals
 
 - New puzzle types, free-text answers, timed puzzles, hints, multi-stage puzzle state, or puzzle rewards.
 - Changes to `PuzzleTrapController`, `PuzzleRiddleSpawn`, puzzle persistence, trap damage rules, switch requirements, or gate logic.
-- A generic puzzle presenter, puzzle state machine framework, screen base class, navigation service, host facade, or new `UIScreenHost` API.
-- A reusable choice-row component; the riddle is the only current consumer.
-- Reward queues/toasts from HPA-573 or prompt/error primitives from HPA-572.
-- New theme tokens, icon art, save schema, or backward-compatibility shims.
+- A generic puzzle presenter, state-machine framework, screen base class, navigation service, host facade, or new `UIScreenHost` API.
+- A reusable choice-row component.
+- Reward queues/toasts from HPA-573 or new prompt/error primitives.
+- New theme tokens, icon art, save schema, or compatibility shims.
+- A broad modal-wide input-hint redesign. HPA-571 satisfies the Puzzle-specific HPA-373 requirement locally with the existing `SiriusInputHint`.
 
 ## Existing behavior contract
 
-The migration preserves these domain/lifecycle facts rather than reinterpreting them:
+The migration preserves these domain and lifecycle facts:
 
-1. A blank `PuzzleId` or an already-solved riddle does not start a new puzzle interaction.
-2. `PuzzleTrapController.TrySolveRiddle(...)` remains the single authority for:
-   - invalid puzzle result;
-   - already-solved result;
-   - dormant/unarmed result;
-   - wrong-answer result;
-   - successful solve and `GameManager.MarkPuzzleSolved(...)`.
-3. A wrong answer applies `WrongAnswerDamage` through `Game.ApplyPuzzleDamage(...)`, which floors the player at 1 HP, then notifies player-stat changes.
-4. A successful answer applies the existing gate/grid solved-state update and notifies player-stat changes.
-5. Dormant/unarmed feedback does not end the riddle attempt; the same screen can be rearmed with the controller result message.
-6. A wrong answer remains terminal for the current answer attempt. The player can retry only after dismissing the result and starting another world interaction, matching the current retry boundary.
-7. World interaction blocks competing gameplay while the riddle presentation is active and returns to gameplay exactly once when the presentation ends.
+1. A blank `PuzzleId` or already-solved riddle does not start a new world interaction.
+2. `PuzzleTrapController.TrySolveRiddle(...)` remains the authority for invalid, solved, dormant, wrong-answer, and successful results.
+3. A wrong answer applies `WrongAnswerDamage` through `Game.ApplyPuzzleDamage(...)`, which floors health at 1 HP, then notifies player-stat changes.
+4. A successful answer applies the existing gate/grid solved state and notifies player-stat changes.
+5. Dormant/unarmed feedback does not end the world interaction; the same surface rearms the same answer set.
+6. A wrong answer is terminal for the current answer attempt. HPA-571 adds a readable acknowledgement before cleanup, but a second answer still requires a fresh interaction.
+7. Current `PuzzleRiddleDialog` uses one terminal latch so answer and Cancel cannot both emit. HPA-571 must preserve that mutual exclusion while allowing a post-resolution terminal feedback phase.
+8. `IsInWorldInteraction` blocks competing gameplay until the riddle presentation actually ends.
 
 ## Architecture
 
@@ -62,24 +62,17 @@ Add one concrete scene/controller pair:
 - `scenes/ui/PuzzleRiddleScreen.tscn`
 - `scripts/ui/PuzzleRiddleScreenController.cs`
 
-`Game` remains the orchestration owner. It loads the scene, starts the existing world-interaction latch, presents the screen through `UIScreenHost`, invokes `PuzzleTrapController` when a choice is selected, applies existing Game-owned damage/gate effects, and closes/cleans up the hosted entry.
+`Game` remains the orchestration owner. It loads/configures the screen, starts the world-interaction latch, presents through `UIScreenHost`, resolves choices through `PuzzleTrapController`, applies existing Game-owned damage/gate effects, and closes the hosted entry.
 
-`PuzzleRiddleScreenController` is presentation-only. It binds an already-existing `PuzzleRiddleSpawn`, renders choices, exposes the current focus target, and emits presentation events. It never calls `PuzzleTrapController`, mutates `Character`, marks puzzles solved, changes the grid, or writes save state.
+`PuzzleRiddleScreenController` is presentation-only. It binds one existing `PuzzleRiddleSpawn`, renders choices, owns presentation phase/focus, and emits choice/close events. It never calls `PuzzleTrapController`, mutates `Character`, marks puzzles solved, changes the grid, or writes save state.
 
-Do not move the riddle path into `NpcInteractionController`; current riddle interactions are world interactions owned directly by `Game`, and adding a second orchestration object would only obscure that existing boundary.
+Do not route world riddles through `NpcInteractionController`. NPC presentation uses a different domain latch (`IsInNpcInteraction`) and its private `TryHostSurface(...)` is coupled to `Finish()`. For one Game-owned world surface, inline only the Game-shaped host-open subset: log-and-return, post-open `IsActive` recheck, and idempotent `EndWorldInteraction` cleanup.
 
-## Scene and visual composition
+## Scene composition
 
 `PuzzleRiddleScreen.tscn` is a full-viewport `Control` with one centred `SiriusModalShell` directly under the root.
 
-Use `SiriusModalSizeClass.Medium` (640 px). This matches HPA-373 §9.11 and is large enough for the prompt/choices without turning a small riddle into a full-screen flow.
-
-Do **not** add `%SafeFrame`. `SiriusModalShell` already owns:
-
-- standard 90%-of-viewport width capping;
-- compact 12 px margins;
-- maximum body height;
-- body scrolling and `FollowFocus`.
+Use `SiriusModalSizeClass.Medium` (640 px). Do **not** add `%SafeFrame`: the centred non-Full shell already owns standard width capping, compact margins, body height, scrolling, and `FollowFocus`.
 
 Stable authored nodes:
 
@@ -89,25 +82,52 @@ PuzzleRiddleScreen (full-viewport Control)
     ├── .../BodyHost
     │   ├── FeedbackLabel (%FeedbackLabel)
     │   ├── PromptLabel (%PromptLabel)
-    │   ├── ChoicesContainer (%ChoicesContainer)
-    │   └── CancelHint (%CancelHint)
+    │   └── ChoicesContainer (%ChoicesContainer)
     └── .../ActionsHost
+        ├── CancelHint (%CancelHint)
         └── CancelButton (%CancelButton)
 ```
 
-Presentation rules:
+`%CancelHint` stays in the fixed shell action chrome, **not** in `BodyHost`, so long prompt/choice scrolling cannot move the hint away from the always-visible Cancel button. This is intentionally Puzzle-specific because HPA-373 §9.11 explicitly requires the active device's cancel hint; HPA-571 does not generalize that policy to other modals.
 
-- `%ModalShell.Title` = `RiddleId` when nonblank, otherwise `Seal`, preserving the current title fallback.
-- `%PromptLabel` stays a `RichTextLabel` with BBCode enabled so this migration does not silently remove the current prompt rendering capability.
-- `%FeedbackLabel` is standing in-surface feedback. It is not timed.
-- `%ChoicesContainer` receives runtime-created answer buttons because choice count/content are runtime data.
-- `%CancelButton` is always visible. In the active-answer phase it says `Cancel`; after a terminal answer result it becomes `Close` (wrong answer) or `Continue` (success).
-- `%CancelHint` reuses `SiriusInputHint` for the configured Cancel surface; no new binding presenter is added.
-- The shell `BodyScroll` remains the only scroll owner. Do not add nested choice scroll containers unless a focused runtime failure proves the shell cannot keep focused choices reachable.
+Presentation details:
 
-## Controller contract and presentation phases
+- `%ModalShell.Title` = nonblank `RiddleId`, otherwise `Seal`.
+- `%PromptLabel` is a BBCode-enabled `RichTextLabel`, preserving current prompt rendering capability.
+- `%FeedbackLabel` starts `visible = false`, uses `SiriusMetadata`, autowraps, and follows the same standing-feedback defaults as Healing. Puzzle feedback is not timed.
+- `%ChoicesContainer` receives runtime-created answer buttons.
+- `%CancelButton` starts as `Cancel`; terminal wrong/success presentation changes it to `Close` / `Continue`.
+- `%CancelHint` uses existing `SiriusInputHint` with the configured Cancel action and remains fixed with the action bar.
+- `SiriusModalShell.BodyScroll` remains the only scroll owner.
 
-Use one small local phase distinction rather than a general state machine.
+## Runtime answer buttons
+
+Use the same local runtime-button pattern already proven by Dialogue; do not introduce a shared choice-row component.
+
+```csharp
+private static Button CreateActionButton(string text) => new()
+{
+    Text = text,
+    AutowrapMode = TextServer.AutowrapMode.WordSmart,
+    ThemeTypeVariation = SiriusThemeTypes.SecondaryButton,
+    SizeFlagsHorizontal = SizeFlags.ExpandFill
+};
+```
+
+`RefreshLayout()` reapplies the existing responsive minimum target to every answer button:
+
+```csharp
+var minimumTarget = SiriusUiMetrics.MinimumTarget(_shell.Compact);
+foreach (var child in _choicesContainer.GetChildren())
+{
+    if (child is Button action)
+        action.CustomMinimumSize = new Vector2(0f, minimumTarget.Y);
+}
+```
+
+That yields 44 px standard / 40 px compact targets, matching the existing Sirius UI metric instead of hard-coding 44 px for every viewport.
+
+## Controller contract
 
 ```csharp
 public partial class PuzzleRiddleScreenController : Control
@@ -124,77 +144,121 @@ public partial class PuzzleRiddleScreenController : Control
 }
 ```
 
-The controller stores the configured riddle once. `TryOpenRiddle(...)` may run before `_Ready()`; authored nodes render stored state once ready. A second call with another riddle is rejected because each controller instance represents one world interaction.
+One controller instance represents one world interaction. `TryOpenRiddle(...)` may run before `_Ready()`; a second configuration is rejected.
 
-### Awaiting choice
+## Presentation phase and answer/cancel mutual exclusion
 
-- Render prompt and choices.
-- Clear or show standing feedback as provided by the latest rearm.
-- Enable choice buttons.
-- Set `InitialFocusTarget` to the first focusable choice, falling back to Cancel.
-- Pressing a choice sets a local `_choicePending` latch before emitting `ChoiceSelected` so double activation cannot emit a second answer while Game is resolving the first.
+The old native dialog has one terminal latch because an answer and Cancel must be mutually exclusive. HPA-571 needs a post-answer terminal acknowledgement, so a single terminal boolean is no longer sufficient; two independent booleans are also unsafe because Cancel can race answer resolution.
 
-### Dormant/unarmed response
+Use one small local phase enum plus the final close latch:
 
-`Game` receives `PuzzleRiddleResult(false, false, message)` and calls:
+```csharp
+private enum PuzzleRiddlePresentationPhase
+{
+    AwaitingChoice,
+    Resolving,
+    Terminal
+}
+
+private PuzzleRiddlePresentationPhase _phase;
+private bool _closedEmitted;
+```
+
+Legal transitions:
+
+```text
+AwaitingChoice --choice--> Resolving
+Resolving --dormant--> AwaitingChoice
+Resolving --wrong/success--> Terminal
+AwaitingChoice --Cancel--> closed
+Terminal --Cancel/Close/Continue--> closed
+Resolving --Cancel/choice--> ignored
+```
+
+This preserves the existing `ChoiceThenCancel_EmitsChoiceSelectedOnly` contract while allowing terminal feedback to remain visible after resolution.
+
+### AwaitingChoice
+
+- Choices are visible/enabled.
+- First focusable choice is `InitialFocusTarget`, falling back to Cancel.
+- Pressing one answer changes phase to `Resolving` **before** emitting `ChoiceSelected`.
+- Further choice activation is ignored until Game returns a resolution.
+- Cancel emits close once.
+
+### Resolving
+
+- Choices are disabled while Game synchronously resolves the answer.
+- `RequestCancel()` is ignored.
+- `RearmWithFeedback(...)` and `ShowTerminalFeedback(...)` are the only legal exits.
+
+This prevents a configured Cancel event from closing/clearing `_activePuzzleRiddle` in the middle of `Game.OnPuzzleRiddleChoiceSelected(...)`.
+
+### Dormant/unarmed
+
+Game receives `PuzzleRiddleResult(false, false, message)` and calls:
 
 ```csharp
 screen.RearmWithFeedback(result.Message);
 ```
 
-That method:
+The controller shows standing feedback, returns to `AwaitingChoice`, reenables answers, and restores focus to a valid answer (or Cancel). No world cleanup occurs.
 
-- shows the message;
-- clears `_choicePending`;
-- keeps/re-enables the same choices;
-- restores focus to the first focusable choice (or Cancel).
+### Wrong answer
 
-No world-interaction cleanup occurs because this is explicitly the nonterminal current behavior.
+Game captures health before applying the existing penalty, applies `ApplyPuzzleDamage(...)`, then computes **actual HP lost** from the post-damage value because health is floored at 1.
 
-### Wrong-answer terminal feedback
+Example:
 
-Game applies the existing damage/stat notification first, then calls:
+```csharp
+var healthBefore = _gameManager.Player.CurrentHealth;
+ApplyPuzzleDamage(riddle.WrongAnswerDamage);
+var healthLost = healthBefore - _gameManager.Player.CurrentHealth;
+```
+
+Then Game shows terminal feedback using the actual loss, not the configured maximum:
 
 ```csharp
 screen.ShowTerminalFeedback(
-    $"{result.Message} (-{riddle.WrongAnswerDamage} HP)",
+    healthLost > 0
+        ? $"{result.Message} (-{healthLost} HP)"
+        : result.Message,
     "Close");
 ```
 
-The screen disables/hides answer actions, keeps the result readable, changes the action label to `Close`, and focuses it. The answer attempt remains terminal: dismissing the result closes the hosted screen and ends the current world interaction; retry still requires interacting with the riddle again.
+The controller transitions `Resolving -> Terminal`, hides/disables answers, and focuses `Close`. Dismissal ends the world interaction; retry requires a fresh interaction.
 
-This adds a readable result acknowledgement without changing answer validation, damage, or the retry boundary.
+### Success
 
-### Successful terminal feedback
-
-Game applies the existing solved-state/gate update first, then calls:
+Game applies the existing solved-state/gate/grid update first, then calls:
 
 ```csharp
 screen.ShowTerminalFeedback(result.Message, "Continue");
 ```
 
-The screen hides/disables answers and focuses `Continue`. Solved state is already committed exactly once; dismissing only ends presentation/world interaction.
+The controller transitions `Resolving -> Terminal`, hides/disables answers, and focuses `Continue`. Solved state is already committed once; dismissal only ends presentation/world interaction.
 
-### Cancellation
+### Final close
 
-`RequestCancel()` and `%CancelButton` converge on `PuzzleRiddleClosed` with a final `_closedEmitted` latch. Configured keyboard/controller Cancel is intercepted by `UIScreenHost` and calls `RequestCancel()`; it never falls through to root Pause.
+`RequestCancel()` behavior is phase-aware:
 
-The final-close latch is separate from `_choicePending` because a choice result may transition to readable terminal feedback before the player dismisses the screen.
+- `AwaitingChoice`: emit `PuzzleRiddleClosed` once.
+- `Resolving`: ignore.
+- `Terminal`: emit `PuzzleRiddleClosed` once.
+
+`_closedEmitted` protects the final signal from repeated button/host Cancel delivery.
 
 ## Invalid presentation data
 
-Keep runtime validation presentation-local and minimal:
+Keep validation minimal:
 
-- `Game` retains its existing blank-`PuzzleId` / already-solved checks.
-- `PuzzleRiddleScreenController.TryOpenRiddle(...)` rejects a null riddle or a riddle whose `GetChoices()` is empty, because that surface would have no answer path.
-- Do not add a second validator for `CorrectChoiceId`; `PuzzleRiddleSpawn._GetConfigurationWarnings()` already reports authoring mistakes and `PuzzleTrapController` remains the runtime answer authority.
-- Scene load/instantiation failure, controller rejection, host rejection, and publication exceptions fail closed: log the failure, discard the candidate view, and end the world interaction if it was started.
-
-This avoids changing malformed-content domain semantics beyond preventing a UI soft-lock.
+- `Game` retains blank-`PuzzleId` and already-solved guards.
+- `TryOpenRiddle(...)` rejects null or `GetChoices().Count == 0`, because a screen with no answer path would soft-lock.
+- Do not duplicate `CorrectChoiceId` validation; `PuzzleRiddleSpawn._GetConfigurationWarnings()` already covers authoring mistakes and `PuzzleTrapController` remains runtime authority.
+- Scene load/instantiation failure, controller rejection, host rejection, stale post-open handle, and publication exception fail closed: log, discard/close the candidate, and clear `IsInWorldInteraction` if it was started.
 
 ## Responsive layout
 
-Follow the existing centred-shell controller pattern:
+Follow the centred-shell pattern:
 
 ```csharp
 private void RefreshLayout()
@@ -206,16 +270,23 @@ private void RefreshLayout()
     _shell.Compact = SiriusUiMetrics.IsCompact(size);
     _cancelHint.Compact = _shell.Compact;
     _shell.RefreshPresentation(size);
+
+    var minimumTarget = SiriusUiMetrics.MinimumTarget(_shell.Compact);
+    foreach (var child in _choicesContainer.GetChildren())
+    {
+        if (child is Button action)
+            action.CustomMinimumSize = new Vector2(0f, minimumTarget.Y);
+    }
 }
 ```
 
-The controller subscribes `Resized` in `_Ready()` and unsubscribes it in `_ExitTree()`.
+Subscribe `Resized` in `_Ready()` and unsubscribe in `_ExitTree()`.
 
-At 640×360, the shell fills the usable compact width with 12 px margins and caps body height so prompt/choices scroll internally while title/actions remain reachable. No new breakpoint or size token is introduced.
+At 640×360 the Medium shell uses compact margins and body height. Long prompt/choices scroll inside the shell while the action bar (`CancelHint` + `CancelButton`) stays fixed.
 
 ## Host integration
 
-Replace direct `GetNode("UI").AddChild(...)` presentation with one explicit `UIScreenEntrySpec`:
+Use one explicit `UIScreenEntrySpec`:
 
 ```csharp
 new UIScreenEntrySpec
@@ -241,52 +312,64 @@ new UIScreenEntrySpec
 }
 ```
 
-No parent handle or exclusive group is needed: a world riddle is a direct gameplay modal and `IsInWorldInteraction` already prevents a competing riddle/world interaction from starting.
+No parent handle or new exclusive group is needed. `IsInWorldInteraction` already prevents competing world interactions.
 
-### Keep lifecycle hardening local to Game
+### Keep host hardening local to Game
 
-Do not extract a new generic `Game.TryHostSurface` helper for one new consumer. The riddle open path should explicitly handle the protocol proven necessary by recent hosted surfaces:
+Do not extract `Game.TryHostSurface`. Inline the one riddle-specific host open:
 
-1. Require a live `_screenHost` before starting the interaction.
-2. Load/instantiate/configure the riddle screen and subscribe signals.
-3. Set `_activePuzzleRiddle`, call `StartWorldInteraction()`, and refresh the exploration prompt.
-4. Call `_screenHost.TryPresent(...)` inside `try/catch`.
-5. On rejected/no-handle result, unsubscribe/free the candidate and end the world interaction.
-6. On a thrown post-commit publication callback, unsubscribe/free the candidate, converge on idempotent world cleanup, then log/rethrow only if the surrounding Game path expects propagation; the player must never remain latched in world interaction.
-7. After `Opened`, call `_screenHost.IsActive(handle)` before retaining `_puzzleRiddleScreen` / `_puzzleRiddleHandle`, because a publication subscriber can synchronously close the entry.
-8. Retain screen + handle only when the handle is still active.
-
-This is intentionally explicit rather than another abstraction.
+1. Require a live `_screenHost` before starting the world interaction.
+2. Load/instantiate/configure the screen and subscribe signals.
+3. Set `_activePuzzleRiddle`, call `StartWorldInteraction()`, refresh the exploration prompt.
+4. Call `TryPresent(...)` inside `try/catch`.
+5. On rejected/no-handle result, unsubscribe/free the candidate and converge on world cleanup.
+6. On publication exception, converge on cleanup and log; this Game path does not need NpcInteractionController's `Finish()`/rethrow semantics.
+7. After `Opened`, recheck `_screenHost.IsActive(handle)` before retaining screen/handle because a publication subscriber can synchronously close the entry.
+8. Retain `_puzzleRiddleScreen` / `_puzzleRiddleHandle` only for an active handle.
 
 ## Cleanup convergence
 
-Replace `CleanupPuzzleRiddleDialog(...)` with hosted cleanup centered on the screen/handle pair.
+Replace `CleanupPuzzleRiddleDialog(...)` in the same Game cutover that replaces the old field.
 
-Host cleanup callback responsibilities:
+`ClearPuzzleRiddlePresentation(screen)`:
 
-- unsubscribe `ChoiceSelected` and `PuzzleRiddleClosed` from the concrete screen;
-- clear `_puzzleRiddleScreen` / `_puzzleRiddleHandle` when they refer to that screen;
-- clear `_activePuzzleRiddle`;
-- call `GameManager.EndWorldInteraction()` only when the flag is still active;
-- refresh the interaction prompt when the Game is still inside the tree.
+- unsubscribes `ChoiceSelected` / `PuzzleRiddleClosed`;
+- clears `_puzzleRiddleScreen` / `_puzzleRiddleHandle` when they refer to that screen;
+- clears `_activePuzzleRiddle`;
+- calls `EndWorldInteraction()` only when the flag is still active;
+- refreshes the exploration prompt only while Game is still inside the tree.
 
-All close paths use host `TryClose(...)` when an active handle exists. A stale handle clears local state through the same idempotent cleanup.
+`ClosePuzzleRiddlePresentation(reason)` uses host `TryClose(...)`; stale handle falls back through the same local idempotent clear.
 
-Terminal handlers catch/log a close-publication exception after host cleanup has already run; they must not skip world-interaction restoration because an `EffectiveStateChanged` subscriber threw.
+Terminal handlers catch/log close-publication exceptions after cleanup and must not leave world interaction latched.
 
-`Game._ExitTree()` closes the active riddle entry with `HostTeardown` when possible, then falls back to local idempotent cleanup. Raw node teardown therefore cannot leave `IsInWorldInteraction` latched.
+`Game._ExitTree()` closes the active hosted riddle with `HostTeardown` when possible, then falls back to idempotent local cleanup.
 
-Once the riddle is hosted, remove the old special case in `HandleGameplayRootCancel()` that checks `_puzzleRiddleDialog`. The host owns topmost Cancel. The existing bare `IsInWorldInteraction` fallback remains `Consumed` so a transient/failure window never opens Pause over a world interaction.
+Once hosted, remove the `_puzzleRiddleDialog` special case in `HandleGameplayRootCancel()`. Host Cancel owns the active riddle. The existing bare `IsInWorldInteraction` fallback remains `Consumed` so a failure window cannot open Pause on top of a world interaction.
+
+## Compile-complete migration boundary
+
+The `_puzzleRiddleDialog` field is referenced by both production and tests. The field/handle cutover must therefore be one compile-complete change, not split across tasks.
+
+When `Game` replaces `_puzzleRiddleDialog` with `_puzzleRiddleScreen` + `_puzzleRiddleHandle`, the same task retargets **all** old private-field/type lookups in:
+
+- `tests/game/GameTest.cs`
+- `tests/game/GameInputLifecycleTest.cs`
+
+and replaces all `CleanupPuzzleRiddleDialog(...)` calls in `Game` with hosted close/clear logic.
+
+The initial Game-host cutover preserves the current external success/wrong lifecycle so its focused tests can go green before the new acknowledgement behavior is enabled. It may resolve the answer, call `ShowTerminalFeedback(...)`, and immediately `RequestCancel()` for solved/wrong results. The following presentation task removes that immediate final close and retargets assertions to `Terminal -> dismiss`.
+
+This avoids a compile-broken intermediate commit and avoids rewriting the same field references twice.
 
 ## Legacy cleanup
 
-After hosted parity and lifecycle tests are green:
+After hosted behavior and lifecycle tests are green:
 
 - delete `scripts/ui/PuzzleRiddleDialog.cs`;
 - delete `tests/ui/PuzzleRiddleDialogTest.cs`;
-- remove `_puzzleRiddleDialog` and native-dialog references from `Game`;
-- remove riddle-specific reliance on `ui_close_dialog` from lifecycle tests while leaving Settings/native compatibility coverage untouched where still required;
-- update the HPA-376 `WORLD-RIDDLE` and `WORLD-CLEANUP` rows to describe the hosted route.
+- require zero active-source `_puzzleRiddleDialog` / `PuzzleRiddleDialog` references under `scripts`, `scenes`, and `tests`;
+- update HPA-376 `WORLD-RIDDLE` / `WORLD-CLEANUP` rows for the hosted route.
 
 No compatibility wrapper remains.
 
@@ -296,85 +379,86 @@ No compatibility wrapper remains.
 
 Cover:
 
-- scene loads as `PuzzleRiddleScreenController` and contains no `AcceptDialog`;
-- pre-ready `TryOpenRiddle(...)` renders after `_Ready()` and a second start is rejected;
-- blank `RiddleId` renders `Seal`;
-- authored Medium shell and visible Cancel action;
-- runtime choices use labels/ids from `GetChoices()` and first choice is the initial focus target;
-- no-choice input is rejected rather than presenting a stuck surface;
-- one choice emits once while `_choicePending` is set;
-- `RearmWithFeedback(...)` shows dormant feedback and permits exactly one new choice;
-- terminal feedback hides/disables answers, changes/focuses the action button, and does not emit another answer;
-- `RequestCancel()` / action button emit close exactly once;
-- 640×360 compact mode sets shell/hint compact and long prompt/choices remain reachable through the shell body scroll.
+- recursive `ContainsAcceptDialog(screen) == false`;
+- no `%SafeFrame`, and `%ModalShell.GetParent() == screen`;
+- Medium shell;
+- `%FeedbackLabel` starts hidden and uses `SiriusMetadata`;
+- pre-ready configuration and second-start rejection;
+- `RiddleId` fallback to `Seal`;
+- runtime answer text/ids;
+- runtime answer buttons use `SiriusSecondaryButton`, `WordSmart`, expand-fill, and `SiriusUiMetrics.MinimumTarget(...)` height;
+- first answer initial focus;
+- no-choice rejection;
+- one answer changes `AwaitingChoice -> Resolving` and emits once;
+- **answer then Cancel while Resolving emits only ChoiceSelected and no close** (replacement for `PuzzleRiddleDialogTest.ChoiceThenCancel_EmitsChoiceSelectedOnly`);
+- repeated answers while Resolving are ignored;
+- dormant feedback returns to `AwaitingChoice`, restores focus, and permits one fresh answer;
+- terminal feedback moves to `Terminal`, hides/disables answers, and focuses Close/Continue;
+- terminal Cancel/action closes once;
+- configured Cancel hint exists in fixed action chrome and reflects compact mode;
+- 640×360 long content remains reachable via shell body scroll with 40 px answer targets.
+
+Use the same recursive helper pattern already present in Healing/Shop tests:
+
+```csharp
+private static bool ContainsAcceptDialog(Node node)
+{
+    if (node is AcceptDialog)
+        return true;
+
+    foreach (Node child in node.GetChildren())
+    {
+        if (ContainsAcceptDialog(child))
+            return true;
+    }
+
+    return false;
+}
+```
+
+Do not use `FindChild("*") is AcceptDialog`; that only type-checks one found descendant.
 
 ### `GameTest`
 
-Retarget the existing real-domain puzzle tests rather than replacing their assertions with mocks:
+Retarget real fixtures, not mocks:
 
-- switch → correct riddle still marks solved, opens gate, disables trap, and shows success feedback before dismissal;
-- wrong answer still applies exactly `WrongAnswerDamage`, floors no lower than 1 HP, shows wrong feedback, and allows a fresh retry after dismissal;
-- dormant/unarmed answer keeps the same hosted entry active and shows the controller result message;
-- closing success/wrong/cancel clears `IsInWorldInteraction` once;
-- no-choice/controller-open failure does not leave world interaction active.
+- switch -> correct riddle still marks solved, opens gate, disables trap, and notifies once;
+- wrong answer still applies actual domain damage and floors no lower than 1 HP;
+- dormant answer keeps the same hosted entry/world interaction active;
+- after the presentation retarget, success/wrong keep the hosted entry/world interaction active until Continue/Close is dismissed;
+- wrong feedback prints **actual HP lost**;
+- after wrong-result dismissal, a fresh interaction can open the riddle again;
+- Cancel clears the hosted entry/world interaction once;
+- invalid/no-choice open never leaves world interaction latched.
 
 ### `GameInputLifecycleTest`
 
-Retarget configured Cancel to the hosted route:
+Retarget all old private-field/type lookups in the Game host cutover task. Preserve/extend:
 
-- configured keyboard Cancel closes only `UIScreenKinds.PuzzleRiddle`, restores gameplay, and does not open Pause;
-- configured controller Cancel does the same;
-- a bare world-interaction latch with no hosted surface is still consumed by the root fallback.
+- configured keyboard Cancel closes an `AwaitingChoice` hosted riddle and never opens Pause;
+- controller Cancel does the same;
+- answer then configured Cancel during `Resolving` does not close the riddle or clear world interaction before Game resolves it;
+- terminal Close/Continue ends only the riddle and restores gameplay/prompt;
+- bare `IsInWorldInteraction` with no active hosted entry remains consumed by the root fallback.
 
-### Host/teardown proof
+## Review-driven corrections
 
-Add focused coverage (in `GameTest` or the existing host lifecycle suite, whichever keeps the fixture smaller) proving:
+Validated against current `main`:
 
-- riddle uses Modal/Always/no-tree-pause/block-gameplay/hidden-HUD/visible-cursor/visible-inert policy;
-- scene/host teardown closes the riddle entry and clears world interaction;
-- a synchronously closed handle returned from `TryPresent` is not retained;
-- post-commit presentation/close publication failure cannot soft-lock world interaction.
+- **Accepted:** replace `_choicePending + _closedEmitted` resolution semantics with explicit `AwaitingChoice / Resolving / Terminal` phase plus one final-close latch.
+- **Accepted:** make the Game field/handle cutover compile-complete across `Game.cs`, `GameTest.cs`, and `GameInputLifecycleTest.cs`; do not defer old cleanup calls or field lookups.
+- **Accepted:** copy Dialogue's local runtime answer-button helper and apply `SiriusUiMetrics.MinimumTarget(...)` at layout refresh.
+- **Not accepted as proposed:** removing `%CancelHint`. HPA-373 §9.11 explicitly requires Puzzle's active-device cancel hint. Keep the existing component, but move it from scrollable body content to fixed `ActionsHost` chrome beside Cancel.
+- **Accepted:** use recursive `ContainsAcceptDialog`, plus no-SafeFrame/direct-shell-parent assertions.
+- **Accepted:** report actual HP lost after the 1-HP floor and use Healing-style hidden `SiriusMetadata` defaults for `%FeedbackLabel`.
 
-Do not add a broad new host test matrix.
+## Completion criteria
 
-## Verification
-
-Focused first:
-
-```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
-  --filter "FullyQualifiedName~PuzzleRiddleScreenControllerTest|FullyQualifiedName~PuzzleTrapControllerTest|FullyQualifiedName~GameTest|FullyQualifiedName~GameInputLifecycleTest"
-```
-
-Then full suite:
-
-```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo
-```
-
-Stale-path checks:
-
-```bash
-git grep -n "PuzzleRiddleDialog\|AcceptDialog" -- scripts tests scenes
-
-git grep -n "_puzzleRiddleDialog" -- scripts tests
-```
-
-The first command may still find unrelated native surfaces if any remain outside HPA-571; it must not find the retired riddle dialog/path.
-
-## Acceptance mapping
-
-| HPA-571 acceptance criterion | Design proof |
-|---|---|
-| No desktop-window framing | Scene-authored full-viewport `Control` + `SiriusModalShell`; native `AcceptDialog` deleted. |
-| Existing solutions, penalties, switch gates, persistence, retry unchanged | `PuzzleTrapController`/spawn/domain APIs untouched; Game keeps existing damage/gate methods; wrong-answer retry remains a fresh interaction after terminal dismissal. |
-| Long text usable at minimum viewport | Medium shell body owns compact scrolling at 640×360. |
-| Mouse, keyboard, gamepad focus usable | authored Cancel, first-choice initial focus, host-configured Cancel interception, focus transfer to terminal action. |
-| Every exit clears world interaction exactly once | host Cleanup + idempotent flag check is the convergence point for terminal, rejection, exception, stale handle, and teardown. |
-| Existing puzzle-domain tests green | domain controller remains unchanged; current real-domain Game tests are retargeted rather than discarded. |
-
-## Deferred work
-
-- HPA-573 owns generic reward feedback/queueing.
-- HPA-359 owns final cross-screen validation and release smoke coverage.
-- New puzzle families or a reusable puzzle abstraction wait for a second real puzzle consumer.
+- Puzzle/riddle no longer uses desktop-window framing.
+- Existing puzzle rules, damage, gates, persistence, and retry boundary are unchanged.
+- Choice/cancel mutual exclusion remains protected through the new resolving phase.
+- Long content remains usable at 640×360.
+- Keyboard/controller Cancel is host-owned and does not open Pause.
+- Every exit/failure/teardown path clears world interaction exactly once.
+- Native `PuzzleRiddleDialog` and its tests are deleted with zero active references.
+- Existing puzzle-domain tests remain green.

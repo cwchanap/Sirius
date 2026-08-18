@@ -80,10 +80,6 @@ public partial class ShopScreenController : Control
         if (_shop != null)
             RenderWithFocusRestore();
         RefreshLayout();
-        // Rows added during _Ready have not been laid out yet, so the
-        // synchronous refresh under-measures the shell body; re-measure once
-        // this frame's layout pass has settled.
-        Callable.From(RefreshLayout).CallDeferred();
     }
 
     public override void _ExitTree()

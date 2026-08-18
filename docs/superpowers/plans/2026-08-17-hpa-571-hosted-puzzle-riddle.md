@@ -653,11 +653,20 @@ Do not generalize this into a new Game host helper in HPA-571.
 
 ## 3.4 Root teardown intentionally ends the world latch
 
-- [ ] Open a hosted riddle, confirm `IsInWorldInteraction == true`, then exercise the real Game teardown path (`Free()` / scene teardown).
+- [ ] Use a real Game scene. Open a hosted riddle and confirm the latch is active, then invoke the production teardown method directly while the child `GameManager` is still valid:
 
-Because the GameManager child exits with the Game scene, record the state via a test seam/callback immediately before owner teardown completes or use a fixture manager whose `EndWorldInteraction()` call can be observed. Pin that HPA-571 now invokes world-interaction completion during riddle teardown instead of preserving the native `endWorldInteraction: false` behavior.
+```csharp
+InvokePrivate(game, "OpenPuzzleRiddle", riddle);
+AssertThat(gameManager.IsInWorldInteraction).IsTrue();
 
-Keep this test focused on riddle cleanup; do not add a general scene-lifecycle framework.
+game._ExitTree();
+
+AssertThat(gameManager.IsInWorldInteraction).IsFalse();
+AssertThat(GetPrivateField<PuzzleRiddleScreenController?>(game, "_puzzleRiddleScreen"))
+    .IsNull();
+```
+
+The fixture's normal cleanup may call `_ExitTree()` again when it frees the scene; the production cleanup must therefore remain idempotent. Do not introduce a test-only production seam for this assertion.
 
 ## 3.5 Controller/gamepad configured Cancel uses the same hosted close path
 

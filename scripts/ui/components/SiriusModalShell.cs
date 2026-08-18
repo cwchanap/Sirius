@@ -69,6 +69,12 @@ public partial class SiriusModalShell : Control
         BodyHost = GetNode<VBoxContainer>("%BodyHost");
         ActionsHost = GetNode<HBoxContainer>("%ActionsHost");
         RefreshPresentation(GetViewportRect().Size);
+        // The refresh above runs before the authored children's first layout
+        // pass settles, so it under-measures the body; re-measure deferred
+        // once this frame's layout has settled. Consumers mount the shell
+        // once; settling the first layout is the shell's own job, not a
+        // per-controller deferred refresh.
+        Callable.From(RefreshIfReady).CallDeferred();
     }
 
     public void RefreshPresentation(Vector2 availableSize)

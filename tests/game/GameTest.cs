@@ -1148,6 +1148,112 @@ public partial class GameTest : Node
         }
     }
 
+    // P1 regression: once the controller enters Resolving both choices and
+    // Cancel are ignored, so a resolution exception (or vanished active
+    // riddle) must close the hosted riddle and release the world latch —
+    // swallowing without closing would soft-lock the game.
+    [TestCase]
+    public async Task Game_RiddleResolutionFailure_ClosesHostedRiddleAndReleasesWorldLatch()
+    {
+        var game = await InstantiateRealGameScene();
+        GameManager? gameManager = null;
+        Character? player = null;
+        try
+        {
+            gameManager = game.GetNode<GameManager>("GameManager");
+            var host = game.GetNode<UIScreenHost>("UI/UIScreenHost");
+            const string puzzleId = "Puzzle_ResolutionFailureTest";
+            var riddle = CreateRuntimeRiddle(
+                "PuzzleRiddle_ResolutionFailureTest",
+                puzzleId,
+                new Vector2I(8, 51));
+
+            // Arm the switch so the wrong answer takes the penalty path.
+            GetPrivateField<PuzzleTrapController>(game, "_puzzleTrapController")!
+                .ActivateSwitch(puzzleId);
+
+            InvokePrivate(game, "OpenPuzzleRiddle", riddle);
+            await AwaitFrames(2);
+            AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsTrue();
+            AssertThat(gameManager.IsInWorldInteraction).IsTrue();
+
+            var screen = GetPrivateField<PuzzleRiddleScreenController?>(game, "_puzzleRiddleScreen");
+            AssertThat(screen).IsNotNull();
+
+            // Force the resolution body to throw after Resolving was entered:
+            // the penalty path dereferences GameManager.Player before applying
+            // damage, so a null player fails the handler mid-resolution.
+            player = gameManager.Player;
+            SetPrivateField(gameManager, "<Player>k__BackingField", null);
+
+            var northStoneButton = FindButtonWithText(screen!, "North Stone");
+            AssertThat(northStoneButton).IsNotNull();
+            northStoneButton!.EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+
+            AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
+            AssertThat(GetPrivateField<PuzzleRiddleScreenController?>(game, "_puzzleRiddleScreen"))
+                .IsNull();
+            AssertThat(GetPrivateField<UIScreenHandle?>(game, "_puzzleRiddleHandle")).IsNull();
+            AssertThat(gameManager.IsInWorldInteraction).IsFalse();
+        }
+        finally
+        {
+            if (gameManager != null && IsInstanceValid(gameManager) && player != null)
+            {
+                SetPrivateField(gameManager, "<Player>k__BackingField", player);
+            }
+
+            game.Free();
+            await AwaitFrames(1);
+        }
+    }
+
+    // P1 regression (guard path): a choice arriving after the active riddle
+    // state vanished must still close the hosted screen — an early return
+    // would leave Resolving hosted with the world latched.
+    [TestCase]
+    public async Task Game_RiddleChoiceWithoutActiveRiddle_ClosesHostedRiddleAndReleasesWorldLatch()
+    {
+        var game = await InstantiateRealGameScene();
+        try
+        {
+            var gameManager = game.GetNode<GameManager>("GameManager");
+            var host = game.GetNode<UIScreenHost>("UI/UIScreenHost");
+            var riddle = CreateRuntimeRiddle(
+                "PuzzleRiddle_MissingActiveRiddleTest",
+                "Puzzle_MissingActiveRiddleTest",
+                new Vector2I(8, 51));
+
+            InvokePrivate(game, "OpenPuzzleRiddle", riddle);
+            await AwaitFrames(2);
+            AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsTrue();
+            AssertThat(gameManager.IsInWorldInteraction).IsTrue();
+
+            var screen = GetPrivateField<PuzzleRiddleScreenController?>(game, "_puzzleRiddleScreen");
+            AssertThat(screen).IsNotNull();
+
+            // Simulate the active riddle vanishing while the screen stays
+            // hosted, then resolve a choice.
+            SetPrivateField(game, "_activePuzzleRiddle", null);
+
+            var northStoneButton = FindButtonWithText(screen!, "North Stone");
+            AssertThat(northStoneButton).IsNotNull();
+            northStoneButton!.EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+
+            AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
+            AssertThat(GetPrivateField<PuzzleRiddleScreenController?>(game, "_puzzleRiddleScreen"))
+                .IsNull();
+            AssertThat(gameManager.IsInWorldInteraction).IsFalse();
+        }
+        finally
+        {
+            game.Free();
+            await AwaitFrames(1);
+        }
+    }
+
     [TestCase]
     public async Task Game_PuzzlePromptUsesUseForSwitchAndSolveForRiddle()
     {

@@ -11,13 +11,10 @@ public partial class PuzzleRiddleScreenControllerTest : Node
     private const string ScenePath = "res://scenes/ui/PuzzleRiddleScreen.tscn";
 
     private SceneTree _sceneTree = null!;
-    private Variant _originalVerboseOrphans;
 
     [BeforeTest]
     public void Setup()
     {
-        _originalVerboseOrphans = ProjectSettings.GetSetting("gdunit4/report/verbose_orphans");
-        ProjectSettings.SetSetting("gdunit4/report/verbose_orphans", false);
         _sceneTree = (SceneTree)Engine.GetMainLoop();
     }
 
@@ -25,7 +22,6 @@ public partial class PuzzleRiddleScreenControllerTest : Node
     public async Task Cleanup()
     {
         await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
-        ProjectSettings.SetSetting("gdunit4/report/verbose_orphans", _originalVerboseOrphans);
     }
 
     // ---- Scene & configuration --------------------------------------------

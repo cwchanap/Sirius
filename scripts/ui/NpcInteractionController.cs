@@ -414,7 +414,13 @@ public class NpcInteractionController
         }
 
         var screen = healPacked.Instantiate<HealingScreenController>();
-        screen.TryOpenHeal(_npc, _player);
+        if (!screen.TryOpenHeal(_npc, _player))
+        {
+            GD.PushError($"[NpcInteractionController] Cannot open healing for NPC '{_npc.NpcId}' (invalid HealCost).");
+            screen.Free();
+            Finish();
+            return;
+        }
         screen.HealComplete += OnHealDone;
         screen.HealCancelled += OnHealDone;
 

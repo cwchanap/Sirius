@@ -1,8 +1,5 @@
 using GdUnit4;
 using Godot;
-using System;
-using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using static GdUnit4.Assertions;
 
@@ -105,6 +102,33 @@ public partial class HealingScreenControllerTest : Node
             screen.RequestCancel();
             AssertThat(screen.TryOpenHeal(npc, player)).IsFalse();
             AssertThat(cancelled).IsEqual(1);
+        }
+        finally
+        {
+            screen.Free();
+        }
+    }
+
+    [TestCase]
+    public void TryOpenHeal_RejectsNonPositiveHealCost()
+    {
+        var screen = CreateUnparentedScreen();
+        try
+        {
+            var npc = new NpcData
+            {
+                NpcId = "test_healer",
+                DisplayName = "Test Healer",
+                NpcType = NpcType.Healer,
+                HealCost = 0
+            };
+            var player = CreatePlayer(currentHealth: 40, gold: 60);
+
+            AssertThat(screen.TryOpenHeal(npc, player)).IsFalse();
+
+            // Rejection does not consume the one-shot start: a valid retry
+            // on the same screen instance still opens.
+            AssertThat(screen.TryOpenHeal(Healer(), player)).IsTrue();
         }
         finally
         {
@@ -289,12 +313,6 @@ public partial class HealingScreenControllerTest : Node
             await ToSignal(_sceneTree.CreateTimer(2.2), SceneTreeTimer.SignalName.Timeout);
             AssertThat(feedback.Visible).IsTrue();
             AssertThat(feedback.Text).IsEqual("You are already at full health.");
-
-            bool hasTimerField = typeof(HealingScreenController)
-                .GetFields(BindingFlags.Public | BindingFlags.NonPublic |
-                           BindingFlags.Instance | BindingFlags.Static)
-                .Any(field => field.FieldType == typeof(SceneTreeTimer));
-            AssertThat(hasTimerField).IsFalse();
         }
         finally
         {

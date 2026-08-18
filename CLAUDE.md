@@ -87,7 +87,7 @@ tests/             # GdUnit4 tests mirroring scripts/ structure
 ├── settings/      # SettingsDataTest.cs, SettingsManagerTest.cs
 ├── tilemap_json/  # FloorJsonModelTest.cs, TileConfigManagerTest.cs, TilemapJsonImporterTest.cs
 ├── tools/         # Python tests for tools/ scripts (run with pytest, NOT dotnet test)
-└── ui/            # BattleManagerTest.cs, ShopScreenControllerTest.cs, InventoryMenuControllerTest.cs
+└── ui/            # BattleManagerTest.cs, ShopScreenControllerTest.cs, HealingScreenControllerTest.cs, InventoryMenuControllerTest.cs
 
 assets/sprites/    # Sprite sheets and individual frames
 tools/             # Python utilities (see below)

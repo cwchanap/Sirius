@@ -37,9 +37,15 @@ public partial class HealingScreenController : Control
         if (_started)
             return false;
 
-        _started = true;
+        // Reject at the gate: a negative cost reaches TrySpendGold, which
+        // throws on negative amounts; zero is a misconfigured free heal.
         if (npc.HealCost <= 0)
-            GD.PushWarning($"[HealingScreen] NPC '{npc.NpcId}' has HealCost={npc.HealCost}. This allows free healing — check NpcCatalog.");
+        {
+            GD.PushError($"[HealingScreen] NPC '{npc.NpcId}' has HealCost={npc.HealCost}. Refusing to open — check NpcCatalog.");
+            return false;
+        }
+
+        _started = true;
         _npc = npc;
         _player = player;
 

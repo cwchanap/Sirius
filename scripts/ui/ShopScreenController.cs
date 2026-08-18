@@ -15,6 +15,9 @@ public partial class ShopScreenController : Control
 
     private const float FeedbackSeconds = 2.0f;
     private const string RowItemIdMeta = "ItemId";
+    // Must match the Sell tab node name in ShopScreen.tscn (TabContainer
+    // child "Sell"); ActiveList keys off this name.
+    private const string SellTabName = "Sell";
 
     public Control? InitialFocusTarget { get; private set; }
 
@@ -397,7 +400,7 @@ public partial class ShopScreenController : Control
     }
 
     private VBoxContainer ActiveList(int activeTab) =>
-        _shopTabs.GetTabControl(activeTab)?.Name == "Sell" ? _sellList : _buyList;
+        _shopTabs.GetTabControl(activeTab)?.Name == SellTabName ? _sellList : _buyList;
 
     // Equivalent to InventoryMenuController's focusability guard, plus a
     // queued-subtree skip: rebuilds QueueFree stale rows, and children of a

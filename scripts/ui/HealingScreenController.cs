@@ -90,6 +90,11 @@ public partial class HealingScreenController : Control
     // is the one-shot duplicate guard — there is no operation-in-flight flag.
     private void OnHealPressed()
     {
+        // Unconfigured activation (TryOpenHeal never ran) must not consume
+        // the terminal latch — bail before any mutation.
+        if (_player == null || _npc == null)
+            return;
+
         if (_terminalEmitted)
             return;
 

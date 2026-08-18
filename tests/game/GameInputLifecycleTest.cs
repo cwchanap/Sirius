@@ -448,6 +448,40 @@ public partial class GameInputLifecycleTest : Node
     }
 
     [TestCase]
+    public async Task ConfiguredControllerCancel_ClosesHostedShopThroughRealRoute()
+    {
+        var controllerBinding = new InputEventJoypadButton
+        {
+            ButtonIndex = (JoyButton)10
+        };
+        ConfigureCancelBindings(Key.P, controllerBinding);
+        _realGame = await InstantiateGameScene(_viewport!);
+        var gameManager = _realGame.GetNode<GameManager>("GameManager");
+        var host = _realGame.GetNode<UIScreenHost>("UI/UIScreenHost");
+        var internalPosition = TestHelpers.FindNpcInternalPosition(_realGame, "village_shopkeeper");
+
+        InvokePrivate(_realGame, "OnNpcInteracted", internalPosition);
+        await AwaitFrames(2);
+
+        var dialogue = FindDirectChild<DialogueScreenController>(
+            host.GetNode<Control>("ModalLayer"));
+        TestHelpers.FindButton(dialogue, "Browse your wares.")
+            .EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Dialogue)).IsFalse();
+        AssertThat(host.ActiveEntries.Single(e => e.Policy.Kind == UIScreenKinds.Shop))
+            .IsNotNull();
+
+        PushPhysicalJoypadButtonPressAndRelease((JoyButton)10);
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Shop)).IsFalse();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        AssertThat(gameManager.IsInNpcInteraction).IsFalse();
+    }
+
+    [TestCase]
     public async Task ConfiguredKeyboardCancel_ClosesHostedHealingThroughRealRoute()
     {
         ConfigureCancelBindings(Key.P);

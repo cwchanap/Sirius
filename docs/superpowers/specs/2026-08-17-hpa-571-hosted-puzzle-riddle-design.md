@@ -405,6 +405,13 @@ No compatibility wrapper remains.
 - **Presentation failure leaves gameplay blocked:** every rejection/throw/stale/teardown path converges on idempotent world cleanup.
 - **Host abstraction grows for one consumer:** keep Game-specific protocol inline until a second Game consumer proves extraction.
 
+## Review disposition
+
+The second follow-up review was checked against current `main`:
+
+- **Accepted:** merge the old Tasks 2+3 into one final-UX Game cutover; add `TestHelpers.ContainsAcceptDialog`; name the `_ExitTree` world-latch completion as an intentional cleanup normalization; remove the unreachable mid-synchronous-resolve integration test; add compact prompt/feedback theme variations.
+- **Not adopted:** moving `NpcInteractionController.TryHostSurface` into a cross-class helper or creating a one-call-site private `Game.TryHostSurface`. The existing helper has NPC `_finished` semantics beyond the Game requirement, so HPA-571 keeps only the proven Game-shaped subset inline.
+
 ## Follow-up ownership
 
 - HPA-573 owns generic reward feedback/queueing.

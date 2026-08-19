@@ -188,7 +188,7 @@ public partial class UIScreenStackModelTest : Node
     public void InputOrder_UsesPriorityBeforePresentationSequence()
     {
         var model = new UIScreenStackModel();
-        model.Open(UIScreenHostTestSupport.Policy(UIScreenKinds.RewardToast) with
+        model.Open(UIScreenHostTestSupport.Policy(UIScreenHostTestSupport.ToastFixture) with
         {
             InputPriority = UIInputPriority.Passive
         });
@@ -280,7 +280,7 @@ public partial class UIScreenStackModelTest : Node
     [TestCase]
     public void Normalize_PassiveBlockingPolicy_IsRejected()
     {
-        var spec = UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+        var spec = UIScreenHostTestSupport.Spec(UIScreenHostTestSupport.ToastFixture) with
         {
             InputPriority = UIInputPriority.Passive,
             BlockGameplayInput = true
@@ -344,7 +344,7 @@ public partial class UIScreenStackModelTest : Node
     [TestCase]
     public void Normalize_PassivePauseTreePolicy_IsRejected()
     {
-        var spec = UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+        var spec = UIScreenHostTestSupport.Spec(UIScreenHostTestSupport.ToastFixture) with
         {
             InputPriority = UIInputPriority.Passive,
             PauseTree = true
@@ -356,7 +356,7 @@ public partial class UIScreenStackModelTest : Node
     [TestCase]
     public void Normalize_PassiveCancelPolicy_IsRejected()
     {
-        var spec = UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+        var spec = UIScreenHostTestSupport.Spec(UIScreenHostTestSupport.ToastFixture) with
         {
             InputPriority = UIInputPriority.Passive,
             Cancel = UICancelPolicy.Close
@@ -368,7 +368,7 @@ public partial class UIScreenStackModelTest : Node
     [TestCase]
     public void Normalize_PassiveEntryCancelActions_AreRejected()
     {
-        var spec = UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+        var spec = UIScreenHostTestSupport.Spec(UIScreenHostTestSupport.ToastFixture) with
         {
             InputPriority = UIInputPriority.Passive,
             EntryCancelActions = new HashSet<StringName> { "toggle_inventory" }
@@ -380,7 +380,7 @@ public partial class UIScreenStackModelTest : Node
     [TestCase]
     public void Normalize_PassiveLowerLayerEffects_AreRejected()
     {
-        var spec = UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+        var spec = UIScreenHostTestSupport.Spec(UIScreenHostTestSupport.ToastFixture) with
         {
             InputPriority = UIInputPriority.Passive,
             LowerLayers = UILowerLayerPolicy.VisibleInert
@@ -392,7 +392,7 @@ public partial class UIScreenStackModelTest : Node
     [TestCase]
     public void Normalize_PassiveInitialFocus_IsRejected()
     {
-        var spec = UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+        var spec = UIScreenHostTestSupport.Spec(UIScreenHostTestSupport.ToastFixture) with
         {
             InputPriority = UIInputPriority.Passive,
             InitialFocus = () => null
@@ -404,7 +404,7 @@ public partial class UIScreenStackModelTest : Node
     [TestCase]
     public void Normalize_PassiveRestoreFocus_IsRejected()
     {
-        var spec = UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+        var spec = UIScreenHostTestSupport.Spec(UIScreenHostTestSupport.ToastFixture) with
         {
             InputPriority = UIInputPriority.Passive,
             RestoreFocus = () => null

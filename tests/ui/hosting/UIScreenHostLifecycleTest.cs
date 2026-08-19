@@ -3573,7 +3573,7 @@ public partial class UIScreenHostLifecycleTest : Node
                             openToastOnNextFocusViewport = false;
                             toastResult = fixture.Host.TryPresent(
                                 toastView,
-                                UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+                                UIScreenHostTestSupport.Spec(UIScreenHostTestSupport.ToastFixture) with
                                 {
                                     Layer = UIScreenLayer.Toast,
                                     InputPriority = UIInputPriority.Passive
@@ -4155,7 +4155,7 @@ public partial class UIScreenHostLifecycleTest : Node
             // state, so its own open publishes nothing.
             var toast = fixture.Host.TryPresent(
                 toastView,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+                UIScreenHostTestSupport.Spec(UIScreenHostTestSupport.ToastFixture) with
                 {
                     Layer = UIScreenLayer.Toast,
                     InputPriority = UIInputPriority.Passive

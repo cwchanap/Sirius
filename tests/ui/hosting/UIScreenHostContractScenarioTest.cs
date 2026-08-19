@@ -189,7 +189,7 @@ public partial class UIScreenHostContractScenarioTest : Node
     }
 
     [TestCase]
-    public async Task RewardToast_IsPassiveAndNeverBecomesInputOwner()
+    public async Task ToastLayerPassiveEntry_IsPassiveAndNeverBecomesInputOwner()
     {
         var fixture = await UIScreenHostTestSupport.CreateHost(this);
         var modalView = fixture.Track(new Control { Visible = true });
@@ -209,7 +209,7 @@ public partial class UIScreenHostContractScenarioTest : Node
 
             var toast = Open(fixture.Host.TryPresent(
                 toastView,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+                UIScreenHostTestSupport.Spec(UIScreenHostTestSupport.ToastFixture) with
                 {
                     Layer = UIScreenLayer.Toast,
                     InputPriority = UIInputPriority.Passive
@@ -251,7 +251,7 @@ public partial class UIScreenHostContractScenarioTest : Node
             };
             acknowledgement = Open(fixture.Host.TryPresent(
                 acknowledgementView,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.RewardAcknowledgement) with
+                UIScreenHostTestSupport.Spec(UIScreenHostTestSupport.AcknowledgementFixture) with
                 {
                     Layer = UIScreenLayer.Modal,
                     InputPriority = UIInputPriority.Blocking,

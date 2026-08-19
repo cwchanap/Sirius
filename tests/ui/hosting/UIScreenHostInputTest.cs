@@ -310,7 +310,7 @@ public partial class UIScreenHostInputTest : Node
         {
             var result = fixture.Host.TryPresent(
                 view,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+                UIScreenHostTestSupport.Spec(UIScreenHostTestSupport.ToastFixture) with
                 {
                     InputPriority = UIInputPriority.Passive,
                     InterceptCancel = _ => UIInputInterception.ConsumeHere

@@ -11,8 +11,6 @@ public static class UIScreenKinds
     public static readonly StringName Heal = "heal";
     public static readonly StringName PuzzleRiddle = "puzzle_riddle";
     public static readonly StringName Battle = "battle";
-    public static readonly StringName RewardToast = "reward_toast";
-    public static readonly StringName RewardAcknowledgement = "reward_acknowledgement";
     public static readonly StringName Transition = "transition";
     public static readonly StringName Prompt = "prompt";
 }

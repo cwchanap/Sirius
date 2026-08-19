@@ -26,8 +26,8 @@ public partial class UIScreenPolicyResolverTest : Node
             },
             2);
         var toast = UIScreenHostTestSupport.Snapshot(
-            new UIScreenHandle(3, UIScreenKinds.RewardToast),
-            UIScreenHostTestSupport.Policy(UIScreenKinds.RewardToast) with
+            new UIScreenHandle(3, UIScreenHostTestSupport.ToastFixture),
+            UIScreenHostTestSupport.Policy(UIScreenHostTestSupport.ToastFixture) with
             {
                 InputPriority = UIInputPriority.Passive
             },
@@ -79,7 +79,7 @@ public partial class UIScreenPolicyResolverTest : Node
             Parent = pause,
             Layer = UIScreenLayer.Hud
         }).Handle!.Value;
-        model.Open(UIScreenHostTestSupport.Policy(UIScreenKinds.RewardToast) with
+        model.Open(UIScreenHostTestSupport.Policy(UIScreenHostTestSupport.ToastFixture) with
         {
             InputPriority = UIInputPriority.Passive
         });

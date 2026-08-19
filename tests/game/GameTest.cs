@@ -1078,6 +1078,8 @@ public partial class GameTest : Node
             .IsNull();
         AssertThat(GetPrivateField<UIScreenHandle?>(_game, "_puzzleRiddleHandle"))
             .IsNull();
+        AssertThat(GetPrivateField<PuzzleRiddleSpawn?>(_game, "_activePuzzleRiddle"))
+            .IsNull();
         AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
     }
 
@@ -1113,6 +1115,44 @@ public partial class GameTest : Node
 
         AssertThat(_gameManager!.IsInWorldInteraction).IsFalse();
         AssertThat(GetPrivateField<PuzzleRiddleScreenController?>(_game, "_puzzleRiddleScreen"))
+            .IsNull();
+        AssertThat(GetPrivateField<PuzzleRiddleSpawn?>(_game, "_activePuzzleRiddle"))
+            .IsNull();
+        AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
+    }
+
+    // When TryPresent returns a non-Opened status (host rejecting the
+    // candidate), the not-opened path must clear _activePuzzleRiddle so the
+    // rejected riddle reference does not strand. Marking the host as tearing
+    // down makes TryPresent return MalformedHost without requiring a duplicate
+    // kind or conflicting exclusive group.
+    [TestCase]
+    public async Task Game_OpenPuzzleRiddle_HostRejectsPresentation_ClearsActiveRiddle()
+    {
+        await ReplaceWithHostedFixture();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+        SetPrivateField(_game, "_puzzleTrapController", new PuzzleTrapController(_gameManager!));
+        var riddle = CreateRuntimeRiddle(
+            "PuzzleRiddle_HostRejectTest",
+            "Puzzle_HostRejectTest",
+            new Vector2I(8, 51));
+
+        SetPrivateField(host, "_tearingDown", true);
+        try
+        {
+            InvokePrivate(_game, "OpenPuzzleRiddle", riddle);
+        }
+        finally
+        {
+            SetPrivateField(host, "_tearingDown", false);
+        }
+
+        AssertThat(_gameManager!.IsInWorldInteraction).IsFalse();
+        AssertThat(GetPrivateField<PuzzleRiddleScreenController?>(_game, "_puzzleRiddleScreen"))
+            .IsNull();
+        AssertThat(GetPrivateField<UIScreenHandle?>(_game, "_puzzleRiddleHandle"))
+            .IsNull();
+        AssertThat(GetPrivateField<PuzzleRiddleSpawn?>(_game, "_activePuzzleRiddle"))
             .IsNull();
         AssertThat(host.IsKindActive(UIScreenKinds.PuzzleRiddle)).IsFalse();
     }

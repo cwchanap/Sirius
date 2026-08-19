@@ -1158,8 +1158,9 @@ public partial class GameTest : Node
     }
 
     // Root teardown must end an active riddle world-interaction before the
-    // owner exits. The fixture's Free() invokes _ExitTree() again, so the
-    // production cleanup has to stay idempotent.
+    // owner exits. Drive a real tree exit by removing game from its parent so
+    // Godot's child-first _exit_tree cascade (UIScreenHost and other children
+    // exit before Game._ExitTree runs) exercises the production teardown path.
     [TestCase]
     public async Task Game_RootTeardown_EndsHostedRiddleWorldLatch()
     {
@@ -1175,7 +1176,7 @@ public partial class GameTest : Node
             InvokePrivate(game, "OpenPuzzleRiddle", riddle);
             AssertThat(gameManager.IsInWorldInteraction).IsTrue();
 
-            game._ExitTree();
+            game.GetParent().RemoveChild(game);
 
             AssertThat(gameManager.IsInWorldInteraction).IsFalse();
             AssertThat(GetPrivateField<PuzzleRiddleScreenController?>(game, "_puzzleRiddleScreen"))
@@ -1183,7 +1184,8 @@ public partial class GameTest : Node
         }
         finally
         {
-            game.Free();
+            if (IsInstanceValid(game))
+                game.Free();
             await AwaitFrames(1);
         }
     }

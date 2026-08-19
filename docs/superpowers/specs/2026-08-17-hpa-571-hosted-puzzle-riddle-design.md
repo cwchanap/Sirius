@@ -1,7 +1,7 @@
 # HPA-571 Hosted Puzzle and Riddle Design
 
 **Issue:** HPA-571  
-**Status:** Proposed  
+**Status:** Implemented  
 **Date:** 2026-08-17
 
 ## Context

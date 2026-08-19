@@ -30,7 +30,10 @@ public partial class ExplorationHudControllerTest : Node
         "%PromptConnector",
         "%TransientPlate",
         "%TransientLabel",
-        "%TransientTimer"
+        "%TransientTimer",
+        "%RewardToastSlot",
+        "%RewardToast",
+        "%RewardToastTimer"
     };
 
     private SceneTree _sceneTree = null!;
@@ -143,6 +146,41 @@ public partial class ExplorationHudControllerTest : Node
     }
 
     [TestCase]
+    public async Task RewardToastQueue_IsPassiveSequentialAndClearable()
+    {
+        var hud = await InstantiateHud(new Vector2I(1280, 720));
+        var toast = hud.GetNode<SiriusToastShell>("%RewardToast");
+        var timer = hud.GetNode<Timer>("%RewardToastTimer");
+
+        AssertThat(toast.Visible).IsFalse();
+        AssertThat(timer.OneShot).IsTrue();
+        AssertThat(timer.WaitTime).IsEqual(2.0d);
+        AssertThat(timer.ProcessMode).IsEqual(Node.ProcessModeEnum.Always);
+
+        hud.EnqueueRewardToast("First", "25 Gold", SiriusUiSeverity.Success);
+        hud.EnqueueRewardToast("Second", "Health Potion ×1", SiriusUiSeverity.Success);
+
+        AssertThat(toast.Visible).IsTrue();
+        AssertThat(toast.Title).IsEqual("First");
+        AssertThat(toast.Message).IsEqual("25 Gold");
+
+        timer.EmitSignal(Timer.SignalName.Timeout);
+        AssertThat(toast.Visible).IsTrue();
+        AssertThat(toast.Title).IsEqual("Second");
+        AssertThat(toast.Message).IsEqual("Health Potion ×1");
+
+        hud.ClearRewardFeedback();
+        AssertThat(toast.Visible).IsFalse();
+        AssertThat(timer.IsStopped()).IsTrue();
+
+        // The queued request was cleared, so another timeout cannot resurrect it.
+        timer.EmitSignal(Timer.SignalName.Timeout);
+        AssertThat(toast.Visible).IsFalse();
+
+        AssertPassive(hud);
+    }
+
+    [TestCase]
     public async Task PromptUsesInteractActionAndHudRemainsPassive()
     {
         var hud = await InstantiateHud(new Vector2I(1280, 720));
@@ -171,6 +209,10 @@ public partial class ExplorationHudControllerTest : Node
                 "Aster", 7, 73, 120, 21, 50, 340, 500));
             hud.ShowInteractionPrompt("Talk", UiIconId.Dialogue);
             hud.ShowAreaTitle("Ground Floor");
+            hud.EnqueueRewardToast(
+                "Treasure Acquired",
+                "Health Potion ×2",
+                SiriusUiSeverity.Success);
             await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
 
             var safeFrame = hud.GetNode<Control>("%SafeFrame");
@@ -178,8 +220,9 @@ public partial class ExplorationHudControllerTest : Node
             var hero = hud.GetNode<PanelContainer>("%HeroPlate");
             var prompt = hud.GetNode<PanelContainer>("%PromptPlate");
             var transient = hud.GetNode<PanelContainer>("%TransientPlate");
+            var rewardToast = hud.GetNode<SiriusToastShell>("%RewardToast");
 
-            foreach (var surface in new Control[] { hero, prompt, transient })
+            foreach (var surface in new Control[] { hero, prompt, transient, rewardToast })
             {
                 var rect = surface.GetGlobalRect();
                 AssertThat(rect.Size.X).IsGreater(0f);
@@ -200,6 +243,26 @@ public partial class ExplorationHudControllerTest : Node
                 AssertThat(hero.GetGlobalRect().Intersects(prompt.GetGlobalRect())).IsFalse();
                 AssertThat(hero.GetGlobalRect().Intersects(transient.GetGlobalRect())).IsFalse();
                 AssertThat(prompt.GetGlobalRect().Intersects(transient.GetGlobalRect())).IsFalse();
+                AssertThat(rewardToast.GetGlobalRect().Intersects(hero.GetGlobalRect())).IsFalse();
+                AssertThat(rewardToast.GetGlobalRect().Intersects(prompt.GetGlobalRect())).IsFalse();
+                AssertThat(rewardToast.GetGlobalRect().Intersects(transient.GetGlobalRect())).IsFalse();
+                AssertThat(rewardToast.Compact).IsTrue();
+                AssertThat(hud.GetNode<VBoxContainer>("%RewardToastSlot").Size.X).IsEqual(280f);
+            }
+
+            if (!compact && size == new Vector2I(1280, 720))
+            {
+                AssertThat(rewardToast.Compact).IsFalse();
+                AssertThat(hud.GetNode<VBoxContainer>("%RewardToastSlot").Size.X).IsEqual(360f);
+            }
+
+            if (size == new Vector2I(2560, 1080))
+            {
+                AssertThat(safeRect.Position.X).IsEqual(480f);
+                AssertThat(safeRect.End.X).IsEqual(2080f);
+                AssertThat(rewardToast.GetGlobalRect().End.X).IsEqual(safeRect.End.X);
+                AssertThat(rewardToast.Compact).IsFalse();
+                AssertThat(hud.GetNode<VBoxContainer>("%RewardToastSlot").Size.X).IsEqual(360f);
             }
         }
     }

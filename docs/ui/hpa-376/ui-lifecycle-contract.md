@@ -116,8 +116,8 @@ replacement.
 - HPA-571 lifecycle-doc reconciliation (Task 4): the native riddle dialog and its dedicated dialog test were deleted with no alias, wrapper, or compatibility path. The stale-reference audit over `scripts scenes tests docs/ui/hpa-376` returns zero active references; the only remaining textual mentions are this section's historical HPA-376 run logs and the `WORLD-CLEANUP` teardown record that names the retired native cleanup entry point by requirement. The HPA-571 abstraction audit (`Puzzle.*Presenter|Puzzle.*ViewModel|GameTryHostSurface|HostLifecycleHelper` over `scripts tests`) returned no matches. Verification: `dotnet build` 0 errors; focused suites (`PuzzleRiddleScreenControllerTest|PuzzleTrapControllerTest|GameTest|GameInputLifecycleTest`) 72/72 passed; full suite 1479/1479 passed with zero failures; `git diff --check` clean.
 - `/tmp/hpa-376-test-baseline.log` and `/tmp/hpa-376-final-review-fix-2.log` are uncommitted local evidence inputs. The completed full-suite TRX is the ignored local artifact `.superpowers/sdd/2026-07-26-sirius-ui-lifecycle-baseline/artifacts/final-review-fix-2-full.trx`; none of these evidence files is branch content. The final-review-fix-3 full-suite count (916) is reported in the PR #18 body; no separate TRX artifact was produced for that run.
 
-## HPA-378/379 handoff
+## HPA-378/379 handoff and production reward ownership
 
 - SAVE-QUIT-TO-MAIN -> HPA-378/379: decide any Save/Load-specific confirmation while retaining hosted-child teardown, the active Pause lease, safe focus, and explicit navigation
-- REWARD-TOAST -> HPA-378/379 plus downstream reward screen: non-blocking, HUD retained, cursor unchanged, no Cancel owner
-- REWARD-BLOCKING -> HPA-378/379 plus HPA-393 handoff: parent inert, cursor visible, Continue focus, required acknowledgement ignores Cancel
+- REWARD-TOAST -> HPA-573 production treasure feedback: `ExplorationHudController` owns the HUD-local passive FIFO under `SafeFrame`; Game maps the resolved producer payload; no `UIScreenHost` entry
+- REWARD-BLOCKING -> HPA-356 Battle Result: `BattleManager` owns `EndBattle + _resultEmitted`, `BattleResultSummary`/`RenderResult`, and the existing Continue acknowledgement; no shared reward modal

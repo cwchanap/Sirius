@@ -1,7 +1,7 @@
 # HPA-573 Simple Reward Feedback Design
 
-**Issue:** HPA-573  
-**Status:** Draft — revised after reuse review  
+**Issue:** HPA-573
+**Status:** Draft — revised after reuse review
 **Date:** 2026-08-19
 
 ## Context

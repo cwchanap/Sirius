@@ -2,50 +2,72 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add non-blocking sequential treasure reward toasts while retaining Battle's existing blocking Result phase and proving presentation never grants rewards.
+**Goal:** Add deterministic non-blocking treasure reward toasts through the existing Exploration HUD while retaining Battle's existing blocking Result phase and proving both reward paths cannot re-grant from presentation/re-entry.
 
-**Architecture:** Keep reward mutation in existing producers. `Game` captures `TreasureRewardGrantResult`, maps it into a private FIFO of title/message/severity requests, and drives one authored `SiriusToastShell` with one one-shot Timer. Battle stays production-unchanged because its existing Result phase already renders `BattleResultSummary` and requires Continue. No reward service, global queue, new host kind, persistence, identity, retry, or second battle modal.
+**Architecture:** Keep reward mutation in existing producers. `Game` captures `TreasureRewardGrantResult` and maps its already-resolved values to primitive toast copy; `ExplorationHudController` owns the FIFO, authored `SiriusToastShell`, timer, safe-frame placement, passivation, compact propagation, and teardown because it already owns those exploration-HUD mechanisms. Battle remains production-unchanged; its existing `_resultEmitted` latch and Result phase are characterized directly. Do not route production treasure feedback through `UIScreenHost`; remove the now-unused reward-specific host kinds while preserving generic Toast-layer fixture coverage.
 
-**Tech Stack:** Godot 4.6.2, C#/.NET 8, GdUnit4, Sirius Theme, `SiriusToastShell`, `SiriusUiMetrics`; existing `UIScreenHost` remains unrelated to production toast ownership.
+**Tech Stack:** Godot 4.6.2, C#/.NET 8, GdUnit4, Sirius Theme, `SiriusToastShell`, `SiriusUiMetrics`, existing `ExplorationHudController`, existing `UIScreenHost` generic layer contracts.
 
 **Spec:** `docs/superpowers/specs/2026-08-18-hpa-573-reward-feedback-design.md`
 
 ## Global Constraints
 
 - Deliver HPA-573 in **one implementation PR**. Tasks below are review/commit boundaries inside that PR, not separate PRs.
-- `TreasureReward.GrantTo(...)`, `TreasureBoxSpawn.GrantRewardTo(...)`, battle reward calculation, save state, and inventory/experience mutation remain domain-owned.
-- Presentation never calls `GrantTo`, `GainGold`, `TryAddItem`, experience/level mutation, save/load, or navigation APIs.
-- Keep `BattleManager`'s current Result phase as the important/required reward acknowledgement path; do not add a post-battle toast or shared reward modal.
-- Add no `RewardManager`, notification singleton, event bus, presenter/view-model, public reward DTO, new `UIScreenKind`, exclusive group, or host policy.
-- Treasure toasts are root-local FIFO presentation only and are discarded on navigation/root teardown.
+- `TreasureReward.GrantTo(...)`, `TreasureBoxSpawn.GrantRewardTo(...)`, `BattleManager.EndBattle(...)`, save state, inventory mutation, XP/level mutation, and loot award remain domain-owned.
+- Presentation never calls `GrantTo`, `GainGold`, `TryAddItem`, `GainExperience`, `AwardLootToCharacter`, save/load, or navigation APIs.
+- Keep `BattleManager`'s current Result phase as the required battle acknowledgement path; no post-battle toast or shared reward modal.
+- Add no `RewardManager`, notification singleton, event bus, presenter/view-model, public reward DTO, global queue, persistence, stable event identity, retry, or acknowledgement protocol.
+- `Game` maps treasure results only. It does **not** own a toast node, queue, timer, resize subscription, or reward-specific `_ExitTree` unsubscribe.
+- `ExplorationHudController` owns the root-local treasure toast FIFO because it already owns SafeFrame, compact layout, recursive passivation, timed transient feedback, viewport resize, and HUD teardown.
+- Keep the reward toast under `ExplorationHud/%SafeFrame`; it must hide automatically whenever the existing `GameUI` HUD root is hidden.
+- Reward and area/session transient feedback are separate lanes and may coexist. At 640×360 they must not overlap.
 - One authored `SiriusToastShell` is reused sequentially; do not stack simultaneous reward nodes.
-- Toasts have no focus, Cancel handling, tree pause, gameplay block, or mouse interception.
-- Keep the toast under `UI/GameUI`; do not route it through `UIScreenLayer.Toast`. Existing host HUD policy should hide exploration feedback when the whole `GameUI` HUD is hidden.
-- Use `SiriusUiMetrics.SafeFrameInsets(...)` for 24 px standard / 12 px compact placement and ultrawide `SideInset`.
-- Use 360 px standard / 280 px compact toast width as local Game layout constants; do not add a shared metric for one consumer and do not reuse `TooltipMaximum` just because the values match.
-- Duration is 2.0 seconds. The one-shot Timer uses `ProcessMode = Always` so a hidden/paused toast cannot freeze and later reappear stale.
-- Within one treasure result: gold first, then inventory-added items sorted by item ID ordinal, then Recovery Chest overflow sorted ordinal, then unrecovered overflow sorted ordinal.
-- Resolve names through `ItemCatalog.CreateItemById(id)?.DisplayName`; do not introduce a second item registry.
-- Do not surface `SkippedItemIds` as raw player-facing IDs.
-- Do not add item-art support to `SiriusToastShell` in HPA-573.
-- Reconcile the HPA-376 treasure/reward rows and the stale HPA-377 documentation that still assigns toast/reward queue ownership to canceled HPA-386.
-- HPA-573 becomes the production treasure-toast owner. Existing `UIScreenKinds.RewardToast` remains a host-test fixture; do **not** delete or repurpose it for runtime treasure feedback.
+- Reward toasts have no focus, Cancel handling, tree pause, gameplay block, cursor policy, or mouse interception.
+- Standard toast width is 360 px; compact width is 280 px. These remain HUD-local values; do not add a shared metric or alias `TooltipMaximum`.
+- Reward toast duration is exactly 2.0 seconds. `%RewardToastTimer` is one-shot and `ProcessMode = Always`.
+- Within one treasure result: gold first, then granted items sorted ordinal by item ID, then recovered items sorted ordinal, then unrecovered items sorted ordinal.
+- Resolve display names through `ItemCatalog.CreateItemById`; if a defensive result contains an unknown ID, emit `GD.PushWarning` before falling back to the ID.
+- Do not surface `SkippedItemIds` or raw domain `Errors` as reward copy.
+- Do not add item-art support to `SiriusToastShell`.
+- Do not modify `SiriusToastShell.tscn` for passivation; existing `ExplorationHudController.MakePassive(this)` applies both mouse-ignore and no-focus recursively after the toast subtree is instanced.
+- Generic `UIScreenLayer.Toast` remains. Remove only unused reward-specific `UIScreenKinds.RewardToast` and `UIScreenKinds.RewardAcknowledgement`, and retarget host tests to test-only fixture kinds.
 
 ---
 
 ## File Structure
 
-### Modify
+### Task 1 — Exploration HUD owner
 
-- `scenes/ui/components/SiriusToastShell.tscn` — make the reusable toast leaf explicitly mouse-transparent.
-- `tests/ui/components/SiriusToastShellTest.cs` — pin the non-interactive component contract.
-- `scenes/game/Game.tscn` — author `%RewardToastMargin`, `%RewardToastColumn`, hidden `%RewardToast`, and `%RewardToastTimer` under `UI/GameUI`.
-- `scripts/game/Game.cs` — bind authored nodes; add private FIFO, layout, timer advancement, treasure-result mapping, and navigation/root cleanup.
-- `tests/game/GameTest.cs` — queue/layout/navigation/teardown, overflow-copy coverage, and end-to-end treasure/no-regrant coverage.
-- `tests/ui/BattleManagerTest.cs` — characterize the existing scene-instantiated battle Result presentation and prove rendering is mutation-free.
-- `docs/ui/hpa-376/ui-lifecycle-contract.md` — reconcile `WORLD-TREASURE`, `REWARD-TOAST`, and `REWARD-BLOCKING`.
-- `docs/ui/hpa-377/README.md` — replace the stale HPA-386 toast/reward queue handoff with HPA-573 production ownership while keeping `SiriusToastShell` presentation-only.
-- `docs/superpowers/specs/2026-08-03-shared-sirius-theme-core-components-design.md` — retarget stale HPA-386 toast/reward queue references to HPA-573 without changing the HPA-377 component contract.
+- Modify: `scenes/ui/ExplorationHud.tscn`
+- Modify: `scripts/ui/ExplorationHudController.cs`
+- Modify: `tests/ui/ExplorationHudControllerTest.cs`
+
+### Task 2 — Treasure integration
+
+- Modify: `scripts/game/Game.cs`
+- Modify: `tests/game/GameTest.cs`
+
+### Task 3 — Battle characterization
+
+- Modify: `tests/ui/BattleManagerTest.cs`
+
+### Task 4 — Retire unused reward-specific host kinds
+
+- Modify: `scripts/ui/hosting/UIScreenKinds.cs`
+- Modify: `tests/ui/hosting/UIScreenHostTestSupport.cs`
+- Modify: `tests/ui/hosting/UIScreenStackModelTest.cs`
+- Modify: `tests/ui/hosting/UIScreenPolicyResolverTest.cs`
+- Modify: `tests/ui/hosting/UIScreenHostInputTest.cs`
+- Modify: `tests/ui/hosting/UIScreenHostFocusTest.cs`
+- Modify: `tests/ui/hosting/UIScreenHostLifecycleTest.cs`
+- Modify: `tests/ui/hosting/UIScreenHostContractScenarioTest.cs`
+- Modify: `docs/ui/hpa-378/uiscreenhost-contract.md`
+
+### Task 5 — Lifecycle/ownership docs and final validation
+
+- Modify: `docs/ui/hpa-376/ui-lifecycle-contract.md`
+- Modify: `docs/ui/hpa-377/README.md`
+- Modify: `docs/superpowers/specs/2026-08-03-shared-sirius-theme-core-components-design.md`
 
 ### Reference only unless a focused test proves a defect
 
@@ -53,210 +75,74 @@
 - `scripts/game/TreasureBoxSpawn.cs`
 - `scripts/data/BattleResultSummary.cs`
 - `scripts/data/LootResult.cs`
+- `scripts/data/Inventory.cs`
 - `scripts/data/items/ItemCatalog.cs`
 - `scripts/ui/BattleManager.cs`
 - `scripts/ui/components/SiriusToastShell.cs`
+- `scenes/ui/components/SiriusToastShell.tscn`
 - `scripts/ui/theme/SiriusUiMetrics.cs`
 - `scripts/ui/hosting/UIScreenHost.cs`
-- `scripts/ui/hosting/UIScreenKinds.cs`
-- `tests/ui/hosting/UIScreenHostContractScenarioTest.cs`
 
 ---
 
 ## Risk Checklist
 
-### Toasts accidentally consume pointer input
+### A second HUD lifecycle grows in `Game`
 
-`SiriusToastShell.tscn` has only been a showcase leaf, so make its whole reusable `Control` subtree mouse-transparent and test that invariant recursively before mounting it over gameplay.
+Do not add Game-side SafeFrame math, `SizeChanged`, toast timer binding, recursive passivation, or reward teardown subscriptions. The existing Exploration HUD already owns all of those mechanisms.
 
-### Item order depends on dictionary enumeration
+### Reward toast collides with area/session transient copy
 
-Never use dictionary enumeration as the presentation contract. Sort each resolved item-result dictionary with `StringComparer.Ordinal`.
+Keep a distinct top-right lane under `%SafeFrame`. The existing transient plate is 60 px high; author reward top offset at 68 px (60 + 8 gap). Extend the existing 640×360 no-overlap test.
 
-### Recovery / unrecovered copy silently regresses
+### Dictionary enumeration leaks into UI ordering
 
-`TreasureRewardGrantResult.ItemQuantitiesRecovered` and `UnrecoveredItemQuantities` are the only resolved failure-facing reward values. Do not force a real inventory-overflow scenario just to test presentation. Construct a resolved result directly in `GameTest`, invoke the private mapper, and assert Warning/Error copy, ordinal ordering, and zero player mutation.
+Every granted/recovered/unrecovered dictionary is sorted with `StringComparer.Ordinal` before enqueue.
 
-### UI re-grants by reconstructing reward input
+### Recovery / unrecovered copy is never exercised
 
-Do not call `BuildReward()` again. Capture `TreasureRewardGrantResult` from the one existing grant call and map only its resolved values.
+Do not manufacture a full real inventory. Construct a resolved `TreasureRewardGrantResult` directly in `GameTest`, invoke the private Game mapper, and inspect the public HUD queue output.
 
-### Ultrawide placement accidentally uses safe margin instead of side inset
+### Scene-change cleanup breaks synthetic TestableGame
 
-640×360 and 1280×720 both have `sideInset == margin`; they cannot distinguish the two formulas. Add one 2560×1080 assertion where `SafeFrameInsets(...)` returns a 480 px side inset.
+`GameTest.TestableGame._Ready()` is intentionally empty, so `_explorationHud` is unbound. `RequestSceneChange(...)` must guard `_explorationHud != null && IsInstanceValid(...)` before calling `ClearRewardFeedback()`.
 
-### Battle characterization uses an unready controller
+### Battle test checks only a mutation-free label helper
 
-Do not use `WithBattleManager(...)` for `RenderResult`; it creates a bare `new BattleManager()` and never binds `%ResultTitle`, `%ExperienceResult`, or the other authored nodes. Use `CreateReadyBattleManager()`, which instantiates `BattleScene.tscn`, awaits `_Ready()`, and calls `StartBattle(...)`.
+Do not test `RenderResult(...)` alone. Use a ready Battle scene and call `EndBattle(true)` twice. Snapshot state after the first grant and assert the second call changes nothing.
 
-### Battle gets duplicate presentation
+### Host reward path remains as dead product API
 
-Do not enqueue `BattleResultSummary` after Battle closes. Characterize the existing Result phase and leave production Battle code unchanged.
+Production treasure intentionally bypasses the host because ToastLayer sits above ModalLayer and because the toast changes no host state. Remove reward-specific product kinds now; keep generic Toast-layer behavior tested via fixture identities.
 
-### Pending feedback survives title/navigation
+### Unknown IDs become silent content-ID UI
 
-Clear feedback immediately after `_sceneChangeCommitted` latches in `RequestSceneChange(...)`, before host teardown. `_ExitTree()` repeats idempotent cleanup for external/root removal.
-
-### A pause freezes active reward feedback
-
-Use an authored one-shot Timer with `ProcessMode = Always`; no second timer or scheduler is needed.
-
-### Old docs imply a second future queue owner
-
-Retarget the two HPA-377 ownership statements as part of the implementation. Do not delete `UIScreenKinds.RewardToast`; it remains useful to host contract tests but is not the production treasure-toast path.
+Keep the defensive raw-ID fallback but emit `GD.PushWarning` before returning it.
 
 ---
 
-# Task 1: Make the existing toast leaf non-interactive and author the Game reward slot
+# Task 1: Extend Exploration HUD with one passive reward-toast FIFO
 
 **Files:**
-- Modify: `scenes/ui/components/SiriusToastShell.tscn`
-- Modify: `tests/ui/components/SiriusToastShellTest.cs`
-- Modify: `scenes/game/Game.tscn`
-- Modify: `tests/game/GameTest.cs`
-
-**Interfaces:**
-
-```text
-UI/GameUI/RewardToastMargin (%RewardToastMargin)
-UI/GameUI/RewardToastMargin/RewardToastColumn (%RewardToastColumn)
-UI/GameUI/RewardToastMargin/RewardToastColumn/RewardToast (%RewardToast)
-RewardToastTimer (%RewardToastTimer)
-```
-
-`%RewardToast` is a hidden `SiriusToastShell`. `%RewardToastTimer` is `OneShot = true`, `WaitTime = 2.0`, `ProcessMode = Always`.
-
-## 1.1 Write the failing component-input test
-
-- [ ] Add to `SiriusToastShellTest`:
-
-```csharp
-[TestCase]
-public void Scene_AllControlsAreMouseTransparent()
-{
-    AssertMouseTransparent(_shell);
-}
-
-private static void AssertMouseTransparent(Node node)
-{
-    if (node is Control control)
-        AssertThat(control.MouseFilter).IsEqual(Control.MouseFilterEnum.Ignore);
-
-    foreach (Node child in node.GetChildren())
-        AssertMouseTransparent(child);
-}
-```
-
-- [ ] Run:
-
-```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
-  --filter "FullyQualifiedName~SiriusToastShellTest.Scene_AllControlsAreMouseTransparent"
-```
-
-Expected: FAIL because the current scene does not declare this invariant.
-
-## 1.2 Make the reusable toast subtree transparent
-
-- [ ] Set `mouse_filter = 2` (`Ignore`) on every `Control` in `SiriusToastShell.tscn`: root, `%Panel`, Margin, Row, `%SeverityIcon`, TextColumn, `%TitleLabel`, `%MessageLabel`.
-
-Do not add timer, close button, focus, queue, or domain behavior to the component.
-
-- [ ] Run:
-
-```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
-  --filter "FullyQualifiedName~SiriusToastShellTest"
-```
-
-Expected: PASS.
-
-## 1.3 Write RED Game scene-structure coverage
-
-- [ ] Add near `GameSceneUsesExplorationHudWithoutPrototypeHud`:
-
-```csharp
-[TestCase]
-public async Task GameSceneAuthorsNonBlockingRewardToastRegion()
-{
-    var game = await InstantiateRealGameScene();
-    try
-    {
-        var margin = game.GetNode<MarginContainer>("UI/GameUI/RewardToastMargin");
-        var column = game.GetNode<VBoxContainer>("UI/GameUI/RewardToastMargin/RewardToastColumn");
-        var toast = game.GetNode<SiriusToastShell>(
-            "UI/GameUI/RewardToastMargin/RewardToastColumn/RewardToast");
-        var timer = game.GetNode<Timer>("RewardToastTimer");
-
-        AssertThat(margin.MouseFilter).IsEqual(Control.MouseFilterEnum.Ignore);
-        AssertThat(column.MouseFilter).IsEqual(Control.MouseFilterEnum.Ignore);
-        AssertThat(toast.Visible).IsFalse();
-        AssertThat(timer.OneShot).IsTrue();
-        AssertThat(timer.WaitTime).IsEqual(2.0d);
-        AssertThat(timer.ProcessMode).IsEqual(Node.ProcessModeEnum.Always);
-    }
-    finally
-    {
-        game.Free();
-        await AwaitFrames(1);
-    }
-}
-```
-
-- [ ] Run that test. Expected: FAIL because nodes do not exist.
-
-## 1.4 Author the production slot
-
-- [ ] Add `SiriusToastShell.tscn` as an ext-resource in `Game.tscn` and author:
-
-```text
-RewardToastMargin
-  full viewport under UI/GameUI
-  mouse_filter = Ignore
-  margins updated by Game
-
-RewardToastColumn
-  horizontal = ShrinkEnd
-  vertical = ShrinkBegin
-  mouse_filter = Ignore
-
-RewardToast
-  SiriusToastShell instance
-  visible = false
-  horizontal = ExpandFill
-
-RewardToastTimer
-  one_shot = true
-  wait_time = 2.0
-  process_mode = Always
-```
-
-Do not add CanvasLayer, scrim, modal, button, AnimationPlayer, second timer, or host entry.
-
-- [ ] Re-run `GameSceneAuthorsNonBlockingRewardToastRegion`. Expected: PASS.
-
-- [ ] Commit:
-
-```bash
-git add scenes/ui/components/SiriusToastShell.tscn \
-  tests/ui/components/SiriusToastShellTest.cs \
-  scenes/game/Game.tscn tests/game/GameTest.cs
-git commit -m "ui: author nonblocking reward toast slot"
-```
-
----
-
-# Task 2: Add the Game-owned FIFO, responsive layout, and teardown contract
-
-**Files:**
-- Modify: `scripts/game/Game.cs`
-- Modify: `tests/game/GameTest.cs`
-- Reference: `scripts/ui/theme/SiriusUiMetrics.cs`
+- Modify: `scenes/ui/ExplorationHud.tscn`
+- Modify: `scripts/ui/ExplorationHudController.cs`
+- Modify: `tests/ui/ExplorationHudControllerTest.cs`
 
 **Interfaces produced:**
 
 ```csharp
-private sealed record RewardToastRequest(
+public void EnqueueRewardToast(
+    string title,
+    string message,
+    SiriusUiSeverity severity);
+
+public void ClearRewardFeedback();
+```
+
+Private state:
+
+```csharp
+private readonly record struct RewardToastRequest(
     string Title,
     string Message,
     SiriusUiSeverity Severity);
@@ -264,125 +150,192 @@ private sealed record RewardToastRequest(
 private const double RewardToastDurationSeconds = 2.0;
 private readonly Queue<RewardToastRequest> _rewardToastQueue = new();
 
-private void EnqueueRewardToast(RewardToastRequest request);
-private void ShowNextRewardToast();
-private void ClearRewardFeedback();
-private void RefreshRewardToastLayout();
-```
-
-Fields:
-
-```csharp
-private MarginContainer _rewardToastMargin = null!;
-private VBoxContainer _rewardToastColumn = null!;
+private VBoxContainer _rewardToastSlot = null!;
 private SiriusToastShell _rewardToast = null!;
 private Timer _rewardToastTimer = null!;
 ```
 
-## 2.1 Write RED FIFO/no-host coverage
+## 1.1 Write RED scene/queue/passivity coverage
 
-- [ ] Use a real `Game.tscn` and the suite's existing reflection style. Add this test-only constructor helper:
+- [ ] Add these paths to `RequiredNodes` in `ExplorationHudControllerTest`:
 
 ```csharp
-private static object CreatePrivateRewardToastRequest(
+"%RewardToastSlot",
+"%RewardToast",
+"%RewardToastTimer"
+```
+
+- [ ] Add `RewardToastQueue_IsPassiveSequentialAndClearable`:
+
+```csharp
+[TestCase]
+public async Task RewardToastQueue_IsPassiveSequentialAndClearable()
+{
+    var hud = await InstantiateHud(new Vector2I(1280, 720));
+    var toast = hud.GetNode<SiriusToastShell>("%RewardToast");
+    var timer = hud.GetNode<Timer>("%RewardToastTimer");
+
+    AssertThat(toast.Visible).IsFalse();
+    AssertThat(timer.OneShot).IsTrue();
+    AssertThat(timer.WaitTime).IsEqual(2.0d);
+    AssertThat(timer.ProcessMode).IsEqual(Node.ProcessModeEnum.Always);
+
+    hud.EnqueueRewardToast("First", "25 Gold", SiriusUiSeverity.Success);
+    hud.EnqueueRewardToast("Second", "Health Potion ×1", SiriusUiSeverity.Success);
+
+    AssertThat(toast.Visible).IsTrue();
+    AssertThat(toast.Title).IsEqual("First");
+    AssertThat(toast.Message).IsEqual("25 Gold");
+
+    timer.EmitSignal(Timer.SignalName.Timeout);
+    AssertThat(toast.Visible).IsTrue();
+    AssertThat(toast.Title).IsEqual("Second");
+    AssertThat(toast.Message).IsEqual("Health Potion ×1");
+
+    hud.ClearRewardFeedback();
+    AssertThat(toast.Visible).IsFalse();
+    AssertThat(timer.IsStopped()).IsTrue();
+
+    // The queued request was cleared, so another timeout cannot resurrect it.
+    timer.EmitSignal(Timer.SignalName.Timeout);
+    AssertThat(toast.Visible).IsFalse();
+
+    AssertPassive(hud);
+}
+```
+
+- [ ] Run:
+
+```bash
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
+  --filter "FullyQualifiedName~ExplorationHudControllerTest.RewardToastQueue_IsPassiveSequentialAndClearable"
+```
+
+Expected: FAIL because the authored nodes/API do not exist.
+
+## 1.2 Extend the existing viewport test instead of creating Game layout tests
+
+- [ ] In `LayoutFitsApprovedViewportsAndKeepsCompactHeroSeparated`, enqueue one visible reward toast before the layout assertions:
+
+```csharp
+hud.EnqueueRewardToast(
+    "Treasure Acquired",
+    "Health Potion ×2",
+    SiriusUiSeverity.Success);
+```
+
+- [ ] Include `%RewardToast` in SafeFrame containment:
+
+```csharp
+var rewardToast = hud.GetNode<SiriusToastShell>("%RewardToast");
+
+foreach (var surface in new Control[] { hero, prompt, transient, rewardToast })
+{
+    var rect = surface.GetGlobalRect();
+    AssertThat(rect.Size.X).IsGreater(0f);
+    AssertThat(rect.Size.Y).IsGreater(0f);
+    AssertThat(rect.Position.X).IsGreaterEqual(safeRect.Position.X - 0.5f);
+    AssertThat(rect.Position.Y).IsGreaterEqual(safeRect.Position.Y - 0.5f);
+    AssertThat(rect.End.X).IsLessEqual(safeRect.End.X + 0.5f);
+    AssertThat(rect.End.Y).IsLessEqual(safeRect.End.Y + 0.5f);
+}
+```
+
+- [ ] At 640×360 extend the existing no-overlap assertions:
+
+```csharp
+AssertThat(rewardToast.GetGlobalRect().Intersects(hero.GetGlobalRect())).IsFalse();
+AssertThat(rewardToast.GetGlobalRect().Intersects(prompt.GetGlobalRect())).IsFalse();
+AssertThat(rewardToast.GetGlobalRect().Intersects(transient.GetGlobalRect())).IsFalse();
+AssertThat(rewardToast.Compact).IsTrue();
+AssertThat(hud.GetNode<VBoxContainer>("%RewardToastSlot").Size.X).IsEqual(280f);
+```
+
+- [ ] At 1280×720 assert standard width/compact state:
+
+```csharp
+AssertThat(rewardToast.Compact).IsFalse();
+AssertThat(hud.GetNode<VBoxContainer>("%RewardToastSlot").Size.X).IsEqual(360f);
+```
+
+- [ ] At 2560×1080 pin the existing SafeFrame content cap rather than duplicating its formula:
+
+```csharp
+AssertThat(safeRect.Position.X).IsEqual(480f);
+AssertThat(safeRect.End.X).IsEqual(2080f);
+AssertThat(rewardToast.GetGlobalRect().End.X).IsEqual(safeRect.End.X);
+AssertThat(rewardToast.Compact).IsFalse();
+AssertThat(hud.GetNode<VBoxContainer>("%RewardToastSlot").Size.X).IsEqual(360f);
+```
+
+Use the existing seven-viewport loop already present in this test; do not create a second viewport matrix.
+
+Expected before scene/controller implementation: FAIL on missing reward nodes.
+
+## 1.3 Author the HUD reward lane
+
+- [ ] Add `SiriusToastShell.tscn` as an ext-resource in `ExplorationHud.tscn`.
+
+- [ ] Under `%SafeFrame`, add:
+
+```text
+RewardToastSlot (VBoxContainer; %RewardToastSlot)
+  anchor_left = 1.0
+  anchor_right = 1.0
+  offset_left = -360.0
+  offset_top = 68.0
+  offset_right = 0.0
+  top-right lane; child determines height
+
+  RewardToast (SiriusToastShell; %RewardToast)
+    visible = false
+    horizontal size = ExpandFill
+```
+
+The 68 px top offset is the existing 60 px `%TransientPlate` band plus one 8 px local gap.
+
+- [ ] Add under `ExplorationHud` root:
+
+```text
+RewardToastTimer (Timer; %RewardToastTimer)
+  process_mode = Always
+  wait_time = 2.0
+  one_shot = true
+```
+
+Do not add another SafeFrame, full-viewport margin, CanvasLayer, scrim, modal, button, or AnimationPlayer.
+
+## 1.4 Implement the HUD queue by extending existing lifecycle methods
+
+- [ ] Add `using System.Collections.Generic;` to `ExplorationHudController.cs`.
+
+- [ ] Add the private request/queue/fields from the task interface.
+
+- [ ] Extend `BindNodes()`:
+
+```csharp
+_rewardToastSlot = GetNode<VBoxContainer>("%RewardToastSlot");
+_rewardToast = GetNode<SiriusToastShell>("%RewardToast");
+_rewardToastTimer = GetNode<Timer>("%RewardToastTimer");
+```
+
+- [ ] In `_Ready()`, keep existing ordering and add only the reward timeout subscription before `RefreshLayout()`:
+
+```csharp
+_rewardToastTimer.Timeout += ShowNextRewardToast;
+```
+
+`MakePassive(this)` already runs after `BindNodes()` and therefore covers the complete reward subtree. Do not add component-local mouse-filter edits.
+
+- [ ] Implement:
+
+```csharp
+public void EnqueueRewardToast(
     string title,
     string message,
     SiriusUiSeverity severity)
 {
-    var type = typeof(Game).GetNestedType(
-        "RewardToastRequest",
-        BindingFlags.NonPublic)
-        ?? throw new InvalidOperationException("RewardToastRequest not found.");
-
-    return Activator.CreateInstance(
-        type,
-        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-        binder: null,
-        args: new object[] { title, message, severity },
-        culture: null)
-        ?? throw new InvalidOperationException("Failed to create RewardToastRequest.");
-}
-```
-
-Then:
-
-```csharp
-var first = CreatePrivateRewardToastRequest("First", "25 Gold", SiriusUiSeverity.Success);
-var second = CreatePrivateRewardToastRequest("Second", "Health Potion ×1", SiriusUiSeverity.Success);
-InvokePrivate(game, "EnqueueRewardToast", first);
-InvokePrivate(game, "EnqueueRewardToast", second);
-
-AssertThat(toast.Visible).IsTrue();
-AssertThat(toast.Title).IsEqual("First");
-AssertThat(toast.Message).IsEqual("25 Gold");
-AssertThat(game.GetTree().Paused).IsFalse();
-AssertThat(game.GetNode<UIScreenHost>("UI/UIScreenHost").ActiveEntries.Count).IsEqual(0);
-
-timer.EmitSignal(Timer.SignalName.Timeout);
-AssertThat(toast.Title).IsEqual("Second");
-
-timer.EmitSignal(Timer.SignalName.Timeout);
-AssertThat(toast.Visible).IsFalse();
-```
-
-Expected: RED because the private queue type/methods do not exist.
-
-## 2.2 Write RED responsive-layout coverage in controlled SubViewports
-
-- [ ] Reuse the suite's `_viewport`, temporarily setting its size and adding a real `Game.tscn` instance to it. Do not use `InstantiateRealGameScene()` here because it mounts under the root viewport.
-
-At 640×360:
-
-```csharp
-AssertThat(toast.Compact).IsTrue();
-AssertThat(margin.GetThemeConstant("margin_top")).IsEqual(12);
-AssertThat(margin.GetThemeConstant("margin_right")).IsEqual(12);
-AssertThat(column.CustomMinimumSize.X).IsEqual(280f);
-```
-
-At 1280×720:
-
-```csharp
-AssertThat(toast.Compact).IsFalse();
-AssertThat(margin.GetThemeConstant("margin_top")).IsEqual(24);
-AssertThat(margin.GetThemeConstant("margin_right")).IsEqual(24);
-AssertThat(column.CustomMinimumSize.X).IsEqual(360f);
-```
-
-At 2560×1080, pin the content-width cap rather than only the ordinary safe margin:
-
-```csharp
-AssertThat(toast.Compact).IsFalse();
-AssertThat(margin.GetThemeConstant("margin_top")).IsEqual(24);
-AssertThat(margin.GetThemeConstant("margin_right")).IsEqual(480);
-AssertThat(column.CustomMinimumSize.X).IsEqual(360f);
-```
-
-`480` is the expected `SideInset`: `(2560 - 1600) / 2`. This test must fail if implementation mistakenly uses the standard `24` px margin for `margin_right`.
-
-Restore `_viewport.Size` in `finally` and free each real Game before the next case. Do not expand this into all seven approved viewport sizes.
-
-## 2.3 Implement binding and FIFO
-
-- [ ] In `Game._Ready()`:
-
-```csharp
-_rewardToastMargin = GetNode<MarginContainer>("UI/GameUI/RewardToastMargin");
-_rewardToastColumn = GetNode<VBoxContainer>("UI/GameUI/RewardToastMargin/RewardToastColumn");
-_rewardToast = GetNode<SiriusToastShell>("UI/GameUI/RewardToastMargin/RewardToastColumn/RewardToast");
-_rewardToastTimer = GetNode<Timer>("RewardToastTimer");
-_rewardToast.Hide();
-_rewardToastTimer.Timeout += ShowNextRewardToast;
-GetViewport().SizeChanged += RefreshRewardToastLayout;
-RefreshRewardToastLayout();
-```
-
-- [ ] Add:
-
-```csharp
-private void EnqueueRewardToast(RewardToastRequest request)
-{
-    _rewardToastQueue.Enqueue(request);
+    _rewardToastQueue.Enqueue(new RewardToastRequest(title, message, severity));
     if (!_rewardToast.Visible)
         ShowNextRewardToast();
 }
@@ -403,68 +356,46 @@ private void ShowNextRewardToast()
     _rewardToast.Show();
     _rewardToastTimer.Start(RewardToastDurationSeconds);
 }
-```
 
-## 2.4 Implement responsive safe-frame placement
-
-- [ ] Add:
-
-```csharp
-private void RefreshRewardToastLayout()
+public void ClearRewardFeedback()
 {
-    if (_rewardToastMargin == null || !IsInstanceValid(_rewardToastMargin))
-        return;
-
-    var (compact, margin, sideInset) = SiriusUiMetrics.SafeFrameInsets(GetViewportRect().Size);
-    _rewardToastMargin.AddThemeConstantOverride("margin_top", (int)margin);
-    _rewardToastMargin.AddThemeConstantOverride("margin_right", (int)sideInset);
-    _rewardToastColumn.CustomMinimumSize = new Vector2(compact ? 280f : 360f, 0f);
-    _rewardToast.Compact = compact;
-}
-```
-
-## 2.5 Implement synchronous scene-change + root cleanup
-
-- [ ] Add:
-
-```csharp
-private void ClearRewardFeedback()
-{
-    if (_rewardToastTimer != null && IsInstanceValid(_rewardToastTimer))
-        _rewardToastTimer.Stop();
-
     _rewardToastQueue.Clear();
 
-    if (_rewardToast != null && IsInstanceValid(_rewardToast))
+    if (_rewardToastTimer != null && GodotObject.IsInstanceValid(_rewardToastTimer))
+        _rewardToastTimer.Stop();
+
+    if (_rewardToast != null && GodotObject.IsInstanceValid(_rewardToast))
         _rewardToast.Hide();
 }
 ```
 
-- [ ] In `RequestSceneChange(string path)`, call `ClearRewardFeedback()` immediately after `_sceneChangeCommitted = true` and before `UpdateInteractionPrompt()` / `ContinueSceneChangeAfterUiTeardown()`.
-
-- [ ] In existing `_ExitTree()` call `ClearRewardFeedback()`, unsubscribe `_rewardToastTimer.Timeout`, and unsubscribe viewport `SizeChanged` while the referenced objects are still valid. Preserve all existing teardown logic.
-
-## 2.6 Pin scene-change and raw-root teardown without navigating the test runner
-
-- [ ] Add `RewardToast_SceneChangeRequestClearsActiveAndQueuedFeedback` using a **real** Game. Enqueue two requests, then invoke:
+- [ ] Extend `_ExitTree()` without creating a second owner:
 
 ```csharp
-InvokePrivate(game, "RequestSceneChange", string.Empty);
+ClearRewardFeedback();
+
+if (_rewardToastTimer != null && GodotObject.IsInstanceValid(_rewardToastTimer))
+    _rewardToastTimer.Timeout -= ShowNextRewardToast;
 ```
 
-An empty path exercises the same one-shot cleanup used by `ReturnToMainMenu()` but `ContinueSceneChangeAfterUiTeardown()` does not call `ChangeSceneToFile`, so the test runner stays on its fixture scene.
+Keep the existing transient timer and viewport unsubscriptions.
 
-Assert toast hidden, timer stopped, and private queue `Count == 0`.
+- [ ] Extend existing `RefreshLayout()` only:
 
-- [ ] Add `RewardToast_RootExitClearsActiveAndQueuedFeedback`: enqueue two requests, remove the real Game from its parent without freeing it, await one frame, then inspect the still-valid detached node and assert hidden toast, stopped timer, and queue `Count == 0`. Free the detached Game in `finally`; do not reattach a fully exited Game scene.
+```csharp
+_rewardToastSlot.OffsetLeft = _compact ? -280f : -360f;
+_rewardToast.Compact = _compact;
+```
 
-Use a test-only reflection helper for queue count; do not add a public production count.
+Do not call `SafeFrameInsets(...)` a second time for the reward lane.
+
+## 1.5 Run the full HUD suite and commit
 
 - [ ] Run:
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
-  --filter "FullyQualifiedName~GameTest.RewardToast"
+  --filter "FullyQualifiedName~ExplorationHudControllerTest"
 ```
 
 Expected: PASS.
@@ -472,13 +403,15 @@ Expected: PASS.
 - [ ] Commit:
 
 ```bash
-git add scripts/game/Game.cs tests/game/GameTest.cs
-git commit -m "ui: add root reward toast queue"
+git add scenes/ui/ExplorationHud.tscn \
+  scripts/ui/ExplorationHudController.cs \
+  tests/ui/ExplorationHudControllerTest.cs
+git commit -m "ui: add exploration reward toast queue"
 ```
 
 ---
 
-# Task 3: Feed the existing treasure grant result into the FIFO without re-granting
+# Task 2: Map the existing treasure grant result into the HUD queue
 
 **Files:**
 - Modify: `scripts/game/Game.cs`
@@ -494,43 +427,45 @@ private void EnqueueTreasureRewardFeedback(TreasureRewardGrantResult result);
 private static string ResolveRewardItemDisplayName(string itemId);
 ```
 
-## 3.1 Extend the existing real treasure regression first
+## 2.1 Extend the existing real treasure regression first
 
-- [ ] Extend `Game_OpeningAdjacentTreasureAwardsOnceAndShowsOpenPrompt` and keep every existing grant/opened/prompt assertion.
+- [ ] Keep all current assertions in `Game_OpeningAdjacentTreasureAwardsOnceAndShowsOpenPrompt`.
 
-After the existing opening completes:
+- [ ] After the existing opening finishes, read the existing HUD-owned nodes:
 
 ```csharp
-var toast = gameScene.GetNode<SiriusToastShell>(
-    "UI/GameUI/RewardToastMargin/RewardToastColumn/RewardToast");
-var timer = gameScene.GetNode<Timer>("RewardToastTimer");
+var hud = gameScene.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+var toast = hud.GetNode<SiriusToastShell>("%RewardToast");
+var timer = hud.GetNode<Timer>("%RewardToastTimer");
 
 AssertThat(toast.Visible).IsTrue();
 AssertThat(toast.Title).IsEqual("Treasure Acquired");
 AssertThat(toast.Message).IsEqual("25 Gold");
 
 int goldAfterGrant = gameManager.Player.Gold;
-int potionsAfterGrant = gameManager.Player.GetItemQuantity("health_potion");
+int potionAfterGrant = gameManager.Player.GetItemQuantity("health_potion");
 
 timer.EmitSignal(Timer.SignalName.Timeout);
 AssertThat(toast.Title).IsEqual("Item Acquired");
 AssertThat(toast.Message).IsEqual("Health Potion ×1");
 AssertThat(gameManager.Player.Gold).IsEqual(goldAfterGrant);
-AssertThat(gameManager.Player.GetItemQuantity("health_potion")).IsEqual(potionsAfterGrant);
+AssertThat(gameManager.Player.GetItemQuantity("health_potion")).IsEqual(potionAfterGrant);
 
 timer.EmitSignal(Timer.SignalName.Timeout);
 AssertThat(toast.Visible).IsFalse();
-AssertThat(gameManager.Player.Gold).IsEqual(goldAfterGrant);
-AssertThat(gameManager.Player.GetItemQuantity("health_potion")).IsEqual(potionsAfterGrant);
 ```
 
-Keep the existing second-interaction assertion and additionally assert it does not show `%RewardToast` again.
+- [ ] Preserve the current second-interaction no-regrant assertion and add:
 
-Expected before production change: new presentation assertions fail; existing grant-once assertions remain green.
+```csharp
+AssertThat(toast.Visible).IsFalse();
+```
 
-## 3.2 Add deterministic multi-item ordering coverage
+Expected before production mapping: existing grant assertions pass; new toast assertions fail.
 
-- [ ] Add a real treasure fixture with reverse-alphabetical authored items:
+## 2.2 Add deterministic granted-item ordering coverage
+
+- [ ] Add a real treasure fixture with reverse-alphabetical authored order:
 
 ```csharp
 RewardGold = 5,
@@ -542,7 +477,7 @@ RewardItemIds = new Godot.Collections.Array<string>
 RewardItemQuantities = new Godot.Collections.Array<int> { 1, 2 }
 ```
 
-After opening, manually advance the Timer and assert this display sequence:
+- [ ] Open it through the normal interaction path and manually advance `%RewardToastTimer`. Assert:
 
 ```text
 5 Gold
@@ -550,11 +485,11 @@ Health Potion ×2
 Mana Potion ×1
 ```
 
-This pins `gold -> Ordinal(itemId)` rather than dictionary insertion or authored order.
+This must fail if presentation uses dictionary/insertion/authored ordering rather than ordinal item-ID ordering.
 
-## 3.3 Add direct resolved-result coverage for recovered and unrecovered overflow
+## 2.3 Add direct resolved-result coverage for recovered/unrecovered copy
 
-- [ ] Use a **real** `Game.tscn`; do not fill the player's inventory to manufacture an overflow. Construct the already-resolved result directly:
+- [ ] Use a **real** `Game.tscn`; do not fill `Inventory.MaxItemTypes` just to manufacture overflow.
 
 ```csharp
 var game = await InstantiateRealGameScene();
@@ -562,13 +497,13 @@ try
 {
     var manager = game.GetNode<GameManager>("GameManager");
     var player = manager.Player;
-    var toast = game.GetNode<SiriusToastShell>(
-        "UI/GameUI/RewardToastMargin/RewardToastColumn/RewardToast");
-    var timer = game.GetNode<Timer>("RewardToastTimer");
+    var hud = game.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+    var toast = hud.GetNode<SiriusToastShell>("%RewardToast");
+    var timer = hud.GetNode<Timer>("%RewardToastTimer");
 
     int goldBefore = player.Gold;
-    int healthPotionBefore = player.GetItemQuantity("health_potion");
-    int manaPotionBefore = player.GetItemQuantity("mana_potion");
+    int healthBefore = player.GetItemQuantity("health_potion");
+    int manaBefore = player.GetItemQuantity("mana_potion");
 
     var result = new TreasureRewardGrantResult();
     result.ItemQuantitiesRecovered["mana_potion"] = 1;
@@ -584,7 +519,6 @@ try
     AssertThat(toast.Severity).IsEqual(SiriusUiSeverity.Warning);
 
     timer.EmitSignal(Timer.SignalName.Timeout);
-    AssertThat(toast.Title).IsEqual("Recovery Chest");
     AssertThat(toast.Message).IsEqual(
         "Mana Potion ×1 sent to the Recovery Chest");
     AssertThat(toast.Severity).IsEqual(SiriusUiSeverity.Warning);
@@ -596,7 +530,6 @@ try
     AssertThat(toast.Severity).IsEqual(SiriusUiSeverity.Error);
 
     timer.EmitSignal(Timer.SignalName.Timeout);
-    AssertThat(toast.Title).IsEqual("Inventory Full");
     AssertThat(toast.Message).IsEqual(
         "Mana Potion ×3 could not be stored");
     AssertThat(toast.Severity).IsEqual(SiriusUiSeverity.Error);
@@ -605,8 +538,8 @@ try
     AssertThat(toast.Visible).IsFalse();
 
     AssertThat(player.Gold).IsEqual(goldBefore);
-    AssertThat(player.GetItemQuantity("health_potion")).IsEqual(healthPotionBefore);
-    AssertThat(player.GetItemQuantity("mana_potion")).IsEqual(manaPotionBefore);
+    AssertThat(player.GetItemQuantity("health_potion")).IsEqual(healthBefore);
+    AssertThat(player.GetItemQuantity("mana_potion")).IsEqual(manaBefore);
 }
 finally
 {
@@ -615,13 +548,13 @@ finally
 }
 ```
 
-This test pins category ordering (`recovered` before `unrecovered`), ordinal ordering inside each dictionary, Warning/Error copy, and the no-grant presentation boundary without depending on `Inventory.MaxItemTypes` or `RecoveryChest.Instance` setup.
-
 Expected before mapper implementation: FAIL because `EnqueueTreasureRewardFeedback` does not exist.
 
-## 3.4 Capture the resolved result exactly once
+## 2.4 Capture the one existing grant result and implement the mapper
 
-- [ ] In `OnTreasureBoxOpenRequested(...)`, replace the discarded return value only:
+- [ ] Add `using System.Linq;` to `Game.cs`.
+
+- [ ] In `OnTreasureBoxOpenRequested(...)`, replace only the discarded return value:
 
 ```csharp
 var grantResult = box.GrantRewardTo(_gameManager.Player);
@@ -631,60 +564,145 @@ _gameManager.NotifyPlayerStatsChanged();
 EnqueueTreasureRewardFeedback(grantResult);
 ```
 
-Do not call `box.BuildReward()` again and do not move domain mutation into presentation methods.
+Do not call `BuildReward()` again and do not move any mutation below/inside presentation code.
 
-## 3.5 Implement deterministic mapping
-
-- [ ] Add `using System.Linq;` to `Game.cs` and implement:
+- [ ] Implement:
 
 ```csharp
 private void EnqueueTreasureRewardFeedback(TreasureRewardGrantResult result)
 {
+    if (_explorationHud == null || !GodotObject.IsInstanceValid(_explorationHud))
+        return;
+
     if (result.GoldGranted > 0)
     {
-        EnqueueRewardToast(new RewardToastRequest(
+        _explorationHud.EnqueueRewardToast(
             "Treasure Acquired",
             $"{result.GoldGranted} Gold",
-            SiriusUiSeverity.Success));
+            SiriusUiSeverity.Success);
     }
 
     foreach (var (itemId, quantity) in result.ItemQuantitiesGranted
                  .OrderBy(pair => pair.Key, StringComparer.Ordinal))
     {
-        EnqueueRewardToast(new RewardToastRequest(
+        _explorationHud.EnqueueRewardToast(
             "Item Acquired",
             $"{ResolveRewardItemDisplayName(itemId)} ×{quantity}",
-            SiriusUiSeverity.Success));
+            SiriusUiSeverity.Success);
     }
 
     foreach (var (itemId, quantity) in result.ItemQuantitiesRecovered
                  .OrderBy(pair => pair.Key, StringComparer.Ordinal))
     {
-        EnqueueRewardToast(new RewardToastRequest(
+        _explorationHud.EnqueueRewardToast(
             "Recovery Chest",
             $"{ResolveRewardItemDisplayName(itemId)} ×{quantity} sent to the Recovery Chest",
-            SiriusUiSeverity.Warning));
+            SiriusUiSeverity.Warning);
     }
 
     foreach (var (itemId, quantity) in result.UnrecoveredItemQuantities
                  .OrderBy(pair => pair.Key, StringComparer.Ordinal))
     {
-        EnqueueRewardToast(new RewardToastRequest(
+        _explorationHud.EnqueueRewardToast(
             "Inventory Full",
             $"{ResolveRewardItemDisplayName(itemId)} ×{quantity} could not be stored",
-            SiriusUiSeverity.Error));
+            SiriusUiSeverity.Error);
     }
 }
 
-private static string ResolveRewardItemDisplayName(string itemId) =>
-    ItemCatalog.CreateItemById(itemId)?.DisplayName ?? itemId;
+private static string ResolveRewardItemDisplayName(string itemId)
+{
+    var item = ItemCatalog.CreateItemById(itemId);
+    if (item != null)
+        return item.DisplayName;
+
+    GD.PushWarning($"[Game] Reward feedback could not resolve item '{itemId}'.");
+    return itemId;
+}
 ```
 
 Do not enqueue `SkippedItemIds` or raw `Errors`.
 
-## 3.6 Preserve aborted-open silence
+## 2.5 Add scene-change cleanup with the synthetic-Game guard
 
-- [ ] Extend `Game_AbortedTreasureOpeningDoesNotGrantRewardOrPersistOpenedId` to assert `%RewardToast.Visible == false` and private `_rewardToastQueue.Count == 0` after the abort.
+- [ ] Immediately after `_sceneChangeCommitted = true` in `RequestSceneChange(...)`, add:
+
+```csharp
+if (_explorationHud != null && GodotObject.IsInstanceValid(_explorationHud))
+    _explorationHud.ClearRewardFeedback();
+```
+
+Do not add reward timer/viewport unsubscriptions to `Game._ExitTree()`.
+
+- [ ] Add `RewardToast_SceneChangeRequestClearsHudQueueWithoutNavigation` using a real Game:
+
+```csharp
+var game = await InstantiateRealGameScene();
+try
+{
+    var hud = game.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+    var toast = hud.GetNode<SiriusToastShell>("%RewardToast");
+    var timer = hud.GetNode<Timer>("%RewardToastTimer");
+
+    hud.EnqueueRewardToast("First", "A", SiriusUiSeverity.Success);
+    hud.EnqueueRewardToast("Second", "B", SiriusUiSeverity.Success);
+
+    InvokePrivate(game, "RequestSceneChange", string.Empty);
+
+    AssertThat(toast.Visible).IsFalse();
+    AssertThat(timer.IsStopped()).IsTrue();
+
+    // Empty path uses the real scene-change latch/teardown path but never calls ChangeSceneToFile.
+    timer.EmitSignal(Timer.SignalName.Timeout);
+    AssertThat(toast.Visible).IsFalse();
+}
+finally
+{
+    game.Free();
+    await AwaitFrames(1);
+}
+```
+
+The existing TestableGame suite will also exercise the null guard because its `_Ready()` remains a no-op.
+
+## 2.6 Pin real root teardown and aborted-open silence
+
+- [ ] Add `RewardToast_GameRootExitClearsHudFeedback`:
+
+```csharp
+var game = await InstantiateRealGameScene();
+var parent = game.GetParent();
+try
+{
+    var hud = game.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+    var toast = hud.GetNode<SiriusToastShell>("%RewardToast");
+    var timer = hud.GetNode<Timer>("%RewardToastTimer");
+
+    hud.EnqueueRewardToast("First", "A", SiriusUiSeverity.Success);
+    hud.EnqueueRewardToast("Second", "B", SiriusUiSeverity.Success);
+
+    parent.RemoveChild(game);
+    await AwaitFrames(1);
+
+    AssertThat(toast.Visible).IsFalse();
+    AssertThat(timer.IsStopped()).IsTrue();
+}
+finally
+{
+    if (GodotObject.IsInstanceValid(game))
+        game.Free();
+    await AwaitFrames(1);
+}
+```
+
+- [ ] Extend `Game_AbortedTreasureOpeningDoesNotGrantRewardOrPersistOpenedId`:
+
+```csharp
+var hud = gameScene.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+AssertThat(hud.GetNode<SiriusToastShell>("%RewardToast").Visible).IsFalse();
+```
+
+## 2.7 Run Game coverage and commit
 
 - [ ] Run:
 
@@ -693,7 +711,7 @@ dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
   --filter "FullyQualifiedName~GameTest"
 ```
 
-Expected: PASS.
+Expected: PASS, including existing TestableGame teardown/navigation cases.
 
 - [ ] Commit:
 
@@ -704,151 +722,299 @@ git commit -m "ui: present resolved treasure rewards"
 
 ---
 
-# Task 4: Pin Battle's existing required result path as HPA-573 coverage
+# Task 3: Characterize Battle's real exactly-once reward boundary
 
 **Files:**
 - Modify: `tests/ui/BattleManagerTest.cs`
 - Reference: `scripts/ui/BattleManager.cs`
 - Reference: `scripts/data/BattleResultSummary.cs`
-- Reference: `scripts/data/LootResult.cs`
+- Reference: `scripts/data/Inventory.cs`
 
 **Interfaces:** No new production interface.
 
-## 4.1 Add a characterization test on a ready scene instance
+## 3.1 Add a double-EndBattle characterization test
 
-- [ ] Use the existing `CreateReadyBattleManager()` / `FreeManager(...)` helpers. Do **not** use `WithBattleManager(...)`; that helper constructs an unready `BattleManager` without the authored Result labels.
+- [ ] Use existing `CreateReadyBattleManager()`, `FreeManager(...)`, and `InvokePrivateMethod(...)`. Do not use `WithBattleManager(...)` and do not test `RenderResult(...)` in isolation.
 
 ```csharp
 [TestCase]
-public async Task RenderResult_ResolvedRewardsAreReadableAndDoNotMutatePlayer()
+public async Task EndBattle_VictoryRewardsRenderAndSecondEndDoesNotReapply()
 {
-    var battleManager = await CreateReadyBattleManager();
+    var manager = await CreateReadyBattleManager();
+    int finishedCount = 0;
+    manager.BattleFinished += (_, escaped) =>
+    {
+        if (!escaped)
+            finishedCount++;
+    };
+
     try
     {
-        var player = GetPrivateField<Character>(battleManager, "_player");
-        player.Gold = 10;
-        player.Experience = 7;
-        int goldBefore = player.Gold;
-        int experienceBefore = player.Experience;
-        int potionBefore = player.GetItemQuantity("health_potion");
+        var player = GetPrivateField<Character>(manager, "_player");
 
-        var loot = new LootResult();
-        loot.Add(ConsumableCatalog.CreateHealthPotion(), 2);
-        var result = new BattleResultSummary(
-            PlayerWon: true,
-            ExperienceGained: 40,
-            GoldGained: 12,
-            PreviousLevel: 1,
-            NewLevel: 2,
-            Loot: loot);
+        InvokePrivateMethod(manager, "EndBattle", true);
 
-        InvokePrivateMethod(battleManager, "RenderResult", result);
+        var result = manager.ResolvedResult;
+        AssertThat(result).IsNotNull();
+        AssertThat(result!.PlayerWon).IsTrue();
+        AssertThat(result.ExperienceGained).IsGreater(0);
+        AssertThat(result.GoldGained).IsGreater(0);
+        AssertThat(finishedCount).IsEqual(1);
 
-        AssertThat(battleManager.GetNode<Label>("%ResultTitle").Text)
+        AssertThat(manager.GetNode<Label>("%ResultTitle").Text)
             .IsEqual("VICTORY");
-        AssertThat(battleManager.GetNode<Label>("%ExperienceResult").Text)
-            .IsEqual("Experience: 40");
-        AssertThat(battleManager.GetNode<Label>("%GoldResult").Text)
-            .IsEqual("Gold: 12");
-        AssertThat(battleManager.GetNode<Label>("%LevelResult").Text)
-            .IsEqual("Level: 1 → 2");
-        AssertThat(battleManager.GetNode<Label>("%LootResultList").Text)
-            .Contains("2x Health Potion");
+        AssertThat(manager.GetNode<Label>("%ExperienceResult").Text)
+            .IsEqual($"Experience: {result.ExperienceGained}");
+        AssertThat(manager.GetNode<Label>("%GoldResult").Text)
+            .IsEqual($"Gold: {result.GoldGained}");
+        AssertThat(manager.GetNode<Label>("%LevelResult").Text)
+            .IsEqual(result.PreviousLevel == result.NewLevel
+                ? $"Level: {result.NewLevel}"
+                : $"Level: {result.PreviousLevel} → {result.NewLevel}");
 
-        AssertThat(player.Gold).IsEqual(goldBefore);
-        AssertThat(player.Experience).IsEqual(experienceBefore);
-        AssertThat(player.GetItemQuantity("health_potion")).IsEqual(potionBefore);
+        var goldAfterFirst = player.Gold;
+        var experienceAfterFirst = player.Experience;
+        var levelAfterFirst = player.Level;
+        var skillsAfterFirst = string.Join("|", player.KnownSkillIds);
+        var inventoryAfterFirst = player.Inventory.Entries.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value.Quantity,
+            StringComparer.Ordinal);
+        var lootTextAfterFirst = manager.GetNode<Label>("%LootResultList").Text;
+
+        InvokePrivateMethod(manager, "EndBattle", true);
+
+        AssertThat(finishedCount).IsEqual(1);
+        AssertThat(player.Gold).IsEqual(goldAfterFirst);
+        AssertThat(player.Experience).IsEqual(experienceAfterFirst);
+        AssertThat(player.Level).IsEqual(levelAfterFirst);
+        AssertThat(string.Join("|", player.KnownSkillIds)).IsEqual(skillsAfterFirst);
+        AssertThat(player.Inventory.Entries.Count).IsEqual(inventoryAfterFirst.Count);
+        foreach (var (itemId, quantity) in inventoryAfterFirst)
+            AssertThat(player.GetItemQuantity(itemId)).IsEqual(quantity);
+
+        AssertThat(manager.GetNode<Label>("%LootResultList").Text)
+            .IsEqual(lootTextAfterFirst);
+        AssertThat(manager.GetNode<Button>("%ContinueButton").Visible).IsTrue();
     }
     finally
     {
-        await FreeManager(battleManager);
+        await FreeManager(manager);
     }
 }
 ```
 
-The snapshot happens after `CreateReadyBattleManager()` has called `StartBattle(...)`; only `RenderResult(...)` is under the mutation assertion.
+The first call must perform a real positive XP/gold award; the second call is the no-reapply assertion. Loot may be empty or non-empty depending on the existing RNG, but whatever inventory/result text exists after the first call must be unchanged after the second.
+
+## 3.2 Run and commit
 
 - [ ] Run:
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
-  --filter "FullyQualifiedName~BattleManagerTest.RenderResult_ResolvedRewardsAreReadableAndDoNotMutatePlayer"
+  --filter "FullyQualifiedName~BattleManagerTest.EndBattle_VictoryRewardsRenderAndSecondEndDoesNotReapply"
 ```
 
-Expected: PASS against current `BattleManager.RenderResult`. Keep production Battle untouched; this task is characterization, not a reason to redesign Result copy or add another surface.
+Expected: PASS against current `_resultEmitted` behavior. Do not edit `BattleManager.cs` unless this characterization exposes a real existing defect.
 
 - [ ] Commit the test only:
 
 ```bash
 git add tests/ui/BattleManagerTest.cs
-git commit -m "test: pin battle reward result presentation"
+git commit -m "test: pin battle reward exactly once"
 ```
 
 ---
 
-# Task 5: Reconcile ownership documentation and validate the complete slice
+# Task 4: Retire unused reward-specific host kinds while preserving generic host coverage
+
+**Files:**
+- Modify: `scripts/ui/hosting/UIScreenKinds.cs`
+- Modify: `tests/ui/hosting/UIScreenHostTestSupport.cs`
+- Modify: `tests/ui/hosting/UIScreenStackModelTest.cs`
+- Modify: `tests/ui/hosting/UIScreenPolicyResolverTest.cs`
+- Modify: `tests/ui/hosting/UIScreenHostInputTest.cs`
+- Modify: `tests/ui/hosting/UIScreenHostFocusTest.cs`
+- Modify: `tests/ui/hosting/UIScreenHostLifecycleTest.cs`
+- Modify: `tests/ui/hosting/UIScreenHostContractScenarioTest.cs`
+- Modify: `docs/ui/hpa-378/uiscreenhost-contract.md`
+
+**Interfaces produced (test-only):**
+
+```csharp
+public static readonly StringName ToastFixture = "toast_fixture";
+public static readonly StringName AcknowledgementFixture = "acknowledgement_fixture";
+```
+
+## 4.1 Add test fixture identities before removing product kinds
+
+- [ ] Add to `UIScreenHostTestSupport`:
+
+```csharp
+public static readonly StringName ToastFixture = "toast_fixture";
+public static readonly StringName AcknowledgementFixture = "acknowledgement_fixture";
+```
+
+These are test-only semantic identities. They do not become production `UIScreenKinds`.
+
+## 4.2 Retarget existing host tests mechanically
+
+- [ ] Replace every `UIScreenKinds.RewardToast` occurrence in these six files with `UIScreenHostTestSupport.ToastFixture`:
+
+```text
+tests/ui/hosting/UIScreenStackModelTest.cs
+tests/ui/hosting/UIScreenPolicyResolverTest.cs
+tests/ui/hosting/UIScreenHostInputTest.cs
+tests/ui/hosting/UIScreenHostFocusTest.cs
+tests/ui/hosting/UIScreenHostLifecycleTest.cs
+tests/ui/hosting/UIScreenHostContractScenarioTest.cs
+```
+
+- [ ] Replace `UIScreenKinds.RewardAcknowledgement` in `UIScreenHostContractScenarioTest.cs` with `UIScreenHostTestSupport.AcknowledgementFixture`.
+
+- [ ] Rename the scenario test:
+
+```text
+RewardToast_IsPassiveAndNeverBecomesInputOwner
+→ ToastLayerPassiveEntry_IsPassiveAndNeverBecomesInputOwner
+```
+
+Do not change the tested `UIScreenLayer.Toast`, `UIInputPriority.Passive`, effective-state, restoration-lease, or input-owner assertions.
+
+## 4.3 Remove dead reward product kinds
+
+- [ ] Delete only these two members from `UIScreenKinds.cs`:
+
+```csharp
+public static readonly StringName RewardToast = "reward_toast";
+public static readonly StringName RewardAcknowledgement = "reward_acknowledgement";
+```
+
+Keep `UIScreenLayer.Toast` and the host's `ToastLayer` node/logic unchanged.
+
+## 4.4 Update the live HPA-378 contract example
+
+- [ ] In `docs/ui/hpa-378/uiscreenhost-contract.md`, replace the product-specific `ShowRewardToast` example with a generic host-layer fixture example. Its policy remains:
+
+```csharp
+Layer = UIScreenLayer.Toast,
+InputPriority = UIInputPriority.Passive,
+ProcessPolicy = UIProcessPolicy.InheritHost,
+LowerLayers = UILowerLayerPolicy.VisibleInteractive,
+Cancel = UICancelPolicy.None,
+NodeLifetime = UINodeLifetime.QueueFree
+```
+
+Use a generic fixture kind such as `new StringName("toast_fixture")`, and explicitly state that HPA-573 production treasure feedback does **not** use this host path because it must follow `GameUI` HUD visibility and avoid ToastLayer-over-Modal z-order.
+
+- [ ] Retarget the required-acknowledgement example from the removed product kind to `new StringName("acknowledgement_fixture")`; it remains a generic host contract example, not the Battle Result implementation.
+
+## 4.5 Verify no live product-kind references remain
+
+- [ ] Run:
+
+```bash
+rg -n "UIScreenKinds\.(RewardToast|RewardAcknowledgement)" \
+  scripts tests docs/ui/hpa-378/uiscreenhost-contract.md
+```
+
+Expected: zero matches.
+
+Historical superpowers planning documents are not runtime/live-contract sources and are not rewritten solely for this symbol removal.
+
+## 4.6 Run hosting suites and commit
+
+- [ ] Run:
+
+```bash
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
+  --filter "FullyQualifiedName~UIScreen"
+```
+
+Expected: PASS; generic Toast-layer/acknowledgement fixture behavior is unchanged.
+
+- [ ] Commit:
+
+```bash
+git add scripts/ui/hosting/UIScreenKinds.cs \
+  tests/ui/hosting/UIScreenHostTestSupport.cs \
+  tests/ui/hosting/UIScreenStackModelTest.cs \
+  tests/ui/hosting/UIScreenPolicyResolverTest.cs \
+  tests/ui/hosting/UIScreenHostInputTest.cs \
+  tests/ui/hosting/UIScreenHostFocusTest.cs \
+  tests/ui/hosting/UIScreenHostLifecycleTest.cs \
+  tests/ui/hosting/UIScreenHostContractScenarioTest.cs \
+  docs/ui/hpa-378/uiscreenhost-contract.md
+git commit -m "refactor: retire unused reward host kinds"
+```
+
+---
+
+# Task 5: Reconcile reward ownership docs and validate the complete slice
 
 **Files:**
 - Modify: `docs/ui/hpa-376/ui-lifecycle-contract.md`
 - Modify: `docs/ui/hpa-377/README.md`
 - Modify: `docs/superpowers/specs/2026-08-03-shared-sirius-theme-core-components-design.md`
-- Verify all Task 1-4 files
-- Reference: `scripts/ui/hosting/UIScreenKinds.cs`
-- Reference: `tests/ui/hosting/UIScreenHostContractScenarioTest.cs`
+- Verify every Task 1-4 file
 
-## 5.1 Reconcile the three HPA-376 treasure/reward lifecycle rows
+## 5.1 Reconcile HPA-376 reward rows
 
-- [ ] `WORLD-TREASURE` must record that Game captures `TreasureRewardGrantResult` after the one-time grant, preserves opened-ID/cell/stat updates, then hands resolved values to root-local presentation. Existing `finally` remains world-latch cleanup.
-
-- [ ] `REWARD-TOAST` must replace future/HPA-378/379 wording with:
+- [ ] Update `WORLD-TREASURE` to record:
 
 ```text
-Owner: Game root
-Surface: one authored SiriusToastShell under GameUI
-Queue: root-local FIFO; one active request; 2.0 s Always Timer
-Input: no host entry, no pause, no focus/Cancel owner, mouse transparent
-HUD/cursor: existing GameUI/host policy; toast itself changes neither
-Cleanup: RequestSceneChange + _ExitTree
-Grant authority: producer only
+Grant/opened-ID/cell-clear/stat mutation remains Game/domain-owned.
+Game captures the one TreasureRewardGrantResult and maps only resolved values.
+ExplorationHudController owns the passive toast FIFO.
+World-interaction finally cleanup remains unchanged.
+```
+
+- [ ] Replace `REWARD-TOAST` future ownership with:
+
+```text
+Owner: ExplorationHudController
+Surface: one SiriusToastShell under ExplorationHud/%SafeFrame
+Queue: HUD-local FIFO; one active request; 2.0 s Always Timer
+Input: no host entry, no pause, no focus/Cancel owner; MakePassive covers the subtree
+HUD/cursor: follows existing GameUI HUD visibility; toast changes neither policy itself
+Layout: existing HUD SafeFrame/compact owner; reward lane is top-right below transient band
+Cleanup: Game RequestSceneChange calls ClearRewardFeedback; HUD _ExitTree clears its own queue/timer
+Grant authority: producer only; Game maps resolved copy
 Disposition: Preserve
 ```
 
-- [ ] `REWARD-BLOCKING` must point to HPA-356's current `BattleManager` Result phase / `BattleResultSummary` and Continue acknowledgement. Remove stale language implying canceled HPA-393 or completed HPA-378/379 still need to build a shared reward surface.
-
-Do not rewrite unrelated lifecycle rows.
-
-## 5.2 Retarget stale HPA-377 queue ownership
-
-- [ ] In `docs/ui/hpa-377/README.md`, replace the HPA-386 handoff with the current ownership:
+- [ ] Update `REWARD-BLOCKING` to point at the existing HPA-356 Battle Result phase:
 
 ```text
-HPA-573 owns production treasure reward queueing and timeout at the Game root.
+Owner: BattleManager
+Grant boundary: EndBattle + _resultEmitted guard
+Display: BattleResultSummary through RenderResult
+Acknowledgement: existing Continue action on Battle entry
+No shared reward modal / RewardAcknowledgement kind
+```
+
+Remove stale HPA-393/HPA-378 future handoff language from those rows only.
+
+## 5.2 Retarget stale HPA-377 ownership
+
+- [ ] In `docs/ui/hpa-377/README.md`, replace the HPA-386 handoff with:
+
+```text
+HPA-573 owns production treasure reward queueing in ExplorationHudController.
 SiriusToastShell remains the presentation-only visual shell; it does not queue,
 time, dismiss, grant, or persist notifications. Battle result acknowledgement
-remains Battle-owned through HPA-356 rather than using the treasure-toast path.
+remains Battle-owned through HPA-356.
 ```
 
-- [ ] In `docs/superpowers/specs/2026-08-03-shared-sirius-theme-core-components-design.md`, retarget each stale HPA-386 toast/reward ownership reference:
+- [ ] In `docs/superpowers/specs/2026-08-03-shared-sirius-theme-core-components-design.md`, retarget all HPA-386 toast/reward ownership references:
 
-  - header `Toast/reward queue handoff` → HPA-573;
-  - demand-ledger `Toast visual shell` consumer/lifetime owner → HPA-573;
-  - `SiriusToastShell` section queue/lifetime handoff → HPA-573.
-
-Preserve the original HPA-377 architectural rule: the shell itself owns visual presentation only and no Timer/Tween/queue/lifecycle behavior.
-
-- [ ] Verify `UIScreenKinds.RewardToast` still exists for host tests and is **not** used by production Game reward feedback. Do not delete or rename it.
-
-Run:
-
-```bash
-rg -n "HPA-386|RewardToast" \
-  docs/ui/hpa-377/README.md \
-  docs/superpowers/specs/2026-08-03-shared-sirius-theme-core-components-design.md \
-  scripts/ui/hosting/UIScreenKinds.cs \
-  tests/ui/hosting
+```text
+Toast/reward queue handoff: HPA-573
+Toast visual shell consumer: HPA-573
+SiriusToastShell queue/lifetime handoff: HPA-573
 ```
 
-Expected: no stale HPA-386 production ownership remains in the two HPA-377 docs; host-test `RewardToast` references remain intact.
+Preserve the original component contract: no Timer/Tween/queue/navigation/lifecycle inside `SiriusToastShell`.
 
 ## 5.3 Run focused HPA-573 suites
 
@@ -856,7 +1022,7 @@ Expected: no stale HPA-386 production ownership remains in the two HPA-377 docs;
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
-  --filter "FullyQualifiedName~SiriusToastShellTest|FullyQualifiedName~GameTest|FullyQualifiedName~BattleManagerTest"
+  --filter "FullyQualifiedName~ExplorationHudControllerTest|FullyQualifiedName~GameTest|FullyQualifiedName~BattleManagerTest|FullyQualifiedName~UIScreen"
 ```
 
 Expected: PASS.
@@ -872,9 +1038,28 @@ git diff --check main...HEAD
 git status --short
 ```
 
-Expected: tests/build pass, diff check is clean, and no unintended files appear.
+Expected: full tests/build pass, diff check clean, no unintended files.
 
-- [ ] Review the final diff and verify there is **no** reward service/manager, host kind, persistence field, save-schema change, second battle result surface, or domain mutation from presentation.
+- [ ] Run ownership/stale-path audits:
+
+```bash
+rg -n "HPA-386" \
+  docs/ui/hpa-377/README.md \
+  docs/superpowers/specs/2026-08-03-shared-sirius-theme-core-components-design.md
+
+rg -n "UIScreenKinds\.(RewardToast|RewardAcknowledgement)" scripts tests
+
+rg -n "RewardToastMargin|RefreshRewardToastLayout|CreatePrivateRewardToastRequest" \
+  scripts tests
+```
+
+Expected:
+
+- no stale HPA-386 reward-queue ownership in current HPA-377 docs;
+- no removed reward-specific `UIScreenKinds` references;
+- no Game-side parallel reward layout method/margin or private-record reflection constructor.
+
+- [ ] Review final diff and confirm there is **no** reward manager/service/global queue/persistence, Game-owned reward timer/resize subscription, second battle result surface, or presentation-owned grant operation.
 
 ## 5.5 Commit documentation reconciliation
 
@@ -891,22 +1076,25 @@ git commit -m "docs: finalize HPA-573 reward ownership"
 
 ## Final Acceptance Checklist
 
-- [ ] Existing treasure still grants exactly once.
-- [ ] One gold + one item invocation shows two sequential toasts.
-- [ ] Advancing/clearing presentation does not change gold, inventory, XP, or level.
+- [ ] Existing treasure still grants exactly once through the original producer.
+- [ ] Game captures the existing `TreasureRewardGrantResult` exactly once; it never rebuilds/grants a reward for UI.
+- [ ] One gold + one item invocation shows two sequential HUD toasts.
+- [ ] Advancing/clearing toast presentation does not change player gold/inventory/XP/level.
 - [ ] Re-interacting with an opened box neither grants nor enqueues again.
 - [ ] Multiple granted items use explicit ordinal item-ID ordering.
 - [ ] Recovery Chest and unrecovered overflow use Warning/Error copy in deterministic ordinal order without mutating player state.
-- [ ] Aborted treasure opening grants nothing and queues nothing.
-- [ ] Toasts never register with `UIScreenHost`, pause the tree, change cursor/focus, or intercept mouse input.
-- [ ] 640×360 uses compact typography, 12 px inset, 280 px width.
-- [ ] 1280×720 uses standard typography, 24 px inset, 360 px width.
-- [ ] 2560×1080 uses standard typography, a 480 px right side inset from the 1600 px content cap, and 360 px width.
-- [ ] Any scene-change request—including Return to Title through the same method—clears active + queued feedback before host teardown.
-- [ ] Raw root exit clears active + queued feedback.
-- [ ] Battle Result characterization uses `CreateReadyBattleManager()` and current `RenderResult(...)`; production Battle remains unchanged.
-- [ ] Battle Result still renders XP/gold/level/loot and rendering itself mutates nothing.
-- [ ] HPA-376 reward rows describe final HPA-573/HPA-356 ownership.
-- [ ] HPA-377 docs identify HPA-573 as the production toast-queue owner while keeping `SiriusToastShell` presentation-only.
-- [ ] `UIScreenKinds.RewardToast` remains a host-test fixture and is not the runtime treasure path.
+- [ ] Unknown defensive item IDs emit a warning before raw-ID fallback copy.
+- [ ] Aborted treasure opening grants nothing and shows no toast.
+- [ ] Toast queue/layout/passivation/timer ownership lives in `ExplorationHudController`, not `Game`.
+- [ ] Reward toast uses existing `%SafeFrame`, `MakePassive`, compact propagation, viewport subscription, and HUD teardown.
+- [ ] Area/session transient feedback and reward toast are separate non-overlapping lanes at 640×360.
+- [ ] At 2560×1080 reward right edge follows the existing 1600px SafeFrame content cap (480px physical side inset).
+- [ ] Scene-change request clears active/pending HUD rewards with a null-safe guard for synthetic TestableGame.
+- [ ] HUD/root exit clears its own active/pending reward feedback.
+- [ ] Battle first `EndBattle(true)` renders resolved XP/gold/level/loot and grants normally.
+- [ ] Battle second `EndBattle(true)` leaves gold/XP/level/skills/inventory/result presentation unchanged.
+- [ ] Production treasure feedback does not register with `UIScreenHost`.
+- [ ] Generic `UIScreenLayer.Toast` remains covered by host fixture tests.
+- [ ] Unused `UIScreenKinds.RewardToast` and `RewardAcknowledgement` are removed rather than retained as dead product APIs.
+- [ ] HPA-376/HPA-377/HPA-378 live ownership docs match the final production paths.
 - [ ] Full tests and build pass.

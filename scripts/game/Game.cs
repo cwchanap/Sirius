@@ -2083,9 +2083,6 @@ public partial class Game : Node2D
         if (_gameManager == null)
             return UIRootCancelResult.Declined;
 
-        if (_puzzleRiddleScreen != null && IsInstanceValid(_puzzleRiddleScreen))
-            return UIRootCancelResult.Declined;
-
         if (_gameManager.IsInWorldInteraction)
             return UIRootCancelResult.Consumed;
 

@@ -1,9 +1,10 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/ExplorationHudController.cs" id="1_exploration_hud"]
 [ext_resource type="Theme" path="res://resources/ui/theme/SiriusTheme.tres" id="2_sirius_theme"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusStatBar.tscn" id="3_stat_bar"]
 [ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusContextPrompt.tscn" id="4_context_prompt"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/SiriusToastShell.tscn" id="8_toast_shell"]
 [ext_resource type="Texture2D" path="res://assets/sprites/characters/player_hero/sprite_sheet.png" id="5_hero_sheet"]
 [ext_resource type="Texture2D" path="res://assets/sprites/ui/ornaments/orbit_arc.png" id="6_orbit_arc"]
 [ext_resource type="Texture2D" path="res://assets/sprites/ui/ornaments/callout_connector.png" id="7_callout_connector"]
@@ -176,7 +177,32 @@ clip_text = true
 theme_type_variation = &"SiriusTitle"
 text = ""
 
+[node name="RewardToastSlot" type="VBoxContainer" parent="SafeFrame"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -360.0
+offset_top = 68.0
+offset_right = 0.0
+grow_horizontal = 0
+mouse_filter = 2
+
+[node name="RewardToast" parent="SafeFrame/RewardToastSlot" instance=ExtResource("8_toast_shell")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+
 [node name="TransientTimer" type="Timer" parent="."]
+unique_name_in_owner = true
+process_mode = 3
+wait_time = 2.0
+one_shot = true
+
+[node name="RewardToastTimer" type="Timer" parent="."]
 unique_name_in_owner = true
 process_mode = 3
 wait_time = 2.0

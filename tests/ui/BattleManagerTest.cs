@@ -536,6 +536,72 @@ public partial class BattleManagerTest : Node
     }
 
     [TestCase]
+    public async Task EndBattle_VictoryRewardsRenderAndSecondEndDoesNotReapply()
+    {
+        var manager = await CreateReadyBattleManager();
+        int finishedCount = 0;
+        manager.BattleFinished += (_, escaped) =>
+        {
+            if (!escaped)
+                finishedCount++;
+        };
+
+        try
+        {
+            var player = GetPrivateField<Character>(manager, "_player");
+
+            InvokePrivateMethod(manager, "EndBattle", true);
+
+            var result = manager.ResolvedResult;
+            AssertThat(result).IsNotNull();
+            AssertThat(result!.PlayerWon).IsTrue();
+            AssertThat(result.ExperienceGained).IsGreater(0);
+            AssertThat(result.GoldGained).IsGreater(0);
+            AssertThat(finishedCount).IsEqual(1);
+
+            AssertThat(manager.GetNode<Label>("%ResultTitle").Text)
+                .IsEqual("VICTORY");
+            AssertThat(manager.GetNode<Label>("%ExperienceResult").Text)
+                .IsEqual($"Experience: {result.ExperienceGained}");
+            AssertThat(manager.GetNode<Label>("%GoldResult").Text)
+                .IsEqual($"Gold: {result.GoldGained}");
+            AssertThat(manager.GetNode<Label>("%LevelResult").Text)
+                .IsEqual(result.PreviousLevel == result.NewLevel
+                    ? $"Level: {result.NewLevel}"
+                    : $"Level: {result.PreviousLevel} → {result.NewLevel}");
+
+            var goldAfterFirst = player.Gold;
+            var experienceAfterFirst = player.Experience;
+            var levelAfterFirst = player.Level;
+            var skillsAfterFirst = string.Join("|", player.KnownSkillIds);
+            var inventoryAfterFirst = player.Inventory.Entries.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.Quantity,
+                StringComparer.Ordinal);
+            var lootTextAfterFirst = manager.GetNode<Label>("%LootResultList").Text;
+
+            InvokePrivateMethod(manager, "EndBattle", true);
+
+            AssertThat(finishedCount).IsEqual(1);
+            AssertThat(player.Gold).IsEqual(goldAfterFirst);
+            AssertThat(player.Experience).IsEqual(experienceAfterFirst);
+            AssertThat(player.Level).IsEqual(levelAfterFirst);
+            AssertThat(string.Join("|", player.KnownSkillIds)).IsEqual(skillsAfterFirst);
+            AssertThat(player.Inventory.Entries.Count).IsEqual(inventoryAfterFirst.Count);
+            foreach (var (itemId, quantity) in inventoryAfterFirst)
+                AssertThat(player.GetItemQuantity(itemId)).IsEqual(quantity);
+
+            AssertThat(manager.GetNode<Label>("%LootResultList").Text)
+                .IsEqual(lootTextAfterFirst);
+            AssertThat(manager.GetNode<Button>("%ContinueButton").Visible).IsTrue();
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
+    [TestCase]
     public async Task PreparationApplyFailure_StaysInPreparationWithReadableFeedback()
     {
         var manager = await CreateReadyBattleManager();

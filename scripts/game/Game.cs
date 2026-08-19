@@ -1297,8 +1297,16 @@ public partial class Game : Node2D
         if (!_screenHost.IsActive(openResult.Handle.Value))
         {
             // A publication subscriber may already have closed the committed entry;
-            // its Cleanup callback has released the candidate. Retain nothing and only
+            // its Cleanup callback ran ClearPuzzleRiddlePresentation, but that only
+            // resets _activePuzzleRiddle when _puzzleRiddleScreen matches — and the
+            // commit assignment below has not run yet, so the match fails. Clear the
+            // active riddle directly when no committed screen owns it, and only
             // ensure the world latch is down.
+            if (_puzzleRiddleScreen == null)
+            {
+                _activePuzzleRiddle = null;
+                _puzzleRiddleHandle = null;
+            }
             EndWorldInteractionIfActive();
             UpdateInteractionPrompt();
             return;
@@ -1475,6 +1483,16 @@ public partial class Game : Node2D
             screen.ChoiceSelected -= OnPuzzleRiddleChoiceSelected;
             screen.PuzzleRiddleClosed -= OnPuzzleRiddleClosed;
             screen.QueueFree();
+        }
+
+        // The candidate was never committed (_puzzleRiddleScreen is still null),
+        // so ClearPuzzleRiddlePresentation's ReferenceEquals guard would skip the
+        // active-riddle/handle reset. Clear them directly so the rejection paths
+        // (TryPresent throw, non-Opened status) do not strand _activePuzzleRiddle.
+        if (_puzzleRiddleScreen == null)
+        {
+            _activePuzzleRiddle = null;
+            _puzzleRiddleHandle = null;
         }
     }
 

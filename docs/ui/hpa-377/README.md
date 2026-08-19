@@ -95,9 +95,10 @@ all lifecycle policy around it.
 HPA-541 owns persisted reduced motion. HPA-377 supplies only the shared motion
 policy and the showcase-local demonstration.
 
-HPA-386 owns toast/reward queueing and short confirmation seals. A
-`SiriusToastShell` is only the visual shell; it does not queue, time, or dismiss
-notifications.
+HPA-573 owns production treasure reward queueing in ExplorationHudController.
+SiriusToastShell remains the presentation-only visual shell; it does not queue,
+time, dismiss, grant, or persist notifications. Battle result acknowledgement
+remains Battle-owned through HPA-356.
 
 HPA-382 owns production modal lifecycle and dismissal. A `SiriusModalShell`
 does not create a production modal flow or decide how it closes.

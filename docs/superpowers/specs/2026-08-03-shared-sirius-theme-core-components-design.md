@@ -9,7 +9,7 @@
 **Integrates with:** HPA-378  
 **Blocks:** HPA-379  
 **Reduced-motion persistence handoff:** HPA-541  
-**Toast/reward queue handoff:** HPA-386
+**Toast/reward queue handoff:** HPA-573
 
 ## 1. Decision
 
@@ -72,7 +72,7 @@ HPA-378 supplies the scene-local `UIScreenHost`. HPA-377 components do not depen
 | HP, MP, EXP bars | HPA-381; HPA-356 | `SiriusStatBar` with three public kinds |
 | Input hint | Existing inventory integration; HPA-380; HPA-381 | `SiriusInputHint` around `InputHintPresenter` |
 | Context prompt | Explicit HPA-377 scope; HPA-381 | `SiriusContextPrompt` |
-| Toast visual shell | Explicit HPA-377 scope; HPA-386 | `SiriusToastShell`; queue/lifetime remains HPA-386 work |
+| Toast visual shell | Explicit HPA-377 scope; HPA-573 | `SiriusToastShell`; queue/lifetime remains HPA-573 work |
 | Ignition seal | HPA-356; HPA-386 | Stock square `Button` Theme variation |
 | Focus/highlight helper | No control proves Theme focus insufficient | Deferred |
 | Automatic-action bar | HPA-356 only | Deferred to HPA-356 |
@@ -411,7 +411,7 @@ Compact : bool
 RefreshPresentation()
 ```
 
-It owns semantic visual presentation only. It has no Timer, Tween, queue, timeout, stacking, acknowledgement, host registration, or lifecycle behavior. HPA-386 owns those concerns.
+It owns semantic visual presentation only. It has no Timer, Tween, queue, timeout, stacking, acknowledgement, host registration, or lifecycle behavior. HPA-573 owns the production queue/lifetime.
 
 ## 10. Showcase
 
@@ -499,7 +499,7 @@ No pixel equality is required.
 - public type variations and five component APIs;
 - compact authority;
 - font/art paths;
-- HPA-541 and HPA-386 handoffs;
+- HPA-541 and HPA-573 handoffs;
 - prohibition on repeated shared local styles.
 
 It links here for rationale.
@@ -519,12 +519,12 @@ HPA-377 does not:
 - style unused native controls;
 - make screenshots the primary correctness gate.
 
-HPA-541 owns persisted reduced motion. HPA-386 owns toast/reward queueing and short confirmations. HPA-382 owns production modal lifecycle. HPA-356 owns automatic-action presentation. HPA-357 owns slot/component details.
+HPA-541 owns persisted reduced motion. HPA-573 owns production treasure reward queueing in ExplorationHudController. Battle result acknowledgement remains Battle-owned through HPA-356. HPA-382 owns production modal lifecycle. HPA-357 owns slot/component details.
 
 ## 14. Alternatives considered
 
 - **Button/Panel subclasses:** rejected because assigning a Theme variation is already native Godot behavior; the wrappers add files, APIs, and tests without new capability.
-- **Component-owned Tweens:** rejected because they duplicate lifetime logic and overlap the production owners in HPA-382/HPA-386.
+- **Component-owned Tweens:** rejected because they duplicate lifetime logic and overlap the production owners in HPA-382/HPA-573.
 - **Future motion constants:** rejected until the downstream ticket implements that motion.
 - **Configurable stat display/threshold:** rejected because HPA-377 has one approved numeric display and threshold.
 - **Scenic background selector:** rejected because fixed light/dark fixtures satisfy the ticket with less code.

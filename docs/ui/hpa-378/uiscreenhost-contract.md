@@ -447,6 +447,12 @@ Callers must inspect each result. If it is `HostMutating`, they retain the
 unmodified view/spec and retry from the owning flow only after the current
 `TryClose` call has returned; they never retry inline from `Cleanup`.
 
+The toast and acknowledgement registrations below are generic host-layer
+fixtures, not production reward guidance. HPA-573 production treasure feedback
+does not use this host path: it follows `GameUI` HUD visibility through the
+exploration HUD and avoids `ToastLayer`-over-`Modal` z-order. The acknowledgement
+fixture is likewise not the Battle Result implementation.
+
 ```csharp
 using System.Collections.Generic;
 using Godot;
@@ -608,10 +614,10 @@ public sealed class SyntheticUIScreenRegistrations
         return result;
     }
 
-    public UIScreenOpenResult ShowRewardToast(Control toast) =>
+    public UIScreenOpenResult ShowToastFixture(Control toast) =>
         _host.TryPresent(toast, new UIScreenEntrySpec
         {
-            Kind = UIScreenKinds.RewardToast,
+            Kind = new StringName("toast_fixture"),
             Layer = UIScreenLayer.Toast,
             InputPriority = UIInputPriority.Passive,
             ProcessPolicy = UIProcessPolicy.InheritHost,
@@ -641,7 +647,7 @@ public sealed class SyntheticUIScreenRegistrations
             acknowledgement,
             new UIScreenEntrySpec
             {
-                Kind = UIScreenKinds.RewardAcknowledgement,
+                Kind = new StringName("acknowledgement_fixture"),
                 Layer = UIScreenLayer.Modal,
                 InputPriority = UIInputPriority.Blocking,
                 ProcessPolicy = UIProcessPolicy.InheritHost,

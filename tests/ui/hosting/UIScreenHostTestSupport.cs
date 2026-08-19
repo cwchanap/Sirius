@@ -5,6 +5,9 @@ using Godot;
 
 public static class UIScreenHostTestSupport
 {
+    public static readonly StringName ToastFixture = "toast_fixture";
+    public static readonly StringName AcknowledgementFixture = "acknowledgement_fixture";
+
     public static async Task<HostFixture> CreateHost(
         Node owner,
         IEnumerable<StringName>? coreActions = null,

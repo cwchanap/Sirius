@@ -151,7 +151,7 @@ public partial class UIScreenHostFocusTest : Node
 
             var opened = fixture.Host.TryPresent(
                 toast,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+                UIScreenHostTestSupport.Spec(UIScreenHostTestSupport.ToastFixture) with
                 {
                     Layer = UIScreenLayer.Toast,
                     InputPriority = UIInputPriority.Passive
@@ -186,7 +186,7 @@ public partial class UIScreenHostFocusTest : Node
                 }).Handle!.Value;
             var passive = fixture.Host.TryPresent(
                 toast,
-                UIScreenHostTestSupport.Spec(UIScreenKinds.RewardToast) with
+                UIScreenHostTestSupport.Spec(UIScreenHostTestSupport.ToastFixture) with
                 {
                     Layer = UIScreenLayer.Toast,
                     InputPriority = UIInputPriority.Passive

@@ -442,12 +442,32 @@ public partial class GameTest : Node
             AssertThat(box.IsOpened).IsTrue();
             AssertThat(promptPlate.Visible).IsFalse();
 
+            var toast = hud.GetNode<SiriusToastShell>("%RewardToast");
+            var timer = hud.GetNode<Timer>("%RewardToastTimer");
+
+            AssertThat(toast.Visible).IsTrue();
+            AssertThat(toast.Title).IsEqual("Treasure Acquired");
+            AssertThat(toast.Message).IsEqual("25 Gold");
+
+            int goldAfterGrant = gameManager.Player.Gold;
+            int potionAfterGrant = gameManager.Player.GetItemQuantity("health_potion");
+
+            timer.EmitSignal(Timer.SignalName.Timeout);
+            AssertThat(toast.Title).IsEqual("Item Acquired");
+            AssertThat(toast.Message).IsEqual("Health Potion ×1");
+            AssertThat(gameManager.Player.Gold).IsEqual(goldAfterGrant);
+            AssertThat(gameManager.Player.GetItemQuantity("health_potion")).IsEqual(potionAfterGrant);
+
+            timer.EmitSignal(Timer.SignalName.Timeout);
+            AssertThat(toast.Visible).IsFalse();
+
             PressInteractRelease(playerController);
             PressInteract(playerController);
             await AwaitFrames(30);
 
             AssertThat(gameManager.Player.Gold).IsEqual(startingGold + 25);
             AssertThat(promptPlate.Visible).IsFalse();
+            AssertThat(toast.Visible).IsFalse();
         }
         finally
         {
@@ -456,6 +476,191 @@ public partial class GameTest : Node
                 gameScene.Free();
             }
 
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task Game_TreasureRewardFeedbackOrdersGrantedItemsByItemId()
+    {
+        var game = await InstantiateRealGameScene();
+        TreasureBoxSpawn? box = null;
+
+        try
+        {
+            var floorManager = game.GetNode<FloorManager>("FloorManager");
+            var gridMap = floorManager.CurrentGridMap;
+            var playerController = game.GetNode<PlayerController>("PlayerController");
+
+            box = new TreasureBoxSpawn
+            {
+                Name = "TreasureBox_RewardOrderTest",
+                TreasureBoxId = "TreasureBox_RewardOrderTest",
+                GridPosition = new Vector2I(9, 50),
+                RewardGold = 5,
+                RewardItemIds = new Godot.Collections.Array<string>
+                {
+                    "mana_potion",
+                    "health_potion"
+                },
+                RewardItemQuantities = new Godot.Collections.Array<int> { 1, 2 }
+            };
+            gridMap.AddChild(box);
+            box.AddToGroup("TreasureBoxSpawn");
+
+            SetPrivateField(gridMap, "_grid", new int[gridMap.GridWidth, gridMap.GridHeight]);
+            SetPrivateField(gridMap, "_playerPosition", new Vector2I(8, 50));
+            gridMap.CallDeferred(nameof(GridMap.RegisterStaticTreasureBoxes));
+            await AwaitFrames(3);
+
+            PressMovement(playerController, Vector2I.Right);
+            await AwaitFrames(1);
+            PressInteract(playerController);
+            await AwaitFrames(60);
+
+            var hud = game.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+            var toast = hud.GetNode<SiriusToastShell>("%RewardToast");
+            var timer = hud.GetNode<Timer>("%RewardToastTimer");
+
+            AssertThat(toast.Title).IsEqual("Treasure Acquired");
+            AssertThat(toast.Message).IsEqual("5 Gold");
+
+            timer.EmitSignal(Timer.SignalName.Timeout);
+            AssertThat(toast.Title).IsEqual("Item Acquired");
+            AssertThat(toast.Message).IsEqual("Health Potion ×2");
+
+            timer.EmitSignal(Timer.SignalName.Timeout);
+            AssertThat(toast.Title).IsEqual("Item Acquired");
+            AssertThat(toast.Message).IsEqual("Mana Potion ×1");
+
+            timer.EmitSignal(Timer.SignalName.Timeout);
+            AssertThat(toast.Visible).IsFalse();
+        }
+        finally
+        {
+            if (box != null && IsInstanceValid(box))
+                box.Free();
+
+            if (game != null && IsInstanceValid(game))
+                game.Free();
+
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task RewardToast_ResolvedResultPreservesRecoveryAndOverflowCopies()
+    {
+        var game = await InstantiateRealGameScene();
+        try
+        {
+            var manager = game.GetNode<GameManager>("GameManager");
+            var player = manager.Player;
+            var hud = game.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+            var toast = hud.GetNode<SiriusToastShell>("%RewardToast");
+            var timer = hud.GetNode<Timer>("%RewardToastTimer");
+
+            int goldBefore = player.Gold;
+            int healthBefore = player.GetItemQuantity("health_potion");
+            int manaBefore = player.GetItemQuantity("mana_potion");
+
+            var result = new TreasureRewardGrantResult();
+            result.ItemQuantitiesRecovered["mana_potion"] = 1;
+            result.ItemQuantitiesRecovered["health_potion"] = 2;
+            result.UnrecoveredItemQuantities["mana_potion"] = 3;
+            result.UnrecoveredItemQuantities["health_potion"] = 4;
+
+            InvokePrivate(game, "EnqueueTreasureRewardFeedback", result);
+
+            AssertThat(toast.Title).IsEqual("Recovery Chest");
+            AssertThat(toast.Message).IsEqual(
+                "Health Potion ×2 sent to the Recovery Chest");
+            AssertThat(toast.Severity).IsEqual(SiriusUiSeverity.Warning);
+
+            timer.EmitSignal(Timer.SignalName.Timeout);
+            AssertThat(toast.Message).IsEqual(
+                "Mana Potion ×1 sent to the Recovery Chest");
+            AssertThat(toast.Severity).IsEqual(SiriusUiSeverity.Warning);
+
+            timer.EmitSignal(Timer.SignalName.Timeout);
+            AssertThat(toast.Title).IsEqual("Inventory Full");
+            AssertThat(toast.Message).IsEqual(
+                "Health Potion ×4 could not be stored");
+            AssertThat(toast.Severity).IsEqual(SiriusUiSeverity.Error);
+
+            timer.EmitSignal(Timer.SignalName.Timeout);
+            AssertThat(toast.Message).IsEqual(
+                "Mana Potion ×3 could not be stored");
+            AssertThat(toast.Severity).IsEqual(SiriusUiSeverity.Error);
+
+            timer.EmitSignal(Timer.SignalName.Timeout);
+            AssertThat(toast.Visible).IsFalse();
+
+            AssertThat(player.Gold).IsEqual(goldBefore);
+            AssertThat(player.GetItemQuantity("health_potion")).IsEqual(healthBefore);
+            AssertThat(player.GetItemQuantity("mana_potion")).IsEqual(manaBefore);
+        }
+        finally
+        {
+            game.Free();
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task RewardToast_SceneChangeRequestClearsHudQueueWithoutNavigation()
+    {
+        var game = await InstantiateRealGameScene();
+        try
+        {
+            var hud = game.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+            var toast = hud.GetNode<SiriusToastShell>("%RewardToast");
+            var timer = hud.GetNode<Timer>("%RewardToastTimer");
+
+            hud.EnqueueRewardToast("First", "A", SiriusUiSeverity.Success);
+            hud.EnqueueRewardToast("Second", "B", SiriusUiSeverity.Success);
+
+            InvokePrivate(game, "RequestSceneChange", string.Empty);
+
+            AssertThat(toast.Visible).IsFalse();
+            AssertThat(timer.IsStopped()).IsTrue();
+
+            // Empty path uses the real scene-change latch/teardown path but
+            // never calls ChangeSceneToFile.
+            timer.EmitSignal(Timer.SignalName.Timeout);
+            AssertThat(toast.Visible).IsFalse();
+        }
+        finally
+        {
+            game.Free();
+            await AwaitFrames(1);
+        }
+    }
+
+    [TestCase]
+    public async Task RewardToast_GameRootExitClearsHudFeedback()
+    {
+        var game = await InstantiateRealGameScene();
+        var parent = game.GetParent();
+        try
+        {
+            var hud = game.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+            var toast = hud.GetNode<SiriusToastShell>("%RewardToast");
+            var timer = hud.GetNode<Timer>("%RewardToastTimer");
+
+            hud.EnqueueRewardToast("First", "A", SiriusUiSeverity.Success);
+            hud.EnqueueRewardToast("Second", "B", SiriusUiSeverity.Success);
+
+            parent.RemoveChild(game);
+            await AwaitFrames(1);
+
+            AssertThat(toast.Visible).IsFalse();
+            AssertThat(timer.IsStopped()).IsTrue();
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(game))
+                game.Free();
             await AwaitFrames(1);
         }
     }
@@ -511,6 +716,9 @@ public partial class GameTest : Node
             AssertThat(gameManager.Player.Gold).IsEqual(startingGold);
             AssertThat(gameManager.IsTreasureBoxOpened("TreasureBox_RuntimeAbortTest")).IsFalse();
             AssertThat(gameManager.IsInWorldInteraction).IsFalse();
+
+            var hud = gameScene.GetNode<ExplorationHudController>("UI/GameUI/ExplorationHud");
+            AssertThat(hud.GetNode<SiriusToastShell>("%RewardToast").Visible).IsFalse();
         }
         finally
         {

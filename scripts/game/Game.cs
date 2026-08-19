@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 public partial class Game : Node2D
 {
@@ -1107,10 +1108,11 @@ public partial class Game : Node2D
                 return;
             }
 
-            box.GrantRewardTo(_gameManager.Player);
+            var grantResult = box.GrantRewardTo(_gameManager.Player);
             _gameManager.MarkTreasureBoxOpened(box.TreasureBoxId);
             _gridMap.ClearTreasureBoxCell(treasurePosition);
             _gameManager.NotifyPlayerStatsChanged();
+            EnqueueTreasureRewardFeedback(grantResult);
         }
         catch (Exception ex)
         {
@@ -1128,6 +1130,57 @@ public partial class Game : Node2D
                 UpdateInteractionPrompt();
             }
         }
+    }
+
+    private void EnqueueTreasureRewardFeedback(TreasureRewardGrantResult result)
+    {
+        if (_explorationHud == null || !GodotObject.IsInstanceValid(_explorationHud))
+            return;
+
+        if (result.GoldGranted > 0)
+        {
+            _explorationHud.EnqueueRewardToast(
+                "Treasure Acquired",
+                $"{result.GoldGranted} Gold",
+                SiriusUiSeverity.Success);
+        }
+
+        foreach (var (itemId, quantity) in result.ItemQuantitiesGranted
+                     .OrderBy(pair => pair.Key, StringComparer.Ordinal))
+        {
+            _explorationHud.EnqueueRewardToast(
+                "Item Acquired",
+                $"{ResolveRewardItemDisplayName(itemId)} ×{quantity}",
+                SiriusUiSeverity.Success);
+        }
+
+        foreach (var (itemId, quantity) in result.ItemQuantitiesRecovered
+                     .OrderBy(pair => pair.Key, StringComparer.Ordinal))
+        {
+            _explorationHud.EnqueueRewardToast(
+                "Recovery Chest",
+                $"{ResolveRewardItemDisplayName(itemId)} ×{quantity} sent to the Recovery Chest",
+                SiriusUiSeverity.Warning);
+        }
+
+        foreach (var (itemId, quantity) in result.UnrecoveredItemQuantities
+                     .OrderBy(pair => pair.Key, StringComparer.Ordinal))
+        {
+            _explorationHud.EnqueueRewardToast(
+                "Inventory Full",
+                $"{ResolveRewardItemDisplayName(itemId)} ×{quantity} could not be stored",
+                SiriusUiSeverity.Error);
+        }
+    }
+
+    private static string ResolveRewardItemDisplayName(string itemId)
+    {
+        var item = ItemCatalog.CreateItemById(itemId);
+        if (item != null)
+            return item.DisplayName;
+
+        GD.PushWarning($"[Game] Reward feedback could not resolve item '{itemId}'.");
+        return itemId;
     }
 
     private void OnTrapTileTriggered(Vector2I trapPosition)
@@ -2100,6 +2153,8 @@ public partial class Game : Node2D
             return;
 
         _sceneChangeCommitted = true;
+        if (_explorationHud != null && GodotObject.IsInstanceValid(_explorationHud))
+            _explorationHud.ClearRewardFeedback();
         UpdateInteractionPrompt();
         _pendingScenePath = path;
         ContinueSceneChangeAfterUiTeardown();

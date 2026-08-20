@@ -10,9 +10,12 @@ public partial class DialogueScreenController : Control
     public Control? InitialFocusTarget { get; private set; }
 
     private const float StandardDialogueHeightFraction = 0.45f;
+    private const float StandardPortraitSize = 64f;
+    private const float CompactPortraitSize = 40f;
 
     private Control _safeFrame = null!;
     private SiriusModalShell _shell = null!;
+    private TextureRect _portrait = null!;
     private Label _speakerLabel = null!;
     private RichTextLabel _textLabel = null!;
     private VBoxContainer _choicesContainer = null!;
@@ -54,9 +57,11 @@ public partial class DialogueScreenController : Control
     {
         _safeFrame = GetNode<Control>("%SafeFrame");
         _shell = GetNode<SiriusModalShell>("%ModalShell");
+        _portrait = GetNode<TextureRect>("%NpcPortrait");
         _speakerLabel = GetNode<Label>("%SpeakerLabel");
         _textLabel = GetNode<RichTextLabel>("%DialogueText");
         _choicesContainer = GetNode<VBoxContainer>("%ChoicesContainer");
+        _shell.BodyHost.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 
         Resized += OnResized;
         RefreshLayout();
@@ -101,6 +106,9 @@ public partial class DialogueScreenController : Control
             ? SiriusThemeTypes.BodyCompact
             : SiriusThemeTypes.Body;
 
+        var portraitSize = insets.Compact ? CompactPortraitSize : StandardPortraitSize;
+        _portrait.CustomMinimumSize = new Vector2(portraitSize, portraitSize);
+
         var minimumTarget = SiriusUiMetrics.MinimumTarget(insets.Compact);
         foreach (var child in _choicesContainer.GetChildren())
         {
@@ -113,6 +121,7 @@ public partial class DialogueScreenController : Control
     {
         _currentNode = node;
         _shell.Title = _npc?.DisplayName ?? string.Empty;
+        RefreshPortrait();
         _speakerLabel.Text = node.SpeakerName ?? string.Empty;
         _speakerLabel.Visible = !string.IsNullOrWhiteSpace(node.SpeakerName);
         _textLabel.Text = node.Text ?? string.Empty;
@@ -151,6 +160,17 @@ public partial class DialogueScreenController : Control
         RefreshLayout();
         if (InitialFocusTarget != null)
             Callable.From(InitialFocusTarget.GrabFocus).CallDeferred();
+    }
+
+    private void RefreshPortrait()
+    {
+        var path = _npc?.PortraitPath;
+        var texture = string.IsNullOrWhiteSpace(path)
+            ? null
+            : UiArtCatalog.LoadContentTexture(path);
+
+        UiIconPresenter.ApplyItem(_portrait, texture);
+        _portrait.Visible = texture != null;
     }
 
     private void OnChoicePressed(DialogueChoice choice)

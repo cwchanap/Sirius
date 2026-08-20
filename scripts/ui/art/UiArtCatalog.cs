@@ -60,6 +60,8 @@ public static class UiArtCatalog
             : LoadOnce<Texture2D>(GetIconPath(UiIconId.Info, size)));
     }
 
+    public static Texture2D? LoadContentTexture(string path) => LoadOnce<Texture2D>(path);
+
     public static string GetOrnamentPath(UiOrnamentId id)
     {
         if (!Enum.IsDefined(id))
@@ -160,7 +162,11 @@ public static class UiArtCatalog
     private static T? LoadOnce<T>(string path) where T : Resource
     {
         if (ResourceExists(path))
-            return ResourceLoader.Load<T>(path);
+        {
+            var resource = ResourceLoader.Load<Resource>(path);
+            if (resource is T typedResource)
+                return typedResource;
+        }
 
         if (MissingPaths.Add(path))
             GD.PushWarning($"[UiArtCatalog] Missing optional UI art resource: {path}");

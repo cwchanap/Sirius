@@ -54,6 +54,111 @@ public partial class DialogueScreenControllerTest : Node
     }
 
     [TestCase]
+    public async Task AuthoredPortrait_BeforeReadyStart_RendersPortraitAfterAttach()
+    {
+        var screen = CreateUnparentedCandidate();
+        var npc = NpcCatalog.GetById("village_shopkeeper")!;
+        var tree = DialogueCatalog.GetById("shopkeeper_greeting")!;
+
+        AssertThat(screen.TryStartDialogue(
+            npc,
+            tree,
+            TestHelpers.CreateTestCharacter(),
+            new HashSet<string>())).IsTrue();
+
+        var fixture = Mount(screen, new Vector2I(1280, 720));
+        try
+        {
+            await AwaitFrames(2);
+            var portrait = screen.GetNode<TextureRect>("%NpcPortrait");
+            AssertThat(portrait.Visible).IsTrue();
+            AssertThat(portrait.Texture).IsNotNull();
+            AssertThat(screen.GetNode<SiriusModalShell>("%ModalShell").Title)
+                .IsEqual(npc.DisplayName);
+        }
+        finally
+        {
+            await FreeAsync(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task MissingPortrait_HidesPortraitAndKeepsFocusUsable()
+    {
+        var fixture = await InstantiateDialogue(new Vector2I(1280, 720));
+        try
+        {
+            var screen = fixture.Screen;
+            var npc = new NpcData
+            {
+                NpcId = "test_portraitless_npc",
+                DisplayName = "Portraitless Villager",
+                NpcType = NpcType.Villager,
+                ShopId = null,
+                HealCost = 0,
+                DialogueTreeId = "villager_01",
+                SpriteType = "villager",
+                PortraitPath = null
+            };
+            var tree = DialogueCatalog.GetById(npc.DialogueTreeId)!;
+
+            AssertThat(screen.TryStartDialogue(
+                npc,
+                tree,
+                TestHelpers.CreateTestCharacter(),
+                new HashSet<string>())).IsTrue();
+            await AwaitFrames(2);
+
+            var portrait = screen.GetNode<TextureRect>("%NpcPortrait");
+            AssertThat(portrait.Visible).IsFalse();
+            AssertThat(portrait.Texture).IsNull();
+            AssertThat(screen.InitialFocusTarget).IsNotNull();
+        }
+        finally
+        {
+            await FreeAsync(fixture);
+        }
+    }
+
+    [TestCase]
+    public async Task InvalidPortraitPath_HidesPortraitAndKeepsFocusUsable()
+    {
+        var fixture = await InstantiateDialogue(new Vector2I(1280, 720));
+        try
+        {
+            var screen = fixture.Screen;
+            var tree = DialogueCatalog.GetById("shopkeeper_greeting")!;
+            var npc = new NpcData
+            {
+                NpcId = "test_missing_portrait",
+                DisplayName = "Test Merchant",
+                NpcType = NpcType.Shopkeeper,
+                ShopId = "village_general_store",
+                HealCost = 0,
+                DialogueTreeId = tree.TreeId,
+                SpriteType = "shopkeeper",
+                PortraitPath = "res://assets/sprites/npcs/does-not-exist/portrait.png"
+            };
+
+            AssertThat(screen.TryStartDialogue(
+                npc,
+                tree,
+                TestHelpers.CreateTestCharacter(),
+                new HashSet<string>())).IsTrue();
+            await AwaitFrames(2);
+
+            var portrait = screen.GetNode<TextureRect>("%NpcPortrait");
+            AssertThat(portrait.Visible).IsFalse();
+            AssertThat(portrait.Texture).IsNull();
+            AssertThat(screen.InitialFocusTarget).IsNotNull();
+        }
+        finally
+        {
+            await FreeAsync(fixture);
+        }
+    }
+
+    [TestCase]
     public void TryStartDialogue_MissingRootReturnsFalseWithoutTerminalSignal()
     {
         var screen = CreateUnparentedCandidate();
@@ -495,8 +600,8 @@ public partial class DialogueScreenControllerTest : Node
         {
             var screen = fixture.Screen;
             screen.TryStartDialogue(
-                NpcCatalog.GetById("old_farmer")!,
-                DialogueCatalog.GetById("villager_01")!,
+                NpcCatalog.GetById("village_shopkeeper")!,
+                DialogueCatalog.GetById("shopkeeper_greeting")!,
                 TestHelpers.CreateTestCharacter(),
                 new HashSet<string>());
             await AwaitFrames(2);
@@ -507,6 +612,9 @@ public partial class DialogueScreenControllerTest : Node
             var safeFrame = screen.GetNode<Control>("%SafeFrame");
             var shell = screen.GetNode<SiriusModalShell>("%ModalShell");
             var panel = shell.GetNode<PanelContainer>("%Panel");
+            var portrait = screen.GetNode<TextureRect>("%NpcPortrait");
+            var dialogueCopy = screen.GetNode<VBoxContainer>("%DialogueCopy");
+            var dialogueText = screen.GetNode<RichTextLabel>("%DialogueText");
 
             AssertThat(safeFrame.Size.X)
                 .IsEqualApprox(fixture.Viewport.Size.X - insets.SideInset * 2f, 1f);
@@ -517,6 +625,11 @@ public partial class DialogueScreenControllerTest : Node
                 .IsGreaterEqual(safeFrame.GetGlobalRect().Position.Y - 1f);
             AssertThat(panel.GetGlobalRect().End.Y)
                 .IsLessEqual(safeFrame.GetGlobalRect().End.Y + 1f);
+            AssertThat(portrait.Visible).IsTrue();
+            AssertThat(portrait.Texture).IsNotNull();
+            AssertThat(portrait.GetGlobalRect().End.X)
+                .IsLessEqual(dialogueCopy.GetGlobalRect().Position.X + 1f);
+            AssertThat(dialogueText.Size.X).IsGreater(200f);
         }
         finally
         {
@@ -556,7 +669,7 @@ public partial class DialogueScreenControllerTest : Node
             };
 
             screen.TryStartDialogue(
-                NpcCatalog.GetById("old_farmer")!,
+                NpcCatalog.GetById("village_shopkeeper")!,
                 tree,
                 TestHelpers.CreateTestCharacter(),
                 new HashSet<string>());
@@ -571,7 +684,15 @@ public partial class DialogueScreenControllerTest : Node
             var shell = screen.GetNode<SiriusModalShell>("%ModalShell");
             var bodyScroll = shell.GetNode<ScrollContainer>("%BodyScroll");
             var bar = bodyScroll.GetVScrollBar();
+            var portrait = screen.GetNode<TextureRect>("%NpcPortrait");
+            var dialogueCopy = screen.GetNode<VBoxContainer>("%DialogueCopy");
+            var dialogueText = screen.GetNode<RichTextLabel>("%DialogueText");
             AssertThat(bar.MaxValue).IsGreater(bar.Page);
+            AssertThat(portrait.Visible).IsTrue();
+            AssertThat(portrait.Texture).IsNotNull();
+            AssertThat(portrait.GetGlobalRect().End.X)
+                .IsLessEqual(dialogueCopy.GetGlobalRect().Position.X + 1f);
+            AssertThat(dialogueText.Size.X).IsGreater(200f);
 
             var lastChoice = screen.GetNode<VBoxContainer>("%ChoicesContainer")
                 .GetChildren()

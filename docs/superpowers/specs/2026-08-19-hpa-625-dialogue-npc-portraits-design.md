@@ -19,18 +19,20 @@ This branch and draft PR are the single PR for HPA-625: the design and implement
 - `NpcData` is a plain catalog model. It has `DisplayName`, `DialogueTreeId`, and `SpriteType`, but no UI portrait field.
 - `SpriteType` is consumed by `NpcSpawn` to find the world sprite sheet. HPA-569 explicitly says it must not be reused as portrait identity metadata.
 - `DialogueScreenController.TryStartDialogue(...)` already receives the full `NpcData`, so no new data handoff is required.
+- Production `NpcInteractionController.Begin()` instantiates `DialogueScreen`, calls `TryStartDialogue(...)` while the screen is still unparented, and only then presents it through `UIScreenHost`. Portrait rendering must therefore work when configuration happens before `_Ready()`.
 - `DialogueScreen.tscn` already owns the HPA-373 lower-band composition through `SafeFrame` + `SiriusModalShell`.
 - The shell title already displays `NpcData.DisplayName`; `DialogueNode.SpeakerName` is the per-node speaker line.
 - The Ground Floor currently spawns `village_shopkeeper` and `village_healer`.
-- Both spawned NPCs already have authored frame PNGs under `assets/sprites/npcs/.../frames/`.
+- Both spawned NPCs already have tracked authored frame PNGs under `assets/sprites/npcs/.../frames/`.
 - `old_farmer` and `village_blacksmith` exist in the catalog but are not currently spawned by the shipped floor generation path. Their missing portrait must remain a valid, clean fallback.
 - HPA-373 explicitly allows existing NPC sprite sheets/frames to be reused as content imagery and requires missing portrait art to degrade gracefully.
+- Existing asset-loading code such as `Item.TryLoadAsset(...)` checks `ResourceLoader.Exists(...)` before loading so a missing configured resource does not also trigger a loader error.
 
 ## Options considered
 
 ### A. Add explicit `NpcData.PortraitPath` and reuse current frame art — selected
 
-Add one nullable resource path to `NpcData`. The catalog explicitly maps the currently shipped shopkeeper and healer to their existing `frame1.png` resources. `DialogueScreenController` loads that resource for presentation and hides the portrait node when the field is absent.
+Add one nullable resource path to `NpcData`. The catalog explicitly maps the currently shipped shopkeeper and healer to their existing `frame1.png` resources. `DialogueScreenController` loads that resource for presentation and hides the portrait node when the field is absent or invalid.
 
 This is the smallest durable contract: portrait intent is authored where NPC identity already lives, future dedicated portrait art is a catalog-path change, and the UI never has to infer semantics from unrelated world-sprite data.
 
@@ -40,7 +42,7 @@ Rejected. `SpriteType` is world-sprite folder metadata. Reusing it would make a 
 
 ### C. Add a portrait registry/service or generate dedicated portrait assets now
 
-Rejected as YAGNI. There is one consumer and two currently shipped NPC portraits can reuse existing authored frames. A registry, presenter service, resource database, or new art-generation pipeline adds ownership and failure modes without solving a current second-consumer problem.
+Rejected as YAGNI. There is one consumer and two currently shipped NPC portraits can reuse existing authored frames. A registry, presenter service, resource database, cache, or new art-generation pipeline adds ownership and failure modes without solving a current second-consumer problem.
 
 ## Architecture
 
@@ -71,7 +73,7 @@ Update `NpcCatalog`:
 - `old_farmer` → no `PortraitPath`
 - `village_blacksmith` → no `PortraitPath`
 
-The first two are the NPCs currently spawned on the Ground Floor. Reusing their existing frame art satisfies the ticket without manufacturing new binaries.
+The first two are the NPCs currently spawned on the Ground Floor. Reusing their existing complete frame art satisfies the ticket without manufacturing new binaries or encoding a crop of `sprite_sheet.png` into Dialogue.
 
 The latter two intentionally exercise the supported missing-portrait contract until they become shipped content with authored art. Do not point them at unrelated character art or synthesize placeholders just to make every catalog row non-null.
 
@@ -100,7 +102,9 @@ Choices remain below the identity row so portrait width never compresses action 
 
 ### 4. Load the explicit portrait in `DialogueScreenController`
 
-Bind `%NpcPortrait` during `_Ready()` and add one private refresh method:
+Bind `%NpcPortrait` during `_Ready()` and add one private refresh method. Clear the node first so the method is safe if the screen is ever refreshed with absent/bad data.
+
+Use the repository’s existing Exists-then-Load pattern rather than calling `GD.Load(...)` on an unchecked path:
 
 ```csharp
 private void RefreshPortrait()
@@ -115,10 +119,18 @@ private void RefreshPortrait()
     if (string.IsNullOrWhiteSpace(portraitPath))
         return;
 
-    var texture = GD.Load<Texture2D>(portraitPath);
+    if (!ResourceLoader.Exists(portraitPath))
+    {
+        GD.PushWarning(
+            $"[DialogueScreen] NPC '{_npc?.NpcId}' portrait '{portraitPath}' was not found.");
+        return;
+    }
+
+    var texture = ResourceLoader.Load<Texture2D>(portraitPath);
     if (texture == null)
     {
-        GD.PushWarning($"[DialogueScreen] NPC '{_npc?.NpcId}' portrait '{portraitPath}' could not be loaded.");
+        GD.PushWarning(
+            $"[DialogueScreen] NPC '{_npc?.NpcId}' portrait '{portraitPath}' could not be loaded.");
         return;
     }
 
@@ -127,12 +139,16 @@ private void RefreshPortrait()
 }
 ```
 
-Call it in both supported configuration orders:
+The `ResourceLoader.Exists(...)` guard is load-bearing. A nonexistent authored path should produce the single explicit Dialogue warning and clean fallback without invoking Godot’s loader on a missing resource.
 
-- `_Ready()` after node binding, for the normal pre-attach `TryStartDialogue(...)` path;
-- `TryStartDialogue(...)` when the screen is already ready, alongside the existing immediate `ShowNode(root)` path.
+Call `RefreshPortrait()` in both supported configuration orders:
 
-Missing portrait data is silent and collapses cleanly. An explicitly configured but unloadable path is an authoring/configuration problem: emit one warning and render the same clean no-portrait layout. Do not substitute `SpriteType` or a placeholder.
+- `_Ready()` after node binding, which is the production path because `NpcInteractionController.Begin()` calls `TryStartDialogue(...)` before hosting/attachment;
+- `TryStartDialogue(...)` when the screen is already ready, alongside the existing immediate `ShowNode(root)` path used by mounted-screen tests and defensive direct consumers.
+
+Missing portrait data is silent and collapses cleanly. An explicitly configured but nonexistent/unloadable path is an authoring/configuration problem: warn and render the same clean no-portrait layout. Do not substitute `SpriteType` or a placeholder.
+
+Do not extract a shared asset loader for one consumer.
 
 The controller still does not own host lifetime, NPC interaction sequencing, dialogue-tree traversal outside its current behavior, or any domain mutation beyond the already-shipped choice semantics.
 
@@ -161,14 +177,27 @@ Do not add a new global `SiriusUiMetrics` token for one consumer.
 
 The existing standard 45% lower-band and compact full-safe-height policies remain unchanged. The existing shell body scroll remains the only scroll owner.
 
+### 6. Keep current tracked frame reuse separate from future asset authoring
+
+The repository `.gitignore` contains a top-level `frames/` rule, so a newly created nested `assets/sprites/npcs/<npc>/frames/...` file is ignored by default. The two HPA-625 mappings are safe because their `frame1.png` files are already tracked; this PR adds no portrait binaries and therefore does not need a `.gitignore` change.
+
+Do not widen HPA-625 solely to change ignore policy. When a future ticket adds a new NPC portrait, either:
+
+- prefer a tracked dedicated file such as `assets/sprites/npcs/<npc>/portrait.png` beside the sheet; or
+- add a narrowly scoped un-ignore for the exact authored portrait path/pattern in that same ticket.
+
+This note prevents the current reuse convention from becoming an accidental staging trap without creating work that HPA-625 does not need.
+
 ## Data and presentation flow
 
 1. `NpcSpawn` resolves `NpcData` exactly as today. `SpriteType` continues to drive only its world texture.
-2. `NpcInteractionController` passes the same `NpcData` to `DialogueScreenController.TryStartDialogue(...)`.
-3. `DialogueScreenController` reads only `PortraitPath` for portrait presentation.
-4. If the path loads, `%NpcPortrait` becomes visible with the texture.
-5. If the path is absent or fails to load, the portrait remains hidden and the existing text/actions expand naturally into the available identity row width.
-6. Dialogue choices, flags, outcomes, host close behavior, focus, and Shop/Heal handoff remain untouched.
+2. `NpcInteractionController` instantiates an unparented `DialogueScreenController` and calls `TryStartDialogue(...)` before hosting it.
+3. `TryStartDialogue(...)` stores `NpcData`; because the screen is not ready, it does not touch portrait nodes yet.
+4. Host attachment runs `_Ready()`, which binds `%NpcPortrait`, calls `RefreshPortrait()`, then renders the stored dialogue node.
+5. `DialogueScreenController` reads only `PortraitPath` for portrait presentation.
+6. If the path exists and loads, `%NpcPortrait` becomes visible with the texture.
+7. If the path is absent or fails validation/load, the portrait remains hidden and the existing text/actions expand naturally into the available identity-row width.
+8. Dialogue choices, flags, outcomes, host close behavior, focus, and Shop/Heal handoff remain untouched.
 
 ## Testing
 
@@ -177,7 +206,8 @@ The existing standard 45% lower-band and compact full-safe-height policies remai
 `NpcCatalogTest` pins:
 
 - shopkeeper and healer have explicit portrait paths;
-- those two paths load as `Texture2D` resources;
+- `ResourceLoader.Exists(...)` is true for both mapped paths;
+- both paths load as `Texture2D` resources;
 - at least one catalog NPC (`old_farmer`) has no portrait, preserving the optional/fallback contract.
 
 The test must not assert that `PortraitPath` equals a value derived from `SpriteType`.
@@ -186,27 +216,36 @@ The test must not assert that `PortraitPath` equals a value derived from `Sprite
 
 `DialogueScreenControllerTest` adds focused runtime coverage:
 
-1. 1280×720 shopkeeper dialogue shows a non-null portrait at 64×64 while preserving title, speaker, body, and actions.
-2. 1280×720 old-farmer dialogue hides the portrait and still renders the existing text/actions without a placeholder.
-3. 640×360 shopkeeper dialogue keeps the portrait visible at 40×40 and retains readable dialogue/action content.
+1. **Production start order:** configure an unparented shopkeeper `DialogueScreenController` with `TryStartDialogue(...)`, then mount it at 1280×720. After `_Ready()`, assert the portrait is visible/non-null at 64×64 and title/speaker/body/actions still render. This specifically proves portrait refresh happens in `_Ready()` rather than only in the already-ready start branch.
+2. **Missing optional portrait:** mounted 1280×720 old-farmer dialogue hides the portrait and still renders existing text/actions without a placeholder.
+3. **Invalid explicit path:** a synthetic `NpcData` with a nonexistent `PortraitPath` renders with portrait hidden/texture null while body/actions remain usable. The production loader checks `ResourceLoader.Exists(...)` before `ResourceLoader.Load(...)`, so this path does not invoke Godot’s loader for a missing resource.
+4. **Compact reduction:** 640×360 shopkeeper dialogue keeps the portrait visible at 40×40 and retains readable dialogue/action content.
 
-Run the existing Dialogue suite unchanged as the regression gate for safe-frame geometry, long content, focus, conditions, terminal latching, and gamepad behavior.
+Run the existing Dialogue suite unchanged as the regression gate for safe-frame geometry, long content, focus, conditions, terminal latching, and gamepad behavior. Run `NpcCatalogTest` with it.
 
-No new `NpcInteractionController`/host tests are required because the public interaction and screen-start interfaces do not change.
+No new `NpcInteractionController`/host tests are required because the public interaction and screen-start interfaces do not change; the new before-ready Dialogue test directly pins the production ordering contract already established by the existing suite.
 
 ## Risks and mitigations
+
+### Portrait works only when Dialogue is already mounted
+
+Mitigation: the authored-portrait regression configures the screen before attachment exactly like `NpcInteractionController.Begin()` and asserts portrait presentation after `_Ready()`.
+
+### Broken authored portrait path produces noisy loader errors
+
+Mitigation: `RefreshPortrait()` checks `ResourceLoader.Exists(...)` first, emits one explicit warning for a nonexistent configured path, and returns without calling the loader. A synthetic bad-path Dialogue test pins the clean UI fallback.
 
 ### Accidental coupling back to world sprites
 
 Mitigation: `DialogueScreenController` references only `PortraitPath`; final grep verifies no `SpriteType` dependency was introduced into Dialogue presentation.
 
-### Broken authored portrait path
-
-Mitigation: catalog tests load the two shipped portrait resources; runtime still fails gracefully with a warning for future bad data.
-
 ### Compact portrait crowds text/actions
 
 Mitigation: 40 px compact size, portrait located beside copy rather than choices, and the existing shell scroll remains the body overflow owner. A 640×360 regression test pins the layout.
+
+### Future new NPC frame art is silently ignored by git
+
+Mitigation: HPA-625 reuses already-tracked frame PNGs and changes no ignore rules. The design records that future new portrait assets should use a tracked `portrait.png` path or carry a targeted un-ignore in the ticket that adds them.
 
 ### Scope expands into new character art
 
@@ -217,16 +256,19 @@ Mitigation: reuse the existing shipped NPC frames. Dedicated portrait production
 - New portrait art generation or a character-art pipeline
 - Portrait animation, expression switching, lip sync, voice, or typewriter effects
 - Portraits for unshipped catalog entries solely to eliminate nulls
-- A generic portrait service, registry, presenter, resource database, or cache
+- A generic portrait service, registry, presenter, resource database, cache, or shared asset loader
 - Reinterpreting `NpcData.SpriteType`
 - Dialogue-tree/domain changes
 - Shop/Heal presentation changes
 - `UIScreenHost`, modal-shell, focus-policy, or NPC-interaction lifecycle changes
+- `.gitignore` changes when no new portrait file is being authored
 - HPA-541 Reduced Motion or HPA-359 release hardening
 
 ## Acceptance mapping
 
 - Explicit authored portrait without `SpriteType` inference: `NpcData.PortraitPath` + catalog mappings.
+- Production pre-`_Ready()` start order: before-attach authored-portrait regression.
 - Missing portrait leaves a clean layout: hidden-by-default `%NpcPortrait` and old-farmer regression.
+- Invalid explicit path leaves a clean layout without a missing-resource load attempt: `ResourceLoader.Exists(...)` guard + synthetic bad-path regression.
 - Compact Dialogue reduces portrait first: 64 px standard → 40 px compact, with 640×360 coverage.
 - HPA-373 §9.8 portrait requirement for current shipped NPC content: shopkeeper and healer reuse their existing authored frame imagery in the hosted Dialogue identity area.

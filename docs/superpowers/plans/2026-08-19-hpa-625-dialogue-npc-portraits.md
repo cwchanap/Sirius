@@ -857,6 +857,20 @@ Keep this branch/PR as the only HPA-625 PR. Update the PR body with actual runti
 
 ---
 
+## Review disposition
+
+Accepted:
+
+- harden `UiArtCatalog.LoadOnce<T>` for existing wrong-type resources and test an existing `.tscn` path;
+- replace the catalog-null census and nondeterministic missing-portrait selection with synthetic fixtures;
+- replace tautological 64/40 geometry assertions with portrait/copy non-overlap, text-width, and existing compact overflow/focus checks;
+- verify the `.tscn` reparent before controller edits, keep `ChoicesContainer` last, and bind `_portrait` before layout/render;
+- remove the speculative future `portrait.png` convention.
+
+Partially accepted:
+
+- Inventory/HUD prove the row/presenter shape and use scene-authored `AtlasTexture` crops for one fixed hero sheet. HPA-625 reuses that composition but keeps `PortraitPath` as a ready-to-display texture resource; it does not make every NPC portrait consumer understand four-frame sheet layout.
+
 ## Post-merge Linear closeout
 
 After PR #43 merges:

@@ -36,7 +36,8 @@ public static class NpcCatalog
         NpcType = NpcType.Shopkeeper,
         ShopId = "village_general_store",
         DialogueTreeId = "shopkeeper_greeting",
-        SpriteType = "shopkeeper"
+        SpriteType = "shopkeeper",
+        PortraitPath = "res://assets/sprites/npcs/shopkeeper/frames/frame1.png",
     };
 
     private static NpcData CreateVillageHealer() => new NpcData
@@ -46,7 +47,8 @@ public static class NpcCatalog
         NpcType = NpcType.Healer,
         HealCost = 50,
         DialogueTreeId = "healer_greeting",
-        SpriteType = "healer"
+        SpriteType = "healer",
+        PortraitPath = "res://assets/sprites/npcs/healer/frames/frame1.png",
     };
 
     private static NpcData CreateVillager() => new NpcData

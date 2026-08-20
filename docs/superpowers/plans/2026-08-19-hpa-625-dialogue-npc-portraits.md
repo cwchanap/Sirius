@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add explicit optional NPC portrait data and render current shopkeeper/healer portraits in the existing Dialogue screen with clean absent/invalid fallbacks.
+**Goal:** Add explicit optional NPC portrait data and render current shopkeeper/healer portraits in the existing Dialogue screen with clean absent, missing-path, and wrong-type fallbacks.
 
-**Architecture:** Add one nullable `NpcData.PortraitPath`, keep `SpriteType` world-only, reuse `UiArtCatalog` for optional texture loading and `UiIconPresenter.ApplyItem` for `TextureRect` presentation, and refresh portrait from the existing `ShowNode(...)` render path. Reuse existing Dialogue geometry tests for portrait-bearing standard/compact coverage; no portrait service/registry/cache/new art pipeline.
+**Architecture:** Add one nullable `NpcData.PortraitPath`, keep `SpriteType` world-only, reuse `UiIconPresenter.ApplyItem` for `TextureRect` presentation, and extend `UiArtCatalog` with one raw-texture entry point backed by a type-safe `LoadOnce<T>`. `DialogueScreenController` refreshes portrait only from its existing `ShowNode(...)` render path. The scene reuses the shipped portrait + expanding-copy row pattern; no portrait service, registry, cache, crop metadata, new art pipeline, or theme metric.
 
 **Tech Stack:** Godot 4.6, C#, GdUnit4, existing Sirius UI art helpers and `SiriusModalShell`.
 
@@ -14,21 +14,48 @@
 
 - One branch / one PR for HPA-625. Continue implementation on `jack65786656/hpa-625-add-sirius-npc-portrait-data-and-dialogue-identity` / PR #43.
 - `NpcData.PortraitPath : string?` is the only new NPC portrait contract.
+- `PortraitPath` points at a tracked, ready-to-display `Texture2D`; Dialogue does not infer sprite-sheet crop semantics.
 - `NpcData.SpriteType` remains world-sprite metadata and must not become a Dialogue portrait dependency.
 - Shopkeeper portrait: `res://assets/sprites/npcs/shopkeeper/frames/frame1.png`.
 - Healer portrait: `res://assets/sprites/npcs/healer/frames/frame1.png`.
 - Missing `PortraitPath` is valid and silent.
-- Invalid configured path uses existing optional-resource Exists-before-Load + warn-once behavior through `UiArtCatalog.LoadContentTexture(...)`.
-- Portrait `TextureRect` presentation uses existing `UiIconPresenter.ApplyItem(...)`; do not hardcode numeric expand/stretch modes in the scene.
+- Missing and wrong-type configured paths warn once through `UiArtCatalog` and render the same hidden-portrait fallback.
+- Portrait `TextureRect` presentation uses existing `UiIconPresenter.ApplyItem(...)`; do not duplicate expand/stretch configuration in the scene.
 - `RefreshPortrait()` is called only from `ShowNode(...)`, immediately beside shell-title identity rendering.
-- Standard portrait size: 64x64. Compact portrait size: 40x40. Keep both as local Dialogue constants.
-- No portrait registry, service, cache, resource database, new art, theme metric, host lifecycle change, or dialogue-domain change.
-- `.gitignore` remains unchanged. Existing tracked `frame1.png` files are reused; future new portrait content uses dedicated `portrait.png` outside ignored `frames/` unless a future task intentionally redesigns frame ignore policy.
+- Standard portrait size is 64 logical pixels; compact portrait size is 40. Keep both local to Dialogue and do not test by merely reading the assigned `CustomMinimumSize` back.
+- No portrait registry/service/cache/resource database, generic portrait crop model, new art, host lifecycle change, or dialogue-domain change.
+- `.gitignore` remains unchanged. HPA-625 adds no image binary and defines no future portrait storage convention.
 - Keep existing shell title, speaker, text, choices, focus, terminal latch, Shop/Heal handoff, and NPC interaction behavior.
 
 ---
 
-## Task 1: Add the optional NPC portrait data contract
+## File Structure
+
+### Task 1 — NPC data contract
+
+- Modify: `scripts/data/npc/NpcData.cs`
+- Modify: `scripts/data/npc/NpcCatalog.cs`
+- Modify: `tests/data/npc/NpcCatalogTest.cs`
+
+### Task 2 — Type-safe optional UI texture loading
+
+- Modify: `scripts/ui/art/UiArtCatalog.cs`
+- Modify: `tests/ui/art/UiArtCatalogTest.cs`
+
+### Task 3 — Dialogue scene and portrait presentation
+
+- Modify: `scenes/ui/DialogueScreen.tscn`
+- Modify: `scripts/ui/DialogueScreenController.cs`
+- Modify: `tests/ui/DialogueScreenControllerTest.cs`
+- Reuse unchanged: `scripts/ui/art/UiIconPresenter.cs`
+
+### Task 4 — Final regression and scope gates
+
+- Verify all files above plus the two planning documents.
+
+---
+
+# Task 1: Add the optional NPC portrait data contract
 
 **Files:**
 - Modify: `scripts/data/npc/NpcData.cs`
@@ -41,47 +68,64 @@
 public string? PortraitPath { get; init; }
 ```
 
-and explicit shopkeeper/healer mappings.
+plus explicit shopkeeper/healer mappings.
 
-- [ ] **Step 1: Write one failing catalog-integrity test**
+- [ ] **Step 1: Write failing catalog integrity and optionality tests**
 
-Add `using Godot;` and `using System.Linq;` to `NpcCatalogTest.cs`.
+Add `using Godot;` to `tests/data/npc/NpcCatalogTest.cs`.
 
-Add one test:
+Add:
 
 ```csharp
 [TestCase]
-public void NpcCatalog_AllAuthoredPortraits_AreLoadableAndOptional()
+public void NpcCatalog_AllAuthoredPortraits_AreLoadableTextures()
 {
-    var npcs = NpcCatalog.AllNpcs.ToArray();
-
-    foreach (var npc in npcs)
+    foreach (var npc in NpcCatalog.AllNpcs)
     {
         if (npc.PortraitPath == null)
             continue;
 
         AssertThat(npc.PortraitPath).IsNotEmpty();
         AssertThat(ResourceLoader.Exists(npc.PortraitPath)).IsTrue();
-        AssertThat(ResourceLoader.Load<Texture2D>(npc.PortraitPath)).IsNotNull();
+        AssertThat(ResourceLoader.Load<Resource>(npc.PortraitPath) is Texture2D).IsTrue();
     }
 
     AssertThat(NpcCatalog.GetById("village_shopkeeper")!.PortraitPath).IsNotNull();
     AssertThat(NpcCatalog.GetById("village_healer")!.PortraitPath).IsNotNull();
-    AssertThat(npcs.Any(npc => npc.PortraitPath == null)).IsTrue();
+}
+
+[TestCase]
+public void NpcData_PortraitPath_IsOptional()
+{
+    var npc = new NpcData
+    {
+        NpcId = "test_optional_portrait",
+        DisplayName = "Test NPC",
+        NpcType = NpcType.Villager,
+        DialogueTreeId = "villager_01",
+        SpriteType = "villager"
+    };
+
+    AssertThat(npc.PortraitPath).IsNull();
 }
 ```
 
-Do **not** assert farmer/blacksmith must remain null forever and do not derive expected paths from `SpriteType`.
+Do not assert `NpcCatalog.AllNpcs.Any(npc => npc.PortraitPath == null)`: optionality belongs to the model contract, not the current catalog census.
 
-- [ ] **Step 2: Run focused test and confirm RED**
+Do not derive expected portrait paths from `SpriteType`.
+
+- [ ] **Step 2: Run focused tests and confirm RED**
 
 ```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo --filter FullyQualifiedName~NpcCatalogTest
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
+  --filter FullyQualifiedName~NpcCatalogTest
 ```
 
-Expected: compile failure because `PortraitPath` does not exist.
+Expected: compile failure because `NpcData.PortraitPath` does not exist.
 
 - [ ] **Step 3: Add `PortraitPath` to `NpcData`**
+
+Add near the existing Dialogue/presentation identity data:
 
 ```csharp
 /// <summary>
@@ -91,9 +135,9 @@ Expected: compile failure because `PortraitPath` does not exist.
 public string? PortraitPath { get; init; }
 ```
 
-Leave `SpriteType` unchanged.
+Leave `SpriteType` and its comment unchanged.
 
-- [ ] **Step 4: Add the two shipped catalog mappings**
+- [ ] **Step 4: Add only the two shipped catalog mappings**
 
 In `CreateVillageShopkeeper()`:
 
@@ -107,12 +151,13 @@ In `CreateVillageHealer()`:
 PortraitPath = "res://assets/sprites/npcs/healer/frames/frame1.png",
 ```
 
-Do not add portrait data to the other factories.
+Do not map farmer/blacksmith merely to remove nulls. Do not replace these direct portrait textures with `sprite_sheet.png` plus a Dialogue-local crop convention.
 
-- [ ] **Step 5: Run focused test and confirm GREEN**
+- [ ] **Step 5: Run focused tests and confirm GREEN**
 
 ```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo --filter FullyQualifiedName~NpcCatalogTest
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
+  --filter FullyQualifiedName~NpcCatalogTest
 ```
 
 Expected: PASS.
@@ -129,35 +174,29 @@ git commit -m "feat: add explicit NPC portrait data"
 
 ---
 
-## Task 2: Reuse UI art helpers and render Dialogue portraits
+# Task 2: Make optional UI texture loading safe for authored raw paths
 
 **Files:**
 - Modify: `scripts/ui/art/UiArtCatalog.cs`
 - Modify: `tests/ui/art/UiArtCatalogTest.cs`
-- Modify: `scenes/ui/DialogueScreen.tscn`
-- Modify: `scripts/ui/DialogueScreenController.cs`
-- Modify: `tests/ui/DialogueScreenControllerTest.cs`
-- Reuse unchanged: `scripts/ui/art/UiIconPresenter.cs`
 
-**Consumes:** `NpcData.PortraitPath` from Task 1.
+**Consumes:** existing private `LoadOnce<T>`, `MissingPaths`, and `ResourceExists` test seam.
 
 **Produces:**
 
 ```csharp
-public static Texture2D? UiArtCatalog.LoadContentTexture(string path);
+public static Texture2D? LoadContentTexture(string path);
 ```
 
-and `%NpcPortrait` rendered from the single `ShowNode(...)` identity path.
+and a type-safe `LoadOnce<T>` that returns `null` rather than throwing when an existing resource has the wrong type.
 
-### 2A. Pin the existing optional-resource policy for raw content textures
+- [ ] **Step 1: Write the failing missing-path test for the new raw texture entry point**
 
-- [ ] **Step 1: Write the failing `UiArtCatalog` test**
-
-Use the existing reflection helpers (`GetMissingPaths`, `GetResourceExists`, `SetResourceExists`) in `UiArtCatalogTest.cs`:
+Using the existing reflection helpers in `UiArtCatalogTest.cs`:
 
 ```csharp
 [TestCase]
-public void Catalog_LoadContentTexture_DeduplicatesMissingWarnings()
+public void Catalog_LoadContentTexture_DeduplicatesMissingPath()
 {
     const string path = "res://test/missing-npc-portrait.png";
     var missingPaths = GetMissingPaths();
@@ -179,42 +218,123 @@ public void Catalog_LoadContentTexture_DeduplicatesMissingWarnings()
 }
 ```
 
-This pins Exists-before-Load and warn-once through the existing `LoadOnce<T>` behavior without adding a warning-capture production seam.
+- [ ] **Step 2: Write the wrong-type regression that the old helper cannot satisfy safely**
 
-- [ ] **Step 2: Run the focused art test and confirm RED**
+Use a real existing non-texture Godot resource:
+
+```csharp
+[TestCase]
+public void Catalog_LoadContentTexture_ExistingWrongTypeReturnsNullAndDeduplicates()
+{
+    const string path = "res://scenes/ui/DialogueScreen.tscn";
+    var missingPaths = GetMissingPaths();
+    missingPaths.Clear();
+
+    try
+    {
+        AssertThat(ResourceLoader.Exists(path)).IsTrue();
+        AssertThat(UiArtCatalog.LoadContentTexture(path)).IsNull();
+        AssertThat(UiArtCatalog.LoadContentTexture(path)).IsNull();
+        AssertThat(missingPaths.SetEquals(new[] { path })).IsTrue();
+    }
+    finally
+    {
+        missingPaths.Clear();
+    }
+}
+```
+
+This is the load-bearing invalid-data case. Do not replace it with another nonexistent path.
+
+- [ ] **Step 3: Run focused art tests and confirm RED**
 
 ```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo --filter FullyQualifiedName~UiArtCatalogTest
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
+  --filter FullyQualifiedName~UiArtCatalogTest
 ```
 
 Expected: compile failure because `LoadContentTexture` does not exist.
 
-- [ ] **Step 3: Add the narrow delegation**
+- [ ] **Step 4: Add the narrow raw texture delegation**
 
-In `UiArtCatalog.cs` near other load methods:
+In `UiArtCatalog.cs` near the other load methods:
 
 ```csharp
 public static Texture2D? LoadContentTexture(string path) =>
     LoadOnce<Texture2D>(path);
 ```
 
-Do not add path derivation, cache objects, portrait IDs, or a new loader class.
+No portrait-specific path derivation, registry, cache object, or new loader class.
 
-- [ ] **Step 4: Run the focused art test and confirm GREEN**
+- [ ] **Step 5: Make `LoadOnce<T>` wrong-type-safe while preserving warning dedupe**
 
-```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo --filter FullyQualifiedName~UiArtCatalogTest
+Replace the private helper with:
+
+```csharp
+private static T? LoadOnce<T>(string path) where T : Resource
+{
+    if (ResourceExists(path))
+    {
+        var resource = ResourceLoader.Load<Resource>(path);
+        if (resource is T typed)
+            return typed;
+
+        WarnOnce(
+            path,
+            $"[UiArtCatalog] Optional UI art resource has unexpected type: {path}");
+        return null;
+    }
+
+    WarnOnce(path, $"[UiArtCatalog] Missing optional UI art resource: {path}");
+    return null;
+}
+
+private static void WarnOnce(string path, string message)
+{
+    if (MissingPaths.Add(path))
+        GD.PushWarning(message);
+}
 ```
 
-Expected: PASS.
+`MissingPaths` remains the existing dedupe set even though it now also records wrong-type optional art. Renaming it is not required for this ticket.
 
-### 2B. Write focused Dialogue portrait regressions and extend existing geometry tests
+Do not catch arbitrary loader exceptions or create a generalized resource-validation framework.
 
-- [ ] **Step 5: Add the authored before-attach portrait test**
+- [ ] **Step 6: Run the complete art suite and confirm GREEN**
 
-Existing `TryStartDialogue_BeforeReady_RendersAfterAttach` already proves title/speaker/body/choices/focus ordering with `old_farmer`. Do not duplicate those assertions.
+```bash
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
+  --filter FullyQualifiedName~UiArtCatalogTest
+```
 
-Add:
+Expected: PASS, including existing icon/ornament/effect behavior and the two new raw-path cases.
+
+- [ ] **Step 7: Commit Task 2**
+
+```bash
+git add -- scripts/ui/art/UiArtCatalog.cs tests/ui/art/UiArtCatalogTest.cs
+git commit -m "fix: make optional UI texture loading type safe"
+```
+
+---
+
+# Task 3: Add the Dialogue identity row and portrait rendering
+
+**Files:**
+- Modify: `scenes/ui/DialogueScreen.tscn`
+- Modify: `scripts/ui/DialogueScreenController.cs`
+- Modify: `tests/ui/DialogueScreenControllerTest.cs`
+- Reuse unchanged: `scripts/ui/art/UiIconPresenter.cs`
+
+**Consumes:** `NpcData.PortraitPath`, `UiArtCatalog.LoadContentTexture(...)`, and the existing `ShowNode(...)` render path.
+
+**Produces:** `%NpcPortrait`, portrait/copy row layout, and clean fallbacks while preserving existing dialogue lifecycle/focus behavior.
+
+## 3A. Write portrait regressions before production edits
+
+- [ ] **Step 1: Add the authored production-order portrait test**
+
+Existing `TryStartDialogue_BeforeReady_RendersAfterAttach` already proves general speaker/body/choices/focus ordering. Add only portrait-specific assertions:
 
 ```csharp
 [TestCase]
@@ -234,6 +354,7 @@ public async Task AuthoredPortrait_BeforeReadyStart_RendersPortraitAfterAttach()
     try
     {
         await AwaitFrames(2);
+
         var portrait = screen.GetNode<TextureRect>("%NpcPortrait");
         AssertThat(portrait.Visible).IsTrue();
         AssertThat(portrait.Texture).IsNotNull();
@@ -247,11 +368,11 @@ public async Task AuthoredPortrait_BeforeReadyStart_RendersPortraitAfterAttach()
 }
 ```
 
-This test proves the portrait participates in the already-supported configure-before-attach flow; it is not a second generic start-order test.
+This must fail if portrait rendering is wired only to the already-ready start branch and not the shared `ShowNode(...)` path.
 
-- [ ] **Step 6: Add missing and invalid portrait tests**
+- [ ] **Step 2: Add deterministic synthetic missing-portrait coverage**
 
-Missing optional portrait:
+Do not select `First(npc => npc.PortraitPath == null)` from the catalog.
 
 ```csharp
 [TestCase]
@@ -261,9 +382,20 @@ public async Task MissingPortrait_HidesPortraitAndKeepsFocusUsable()
     try
     {
         var screen = fixture.Screen;
+        var tree = DialogueCatalog.GetById("villager_01")!;
+        var npc = new NpcData
+        {
+            NpcId = "test_no_portrait",
+            DisplayName = "Test Villager",
+            NpcType = NpcType.Villager,
+            DialogueTreeId = tree.TreeId,
+            SpriteType = "villager",
+            PortraitPath = null
+        };
+
         AssertThat(screen.TryStartDialogue(
-            NpcCatalog.AllNpcs.First(npc => npc.PortraitPath == null),
-            DialogueCatalog.GetById("villager_01")!,
+            npc,
+            tree,
             TestHelpers.CreateTestCharacter(),
             new HashSet<string>())).IsTrue();
         await AwaitFrames(2);
@@ -280,13 +412,11 @@ public async Task MissingPortrait_HidesPortraitAndKeepsFocusUsable()
 }
 ```
 
-If the selected portrait-less NPC's catalog dialogue tree differs from `villager_01`, use that NPC's own `DialogueTreeId` to resolve the tree. Do not pin a particular NPC as permanently portrait-less.
-
-Invalid configured portrait:
+- [ ] **Step 3: Add missing-path fallback coverage**
 
 ```csharp
 [TestCase]
-public async Task InvalidPortraitPath_HidesPortraitAndKeepsFocusUsable()
+public async Task MissingPortraitPath_HidesPortraitAndKeepsFocusUsable()
 {
     var fixture = await InstantiateDialogue(new Vector2I(1280, 720));
     try
@@ -295,7 +425,7 @@ public async Task InvalidPortraitPath_HidesPortraitAndKeepsFocusUsable()
         var tree = DialogueCatalog.GetById("shopkeeper_greeting")!;
         var npc = new NpcData
         {
-            NpcId = "test_missing_portrait",
+            NpcId = "test_missing_portrait_path",
             DisplayName = "Test Merchant",
             NpcType = NpcType.Shopkeeper,
             DialogueTreeId = tree.TreeId,
@@ -322,55 +452,104 @@ public async Task InvalidPortraitPath_HidesPortraitAndKeepsFocusUsable()
 }
 ```
 
-- [ ] **Step 7: Make existing standard geometry test portrait-bearing**
-
-In `StandardDialogue_StaysWithinLowerBand`, replace the portrait-less NPC/tree with:
+- [ ] **Step 4: Add existing-but-wrong-type fallback coverage**
 
 ```csharp
-var npc = NpcCatalog.GetById("village_shopkeeper")!;
-var tree = DialogueCatalog.GetById("shopkeeper_greeting")!;
-screen.TryStartDialogue(
-    npc,
-    tree,
-    TestHelpers.CreateTestCharacter(),
-    new HashSet<string>());
+[TestCase]
+public async Task WrongTypePortraitPath_HidesPortraitAndKeepsFocusUsable()
+{
+    var fixture = await InstantiateDialogue(new Vector2I(1280, 720));
+    try
+    {
+        var screen = fixture.Screen;
+        var tree = DialogueCatalog.GetById("shopkeeper_greeting")!;
+        var npc = new NpcData
+        {
+            NpcId = "test_wrong_type_portrait",
+            DisplayName = "Test Merchant",
+            NpcType = NpcType.Shopkeeper,
+            DialogueTreeId = tree.TreeId,
+            SpriteType = "shopkeeper",
+            PortraitPath = "res://scenes/ui/DialogueScreen.tscn"
+        };
+
+        AssertThat(ResourceLoader.Exists(npc.PortraitPath)).IsTrue();
+        AssertThat(screen.TryStartDialogue(
+            npc,
+            tree,
+            TestHelpers.CreateTestCharacter(),
+            new HashSet<string>())).IsTrue();
+        await AwaitFrames(2);
+
+        var portrait = screen.GetNode<TextureRect>("%NpcPortrait");
+        AssertThat(portrait.Visible).IsFalse();
+        AssertThat(portrait.Texture).IsNull();
+        AssertThat(screen.InitialFocusTarget).IsNotNull();
+    }
+    finally
+    {
+        await FreeAsync(fixture);
+    }
+}
 ```
 
-Keep every existing lower-band containment assertion and add:
+This pins the authored-string failure mode that `ResourceLoader.Exists(...)` alone cannot catch.
+
+- [ ] **Step 5: Make the existing standard geometry test portrait-sensitive**
+
+In `StandardDialogue_StaysWithinLowerBand`, use the portrait-bearing shopkeeper/tree, retain all existing lower-band/safe-frame assertions, and add horizontal composition checks:
 
 ```csharp
 var portrait = screen.GetNode<TextureRect>("%NpcPortrait");
+var copy = screen.GetNode<VBoxContainer>(
+    "SafeFrame/ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/IdentityRow/DialogueCopy");
+var dialogueText = screen.GetNode<RichTextLabel>("%DialogueText");
+
 AssertThat(portrait.Visible).IsTrue();
-AssertThat(portrait.CustomMinimumSize).IsEqual(new Vector2(64f, 64f));
+AssertThat(portrait.GetGlobalRect().End.X)
+    .IsLessEqual(copy.GetGlobalRect().Position.X + 1f);
+AssertThat(dialogueText.Size.X).IsGreater(200f);
 ```
 
-- [ ] **Step 8: Make existing compact scroll test portrait-bearing**
+Do not add `portrait.CustomMinimumSize == new Vector2(64f, 64f)`; that only echoes the value assigned by `RefreshLayout()`.
 
-In `CompactDialogue_FillsSafeHeightAndScrollsToFocusedChoice`, keep the synthetic overflow tree but pass `village_shopkeeper` instead of `old_farmer`.
+- [ ] **Step 6: Make the existing compact overflow/focus test portrait-sensitive**
 
-Keep all current full-safe-height and scroll-to-focused-choice assertions and add:
+In `CompactDialogue_FillsSafeHeightAndScrollsToFocusedChoice`:
+
+- keep its existing synthetic overflow tree;
+- pass `village_shopkeeper` as the NPC so portrait data is present;
+- retain every existing full-safe-height, `VerticalScrollBar.MaxValue > Page`, focused-choice visibility/scroll, and action assertion;
+- add:
 
 ```csharp
 var portrait = screen.GetNode<TextureRect>("%NpcPortrait");
+var copy = screen.GetNode<VBoxContainer>(
+    "SafeFrame/ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/IdentityRow/DialogueCopy");
+var dialogueText = screen.GetNode<RichTextLabel>("%DialogueText");
+
 AssertThat(portrait.Visible).IsTrue();
-AssertThat(portrait.CustomMinimumSize).IsEqual(new Vector2(40f, 40f));
+AssertThat(portrait.GetGlobalRect().End.X)
+    .IsLessEqual(copy.GetGlobalRect().Position.X + 1f);
+AssertThat(dialogueText.Size.X).IsGreater(200f);
 ```
 
-Do not add a separate compact portrait test.
+The existing overflow assertion is portrait-sensitive because the 40-pixel portrait plus row spacing reduces text width and changes wrapping/body height.
 
-- [ ] **Step 9: Run Dialogue tests and confirm RED**
+- [ ] **Step 7: Run Dialogue tests and confirm RED**
 
 ```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo --filter FullyQualifiedName~DialogueScreenControllerTest
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
+  --filter FullyQualifiedName~DialogueScreenControllerTest
 ```
 
-Expected: FAIL because `%NpcPortrait` / portrait controller behavior do not exist.
+Expected: FAIL on missing `%NpcPortrait` / portrait behavior.
 
-### 2C. Implement the identity row and single portrait render path
+## 3B. Edit and verify the scene before touching controller code
 
-- [ ] **Step 10: Add `IdentityRow` to `DialogueScreen.tscn`**
+- [ ] **Step 8: Add `IdentityRow` and reparent copy in `DialogueScreen.tscn`**
 
-Restructure `BodyHost`:
+The declaration order must be:
 
 ```text
 BodyHost
@@ -382,7 +561,7 @@ BodyHost
 └── ChoicesContainer
 ```
 
-Scene properties:
+Use:
 
 ```ini
 [node name="IdentityRow" type="HBoxContainer" parent="SafeFrame/ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost"]
@@ -404,11 +583,28 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 4
 ```
 
-Reparent existing `%SpeakerLabel` and `%DialogueText` under `DialogueCopy` without changing their theme/text/fit/scroll settings. Leave `%ChoicesContainer` directly under `BodyHost`.
+Move the existing `%SpeakerLabel` and `%DialogueText` declarations immediately after `DialogueCopy` and update only their `parent` paths to include `/IdentityRow/DialogueCopy`.
 
-Do **not** set `expand_mode` / `stretch_mode` in the scene; `UiIconPresenter.ApplyItem(...)` owns them.
+Keep `%ChoicesContainer` as the **last node block in the file and the final direct child of `BodyHost`**. Do not append `IdentityRow` after the existing choices block.
 
-- [ ] **Step 11: Bind portrait and local sizes in `DialogueScreenController`**
+Do not set `expand_mode` / `stretch_mode` on `%NpcPortrait`; `UiIconPresenter.ApplyItem(...)` owns them.
+
+- [ ] **Step 9: Verify the scene edit in isolation with the unmodified controller**
+
+Run only existing tests that depend on the moved unique-name nodes and authored scene:
+
+```bash
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
+  --filter 'FullyQualifiedName~DialogueScreenControllerTest.Scene_UsesSafeFrameModalShellAndContainsNoAcceptDialog|FullyQualifiedName~DialogueScreenControllerTest.SpeakerName_BlankHidesSpeakerLabel'
+```
+
+Expected: PASS **before** any `DialogueScreenController.cs` portrait edits.
+
+If this fails, fix the `.tscn` parent path/declaration order first. Do not continue into controller changes with a broken scene tree.
+
+## 3C. Bind and render portrait through the one existing render path
+
+- [ ] **Step 10: Bind portrait before any layout/render call in `_Ready()`**
 
 Add:
 
@@ -418,18 +614,26 @@ private const float CompactPortraitSize = 40f;
 private TextureRect _portrait = null!;
 ```
 
-Bind in `_Ready()`:
+In the existing `_Ready()` `GetNode` block, bind `%NpcPortrait` **with `_speakerLabel`, `_textLabel`, and `_choicesContainer`, before `Resized += OnResized;`, `RefreshLayout()`, or the `_currentNode` `ShowNode(...)` call**:
 
 ```csharp
 _portrait = GetNode<TextureRect>("%NpcPortrait");
 ```
 
-In `RefreshLayout()` after compact calculation:
+This ordering is mandatory because `RefreshLayout()` will dereference `_portrait`.
+
+- [ ] **Step 11: Apply local responsive portrait size in `RefreshLayout()`**
+
+After `var insets = SiriusUiMetrics.SafeFrameInsets(size);`:
 
 ```csharp
-var portraitSize = insets.Compact ? CompactPortraitSize : StandardPortraitSize;
+var portraitSize = insets.Compact
+    ? CompactPortraitSize
+    : StandardPortraitSize;
 _portrait.CustomMinimumSize = new Vector2(portraitSize, portraitSize);
 ```
+
+Do not change the existing 45% standard lower band, compact full-safe-height behavior, shell size class, text theme variations, or action target sizing.
 
 - [ ] **Step 12: Add `RefreshPortrait()` using existing helpers**
 
@@ -446,11 +650,11 @@ private void RefreshPortrait()
 }
 ```
 
-No `IsNodeReady()` guard: `RefreshPortrait()` is only called from `ShowNode(...)`, which runs after node binding.
+No `IsNodeReady()` guard and no sprite-sheet crop logic.
 
-- [ ] **Step 13: Wire exactly one portrait refresh call**
+- [ ] **Step 13: Wire exactly one portrait refresh call in `ShowNode(...)`**
 
-In `ShowNode(...)`:
+Keep current rendering order and add:
 
 ```csharp
 _currentNode = node;
@@ -461,20 +665,36 @@ _speakerLabel.Text = node.SpeakerName ?? string.Empty;
 
 Do not call `RefreshPortrait()` directly from `_Ready()` or `TryStartDialogue(...)`.
 
-- [ ] **Step 14: Run focused tests and confirm GREEN**
+- [ ] **Step 14: Run the complete Dialogue suite and confirm GREEN**
 
 ```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo --filter 'FullyQualifiedName~UiArtCatalogTest|FullyQualifiedName~DialogueScreenControllerTest'
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
+  --filter FullyQualifiedName~DialogueScreenControllerTest
+```
+
+Expected: PASS, including:
+
+- existing before-ready lifecycle coverage;
+- authored portrait before attach;
+- synthetic missing portrait;
+- missing path;
+- existing wrong-type path;
+- standard no-overlap/text width;
+- compact overflow/focus/no-overlap/text width.
+
+- [ ] **Step 15: Run data + art + Dialogue focused suites together**
+
+```bash
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
+  --filter 'FullyQualifiedName~NpcCatalogTest|FullyQualifiedName~UiArtCatalogTest|FullyQualifiedName~DialogueScreenControllerTest'
 ```
 
 Expected: PASS.
 
-- [ ] **Step 15: Commit Task 2**
+- [ ] **Step 16: Commit Task 3**
 
 ```bash
 git add -- \
-  scripts/ui/art/UiArtCatalog.cs \
-  tests/ui/art/UiArtCatalogTest.cs \
   scenes/ui/DialogueScreen.tscn \
   scripts/ui/DialogueScreenController.cs \
   tests/ui/DialogueScreenControllerTest.cs
@@ -483,17 +703,18 @@ git commit -m "feat: render Dialogue NPC portraits"
 
 ---
 
-## Task 3: Run final regression and scope gates
+# Task 4: Run final regression and scope gates
 
-**Files:** verification only unless a test exposes a real HPA-625 defect.
+**Files:** verification only unless a gate exposes a real HPA-625 defect.
 
 - [ ] **Step 1: Run all focused HPA-625 suites**
 
 ```bash
-dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo --filter 'FullyQualifiedName~NpcCatalogTest|FullyQualifiedName~UiArtCatalogTest|FullyQualifiedName~DialogueScreenControllerTest'
+dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo \
+  --filter 'FullyQualifiedName~NpcCatalogTest|FullyQualifiedName~UiArtCatalogTest|FullyQualifiedName~DialogueScreenControllerTest|FullyQualifiedName~NpcInteractionControllerTest'
 ```
 
-Expected: PASS.
+Expected: PASS. `NpcInteractionControllerTest` is regression-only; production interaction code remains unchanged.
 
 - [ ] **Step 2: Run the full test suite**
 
@@ -501,7 +722,7 @@ Expected: PASS.
 dotnet test Sirius.sln --settings test.runsettings.local --no-restore --nologo
 ```
 
-Expected: PASS.
+Expected: all tests pass.
 
 - [ ] **Step 3: Build**
 
@@ -531,7 +752,27 @@ test "$calls" = "1"
 
 Expected: one call, in `ShowNode(...)`.
 
-- [ ] **Step 6: Verify existing frame assets are tracked and no new portrait binary was added**
+- [ ] **Step 6: Verify raw texture loading no longer uses the throwing generic cast path**
+
+```bash
+rg -n 'ResourceLoader\.Load<Resource>\(path\)|resource is T typed|WarnOnce' \
+  scripts/ui/art/UiArtCatalog.cs
+```
+
+Expected: the type-safe base-resource load, pattern match, and deduplicated warning helper are present.
+
+Then:
+
+```bash
+if rg -n 'ResourceLoader\.Load<T>\(path\)' scripts/ui/art/UiArtCatalog.cs; then
+  echo 'LoadOnce<T> must not cast authored raw paths through ResourceLoader.Load<T>'
+  exit 1
+fi
+```
+
+Expected: no matches.
+
+- [ ] **Step 7: Verify reused portrait resources are tracked and no new binary was added**
 
 ```bash
 git ls-files --error-unmatch assets/sprites/npcs/shopkeeper/frames/frame1.png
@@ -543,17 +784,9 @@ if git diff --name-only main...HEAD | grep -E '\.(png|jpg|jpeg|webp)$'; then
 fi
 ```
 
-Expected: both tracked files resolve; no image files are in the branch diff.
+Expected: both existing portrait resources resolve; no image files are in the branch diff.
 
-- [ ] **Step 7: Verify `.gitignore` is intentionally unchanged**
-
-```bash
-git diff --exit-code main...HEAD -- .gitignore
-```
-
-Expected: exit 0.
-
-Do not add the proposed file-only negation `!assets/sprites/npcs/*/frames/frame1.png`; an ignored `frames/` parent prevents that one-line rule from making new files trackable, and reopening the directory would broaden generated-frame staging behavior.
+No `.gitignore` content assertion is needed beyond normal diff scope: HPA-625 simply does not modify it.
 
 - [ ] **Step 8: Verify exact implementation surface**
 
@@ -577,26 +810,48 @@ diff -u /tmp/hpa625-expected-files /tmp/hpa625-actual-files
 
 Expected: no diff.
 
-`UiIconPresenter.cs` is intentionally absent because HPA-625 reuses `ApplyItem(...)` without modifying it.
+`UiIconPresenter.cs`, `NpcInteractionController.cs`, `NpcSpawn.cs`, `.gitignore`, and all image resources are intentionally absent because HPA-625 reuses them unchanged.
 
-- [ ] **Step 9: Inspect the runtime diff**
+- [ ] **Step 9: Inspect the final runtime diff**
 
-Review `git diff main...HEAD --` and reject:
+Reject any accidental addition of:
 
-- portrait registry/service/cache/presenter additions;
+- portrait registry/service/cache/presenter class;
 - `SpriteType` portrait inference;
+- generic sprite-sheet crop metadata or AtlasTexture convention in `NpcData`/Dialogue;
 - host/domain/dialogue-tree changes;
-- new art files;
+- new image files or `.gitignore` policy changes;
 - second NPC-name label;
 - duplicate `_Ready()` / `TryStartDialogue(...)` portrait refresh call sites;
-- local hand-rolled `ResourceLoader.Exists(...)` portrait loading instead of the existing optional-art helper;
-- numeric `TextureRect` expand/stretch configuration duplicated in the scene.
+- hand-rolled Dialogue resource loading instead of `UiArtCatalog.LoadContentTexture(...)`;
+- tautological geometry tests that only assert the local 64/40 values assigned by the controller.
 
-- [ ] **Step 10: Commit only if verification required a real fix**
+- [ ] **Step 10: Check patch integrity**
 
-If no fix was required, do not create an empty verification commit.
+```bash
+git diff --check main...HEAD
+```
 
-- [ ] **Step 11: Update the existing PR #43**
+Expected: no output.
+
+- [ ] **Step 11: Mark the design implemented only after all gates are fresh and green**
+
+Add directly below the design title:
+
+```markdown
+**Status:** Implemented in HPA-625.
+```
+
+Do not claim HPA-358, HPA-359, or HPA-541 completion.
+
+- [ ] **Step 12: Commit closeout documentation**
+
+```bash
+git add -- docs/superpowers/specs/2026-08-19-hpa-625-dialogue-npc-portraits-design.md
+git commit -m "docs: close HPA-625 dialogue portraits"
+```
+
+- [ ] **Step 13: Update the existing PR #43**
 
 Keep this branch/PR as the only HPA-625 PR. Update the PR body with actual runtime files and fresh test/build results after implementation.
 
@@ -609,4 +864,5 @@ After PR #43 merges:
 1. re-fetch HPA-625;
 2. add one concise comment with merged PR and shipped scope;
 3. mark HPA-625 Done;
-4. do not create a portrait-framework follow-up merely for generalized reuse.
+4. evaluate HPA-358’s workstream checklist separately;
+5. do not create a portrait-framework follow-up merely for generalized reuse.

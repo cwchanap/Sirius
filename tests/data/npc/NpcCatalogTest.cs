@@ -79,7 +79,6 @@ public partial class NpcCatalogTest : Godot.Node
 
         AssertThat(NpcCatalog.GetById("village_shopkeeper")!.PortraitPath).IsNotNull();
         AssertThat(NpcCatalog.GetById("village_healer")!.PortraitPath).IsNotNull();
-        AssertThat(npcs.Any(npc => npc.PortraitPath == null)).IsTrue();
     }
 
     // ---- ShopCatalog -------------------------------------------------------

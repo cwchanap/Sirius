@@ -210,6 +210,21 @@ Reuse existing geometry tests instead of adding separate portrait geometry tests
 
 This gives portrait-bearing coverage on the exact `BodyHost` geometry paths changed by the identity row without adding redundant tests.
 
+## Review disposition
+
+Accepted from the latest review:
+
+- one `ShowNode(...)` portrait refresh call site rather than `_Ready()` + ready-branch duplication;
+- enumeration-based catalog integrity rather than four content literals/null pins;
+- reuse `UiIconPresenter.ApplyItem(...)`;
+- reuse `UiArtCatalog.LoadOnce<T>` through one narrow `LoadContentTexture(...)` delegation;
+- make the existing standard and compact geometry tests portrait-bearing;
+- reduce the new before-attach test to portrait-specific assertions because general configure-before-attach behavior is already covered.
+
+Declined:
+
+- the proposed one-line `.gitignore` un-ignore. Git does not re-include a file while its parent `frames/` directory is still ignored, and reopening that directory would also expose generated sibling frames unless we add a more complex ignore block. HPA-625 keeps generated-frame policy stable instead.
+
 ## Risks and mitigations
 
 ### Start-order drift

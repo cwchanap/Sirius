@@ -1,4 +1,6 @@
+using System.Linq;
 using GdUnit4;
+using Godot;
 using static GdUnit4.Assertions;
 
 [TestSuite]
@@ -58,6 +60,26 @@ public partial class NpcCatalogTest : Godot.Node
             AssertThat(npc.DialogueTreeId).IsNotNull();
             AssertThat(npc.DialogueTreeId).IsNotEmpty();
         }
+    }
+
+    [TestCase]
+    public void NpcCatalog_AllAuthoredPortraits_AreLoadableAndOptional()
+    {
+        var npcs = NpcCatalog.AllNpcs.ToArray();
+
+        foreach (var npc in npcs)
+        {
+            if (npc.PortraitPath == null)
+                continue;
+
+            AssertThat(npc.PortraitPath).IsNotEmpty();
+            AssertThat(ResourceLoader.Exists(npc.PortraitPath)).IsTrue();
+            AssertThat(ResourceLoader.Load<Texture2D>(npc.PortraitPath)).IsNotNull();
+        }
+
+        AssertThat(NpcCatalog.GetById("village_shopkeeper")!.PortraitPath).IsNotNull();
+        AssertThat(NpcCatalog.GetById("village_healer")!.PortraitPath).IsNotNull();
+        AssertThat(npcs.Any(npc => npc.PortraitPath == null)).IsTrue();
     }
 
     // ---- ShopCatalog -------------------------------------------------------

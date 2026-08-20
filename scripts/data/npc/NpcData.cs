@@ -34,4 +34,10 @@ public class NpcData
 
     /// <summary>Sprite folder name used for texture loading (e.g. "shopkeeper", "healer").</summary>
     public string SpriteType { get; init; }
+
+    /// <summary>
+    /// Optional player-facing portrait resource used by Dialogue identity presentation.
+    /// Independent from SpriteType, which remains world-sprite metadata.
+    /// </summary>
+    public string? PortraitPath { get; init; }
 }

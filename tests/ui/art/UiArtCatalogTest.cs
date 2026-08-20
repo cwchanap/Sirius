@@ -177,6 +177,46 @@ public partial class UiArtCatalogTest : Node
     }
 
     [TestCase]
+    public void Catalog_LoadContentTexture_DeduplicatesMissingWarnings()
+    {
+        const string path = "res://test/missing-npc-portrait.png";
+        var missingPaths = GetMissingPaths();
+        missingPaths.Clear();
+
+        try
+        {
+            AssertThat(ResourceLoader.Exists(path)).IsFalse();
+            AssertThat(UiArtCatalog.LoadContentTexture(path)).IsNull();
+            AssertThat(UiArtCatalog.LoadContentTexture(path)).IsNull();
+            AssertThat(missingPaths.SetEquals(new[] { path })).IsTrue();
+        }
+        finally
+        {
+            missingPaths.Clear();
+        }
+    }
+
+    [TestCase]
+    public void Catalog_LoadContentTexture_DeduplicatesWrongTypeWarnings()
+    {
+        const string path = "res://scenes/ui/DialogueScreen.tscn";
+        var missingPaths = GetMissingPaths();
+        missingPaths.Clear();
+
+        try
+        {
+            AssertThat(ResourceLoader.Exists(path)).IsTrue();
+            AssertThat(UiArtCatalog.LoadContentTexture(path)).IsNull();
+            AssertThat(UiArtCatalog.LoadContentTexture(path)).IsNull();
+            AssertThat(missingPaths.SetEquals(new[] { path })).IsTrue();
+        }
+        finally
+        {
+            missingPaths.Clear();
+        }
+    }
+
+    [TestCase]
     public void Effects_LoadAtDocumentedSizeWithMipmaps()
     {
         foreach (var id in Enum.GetValues<UiEffectId>())

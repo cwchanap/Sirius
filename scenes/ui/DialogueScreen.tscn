@@ -27,15 +27,35 @@ unique_name_in_owner = true
 layout_mode = 1
 SizeClass = 3
 
-[node name="SpeakerLabel" type="Label" parent="SafeFrame/ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost"]
+[node name="IdentityRow" type="HBoxContainer" parent="SafeFrame/ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="NpcPortrait" type="TextureRect" parent="SafeFrame/ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/IdentityRow"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="DialogueCopy" type="VBoxContainer" parent="SafeFrame/ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/IdentityRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="SpeakerLabel" type="Label" parent="SafeFrame/ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/IdentityRow/DialogueCopy"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"SiriusSection"
 autowrap_mode = 3
 
-[node name="DialogueText" type="RichTextLabel" parent="SafeFrame/ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost"]
+[node name="DialogueText" type="RichTextLabel" parent="SafeFrame/ModalShell/Panel/Margin/RootLayout/BodyScroll/BodyHost/IdentityRow/DialogueCopy"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 theme_type_variation = &"SiriusBody"
 fit_content = true
 scroll_active = false

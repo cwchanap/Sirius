@@ -16,21 +16,21 @@
 - Result:
 
 ## One production walkthrough
-- Actual Main Menu → Game scene replacement:
-- FloorGF new-game start `(8, 50)`:
-- Movement → goblin `(24, 45)` → Battle:
-- Actual Game → Main Menu scene replacement:
+- Actual Main Menu → Game scene replacement: Earlier direct-binary attempt reached `Game.tscn`; the required rescue LaunchServices launches reached `Main Menu loaded` but exposed no controllable real window, so this seam was not safely repeated.
+- FloorGF new-game start `(8, 50)`: Earlier direct-binary runtime log reported the authored start `(8, 50)`; rescue run did not reach it because no window was exposed.
+- Movement → goblin `(24, 45)` → Battle: Earlier direct-binary attempt reached the authored goblin and Battle result; rescue run could not repeat movement without a controllable window.
+- Actual Game → Main Menu scene replacement: not reached; no claim made.
 
 ## Real-window visual checks
-- Inventory 1280×720:
-- Inventory 640×360:
-- Battle/result 1280×720:
-- Save/overwrite Prompt 640×360:
+- Inventory 1280×720: blocked; no live Godot framebuffer exposed.
+- Inventory 640×360: not attempted because the real window was unusable.
+- Battle/result 1280×720: earlier temporary diagnostic capture was visually inspected, but no allowed repository evidence screenshot was produced.
+- Save/overwrite Prompt 640×360: not attempted; no disposable save created and no user save modified.
 
 ## Runtime observations
-- Warnings/errors:
-- Duplicate activation:
-- Stuck focus/pause/input/cursor/HUD state:
+- Warnings/errors: deterministic invalid-UID loader fallbacks and dynamic `Music`/`SFX` audio-bus warnings; no `ERROR:`/`GD.PushError` observed in the reached path or rescue launches through Main Menu. Remaining seams are unverified.
+- Duplicate activation: no production duplicate activation was observed; the rescue desktop blocker prevented further flow.
+- Stuck focus/pause/input/cursor/HUD state: unverified because public Accessibility exposed zero Godot windows/UI elements.
 
 ## Legacy-path and documentation audit
 - Executable leftovers:
@@ -39,4 +39,4 @@
 - HPA-376 Cancel intro:
 
 ## Evidence screenshots
-- paths:
+- paths: none. The five allowed evidence paths remain absent; `/private/tmp/hpa359-rescue-desktop.png` was a desktop diagnostic showing Chrome, not release evidence.

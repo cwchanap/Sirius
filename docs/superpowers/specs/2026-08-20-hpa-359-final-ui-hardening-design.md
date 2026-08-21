@@ -120,7 +120,7 @@ Search `scripts/`, `scenes/`, and `project.godot` for retired native-dialog/debu
 - retain intentional dynamic C# rows such as Dialogue choices and Shop/Inventory catalogue entries;
 - retain input compatibility code that still serves current behavior.
 
-Current tracked `main` contains no `.uid` files in the recursive Git tree, including none of the legacy `.cs.uid` paths named in review. Do not add tracked `.uid` deletion work unless execution against the current branch proves a tracked orphan exists. Local ignored/generated files are local workspace hygiene, not HPA-359 PR scope.
+Current tracked `main` contains no `.uid` files in the recursive Git tree, including none of the legacy `.cs.uid` paths named in review. Therefore HPA-359 has no planned `.uid` cleanup. If local ignored/generated `.uid` files exist in an implementation workspace, they are local hygiene unless they become tracked PR content.
 
 ### Current-documentation corrections
 

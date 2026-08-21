@@ -39,8 +39,6 @@
 
 - [ ] **Step 1: Build the current branch**
 
-Run:
-
 ```bash
 dotnet build Sirius.sln
 ```
@@ -48,8 +46,6 @@ dotnet build Sirius.sln
 Expected: build succeeds with no new compile errors.
 
 - [ ] **Step 2: Run the focused release baseline**
-
-Run:
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~MainMenuTest|FullyQualifiedName~MainMenuSceneTest|FullyQualifiedName~GameTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~ExplorationHudControllerTest|FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~InventoryMenuSceneTest|FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~DialogueScreenControllerTest|FullyQualifiedName~ShopScreenControllerTest|FullyQualifiedName~HealingScreenControllerTest|FullyQualifiedName~PuzzleRiddleScreenControllerTest|FullyQualifiedName~BattleManagerTest|FullyQualifiedName~BattleSceneTest|FullyQualifiedName~PauseScreenControllerTest|FullyQualifiedName~SaveLoadScreenControllerTest|FullyQualifiedName~SaveLoadScreenSceneTest|FullyQualifiedName~SettingsMenuControllerTest|FullyQualifiedName~UIScreenHost|FullyQualifiedName~SiriusPrompt|FullyQualifiedName~Hpa374RuntimeSmokeTest"
@@ -333,8 +329,6 @@ This is characterization coverage, so it may pass immediately on current product
 
 - [ ] **Step 2: Run the new test**
 
-Run:
-
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest.HostedPause_JoypadNavigationAndCancelRestoreGameplay"
 ```
@@ -377,8 +371,6 @@ If the characterization exposed a real production defect, explicitly add only th
 
 - [ ] **Step 1: Audit current production content**
 
-Run:
-
 ```bash
 rg -n 'DialogueDialog|SaveLoadDialog|SaveOverwriteConfirmationController|DraggablePanel|Player HUD|Settings menu coming soon' scripts scenes project.godot CLAUDE.md docs/PRD.md
 rg -n 'AcceptDialog|ConfirmationDialog' scripts scenes project.godot docs/ui/hpa-376/ui-lifecycle-contract.md
@@ -391,7 +383,7 @@ Classify matches before editing:
 - current input-compatibility code → retain;
 - current documentation naming a deleted path → correct.
 
-At planning time the tracked recursive `main` tree contains **no `.uid` files**, including none of the legacy `.cs.uid` names reported in review. Do not add or claim a `.uid` deletion unless the current tracked branch proves one exists during execution.
+At planning time the tracked recursive `main` tree contains **no `.uid` files**, including none of the legacy `.cs.uid` names reported in review. HPA-359 therefore has no planned `.uid` deletion. If execution occurs in a workspace with ignored/generated orphan UIDs, treat them as local hygiene unless they are tracked PR content.
 
 - [ ] **Step 2: Correct `CLAUDE.md` current architecture**
 
@@ -513,8 +505,6 @@ Ensure it contains:
 - no more than six screenshot paths.
 
 - [ ] **Step 5: Review the final diff for scope**
-
-Run:
 
 ```bash
 git diff --check

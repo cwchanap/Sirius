@@ -166,11 +166,18 @@ public static class UiArtCatalog
             var resource = ResourceLoader.Load<Resource>(path);
             if (resource is T typedResource)
                 return typedResource;
+
+            WarnOnce(path, $"[UiArtCatalog] Optional UI art resource has unexpected type: {path}");
+            return null;
         }
 
-        if (MissingPaths.Add(path))
-            GD.PushWarning($"[UiArtCatalog] Missing optional UI art resource: {path}");
-
+        WarnOnce(path, $"[UiArtCatalog] Missing optional UI art resource: {path}");
         return null;
+    }
+
+    private static void WarnOnce(string path, string message)
+    {
+        if (MissingPaths.Add(path))
+            GD.PushWarning(message);
     }
 }

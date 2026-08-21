@@ -159,6 +159,45 @@ public partial class DialogueScreenControllerTest : Node
     }
 
     [TestCase]
+    public async Task WrongTypePortraitPath_HidesPortraitAndKeepsFocusUsable()
+    {
+        var fixture = await InstantiateDialogue(new Vector2I(1280, 720));
+        try
+        {
+            var screen = fixture.Screen;
+            var tree = DialogueCatalog.GetById("shopkeeper_greeting")!;
+            var npc = new NpcData
+            {
+                NpcId = "test_wrong_type_portrait",
+                DisplayName = "Test Merchant",
+                NpcType = NpcType.Shopkeeper,
+                ShopId = "village_general_store",
+                HealCost = 0,
+                DialogueTreeId = tree.TreeId,
+                SpriteType = "shopkeeper",
+                PortraitPath = "res://scenes/ui/DialogueScreen.tscn"
+            };
+
+            AssertThat(ResourceLoader.Exists(npc.PortraitPath)).IsTrue();
+            AssertThat(screen.TryStartDialogue(
+                npc,
+                tree,
+                TestHelpers.CreateTestCharacter(),
+                new HashSet<string>())).IsTrue();
+            await AwaitFrames(2);
+
+            var portrait = screen.GetNode<TextureRect>("%NpcPortrait");
+            AssertThat(portrait.Visible).IsFalse();
+            AssertThat(portrait.Texture).IsNull();
+            AssertThat(screen.InitialFocusTarget).IsNotNull();
+        }
+        finally
+        {
+            await FreeAsync(fixture);
+        }
+    }
+
+    [TestCase]
     public void TryStartDialogue_MissingRootReturnsFalseWithoutTerminalSignal()
     {
         var screen = CreateUnparentedCandidate();

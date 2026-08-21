@@ -81,6 +81,21 @@ public partial class NpcCatalogTest : Godot.Node
         AssertThat(NpcCatalog.GetById("village_healer")!.PortraitPath).IsNotNull();
     }
 
+    [TestCase]
+    public void NpcData_PortraitPath_IsOptional()
+    {
+        var npc = new NpcData
+        {
+            NpcId = "test_optional_portrait",
+            DisplayName = "Test NPC",
+            NpcType = NpcType.Villager,
+            DialogueTreeId = "villager_01",
+            SpriteType = "villager"
+        };
+
+        AssertThat(npc.PortraitPath).IsNull();
+    }
+
     // ---- ShopCatalog -------------------------------------------------------
 
     [TestCase]

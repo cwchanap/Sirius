@@ -4,7 +4,7 @@
 
 **Goal:** Close the Sirius UI migration with deterministic automated coverage plus one narrow real-window walkthrough for the production seams that are not already protected.
 
-**Architecture:** Keep the shipped root-local `UIScreenHost`, scene-authored screens, Theme/components, and controller ownership unchanged. Existing runtime-backed GdUnit suites remain authoritative for Dialogue→Shop/Heal, Pause children, overwrite Prompt retention, focus restoration, topmost Cancel, long Dialogue, Puzzle/Riddle, corrupt-save prompts, and normal hosted lifecycle. HPA-359 adds one host-level joypad characterization and manually checks only actual scene replacement, movement→encounter→Battle, and real-window composition. Any production defect is reproduced test-first in its existing owner and fixed minimally in this same PR.
+**Architecture:** Keep the shipped root-local `UIScreenHost`, scene-authored screens, Theme/components, and controller ownership unchanged. Existing runtime-backed GdUnit suites remain authoritative for Dialogue→Shop/Heal, Pause children, overwrite Prompt retention, focus restoration, topmost Cancel, long Dialogue, Puzzle/Riddle, corrupt-save prompts, and normal hosted lifecycle. HPA-359 adds one host-level joypad characterization and manually checks only actual scene replacement, movement→encounter→Battle, and real-window composition. Any production defect is reproduced test-first in its existing owner and fixed minimally in this same HPA-359 PR.
 
 **Tech Stack:** Godot 4.6.2, C#/.NET 8.0, GdUnit4, existing Sirius Theme/components/`UIScreenHost`.
 
@@ -62,8 +62,8 @@ Expected: green. Record exact pass/fail/skip totals. If a pre-existing failure a
 In the evidence document, cite the current automated owners rather than manually re-running them:
 
 - `GameplayPauseHostTest.NpcShopOutcome_HostsAsBlockingScreenWithoutPausingTree` — real `Game.tscn` Dialogue→Shop composition, HUD visible→hidden, gameplay block, no tree pause, restore on close.
-- `GameplayPauseHostTest` Save/Load child/focus tests — closing Save/Load returns focus to the same live Pause.
-- `GameplayPauseHostTest` overwrite Prompt tests — topmost Cancel closes Prompt while retaining Save/Load and Pause.
+- `GameplayPauseHostTest.HostedSaveLoad_CloseReturnsFocusToSamePause` and adjacent Pause-child cases — Save/Load/Settings child ownership and same-Pause focus restoration.
+- `GameplayPauseHostTest` overwrite-Prompt cases — topmost Cancel closes Prompt while retaining Save/Load and Pause.
 - `GameplayPauseHostTest.ReturnToTitle_ClosesUiStackAndRestoresIncomingStateBeforeSceneChange` — teardown before scene-change request.
 - `DialogueScreenControllerTest.CompactDialogue_FillsSafeHeightAndScrollsToFocusedChoice` — long compact Dialogue.
 - `GameTest.CorruptedSave_*` — corrupt-save hosted Prompt behavior.
@@ -282,9 +282,8 @@ public async Task HostedPause_JoypadNavigationAndCancelRestoreGameplay()
     InputMap.ActionAddEvent("ui_cancel", joyCancelBinding);
     try
     {
-        // Open through the configured gameplay action; default production
-        // binding is keyboard Escape. This is intentionally not a new joypad
-        // gameplay binding.
+        // Open through the configured gameplay action. The production default
+        // for pause_menu is keyboard Escape; no joypad gameplay binding is added.
         _viewport!.PushInput(new InputEventAction
         {
             Action = "pause_menu",
@@ -328,7 +327,7 @@ public async Task HostedPause_JoypadNavigationAndCancelRestoreGameplay()
 }
 ```
 
-Use the exact existing helper names/types in the file when implementing. The important contract is action-open → joypad focus movement → joypad Cancel → gameplay restored.
+Use the exact existing helper names/types in the file when implementing. The important contract is configured gameplay-action open → joypad focus movement → joypad Cancel → gameplay restored.
 
 This is characterization coverage, so it may pass immediately on current production. Do not manufacture a production RED merely to justify the test.
 
@@ -355,11 +354,11 @@ Expected: green.
 Update the Hosted joypad characterization section in `release-validation.md`.
 
 ```bash
-git add tests/game/GameplayPauseHostTest.cs docs/ui/hpa-359/release-validation.md scripts/game/Game.cs scripts/ui/hosting
+git add tests/game/GameplayPauseHostTest.cs docs/ui/hpa-359/release-validation.md
 git commit -m "test: cover hosted joypad navigation and cancel"
 ```
 
-Stage production paths only if the characterization exposed and fixed a real defect.
+If the characterization exposed a real production defect, explicitly add only the changed production owner(s) to the same commit after the failing test proves the need.
 
 ---
 
@@ -453,11 +452,11 @@ Re-run the Step 1 commands and record:
 - [ ] **Step 7: Commit cleanup/documentation**
 
 ```bash
-git add CLAUDE.md docs/PRD.md docs/ui/hpa-376/ui-lifecycle-contract.md docs/ui/hpa-359 scripts scenes project.godot tests
+git add CLAUDE.md docs/PRD.md docs/ui/hpa-376/ui-lifecycle-contract.md docs/ui/hpa-359
 git commit -m "docs: align Sirius UI closeout guidance"
 ```
 
-Stage runtime paths only when a proven executable leftover was removed.
+If the audit proves an executable leftover, explicitly stage only that dead source/scene/reference and its protecting test in the same commit.
 
 ---
 

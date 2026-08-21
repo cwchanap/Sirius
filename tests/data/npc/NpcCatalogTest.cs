@@ -77,8 +77,10 @@ public partial class NpcCatalogTest : Godot.Node
             AssertThat(ResourceLoader.Load<Texture2D>(npc.PortraitPath)).IsNotNull();
         }
 
-        AssertThat(NpcCatalog.GetById("village_shopkeeper")!.PortraitPath).IsNotNull();
-        AssertThat(NpcCatalog.GetById("village_healer")!.PortraitPath).IsNotNull();
+        AssertThat(NpcCatalog.GetById("village_shopkeeper")!.PortraitPath)
+            .IsEqual("res://assets/sprites/npcs/shopkeeper/frames/frame1.png");
+        AssertThat(NpcCatalog.GetById("village_healer")!.PortraitPath)
+            .IsEqual("res://assets/sprites/npcs/healer/frames/frame1.png");
     }
 
     [TestCase]

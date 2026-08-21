@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Complete the final Sirius UI release smoke using three named production journeys, fix only concrete cross-screen defects found, remove proven obsolete UI leftovers, and record concise release evidence.
+**Goal:** Close the Sirius UI migration with deterministic automated coverage plus one narrow real-window walkthrough for the production seams that are not already protected.
 
-**Architecture:** Keep the shipped root-local `UIScreenHost`, scene-authored screens, shared Theme/components, and existing controller ownership unchanged. Reuse existing GdUnit scene/lifecycle suites for deterministic protection; use exactly three manual production journeys for composition seams instead of adding a new E2E or screenshot framework. Any defect is handled test-first in its current owning suite and fixed minimally in the same HPA-359 PR.
+**Architecture:** Keep the shipped root-local `UIScreenHost`, scene-authored screens, Theme/components, and controller ownership unchanged. Existing runtime-backed GdUnit suites remain authoritative for Dialogue→Shop/Heal, Pause children, overwrite Prompt retention, focus restoration, topmost Cancel, long Dialogue, Puzzle/Riddle, corrupt-save prompts, and normal hosted lifecycle. HPA-359 adds one host-level joypad characterization and manually checks only actual scene replacement, movement→encounter→Battle, and real-window composition. Any production defect is reproduced test-first in its existing owner and fixed minimally in this same PR.
 
 **Tech Stack:** Godot 4.6.2, C#/.NET 8.0, GdUnit4, existing Sirius Theme/components/`UIScreenHost`.
 
@@ -12,34 +12,32 @@
 
 ## Global Constraints
 
-- [ ] Keep all HPA-359 implementation and evidence in one PR.
+- [ ] Keep all HPA-359 work in one PR.
 - [ ] Do not implement HPA-375 or HPA-541.
-- [ ] Do not add a global UI singleton, new host layer, E2E harness, screenshot harness, compatibility layer, or generic release framework.
-- [ ] Do not add gameplay joypad bindings in this ticket.
+- [ ] Do not add a global UI singleton, second host, E2E driver, screenshot harness, compatibility layer, or release framework.
 - [ ] Do not change gameplay/domain rules while hardening presentation.
-- [ ] Do not manufacture production changes when the shipped path is already correct.
-- [ ] Any production defect fix must start with the narrowest failing regression test in the existing owning suite.
-- [ ] Dynamic runtime UI that is still intentional (dialogue choices, Shop/Inventory catalogue rows) is not legacy merely because it is created in C#.
-- [ ] Do not rewrite the HPA-376 flow matrix, historical evidence, or the April PRD feature requirements/body.
-- [ ] Correct only current-status documentation that falsely describes deleted/superseded UI architecture.
-- [ ] Keep the final evidence set to at most six screenshots.
-- [ ] A clean closeout with no production C# changes is valid.
+- [ ] A clean closeout with no production C# change is valid.
+- [ ] Any production fix must start with the narrowest useful failing regression in the owning existing suite.
+- [ ] Do not manually repeat a contract already protected by a runtime-backed automated test merely to create evidence.
+- [ ] Do not add gameplay joypad bindings; the new controller coverage is hosted-UI characterization only.
+- [ ] Do not delete historical comments or intentional dynamic C# UI rows such as Dialogue choices or Shop/Inventory catalogue entries.
+- [ ] Do not rewrite the HPA-376 flow matrix, historical evidence, PRD feature requirements, or the April PRD change log.
+- [ ] Keep final screenshot evidence to at most six real-window images.
 
 ---
 
-## Task 1: Establish the automated baseline and release record
+## Task 1: Establish the automated release baseline and evidence scaffold
 
 **Files:**
 - Create: `docs/ui/hpa-359/release-validation.md`
 - Reference: `scripts/ui/theme/SiriusUiMetrics.cs`
-- Reference: `scripts/data/floors/Floor0Layout.cs`
-- Reference: `scenes/game/floors/FloorGF.tscn`
+- Reference: existing test suites only
 
 **Interfaces:**
-- Consumes: existing GdUnit suites and the committed FloorGF route.
-- Produces: a factual release-validation record that later tasks update; no production API.
+- Consumes: current `main` UI/game behavior.
+- Produces: factual baseline results and the evidence structure used by Tasks 2–5.
 
-- [ ] **Step 1: Confirm the project builds before hardening**
+- [ ] **Step 1: Build the current branch**
 
 Run:
 
@@ -49,87 +47,81 @@ dotnet build Sirius.sln
 
 Expected: build succeeds with no new compile errors.
 
-- [ ] **Step 2: Run the focused cross-screen baseline suites**
+- [ ] **Step 2: Run the focused release baseline**
 
 Run:
 
 ```bash
-dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~MainMenuTest|FullyQualifiedName~MainMenuSceneTest|FullyQualifiedName~GameTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~ExplorationHudControllerTest|FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~InventoryMenuSceneTest|FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~DialogueScreenControllerTest|FullyQualifiedName~ShopScreenControllerTest|FullyQualifiedName~HealingScreenControllerTest|FullyQualifiedName~PuzzleRiddleScreenControllerTest|FullyQualifiedName~BattleManagerTest|FullyQualifiedName~BattleSceneTest|FullyQualifiedName~PauseScreenControllerTest|FullyQualifiedName~SaveLoadScreenControllerTest|FullyQualifiedName~SaveLoadScreenSceneTest|FullyQualifiedName~SettingsMenuControllerTest|FullyQualifiedName~UIScreenHost|FullyQualifiedName~SiriusPrompt"
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~MainMenuTest|FullyQualifiedName~MainMenuSceneTest|FullyQualifiedName~GameTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~ExplorationHudControllerTest|FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~InventoryMenuSceneTest|FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~DialogueScreenControllerTest|FullyQualifiedName~ShopScreenControllerTest|FullyQualifiedName~HealingScreenControllerTest|FullyQualifiedName~PuzzleRiddleScreenControllerTest|FullyQualifiedName~BattleManagerTest|FullyQualifiedName~BattleSceneTest|FullyQualifiedName~PauseScreenControllerTest|FullyQualifiedName~SaveLoadScreenControllerTest|FullyQualifiedName~SaveLoadScreenSceneTest|FullyQualifiedName~SettingsMenuControllerTest|FullyQualifiedName~UIScreenHost|FullyQualifiedName~SiriusPrompt|FullyQualifiedName~Hpa374RuntimeSmokeTest"
 ```
 
-Expected: green. If a pre-existing failure appears, record it before changing production code and determine whether it is actually in HPA-359 scope.
+Expected: green. Record exact pass/fail/skip totals. If a pre-existing failure appears, classify it before editing production code.
 
-This baseline deliberately includes `ShopScreenControllerTest` and `HealingScreenControllerTest`; they are the direct owners if the live NPC composition smoke exposes a defect.
+- [ ] **Step 3: Record which manual checks are intentionally reused from automation**
 
-- [ ] **Step 3: Confirm the automated-only requirements are already present**
+In the evidence document, cite the current automated owners rather than manually re-running them:
 
-Verify the focused suite still contains and passes:
+- `GameplayPauseHostTest.NpcShopOutcome_HostsAsBlockingScreenWithoutPausingTree` — real `Game.tscn` Dialogue→Shop composition, HUD visible→hidden, gameplay block, no tree pause, restore on close.
+- `GameplayPauseHostTest` Save/Load child/focus tests — closing Save/Load returns focus to the same live Pause.
+- `GameplayPauseHostTest` overwrite Prompt tests — topmost Cancel closes Prompt while retaining Save/Load and Pause.
+- `GameplayPauseHostTest.ReturnToTitle_ClosesUiStackAndRestoresIncomingStateBeforeSceneChange` — teardown before scene-change request.
+- `DialogueScreenControllerTest.CompactDialogue_FillsSafeHeightAndScrollsToFocusedChoice` — long compact Dialogue.
+- `GameTest.CorruptedSave_*` — corrupt-save hosted Prompt behavior.
+- `PuzzleRiddleScreenControllerTest` plus `GameInputLifecycleTest` — compact/cancel Puzzle/Riddle behavior.
 
-- `DialogueScreenControllerTest.CompactDialogue_FillsSafeHeightAndScrollsToFocusedChoice` at `640×360`;
-- the `GameTest.CorruptedSave_*` hosted-prompt cases;
-- Puzzle/Riddle controller and real-route configured-Cancel coverage.
+Do not turn these citations into additional manual acceptance steps.
 
-Do not create a manual long-text or corrupt-save fixture for HPA-359 when these tests are green.
+- [ ] **Step 4: Create `docs/ui/hpa-359/release-validation.md`**
 
-- [ ] **Step 4: Create the evidence document with the named routes**
-
-Create `docs/ui/hpa-359/release-validation.md` with this structure:
+Use this structure:
 
 ```markdown
 # HPA-359 Sirius UI Release Validation
 
 ## Automated baseline
-- Build: pending
-- Focused UI/game lifecycle suite: pending
-- Compact long-Dialogue regression: pending
-- Corrupted-save hosted Prompt regressions: pending
-- Puzzle/Riddle regressions: pending
-- Full suite: pending
+- Build:
+- Focused release suites:
+- Full suite:
 
-## Journey 1 — Main Menu → FloorGF → Inventory → Exploration
-- Route: New Game → spawn (8, 50) → Inventory → close
-- 1280×720: pending
-- 640×360 Inventory: pending
-- Keyboard/mouse: pending
+## Existing runtime-backed coverage reused
+- Dialogue → Shop / Heal:
+- Pause children / focus restoration:
+- Save overwrite Prompt retention / topmost Cancel:
+- Long Dialogue / Puzzle / corrupt-save:
 
-## Journey 2 — Mira → Shop → Goblin Battle → Exploration
-- Route: Mira (12, 46) → Browse your wares → Shop → close → goblin (24, 45) → Battle/result
-- 1280×720: pending
-- Dialogue → Shop HUD/focus/input handoff: pending
-- Battle/result single presentation: pending
+## Hosted joypad characterization
+- Result:
 
-## Journey 3 — Pause → Save overwrite Prompt → Pause → Settings → Return to Title
-- 1280×720: pending
-- Disposable manual slot used: pending
-- 640×360 nested Save/overwrite Prompt: pending
-- Same-Pause focus restoration: pending
+## One production walkthrough
+- Actual Main Menu → Game scene replacement:
+- FloorGF new-game start `(8, 50)`:
+- Movement → goblin `(24, 45)` → Battle:
+- Actual Game → Main Menu scene replacement:
 
-## Gamepad smoke
-- Physical controller attached: pending
-- Keyboard-open hosted UI → joypad focus move → joypad Cancel: pending
+## Real-window visual checks
+- Inventory 1280×720:
+- Inventory 640×360:
+- Battle/result 1280×720:
+- Save/overwrite Prompt 640×360:
 
 ## Runtime observations
-- Warnings/errors: pending
-- Duplicate activations: pending
-- Stuck focus/pause/input/cursor/HUD state: pending
+- Warnings/errors:
+- Duplicate activation:
+- Stuck focus/pause/input/cursor/HUD state:
 
-## Legacy/current-doc audit
-- Production executable leftovers: pending
-- CLAUDE.md current-architecture drift: pending
-- PRD current-status drift: pending
-- HPA-376 configured-Cancel intro drift: pending
+## Legacy-path and documentation audit
+- Executable leftovers:
+- CLAUDE.md:
+- docs/PRD.md:
+- HPA-376 Cancel intro:
 
 ## Evidence screenshots
-- pending
+- paths:
 ```
 
-`pending` is the runtime evidence state, not an unresolved plan decision. Replace it only with observed results; gamepad is `N/A` when no physical controller is attached.
+Leave result fields blank until the corresponding observation is made; do not pre-declare success.
 
-- [ ] **Step 5: Record baseline results**
-
-Write the exact commands, pass/fail counts, and relevant warning notes into the evidence document. Record the automated long-Dialogue, corrupt-save, and Puzzle/Riddle cases as automation evidence rather than manual journey requirements.
-
-- [ ] **Step 6: Commit the baseline/evidence scaffold**
+- [ ] **Step 5: Commit the evidence scaffold**
 
 ```bash
 git add docs/ui/hpa-359/release-validation.md
@@ -138,421 +130,390 @@ git commit -m "docs: start HPA-359 release validation"
 
 ---
 
-## Task 2: Validate Journey 1 — Main Menu, FloorGF, Inventory, return
+## Task 2: Run one real-window production walkthrough for uncovered seams
 
-**Files:**
-- Production owners if a defect is reproduced: `scripts/ui/MainMenu.cs`, `scenes/ui/MainMenu.tscn`, `scripts/game/Game.cs`, `scripts/ui/ExplorationHudController.cs`, `scenes/ui/ExplorationHud.tscn`, `scripts/ui/InventoryMenuController.cs`, `scenes/ui/InventoryMenu.tscn`
-- Primary tests if a defect is reproduced: `tests/ui/MainMenuTest.cs`, `tests/ui/MainMenuSceneTest.cs`, `tests/game/GameTest.cs`, `tests/game/GameInputLifecycleTest.cs`, `tests/game/GameplayPauseHostTest.cs`, `tests/ui/ExplorationHudControllerTest.cs`, `tests/ui/InventoryMenuControllerTest.cs`, `tests/ui/InventoryMenuSceneTest.cs`
-- Evidence: `docs/ui/hpa-359/release-validation.md`, `docs/ui/hpa-359/evidence/`
+**Primary production owners if a defect is found:**
+- `scripts/ui/MainMenu.cs`
+- `scenes/ui/MainMenu.tscn`
+- `scripts/game/Game.cs`
+- `scripts/game/GridMap.cs`
+- `scripts/ui/InventoryMenuController.cs`
+- `scenes/ui/InventoryMenu.tscn`
+- `scripts/ui/BattleManager.cs`
+- `scenes/ui/BattleScene.tscn`
+- `scripts/ui/SaveLoadScreenController.cs`
+- `scenes/ui/SaveLoadScreen.tscn`
+- `scripts/ui/components/SiriusPrompt.cs`
+
+**Primary tests if a defect is found:**
+- `tests/ui/MainMenuTest.cs`
+- `tests/ui/MainMenuSceneTest.cs`
+- `tests/game/GameTest.cs`
+- `tests/game/GameInputLifecycleTest.cs`
+- `tests/game/GameplayPauseHostTest.cs`
+- `tests/ui/InventoryMenuControllerTest.cs`
+- `tests/ui/InventoryMenuSceneTest.cs`
+- `tests/ui/BattleManagerTest.cs`
+- `tests/ui/BattleSceneTest.cs`
+- `tests/ui/SaveLoadScreenControllerTest.cs`
+- `tests/ui/SaveLoadScreenSceneTest.cs`
+- prompt tests under `tests/ui/components/`
 
 **Interfaces:**
-- Consumes: New Game production handoff and `Floor0Layout.PlayerStart == (8, 50)`.
-- Produces: Journey 1 evidence and, only if RED is reproduced, a focused regression plus minimal owning-code fix.
+- Consumes: authored FloorGF start `(8, 50)` and first goblin `(24, 45)` from `Floor0Layout` / `FloorGF.tscn`.
+- Produces: one real-window observation covering actual scene replacement, real movement encounter entry, and visual composition.
 
-- [ ] **Step 1: Run the existing Journey 1 protection**
+- [ ] **Step 1: Launch at `1280×720` and exercise the actual Main Menu → Game replacement**
+
+Run the production game, not a SubViewport fixture. From the real Main Menu choose **New Game**.
+
+Verify only the uncovered seam:
+
+- the running scene actually becomes `Game.tscn`;
+- Ground Floor starts at the authored new-game position `(8, 50)`;
+- no normal-flow warning/error is emitted during the replacement.
+
+Do not re-check Main Menu focus/action contracts already owned by `MainMenuTest` / `MainMenuSceneTest`.
+
+- [ ] **Step 2: Inspect Inventory in the real window**
+
+At `1280×720`, open Inventory and capture its final production appearance.
+
+Resize the real window to `640×360` and inspect Inventory again. Verify only visible usability: content is present, controls are reachable, and nothing is clipped into an unusable state. Restore `1280×720` after the compact check.
+
+Lifecycle/HUD/pause/focus behavior remains owned by the automated host and Inventory suites; do not manually duplicate their assertions.
+
+- [ ] **Step 3: Exercise movement → encounter → Battle through FloorGF**
+
+Move through the real world to the authored first goblin at `(24, 45)` so `Game.OnPlayerMoved` reaches `_gridMap.CheckEncounter(position)` and opens Battle through the production encounter path.
+
+Complete Battle preparation/combat/result and return to exploration.
+
+Verify only:
+
+- movement, not a direct debug/test call, triggers Battle;
+- the Battle/result composition is visually usable in the real window;
+- the flow returns to exploration without a new runtime warning/error, duplicate activation, or stuck presentation state.
+
+Capture one Battle/result screenshot at `1280×720`.
+
+- [ ] **Step 4: Inspect the real nested Save/overwrite Prompt at `640×360`**
+
+From Pause:
+
+1. open Save;
+2. choose one disposable manual slot and save once if it is empty;
+3. reopen Save and select that occupied slot to open the destructive overwrite Prompt;
+4. resize to `640×360` and inspect the real nested composition;
+5. restore `1280×720`, close the Prompt/Save flow through normal UI, and return to Pause.
+
+Verify only visual usability at compact size. Parent retention, topmost Cancel, Pause lease, and focus restoration are already runtime-backed automated contracts.
+
+- [ ] **Step 5: Exercise the actual Game → Main Menu replacement**
+
+Use Pause → Return to Title and its production confirmation flow.
+
+Verify the running scene actually becomes `MainMenu.tscn` and no new runtime warning/error is emitted during replacement. Do not manually repeat the already-covered host teardown ordering assertions.
+
+- [ ] **Step 6: If any uncovered seam fails, add focused RED before production changes**
+
+Choose the nearest owning suite from the file map above. The regression should reproduce the specific defect, not recreate the entire manual journey.
+
+Run only that class/test and confirm failure for the intended reason before editing production code.
+
+- [ ] **Step 7: Apply the minimal GREEN fix only when Step 6 reproduced a defect**
+
+Edit the smallest owning production surface. Preserve current host/domain ownership and do not add a generic helper for a one-off closeout defect.
+
+Re-run the focused failing test plus the relevant Task 1 focused classes.
+
+- [ ] **Step 8: Record evidence and commit**
+
+Use at most these five real-window screenshots:
+
+- `docs/ui/hpa-359/evidence/inventory-1280x720.png`
+- `docs/ui/hpa-359/evidence/inventory-640x360.png`
+- `docs/ui/hpa-359/evidence/battle-result-1280x720.png`
+- `docs/ui/hpa-359/evidence/save-overwrite-prompt-640x360.png`
+- optional `docs/ui/hpa-359/evidence/main-menu-return-1280x720.png`
+
+Update `release-validation.md` with the exact walkthrough observations.
 
 ```bash
-dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~MainMenuTest|FullyQualifiedName~MainMenuSceneTest|FullyQualifiedName~GameTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~ExplorationHudControllerTest|FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~InventoryMenuSceneTest"
+git add docs/ui/hpa-359 tests scripts scenes
+git commit -m "test: validate uncovered Sirius UI production seams"
 ```
 
-Expected: green.
-
-- [ ] **Step 2: Run the exact production journey at `1280×720`**
-
-From the real Main Menu scene:
-
-1. Choose **New Game** so the route is deterministic.
-2. Confirm FloorGF exploration starts at `(8, 50)`.
-3. Confirm the production Exploration HUD is present and no retired debug panel/instructions are visible.
-4. Open Inventory through the configured keyboard action.
-5. Move focus across at least one real equipment/inventory target.
-6. Close Inventory with configured Cancel or the Inventory toggle.
-7. Move in exploration after close.
-
-Verify:
-
-- Inventory opens exactly once.
-- Gameplay input does not leak through while Inventory is topmost.
-- HUD is hidden while Inventory is active and restores after close.
-- Cursor state restores after close.
-- Direct Inventory does not acquire a tree-pause lease.
-- Focus does not remain on a freed/hidden Inventory control.
-- No normal-flow warning/error or missing-resource fallback is emitted.
-
-- [ ] **Step 3: Repeat only Inventory at `640×360`**
-
-Verify the visible page/catalogue, equipment area, action/focus target, and summary remain enclosed and usable. Do not rerun Main Menu or unrelated exploration just to create a viewport matrix.
-
-- [ ] **Step 4: If Journey 1 exposes a defect, write the focused RED test**
-
-Use the nearest existing owner:
-
-- host/focus/pause/input leak → `GameplayPauseHostTest.cs` or `GameInputLifecycleTest.cs`;
-- Main Menu handoff/focus → `MainMenuTest.cs` / `MainMenuSceneTest.cs`;
-- Inventory layout/focus → `InventoryMenuControllerTest.cs` / `InventoryMenuSceneTest.cs`;
-- HUD restoration → `ExplorationHudControllerTest.cs` or gameplay lifecycle tests.
-
-Run the selected class and confirm it fails for the observed behavior before editing production code.
-
-- [ ] **Step 5: Apply the minimal GREEN fix only after RED**
-
-Edit only the owning production file(s). Preserve screen/host/domain ownership and do not add an abstraction for a one-off hardening defect.
-
-Re-run the focused failing class, then the Step 1 Journey 1 suite.
-
-- [ ] **Step 6: Capture Journey 1 evidence**
-
-Add:
-
-- `docs/ui/hpa-359/evidence/journey-1-inventory-1280x720.png`
-- `docs/ui/hpa-359/evidence/journey-1-inventory-640x360.png`
-
-Update Journey 1 and runtime observations in `release-validation.md`.
-
-- [ ] **Step 7: Commit Journey 1 evidence/fixes**
-
-Stage only paths actually changed, for example:
-
-```bash
-git add docs/ui/hpa-359 tests/ui/InventoryMenuControllerTest.cs tests/ui/InventoryMenuSceneTest.cs scripts/ui/InventoryMenuController.cs scenes/ui/InventoryMenu.tscn
-git commit -m "test: validate Sirius launch inventory journey"
-```
-
-If there was no production/test change, stage only the evidence paths that exist.
+If no test/production files changed, keep the commit limited to evidence.
 
 ---
 
-## Task 3: Validate Journey 2 — Mira Dialogue, Shop, goblin Battle, return
+## Task 3: Pin hosted joypad navigation and Cancel in the real Game host
 
 **Files:**
-- Production owners if a defect is reproduced: `scripts/ui/NpcInteractionController.cs`, `scripts/ui/DialogueScreenController.cs`, `scenes/ui/DialogueScreen.tscn`, `scripts/ui/ShopScreenController.cs`, `scenes/ui/ShopScreen.tscn`, `scripts/ui/HealingScreenController.cs`, `scenes/ui/HealingScreen.tscn`, `scripts/ui/BattleManager.cs`, `scenes/ui/BattleScene.tscn`, `scripts/game/Game.cs`
-- Primary tests if a defect is reproduced: `tests/ui/NpcInteractionControllerTest.cs`, `tests/ui/DialogueScreenControllerTest.cs`, `tests/ui/ShopScreenControllerTest.cs`, `tests/ui/HealingScreenControllerTest.cs`, `tests/ui/BattleManagerTest.cs`, `tests/ui/BattleSceneTest.cs`, `tests/game/GameInputLifecycleTest.cs`, `tests/game/GameTest.cs`
-- Evidence: `docs/ui/hpa-359/release-validation.md`, `docs/ui/hpa-359/evidence/`
+- Modify: `tests/game/GameplayPauseHostTest.cs`
+- Modify only if the new test exposes a real defect: `scripts/game/Game.cs` and/or existing host/focus owner
 
 **Interfaces:**
-- Consumes: Mira at `(12, 46)`, `"Browse your wares." → DialogueOutcomeType.OpenShop`, Shop HUD-hidden host policy, goblin at `(24, 45)`.
-- Produces: live Dialogue→Shop and independent exploration→Battle composition evidence; optional healer smoke does not replace Shop.
+- Consumes: existing `pause_menu` opening path, Godot `ui_down`/`ui_cancel`, `UIScreenHost`, `PauseScreenController`.
+- Produces: one deterministic regression proving hosted joypad navigation/cancel without physical hardware or new gameplay bindings.
 
-- [ ] **Step 1: Run the existing NPC/Shop/Heal/Battle protection**
+- [ ] **Step 1: Add a real-host characterization test**
 
-```bash
-dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~DialogueScreenControllerTest|FullyQualifiedName~ShopScreenControllerTest|FullyQualifiedName~HealingScreenControllerTest|FullyQualifiedName~BattleManagerTest|FullyQualifiedName~BattleSceneTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameTest|FullyQualifiedName~PuzzleRiddleScreenControllerTest"
+Add a test named along these lines:
+
+```csharp
+[TestCase]
+public async Task HostedPause_JoypadNavigationAndCancelRestoreGameplay()
+{
+    var tree = (SceneTree)Engine.GetMainLoop();
+    var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+    var joyDownBinding = new InputEventJoypadButton
+    {
+        ButtonIndex = JoyButton.DpadDown
+    };
+    var joyCancelBinding = new InputEventJoypadButton
+    {
+        ButtonIndex = JoyButton.B
+    };
+
+    InputMap.ActionAddEvent("ui_down", joyDownBinding);
+    InputMap.ActionAddEvent("ui_cancel", joyCancelBinding);
+    try
+    {
+        // Open through the configured gameplay action; default production
+        // binding is keyboard Escape. This is intentionally not a new joypad
+        // gameplay binding.
+        _viewport!.PushInput(new InputEventAction
+        {
+            Action = "pause_menu",
+            Pressed = true
+        });
+        await AwaitFrames(2);
+
+        var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+        var initialFocus = _viewport.GuiGetFocusOwner();
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+        AssertThat(initialFocus).IsNotNull();
+
+        _viewport.PushInput(new InputEventJoypadButton
+        {
+            ButtonIndex = JoyButton.DpadDown,
+            Pressed = true
+        });
+        await AwaitFrames(2);
+
+        var movedFocus = _viewport.GuiGetFocusOwner();
+        AssertThat(movedFocus).IsNotNull();
+        AssertThat(movedFocus).IsNotEqual(initialFocus);
+        AssertThat(pause.IsAncestorOf(movedFocus)).IsTrue();
+
+        _viewport.PushInput(new InputEventJoypadButton
+        {
+            ButtonIndex = JoyButton.B,
+            Pressed = true
+        });
+        await AwaitFrames(2);
+
+        AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+        AssertThat(tree.Paused).IsFalse();
+        AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsFalse();
+    }
+    finally
+    {
+        InputMap.ActionEraseEvent("ui_down", joyDownBinding);
+        InputMap.ActionEraseEvent("ui_cancel", joyCancelBinding);
+    }
+}
 ```
 
-Expected: green.
+Use the exact existing helper names/types in the file when implementing. The important contract is action-open → joypad focus movement → joypad Cancel → gameplay restored.
 
-Puzzle/Riddle remains in this command because it is still part of release protection; it is not part of the manual route.
+This is characterization coverage, so it may pass immediately on current production. Do not manufacture a production RED merely to justify the test.
 
-- [ ] **Step 2: Run the exact FloorGF production route at `1280×720`**
-
-Starting from the Ground Floor session:
-
-1. Walk to Mira / `village_shopkeeper` at `(12, 46)`.
-2. Open Dialogue and choose **Browse your wares.**
-3. Observe Dialogue close and exactly one Shop surface open.
-4. Verify Shop is usable, then close it with configured Cancel/Close.
-5. Confirm exploration controls/HUD return.
-6. Walk to the goblin at `(24, 45)`.
-7. Complete Battle preparation/combat/result and return to exploration.
-
-Verify the NPC seam specifically:
-
-- Dialogue is the sole hosted interaction entry before the choice.
-- Dialogue's visible HUD is replaced by Shop's hidden HUD policy without a stale Dialogue view or focus owner.
-- Shop blocks gameplay, does not pause the tree, owns topmost Cancel, and closes exactly once.
-- `GameManager.IsInNpcInteraction` clears when Shop closes.
-
-Verify the Battle seam independently:
-
-- walking into the named goblin starts Battle from exploration rather than as an NPC/Puzzle continuation;
-- Battle owns input/focus while active;
-- result/reward presentation occurs once;
-- exploration HUD/prompt/input/cursor state restores afterward;
-- no duplicate battle/result/reward activation occurs.
-
-- [ ] **Step 3: Optional healer smoke is extra evidence only**
-
-If useful while already on FloorGF, walk to `village_healer` at `(12, 54)` and verify Dialogue → Heal → exploration. Do not use Heal as a substitute for the required Mira → Shop route and do not add another screenshot solely for this optional check.
-
-- [ ] **Step 4: If Journey 2 exposes a defect, write the focused RED test**
-
-Use the owning suite:
-
-- Dialogue→Shop/Heal host/HUD/focus lifecycle → `NpcInteractionControllerTest.cs` or `GameInputLifecycleTest.cs`;
-- Shop-local layout/action behavior → `ShopScreenControllerTest.cs`;
-- Heal-local behavior → `HealingScreenControllerTest.cs`;
-- Battle lifecycle/result behavior → `BattleManagerTest.cs`, `BattleSceneTest.cs`, or gameplay lifecycle tests.
-
-Confirm RED with a class-filtered command before editing production code.
-
-- [ ] **Step 5: Apply the minimal GREEN fix only for reproduced defects**
-
-Preserve NPC, Shop/Heal transaction, Battle, and reward ownership. UI code must not grant rewards or change NPC/Battle domain rules.
-
-Re-run the focused failing class, then the Step 1 suite and the affected production route.
-
-- [ ] **Step 6: Capture Journey 2 evidence**
-
-Add:
-
-- `docs/ui/hpa-359/evidence/journey-2-shop-1280x720.png`
-- `docs/ui/hpa-359/evidence/journey-2-battle-result-1280x720.png`
-
-Update Journey 2 and runtime observations in `release-validation.md`.
-
-- [ ] **Step 7: Commit Journey 2 evidence/fixes**
-
-Stage only changed paths, then commit:
-
-```bash
-git commit -m "test: validate Sirius shop battle journey"
-```
-
----
-
-## Task 4: Validate Journey 3 — overwrite Prompt, Settings, Return to Title
-
-**Files:**
-- Production owners if a defect is reproduced: `scripts/game/Game.cs`, `scripts/ui/hosting/UIScreenHost.cs`, `scripts/ui/PauseScreenController.cs`, `scenes/ui/PauseScreen.tscn`, `scripts/ui/SaveLoadScreenController.cs`, `scenes/ui/SaveLoadScreen.tscn`, `scripts/ui/SettingsMenuController.cs`, `scenes/ui/SettingsMenu.tscn`, `scripts/ui/components/SiriusPrompt.cs`
-- Primary tests if a defect is reproduced: `tests/game/GameplayPauseHostTest.cs`, `tests/game/GameInputLifecycleTest.cs`, `tests/ui/PauseScreenControllerTest.cs`, `tests/ui/SaveLoadScreenControllerTest.cs`, `tests/ui/SaveLoadScreenSceneTest.cs`, `tests/ui/SettingsMenuControllerTest.cs`, host tests under `tests/ui/hosting/`, prompt tests under `tests/ui/components/`
-- Evidence: `docs/ui/hpa-359/release-validation.md`, `docs/ui/hpa-359/evidence/`
-
-**Interfaces:**
-- Consumes: Pause-owned tree-pause lease, Save overwrite request for an occupied manual slot, shared destructive `SiriusPrompt`, Settings as a Pause child.
-- Produces: exact nested-stack/focus/teardown evidence and conditional hosted-UI gamepad evidence.
-
-- [ ] **Step 1: Run the existing Pause/host/Save/Settings/Prompt suites**
-
-```bash
-dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~PauseScreenControllerTest|FullyQualifiedName~SaveLoadScreenControllerTest|FullyQualifiedName~SaveLoadScreenSceneTest|FullyQualifiedName~SettingsMenuControllerTest|FullyQualifiedName~UIScreenHost|FullyQualifiedName~SiriusPrompt|FullyQualifiedName~GameTest"
-```
-
-Expected: green, including corrupted-save prompt automation.
-
-- [ ] **Step 2: Run the exact nested journey at `1280×720`**
-
-1. Open Pause from FloorGF exploration.
-2. Open **Save**.
-3. Choose a disposable manual slot. If it is empty, save once so it becomes occupied and return to Pause.
-4. Reopen **Save** and select the same occupied slot.
-5. Confirm the destructive overwrite Prompt opens above the retained Save screen.
-6. Cancel/close only the Prompt and verify Save remains active.
-7. Close Save and verify focus returns to the same Pause instance.
-8. Open **Settings** from that Pause, move focus/change no persisted value, then Cancel.
-9. Verify focus again returns to the same Pause instance.
-10. Choose **Return to Title** and complete its production confirmation flow.
-
-Use a disposable slot; do not destroy developer progress for release evidence. Record the slot chosen in the evidence document.
-
-Verify:
-
-- exactly one Pause tree-pause lease;
-- Save/Settings remain interactive while paused without a second pause lease;
-- topmost Cancel closes the overwrite Prompt before Save;
-- the retained Save parent remains alive under the Prompt;
-- child close restores focus to the same live Pause instance;
-- Return to Title tears the host stack down before scene replacement;
-- cursor/HUD/input state does not leak into Main Menu.
-
-- [ ] **Step 3: Repeat only the nested Save/overwrite Prompt at `640×360`**
-
-Open the same Save path and occupied disposable slot at `640×360`. Verify the destructive Prompt and retained Save surface remain readable, enclosed, and operable.
-
-Do **not** manufacture a corrupted save or a long Dialogue for this runtime pass; their existing automated owners already cover those requirements.
-
-- [ ] **Step 4: Perform the bounded gamepad smoke or record N/A**
-
-Inspect whether a physical controller is attached.
-
-If attached:
-
-1. Open Pause or Inventory with the normal keyboard gameplay binding.
-2. Use the controller's existing Godot `ui_*` navigation to move focus at least once.
-3. Use joypad `ui_cancel` to close the hosted screen.
-4. Verify focus/input returns to the expected parent/gameplay state.
-
-If no controller is attached, write `N/A — no physical controller attached` in `release-validation.md`.
-
-Do not require opening Inventory/Interact/Pause from the controller: the default gameplay bindings are keyboard-only, and adding joypad gameplay bindings is outside HPA-359.
-
-- [ ] **Step 5: If Journey 3 exposes a defect, write focused RED before production changes**
-
-Use:
-
-- `GameplayPauseHostTest.cs` for stack/lease/focus defects;
-- `GameInputLifecycleTest.cs` for topmost Cancel/input defects;
-- Save/Settings/Prompt direct suites for local behavior.
-
-Confirm the observed defect fails before production edits.
-
-- [ ] **Step 6: Apply the minimal GREEN fix and re-run affected coverage**
-
-Reuse `UIScreenHost`, `SiriusModalShell`, and `SiriusPrompt`. Do not add another prompt/host abstraction.
-
-Re-run the focused class, the Step 1 suite, and the affected production route.
-
-- [ ] **Step 7: Capture Journey 3 evidence**
-
-Add:
-
-- `docs/ui/hpa-359/evidence/journey-3-save-overwrite-prompt-640x360.png`
-- `docs/ui/hpa-359/evidence/journey-3-pause-1280x720.png`
-
-Update Journey 3, gamepad, and runtime-observation sections in `release-validation.md`.
-
-- [ ] **Step 8: Commit Journey 3 evidence/fixes**
-
-Stage only changed paths, then commit:
-
-```bash
-git commit -m "test: validate Sirius pause child journey"
-```
-
----
-
-## Task 5: Audit legacy production paths and correct current documentation
-
-**Files:**
-- Modify: `CLAUDE.md`
-- Modify narrowly: `docs/PRD.md`
-- Modify narrowly: `docs/ui/hpa-376/ui-lifecycle-contract.md`
-- Audit: `scripts/`, `scenes/`, `project.godot`
-- Update production/test files only if an executable leftover is proven
-
-**Interfaces:**
-- Consumes: shipped scene-authored/hosted architecture already proven by Tasks 1–4.
-- Produces: current operating docs that stop directing developers toward deleted UI owners; no new runtime interface.
-
-- [ ] **Step 1: Search for retired/debug/current-status indicators**
+- [ ] **Step 2: Run the new test**
 
 Run:
 
 ```bash
-rg -n 'DialogueDialog|SaveLoadDialog|SaveOverwriteConfirmationController|DraggablePanel|Player HUD|Settings menu coming soon' scripts scenes project.godot CLAUDE.md docs/PRD.md docs/ui/hpa-376/ui-lifecycle-contract.md
-rg -n 'AcceptDialog|ConfirmationDialog|ui_close_dialog' scripts scenes project.godot docs/ui/hpa-376/ui-lifecycle-contract.md
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest.HostedPause_JoypadNavigationAndCancelRestoreGameplay"
 ```
 
-Classify each match before editing:
+Expected: PASS on healthy current production. If it fails, treat that failure as the RED regression and investigate the existing host/focus owner before changing production code.
 
-- executable native-dialog/debug path → candidate for removal after replacement proof;
-- historical comment saying a new screen replaces an old path → keep unless it falsely claims current ownership;
-- intentional engine/input compatibility code still required by current behavior → keep;
-- current developer/status documentation naming a deleted owner → correct.
-
-- [ ] **Step 2: Correct `CLAUDE.md` current architecture only**
-
-Make these narrow updates:
-
-- describe Battle as the scene-authored full-screen hosted battle flow rather than a modal dialog;
-- describe scene flow using hosted/screen presentation rather than “Battle dialogs”;
-- update `scripts/ui` examples to current controllers (`DialogueScreenController`, `SaveLoadScreenController`, `PauseScreenController`, `ShopScreenController`, `HealingScreenController`) and `UIScreenHost`; remove deleted controller names as current files;
-- describe overwrite/recoverable feedback through the shared hosted `SiriusPrompt` path rather than `SaveOverwriteConfirmationController`;
-- fix other false current-architecture statements only when they occur in the same edited paragraphs.
-
-`AGENTS.md` is the symlink; edit `CLAUDE.md` once.
-
-- [ ] **Step 3: Correct only false current-status sentences in `docs/PRD.md`**
-
-Do not modernize/rewrite the April PRD feature requirements.
-
-Narrowly update current implementation-status prose that currently:
-
-- names `DialogueDialog` as the implemented Dialogue UI; replace it with the scene-authored `DialogueScreenController` / hosted Dialogue path and current Shop/Healing screens;
-- says Settings has no `.tscn`/controller or that Main Menu still shows “Settings menu coming soon!”; state that `SettingsMenu.tscn` / `SettingsMenuController` are implemented and hosted from Main Menu/gameplay.
-
-If an immediately adjacent status bullet directly repeats one of those false claims, correct/remove that bullet for internal consistency. Do not recompute the historical overall-completion metric or rewrite unrelated feature-body prose.
-
-- [ ] **Step 4: Correct only the HPA-376 configured-Cancel introduction**
-
-Update the paragraph before the flow matrix so it no longer presents `AcceptDialog/ui_close_dialog` as a current production owner.
-
-The replacement paragraph must describe the shipped contract:
-
-- Settings mirrors the configured `pause_menu` keyboard binding onto `ui_cancel` while preserving non-key/controller `ui_cancel` events;
-- hosted screens route topmost Cancel through `UIScreenHost` and their entry policies/interceptors;
-- `ui_close_dialog` synchronization remains only where native dialog compatibility is still intentionally needed, not as the owner of migrated Sirius screens.
-
-Do not modify the flow matrix, dispositions, historical evidence, or appendices in HPA-376.
-
-- [ ] **Step 5: If the audit finds executable obsolete production code, protect the replacement before deletion**
-
-Run or add the nearest existing test proving the migrated owner handles the path. Confirm green replacement ownership, then delete only the dead source/scene/reference and rerun that focused suite.
-
-Do not delete historical comments or intentional dynamic rows merely because they contain legacy terms or are runtime-created.
-
-- [ ] **Step 6: Repeat the audit**
-
-Re-run the Step 1 `rg` commands. Expected: no unclassified executable legacy path or false current-status documentation remains. Historical “former X” comments may remain when useful.
-
-- [ ] **Step 7: Record the audit result**
-
-In `docs/ui/hpa-359/release-validation.md`, record:
-
-- commands used;
-- executable leftovers removed, if any;
-- intentionally retained historical/comment/input-compatibility matches;
-- `CLAUDE.md` corrections;
-- PRD current-status corrections;
-- HPA-376 configured-Cancel intro correction.
-
-- [ ] **Step 8: Commit cleanup/documentation**
-
-Stage only paths actually changed, then commit:
+- [ ] **Step 3: Re-run the host/input suites**
 
 ```bash
-git commit -m "docs: align Sirius UI development guidance"
+dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~UIScreenHost"
 ```
+
+Expected: green.
+
+- [ ] **Step 4: Record and commit the characterization**
+
+Update the Hosted joypad characterization section in `release-validation.md`.
+
+```bash
+git add tests/game/GameplayPauseHostTest.cs docs/ui/hpa-359/release-validation.md scripts/game/Game.cs scripts/ui/hosting
+git commit -m "test: cover hosted joypad navigation and cancel"
+```
+
+Stage production paths only if the characterization exposed and fixed a real defect.
 
 ---
 
-## Task 6: Final verification and closeout evidence
+## Task 4: Audit obsolete paths and correct current documentation
+
+**Files:**
+- Modify: `CLAUDE.md`
+- Modify: `docs/PRD.md`
+- Modify: `docs/ui/hpa-376/ui-lifecycle-contract.md`
+- Audit: `scripts/`, `scenes/`, `project.godot`
+- Conditionally modify: exact obsolete executable files only if the audit proves they are tracked/live
+
+**Interfaces:**
+- Consumes: shipped scene/host architecture and current repository tree.
+- Produces: current developer/status documentation and a classified legacy-path audit.
+
+- [ ] **Step 1: Audit current production content**
+
+Run:
+
+```bash
+rg -n 'DialogueDialog|SaveLoadDialog|SaveOverwriteConfirmationController|DraggablePanel|Player HUD|Settings menu coming soon' scripts scenes project.godot CLAUDE.md docs/PRD.md
+rg -n 'AcceptDialog|ConfirmationDialog' scripts scenes project.godot docs/ui/hpa-376/ui-lifecycle-contract.md
+```
+
+Classify matches before editing:
+
+- executable obsolete path → protect replacement first, then remove;
+- useful historical comment → retain;
+- current input-compatibility code → retain;
+- current documentation naming a deleted path → correct.
+
+At planning time the tracked recursive `main` tree contains **no `.uid` files**, including none of the legacy `.cs.uid` names reported in review. Do not add or claim a `.uid` deletion unless the current tracked branch proves one exists during execution.
+
+- [ ] **Step 2: Correct `CLAUDE.md` current architecture**
+
+Make only the current-path corrections:
+
+- Battle is the scene-authored full-screen hosted flow, not a modal dialog.
+- Scene flow uses hosted UI/screens rather than “Battle dialogs”.
+- `scripts/ui` examples name current controllers such as `DialogueScreenController`, `ShopScreenController`, `HealingScreenController`, `SaveLoadScreenController`, `PauseScreenController`, and `UIScreenHost` rather than deleted dialog/controller names.
+- Save overwrite/recoverable feedback is owned by the shared hosted `SiriusPrompt` path.
+- Fix other stale statements only when they occur in the same edited current-architecture paragraphs.
+
+Do not rewrite unrelated gameplay guidance.
+
+- [ ] **Step 3: Correct only the explicit current-status locations in `docs/PRD.md`**
+
+Change these current claims:
+
+1. Top implementation summary table: change the Settings Menu row from `⚠️ Partial (60%)` to `✅ Complete`.
+2. Top NPC system note: replace `DialogueDialog`/old screen names with current hosted `DialogueScreenController`, `ShopScreenController`, and `HealingScreenController` ownership.
+3. Top Settings system note: remove the claim that the UI scene is missing/Main Menu is a stub; state that the scene-authored Settings UI is available from Main Menu and hosted Pause.
+4. Feature 3.2 NPC current `Implementation Status` sentence: use the current hosted Dialogue/Shop/Heal controller names.
+5. Feature 4.1 Settings heading/current `Implementation Status`: mark the currently scoped Settings Menu complete; remove only “Not Yet Implemented” bullets that falsely claim the Settings scene, Main Menu access, or Pause access are absent.
+6. Quarter 3 roadmap row: change `Settings Menu | ⚠️ Partial — backend/persistence complete; UI scene not yet built` to a Complete current status.
+
+Keep these records unchanged:
+
+- `**Overall completion: ~65% of PRD scope**` — retain as the historical April snapshot; do not recalculate project-wide completion in HPA-359.
+- the v1.2 April change-log row saying the UI scene was still missing at that historical version;
+- unrelated feature requirements, success metrics, schedules, and roadmap rows.
+
+If needed, add one concise note near the summary clarifying that HPA-359 applies later status corrections without recomputing the April aggregate. Do not turn this into a PRD refresh.
+
+- [ ] **Step 4: Correct only the HPA-376 configured-Cancel introduction**
+
+Update the introductory paragraph that currently presents `AcceptDialog/ui_close_dialog` as the active runtime contract. Describe the shipped rule instead:
+
+- hosted screens and prompts route configured Cancel through `ui_cancel` / `UIScreenHost`;
+- Settings still preserves its required binding synchronization behavior where applicable;
+- `ui_close_dialog`/AcceptDialog wording is historical compatibility context, not the current migrated-screen owner.
+
+Do not edit the flow lifecycle matrix or historical evidence rows.
+
+- [ ] **Step 5: Remove executable obsolete production code only if the audit proves it**
+
+Before deleting any source/scene/reference, run or add the nearest existing test showing the shipped replacement owns that production path. Then remove the proven dead path and rerun its owner suite.
+
+Do not manufacture a deletion to satisfy HPA-359.
+
+- [ ] **Step 6: Repeat the content audit and record the result**
+
+Re-run the Step 1 commands and record:
+
+- executable leftovers removed, if any;
+- historical/compatibility matches intentionally retained;
+- current-documentation corrections made;
+- confirmation that no tracked `.uid` cleanup was required unless the current branch actually contained one.
+
+- [ ] **Step 7: Commit cleanup/documentation**
+
+```bash
+git add CLAUDE.md docs/PRD.md docs/ui/hpa-376/ui-lifecycle-contract.md docs/ui/hpa-359 scripts scenes project.godot tests
+git commit -m "docs: align Sirius UI closeout guidance"
+```
+
+Stage runtime paths only when a proven executable leftover was removed.
+
+---
+
+## Task 5: Final verification and conditional closeout
 
 **Files:**
 - Modify: `docs/ui/hpa-359/release-validation.md`
-- Verify: every file changed by HPA-359
+- Verify: all HPA-359 changed files
 
 **Interfaces:**
-- Consumes: final code/docs/evidence state from Tasks 1–5.
-- Produces: closeout evidence only; no runtime API.
+- Consumes: Tasks 1–4 final state.
+- Produces: final factual release evidence; no new architecture.
 
-- [ ] **Step 1: Re-run the Task 1 focused cross-screen suite**
+- [ ] **Step 1: Re-run the focused release baseline**
 
-Use the exact Task 1 Step 2 command. Expected: green.
+Use Task 1 Step 2's exact command.
 
-- [ ] **Step 2: Run the full test suite**
+Expected: green, including the new hosted joypad characterization.
+
+- [ ] **Step 2: Run the full suite**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local
 ```
 
-Expected: all tests pass. Record exact passed/failed/skipped totals.
+Record exact pass/fail/skip totals. Investigate new HPA-359 warnings/errors; historical test-runner noise may be recorded when unchanged.
 
-Do not fail HPA-359 merely because historical test infrastructure emits a known pre-existing non-runtime warning; investigate and record it. New warnings/errors caused by HPA-359 or observed in the normal production journeys must be resolved.
+- [ ] **Step 3: Re-run manual evidence only when production changes can affect it**
 
-- [ ] **Step 3: Re-run the three exact production routes after the final code state**
+Do **not** repeat Task 2 merely because this is final verification.
 
-At `1280×720`, rerun:
+Use this gate:
 
-1. New Game → FloorGF `(8, 50)` → Inventory → Exploration.
-2. Mira `(12, 46)` → Browse your wares → Shop → close → goblin `(24, 45)` → Battle/result → Exploration.
-3. Pause → Save occupied disposable slot → overwrite Prompt → Save → Pause → Settings → Pause → Return to Title.
+- If Tasks 3–4 changed only tests/docs/evidence, cite the already-recorded Task 2 walkthrough and do not rerun it.
+- If a production fix changed Main Menu/Game scene replacement, rerun only the affected scene-transition portion.
+- If a production fix changed encounter/Battle ownership, rerun only movement→goblin→Battle/result.
+- If a production fix changed Inventory/Save/Prompt/theme layout, rerun only the affected real-window viewport check.
+- If multiple production areas changed, rerun the corresponding affected portions only.
 
-Do not recapture screenshots unless a visible state changed after a fix.
-
-Expected:
-
-- no duplicate activation;
-- no stuck focus, pause, input, cursor, or HUD policy;
-- no normal-flow warning/error or missing-resource fallback;
-- Return to Title completes cleanly.
+Do not recapture screenshots unless the visible result changed.
 
 - [ ] **Step 4: Finish `release-validation.md`**
 
-Replace every remaining runtime `pending` with an actual observation. For gamepad, record either the bounded hosted-UI result or explicit N/A because no controller was attached.
+Ensure it contains:
 
-List the six-or-fewer screenshot paths and every defect fixed, with the focused regression test that protects that fix.
+- exact build/focused/full-suite results;
+- existing automated coverage reused instead of manual duplication;
+- hosted joypad characterization result;
+- actual Main Menu→Game and Game→Main Menu observations;
+- movement→encounter→Battle observation;
+- real-window `1280×720` and targeted `640×360` visual observations;
+- runtime warnings/errors and any defects/fixes with their owning regression test;
+- audit/documentation disposition;
+- no more than six screenshot paths.
 
-- [ ] **Step 5: Review the complete diff for scope**
+- [ ] **Step 5: Review the final diff for scope**
 
 Run:
 
@@ -560,25 +521,22 @@ Run:
 git diff --check
 git status --short
 git diff --stat main...HEAD
-git diff main...HEAD -- docs/superpowers/specs/2026-08-20-hpa-359-final-ui-hardening-design.md docs/superpowers/plans/2026-08-20-hpa-359-final-ui-hardening.md docs/ui/hpa-359 CLAUDE.md docs/PRD.md docs/ui/hpa-376/ui-lifecycle-contract.md scripts scenes tests
+git diff main...HEAD -- docs/superpowers docs/ui/hpa-359 CLAUDE.md docs/PRD.md scripts scenes tests project.godot
 ```
 
 Confirm:
 
-- one HPA-359 PR only;
+- exactly one HPA-359 PR;
 - no HPA-375/HPA-541 work;
-- no gameplay joypad-binding expansion;
-- no new generic UI/test architecture;
-- every production change corresponds to a reproduced HPA-359 defect or proven dead path;
-- PRD/HPA-376 edits are limited to the named current-status/intro corrections;
-- evidence is factual and matches the final code state.
+- no new generic architecture or new gameplay/controller bindings;
+- every production edit maps to a reproduced HPA-359 defect or proven obsolete executable path;
+- manual evidence covers only gaps not already automated;
+- evidence matches the final code state.
 
-- [ ] **Step 6: Commit final evidence**
-
-If the evidence document changed since the last commit:
+- [ ] **Step 6: Commit final evidence if needed**
 
 ```bash
-git add docs/ui/hpa-359/release-validation.md
+git add docs/ui/hpa-359
 git commit -m "docs: record HPA-359 release validation"
 ```
 
@@ -586,12 +544,13 @@ Do not create an empty commit.
 
 ## Expected final change shape
 
-The minimum successful HPA-359 implementation may legitimately contain **no production C# change** if the shipped UI paths are already correct. In that case the ticket still delivers value through:
+The minimum successful implementation can contain no production C# change. In that case HPA-359 still delivers:
 
 - focused and full-suite verification;
-- three named, executable production journeys;
-- six-or-fewer representative screenshots;
-- the legacy-path audit;
-- narrow current-documentation corrections in `CLAUDE.md`, `docs/PRD.md`, and the HPA-376 configured-Cancel introduction.
+- one additional deterministic real-host joypad characterization test;
+- one narrow real-window pass for actual scene replacement, movement→Battle, and visual composition;
+- at most six real-window screenshots;
+- a classified obsolete-path audit;
+- narrow corrections to current `CLAUDE.md`, PRD status claims, and the HPA-376 Cancel introduction.
 
-If defects are discovered, keep their regression tests and minimal fixes inside this same PR and record them in release evidence. Do not split follow-up PRs for defects directly required to satisfy HPA-359.
+If a real defect is found, keep its focused regression and minimal fix inside this same PR.

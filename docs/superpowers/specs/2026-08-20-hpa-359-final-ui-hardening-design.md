@@ -10,10 +10,10 @@ The concrete Sirius UI migration work is complete. Main has scene-authored produ
 
 The final pass should not manually repeat integration behavior that the existing runtime-backed GdUnit suites already prove. `GameplayPauseHostTest` instantiates the real `res://scenes/game/Game.tscn` and already protects the important hosted composition contracts, including:
 
-- Dialogue → Shop: the real `village_shopkeeper` route presses `Browse your wares.`, closes Dialogue, opens exactly one Shop, changes HUD policy from visible to hidden, blocks gameplay without pausing the tree, and restores interaction/HUD state on close.
-- Pause children: Settings and Save/Load stay under the same live Pause lease and restore focus to that Pause.
-- Save overwrite Prompt: the Prompt is topmost and closes back to the retained Save/Load parent.
-- Return to Title: host teardown restores incoming state before the scene-change request.
+- Dialogue → Shop: `NpcShopOutcome_HostsAsBlockingScreenWithoutPausingTree` drives the real `village_shopkeeper` route, presses `Browse your wares.`, closes Dialogue, opens exactly one Shop, changes HUD policy from visible to hidden, blocks gameplay without pausing the tree, and restores interaction/HUD state on close.
+- Pause children: the hosted Settings and Save/Load cases keep those screens under the same live Pause lease; `HostedSaveLoad_CloseReturnsFocusToSamePause` pins focus restoration to that exact Pause.
+- Save overwrite Prompt: the overwrite-Prompt cases keep Save/Load and Pause alive while topmost Cancel dismisses only the Prompt.
+- Return to Title: `ReturnToTitle_ClosesUiStackAndRestoresIncomingStateBeforeSceneChange` protects teardown before the scene-change request.
 
 Long Dialogue overflow, Puzzle/Riddle compact/cancel behavior, and corrupted-save prompts also have dedicated automated owners. Repeating those as manual acceptance steps would add time without increasing confidence.
 
@@ -88,7 +88,7 @@ Do not add controller bindings for `toggle_inventory`, `interact`, or `pause_men
 
 Add one deterministic test to `GameplayPauseHostTest` against the real hosted Game scene:
 
-1. open Pause through the configured keyboard/action path;
+1. open Pause through the configured gameplay action (whose production default is keyboard Escape);
 2. inject a joypad navigation event and verify focus moves within the live Pause;
 3. inject the existing joypad `ui_cancel` event;
 4. verify Pause closes, the tree unpauses, and focus/input state restores to gameplay.

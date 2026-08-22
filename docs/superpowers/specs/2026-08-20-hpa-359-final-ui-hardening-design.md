@@ -1,7 +1,7 @@
 # HPA-359 Final Sirius UI Hardening and Release Validation Design
 
-**Issue:** HPA-359 — Final Sirius UI hardening and release validation  
-**Date:** 2026-08-20  
+**Issue:** HPA-359 — Final Sirius UI hardening and release validation
+**Date:** 2026-08-20
 **Scope:** One final integration/hardening slice after the Sirius UI migrations
 
 ## Context

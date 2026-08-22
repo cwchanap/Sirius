@@ -1,88 +1,102 @@
 # HPA-359 Sirius UI Release Validation
 
+## Final disposition
+
+The final HPA-359 verification is green for the build, focused release suites,
+and full suite. The Task 2 production walkthrough was completed with the
+shipped Godot MCP runtime bridge `0.1.4`; Tasks 3 and 4 changed only test and
+documentation files, so Task 5 reuses that final walkthrough and its existing
+captures rather than repeating the production journey or recapturing images.
+
+The compact Inventory remains usable at `640×360`, although its section-heading
+chrome is tight/clipped at the minimum viewport. The corrected compact Prompt
+has readable text and reachable actions. These are recorded as follow-up
+visual concerns, not as unresolved HPA-359 blockers.
+
+The earlier bridge `0.1.3` transport limitation is historical and superseded by
+the completed `0.1.4` walkthrough below; it is not an outstanding release
+status.
+
 ## Automated baseline
-- Build: `dotnet build Sirius.sln` — passed: 2 projects, 0 errors, 1 warning (`NU1900`, NuGet vulnerability feed unavailable).
-- Focused release suites: `dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~MainMenuTest|FullyQualifiedName~MainMenuSceneTest|FullyQualifiedName~GameTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~ExplorationHudControllerTest|FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~InventoryMenuSceneTest|FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~DialogueScreenControllerTest|FullyQualifiedName~ShopScreenControllerTest|FullyQualifiedName~HealingScreenControllerTest|FullyQualifiedName~PuzzleRiddleScreenControllerTest|FullyQualifiedName~BattleManagerTest|FullyQualifiedName~BattleSceneTest|FullyQualifiedName~PauseScreenControllerTest|FullyQualifiedName~SaveLoadScreenControllerTest|FullyQualifiedName~SaveLoadScreenSceneTest|FullyQualifiedName~SettingsMenuControllerTest|FullyQualifiedName~UIScreenHost|FullyQualifiedName~SiriusPrompt|FullyQualifiedName~Hpa374RuntimeSmokeTest"` — passed: 605, failed: 0, skipped: 0; 2 `NU1900` warnings.
-- Full suite: `dotnet test Sirius.sln --settings test.runsettings.local` — passed: 1496, failed: 0, skipped: 0; 2 `NU1900` warnings.
+
+- Build command: `dotnet build Sirius.sln` — passed: 2 projects, 0 errors; 2 `NU1900` warnings. Both warnings report that the NuGet vulnerability service index at `https://api.nuget.org/v3/index.json` was unavailable.
+- Focused release command:
+
+  ```text
+  dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~MainMenuTest|FullyQualifiedName~MainMenuSceneTest|FullyQualifiedName~GameTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~ExplorationHudControllerTest|FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~InventoryMenuSceneTest|FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~DialogueScreenControllerTest|FullyQualifiedName~ShopScreenControllerTest|FullyQualifiedName~HealingScreenControllerTest|FullyQualifiedName~PuzzleRiddleScreenControllerTest|FullyQualifiedName~BattleManagerTest|FullyQualifiedName~BattleSceneTest|FullyQualifiedName~PauseScreenControllerTest|FullyQualifiedName~SaveLoadScreenControllerTest|FullyQualifiedName~SaveLoadScreenSceneTest|FullyQualifiedName~SettingsMenuControllerTest|FullyQualifiedName~UIScreenHost|FullyQualifiedName~SiriusPrompt|FullyQualifiedName~Hpa374RuntimeSmokeTest"
+  ```
+
+  Final result: 607 passed, 0 failed, 0 skipped; 2 `NU1900` warnings of the same NuGet vulnerability-feed kind. The earlier 605-test baseline predates the Prompt regression and hosted joypad characterization now included in this branch.
+- Full-suite command: `dotnet test Sirius.sln --settings test.runsettings.local` — final result: 1498 passed, 0 failed, 0 skipped; 2 `NU1900` warnings of the same NuGet vulnerability-feed kind.
+- The first non-escalated focused invocation stopped before discovery because the VSTest/Godot adapter could not obtain its local-socket permission (`0 passed, 1 failed, 0 skipped`); the escalated rerun above is the authoritative final result and is an environment startup limitation, not a product failure.
 
 ## Existing runtime-backed coverage reused
-- Dialogue → Shop / Heal: `GameplayPauseHostTest.NpcShopOutcome_HostsAsBlockingScreenWithoutPausingTree` and `GameplayPauseHostTest.NpcHealOutcome_HostsAsBlockingScreenWithoutPausingTree` cover real `Game.tscn` Dialogue→Shop/Heal composition, HUD visible→hidden, gameplay block, no tree pause, and restore on close.
-- Pause children / focus restoration: `GameplayPauseHostTest.HostedSaveLoad_CloseReturnsFocusToSamePause` and adjacent `HostedSaveLoad_SaveAndLoadHostLogicalPauseChildrenAndRestoreExistingPause`, `HostedSettings_HostsLogicalPauseChildAndRestoresExistingPause`, and `PauseChildInventory_HostsLogicalPauseChildAndRestoresExistingPause` cases cover child ownership and same-Pause focus restoration.
-- Save overwrite Prompt retention / topmost Cancel: `GameplayPauseHostTest.HostedOverwrite_UsesSharedPromptAndCancelRestoresSaveLoad` and `GameplayPauseHostTest.HostedOverwrite_ActiveChildConsumesCancelBeforeSaveLoad` cover Prompt retention and topmost Cancel.
-- Return-to-title teardown/navigation: `GameplayPauseHostTest.GameSceneHostPrepareForTeardown_ClosesEntryAndRestoresIncomingState` covers closing the hosted entry and restoring incoming HUD/cursor/gameplay state before teardown; `GameplayPauseHostTest.PauseReturnToTitle_PrimaryRequestsNavigationOnce` covers the return-to-title confirmation's one-shot navigation request.
-- Long Dialogue / Puzzle / corrupt-save: `DialogueScreenControllerTest.CompactDialogue_FillsSafeHeightAndScrollsToFocusedChoice`; `GameTest.CorruptedSave_*`; `PuzzleRiddleScreenControllerTest` plus `GameInputLifecycleTest` cover compact/cancel Puzzle/Riddle behavior.
+
+- Dialogue → Shop / Heal: `GameplayPauseHostTest.NpcShopOutcome_HostsAsBlockingScreenWithoutPausingTree` and `GameplayPauseHostTest.NpcHealOutcome_HostsAsBlockingScreenWithoutPausingTree` cover the real `Game.tscn` composition, HUD visibility policy, gameplay blocking, no tree pause, and restoration on close.
+- Pause children / focus restoration: `GameplayPauseHostTest.HostedSaveLoad_CloseReturnsFocusToSamePause`, `HostedSaveLoad_SaveAndLoadHostLogicalPauseChildrenAndRestoreExistingPause`, `HostedSettings_HostsLogicalPauseChildAndRestoresExistingPause`, and `PauseChildInventory_HostsLogicalPauseChildAndRestoresExistingPause` cover shared Pause-child ownership and focus restoration.
+- Save overwrite Prompt retention / topmost Cancel: `GameplayPauseHostTest.HostedOverwrite_UsesSharedPromptAndCancelRestoresSaveLoad` and `GameplayPauseHostTest.HostedOverwrite_ActiveChildConsumesCancelBeforeSaveLoad` cover nested Prompt retention and topmost Cancel.
+- Return-to-title teardown/navigation: `GameplayPauseHostTest.GameSceneHostPrepareForTeardown_ClosesEntryAndRestoresIncomingState` covers closing the hosted entry and restoring incoming state before teardown; `GameplayPauseHostTest.PauseReturnToTitle_PrimaryRequestsNavigationOnce` covers the confirmation's one-shot navigation request.
+- Long Dialogue / Puzzle / corrupt-save: `DialogueScreenControllerTest.CompactDialogue_FillsSafeHeightAndScrollsToFocusedChoice`, `GameTest.CorruptedSave_*`, `PuzzleRiddleScreenControllerTest`, and `GameInputLifecycleTest` remain the automated owners. These contracts were not duplicated as manual acceptance steps.
 
 ## Hosted joypad characterization
-- Result: `dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest.HostedPause_JoypadNavigationAndCancelRestoreGameplay"` — passed: 1, failed: 0, skipped: 0. The test opens configured `pause_menu`, moves focus with injected D-pad Down, cancels with injected joypad B, and restores unpaused/unblocked gameplay. `ui_down`/`ui_cancel` action state is restored in `finally`, preserving any pre-existing bindings; no production change was needed.
 
-## One production walkthrough
-- Runtime: Godot `4.6.2.stable.mono.official.71f334935`, launched through the shipped Godot MCP runtime bridge `0.1.3` with `runtimeControl=true` at `1280×720`.
-- Main Menu → Game: pressed `root/MainMenu/MainMenuContent/SafeFrame/MenuRail/NewGameButton` through the production runtime bridge. Fresh output logged `Game scene loaded`, `📍 Player spawn position: (8, 50)`, `✅ Floor 0 loaded: Ground Floor`, and `✅ Floor 'Ground Floor' ready for gameplay`.
-- Movement → encounter: used native macOS `CGEvent.postToPid` only because MCP has no keyboard action. From `(8, 50)`, six Right inputs reached `(14, 50)` (the authored treasure box at `(15, 50)` correctly rejected movement), five Up inputs reached `(14, 45)`, and ten Right inputs reached the authored first Goblin at `(24, 45)`. Output logged `Enemy encountered at position: (24,45)`, `Battle started against Goblin! IsInBattle: True`, and `Starting battle with Goblin`.
-- Battle: pressed `root/Game/UI/UIScreenHost/ScreenLayer/BattleScreen/SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent/BeginBattleButton` through MCP. Auto-combat logged player and Goblin attacks, `BattleManager.EndBattle called: playerWon = True`, `🎉 VICTORY! Hero wins the battle!`, and `Battle ended. Player won: True. IsInBattle: False`. Captured the result at `1280×720`, then pressed `root/Game/UI/UIScreenHost/ScreenLayer/BattleScreen/SafeFrame/BattleContent/ActorField/CenterFlow/ResultPanel/ResultContent/ContinueButton`; output logged `Enemy removed from position: (24, 45)`.
-- Inventory / compact resize: native process-targeted I was attempted after a fresh Game load. The MCP root capture timed out after 10 seconds and subsequent runtime commands reported `Runtime bridge reconnect-required`; restarting and retrying produced the same bridge disconnect. Native Accessibility/System Events exposed no Godot window, and therefore no safe native resize path to `640×360` existed. No inventory or compact screenshot is claimed.
-- Save / overwrite / return to title: Escape did not reach the headless process and no native Godot window was exposed, so Pause could not be opened safely. No disposable slot was populated. The pre-walkthrough save snapshot was restored byte-for-byte after the run; exact hashes are recorded in the Task 2 report. Game → Main Menu was not reached; no claim made.
+`dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest.HostedPause_JoypadNavigationAndCancelRestoreGameplay"` — passed: 1, failed: 0, skipped: 0. The real hosted Game scene opens Pause through configured `pause_menu`, moves focus with injected D-pad Down, closes with injected joypad B/`ui_cancel`, and restores an unpaused, unblocked gameplay state. The test restores only its temporary `ui_down`/`ui_cancel` events in `finally`, preserving pre-existing mappings. No gameplay joypad binding or production change was added.
+
+## Final production walkthrough reused from Task 2
+
+- Runtime: Godot `4.6.2.stable.mono.official.71f334935`, shipped runtime bridge `0.1.4`, actual production game process/root viewport. Native process-targeted macOS `CGEvent` input was used only where the bridge has no keyboard action; no debug movement or test seam was used.
+- Main Menu → Game: the production `NewGameButton` was activated from `root/MainMenu/MainMenuContent/SafeFrame/MenuRail/NewGameButton`. The running scene became `Game.tscn`; output logged `Game scene loaded`, authored FloorGF start `(8, 50)`, `Floor 0 loaded: Ground Floor`, and `Floor 'Ground Floor' ready for gameplay`.
+- Movement → goblin → Battle: from `(8, 50)`, six Right inputs reached `(14, 50)`; the authored treasure box at `(15, 50)` correctly rejected movement. Five Up inputs reached `(14, 45)`, and ten Right inputs reached the authored first Goblin at `(24, 45)`. Output logged `Enemy encountered at position: (24, 45)`, `Battle started against Goblin! IsInBattle: True`, and `Starting battle with Goblin`.
+- Battle/result: the production `BeginBattleButton` was activated at `root/Game/UI/UIScreenHost/ScreenLayer/BattleScreen/SafeFrame/BattleContent/ActorField/CenterFlow/PreparationPanel/PreparationContent/BeginBattleButton`. Auto-combat ended with `BattleManager.EndBattle called: playerWon = True`, `VICTORY`, and `Battle ended. Player won: True. IsInBattle: False`. The result Continue action returned to exploration and logged `Enemy removed from position: (24, 45)`.
+- Game → Main Menu: the production Pause → Return to Title confirmation flow was completed in a fresh `1280×720` run. Output logged a second `Main Menu loaded`, and the final root capture showed the actual Main Menu scene replacement.
+- Save/overwrite path: in the compact run, the real nested Save flow populated disposable manual slot 0, reopened it, and opened the overwrite Prompt. The generated disposable slot was removed afterward; original saves were restored byte-for-byte.
 
 ## Real-window visual checks
-- Inventory 1280×720: attempted through the real Game input path; capture timed out when the runtime bridge disconnected. No screenshot file is claimed.
-- Inventory 640×360: not attempted. No native Godot window was exposed for resize, and no screenshot harness or bridge patch was used.
-- Battle/result 1280×720: passed. The controller ruling treats the production root-viewport MCP capture as real-window evidence because it came from the actual game process, not a SubViewport fixture. Evidence: `docs/ui/hpa-359/evidence/battle-result-1280x720.png` (`1280×720`, RGBA PNG).
-- Save/overwrite Prompt 640×360: not reached because native Escape could not open Pause and no window was available for resize. No user save was modified.
 
-## Runtime observations
-- Warnings: fresh runs repeated deterministic invalid-UID loader fallbacks and `Music`/`SFX` audio-bus creation warnings. These are classified as existing normal-flow warnings, not Task 2 regressions.
-- Errors: no `ERROR:`, `GD.PushError`, or managed `Exception` appeared in the fresh Main Menu → Game → encounter → Battle → result → exploration path. The 10-second screenshot timeout and later `Runtime bridge reconnect-required` response are classified as MCP/runtime transport limitations; they did not produce a game-process error in debug output.
-- Duplicate/stuck state: no duplicate battle activation was observed. Victory cleared `IsInBattle`, the result Continue action returned to exploration, and the defeated enemy was removed. Pause/save/focus/cursor/HUD compact behavior remains unverified because no native Godot window was exposed and Escape could not be delivered.
+- Inventory `1280×720`: passed in the actual game process; content, item art, tabs, and Close control were visible and usable.
+- Inventory `640×360`: passed visible-usability criteria in the actual game process; content, item art, tabs, and Close control remained visible/reachable. Section-heading chrome is tight/clipped at the minimum viewport and is retained as a follow-up concern.
+- Battle/result `1280×720`: passed; the Victory/result composition was captured from the actual production root viewport.
+- Save/overwrite Prompt `640×360`: passed after the Task 2 RED→GREEN fix; the body text is readable on one line and both Cancel and Overwrite actions are reachable.
+- Main Menu return `1280×720`: passed; the final capture shows the actual scene replacement back to Main Menu.
 
-## Save and bridge cleanup
-- Before launch, copied existing saves to `/private/tmp/hpa359-task2-save-backup.N1KR92/saves/`.
-- Restored both files after stopping the game. `save_slot_0.json`: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`; `save_slot_1.json`: `b291752bbee497b753534f83b9865a7062cc586d1e2b95dbf38fa553d35a654e`. Backup and restored hashes matched exactly.
-- Stopped the Godot process, uninstalled runtime bridge `0.1.3`, removed generated capture directory from the worktree, and restored `project.godot` exact SHA-256 `43c075b83c8f07e82b2e217f1aa6671378115e497bec5947bd459f61bd848f6e`.
+## Prompt defect, regression, and fix
+
+The first corrected compact Prompt capture exposed a real layout defect: the
+message body measured one pixel wide and rendered one character per line.
+`SiriusPromptTest.CompactMessageRetainsReadableLineWidth` reproduced the issue
+RED with `message.Size.X == 1` (expected greater than `300`) before the
+production edit. The minimal GREEN fix was the authored shared-shell change
+`size_flags_horizontal = 3` on `BodyHost` in
+`scenes/ui/components/SiriusModalShell.tscn`.
+
+Focused GREEN verification recorded by Task 2: `SiriusPromptTest` passed 11,
+and `SiriusModalShellTest` plus `SaveLoadScreenSceneTest` passed 26, with no
+failures. This was the only HPA-359 production edit; it was test-first and
+limited to the shared shell layout defect.
+
+## Runtime observations and cleanup
+
+- Final production output contained 43 deterministic warning headers: existing invalid-UID loader fallbacks and dynamic `Music`/`SFX` audio-bus creation warnings. No `ERROR:` headers, managed exceptions, or new product runtime errors were observed.
+- No duplicate battle activation or stuck result presentation was observed. Victory cleared `IsInBattle`, Continue returned to exploration, and Return to Title completed the scene replacement. The compact Inventory heading concern is visual only; required content and controls remained usable.
+- The original user saves were restored byte-for-byte after removing the disposable slot: `save_slot_0.json` SHA-256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`; `save_slot_1.json` SHA-256 `b291752bbee497b753534f83b9865a7062cc586d1e2b95dbf38fa553d35a654e`.
+- After the walkthrough, the shipped runtime bridge was uninstalled, `.godot-mcp` was absent, bridge autoload entries were absent, `project.godot` matched base SHA-256 `43c075b83c8f07e82b2e217f1aa6671378115e497bec5947bd459f61bd848f6e`, and generated `.import` sidecars were removed.
 
 ## Legacy-path and documentation audit
-- Executable leftovers: None removed. The exact scoped audit found no executable matches under `scripts/`, `scenes/`, or `project.godot`; no replacement-protection/deletion gate was triggered. `git ls-files -- '*.uid'` reported 0 tracked `.uid` paths; ignored/generated sidecars were left untouched.
-- CLAUDE.md: Updated the current Battle/scene-flow description to the scene-authored full-screen hosted path, replaced obsolete UI controller names with current controllers/`UIScreenHost`, updated hosted Battle state wording, and documented shared hosted `SiriusPrompt` ownership for overwrite/recoverable feedback.
-- docs/PRD.md: Updated current Settings status to Complete in the summary, Feature 4.1, and Quarter 3 roadmap; replaced current NPC names with `DialogueScreenController`, `ShopScreenController`, and `HealingScreenController`; documented Main Menu/hosted-Pause Settings access. The April `~65%` aggregate and v1.2 historical Settings row remain unchanged.
-- HPA-376 Cancel intro: Updated only the introduction to describe hosted `ui_cancel`/`UIScreenHost` ownership while retaining Settings' `ui_close_dialog` synchronization as compatibility context; the lifecycle matrix and historical evidence were not changed.
+
+- The exact scoped audit found no executable `DialogueDialog`, `SaveLoadDialog`, `SaveOverwriteConfirmationController`, `DraggablePanel`, `Player HUD`, or Settings-stub leftovers under `scripts/`, `scenes/`, or `project.godot`; no executable path was removed and no replacement-protection gate was triggered.
+- Intentional `AcceptDialog` matches remain only as current compatibility/test references and historical HPA-376 evidence/comments; no `ConfirmationDialog` production match was found. Dynamic Dialogue/Shop/Inventory rows and current input-compatibility code were retained.
+- `git ls-files -- '*.uid'` reported 0 tracked UID paths; ignored/generated sidecars were left untouched.
+- `CLAUDE.md` now describes the scene-authored hosted Battle/UI path, current controller names, hosted Battle-result state, and shared `SiriusPrompt` ownership. `docs/PRD.md` now records current Settings completion/access and hosted NPC controller names while preserving the April `~65%` snapshot and historical v1.2 row. The HPA-376 introduction now describes hosted `ui_cancel`/`UIScreenHost` ownership while retaining compatibility context; its lifecycle matrix and historical evidence were not rewritten.
+- No HPA-375 or HPA-541 work was added. No global UI architecture, second host, E2E/screenshot framework, or gameplay/controller binding was added; the only production change was the test-first shared-shell Prompt fix above.
 
 ## Evidence screenshots
-- `docs/ui/hpa-359/evidence/battle-result-1280x720.png` — `1280×720`, RGBA PNG, SHA-256 `28270e3a8839cc0fcf70f60f43581c062bbcff8ff9962f4bd57a66218b551d42`.
-- The inventory, compact inventory, save-overwrite prompt, and optional Main Menu return evidence paths remain absent because the exact runtime/native interaction blockers above prevented safe capture. No fabricated or resized substitute was added.
 
-## Task 2 completion/fix round — shipped MCP 0.1.4
-
-The preceding walkthrough section records the earlier 0.1.3 transport limitation. The remaining Task 2 scope was completed with a freshly spawned, compatible shipped Godot MCP bridge `0.1.4`; it was uninstalled before handoff.
-
-### RED → GREEN production defect
-
-The first real compact overwrite Prompt capture exposed a product defect: the body label measured one pixel wide and rendered one character per line. The narrow owning regression `SiriusPromptTest.CompactMessageRetainsReadableLineWidth` was added before editing production code and failed with `message.Size.X == 1` (expected >300). The minimal fix adds `size_flags_horizontal = 3` to the shared shell's authored `BodyHost` in `scenes/ui/components/SiriusModalShell.tscn`.
-
-Focused GREEN verification passed:
-
-- `SiriusPromptTest`: 11 passed, 0 failed.
-- `SiriusModalShellTest` + `SaveLoadScreenSceneTest`: 26 passed, 0 failed.
-
-### Production observations
-
-- Runtime: Godot `4.6.2.stable.mono.official.71f334935`, shipped MCP bridge `0.1.4`, actual production game process/root viewport.
-- `1280×720` New Game logged `Game scene loaded`, authored spawn `(8, 50)`, Ground Floor readiness, and later a second `Main Menu loaded` after Pause → Return to Title → confirmation. The final root capture showed the actual Main Menu scene replacement.
-- `1280×720` Inventory was opened through native process-targeted `I` and captured from the real game process.
-- For the compact pass, the pre-existing user settings state was backed up; a temporary `settings.json` drove the real production root viewport to `640×360`, then was moved out so the original absence of that file was restored. The compact Inventory was captured, and the real nested Save → disposable slot 0 → occupied slot 0 → overwrite Prompt was completed. Native process-targeted Escape delivered the Pause path.
-- The corrected `640×360` Prompt has a readable one-line body and reachable Cancel/Overwrite actions. The compact Inventory remains usable with visible item content, tabs, and Close control; its section-heading chrome is tight/clipped at the minimum viewport and is recorded as a follow-up concern.
-- The disposable generated `user://saves/slot_0.json` was removed. Original user save files were byte-identical after cleanup: `save_slot_0.json` SHA-256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`; `save_slot_1.json` SHA-256 `b291752bbee497b753534f83b9865a7062cc586d1e2b95dbf38fa553d35a654e`.
-
-### Evidence set
-
-Only the five allowed screenshot paths are present under `docs/ui/hpa-359/evidence/`:
+Exactly the five existing real-window captures are retained:
 
 | Path | Dimensions | SHA-256 |
 | --- | --- | --- |
-| `battle-result-1280x720.png` | `1280×720` | `28270e3a8839cc0fcf70f60f43581c062bbcff8ff9962f4bd57a66218b551d42` |
-| `inventory-1280x720.png` | `1280×720` | `624d96b08fdfde8432d31ea8a03ffbb5d7414a376553c824a0251f3812b4dc0c` |
-| `inventory-640x360.png` | `640×360` | `3a4a374b9d135dcdfc27b057e93155947c3c85d2e207bad65c83153c3f6e58b0` |
-| `save-overwrite-prompt-640x360.png` | `640×360` | `c697661dfb5d00006d62f94bf1c50a4f49b072f850f33d92f34803063093c5d5` |
-| `main-menu-return-1280x720.png` | `1280×720` | `c8b2345644416949032cc36d0cb925a4e755ca19f9eab2b2e8e5c8e48f654dde` |
-
-### Final runtime/cleanup classification
-
-The final production output had 43 deterministic warning headers: existing invalid-UID fallback warnings and dynamic `Music`/`SFX` audio-bus warnings. No `ERROR:` headers, managed exceptions, or new product runtime errors were observed. After stopping the game, the bridge was uninstalled, `.godot-mcp` was absent, bridge autoload entries were absent, `project.godot` matched base SHA-256 `43c075b83c8f07e82b2e217f1aa6671378115e497bec5947bd459f61bd848f6e`, and generated `.import` sidecars were removed.
+| `docs/ui/hpa-359/evidence/battle-result-1280x720.png` | `1280×720` | `28270e3a8839cc0fcf70f60f43581c062bbcff8ff9962f4bd57a66218b551d42` |
+| `docs/ui/hpa-359/evidence/inventory-1280x720.png` | `1280×720` | `624d96b08fdfde8432d31ea8a03ffbb5d7414a376553c824a0251f3812b4dc0c` |
+| `docs/ui/hpa-359/evidence/inventory-640x360.png` | `640×360` | `3a4a374b9d135dcdfc27b057e93155947c3c85d2e207bad65c83153c3f6e58b0` |
+| `docs/ui/hpa-359/evidence/save-overwrite-prompt-640x360.png` | `640×360` | `c697661dfb5d00006d62f94bf1c50a4f49b072f850f33d92f34803063093c5d5` |
+| `docs/ui/hpa-359/evidence/main-menu-return-1280x720.png` | `1280×720` | `c8b2345644416949032cc36d0cb925a4e755ca19f9eab2b2e8e5c8e48f654dde` |

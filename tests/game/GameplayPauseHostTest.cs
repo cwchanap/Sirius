@@ -537,10 +537,13 @@ public partial class GameplayPauseHostTest : Node
             ButtonIndex = JoyButton.B
         };
 
-        InputMap.ActionAddEvent("ui_down", joyDownBinding);
-        InputMap.ActionAddEvent("ui_cancel", joyCancelBinding);
+        var uiDownSnapshot = InputActionSnapshot.Capture("ui_down");
+        var uiCancelSnapshot = InputActionSnapshot.Capture("ui_cancel");
         try
         {
+            uiDownSnapshot.Inject("ui_down", joyDownBinding);
+            uiCancelSnapshot.Inject("ui_cancel", joyCancelBinding);
+
             // Open through the configured gameplay action. The production default
             // for pause_menu is keyboard Escape; no joypad gameplay binding is added.
             _viewport!.PushInput(new InputEventAction
@@ -580,8 +583,8 @@ public partial class GameplayPauseHostTest : Node
         }
         finally
         {
-            InputMap.ActionEraseEvent("ui_down", joyDownBinding);
-            InputMap.ActionEraseEvent("ui_cancel", joyCancelBinding);
+            uiDownSnapshot.Restore("ui_down");
+            uiCancelSnapshot.Restore("ui_cancel");
         }
     }
 
@@ -1738,6 +1741,57 @@ public partial class GameplayPauseHostTest : Node
                 return member;
         }
         return null;
+    }
+
+    private sealed class InputActionSnapshot
+    {
+        private readonly bool _existed;
+        private readonly HashSet<ulong> _injectedEventInstanceIds = new();
+
+        private InputActionSnapshot(bool existed) => _existed = existed;
+
+        public static InputActionSnapshot Capture(StringName action) =>
+            new(InputMap.HasAction(action));
+
+        public void Inject(StringName action, InputEvent inputEvent)
+        {
+            if (!InputMap.HasAction(action))
+                InputMap.AddAction(action);
+            if (InputMap.ActionHasEvent(action, inputEvent))
+                return;
+
+            var injected = (InputEvent)inputEvent.Duplicate();
+            var instanceId = injected.GetInstanceId();
+            InputMap.ActionAddEvent(action, injected);
+            foreach (var currentEvent in InputMap.ActionGetEvents(action))
+            {
+                if (currentEvent.GetInstanceId() == instanceId)
+                {
+                    _injectedEventInstanceIds.Add(instanceId);
+                    break;
+                }
+            }
+        }
+
+        public void Restore(StringName action)
+        {
+            if (!_existed)
+            {
+                if (InputMap.HasAction(action))
+                    InputMap.EraseAction(action);
+                return;
+            }
+
+            if (!InputMap.HasAction(action) || _injectedEventInstanceIds.Count == 0)
+                return;
+
+            foreach (var currentEvent in InputMap.ActionGetEvents(action))
+            {
+                if (_injectedEventInstanceIds.Contains(currentEvent.GetInstanceId()))
+                    InputMap.ActionEraseEvent(action, currentEvent);
+            }
+            _injectedEventInstanceIds.Clear();
+        }
     }
 
     private sealed partial class PausableProbe : Node

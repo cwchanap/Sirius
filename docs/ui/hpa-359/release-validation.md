@@ -40,10 +40,10 @@
 - Stopped the Godot process, uninstalled runtime bridge `0.1.3`, removed generated capture directory from the worktree, and restored `project.godot` exact SHA-256 `43c075b83c8f07e82b2e217f1aa6671378115e497bec5947bd459f61bd848f6e`.
 
 ## Legacy-path and documentation audit
-- Executable leftovers:
-- CLAUDE.md:
-- docs/PRD.md:
-- HPA-376 Cancel intro:
+- Executable leftovers: None removed. The exact scoped audit found no executable matches under `scripts/`, `scenes/`, or `project.godot`; no replacement-protection/deletion gate was triggered. `git ls-files -- '*.uid'` reported 0 tracked `.uid` paths; ignored/generated sidecars were left untouched.
+- CLAUDE.md: Updated the current Battle/scene-flow description to the scene-authored full-screen hosted path, replaced obsolete UI controller names with current controllers/`UIScreenHost`, updated hosted Battle state wording, and documented shared hosted `SiriusPrompt` ownership for overwrite/recoverable feedback.
+- docs/PRD.md: Updated current Settings status to Complete in the summary, Feature 4.1, and Quarter 3 roadmap; replaced current NPC names with `DialogueScreenController`, `ShopScreenController`, and `HealingScreenController`; documented Main Menu/hosted-Pause Settings access. The April `~65%` aggregate and v1.2 historical Settings row remain unchanged.
+- HPA-376 Cancel intro: Updated only the introduction to describe hosted `ui_cancel`/`UIScreenHost` ownership while retaining Settings' `ui_close_dialog` synchronization as compatibility context; the lifecycle matrix and historical evidence were not changed.
 
 ## Evidence screenshots
 - `docs/ui/hpa-359/evidence/battle-result-1280x720.png` — `1280×720`, RGBA PNG, SHA-256 `28270e3a8839cc0fcf70f60f43581c062bbcff8ff9962f4bd57a66218b551d42`.

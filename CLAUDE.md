@@ -49,8 +49,8 @@ The C# layouts (`Floor1/2/3Layout.cs`) set `PlayerStart` one cell to the right (
 - **GridMap**: 160x160 grid with viewport culling for performance, themed area system, position-based enemy spawning
 - **FloorManager**: Multi-floor system with stair connections between floors (FloorGF.tscn, Floor1F.tscn, etc.). Lives as a node under `Game.tscn` and is the **only** entry point for floor swaps — call `_floorManager.LoadFloor(index, spawnPos?)` rather than `GetTree().ChangeSceneToFile` for in-game floor transitions.
 - **SettingsManager (Autoload)**: Persists user settings (`scripts/settings/SettingsManager.cs` + `SettingsData.cs`); registered in `project.godot` `[autoload]`.
-- **Battle System**: Modal battle dialogs as popup overlays with automated AI combat decisions
-- **Scene Flow**: MainMenu.tscn → Game.tscn → Battle dialogs → back to game
+- **Battle System**: Scene-authored full-screen Battle screen presented through the root-local `UIScreenHost`, with automated AI combat decisions
+- **Scene Flow**: MainMenu.tscn → Game.tscn → hosted Battle and other UI screens → back to game
 
 ### Key Design Patterns
 - **Signal-based communication** for loose coupling between systems
@@ -72,7 +72,7 @@ scripts/
 ├── save/          # Persistence: SaveManager.cs, SaveData.cs, CharacterSaveData.cs, EquipmentSaveData.cs
 ├── settings/      # SettingsManager.cs (autoload), SettingsData.cs
 ├── tilemap_json/  # Tilemap import/export (TilemapJsonImporter.cs, TilemapJsonExporter.cs)
-└── ui/            # UI controllers (BattleManager.cs, MainMenu.cs, InventoryMenuController.cs, SaveLoadScreenController.cs, SaveOverwriteConfirmationController.cs, ShopScreenController.cs, HealingScreenController.cs, DialogueDialog.cs, NpcInteractionController.cs)
+└── ui/            # UI controllers and hosted screens (BattleManager.cs, MainMenu.cs, InventoryMenuController.cs, SaveLoadScreenController.cs, SettingsMenuController.cs, PauseScreenController.cs, ShopScreenController.cs, HealingScreenController.cs, DialogueScreenController.cs, NpcInteractionController.cs, SiriusPrompt.cs, hosting/UIScreenHost.cs)
 
 scenes/
 ├── game/          # Game.tscn, floors/ (FloorGF.tscn, Floor1F.tscn)
@@ -113,7 +113,7 @@ Two flags on `GameManager` block player movement — check both:
 if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction) return;
 _battleManager.BattleFinished += OnBattleFinished;
 ```
-- `IsInBattle`: set during modal battle dialog; cleared by `BattleEnded` signal
+- `IsInBattle`: set while the hosted Battle screen is active; cleared by the `BattleEnded` signal
 - `IsInNpcInteraction`: set during NPC dialogue/shop/heal; cleared via `NpcInteractionResetRequested` event
 - Emergency reset: `GameManager.ResetBattleState()`
 
@@ -138,7 +138,7 @@ Skills are stored in `SkillCatalog` (static registry) and referenced on `Charact
 - `ActiveSkillExplicitlyNone` flag prevents auto-equip on level-up from overriding a deliberate "no active skill" choice
 
 ### Save System
-`SaveManager` (autoload singleton) handles 3 manual slots (0-2) + autosave (slot 3, `autosave.json`). Saves use atomic write (temp → rename) with `.bak` backup for crash recovery. `SaveData` is serialized as JSON via `System.Text.Json`. `SaveManager.PendingLoadData` is the handoff mechanism between MainMenu and Game scenes — set before scene change, consumed on load. `SaveLoadScreenController` owns Save/Load slot presentation and direct intents; `SaveOverwriteConfirmationController` is hosted as a `ConfirmOverwrite` child when replacing a valid manual slot.
+`SaveManager` (autoload singleton) handles 3 manual slots (0-2) + autosave (slot 3, `autosave.json`). Saves use atomic write (temp → rename) with `.bak` backup for crash recovery. `SaveData` is serialized as JSON via `System.Text.Json`. `SaveManager.PendingLoadData` is the handoff mechanism between MainMenu and Game scenes — set before scene change, consumed on load. `SaveLoadScreenController` owns Save/Load slot presentation and direct intents; `Game` routes overwrite and recoverable feedback through the shared hosted `SiriusPrompt` path, including as a child of Save/Load when needed.
 
 ### NPC & Dialogue System
 NPCs follow the same catalog-and-spawn pattern as enemies. `NpcCatalog` is a static registry of `NpcData` objects, referenced by string `NpcId`. `NpcSpawn` is a scene node (mirroring `EnemySpawn`) placed in floor `.tscn` files with `NpcId` and `GridPosition` exports. `GridMap.RegisterStaticNpcSpawns()` picks them up via the `"NpcSpawn"` group.
@@ -172,7 +172,7 @@ Available `StatusEffectType` values:
 - **Viewport culling** essential for 160x160 grid (must maintain 60fps)
 - **Sprite caching** in dictionaries, load once in _Ready()
 - **Position-based** enemy determination (avoid GD.Randf() in drawing loops)
-- **Scene reuse**: instantiate battle dialogs, don't reload scenes
+- **Scene reuse**: instantiate hosted Battle/screen views as needed; don't reload scenes
 
 ## Godot/C# Requirements
 

@@ -113,7 +113,7 @@ Two flags on `GameManager` block player movement — check both:
 if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction) return;
 _battleManager.BattleFinished += OnBattleFinished;
 ```
-- `IsInBattle`: set while the hosted Battle screen is active; cleared by the `BattleEnded` signal
+- `IsInBattle`: covers active combat and is cleared by the `BattleEnded` signal; `UIScreenHost` continues owning and blocking the hosted result presentation until dismissal
 - `IsInNpcInteraction`: set during NPC dialogue/shop/heal; cleared via `NpcInteractionResetRequested` event
 - Emergency reset: `GameManager.ResetBattleState()`
 

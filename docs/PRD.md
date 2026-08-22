@@ -28,14 +28,16 @@ This PRD outlines 16 features across 4 priority tiers that will transform Sirius
 | Procedural Maze Generation | ❌ Not Started | 3 |
 | NPC and Dialogue System | ✅ Complete | 3 |
 | Quest System | ❌ Not Started | 3 |
-| Settings Menu | ⚠️ Partial (60%) | 4 |
+| Settings Menu | ✅ Complete | 4 |
 | Minimap | ❌ Not Started | 4 |
 
 **Overall completion: ~65% of PRD scope**
 
-**NPC system note:** `NpcData`, `DialogueTree` / `DialogueNode` / `DialogueChoice` / `DialogueCondition`, `ShopInventory`, `NpcCatalog` / `DialogueCatalog` / `ShopCatalog`, `DialogueDialog`, `ShopScreen`, `HealingScreen`, `NpcInteractionController`, `GridMap` NPC support, `GameManager.IsInNpcInteraction`, `NpcSpawn`, and related tests are implemented.
+**Status note:** The aggregate above remains the April 2026 snapshot; later HPA-359 status corrections do not recalculate project-wide completion.
 
-**Settings system note:** `SettingsData` and `SettingsManager` (autoload singleton) are fully implemented — Master/Music/SFX volume, Difficulty, Fullscreen, Resolution, keybindings (toggle_inventory, interact, pause_menu), and AutoSave toggle. Atomic writes with `.bak` backup recovery, identical to `SaveManager`. Test coverage in `tests/settings/`. **Missing**: in-game settings UI scene; `MainMenu.cs` still shows a stub ("Settings menu coming soon!"). The settings backend auto-applies on launch and is wired to `GameManager.AutoSaveEnabled`, but players cannot yet change settings from within the game.
+**NPC system note:** `NpcData`, `DialogueTree` / `DialogueNode` / `DialogueChoice` / `DialogueCondition`, `ShopInventory`, `NpcCatalog` / `DialogueCatalog` / `ShopCatalog`, `DialogueScreenController`, `ShopScreenController`, `HealingScreenController`, `NpcInteractionController`, `GridMap` NPC support, `GameManager.IsInNpcInteraction`, `NpcSpawn`, and related tests are implemented.
+
+**Settings system note:** `SettingsData` and `SettingsManager` (autoload singleton) are fully implemented — Master/Music/SFX volume, Difficulty, Fullscreen, Resolution, keybindings (toggle_inventory, interact, pause_menu), and AutoSave toggle. Atomic writes with `.bak` backup recovery, identical to `SaveManager`. Test coverage in `tests/settings/`. The scene-authored `SettingsMenu.tscn` / `SettingsMenuController` is available from Main Menu and hosted Pause through `UIScreenHost`; players can stage, apply, or cancel settings changes in-game.
 
 ### Strategic Vision
 
@@ -1105,7 +1107,7 @@ public enum RoomType
 - **One-Liner**: Scene-placed NPCs with branching dialogue, a shop system, and a healer — interactable by walking into them on the grid
 - **Strategic Rationale**: NPCs provide story context, services, and break up combat monotony
 - **Success Metrics**: > 60% of players interact with NPCs
-- **Implementation Status**: Implemented. The current system uses `NpcData`, `DialogueTree` / `DialogueNode` / `DialogueChoice`, `DialogueDialog`, `ShopInventory` with `ShopScreen`, `HealingScreen`, `NpcInteractionController`, and the `NpcCatalog` / `DialogueCatalog` / `ShopCatalog` registries, plus `GridMap` NPC support, `NpcSpawn`, and `GameManager.IsInNpcInteraction`. Remaining work is limited to content/polish expansions such as more NPC dialogue, quest hookups, and the future Town Hub feature.
+- **Implementation Status**: Implemented. The current system uses `NpcData`, `DialogueTree` / `DialogueNode` / `DialogueChoice`, `DialogueScreenController`, `ShopInventory` with `ShopScreenController`, `HealingScreenController`, `NpcInteractionController`, and the `NpcCatalog` / `DialogueCatalog` / `ShopCatalog` registries, plus `GridMap` NPC support, `NpcSpawn`, and `GameManager.IsInNpcInteraction`. Remaining work is limited to content/polish expansions such as more NPC dialogue, quest hookups, and the future Town Hub feature.
 - **Scope Note**: Town hub (dedicated town area/floor) is intentionally out of scope here and tracked separately in Feature 3.5. NPCs are placed directly in existing floor scenes (FloorGF.tscn, Floor1F.tscn) as scene nodes, same as EnemySpawn nodes.
 
 #### Purpose and Problem Statement
@@ -1298,23 +1300,18 @@ public partial class QuestManager : Node
 
 ## Phase 4: Polish (LOWER PRIORITY)
 
-### 4.1 Settings Menu — ⚠️ Partial (60%)
+### 4.1 Settings Menu — ✅ Complete
 
 #### Executive Summary
 - **Feature Name**: Settings Menu
 - **One-Liner**: Audio, difficulty, and control customization
 - **Success Metrics**: > 20% of players adjust settings
-- **Implementation Status**: Partial. The persistence and logic layer is fully implemented: `SettingsData` holds all settings fields; `SettingsManager` (autoload singleton in `scripts/settings/`) loads/saves/applies settings at startup with atomic writes and `.bak` backup recovery, mirrors `SaveManager`'s reliability pattern. Audio bus volumes (Master, Music, SFX), window mode/resolution, `InputMap` key bindings, and `GameManager.AutoSaveEnabled` are all applied on load. Covered by `tests/settings/SettingsDataTest.cs` and `tests/settings/SettingsManagerTest.cs`. **Not implemented**: the in-game settings UI — no `.tscn` scene, no UI controller. `MainMenu.cs` `_on_settings_button_pressed()` still shows "Settings menu coming soon!" stub. Players cannot change settings in-game.
+- **Implementation Status**: Complete. The persistence and logic layer is fully implemented: `SettingsData` holds all settings fields; `SettingsManager` (autoload singleton in `scripts/settings/`) loads/saves/applies settings at startup with atomic writes and `.bak` backup recovery, mirroring `SaveManager`'s reliability pattern. Audio bus volumes (Master, Music, SFX), window mode/resolution, `InputMap` key bindings, and `GameManager.AutoSaveEnabled` are all applied on load. The scene-authored `SettingsMenu.tscn` / `SettingsMenuController` is available from Main Menu and hosted Pause through `UIScreenHost`, with staged Apply/Cancel behavior. Covered by `tests/settings/SettingsDataTest.cs`, `tests/settings/SettingsManagerTest.cs`, and the settings controller/host suites.
 
 #### Implemented
 - `SettingsData`: Master/Music/SFX volume (0–100%), Difficulty string, Fullscreen bool, Resolution (width × height), AutoSave bool, keybindings dict
 - `SettingsManager`: autoload singleton, atomic JSON write (temp → rename → .bak), corruption recovery, validation + sanitization, runtime apply (audio buses, DisplayServer, InputMap)
 - Keybinding guard rails: reserved key rejection (movement + UI keys), duplicate resolution, required-action protection (interact, pause_menu), fallback key assignment
-
-#### Not Yet Implemented
-- In-game settings UI scene (volume sliders, difficulty picker, keybinding rebind table, fullscreen/resolution selectors)
-- MainMenu settings button wired to actual UI (currently shows stub)
-- In-game pause menu settings access
 
 ---
 
@@ -1421,7 +1418,7 @@ public partial class QuestManager : Node
 
 | Week | Features | Status |
 |------|----------|--------|
-| 25-26 | Settings Menu | ⚠️ Partial — backend/persistence complete; UI scene not yet built |
+| 25-26 | Settings Menu | ✅ Complete — scene-authored UI available from Main Menu and hosted Pause |
 | 27-29 | Combat VFX & Audio | ⚠️ Partial — attack tween+flash animation; no particles/SFX |
 | 30-31 | Minimap | ❌ Not started |
 | 32-34 | Bug fixes & Balance | ❌ Pending |

@@ -523,6 +523,69 @@ public partial class GameplayPauseHostTest : Node
     }
 
     [TestCase]
+    public async Task HostedPause_JoypadNavigationAndCancelRestoreGameplay()
+    {
+        var tree = (SceneTree)Engine.GetMainLoop();
+        var host = _game!.GetNode<UIScreenHost>("UI/UIScreenHost");
+
+        var joyDownBinding = new InputEventJoypadButton
+        {
+            ButtonIndex = JoyButton.DpadDown
+        };
+        var joyCancelBinding = new InputEventJoypadButton
+        {
+            ButtonIndex = JoyButton.B
+        };
+
+        InputMap.ActionAddEvent("ui_down", joyDownBinding);
+        InputMap.ActionAddEvent("ui_cancel", joyCancelBinding);
+        try
+        {
+            // Open through the configured gameplay action. The production default
+            // for pause_menu is keyboard Escape; no joypad gameplay binding is added.
+            _viewport!.PushInput(new InputEventAction
+            {
+                Action = "pause_menu",
+                Pressed = true
+            });
+            await AwaitFrames(2);
+
+            var pause = GetPrivateField<PauseScreenController>(_game, "_pauseScreen");
+            var initialFocus = _viewport.GuiGetFocusOwner();
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsTrue();
+            AssertThat(initialFocus).IsNotNull();
+
+            _viewport.PushInput(new InputEventJoypadButton
+            {
+                ButtonIndex = JoyButton.DpadDown,
+                Pressed = true
+            });
+            await AwaitFrames(2);
+
+            var movedFocus = _viewport.GuiGetFocusOwner();
+            AssertThat(movedFocus).IsNotNull();
+            AssertThat(movedFocus).IsNotEqual(initialFocus);
+            AssertThat(pause.IsAncestorOf(movedFocus)).IsTrue();
+
+            _viewport.PushInput(new InputEventJoypadButton
+            {
+                ButtonIndex = JoyButton.B,
+                Pressed = true
+            });
+            await AwaitFrames(2);
+
+            AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
+            AssertThat(tree.Paused).IsFalse();
+            AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsFalse();
+        }
+        finally
+        {
+            InputMap.ActionEraseEvent("ui_down", joyDownBinding);
+            InputMap.ActionEraseEvent("ui_cancel", joyCancelBinding);
+        }
+    }
+
+    [TestCase]
     public async Task RootPauseGameplayBlock_SuppressesAndRestoresInteractionPrompt()
     {
         var tree = (SceneTree)Engine.GetMainLoop();

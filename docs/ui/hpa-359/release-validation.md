@@ -13,7 +13,7 @@
 - Long Dialogue / Puzzle / corrupt-save: `DialogueScreenControllerTest.CompactDialogue_FillsSafeHeightAndScrollsToFocusedChoice`; `GameTest.CorruptedSave_*`; `PuzzleRiddleScreenControllerTest` plus `GameInputLifecycleTest` cover compact/cancel Puzzle/Riddle behavior.
 
 ## Hosted joypad characterization
-- Result:
+- Result: `dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameplayPauseHostTest.HostedPause_JoypadNavigationAndCancelRestoreGameplay"` — passed: 1, failed: 0, skipped: 0. The test opens configured `pause_menu`, moves focus with injected D-pad Down, cancels with injected joypad B, and restores unpaused/unblocked gameplay. Temporary `ui_down`/`ui_cancel` bindings are erased in `finally`; no production change was needed.
 
 ## One production walkthrough
 - Runtime: Godot `4.6.2.stable.mono.official.71f334935`, launched through the shipped Godot MCP runtime bridge `0.1.3` with `runtimeControl=true` at `1280×720`.

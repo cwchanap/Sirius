@@ -48,3 +48,41 @@
 ## Evidence screenshots
 - `docs/ui/hpa-359/evidence/battle-result-1280x720.png` — `1280×720`, RGBA PNG, SHA-256 `28270e3a8839cc0fcf70f60f43581c062bbcff8ff9962f4bd57a66218b551d42`.
 - The inventory, compact inventory, save-overwrite prompt, and optional Main Menu return evidence paths remain absent because the exact runtime/native interaction blockers above prevented safe capture. No fabricated or resized substitute was added.
+
+## Task 2 completion/fix round — shipped MCP 0.1.4
+
+The preceding walkthrough section records the earlier 0.1.3 transport limitation. The remaining Task 2 scope was completed with a freshly spawned, compatible shipped Godot MCP bridge `0.1.4`; it was uninstalled before handoff.
+
+### RED → GREEN production defect
+
+The first real compact overwrite Prompt capture exposed a product defect: the body label measured one pixel wide and rendered one character per line. The narrow owning regression `SiriusPromptTest.CompactMessageRetainsReadableLineWidth` was added before editing production code and failed with `message.Size.X == 1` (expected >300). The minimal fix adds `size_flags_horizontal = 3` to the shared shell's authored `BodyHost` in `scenes/ui/components/SiriusModalShell.tscn`.
+
+Focused GREEN verification passed:
+
+- `SiriusPromptTest`: 11 passed, 0 failed.
+- `SiriusModalShellTest` + `SaveLoadScreenSceneTest`: 26 passed, 0 failed.
+
+### Production observations
+
+- Runtime: Godot `4.6.2.stable.mono.official.71f334935`, shipped MCP bridge `0.1.4`, actual production game process/root viewport.
+- `1280×720` New Game logged `Game scene loaded`, authored spawn `(8, 50)`, Ground Floor readiness, and later a second `Main Menu loaded` after Pause → Return to Title → confirmation. The final root capture showed the actual Main Menu scene replacement.
+- `1280×720` Inventory was opened through native process-targeted `I` and captured from the real game process.
+- For the compact pass, the pre-existing user settings state was backed up; a temporary `settings.json` drove the real production root viewport to `640×360`, then was moved out so the original absence of that file was restored. The compact Inventory was captured, and the real nested Save → disposable slot 0 → occupied slot 0 → overwrite Prompt was completed. Native process-targeted Escape delivered the Pause path.
+- The corrected `640×360` Prompt has a readable one-line body and reachable Cancel/Overwrite actions. The compact Inventory remains usable with visible item content, tabs, and Close control; its section-heading chrome is tight/clipped at the minimum viewport and is recorded as a follow-up concern.
+- The disposable generated `user://saves/slot_0.json` was removed. Original user save files were byte-identical after cleanup: `save_slot_0.json` SHA-256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`; `save_slot_1.json` SHA-256 `b291752bbee497b753534f83b9865a7062cc586d1e2b95dbf38fa553d35a654e2`.
+
+### Evidence set
+
+Only the five allowed screenshot paths are present under `docs/ui/hpa-359/evidence/`:
+
+| Path | Dimensions | SHA-256 |
+| --- | --- | --- |
+| `battle-result-1280x720.png` | `1280×720` | `28270e3a8839cc0fcf70f60f43581c062bbcff8ff9962f4bd57a66218b551d42` |
+| `inventory-1280x720.png` | `1280×720` | `624d96b08fdfde8432d31ea8a03ffbb5d7414a376553c824a0251f3812b4dc0c` |
+| `inventory-640x360.png` | `640×360` | `3a4a374b9d135dcdfc27b057e93155947c3c85d2e207bad65c83153c3f6e58b0` |
+| `save-overwrite-prompt-640x360.png` | `640×360` | `c697661dfb5d00006d62f94bf1c50a4f49b072f850f33d92f34803063093c5d5` |
+| `main-menu-return-1280x720.png` | `1280×720` | `c8b2345644416949032cc36d0cb925a4e755ca19f9eab2b2e8e5c8e48f654dde` |
+
+### Final runtime/cleanup classification
+
+The final production output had 43 deterministic warning headers: existing invalid-UID fallback warnings and dynamic `Music`/`SFX` audio-bus warnings. No `ERROR:` headers, managed exceptions, or new product runtime errors were observed. After stopping the game, the bridge was uninstalled, `.godot-mcp` was absent, bridge autoload entries were absent, `project.godot` matched base SHA-256 `43c075b83c8f07e82b2e217f1aa6671378115e497bec5947bd459f61bd848f6e`, and generated `.import` sidecars were removed.

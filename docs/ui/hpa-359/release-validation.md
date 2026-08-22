@@ -19,15 +19,15 @@ status.
 
 ## Automated baseline
 
-- Build command: `dotnet build Sirius.sln` — passed: 2 projects, 0 errors; 2 `NU1900` warnings. Both warnings report that the NuGet vulnerability service index at `https://api.nuget.org/v3/index.json` was unavailable.
+- Build command: `dotnet build Sirius.sln` — exit 0, 0 errors, summary 269 warnings. Diagnostic command `dotnet build Sirius.sln --no-restore --no-incremental` also exited 0 with 0 errors and exactly 268 compiler/analyzer warnings, matching the Task 1 pre-existing baseline; its warning log contained no `GameplayPauseHostTest`, `SiriusPromptTest`, or other HPA-changed-file warning. The extra restore-time count is `NU1900` vulnerability-feed unavailability displayed at solution/project contexts.
 - Focused release command:
 
   ```text
   dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~MainMenuTest|FullyQualifiedName~MainMenuSceneTest|FullyQualifiedName~GameTest|FullyQualifiedName~GameInputLifecycleTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~ExplorationHudControllerTest|FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~InventoryMenuSceneTest|FullyQualifiedName~NpcInteractionControllerTest|FullyQualifiedName~DialogueScreenControllerTest|FullyQualifiedName~ShopScreenControllerTest|FullyQualifiedName~HealingScreenControllerTest|FullyQualifiedName~PuzzleRiddleScreenControllerTest|FullyQualifiedName~BattleManagerTest|FullyQualifiedName~BattleSceneTest|FullyQualifiedName~PauseScreenControllerTest|FullyQualifiedName~SaveLoadScreenControllerTest|FullyQualifiedName~SaveLoadScreenSceneTest|FullyQualifiedName~SettingsMenuControllerTest|FullyQualifiedName~UIScreenHost|FullyQualifiedName~SiriusPrompt|FullyQualifiedName~Hpa374RuntimeSmokeTest"
   ```
 
-  Final result: 607 passed, 0 failed, 0 skipped; 2 `NU1900` warnings of the same NuGet vulnerability-feed kind. The earlier 605-test baseline predates the Prompt regression and hosted joypad characterization now included in this branch.
-- Full-suite command: `dotnet test Sirius.sln --settings test.runsettings.local` — final result: 1498 passed, 0 failed, 0 skipped; 2 `NU1900` warnings of the same NuGet vulnerability-feed kind.
+  Final result: 607 passed, 0 failed, 0 skipped (`607/607/0`); known GdUnit orphan-node warning noise only. The earlier 605-test baseline predates the Prompt regression and hosted joypad characterization now included in this branch.
+- Full-suite command: `dotnet test Sirius.sln --settings test.runsettings.local` — final result: 1498 passed, 0 failed, 0 skipped (`1498/1498/0`); known GdUnit orphan-node warning noise only.
 - The first non-escalated focused invocation stopped before discovery because the VSTest/Godot adapter could not obtain its local-socket permission (`0 passed, 1 failed, 0 skipped`); the escalated rerun above is the authoritative final result and is an environment startup limitation, not a product failure.
 
 ## Existing runtime-backed coverage reused

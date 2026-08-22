@@ -538,11 +538,14 @@ public partial class GameplayPauseHostTest : Node
         };
 
         var gameplayFocusOwner = _viewport!.GuiGetFocusOwner();
-        var uiDownOriginal = InputMap.ActionGetEvents("ui_down")
-            .Select(inputEvent => inputEvent.AsText())
+        // Capture full event state (Duplicate, since the pause cycle could
+        // mutate or erase the live events) for both the regression assertion
+        // and the finally-block reconstruction.
+        var uiDownOriginalEvents = InputMap.ActionGetEvents("ui_down")
+            .Select(inputEvent => (InputEvent)inputEvent.Duplicate())
             .ToArray();
-        var uiCancelOriginal = InputMap.ActionGetEvents("ui_cancel")
-            .Select(inputEvent => inputEvent.AsText())
+        var uiCancelOriginalEvents = InputMap.ActionGetEvents("ui_cancel")
+            .Select(inputEvent => (InputEvent)inputEvent.Duplicate())
             .ToArray();
 
         var uiDownSnapshot = InputActionSnapshot.Capture("ui_down");
@@ -591,26 +594,25 @@ public partial class GameplayPauseHostTest : Node
 
             AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(gameplayFocusOwner);
 
-            // Restore before asserting: Restore only erases the events this
-            // test injected, so comparing against the captured originals here
-            // catches bindings erased or duplicated by the pause cycle itself
-            // instead of masking them with the finally-block cleanup.
+            // Restore only the events this test injected before asserting, so
+            // a regression that erases or duplicates the original ui_down /
+            // ui_cancel bindings is observable instead of masked by the
+            // finally-block reconstruction.
             uiDownSnapshot.Restore("ui_down");
             uiCancelSnapshot.Restore("ui_cancel");
 
-            AssertThat(InputMap.ActionGetEvents("ui_down")
-                    .Select(inputEvent => inputEvent.AsText())
-                    .SequenceEqual(uiDownOriginal))
-                .IsTrue();
-            AssertThat(InputMap.ActionGetEvents("ui_cancel")
-                    .Select(inputEvent => inputEvent.AsText())
-                    .SequenceEqual(uiCancelOriginal))
-                .IsTrue();
+            AssertInputActionMatchesOriginal("ui_down", uiDownOriginalEvents);
+            AssertInputActionMatchesOriginal("ui_cancel", uiCancelOriginalEvents);
         }
         finally
         {
-            uiDownSnapshot.Restore("ui_down");
-            uiCancelSnapshot.Restore("ui_cancel");
+            // Reconstruct the full original event set. Restore() above only
+            // removes events this test injected; if the pause lifecycle erased
+            // or replaced an original binding, that regression is caught by the
+            // assertions above but Restore() could not bring it back, so the
+            // broken global InputMap would leak into subsequent tests.
+            ReconstructInputAction("ui_down", uiDownOriginalEvents);
+            ReconstructInputAction("ui_cancel", uiCancelOriginalEvents);
         }
     }
 
@@ -1767,6 +1769,48 @@ public partial class GameplayPauseHostTest : Node
                 return member;
         }
         return null;
+    }
+
+    /// <summary>
+    /// Asserts the live InputMap action still matches the captured original
+    /// events by count, Godot class, Device, and AsText() — stronger than
+    /// AsText() alone (which omits Device) without resorting to a full
+    /// reflection-based property comparator for every InputEvent subtype.
+    /// </summary>
+    private static void AssertInputActionMatchesOriginal(
+        StringName action, InputEvent[] originalEvents)
+    {
+        var current = InputMap.ActionGetEvents(action).ToArray();
+        AssertThat(current.Length).IsEqual(originalEvents.Length);
+        for (int i = 0; i < originalEvents.Length; i++)
+        {
+            var live = current[i];
+            var expected = originalEvents[i];
+            AssertThat(live.GetClass()).IsEqual(expected.GetClass());
+            AssertThat(live.Device).IsEqual(expected.Device);
+            AssertThat(live.AsText()).IsEqual(expected.AsText());
+        }
+    }
+
+    /// <summary>
+    /// Erases every event currently bound to <paramref name="action"/> and
+    /// re-adds <paramref name="originalEvents"/>, recreating the action if the
+    /// pause lifecycle removed it entirely. Guarantees the global InputMap is
+    /// restored for subsequent tests even when the behavior under test
+    /// corrupted the original bindings (which Restore() alone cannot repair).
+    /// </summary>
+    private static void ReconstructInputAction(
+        StringName action, InputEvent[] originalEvents)
+    {
+        if (!InputMap.HasAction(action))
+            InputMap.AddAction(action);
+        else
+        {
+            foreach (var current in InputMap.ActionGetEvents(action).ToArray())
+                InputMap.ActionEraseEvent(action, current);
+        }
+        foreach (var original in originalEvents)
+            InputMap.ActionAddEvent(action, original);
     }
 
     private sealed class InputActionSnapshot

@@ -69,7 +69,7 @@ Focused GREEN verification passed:
 - `1280×720` Inventory was opened through native process-targeted `I` and captured from the real game process.
 - For the compact pass, the pre-existing user settings state was backed up; a temporary `settings.json` drove the real production root viewport to `640×360`, then was moved out so the original absence of that file was restored. The compact Inventory was captured, and the real nested Save → disposable slot 0 → occupied slot 0 → overwrite Prompt was completed. Native process-targeted Escape delivered the Pause path.
 - The corrected `640×360` Prompt has a readable one-line body and reachable Cancel/Overwrite actions. The compact Inventory remains usable with visible item content, tabs, and Close control; its section-heading chrome is tight/clipped at the minimum viewport and is recorded as a follow-up concern.
-- The disposable generated `user://saves/slot_0.json` was removed. Original user save files were byte-identical after cleanup: `save_slot_0.json` SHA-256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`; `save_slot_1.json` SHA-256 `b291752bbee497b753534f83b9865a7062cc586d1e2b95dbf38fa553d35a654e2`.
+- The disposable generated `user://saves/slot_0.json` was removed. Original user save files were byte-identical after cleanup: `save_slot_0.json` SHA-256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`; `save_slot_1.json` SHA-256 `b291752bbee497b753534f83b9865a7062cc586d1e2b95dbf38fa553d35a654e`.
 
 ### Evidence set
 

@@ -79,7 +79,7 @@ limited to the shared shell layout defect.
 - Final production output contained 43 deterministic warning headers: existing invalid-UID loader fallbacks and dynamic `Music`/`SFX` audio-bus creation warnings. No `ERROR:` headers, managed exceptions, or new product runtime errors were observed.
 - No duplicate battle activation or stuck result presentation was observed. Victory cleared `IsInBattle`, Continue returned to exploration, and Return to Title completed the scene replacement. The compact Inventory heading concern is visual only; required content and controls remained usable.
 - The original user saves were restored byte-for-byte after removing the disposable slot: `save_slot_0.json` SHA-256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`; `save_slot_1.json` SHA-256 `b291752bbee497b753534f83b9865a7062cc586d1e2b95dbf38fa553d35a654e`.
-- After the walkthrough, the shipped runtime bridge was uninstalled, `.godot-mcp` was absent, bridge autoload entries were absent, `project.godot` matched base SHA-256 `43c075b83c8f07e82b2e217f1aa6671378115e497bec5947bd459f61bd848f6e`, and generated `.import` sidecars were removed.
+- After the walkthrough, the shipped runtime bridge was uninstalled, `.godot-mcp` was absent, bridge autoload entries were absent, and `project.godot` matched base SHA-256 `43c075b83c8f07e82b2e217f1aa6671378115e497bec5947bd459f61bd848f6e`. Task 2 removed its session-generated `.import` copies; later Godot/test access regenerated the five current `.png.import` files as ignored, untracked local cache, not PR content.
 
 ## Legacy-path and documentation audit
 

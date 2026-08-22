@@ -180,6 +180,24 @@ public partial class SiriusPromptTest : Node
     }
 
     [TestCase]
+    public async Task CompactMessageRetainsReadableLineWidth()
+    {
+        await Instantiate();
+        _prompt!.Configure(
+            SiriusPromptVariant.DestructiveConfirmation,
+            "Overwrite Save?",
+            "Slot 1 already contains save data. Overwrite it?",
+            "Overwrite");
+
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        var message = _prompt.GetNode<Label>("%Message");
+
+        AssertThat(message.Size.X).IsGreater(300f);
+    }
+
+    [TestCase]
     public async Task CrossingCompactToStandard_RefreshesShellAndTargets()
     {
         await Instantiate();

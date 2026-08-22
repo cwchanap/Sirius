@@ -537,6 +537,14 @@ public partial class GameplayPauseHostTest : Node
             ButtonIndex = JoyButton.B
         };
 
+        var gameplayFocusOwner = _viewport!.GuiGetFocusOwner();
+        var uiDownOriginal = InputMap.ActionGetEvents("ui_down")
+            .Select(inputEvent => inputEvent.AsText())
+            .ToArray();
+        var uiCancelOriginal = InputMap.ActionGetEvents("ui_cancel")
+            .Select(inputEvent => inputEvent.AsText())
+            .ToArray();
+
         var uiDownSnapshot = InputActionSnapshot.Capture("ui_down");
         var uiCancelSnapshot = InputActionSnapshot.Capture("ui_cancel");
         try
@@ -580,6 +588,24 @@ public partial class GameplayPauseHostTest : Node
             AssertThat(host.IsKindActive(UIScreenKinds.Pause)).IsFalse();
             AssertThat(tree.Paused).IsFalse();
             AssertThat(host.CurrentState.IsPresentationGameplayBlocked).IsFalse();
+
+            AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(gameplayFocusOwner);
+
+            // Restore before asserting: Restore only erases the events this
+            // test injected, so comparing against the captured originals here
+            // catches bindings erased or duplicated by the pause cycle itself
+            // instead of masking them with the finally-block cleanup.
+            uiDownSnapshot.Restore("ui_down");
+            uiCancelSnapshot.Restore("ui_cancel");
+
+            AssertThat(InputMap.ActionGetEvents("ui_down")
+                    .Select(inputEvent => inputEvent.AsText())
+                    .SequenceEqual(uiDownOriginal))
+                .IsTrue();
+            AssertThat(InputMap.ActionGetEvents("ui_cancel")
+                    .Select(inputEvent => inputEvent.AsText())
+                    .SequenceEqual(uiCancelOriginal))
+                .IsTrue();
         }
         finally
         {

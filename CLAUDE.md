@@ -72,7 +72,7 @@ scripts/
 ├── save/          # Persistence: SaveManager.cs, SaveData.cs, CharacterSaveData.cs, EquipmentSaveData.cs
 ├── settings/      # SettingsManager.cs (autoload), SettingsData.cs
 ├── tilemap_json/  # Tilemap import/export (TilemapJsonImporter.cs, TilemapJsonExporter.cs)
-└── ui/            # UI controllers and hosted screens (BattleManager.cs, MainMenu.cs, InventoryMenuController.cs, SaveLoadScreenController.cs, SettingsMenuController.cs, PauseScreenController.cs, ShopScreenController.cs, HealingScreenController.cs, DialogueScreenController.cs, NpcInteractionController.cs, SiriusPrompt.cs, hosting/UIScreenHost.cs)
+└── ui/            # UI controllers and hosted screens (BattleManager.cs, MainMenu.cs, InventoryMenuController.cs, SaveLoadScreenController.cs, SettingsMenuController.cs, PauseScreenController.cs, ShopScreenController.cs, HealingScreenController.cs, DialogueScreenController.cs, NpcInteractionController.cs, components/SiriusPrompt.cs, hosting/UIScreenHost.cs)
 
 scenes/
 ├── game/          # Game.tscn, floors/ (FloorGF.tscn, Floor1F.tscn)
@@ -113,7 +113,7 @@ Two flags on `GameManager` block player movement — check both:
 if (_gameManager.IsInBattle || _gameManager.IsInNpcInteraction) return;
 _battleManager.BattleFinished += OnBattleFinished;
 ```
-- `IsInBattle`: covers active combat and is cleared by the `BattleEnded` signal; `UIScreenHost` continues owning and blocking the hosted result presentation until dismissal
+- `IsInBattle`: covers active combat and is cleared via the battle manager's `BattleFinished` signal (`Game.OnBattleFinished` calls `GameManager.EndBattle`, which clears the flag before emitting `GameManager.BattleEnded`); `UIScreenHost` continues owning and blocking the hosted result presentation until dismissal
 - `IsInNpcInteraction`: set during NPC dialogue/shop/heal; cleared via `NpcInteractionResetRequested` event
 - Emergency reset: `GameManager.ResetBattleState()`
 

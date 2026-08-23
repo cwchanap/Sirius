@@ -78,7 +78,7 @@ public partial class InventoryMenuController : Control
 		else if (page == InventoryPage.Skills)
 			target = _activeSkillSelector;
 		else if (page == InventoryPage.Details)
-			target = _detailsActionButton.Visible ? _detailsActionButton : _detailsTab;
+			target = ResolveDetailsFocusTarget();
 		else if (_equipmentSlots.TryGetValue(EquipmentSlotType.Weapon, out var weapon))
 			target = weapon;
 		else
@@ -461,7 +461,7 @@ public partial class InventoryMenuController : Control
 		{
 			InventoryPage.Items => _inventorySlots.FirstOrDefault(CanGrabFocus) ?? (Control?)_itemsTab,
 			InventoryPage.Skills => _activeSkillSelector,
-			InventoryPage.Details => _detailsActionButton.Visible ? _detailsActionButton : _detailsTab,
+			InventoryPage.Details => ResolveDetailsFocusTarget(),
 			_ => _equipmentSlots.TryGetValue(EquipmentSlotType.Weapon, out var weapon)
 				? weapon
 				: _equipmentSlots.Values.FirstOrDefault()
@@ -524,7 +524,7 @@ public partial class InventoryMenuController : Control
 		{
 			InventoryPage.Items => _inventorySlots.FirstOrDefault(CanGrabFocus),
 			InventoryPage.Skills => _activeSkillSelector,
-			InventoryPage.Details => _detailsActionButton.Visible ? _detailsActionButton : _detailsTab,
+			InventoryPage.Details => ResolveDetailsFocusTarget(),
 			_ => _equipmentSlots.TryGetValue(EquipmentSlotType.Weapon, out var weapon)
 				? weapon
 				: _equipmentSlots.Values.FirstOrDefault()
@@ -1279,6 +1279,11 @@ public partial class InventoryMenuController : Control
 
 		_pendingFocusRestore = null;
 	}
+
+	private Control? ResolveDetailsFocusTarget() =>
+		CanGrabFocus(_detailsActionButton)
+			? _detailsActionButton
+			: _detailsTab;
 
 	private static bool CanGrabFocus(Control? target) =>
 		target != null && GodotObject.IsInstanceValid(target) && target.IsVisibleInTree() &&

@@ -596,7 +596,13 @@ public partial class InventoryMenuController : Control
 		RestorePendingFocus();
 	}
 
-	private void RefreshUiDeferred() => Callable.From(RefreshUI).CallDeferred();
+	private void RefreshUiDeferred()
+	{
+		// The mutation already re-targeted _selection; block re-entry until the
+		// deferred refresh rebuilds the action for its new meaning.
+		_detailsActionButton.Disabled = true;
+		Callable.From(RefreshUI).CallDeferred();
+	}
 
 	private void RefreshEquipmentSlots()
 	{
@@ -820,7 +826,7 @@ public partial class InventoryMenuController : Control
 
 	private void OnDetailsActionPressed()
 	{
-		if (_selection is not { } selection)
+		if (_detailsActionButton.Disabled || _selection is not { } selection)
 			return;
 
 		if (selection.ItemId != null && TryResolveSelectedInventoryEntry(out _, out var entry))
@@ -884,6 +890,7 @@ public partial class InventoryMenuController : Control
 		_detailsActionReason.Text = "Select an item or equipped slot to view details.";
 		_detailsActionButton.Text = "Action";
 		_detailsActionButton.Visible = false;
+		_detailsActionButton.Disabled = false;
 		UiIconPresenter.Apply(_detailsIcon, UiIconId.Info, UiIconSize.Default);
 
 		if (_selection is not { } selection)

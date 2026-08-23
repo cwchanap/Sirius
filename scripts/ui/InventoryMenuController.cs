@@ -605,7 +605,10 @@ public partial class InventoryMenuController : Control
 		// made before the refresh re-renders from live data, but a mutation
 		// pending flag keeps the stale action dead until the rebuild lands.
 		_detailsActionButton.Disabled = true;
-		_awaitingMutationRefresh = fromMutation;
+		// Sticky: a non-mutation refresh (filter change) queued between the
+		// mutation and its deferred refresh must not clear the guard; only
+		// RefreshUI() completing resets it.
+		_awaitingMutationRefresh |= fromMutation;
 		Callable.From(RefreshUI).CallDeferred();
 	}
 

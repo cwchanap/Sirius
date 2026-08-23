@@ -596,6 +596,8 @@ public partial class InventoryMenuController : Control
 		RestorePendingFocus();
 	}
 
+	private void RefreshUiDeferred() => Callable.From(RefreshUI).CallDeferred();
+
 	private void RefreshEquipmentSlots()
 	{
 		var equipment = _gameManager.Player.Equipment;
@@ -1070,14 +1072,14 @@ public partial class InventoryMenuController : Control
 			else
 				_gameManager.Player.TryEquip(removed, out _);
 			GD.PushWarning("Unable to unequip item: inventory is full or already contains this unique item.");
-			RefreshUI();
+			RefreshUiDeferred();
 			return;
 		}
 
 		var resultingKey = InventorySemanticKey.ForItem(removed.Id);
 		_selection = resultingKey;
 		_pendingFocusRestore = new PendingFocusRestore(resultingKey, -1);
-		RefreshUI();
+		RefreshUiDeferred();
 	}
 
 	private void UseConsumableOutOfBattle(ConsumableItem item)
@@ -1110,7 +1112,7 @@ public partial class InventoryMenuController : Control
 		_selection = resultingKey;
 		_pendingFocusRestore = new PendingFocusRestore(resultingKey, previousIndex);
 		_gameManager.NotifyPlayerStatsChanged();
-		RefreshUI();
+		RefreshUiDeferred();
 	}
 
 	private int ResolveVisibleInventoryIndex(string itemId) =>
@@ -1160,7 +1162,7 @@ public partial class InventoryMenuController : Control
 			: InventorySemanticKey.ForEquipment(item.SlotType);
 		_selection = resultingKey;
 		_pendingFocusRestore = new PendingFocusRestore(resultingKey, previousCatalogueIndex);
-		RefreshUI();
+		RefreshUiDeferred();
 	}
 
 	private void SeedPendingFocusRestoreFromCurrentFocus()
@@ -1330,7 +1332,7 @@ public partial class InventoryMenuController : Control
 			TryResolveSelectedInventoryEntry(out _, out var selectedEntry) &&
 			!MatchesFilter(selectedEntry.Item.Category))
 			_selection = null;
-		RefreshUI();
+		RefreshUiDeferred();
 	}
 
 	private void OnInventorySortSelected(long index)

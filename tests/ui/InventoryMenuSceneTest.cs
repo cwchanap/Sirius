@@ -73,7 +73,7 @@ public partial class InventoryMenuSceneTest : Node
     }
 
     private int VisiblePageCount() =>
-        new[] { "%EquipmentPage", "%ItemsPage", "%SkillsPage" }
+        new[] { "%EquipmentPage", "%ItemsPage", "%SkillsPage", "%DetailsPage" }
             .Count(path => _menu.GetNode<Control>(path).Visible);
 
     private void PushAction(StringName action)
@@ -99,6 +99,30 @@ public partial class InventoryMenuSceneTest : Node
             AssertThat(safe.Size.X).IsGreater(0f);
             AssertThat(safe.Size.Y).IsGreater(0f);
         }
+    }
+
+    [TestCase]
+    public async Task Standard1024_ItemsGridFitsWithoutHorizontalScroll()
+    {
+        _gameManager.Player.Inventory.Clear();
+        for (var i = 0; i < 6; i++)
+        {
+            AssertThat(_gameManager.Player.TryAddItem(new EquipmentItem
+            {
+                Id = $"width_item_{i}",
+                DisplayName = $"Width Item {i}",
+                SlotType = EquipmentSlotType.Weapon
+            }, 1, out _)).IsTrue();
+        }
+
+        await Resize(new Vector2I(1024, 768));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var scroll = _menu.GetNode<ScrollContainer>("%InventoryScroll");
+        var grid = _menu.GetNode<GridContainer>("%InventoryGrid");
+        AssertThat(grid.GetCombinedMinimumSize().X).IsLessEqual(scroll.Size.X);
+        AssertThat(scroll.GetHScrollBar().Visible).IsFalse();
     }
 
     [TestCase]
@@ -151,6 +175,21 @@ public partial class InventoryMenuSceneTest : Node
 
             _menu.CloseMenu();
         }
+    }
+
+    [TestCase]
+    public async Task Compact_DetailsPageIsOneOfExactlyFourPages()
+    {
+        await Resize(new Vector2I(640, 360));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        _menu.GetNode<Button>("%DetailsTab").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        AssertThat(VisiblePageCount()).IsEqual(1);
+        AssertThat(_menu.GetNode<Control>("%DetailsPage").Visible).IsTrue();
+        AssertThat(_menu.GetNode<Control>("%CharacterColumn").Visible).IsFalse();
     }
 
     [TestCase]

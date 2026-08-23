@@ -217,6 +217,16 @@ button_group = SubResource("ButtonGroup_pages")
 text = "Skills"
 theme_type_variation = &"SiriusSecondaryButton"
 
+[node name="DetailsTab" type="Button" parent="SafeFrame/ScreenSurface/Content/CompactTabs"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+button_group = SubResource("ButtonGroup_pages")
+text = "Details"
+theme_type_variation = &"SiriusSecondaryButton"
+
 [node name="PageScroll" type="ScrollContainer" parent="SafeFrame/ScreenSurface/Content"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -238,6 +248,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+size_flags_stretch_ratio = 1.0
 theme_override_constants/separation = 8
 
 [node name="EquipmentPage" type="PanelContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/CharacterColumn"]
@@ -364,6 +375,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+size_flags_stretch_ratio = 1.5
 theme_type_variation = &"SiriusContentPanel"
 
 [node name="ItemsContent" type="VBoxContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/ItemsPage"]
@@ -404,6 +416,78 @@ size_flags_horizontal = 3
 theme_override_constants/h_separation = 5
 theme_override_constants/v_separation = 5
 columns = 6
+
+[node name="DetailsPage" type="PanelContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.0
+theme_type_variation = &"SiriusContentPanel"
+
+[node name="DetailsContent" type="VBoxContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/DetailsPage"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DetailsTitleRow" type="HBoxContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/DetailsPage/DetailsContent"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DetailsIcon" type="TextureRect" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/DetailsPage/DetailsContent/DetailsTitleRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+mouse_filter = 2
+
+[node name="DetailsName" type="Label" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/DetailsPage/DetailsContent/DetailsTitleRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusTitleCompact"
+text = "Details"
+
+[node name="DetailsMeta" type="Label" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/DetailsPage/DetailsContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusMetadata"
+text = "No selection"
+
+[node name="DetailsBody" type="Label" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/DetailsPage/DetailsContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+autowrap_mode = 3
+theme_type_variation = &"SiriusBodyCompact"
+text = "Select an item or equipped slot to view details."
+
+[node name="DetailsComparison" type="Label" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/DetailsPage/DetailsContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 3
+theme_type_variation = &"SiriusMetadata"
+text = "Comparison will appear here."
+
+[node name="DetailsActionReason" type="Label" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/DetailsPage/DetailsContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 3
+theme_type_variation = &"SiriusMetadata"
+text = "No action available."
+
+[node name="DetailsActionButton" type="Button" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/DetailsPage/DetailsContent"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SiriusPrimaryButton"
+text = "Action"
 
 [node name="FocusSummary" type="Label" parent="SafeFrame/ScreenSurface/Content"]
 unique_name_in_owner = true

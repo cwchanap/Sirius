@@ -1029,9 +1029,9 @@ public partial class InventoryMenuController : Control
 			: SlotDisplayName(candidate.SlotType);
 
 		var comparison = new StringBuilder();
-		comparison.AppendLine($"Equip to {target}");
-		if (occupant != null)
-			comparison.AppendLine($"Replaces: {occupant.DisplayName}");
+		comparison.AppendLine(occupant == null
+			? $"Will fill {target}"
+			: $"Will replace {occupant.DisplayName} in {target}");
 		comparison.AppendLine(FormatDelta("ATK", delta.Attack));
 		comparison.AppendLine(FormatDelta("DEF", delta.Defense));
 		comparison.AppendLine(FormatDelta("SPD", delta.Speed));

@@ -718,6 +718,137 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
+    public void EquipmentComparison_ShowsGainsLossesAndUnchanged()
+    {
+        var player = _gameManager.Player;
+        var equipped = new EquipmentItem
+        {
+            Id = "equipped_compare",
+            DisplayName = "Current Blade",
+            SlotType = EquipmentSlotType.Weapon,
+            AttackBonus = 3,
+            DefenseBonus = 2,
+            SpeedBonus = 1,
+            HealthBonus = 0
+        };
+        var candidate = new EquipmentItem
+        {
+            Id = "candidate_compare",
+            DisplayName = "Candidate Blade",
+            SlotType = EquipmentSlotType.Weapon,
+            AttackBonus = 5,
+            DefenseBonus = 1,
+            SpeedBonus = 1,
+            HealthBonus = 0
+        };
+        AssertThat(player.TryEquip(equipped, out _)).IsTrue();
+        AssertThat(player.TryAddItem(candidate, 1, out _)).IsTrue();
+        _inventoryMenu.OpenMenu();
+
+        FindInventorySlotByTooltip(candidate.DisplayName)
+            .EmitSignal(Button.SignalName.Pressed);
+
+        var comparison = _inventoryMenu.GetNode<Label>("%DetailsComparison").Text;
+        AssertThat(comparison).Contains("Will replace Current Blade in Weapon");
+        AssertThat(comparison).Contains("ATK +2");
+        AssertThat(comparison).Contains("DEF -1");
+        AssertThat(comparison).Contains("SPD unchanged");
+        AssertThat(comparison).Contains("HP unchanged");
+    }
+
+    [TestCase]
+    public void EquipmentComparison_EmptyWeaponShowsFillAndAllDeltas()
+    {
+        var player = _gameManager.Player;
+        AssertThat(player.Unequip(EquipmentSlotType.Weapon)).IsNotNull();
+        var candidate = new EquipmentItem
+        {
+            Id = "empty_weapon_compare",
+            DisplayName = "Empty Weapon Candidate",
+            SlotType = EquipmentSlotType.Weapon,
+            AttackBonus = 4,
+            DefenseBonus = 0,
+            SpeedBonus = 2,
+            HealthBonus = 1
+        };
+        AssertThat(player.TryAddItem(candidate, 1, out _)).IsTrue();
+        _inventoryMenu.OpenMenu();
+
+        FindInventorySlotByTooltip(candidate.DisplayName)
+            .EmitSignal(Button.SignalName.Pressed);
+
+        var comparison = _inventoryMenu.GetNode<Label>("%DetailsComparison").Text;
+        AssertThat(comparison).Contains("Will fill Weapon");
+        AssertThat(comparison).Contains("ATK +4");
+        AssertThat(comparison).Contains("DEF unchanged");
+        AssertThat(comparison).Contains("SPD +2");
+        AssertThat(comparison).Contains("HP +1");
+    }
+
+    [TestCase]
+    public async Task EquipmentComparison_AccessoryFirstEmptyTargetMatchesEquipTarget()
+    {
+        var player = _gameManager.Player;
+        var occupiedLater = CreateAccessory("comparison_accessory_later", "Occupied Accessory 2");
+        var candidate = CreateAccessory("comparison_accessory_first_empty", "First Empty Accessory");
+        occupiedLater.AttackBonus = 3;
+        candidate.AttackBonus = 5;
+        AssertThat(player.TryEquip(occupiedLater, out _, 1)).IsTrue();
+        AssertThat(player.TryAddItem(candidate, 1, out _)).IsTrue();
+        _inventoryMenu.OpenMenu();
+
+        FindInventorySlotByTooltip(candidate.DisplayName)
+            .EmitSignal(Button.SignalName.Pressed);
+
+        var comparison = _inventoryMenu.GetNode<Label>("%DetailsComparison").Text;
+        AssertThat(comparison).Contains("Will fill Accessory 1");
+
+        DetailsActionButton().EmitSignal(Button.SignalName.Pressed);
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+        AssertThat(player.Equipment.GetEquipped(EquipmentSlotType.Accessory, 0))
+            .IsEqual(candidate);
+        AssertThat(player.Equipment.GetEquipped(EquipmentSlotType.Accessory, 1))
+            .IsEqual(occupiedLater);
+    }
+
+    [TestCase]
+    public async Task EquipmentComparison_FullAccessoriesTargetMatchesEquipTarget()
+    {
+        var player = _gameManager.Player;
+        var originals = new EquipmentItem[EquipmentSet.AccessorySlotCount];
+        for (var index = 0; index < originals.Length; index++)
+        {
+            originals[index] = CreateAccessory(
+                $"comparison_accessory_original_{index}",
+                $"Comparison Original {index}");
+            originals[index].DefenseBonus = index + 1;
+            AssertThat(player.TryEquip(originals[index], out _, index)).IsTrue();
+        }
+
+        var candidate = CreateAccessory("comparison_accessory_replacement", "Comparison Replacement");
+        candidate.DefenseBonus = 10;
+        AssertThat(player.TryAddItem(candidate, 1, out _)).IsTrue();
+        _inventoryMenu.OpenMenu();
+
+        FindInventorySlotByTooltip(candidate.DisplayName)
+            .EmitSignal(Button.SignalName.Pressed);
+
+        var comparison = _inventoryMenu.GetNode<Label>("%DetailsComparison").Text;
+        AssertThat(comparison).Contains("Will replace Comparison Original 0 in Accessory 1");
+        AssertThat(comparison).Contains("DEF +9");
+
+        DetailsActionButton().EmitSignal(Button.SignalName.Pressed);
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+        AssertThat(player.Equipment.GetEquipped(EquipmentSlotType.Accessory, 0))
+            .IsEqual(candidate);
+        for (var index = 1; index < originals.Length; index++)
+            AssertThat(player.Equipment.GetEquipped(EquipmentSlotType.Accessory, index))
+                .IsEqual(originals[index]);
+    }
+
+    [TestCase]
     public void PressingInventoryEquipment_SelectsWithoutEquipping()
     {
         var player = _gameManager.Player;

@@ -34,6 +34,22 @@ It also constructs looping 4 FPS `AnimatedSprite2D` idle animations for the play
 
 This is enough real production motion to justify the preference. The showcase is not a player-facing production flow and is out of scope.
 
+### Existing `SiriusMotion` is not the Battle policy
+
+HPA-377 already shipped `scripts/ui/theme/SiriusMotion.cs` for shared **chrome entry/exit** behavior and a showcase-local reduced-motion demonstration. HPA-541 must not route Battle juice through that helper.
+
+The contracts are intentionally different:
+
+- `SiriusMotion.Duration(reducedMotion: true, ...)` returns `0.100` seconds for reduced chrome opacity;
+- `SiriusMotion.UseTransform(...)` controls whether shared shell wrappers use transform motion;
+- Battle damage feedback has a deliberate `1.0` second opacity lifetime;
+- Battle attack scale/flash uses local `0.1` second feedback but is fire-and-forget and independent of shell entry/exit;
+- Battle idle sprites are actor presentation, not modal/toast chrome.
+
+Using `SiriusMotion.Duration(...)` inside Battle would silently shrink the required 1-second damage fade to 100 ms and violate the unchanged-completion-timing requirement.
+
+Therefore reuse is limited to the **ownership pattern** already established by HPA-377: the composer passes a scalar preference to the concrete consumer. Battle keeps its local combat-presentation durations and does **not** call `SiriusMotion`.
+
 ## 3. Persistence contract
 
 Extend `SettingsData` with:
@@ -77,6 +93,8 @@ The row follows the existing `DisplayRows` responsive grid and page-local scroll
 - Apply includes the checkbox value in the new `SettingsData` candidate passed to `SettingsManager.ApplyAndSave(...)`.
 
 The existing Apply/Cancel and focus ownership stays unchanged.
+
+The setting is intentionally hand-copied through the same explicit lists as the existing settings model: `SettingsData.Clone()`, `SettingsManager.Sanitize(...)`, and the `SettingsMenuController.OnApplyPressed()` candidate. Do not add a mapper for one boolean; dedicated tests must pin all three copy boundaries.
 
 ## 5. Propagation ownership
 
@@ -146,6 +164,8 @@ Reduced mode:
 - reset/hide it at the same 1-second completion point.
 
 Opacity feedback is intentionally retained because it communicates transient feedback without spatial motion and preserves existing completion timing.
+
+The 1-second value remains local to Battle. Do not replace it with `SiriusMotion.ReducedOpacitySeconds` or any shared shell-entry duration.
 
 ### Attack feedback
 
@@ -228,8 +248,10 @@ Use existing suites and private/reflection helpers; do not widen production visi
 - authored reduced-motion nodes exist before `_Ready()`;
 - `OpenSettings(...)` populates the checkbox;
 - Cancel does not mutate the source snapshot;
-- Apply persists the staged checkbox value;
+- a dedicated `OnApplyPressed_PersistsReducedMotionCheckbox` test proves the checkbox is copied into the `SettingsData` Apply candidate and persisted;
 - existing standard/compact responsive checks still pass with the extra row.
+
+Do not bury the Apply assertion in the unrelated “selections unset” bounds regression. That test may share the same local `SettingsManager` setup pattern, but reduced-motion persistence gets its own test name and failure signal.
 
 ### Battle motion
 
@@ -239,6 +261,8 @@ Use existing suites and private/reflection helpers; do not widen production visi
 - reduced damage feedback does not change position but still fades/resets on the existing 1-second schedule;
 - normal mode keeps the existing attack/damage tween behavior;
 - `StopBattleRuntime()` still kills any tracked visual tweens and resets visual state.
+
+The reduced damage test is deterministic: retrieve the one tracked damage tween from `_visualTweens`, pause it, and advance it with `Tween.CustomStep(...)`, matching the existing showcase motion-test pattern. Do not wait on a wall-clock `SceneTreeTimer` and hope a process tick has advanced the tween.
 
 `BattleSceneTest` covers startup animation presentation through the real scene:
 
@@ -271,6 +295,7 @@ Keep the test local to `GameTest`; do not introduce a production settings-provid
 
 ### Audit only
 
+- `scripts/ui/theme/SiriusMotion.cs` — existing chrome entry/exit helper; explicitly **not** a Battle implementation dependency;
 - `scripts/ui/showcase/SiriusUiShowcase.cs` — development showcase, not a production consumer;
 - `docs/ui/hpa-376/ui-lifecycle-contract.md` — no lifecycle authority changes are expected;
 - `docs/PRD.md` / `CLAUDE.md` — update only if implementation makes an existing settings/motion statement stale.
@@ -279,6 +304,7 @@ Keep the test local to `GameTest`; do not introduce a production settings-provid
 
 - no `MotionPolicy`, service, singleton, event bus, observer, or settings-change signal;
 - no shared component reading `SettingsManager`;
+- no `SiriusMotion` call or shared chrome duration inside `BattleManager`;
 - no new Settings page or accessibility framework;
 - no settings version bump or migration matrix;
 - no camera-smoothing/world-animation changes;
@@ -293,8 +319,10 @@ Keep the test local to `GameTest`; do not introduce a production settings-provid
 - `ReducedMotionEnabled` defaults safely to `false`, clones, saves, and reloads.
 - An older valid settings JSON without the field resolves to `false`.
 - The existing Display settings page stages, applies, and cancels the preference correctly at standard and compact layouts.
+- The dedicated Apply test fails if `OnApplyPressed()` forgets to copy the checkbox value.
 - Every newly opened production Battle receives the current value from `Game` without reading the singleton itself.
-- Reduced Battle presentation removes damage translation, attack scale/flash, and looping idle animation while retaining damage opacity feedback and unchanged Battle timing/domain behavior.
+- Reduced Battle presentation removes damage translation, attack scale/flash, and looping idle animation while retaining the local 1-second damage opacity feedback and unchanged Battle timing/domain behavior.
+- `BattleManager` does not call `SiriusMotion`.
 - Normal mode retains current Battle motion.
 - Focused settings, Battle, and Game tests pass; the full suite/build and `git diff --check` pass before merge.
 - A final production motion search confirms no additional player-facing `CreateTween`/`TweenProperty` owner was missed.

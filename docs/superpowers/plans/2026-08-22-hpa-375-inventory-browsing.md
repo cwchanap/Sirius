@@ -298,9 +298,13 @@ public void PressingSelectedInventorySlotAgain_RemainsVisuallySelected()
 [TestCase]
 public void PressingEmptyEquipmentSlot_DoesNotStealSelectionVisual()
 {
+    var player = _gameManager.Player;
     var sword = EquipmentCatalog.CreateIronSword();
-    AssertThat(_gameManager.Player.TryAddItem(sword, 1, out _)).IsTrue();
-    AssertThat(_gameManager.Player.Unequip(EquipmentSlotType.Shield)).IsNull();
+    AssertThat(player.TryAddItem(sword, 1, out _)).IsTrue();
+    var removedShield = player.Unequip(EquipmentSlotType.Shield);
+    if (removedShield != null)
+        AssertThat(player.TryAddItem(removedShield, 1, out _)).IsTrue();
+
     _inventoryMenu.OpenMenu();
     var selected = FindInventorySlotByTooltip(sword.DisplayName);
     selected.EmitSignal(Button.SignalName.Pressed);
@@ -638,7 +642,6 @@ public void UnequipResultHiddenByFilter_ClearsSelectionWithoutResettingFilter()
     _inventoryMenu.OpenMenu();
 
     var filter = InventoryFilterControl();
-    // choose Consumable by its metadata-backed option, not a hard-coded semantic cast
     var consumableIndex = Enumerable.Range(0, filter.ItemCount)
         .Single(i => filter.GetItemText(i) == "Consumable");
     filter.Select(consumableIndex);

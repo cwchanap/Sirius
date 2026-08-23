@@ -85,6 +85,75 @@ public partial class InventoryMenuSceneTest : Node
         });
     }
 
+    private async Task PushKeyboard(Key key)
+    {
+        _viewport.PushInput(new InputEventKey
+        {
+            Keycode = key,
+            PhysicalKeycode = key,
+            Pressed = true
+        });
+        await AwaitFrames(1);
+        _viewport.PushInput(new InputEventKey
+        {
+            Keycode = key,
+            PhysicalKeycode = key,
+            Pressed = false
+        });
+        await AwaitFrames(1);
+    }
+
+    private async Task PushDpad(JoyButton button)
+    {
+        _viewport.PushInput(new InputEventJoypadButton
+        {
+            ButtonIndex = button,
+            Pressed = true
+        });
+        await AwaitFrames(1);
+        _viewport.PushInput(new InputEventJoypadButton
+        {
+            ButtonIndex = button,
+            Pressed = false
+        });
+        await AwaitFrames(1);
+    }
+
+    [TestCase]
+    public async Task Standard_KeyboardAndDpadNavigationReachesBrowseDetailsActionAndClose()
+    {
+        _gameManager.Player.Inventory.Clear();
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(_gameManager.Player.TryAddItem(sword, 1, out _)).IsTrue();
+
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var filter = _menu.GetNode<OptionButton>("%InventoryFilter");
+        var sort = _menu.GetNode<OptionButton>("%InventorySort");
+        filter.GrabFocus();
+        await AwaitFrames(1);
+        await PushKeyboard(Key.Right);
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(sort);
+
+        await PushKeyboard(Key.Left);
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(filter);
+        await PushKeyboard(Key.Down);
+
+        var item = _menu.GetNode<Container>("%InventoryGrid")
+            .GetChildren().OfType<SiriusItemSlotController>().Single();
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(item);
+
+        item.EmitSignal(Button.SignalName.Pressed);
+        await PushDpad(JoyButton.DpadRight);
+        var action = _menu.GetNode<Button>("%DetailsActionButton");
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(action);
+
+        await PushDpad(JoyButton.DpadDown);
+        AssertThat(_viewport.GuiGetFocusOwner())
+            .IsEqual(_menu.GetNode<Button>("%CloseButton"));
+    }
+
     [TestCase]
     public async Task FitsEveryVerificationViewport()
     {

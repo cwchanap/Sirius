@@ -647,6 +647,40 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
+    public void InventoryFilter_UsesItemMetadataInsteadOfDisplayIndex()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+
+        var equipment = new EquipmentItem
+        {
+            Id = "metadata_filter_equipment",
+            DisplayName = "Metadata Equipment",
+            SlotType = EquipmentSlotType.Weapon
+        };
+        var consumable = ConsumableCatalog.CreateHealthPotion();
+        consumable.DisplayName = "Metadata Consumable";
+        AssertThat(player.TryAddItem(equipment, 1, out _)).IsTrue();
+        AssertThat(player.TryAddItem(consumable, 1, out _)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+        var filter = InventoryFilterControl();
+        var firstText = filter.GetItemText(0);
+        var firstMetadata = filter.GetItemMetadata(0);
+        var consumableText = filter.GetItemText(2);
+        var consumableMetadata = filter.GetItemMetadata(2);
+        filter.SetItemText(0, consumableText);
+        filter.SetItemMetadata(0, consumableMetadata);
+        filter.SetItemText(2, firstText);
+        filter.SetItemMetadata(2, firstMetadata);
+
+        filter.Select(0);
+        filter.EmitSignal(OptionButton.SignalName.ItemSelected, 0L);
+
+        AssertThat(VisibleInventoryNames()).IsEqual(new[] { consumable.DisplayName });
+    }
+
+    [TestCase]
     public void Catalogue_CategorySort_UsesCategoryThenDisplayName()
     {
         var player = _gameManager.Player;
@@ -715,6 +749,36 @@ public partial class InventoryMenuControllerTest : Node
 
         AssertThat(_inventoryMenu.GetNode<Label>("%DetailsBody").Text)
             .Contains("Lower id item");
+    }
+
+    [TestCase]
+    public void InventorySort_PreservesSelectedItemById()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        var selected = new EquipmentItem
+        {
+            Id = "sort_selection_equipment",
+            DisplayName = "A Selected Equipment",
+            SlotType = EquipmentSlotType.Weapon
+        };
+        var other = new GeneralItem
+        {
+            Id = "sort_selection_general",
+            DisplayName = "Z Other General"
+        };
+        AssertThat(player.TryAddItem(selected, 1, out _)).IsTrue();
+        AssertThat(player.TryAddItem(other, 1, out _)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+        var selectedSlot = FindInventorySlotByTooltip(selected.DisplayName);
+        selectedSlot.EmitSignal(Button.SignalName.Pressed);
+        SelectInventorySort("Category");
+
+        var reorderedSelectedSlot = FindInventorySlotByTooltip(selected.DisplayName);
+        AssertThat(_inventoryMenu.GetNode<Label>("%DetailsName").Text)
+            .IsEqual(selected.DisplayName);
+        AssertThat(reorderedSelectedSlot.ButtonPressed).IsTrue();
     }
 
     [TestCase]
@@ -933,6 +997,31 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
+    public void BattleOnlyConsumable_HidesActionAndDoesNotMutateWhenPressed()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        player.ActiveBuffs.Clear();
+        var tonic = ConsumableCatalog.CreateStrengthTonic();
+        AssertThat(player.TryAddItem(tonic, 1, out _)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+        FindInventorySlotByTooltip(tonic.DisplayName)
+            .EmitSignal(Button.SignalName.Pressed);
+
+        var action = DetailsActionButton();
+        AssertThat(action.Visible).IsFalse();
+        AssertThat(_inventoryMenu.GetNode<Label>("%DetailsActionReason").Text)
+            .IsEqual("Can only be used in battle.");
+
+        action.Visible = true;
+        action.EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(player.Inventory.GetQuantity(tonic.Id)).IsEqual(1);
+        AssertThat(player.ActiveBuffs.HasAny).IsFalse();
+    }
+
+    [TestCase]
     public void PressingEquippedEquipmentSlot_SelectsWithoutUnequipping()
     {
         var player = _gameManager.Player;
@@ -951,6 +1040,61 @@ public partial class InventoryMenuControllerTest : Node
             .IsEqual(sword.DisplayName);
         AssertThat(_inventoryMenu.GetNode<Button>("%DetailsActionButton").Text)
             .IsEqual("Unequip");
+    }
+
+    [TestCase]
+    public void InventoryEquipmentDetails_RenderSupportedMetadataAndBonuses()
+    {
+        var equipment = new EquipmentItem
+        {
+            Id = "details_supported_equipment",
+            DisplayName = "Supported Details Blade",
+            Description = "A fully described test blade.",
+            Rarity = ItemRarity.Epic,
+            SlotType = EquipmentSlotType.Weapon,
+            AttackBonus = 2,
+            DefenseBonus = 3,
+            SpeedBonus = 4,
+            HealthBonus = 5
+        };
+        AssertThat(_gameManager.Player.TryAddItem(equipment, 1, out _)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+        FindInventorySlotByTooltip(equipment.DisplayName)
+            .EmitSignal(Button.SignalName.Pressed);
+
+        var meta = _inventoryMenu.GetNode<Label>("%DetailsMeta").Text;
+        var body = _inventoryMenu.GetNode<Label>("%DetailsBody").Text;
+        AssertThat(meta).Contains("Category: Equipment");
+        AssertThat(meta).Contains("Rarity: Epic");
+        AssertThat(meta).Contains("Quantity: 1");
+        AssertThat(body).Contains(equipment.Description);
+        AssertThat(body).Contains("Slot: Weapon");
+        AssertThat(body).Contains("+2 ATK");
+        AssertThat(body).Contains("+3 DEF");
+        AssertThat(body).Contains("+4 SPD");
+        AssertThat(body).Contains("+5 HP");
+    }
+
+    [TestCase]
+    public void EquippedEquipmentDetails_RenderConcreteSlotIdentity()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        var weapon = EquipmentCatalog.CreateIronSword();
+        weapon.DisplayName = "Concrete Weapon";
+        var accessory = CreateAccessory("concrete_accessory", "Concrete Accessory");
+        AssertThat(player.TryEquip(weapon, out _)).IsTrue();
+        AssertThat(player.TryEquip(accessory, out _, 1)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+        GetSlot("%WeaponSlot").EmitSignal(Button.SignalName.Pressed);
+        AssertThat(_inventoryMenu.GetNode<Label>("%DetailsMeta").Text)
+            .Contains("Equipped: Weapon");
+
+        GetSlot("%AccessorySlot1").EmitSignal(Button.SignalName.Pressed);
+        AssertThat(_inventoryMenu.GetNode<Label>("%DetailsMeta").Text)
+            .Contains("Equipped: Accessory 2");
     }
 
     [TestCase]
@@ -1063,6 +1207,34 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
+    public void InventoryFilter_ClearsHiddenItemSelectionButKeepsEquippedSelection()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        var potion = ConsumableCatalog.CreateHealthPotion();
+        potion.DisplayName = "Filterable Potion";
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(player.TryAddItem(potion, 1, out _)).IsTrue();
+        AssertThat(player.TryEquip(sword, out _)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+        FindInventorySlotByTooltip(potion.DisplayName)
+            .EmitSignal(Button.SignalName.Pressed);
+        SelectInventoryFilter("Equipment");
+
+        AssertThat(_inventoryMenu.GetNode<Label>("%DetailsName").Text).IsEmpty();
+        AssertThat(DetailsActionButton().Visible).IsFalse();
+
+        GetSlot("%WeaponSlot").EmitSignal(Button.SignalName.Pressed);
+        SelectInventoryFilter("Consumable");
+
+        AssertThat(_inventoryMenu.GetNode<Label>("%DetailsName").Text)
+            .IsEqual(sword.DisplayName);
+        AssertThat(DetailsActionButton().Visible).IsTrue();
+        AssertThat(DetailsActionButton().Text).IsEqual("Unequip");
+    }
+
+    [TestCase]
     public void SelectingNoActiveSkillThroughMenu_PersistsExplicitNone()
     {
         var player = _gameManager.Player;
@@ -1154,6 +1326,52 @@ public partial class InventoryMenuControllerTest : Node
         AssertThat(_gameManager.Player.Equipment.GetEquipped(EquipmentSlotType.Weapon))
             .IsEqual(sword);
         AssertThat(action.Text).IsEqual("Unequip");
+        AssertThat(action.HasFocus()).IsFalse();
+    }
+
+    [TestCase]
+    public async Task UnequipAction_RestoresFocusToReturnedInventoryItem()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(player.TryEquip(sword, out _)).IsTrue();
+        _inventoryMenu.OpenMenu();
+
+        var weapon = GetSlot("%WeaponSlot");
+        weapon.EmitSignal(Button.SignalName.Pressed);
+        var action = DetailsActionButton();
+        action.GrabFocus();
+        action.EmitSignal(Button.SignalName.Pressed);
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+        var returned = FindInventorySlotByTooltip(sword.DisplayName);
+        AssertThat(_inventoryMenu.GetViewport().GuiGetFocusOwner()).IsEqual(returned);
+        AssertThat(action.HasFocus()).IsFalse();
+        AssertThat(player.Inventory.ContainsItem(sword.Id)).IsTrue();
+    }
+
+    [TestCase]
+    public async Task UseWithRemainingQuantity_RestoresFocusToRemainingInventoryItem()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        player.CurrentHealth = 1;
+        var potion = ConsumableCatalog.CreateHealthPotion();
+        AssertThat(player.TryAddItem(potion, 2, out var added)).IsTrue();
+        AssertThat(added).IsEqual(2);
+        _inventoryMenu.OpenMenu();
+
+        var slot = FindInventorySlotByTooltip(potion.DisplayName);
+        slot.EmitSignal(Button.SignalName.Pressed);
+        var action = DetailsActionButton();
+        action.GrabFocus();
+        action.EmitSignal(Button.SignalName.Pressed);
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+        var remaining = FindInventorySlotByTooltip(potion.DisplayName);
+        AssertThat(player.Inventory.GetQuantity(potion.Id)).IsEqual(1);
+        AssertThat(_inventoryMenu.GetViewport().GuiGetFocusOwner()).IsEqual(remaining);
         AssertThat(action.HasFocus()).IsFalse();
     }
 

@@ -4,7 +4,7 @@
 
 **Goal:** Persist a Reduced Motion preference and apply it to Sirius’s proven production Battle motion without introducing a global motion framework or changing gameplay timing.
 
-**Architecture:** Extend the existing `SettingsData` / `SettingsManager` persistence path and scene-authored Settings Display page. `Game` reads the current snapshot whenever it opens a Battle and passes one boolean into `BattleManager.StartBattle(...)`; Battle locally suppresses decorative translation, scale/flash, and idle loops while retaining opacity feedback and semantic/timing behavior.
+**Architecture:** Extend the existing `SettingsData` / `SettingsManager` persistence path and scene-authored Settings Display page. `Game` reads the current snapshot whenever it opens a Battle and passes one boolean into `BattleManager.StartBattle(...)`; Battle locally suppresses decorative translation, scale/flash, and idle loops while retaining its existing 1-second damage opacity feedback and all semantic/timing behavior.
 
 **Tech Stack:** Godot 4.6.2, C#/.NET 8, System.Text.Json, GdUnit4.
 
@@ -17,10 +17,45 @@
 - No motion service, global policy object, settings event bus, observer, or shared-component lifecycle API.
 - Shared/static UI components do not read `SettingsManager`.
 - Battle is the only proven player-facing UI motion owner; `SiriusUiShowcase` stays out of scope.
+- `scripts/ui/theme/SiriusMotion.cs` is **not** a Battle dependency. Its `ReducedOpacitySeconds = 0.100` and transform policy are for shared chrome entry/exit; Battle keeps its local combat-presentation durations.
 - Reduced mode removes Battle damage translation, attack scale/flash, and looping actor idle animation.
-- Keep the 1-second damage opacity fade and existing Battle timing.
+- Keep the local 1-second damage opacity fade and existing Battle timing.
 - Do not change action-point simulation, automatic-action progress, stats, focus/input, rewards, or Battle completion.
 - Main Menu gets no no-op motion state; Settings persistence already reaches later Game/Battle composition.
+
+---
+
+## File Map
+
+### Settings ownership
+
+- `scripts/settings/SettingsData.cs` — persisted boolean, default, clone copy.
+- `scripts/settings/SettingsManager.cs` — sanitize/load-save copy; no motion dispatch.
+- `scenes/ui/SettingsMenu.tscn` — authored Display-page row.
+- `scripts/ui/SettingsMenuController.cs` — staged populate/apply behavior.
+
+### Battle ownership
+
+- `scripts/game/Game.cs` — composition root reads the latest snapshot and passes one scalar.
+- `scripts/ui/BattleManager.cs` — Battle-instance preference and local decorative-motion branches.
+
+### Tests
+
+- `tests/settings/SettingsDataTest.cs`
+- `tests/settings/SettingsManagerTest.cs`
+- `tests/ui/SettingsMenuControllerTest.cs`
+- `tests/ui/SettingsMenuSceneTest.cs`
+- `tests/ui/BattleManagerTest.cs`
+- `tests/ui/BattleSceneTest.cs`
+- `tests/game/GameTest.cs`
+
+### Audit only
+
+- `scripts/ui/theme/SiriusMotion.cs`
+- `scripts/ui/showcase/SiriusUiShowcase.cs`
+- `docs/ui/hpa-376/ui-lifecycle-contract.md`
+- `docs/PRD.md`
+- `CLAUDE.md`
 
 ---
 
@@ -39,6 +74,7 @@
 **Interfaces:**
 - Produces: `SettingsData.ReducedMotionEnabled : bool`.
 - Produces: scene-authored `%ReducedMotionLabel` and `%ReducedMotionCheck` on Display.
+- Reuses: existing `OpenSettings(...)`, `OnApplyPressed()`, `SettingsManager.ApplyAndSave(...)`, and page-local responsive layout.
 
 - [ ] **Step 1: Write failing data/persistence tests**
 
@@ -54,6 +90,7 @@ Extend the clone test:
 var original = SettingsData.CreateDefaults();
 original.ReducedMotionEnabled = true;
 var cloned = original.Clone();
+
 AssertThat(cloned.ReducedMotionEnabled).IsTrue();
 cloned.ReducedMotionEnabled = false;
 AssertThat(original.ReducedMotionEnabled).IsTrue();
@@ -71,7 +108,7 @@ and after reload:
 AssertThat(reloadedManager.GetSnapshot().ReducedMotionEnabled).IsTrue();
 ```
 
-Add:
+Add a missing-field regression:
 
 ```csharp
 [TestCase]
@@ -98,6 +135,7 @@ public async Task SettingsManager_Ready_SettingsWithoutReducedMotion_DefaultsFal
         """);
 
     var manager = await BootstrapSettingsManager();
+
     AssertThat(manager.GetSnapshot().ReducedMotionEnabled).IsFalse();
 }
 ```
@@ -109,9 +147,9 @@ dotnet test Sirius.sln --settings test.runsettings.local \
   --filter "FullyQualifiedName~SettingsDataTest|FullyQualifiedName~SettingsManagerTest"
 ```
 
-Expected: compile/test failure because the new property does not exist.
+Expected: compile/test failure because the property does not exist.
 
-- [ ] **Step 3: Implement settings persistence**
+- [ ] **Step 3: Implement the three explicit persistence copy sites**
 
 Add to `SettingsData`:
 
@@ -119,10 +157,10 @@ Add to `SettingsData`:
 public bool ReducedMotionEnabled { get; set; }
 ```
 
-Add to `Clone()`:
+Add to `SettingsData.Clone()`:
 
 ```csharp
-ReducedMotionEnabled = this.ReducedMotionEnabled,
+ReducedMotionEnabled = ReducedMotionEnabled,
 ```
 
 Add to `SettingsManager.Sanitize(...)`:
@@ -131,13 +169,13 @@ Add to `SettingsManager.Sanitize(...)`:
 ReducedMotionEnabled = data.ReducedMotionEnabled,
 ```
 
-Do not edit `ApplyToRuntime(...)` for this setting.
+Keep `CurrentVersion = 1`. Do not edit `ApplyToRuntime(...)` and do not add a mapper.
 
 - [ ] **Step 4: Run the Step 2 command and confirm GREEN**
 
-Expected: PASS, including a valid old JSON that omits the field.
+Expected: PASS, including the valid old JSON that omits the field.
 
-- [ ] **Step 5: Write failing Settings scene/controller tests**
+- [ ] **Step 5: Write failing authored-row and staged-value tests**
 
 Add to `SettingsMenuSceneTest.RequiredUniqueNodes`:
 
@@ -146,7 +184,7 @@ Add to `SettingsMenuSceneTest.RequiredUniqueNodes`:
 "%ReducedMotionCheck",
 ```
 
-Add:
+Add population coverage:
 
 ```csharp
 [TestCase]
@@ -154,6 +192,7 @@ public void OpenSettings_SetsReducedMotionCheckbox()
 {
     var data = SettingsData.CreateDefaults();
     data.ReducedMotionEnabled = true;
+
     _ctrl.OpenSettings(data);
 
     AssertThat(GetField<CheckBox>(_ctrl, "_reducedMotionCheck").ButtonPressed)
@@ -161,35 +200,68 @@ public void OpenSettings_SetsReducedMotionCheckbox()
 }
 ```
 
-In `CancelAfterStagedEdit_DoesNotMutateSnapshot_AndEmitsClosedOnce`, add:
+Extend `CancelAfterStagedEdit_DoesNotMutateSnapshot_AndEmitsClosedOnce`:
 
 ```csharp
 snapshot.ReducedMotionEnabled = false;
-```
-
-then after `OpenSettings(snapshot)`:
-
-```csharp
+_ctrl.OpenSettings(snapshot);
 GetField<CheckBox>(_ctrl, "_reducedMotionCheck").ButtonPressed = true;
-```
+InvokePrivate(_ctrl, "OnCancelPressed");
 
-and after Cancel:
-
-```csharp
 AssertThat(snapshot.ReducedMotionEnabled).IsFalse();
 ```
 
-In the existing real-manager `OnApplyPressed_WhenSelectionsAreUnset_DoesNotIndexPastOptions` test, before Apply add:
+Add a **dedicated** Apply test. Do not put this assertion into `OnApplyPressed_WhenSelectionsAreUnset_DoesNotIndexPastOptions`:
 
 ```csharp
-GetField<CheckBox>(_ctrl, "_reducedMotionCheck").ButtonPressed = true;
+[TestCase]
+public async Task OnApplyPressed_PersistsReducedMotionCheckbox()
+{
+    var simulatedWindowMode = DisplayServer.WindowMode.Windowed;
+    var simulatedWindowSize = new Vector2I(1280, 720);
+    SettingsManager.WindowGetModeOverride = () => simulatedWindowMode;
+    SettingsManager.WindowGetSizeOverride = () => simulatedWindowSize;
+    SettingsManager.WindowSetModeOverride = mode => simulatedWindowMode = mode;
+    SettingsManager.WindowSetSizeOverride = size => simulatedWindowSize = size;
+    SettingsManager.FileWriteTextOverride = (_, _) => { };
+    SettingsManager.FileMoveWithOverwriteOverride = (_, _, _) => { };
+    SettingsManager.FileMoveOverride = (_, _) => { };
+    SettingsManager.FileDeleteOverride = _ => { };
+
+    var settingsManager = new SettingsManager();
+    _sceneTree.Root.AddChild(settingsManager);
+    await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+    try
+    {
+        var closed = false;
+        _ctrl.Closed += () => closed = true;
+        _ctrl.OpenSettings(settingsManager.GetSnapshot());
+        GetField<CheckBox>(_ctrl, "_reducedMotionCheck").ButtonPressed = true;
+
+        InvokePrivate(_ctrl, "OnApplyPressed");
+
+        AssertThat(settingsManager.GetSnapshot().ReducedMotionEnabled).IsTrue();
+        AssertThat(closed).IsTrue();
+    }
+    finally
+    {
+        if (GodotObject.IsInstanceValid(settingsManager))
+            settingsManager.QueueFree();
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+        SettingsManager.WindowGetModeOverride = null;
+        SettingsManager.WindowGetSizeOverride = null;
+        SettingsManager.WindowSetModeOverride = null;
+        SettingsManager.WindowSetSizeOverride = null;
+        SettingsManager.FileWriteTextOverride = null;
+        SettingsManager.FileMoveWithOverwriteOverride = null;
+        SettingsManager.FileMoveOverride = null;
+        SettingsManager.FileDeleteOverride = null;
+    }
+}
 ```
 
-and after Apply add:
-
-```csharp
-AssertThat(settingsManager.GetSnapshot().ReducedMotionEnabled).IsTrue();
-```
+This test exists specifically to fail if `OnApplyPressed()` forgets its hand-copied `ReducedMotionEnabled` initializer entry.
 
 - [ ] **Step 6: Run the Settings UI tests and confirm RED**
 
@@ -198,7 +270,7 @@ dotnet test Sirius.sln --settings test.runsettings.local \
   --filter "FullyQualifiedName~SettingsMenuControllerTest|FullyQualifiedName~SettingsMenuSceneTest"
 ```
 
-Expected: FAIL because the nodes/controller field do not exist.
+Expected: FAIL because the authored nodes/controller field do not exist.
 
 - [ ] **Step 7: Author the Display row and staged binding**
 
@@ -271,13 +343,15 @@ git commit -m "feat(settings): add reduced motion preference"
 - Modify: `scripts/ui/BattleManager.cs`
 - Test: `tests/ui/BattleManagerTest.cs`
 - Test: `tests/ui/BattleSceneTest.cs`
+- Audit only: `scripts/ui/theme/SiriusMotion.cs`
 
 **Interfaces:**
 - Produces: `StartBattle(Character player, Enemy enemy, bool reducedMotionEnabled = false)`.
 - Stores: private `_reducedMotionEnabled` for the Battle instance.
 - Does not read `SettingsManager`.
+- Does not call `SiriusMotion`; local `1.0`/`0.1` Battle presentation durations remain local.
 
-- [ ] **Step 1: Write failing reduced tween tests**
+- [ ] **Step 1: Write failing deterministic reduced tween tests**
 
 Add to `BattleManagerTest`:
 
@@ -311,6 +385,8 @@ public async Task PlayAttackAnimation_ReducedMotionSkipsTweenAndVisualMutation()
 }
 ```
 
+Add the damage regression using `Tween.CustomStep(...)`, matching the existing showcase motion tests rather than wall-clock waiting:
+
 ```csharp
 [TestCase]
 public async Task ShowDamageNumber_ReducedMotionFadesWithoutTranslation()
@@ -324,13 +400,20 @@ public async Task ShowDamageNumber_ReducedMotionFadesWithoutTranslation()
         var resting = label.Position;
 
         InvokePrivateMethod(manager, "ShowDamageNumber", label, 25, false);
-        await ToSignal(
-            ((SceneTree)Engine.GetMainLoop()).CreateTimer(0.1),
-            Timer.SignalName.Timeout);
+
+        var tweens = GetPrivateField<System.Collections.Generic.HashSet<Tween>>(
+            manager, "_visualTweens");
+        AssertThat(tweens.Count).IsEqual(1);
+        var tween = tweens.Single();
+        tween.Pause();
+        tween.CustomStep(0.5d);
 
         AssertThat(label.Position).IsEqual(resting);
-        AssertThat(label.Modulate.A).IsLess(1f);
-        AssertThat(label.Modulate.A).IsGreater(0f);
+        AssertThat(label.Modulate.A).IsEqualApprox(0.5f, 0.01f);
+
+        tween.CustomStep(0.5d);
+        AssertThat(label.Position).IsEqual(resting);
+        AssertThat(label.Modulate.A).IsEqualApprox(0f, 0.01f);
     }
     finally
     {
@@ -339,7 +422,9 @@ public async Task ShowDamageNumber_ReducedMotionFadesWithoutTranslation()
 }
 ```
 
-Keep the existing `StopBattleRuntime_KillsTrackedVisualTweens` as the normal attack-tween regression.
+This pins the retained **1.0-second** fade: halfway through the tracked tween alpha is about 0.5. A mistaken reuse of `SiriusMotion.ReducedOpacitySeconds` would fail the test.
+
+Keep the existing `StopBattleRuntime_KillsTrackedVisualTweens` as the normal attack-tween cleanup regression.
 
 - [ ] **Step 2: Write failing real-scene idle tests**
 
@@ -366,6 +451,8 @@ public async Task ReducedMotion_StartBattleKeepsActorIdleSpritesStatic()
     AssertThat(enemy.Frame).IsEqual(0);
 }
 ```
+
+Add the normal counterpart:
 
 ```csharp
 [TestCase]
@@ -467,15 +554,17 @@ if (!_reducedMotionEnabled)
 }
 ```
 
-Keep:
+Keep the local fade exactly as:
 
 ```csharp
 tween.TweenProperty(damageLabel, "modulate:a", 0.0f, 1.0);
 ```
 
+Do **not** replace `1.0` with `SiriusMotion.Duration(...)`, `SiriusMotion.ReducedOpacitySeconds`, or a new shared motion helper. `SiriusMotion` is chrome entry/exit policy, not Battle juice.
+
 Do not edit `_battleTimer.WaitTime = 1.5` or turn/progress logic.
 
-- [ ] **Step 7: Run Battle suites and commit**
+- [ ] **Step 7: Run Battle suites, verify the reuse boundary, and commit**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local \
@@ -483,6 +572,12 @@ dotnet test Sirius.sln --settings test.runsettings.local \
 ```
 
 Expected: PASS.
+
+```bash
+rg -n 'SiriusMotion' scripts/ui/BattleManager.cs
+```
+
+Expected: no matches.
 
 ```bash
 git add scripts/ui/BattleManager.cs tests/ui/BattleManagerTest.cs tests/ui/BattleSceneTest.cs
@@ -496,6 +591,7 @@ git commit -m "feat(ui): reduce battle motion"
 **Files:**
 - Modify: `scripts/game/Game.cs`
 - Test: `tests/game/GameTest.cs`
+- Audit only: `scripts/ui/theme/SiriusMotion.cs`
 - Audit only: `scripts/ui/showcase/SiriusUiShowcase.cs`
 - Audit only: `docs/ui/hpa-376/ui-lifecycle-contract.md`
 - Audit only: `docs/PRD.md`
@@ -545,7 +641,7 @@ public async Task BattleStart_UsesCurrentReducedMotionSetting()
 }
 ```
 
-Add:
+Add the local static swap helper, following the existing `SettingsManagerTest.ResetSingleton` mechanism:
 
 ```csharp
 private static void SetSettingsManagerInstance(SettingsManager? manager)
@@ -568,7 +664,7 @@ The temporary manager stays out of the tree, so the test neither applies runtime
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~GameTest"
 ```
 
-Expected: the hosted Battle starts with `_reducedMotionEnabled == false`.
+Expected: the hosted Battle starts with `_reducedMotionEnabled == false` because `Game` still calls the two-argument form.
 
 - [ ] **Step 3: Pass the snapshot value at the existing Battle composition seam**
 
@@ -588,7 +684,7 @@ battle.StartBattle(
     reducedMotionEnabled);
 ```
 
-Do not cache the setting on `Game`, subscribe to changes, or edit Main Menu.
+Do not cache the setting on `Game`, subscribe to changes, edit Main Menu, or pass a policy object.
 
 - [ ] **Step 4: Run all focused HPA-541 suites**
 
@@ -599,7 +695,7 @@ dotnet test Sirius.sln --settings test.runsettings.local \
 
 Expected: PASS.
 
-- [ ] **Step 5: Re-run the production-motion audit**
+- [ ] **Step 5: Re-run the production-motion and wrong-reuse audits**
 
 ```bash
 rg -n 'CreateTween|TweenProperty|SetAnimationLoop|\.Play\("idle"\)' scripts/ui \
@@ -609,11 +705,18 @@ rg -n 'CreateTween|TweenProperty|SetAnimationLoop|\.Play\("idle"\)' scripts/ui \
 Expected: player-facing motion ownership remains in `scripts/ui/BattleManager.cs`.
 
 ```bash
-git diff main...HEAD -- scripts/ui/showcase/SiriusUiShowcase.cs \
+rg -n 'SiriusMotion' scripts/ui/BattleManager.cs
+```
+
+Expected: no matches.
+
+```bash
+git diff main...HEAD -- scripts/ui/theme/SiriusMotion.cs \
+  scripts/ui/showcase/SiriusUiShowcase.cs \
   docs/ui/hpa-376/ui-lifecycle-contract.md docs/PRD.md CLAUDE.md
 ```
 
-Expected: empty unless an existing statement became factually stale.
+Expected: empty unless an existing documentation statement became factually stale. `SiriusMotion.cs` itself is not modified.
 
 - [ ] **Step 6: Run full verification**
 
@@ -640,6 +743,7 @@ Verification:
 - dotnet test Sirius.sln --settings test.runsettings.local
 - git diff --check
 - production motion survey: BattleManager remains the only player-facing UI motion owner
+- wrong-reuse survey: BattleManager has no SiriusMotion dependency
 ```
 
 Mark this same PR ready only after implementation/review; do not create another PR for HPA-541.

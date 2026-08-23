@@ -84,14 +84,16 @@ The existing Apply/Cancel and focus ownership stays unchanged.
 
 `Game`, which already instantiates and starts Battle, reads the current snapshot when opening each Battle and passes the scalar preference into `BattleManager` before motion starts.
 
-Prefer making the setting part of Battle startup rather than introducing mutable global state:
+Make the setting part of Battle startup rather than introducing mutable global state:
 
 ```csharp
 public void StartBattle(
     Character player,
     Enemy enemy,
-    bool reducedMotionEnabled)
+    bool reducedMotionEnabled = false)
 ```
+
+`BattleManager` copies the argument into private Battle-instance state before setting up actor animation.
 
 `Game` supplies:
 
@@ -112,6 +114,8 @@ SettingsManager -> snapshot -> Game -> bool -> BattleManager
 ```
 
 There is no shared `MotionPolicy` object and no subscriber lifecycle to manage.
+
+The optional argument keeps the many existing Battle-focused tests terse while still making the production Game call explicit; it is not a compatibility layer or migration mechanism.
 
 ### Why Main Menu needs no production edit
 
@@ -229,13 +233,17 @@ Use existing suites and private/reflection helpers; do not widen production visi
 
 ### Battle motion
 
-`BattleManagerTest` covers representative normal/reduced behavior:
+`BattleManagerTest` covers the local tween policy:
 
 - reduced attack feedback leaves scale/modulation unchanged and creates no attack tween;
 - reduced damage feedback does not change position but still fades/resets on the existing 1-second schedule;
-- reduced Battle startup leaves player/enemy idle sprites static;
-- normal mode keeps the existing tween/idle behavior;
+- normal mode keeps the existing attack/damage tween behavior;
 - `StopBattleRuntime()` still kills any tracked visual tweens and resets visual state.
+
+`BattleSceneTest` covers startup animation presentation through the real scene:
+
+- reduced Battle startup leaves player/enemy idle sprites static;
+- normal Battle startup keeps the current looping idle animations.
 
 ### Root propagation
 
@@ -258,6 +266,7 @@ Keep the test local to `GameTest`; do not introduce a production settings-provid
 - `tests/ui/SettingsMenuControllerTest.cs`
 - `tests/ui/SettingsMenuSceneTest.cs`
 - `tests/ui/BattleManagerTest.cs`
+- `tests/ui/BattleSceneTest.cs`
 - `tests/game/GameTest.cs`
 
 ### Audit only

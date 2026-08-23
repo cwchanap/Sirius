@@ -400,6 +400,23 @@ size_flags_horizontal = 3
 theme_type_variation = &"SiriusTitleCompact"
 text = "Items"
 
+[node name="InventoryToolbar" type="HBoxContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/ItemsPage/ItemsContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="InventoryFilter" type="OptionButton" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/ItemsPage/ItemsContent/InventoryToolbar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="InventorySort" type="OptionButton" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/ItemsPage/ItemsContent/InventoryToolbar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+
 [node name="InventoryScroll" type="ScrollContainer" parent="SafeFrame/ScreenSurface/Content/PageScroll/ResponsiveContent/ItemsPage/ItemsContent"]
 unique_name_in_owner = true
 layout_mode = 2

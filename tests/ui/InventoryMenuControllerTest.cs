@@ -428,6 +428,37 @@ public partial class InventoryMenuControllerTest : Node
     private SiriusItemSlotController GetSlot(string slotPath) =>
         _inventoryMenu.GetNode<SiriusItemSlotController>(slotPath);
 
+    private OptionButton InventoryFilterControl() =>
+        _inventoryMenu.GetNode<OptionButton>("%InventoryFilter");
+
+    private OptionButton InventorySortControl() =>
+        _inventoryMenu.GetNode<OptionButton>("%InventorySort");
+
+    private void SelectInventoryFilter(string label)
+    {
+        var filter = InventoryFilterControl();
+        var index = Enumerable.Range(0, filter.ItemCount)
+            .Single(i => filter.GetItemText(i) == label);
+        filter.Select(index);
+        filter.EmitSignal(OptionButton.SignalName.ItemSelected, (long)index);
+    }
+
+    private void SelectInventorySort(string label)
+    {
+        var sort = InventorySortControl();
+        var index = Enumerable.Range(0, sort.ItemCount)
+            .Single(i => sort.GetItemText(i) == label);
+        sort.Select(index);
+        sort.EmitSignal(OptionButton.SignalName.ItemSelected, (long)index);
+    }
+
+    private string[] VisibleInventoryNames() =>
+        _inventoryMenu.GetNode<Container>("%InventoryGrid")
+            .GetChildren()
+            .OfType<SiriusItemSlotController>()
+            .Select(slot => slot.TooltipText.Split('\n')[0])
+            .ToArray();
+
     private Button DetailsActionButton() =>
         _inventoryMenu.GetNode<Button>("%DetailsActionButton");
 
@@ -459,6 +490,11 @@ public partial class InventoryMenuControllerTest : Node
                 SlotType = EquipmentSlotType.Weapon
             }, 1, out _)).IsTrue();
         }
+    }
+
+    private sealed partial class QuestTestItem : Item
+    {
+        public QuestTestItem() => SetCategory(ItemCategory.Quest);
     }
 
     [TestCase]
@@ -534,6 +570,7 @@ public partial class InventoryMenuControllerTest : Node
             }
 
             _inventoryMenu.OpenMenu();
+            SelectInventorySort("Name");
 
             var slots = _inventoryMenu.GetNode<Container>("%InventoryGrid")
                 .GetChildren().OfType<SiriusItemSlotController>().ToArray();
@@ -552,6 +589,132 @@ public partial class InventoryMenuControllerTest : Node
             CultureInfo.CurrentCulture = originalCulture;
             CultureInfo.CurrentUICulture = originalUiCulture;
         }
+    }
+
+    [TestCase]
+    public void InventoryFilter_ShowsAllAndExactCategoryMatches()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+
+        AssertThat(player.TryAddItem(new EquipmentItem
+        {
+            Id = "filter_equipment",
+            DisplayName = "Equipment Item",
+            SlotType = EquipmentSlotType.Weapon
+        }, 1, out _)).IsTrue();
+
+        var consumable = ConsumableCatalog.CreateHealthPotion();
+        consumable.DisplayName = "Consumable Item";
+        AssertThat(player.TryAddItem(consumable, 1, out _)).IsTrue();
+
+        AssertThat(player.TryAddItem(new GeneralItem
+        {
+            Id = "filter_general",
+            DisplayName = "General Item"
+        }, 1, out _)).IsTrue();
+
+        AssertThat(player.TryAddItem(new QuestTestItem
+        {
+            Id = "filter_quest",
+            DisplayName = "Quest Item"
+        }, 1, out _)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+
+        var filter = InventoryFilterControl();
+        AssertThat(filter.ItemCount).IsEqual(5);
+        AssertThat(Enumerable.Range(0, filter.ItemCount)
+            .Select(filter.GetItemText)
+            .ToArray())
+            .IsEqual(new[] { "All", "Equipment", "Consumable", "General", "Quest" });
+
+        SelectInventoryFilter("All");
+        AssertThat(VisibleInventoryNames())
+            .IsEqual(new[] { "Consumable Item", "Equipment Item", "General Item", "Quest Item" });
+
+        SelectInventoryFilter("Equipment");
+        AssertThat(VisibleInventoryNames()).IsEqual(new[] { "Equipment Item" });
+
+        SelectInventoryFilter("Consumable");
+        AssertThat(VisibleInventoryNames()).IsEqual(new[] { "Consumable Item" });
+
+        SelectInventoryFilter("General");
+        AssertThat(VisibleInventoryNames()).IsEqual(new[] { "General Item" });
+
+        SelectInventoryFilter("Quest");
+        AssertThat(VisibleInventoryNames()).IsEqual(new[] { "Quest Item" });
+    }
+
+    [TestCase]
+    public void Catalogue_CategorySort_UsesCategoryThenDisplayName()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+
+        AssertThat(player.TryAddItem(new GeneralItem
+        {
+            Id = "category_general_z",
+            DisplayName = "Z General"
+        }, 1, out _)).IsTrue();
+        AssertThat(player.TryAddItem(new GeneralItem
+        {
+            Id = "category_general_a",
+            DisplayName = "A General"
+        }, 1, out _)).IsTrue();
+        AssertThat(player.TryAddItem(new EquipmentItem
+        {
+            Id = "category_equipment",
+            DisplayName = "A Equipment",
+            SlotType = EquipmentSlotType.Weapon
+        }, 1, out _)).IsTrue();
+
+        var consumable = ConsumableCatalog.CreateHealthPotion();
+        consumable.DisplayName = "A Consumable";
+        AssertThat(player.TryAddItem(consumable, 1, out _)).IsTrue();
+
+        AssertThat(player.TryAddItem(new QuestTestItem
+        {
+            Id = "category_quest",
+            DisplayName = "A Quest"
+        }, 1, out _)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+        SelectInventorySort("Category");
+
+        AssertThat(VisibleInventoryNames())
+            .IsEqual(new[] { "A General", "Z General", "A Equipment", "A Consumable", "A Quest" });
+    }
+
+    [TestCase]
+    public void NameSort_UsesItemIdAsFinalOrdinalTieBreak()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        var lower = new EquipmentItem
+        {
+            Id = "a_tie",
+            DisplayName = "Same",
+            Description = "Lower id item",
+            SlotType = EquipmentSlotType.Weapon
+        };
+        var upper = new EquipmentItem
+        {
+            Id = "b_tie",
+            DisplayName = "Same",
+            Description = "Upper id item",
+            SlotType = EquipmentSlotType.Weapon
+        };
+        AssertThat(player.TryAddItem(upper, 1, out _)).IsTrue();
+        AssertThat(player.TryAddItem(lower, 1, out _)).IsTrue();
+        _inventoryMenu.OpenMenu();
+
+        var first = _inventoryMenu.GetNode<Container>("%InventoryGrid")
+            .GetChildren().OfType<SiriusItemSlotController>().First();
+        first.EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(_inventoryMenu.GetNode<Label>("%DetailsBody").Text)
+            .Contains("Lower id item");
     }
 
     [TestCase]
@@ -886,6 +1049,32 @@ public partial class InventoryMenuControllerTest : Node
         AssertThat(_inventoryMenu.GetViewport().GuiGetFocusOwner()).IsEqual(secondSlot);
         AssertThat(_inventoryMenu.GetNode<Label>("%FocusSummary").Text)
             .Contains("B Second");
+    }
+
+    [TestCase]
+    public void UnequipResultHiddenByFilter_ClearsSelectionWithoutResettingFilter()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        var potion = ConsumableCatalog.CreateHealthPotion();
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(player.TryAddItem(potion, 1, out _)).IsTrue();
+        AssertThat(player.TryEquip(sword, out _)).IsTrue();
+        _inventoryMenu.OpenMenu();
+
+        var filter = InventoryFilterControl();
+        var consumableIndex = Enumerable.Range(0, filter.ItemCount)
+            .Single(i => filter.GetItemText(i) == "Consumable");
+        filter.Select(consumableIndex);
+        filter.EmitSignal(OptionButton.SignalName.ItemSelected, (long)consumableIndex);
+
+        GetSlot("%WeaponSlot").EmitSignal(Button.SignalName.Pressed);
+        DetailsActionButton().EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(player.Inventory.ContainsItem(sword.Id)).IsTrue();
+        AssertThat(filter.GetItemText(filter.Selected)).IsEqual("Consumable");
+        AssertThat(_inventoryMenu.GetNode<Label>("%DetailsName").Text).IsEmpty();
+        AssertThat(DetailsActionButton().Visible).IsFalse();
     }
 
     [TestCase]

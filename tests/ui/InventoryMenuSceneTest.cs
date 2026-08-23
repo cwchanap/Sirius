@@ -98,6 +98,17 @@ public partial class InventoryMenuSceneTest : Node
             AssertThat(new Rect2(Vector2.Zero, size).Encloses(safe.GetGlobalRect())).IsTrue();
             AssertThat(safe.Size.X).IsGreater(0f);
             AssertThat(safe.Size.Y).IsGreater(0f);
+
+            if (SiriusUiMetrics.IsCompact(size))
+            {
+                AssertThat(VisiblePageCount()).IsEqual(1);
+            }
+            else
+            {
+                AssertThat(VisiblePageCount()).IsEqual(4);
+                var detailsPage = _menu.GetNode<Control>("%DetailsPage");
+                AssertThat(detailsPage.Visible).IsTrue();
+            }
         }
     }
 
@@ -126,7 +137,7 @@ public partial class InventoryMenuSceneTest : Node
     }
 
     [TestCase]
-    public async Task Standard_ShowsAllThreeContentAreasTogether()
+    public async Task Standard_ShowsAllFourContentAreasTogether()
     {
         await Resize(new Vector2I(1280, 720));
         _menu.OpenMenu();
@@ -136,6 +147,7 @@ public partial class InventoryMenuSceneTest : Node
         AssertThat(_menu.GetNode<Control>("%EquipmentPage").Visible).IsTrue();
         AssertThat(_menu.GetNode<Control>("%SkillsPage").Visible).IsTrue();
         AssertThat(_menu.GetNode<Control>("%ItemsPage").Visible).IsTrue();
+        AssertThat(_menu.GetNode<Control>("%DetailsPage").Visible).IsTrue();
         AssertThat(_menu.GetNode<Label>("%EquipmentTitleLabel").Text).IsEqual("Equipment");
         AssertThat(_menu.GetNode<Label>("%InventoryTitleLabel").Text).IsEqual("Items");
         AssertThat(_menu.GetNode<SiriusItemSlotController>("%WeaponSlot").CustomMinimumSize)
@@ -184,12 +196,71 @@ public partial class InventoryMenuSceneTest : Node
         _menu.OpenMenu();
         await AwaitFrames(2);
 
-        _menu.GetNode<Button>("%DetailsTab").EmitSignal(Button.SignalName.Pressed);
+        var detailsTab = _menu.GetNode<Button>("%DetailsTab");
+        detailsTab.EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(1);
 
         AssertThat(VisiblePageCount()).IsEqual(1);
         AssertThat(_menu.GetNode<Control>("%DetailsPage").Visible).IsTrue();
         AssertThat(_menu.GetNode<Control>("%CharacterColumn").Visible).IsFalse();
+        AssertThat(detailsTab.ButtonPressed).IsTrue();
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(detailsTab);
+    }
+
+    [TestCase]
+    public async Task Compact_ActionableSelection_OpensDetailsWithActionFocused()
+    {
+        _gameManager.Player.Inventory.Clear();
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(_gameManager.Player.TryAddItem(sword, 1, out _)).IsTrue();
+
+        await Resize(new Vector2I(640, 360));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+        _menu.GetNode<Button>("%ItemsTab").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        var slot = _menu.GetNode<Container>("%InventoryGrid")
+            .GetChildren().OfType<SiriusItemSlotController>()
+            .Single(itemSlot => itemSlot.TooltipText.Contains(sword.DisplayName, StringComparison.Ordinal));
+        slot.EmitSignal(Button.SignalName.Pressed);
+        _menu.GetNode<Button>("%DetailsTab").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        var action = _menu.GetNode<Button>("%DetailsActionButton");
+        AssertThat(action.Visible).IsTrue();
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(action);
+    }
+
+    [TestCase]
+    public async Task Compact_SelectionWithoutAction_OpensDetailsWithTabFocused()
+    {
+        _gameManager.Player.Inventory.Clear();
+        var item = new GeneralItem
+        {
+            Id = "compact_no_action_item",
+            DisplayName = "Compact No Action Item"
+        };
+        AssertThat(_gameManager.Player.TryAddItem(item, 1, out _)).IsTrue();
+
+        await Resize(new Vector2I(640, 360));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+        _menu.GetNode<Button>("%ItemsTab").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        var slot = _menu.GetNode<Container>("%InventoryGrid")
+            .GetChildren().OfType<SiriusItemSlotController>()
+            .Single(itemSlot => itemSlot.TooltipText.Contains(item.DisplayName, StringComparison.Ordinal));
+        slot.EmitSignal(Button.SignalName.Pressed);
+        var detailsTab = _menu.GetNode<Button>("%DetailsTab");
+        detailsTab.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        var action = _menu.GetNode<Button>("%DetailsActionButton");
+        AssertThat(action.Visible).IsFalse();
+        AssertThat(detailsTab.ButtonPressed).IsTrue();
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(detailsTab);
     }
 
     [TestCase]
@@ -317,6 +388,30 @@ public partial class InventoryMenuSceneTest : Node
             });
             await AwaitFrames(2);
             AssertThat(_menu.GetNode<Button>("%SkillsTab").ButtonPressed).IsTrue();
+
+            _viewport.PushInput(new InputEventJoypadButton
+            {
+                ButtonIndex = JoyButton.RightShoulder,
+                Pressed = true
+            });
+            await AwaitFrames(2);
+            AssertThat(_menu.GetNode<Button>("%DetailsTab").ButtonPressed).IsTrue();
+
+            _viewport.PushInput(new InputEventJoypadButton
+            {
+                ButtonIndex = JoyButton.RightShoulder,
+                Pressed = true
+            });
+            await AwaitFrames(2);
+            AssertThat(_menu.GetNode<Button>("%EquipmentTab").ButtonPressed).IsTrue();
+
+            _viewport.PushInput(new InputEventJoypadButton
+            {
+                ButtonIndex = JoyButton.LeftShoulder,
+                Pressed = true
+            });
+            await AwaitFrames(2);
+            AssertThat(_menu.GetNode<Button>("%DetailsTab").ButtonPressed).IsTrue();
         }
         finally
         {
@@ -419,32 +514,26 @@ public partial class InventoryMenuSceneTest : Node
     }
 
     [TestCase]
-    public async Task CompactSlotSelection_DoesNotAutoSwitchToDetails()
+    public async Task Compact_ItemSelectionStaysOnItemsUntilDetailsIsOpened()
     {
         _gameManager.Player.Inventory.Clear();
-        var sword = EquipmentCatalog.CreateIronSword();
-        AssertThat(_gameManager.Player.TryAddItem(sword, 1, out _)).IsTrue();
+        var potion = ConsumableCatalog.CreateHealthPotion();
+        AssertThat(_gameManager.Player.TryAddItem(potion, 1, out _)).IsTrue();
 
         await Resize(new Vector2I(640, 360));
         _menu.OpenMenu();
         await AwaitFrames(2);
-
-        var itemsTab = _menu.GetNode<Button>("%ItemsTab");
-        itemsTab.EmitSignal(Button.SignalName.Pressed);
+        _menu.GetNode<Button>("%ItemsTab").EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(1);
 
         var slot = _menu.GetNode<Container>("%InventoryGrid")
-            .GetChildren()
-            .OfType<SiriusItemSlotController>()
-            .Single(itemSlot => itemSlot.TooltipText.Contains(sword.DisplayName, StringComparison.Ordinal));
+            .GetChildren().OfType<SiriusItemSlotController>().Single();
         slot.EmitSignal(Button.SignalName.Pressed);
         await AwaitFrames(1);
 
-        AssertThat(itemsTab.ButtonPressed).IsTrue();
-        AssertThat(_menu.GetNode<Control>("%ItemsPage").Visible).IsTrue();
-        AssertThat(_menu.GetNode<Control>("%DetailsPage").Visible).IsFalse();
+        AssertThat(_menu.GetNode<Button>("%ItemsTab").ButtonPressed).IsTrue();
+        AssertThat(_menu.GetNode<Button>("%DetailsTab").ButtonPressed).IsFalse();
         AssertThat(slot.ButtonPressed).IsTrue();
-        AssertThat(_menu.GetNode<Label>("%DetailsName").Text).IsEqual(sword.DisplayName);
     }
 
     [TestCase]
@@ -465,6 +554,67 @@ public partial class InventoryMenuSceneTest : Node
         AssertThat(characterColumn.Visible).IsFalse();
         AssertThat(itemsPage.GetGlobalRect().Size.X).IsGreater(safeFrame.GetGlobalRect().Size.X * 0.8f);
         AssertThat(new Rect2(Vector2.Zero, size).Encloses(itemsPage.GetGlobalRect())).IsTrue();
+    }
+
+    [TestCase]
+    public async Task Compact_EquipFromDetailsSwitchesToEquipmentAndFocusesResultSlot()
+    {
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(_gameManager.Player.TryAddItem(sword, 1, out _)).IsTrue();
+
+        await Resize(new Vector2I(640, 360));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+        _menu.GetNode<Button>("%ItemsTab").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        var itemSlot = _menu.GetNode<Container>("%InventoryGrid")
+            .GetChildren().OfType<SiriusItemSlotController>()
+            .Single(slot => slot.TooltipText.Contains(sword.DisplayName, StringComparison.Ordinal));
+        itemSlot.EmitSignal(Button.SignalName.Pressed);
+        _menu.GetNode<Button>("%DetailsTab").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        var action = _menu.GetNode<Button>("%DetailsActionButton");
+        action.GrabFocus();
+        action.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var weapon = _menu.GetNode<SiriusItemSlotController>("%WeaponSlot");
+        AssertThat(_menu.GetNode<Button>("%EquipmentTab").ButtonPressed).IsTrue();
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(weapon);
+        AssertThat(action.HasFocus()).IsFalse();
+    }
+
+    [TestCase]
+    public async Task Compact_ConsumingFinalItemSwitchesToItemsAndFocusesItemsTab()
+    {
+        _gameManager.Player.Inventory.Clear();
+        var potion = ConsumableCatalog.CreateHealthPotion();
+        AssertThat(_gameManager.Player.TryAddItem(potion, 1, out _)).IsTrue();
+        _gameManager.Player.CurrentHealth = 1;
+
+        await Resize(new Vector2I(640, 360));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+        _menu.GetNode<Button>("%ItemsTab").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        var itemSlot = _menu.GetNode<Container>("%InventoryGrid")
+            .GetChildren().OfType<SiriusItemSlotController>().Single();
+        itemSlot.EmitSignal(Button.SignalName.Pressed);
+        _menu.GetNode<Button>("%DetailsTab").EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        var action = _menu.GetNode<Button>("%DetailsActionButton");
+        action.GrabFocus();
+        action.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(2);
+
+        var itemsTab = _menu.GetNode<Button>("%ItemsTab");
+        AssertThat(itemsTab.ButtonPressed).IsTrue();
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(itemsTab);
+        AssertThat(_menu.GetNode<Container>("%InventoryGrid").GetChildCount()).IsEqual(0);
     }
 
     [TestCase]
@@ -620,6 +770,33 @@ public partial class InventoryMenuSceneTest : Node
         AssertThat(_menu.GetNode<Button>("%ItemsTab").ButtonPressed).IsTrue();
         AssertThat(sort.IsVisibleInTree()).IsTrue();
         AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(sort);
+    }
+
+    [TestCase]
+    public async Task StandardToCompact_PreservesFocusOnDetailsAction()
+    {
+        _gameManager.Player.Inventory.Clear();
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(_gameManager.Player.TryAddItem(sword, 1, out _)).IsTrue();
+
+        await Resize(new Vector2I(1280, 720));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var itemSlot = _menu.GetNode<Container>("%InventoryGrid")
+            .GetChildren().OfType<SiriusItemSlotController>()
+            .Single(slot => slot.TooltipText.Contains(sword.DisplayName, StringComparison.Ordinal));
+        itemSlot.EmitSignal(Button.SignalName.Pressed);
+        var action = _menu.GetNode<Button>("%DetailsActionButton");
+        action.GrabFocus();
+        await AwaitFrames(1);
+
+        await Resize(new Vector2I(640, 360));
+        await AwaitFrames(2);
+
+        AssertThat(_menu.GetNode<Button>("%DetailsTab").ButtonPressed).IsTrue();
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(action);
+        AssertThat(action.IsVisibleInTree()).IsTrue();
     }
 
     [TestCase]

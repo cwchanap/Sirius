@@ -1,7 +1,7 @@
 # HPA-375 Inventory Browsing Enhancements Design
 
-**Status:** Planning candidate  
-**Linear:** HPA-375 — Enhance Sirius inventory browsing with details, comparison, filters, and sorting  
+**Status:** Planning candidate
+**Linear:** HPA-375 — Enhance Sirius inventory browsing with details, comparison, filters, and sorting
 **Date:** 2026-08-22
 
 ## 1. Decision

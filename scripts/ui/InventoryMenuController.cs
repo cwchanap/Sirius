@@ -64,6 +64,7 @@ public partial class InventoryMenuController : Control
 	private InventorySort _inventorySort = InventorySort.Name;
 	private bool _isCompact;
 	private bool _isRefreshingActiveSkillSelector;
+	private bool _awaitingMutationRefresh;
 	private InventorySemanticKey? _selection;
 	private PendingFocusRestore? _pendingFocusRestore;
 
@@ -594,13 +595,17 @@ public partial class InventoryMenuController : Control
 		RefreshSelectionVisuals();
 		RefreshFocusSummaryFromCurrentFocus();
 		RestorePendingFocus();
+		_awaitingMutationRefresh = false;
 	}
 
-	private void RefreshUiDeferred()
+	private void RefreshUiDeferred(bool fromMutation = false)
 	{
 		// The mutation already re-targeted _selection; block re-entry until the
-		// deferred refresh rebuilds the action for its new meaning.
+		// deferred refresh rebuilds the action for its new meaning. A selection
+		// made before the refresh re-renders from live data, but a mutation
+		// pending flag keeps the stale action dead until the rebuild lands.
 		_detailsActionButton.Disabled = true;
+		_awaitingMutationRefresh = fromMutation;
 		Callable.From(RefreshUI).CallDeferred();
 	}
 
@@ -826,7 +831,7 @@ public partial class InventoryMenuController : Control
 
 	private void OnDetailsActionPressed()
 	{
-		if (_detailsActionButton.Disabled || _selection is not { } selection)
+		if (_detailsActionButton.Disabled || _awaitingMutationRefresh || _selection is not { } selection)
 			return;
 
 		if (selection.ItemId != null && TryResolveSelectedInventoryEntry(out _, out var entry))
@@ -1079,14 +1084,14 @@ public partial class InventoryMenuController : Control
 			else
 				_gameManager.Player.TryEquip(removed, out _);
 			GD.PushWarning("Unable to unequip item: inventory is full or already contains this unique item.");
-			RefreshUiDeferred();
+			RefreshUiDeferred(fromMutation: true);
 			return;
 		}
 
 		var resultingKey = InventorySemanticKey.ForItem(removed.Id);
 		_selection = resultingKey;
 		_pendingFocusRestore = new PendingFocusRestore(resultingKey, -1);
-		RefreshUiDeferred();
+		RefreshUiDeferred(fromMutation: true);
 	}
 
 	private void UseConsumableOutOfBattle(ConsumableItem item)
@@ -1119,7 +1124,7 @@ public partial class InventoryMenuController : Control
 		_selection = resultingKey;
 		_pendingFocusRestore = new PendingFocusRestore(resultingKey, previousIndex);
 		_gameManager.NotifyPlayerStatsChanged();
-		RefreshUiDeferred();
+		RefreshUiDeferred(fromMutation: true);
 	}
 
 	private int ResolveVisibleInventoryIndex(string itemId) =>
@@ -1169,7 +1174,7 @@ public partial class InventoryMenuController : Control
 			: InventorySemanticKey.ForEquipment(item.SlotType);
 		_selection = resultingKey;
 		_pendingFocusRestore = new PendingFocusRestore(resultingKey, previousCatalogueIndex);
-		RefreshUiDeferred();
+		RefreshUiDeferred(fromMutation: true);
 	}
 
 	private void SeedPendingFocusRestoreFromCurrentFocus()

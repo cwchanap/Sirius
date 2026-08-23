@@ -1432,6 +1432,32 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
+    public async Task DetailsAction_SlotPressBeforeDeferredRefresh_DoesNotReEnableStaleAction()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(player.TryAddItem(sword, 1, out _)).IsTrue();
+        _inventoryMenu.OpenMenu();
+
+        FindInventorySlotByTooltip(sword.DisplayName)
+            .EmitSignal(Button.SignalName.Pressed);
+        var action = DetailsActionButton();
+        action.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(action.Disabled).IsTrue();
+
+        GetSlot("%WeaponSlot").EmitSignal(Button.SignalName.Pressed);
+        action.EmitSignal(Button.SignalName.Pressed);
+
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+        AssertThat(player.Equipment.GetEquipped(EquipmentSlotType.Weapon))
+            .IsEqual(sword);
+        AssertThat(player.Inventory.ContainsItem(sword.Id)).IsFalse();
+        AssertThat(action.Disabled).IsFalse();
+    }
+
+    [TestCase]
     public async Task ConsumingFinalItem_RestoresFocusToNextCatalogueEntry()
     {
         _gameManager.Player.Inventory.Clear();

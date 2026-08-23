@@ -28,14 +28,23 @@ public partial class InventoryMenuController : Control
 	private Button _equipmentTab = null!;
 	private Button _itemsTab = null!;
 	private Button _skillsTab = null!;
+	private Button _detailsTab = null!;
 	private Control _compactTabs = null!;
 	private Control _equipmentPage = null!;
 	private Control _itemsPage = null!;
 	private Control _skillsPage = null!;
+	private Control _detailsPage = null!;
 	private Control _characterColumn = null!;
 	private Control _safeFrame = null!;
 	private GridContainer _inventoryGrid = null!;
 	private OptionButton _activeSkillSelector = null!;
+	private TextureRect _detailsIcon = null!;
+	private Label _detailsName = null!;
+	private Label _detailsMeta = null!;
+	private Label _detailsBody = null!;
+	private Label _detailsComparison = null!;
+	private Label _detailsActionReason = null!;
+	private Button _detailsActionButton = null!;
 
 	private readonly Dictionary<EquipmentSlotType, SiriusItemSlotController> _equipmentSlots = new();
 	private readonly List<SiriusItemSlotController> _accessorySlots = new();
@@ -63,6 +72,8 @@ public partial class InventoryMenuController : Control
 			target = _inventorySlots.FirstOrDefault();
 		else if (page == InventoryPage.Skills)
 			target = _activeSkillSelector;
+		else if (page == InventoryPage.Details)
+			target = _detailsTab;
 		else if (_equipmentSlots.TryGetValue(EquipmentSlotType.Weapon, out var weapon))
 			target = weapon;
 		else
@@ -80,6 +91,7 @@ public partial class InventoryMenuController : Control
 			{
 				InventoryPage.Items => _itemsTab,
 				InventoryPage.Skills => _skillsTab,
+				InventoryPage.Details => _detailsTab,
 				_ => _equipmentTab
 			};
 			if (CanGrabFocus(tab))
@@ -93,29 +105,30 @@ public partial class InventoryMenuController : Control
 	{
 		Equipment,
 		Items,
-		Skills
+		Skills,
+		Details
 	}
 
-	private readonly record struct InventoryFocusKey(
+	private readonly record struct InventorySemanticKey(
 		EquipmentSlotType? EquipmentSlot,
 		int? AccessoryIndex,
 		string? ItemId)
 	{
-		public static InventoryFocusKey ForEquipment(EquipmentSlotType slot) =>
+		public static InventorySemanticKey ForEquipment(EquipmentSlotType slot) =>
 			new(slot, null, null);
 
-		public static InventoryFocusKey ForAccessory(int index) =>
+		public static InventorySemanticKey ForAccessory(int index) =>
 			new(EquipmentSlotType.Accessory, index, null);
 
-		public static InventoryFocusKey ForItem(string itemId) =>
+		public static InventorySemanticKey ForItem(string itemId) =>
 			new(null, null, itemId);
 	}
 
 	private readonly record struct PendingFocusRestore(
-		InventoryFocusKey Preferred,
+		InventorySemanticKey Preferred,
 		int PreviousCatalogueIndex)
 	{
-		public PendingFocusRestore WithPreferred(InventoryFocusKey preferred) =>
+		public PendingFocusRestore WithPreferred(InventorySemanticKey preferred) =>
 			this with { Preferred = preferred };
 	}
 
@@ -132,6 +145,7 @@ public partial class InventoryMenuController : Control
 		BindNodes();
 		UiIconPresenter.Apply(GetNode<TextureRect>("%EquipmentTitleIcon"), UiIconId.Equipment, UiIconSize.Default);
 		UiIconPresenter.Apply(GetNode<TextureRect>("%InventoryTitleIcon"), UiIconId.General, UiIconSize.Default);
+		UiIconPresenter.Apply(_detailsIcon, UiIconId.Info, UiIconSize.Default);
 		_itemSlotScene = GD.Load<PackedScene>("res://scenes/ui/components/SiriusItemSlot.tscn")
 			?? throw new InvalidOperationException("Failed to load SiriusItemSlot.tscn.");
 		BindSignals();
@@ -171,11 +185,19 @@ public partial class InventoryMenuController : Control
 		_equipmentPage = GetNode<Control>("%EquipmentPage");
 		_itemsPage = GetNode<Control>("%ItemsPage");
 		_skillsPage = GetNode<Control>("%SkillsPage");
+		_detailsPage = GetNode<Control>("%DetailsPage");
 		_characterColumn = GetNode<Control>("%CharacterColumn");
 		_inventoryGrid = GetNode<GridContainer>("%InventoryGrid");
 		_activeSkillSelector = GetNode<OptionButton>("%ActiveSkillSelector");
 		_activeSkillSummary = GetNode<Label>("%ActiveSkillSummary");
 		_focusSummary = GetNode<Label>("%FocusSummary");
+		_detailsIcon = GetNode<TextureRect>("%DetailsIcon");
+		_detailsName = GetNode<Label>("%DetailsName");
+		_detailsMeta = GetNode<Label>("%DetailsMeta");
+		_detailsBody = GetNode<Label>("%DetailsBody");
+		_detailsComparison = GetNode<Label>("%DetailsComparison");
+		_detailsActionReason = GetNode<Label>("%DetailsActionReason");
+		_detailsActionButton = GetNode<Button>("%DetailsActionButton");
 
 		_playerName = GetNode<Label>("%PlayerName");
 		_playerLevel = GetNode<Label>("%PlayerLevel");
@@ -191,6 +213,7 @@ public partial class InventoryMenuController : Control
 		_equipmentTab = GetNode<Button>("%EquipmentTab");
 		_itemsTab = GetNode<Button>("%ItemsTab");
 		_skillsTab = GetNode<Button>("%SkillsTab");
+		_detailsTab = GetNode<Button>("%DetailsTab");
 	}
 
 	private void BindSignals()
@@ -201,6 +224,7 @@ public partial class InventoryMenuController : Control
 		_equipmentTab.Pressed += OnEquipmentTabPressed;
 		_itemsTab.Pressed += OnItemsTabPressed;
 		_skillsTab.Pressed += OnSkillsTabPressed;
+		_detailsTab.Pressed += OnDetailsTabPressed;
 		_closeButton.Pressed += OnCloseButtonPressed;
 
 		var viewport = GetViewport();
@@ -347,6 +371,8 @@ public partial class InventoryMenuController : Control
 			return InventoryPage.Skills;
 		if (focused == _itemsTab)
 			return InventoryPage.Items;
+		if (focused == _detailsTab)
+			return InventoryPage.Details;
 		if (focused == _equipmentTab)
 			return InventoryPage.Equipment;
 
@@ -369,6 +395,7 @@ public partial class InventoryMenuController : Control
 		{
 			InventoryPage.Items => _inventorySlots.FirstOrDefault(CanGrabFocus) ?? (Control?)_itemsTab,
 			InventoryPage.Skills => _activeSkillSelector,
+			InventoryPage.Details => _detailsTab,
 			_ => _equipmentSlots.TryGetValue(EquipmentSlotType.Weapon, out var weapon)
 				? weapon
 				: _equipmentSlots.Values.FirstOrDefault()
@@ -392,6 +419,7 @@ public partial class InventoryMenuController : Control
 		_equipmentTab.ButtonPressed = page == InventoryPage.Equipment;
 		_itemsTab.ButtonPressed = page == InventoryPage.Items;
 		_skillsTab.ButtonPressed = page == InventoryPage.Skills;
+		_detailsTab.ButtonPressed = page == InventoryPage.Details;
 		ApplyPageVisibility();
 	}
 
@@ -399,10 +427,12 @@ public partial class InventoryMenuController : Control
 	{
 		if (_isCompact)
 		{
-			_characterColumn.Visible = _activeCompactPage != InventoryPage.Items;
+			_characterColumn.Visible =
+				_activeCompactPage is InventoryPage.Equipment or InventoryPage.Skills;
 			_equipmentPage.Visible = _activeCompactPage == InventoryPage.Equipment;
 			_itemsPage.Visible = _activeCompactPage == InventoryPage.Items;
 			_skillsPage.Visible = _activeCompactPage == InventoryPage.Skills;
+			_detailsPage.Visible = _activeCompactPage == InventoryPage.Details;
 		}
 		else
 		{
@@ -410,13 +440,14 @@ public partial class InventoryMenuController : Control
 			_equipmentPage.Visible = true;
 			_itemsPage.Visible = true;
 			_skillsPage.Visible = true;
+			_detailsPage.Visible = true;
 		}
 	}
 
 	private void CycleCompactPage(int direction)
 	{
 		var page = (int)_activeCompactPage;
-		page = (page + direction + 3) % 3;
+		page = (page + direction + 4) % 4;
 		SetCompactPage((InventoryPage)page);
 		RestoreCompactPageFocus();
 	}
@@ -427,6 +458,7 @@ public partial class InventoryMenuController : Control
 		{
 			InventoryPage.Items => _inventorySlots.FirstOrDefault(CanGrabFocus),
 			InventoryPage.Skills => _activeSkillSelector,
+			InventoryPage.Details => _detailsTab,
 			_ => _equipmentSlots.TryGetValue(EquipmentSlotType.Weapon, out var weapon)
 				? weapon
 				: _equipmentSlots.Values.FirstOrDefault()
@@ -437,6 +469,7 @@ public partial class InventoryMenuController : Control
 			{
 				InventoryPage.Items => _itemsTab,
 				InventoryPage.Skills => _skillsTab,
+				InventoryPage.Details => _detailsTab,
 				_ => _equipmentTab
 			};
 
@@ -447,6 +480,7 @@ public partial class InventoryMenuController : Control
 	private void OnEquipmentTabPressed() => SetCompactPage(InventoryPage.Equipment);
 	private void OnItemsTabPressed() => SetCompactPage(InventoryPage.Items);
 	private void OnSkillsTabPressed() => SetCompactPage(InventoryPage.Skills);
+	private void OnDetailsTabPressed() => SetCompactPage(InventoryPage.Details);
 
 	private void RefreshUI()
 	{
@@ -647,7 +681,7 @@ public partial class InventoryMenuController : Control
 
 		var index = _inventorySlots.IndexOf(slot);
 		_pendingFocusRestore = new PendingFocusRestore(
-			InventoryFocusKey.ForItem(entry.Item.Id),
+			InventorySemanticKey.ForItem(entry.Item.Id),
 			index);
 
 		if (entry.Item is EquipmentItem equipment)
@@ -667,7 +701,7 @@ public partial class InventoryMenuController : Control
 			if (pair.Value != slot || _gameManager.Player.Equipment.GetEquipped(pair.Key) == null)
 				continue;
 			_pendingFocusRestore = new PendingFocusRestore(
-				InventoryFocusKey.ForEquipment(pair.Key), -1);
+				InventorySemanticKey.ForEquipment(pair.Key), -1);
 			HandleUnequip(pair.Key, 0);
 			return;
 		}
@@ -680,7 +714,7 @@ public partial class InventoryMenuController : Control
 		if (_gameManager.Player.Equipment.GetEquipped(EquipmentSlotType.Accessory, accessoryIndex) == null)
 			return;
 		_pendingFocusRestore = new PendingFocusRestore(
-			InventoryFocusKey.ForAccessory(accessoryIndex), -1);
+			InventorySemanticKey.ForAccessory(accessoryIndex), -1);
 		HandleUnequip(EquipmentSlotType.Accessory, accessoryIndex);
 	}
 
@@ -751,8 +785,8 @@ public partial class InventoryMenuController : Control
 			: 0;
 		_pendingFocusRestore = _pendingFocusRestore?.WithPreferred(
 			item.SlotType == EquipmentSlotType.Accessory
-				? InventoryFocusKey.ForAccessory(accessoryIndex)
-				: InventoryFocusKey.ForEquipment(item.SlotType));
+				? InventorySemanticKey.ForAccessory(accessoryIndex)
+				: InventorySemanticKey.ForEquipment(item.SlotType));
 
 		// Remove from inventory before equipping so a swap can always re-add the
 		// replaced item, even when the inventory is at its distinct-type limit.
@@ -792,7 +826,7 @@ public partial class InventoryMenuController : Control
 			if (slotIndex >= 0 && _inventoryEntryBySlot.TryGetValue(_inventorySlots[slotIndex], out var entry))
 			{
 				_pendingFocusRestore = new PendingFocusRestore(
-					InventoryFocusKey.ForItem(entry.Item.Id),
+					InventorySemanticKey.ForItem(entry.Item.Id),
 					slotIndex);
 				return;
 			}
@@ -805,7 +839,7 @@ public partial class InventoryMenuController : Control
 				pair.Value.GetInstanceId() == focused.GetInstanceId())
 			{
 				_pendingFocusRestore = new PendingFocusRestore(
-					InventoryFocusKey.ForEquipment(pair.Key), -1);
+					InventorySemanticKey.ForEquipment(pair.Key), -1);
 				return;
 			}
 		}
@@ -816,7 +850,7 @@ public partial class InventoryMenuController : Control
 				_accessorySlots[index].GetInstanceId() == focused.GetInstanceId())
 			{
 				_pendingFocusRestore = new PendingFocusRestore(
-					InventoryFocusKey.ForAccessory(index), -1);
+					InventorySemanticKey.ForAccessory(index), -1);
 				return;
 			}
 		}
@@ -870,6 +904,7 @@ public partial class InventoryMenuController : Control
 			{
 				InventoryPage.Items when _inventorySlots.Count > 0 => _inventorySlots[0],
 				InventoryPage.Skills => _activeSkillSelector,
+				InventoryPage.Details => _detailsTab,
 				_ => _equipmentSlots.Values.FirstOrDefault()
 			};
 		}
@@ -879,6 +914,7 @@ public partial class InventoryMenuController : Control
 			{
 				InventoryPage.Items => _itemsTab,
 				InventoryPage.Skills => _skillsTab,
+				InventoryPage.Details => _detailsTab,
 				_ => _equipmentTab
 			};
 

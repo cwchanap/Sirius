@@ -1384,6 +1384,54 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
+    public async Task DetailsAction_SecondPressBeforeDeferredRefresh_ConsumesOnlyOnce()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        player.CurrentHealth = 1;
+        var potion = ConsumableCatalog.CreateHealthPotion();
+        AssertThat(player.TryAddItem(potion, 2, out var added)).IsTrue();
+        AssertThat(added).IsEqual(2);
+        _inventoryMenu.OpenMenu();
+
+        FindInventorySlotByTooltip(potion.DisplayName)
+            .EmitSignal(Button.SignalName.Pressed);
+        var action = DetailsActionButton();
+        action.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(action.Disabled).IsTrue();
+        action.EmitSignal(Button.SignalName.Pressed);
+
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+        AssertThat(player.Inventory.GetQuantity(potion.Id)).IsEqual(1);
+        AssertThat(action.Disabled).IsFalse();
+    }
+
+    [TestCase]
+    public async Task DetailsAction_SecondPressBeforeDeferredRefresh_DoesNotUndoEquip()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(player.TryAddItem(sword, 1, out _)).IsTrue();
+        _inventoryMenu.OpenMenu();
+
+        FindInventorySlotByTooltip(sword.DisplayName)
+            .EmitSignal(Button.SignalName.Pressed);
+        var action = DetailsActionButton();
+        action.EmitSignal(Button.SignalName.Pressed);
+        AssertThat(action.Disabled).IsTrue();
+        action.EmitSignal(Button.SignalName.Pressed);
+
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
+        AssertThat(player.Equipment.GetEquipped(EquipmentSlotType.Weapon))
+            .IsEqual(sword);
+        AssertThat(player.Inventory.ContainsItem(sword.Id)).IsFalse();
+        AssertThat(action.Disabled).IsFalse();
+    }
+
+    [TestCase]
     public async Task ConsumingFinalItem_RestoresFocusToNextCatalogueEntry()
     {
         _gameManager.Player.Inventory.Clear();

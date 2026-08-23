@@ -592,7 +592,7 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
-    public void InventoryFilter_ShowsAllAndExactCategoryMatches()
+    public async Task InventoryFilter_ShowsAllAndExactCategoryMatches()
     {
         var player = _gameManager.Player;
         player.Inventory.Clear();
@@ -630,19 +630,24 @@ public partial class InventoryMenuControllerTest : Node
             .IsEqual(new[] { "All", "Equipment", "Consumable", "General", "Quest" });
 
         SelectInventoryFilter("All");
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
         AssertThat(VisibleInventoryNames())
             .IsEqual(new[] { "Consumable Item", "Equipment Item", "General Item", "Quest Item" });
 
         SelectInventoryFilter("Equipment");
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
         AssertThat(VisibleInventoryNames()).IsEqual(new[] { "Equipment Item" });
 
         SelectInventoryFilter("Consumable");
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
         AssertThat(VisibleInventoryNames()).IsEqual(new[] { "Consumable Item" });
 
         SelectInventoryFilter("General");
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
         AssertThat(VisibleInventoryNames()).IsEqual(new[] { "General Item" });
 
         SelectInventoryFilter("Quest");
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
         AssertThat(VisibleInventoryNames()).IsEqual(new[] { "Quest Item" });
     }
 
@@ -742,6 +747,7 @@ public partial class InventoryMenuControllerTest : Node
         AssertThat(player.TryAddItem(upper, 1, out _)).IsTrue();
         AssertThat(player.TryAddItem(lower, 1, out _)).IsTrue();
         _inventoryMenu.OpenMenu();
+        SelectInventorySort("Name");
 
         var first = _inventoryMenu.GetNode<Container>("%InventoryGrid")
             .GetChildren().OfType<SiriusItemSlotController>().First();
@@ -1207,7 +1213,7 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
-    public void InventoryFilter_ClearsHiddenItemSelectionButKeepsEquippedSelection()
+    public async Task InventoryFilter_ClearsHiddenItemSelectionButKeepsEquippedSelection()
     {
         var player = _gameManager.Player;
         player.Inventory.Clear();
@@ -1221,12 +1227,14 @@ public partial class InventoryMenuControllerTest : Node
         FindInventorySlotByTooltip(potion.DisplayName)
             .EmitSignal(Button.SignalName.Pressed);
         SelectInventoryFilter("Equipment");
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
 
         AssertThat(_inventoryMenu.GetNode<Label>("%DetailsName").Text).IsEmpty();
         AssertThat(DetailsActionButton().Visible).IsFalse();
 
         GetSlot("%WeaponSlot").EmitSignal(Button.SignalName.Pressed);
         SelectInventoryFilter("Consumable");
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
 
         AssertThat(_inventoryMenu.GetNode<Label>("%DetailsName").Text)
             .IsEqual(sword.DisplayName);
@@ -1401,7 +1409,7 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
-    public void UnequipResultHiddenByFilter_ClearsSelectionWithoutResettingFilter()
+    public async Task UnequipResultHiddenByFilter_ClearsSelectionWithoutResettingFilter()
     {
         var player = _gameManager.Player;
         player.Inventory.Clear();
@@ -1422,6 +1430,8 @@ public partial class InventoryMenuControllerTest : Node
 
         AssertThat(player.Inventory.ContainsItem(sword.Id)).IsTrue();
         AssertThat(filter.GetItemText(filter.Selected)).IsEqual("Consumable");
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
+
         AssertThat(_inventoryMenu.GetNode<Label>("%DetailsName").Text).IsEmpty();
         AssertThat(DetailsActionButton().Visible).IsFalse();
     }

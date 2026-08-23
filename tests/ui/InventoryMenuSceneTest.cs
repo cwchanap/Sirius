@@ -585,6 +585,44 @@ public partial class InventoryMenuSceneTest : Node
     }
 
     [TestCase]
+    public async Task StandardToCompact_InventoryFilterKeepsItemsPageAndFocus()
+    {
+        await Resize(new Vector2I(1280, 720));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var filter = _menu.GetNode<OptionButton>("%InventoryFilter");
+        filter.GrabFocus();
+        await AwaitFrames(1);
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(filter);
+
+        await Resize(new Vector2I(640, 360));
+
+        AssertThat(_menu.GetNode<Button>("%ItemsTab").ButtonPressed).IsTrue();
+        AssertThat(filter.IsVisibleInTree()).IsTrue();
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(filter);
+    }
+
+    [TestCase]
+    public async Task StandardToCompact_InventorySortKeepsItemsPageAndFocus()
+    {
+        await Resize(new Vector2I(1280, 720));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var sort = _menu.GetNode<OptionButton>("%InventorySort");
+        sort.GrabFocus();
+        await AwaitFrames(1);
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(sort);
+
+        await Resize(new Vector2I(640, 360));
+
+        AssertThat(_menu.GetNode<Button>("%ItemsTab").ButtonPressed).IsTrue();
+        AssertThat(sort.IsVisibleInTree()).IsTrue();
+        AssertThat(_viewport.GuiGetFocusOwner()).IsEqual(sort);
+    }
+
+    [TestCase]
     public async Task CompactToStandard_RestoresContentFocusWhenCompactTabHidden()
     {
         _gameManager.Player.Inventory.Clear();

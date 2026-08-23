@@ -37,6 +37,8 @@ public partial class InventoryMenuController : Control
 	private Control _characterColumn = null!;
 	private Control _safeFrame = null!;
 	private GridContainer _inventoryGrid = null!;
+	private OptionButton _inventoryFilterControl = null!;
+	private OptionButton _inventorySortControl = null!;
 	private OptionButton _activeSkillSelector = null!;
 	private TextureRect _detailsIcon = null!;
 	private Label _detailsName = null!;
@@ -58,6 +60,8 @@ public partial class InventoryMenuController : Control
 
 	private PackedScene _itemSlotScene = null!;
 	private InventoryPage _activeCompactPage = InventoryPage.Equipment;
+	private InventoryFilter _inventoryFilter = InventoryFilter.All;
+	private InventorySort _inventorySort = InventorySort.Name;
 	private bool _isCompact;
 	private bool _isRefreshingActiveSkillSelector;
 	private InventorySemanticKey? _selection;
@@ -110,6 +114,21 @@ public partial class InventoryMenuController : Control
 		Details
 	}
 
+	private enum InventoryFilter
+	{
+		All,
+		Equipment,
+		Consumable,
+		General,
+		Quest
+	}
+
+	private enum InventorySort
+	{
+		Name,
+		Category
+	}
+
 	private readonly record struct InventorySemanticKey(
 		EquipmentSlotType? EquipmentSlot,
 		int? AccessoryIndex,
@@ -150,6 +169,7 @@ public partial class InventoryMenuController : Control
 		_itemSlotScene = GD.Load<PackedScene>("res://scenes/ui/components/SiriusItemSlot.tscn")
 			?? throw new InvalidOperationException("Failed to load SiriusItemSlot.tscn.");
 		BindSignals();
+		InitializeBrowseControls();
 		InitializeSkillSelector();
 		InitializeEquipmentSlots();
 		InitializeAccessorySlots();
@@ -189,6 +209,8 @@ public partial class InventoryMenuController : Control
 		_detailsPage = GetNode<Control>("%DetailsPage");
 		_characterColumn = GetNode<Control>("%CharacterColumn");
 		_inventoryGrid = GetNode<GridContainer>("%InventoryGrid");
+		_inventoryFilterControl = GetNode<OptionButton>("%InventoryFilter");
+		_inventorySortControl = GetNode<OptionButton>("%InventorySort");
 		_activeSkillSelector = GetNode<OptionButton>("%ActiveSkillSelector");
 		_activeSkillSummary = GetNode<Label>("%ActiveSkillSummary");
 		_focusSummary = GetNode<Label>("%FocusSummary");
@@ -232,6 +254,44 @@ public partial class InventoryMenuController : Control
 		var viewport = GetViewport();
 		if (viewport != null)
 			viewport.SizeChanged += RefreshLayout;
+	}
+
+	private void InitializeBrowseControls()
+	{
+		_inventoryFilterControl.ItemSelected += OnInventoryFilterSelected;
+		_inventorySortControl.ItemSelected += OnInventorySortSelected;
+
+		_inventoryFilterControl.AddItem("All");
+		_inventoryFilterControl.SetItemMetadata(
+			_inventoryFilterControl.ItemCount - 1,
+			(int)InventoryFilter.All);
+		_inventoryFilterControl.AddItem("Equipment");
+		_inventoryFilterControl.SetItemMetadata(
+			_inventoryFilterControl.ItemCount - 1,
+			(int)InventoryFilter.Equipment);
+		_inventoryFilterControl.AddItem("Consumable");
+		_inventoryFilterControl.SetItemMetadata(
+			_inventoryFilterControl.ItemCount - 1,
+			(int)InventoryFilter.Consumable);
+		_inventoryFilterControl.AddItem("General");
+		_inventoryFilterControl.SetItemMetadata(
+			_inventoryFilterControl.ItemCount - 1,
+			(int)InventoryFilter.General);
+		_inventoryFilterControl.AddItem("Quest");
+		_inventoryFilterControl.SetItemMetadata(
+			_inventoryFilterControl.ItemCount - 1,
+			(int)InventoryFilter.Quest);
+		_inventoryFilterControl.Select((int)_inventoryFilter);
+
+		_inventorySortControl.AddItem("Name");
+		_inventorySortControl.SetItemMetadata(
+			_inventorySortControl.ItemCount - 1,
+			(int)InventorySort.Name);
+		_inventorySortControl.AddItem("Category");
+		_inventorySortControl.SetItemMetadata(
+			_inventorySortControl.ItemCount - 1,
+			(int)InventorySort.Category);
+		_inventorySortControl.Select((int)_inventorySort);
 	}
 
 	private void InitializeSkillSelector()
@@ -373,7 +433,9 @@ public partial class InventoryMenuController : Control
 	{
 		if (focused == _activeSkillSelector || focused == _skillsTab)
 			return InventoryPage.Skills;
-		if (focused == _itemsTab)
+		if (focused == _inventoryFilterControl ||
+			focused == _inventorySortControl ||
+			focused == _itemsTab)
 			return InventoryPage.Items;
 		if (focused == _detailsTab || focused == _detailsActionButton)
 			return InventoryPage.Details;
@@ -621,11 +683,11 @@ public partial class InventoryMenuController : Control
 
 	private void RefreshInventoryCatalogue()
 	{
-		var entries = new List<InventoryEntry>(_gameManager.Player.Inventory.GetAllEntries());
-		entries.Sort((a, b) => string.Compare(
-			a.Item.DisplayName,
-			b.Item.DisplayName,
-			StringComparison.Ordinal));
+		var entries = _gameManager.Player.Inventory.GetAllEntries()
+			.Where(entry => MatchesFilter(entry.Item.Category))
+			.ToList();
+		entries.Sort((left, right) =>
+			CompareVisibleEntries(left, right, _inventorySort));
 
 		while (_inventorySlots.Count < entries.Count)
 			_inventorySlots.Add(CreateInventorySlot());
@@ -685,6 +747,36 @@ public partial class InventoryMenuController : Control
 	}
 
 	private static bool IsBattleOnly(ConsumableItem item) => item.RequiresBattle;
+
+	private bool MatchesFilter(ItemCategory category) => _inventoryFilter switch
+	{
+		InventoryFilter.All => true,
+		InventoryFilter.Equipment => category == ItemCategory.Equipment,
+		InventoryFilter.Consumable => category == ItemCategory.Consumable,
+		InventoryFilter.General => category == ItemCategory.General,
+		InventoryFilter.Quest => category == ItemCategory.Quest,
+		_ => false
+	};
+
+	private static int CompareVisibleEntries(
+		InventoryEntry left,
+		InventoryEntry right,
+		InventorySort sort)
+	{
+		var first = sort == InventorySort.Name
+			? string.Compare(left.Item.DisplayName, right.Item.DisplayName, StringComparison.Ordinal)
+			: left.Item.Category.CompareTo(right.Item.Category);
+		if (first != 0)
+			return first;
+
+		var second = sort == InventorySort.Name
+			? left.Item.Category.CompareTo(right.Item.Category)
+			: string.Compare(left.Item.DisplayName, right.Item.DisplayName, StringComparison.Ordinal);
+		if (second != 0)
+			return second;
+
+		return string.Compare(left.Item.Id, right.Item.Id, StringComparison.Ordinal);
+	}
 
 	private bool TryResolveSelectedInventoryEntry(
 		out SiriusItemSlotController slot,
@@ -782,7 +874,7 @@ public partial class InventoryMenuController : Control
 
 	private void RefreshSelectionDetails()
 	{
-		_detailsName.Text = "Details";
+		_detailsName.Text = string.Empty;
 		_detailsMeta.Text = "No selection";
 		_detailsBody.Text = "Select an item or equipped slot to view details.";
 		_detailsComparison.Text = "Comparison will appear here.";
@@ -1213,6 +1305,46 @@ public partial class InventoryMenuController : Control
 	private void PresentFocusSummary(string text) => _focusSummary.Text = text ?? string.Empty;
 	private void OnActiveSkillFocusEntered() => PresentFocusSummary(_activeSkillSelector.TooltipText);
 	private void OnActiveSkillMouseEntered() => PresentFocusSummary(_activeSkillSelector.TooltipText);
+
+	private void OnInventoryFilterSelected(long index)
+	{
+		if (_gameManager?.Player == null ||
+			index < 0 || index >= _inventoryFilterControl.ItemCount)
+			return;
+
+		var metadata = _inventoryFilterControl.GetItemMetadata((int)index);
+		if (metadata.VariantType != Variant.Type.Int)
+			return;
+
+		var value = (InventoryFilter)(int)metadata.AsInt64();
+		if (!Enum.IsDefined(value))
+			return;
+
+		_inventoryFilter = value;
+		if (_selection is { ItemId: not null } &&
+			TryResolveSelectedInventoryEntry(out _, out var selectedEntry) &&
+			!MatchesFilter(selectedEntry.Item.Category))
+			_selection = null;
+		RefreshUI();
+	}
+
+	private void OnInventorySortSelected(long index)
+	{
+		if (_gameManager?.Player == null ||
+			index < 0 || index >= _inventorySortControl.ItemCount)
+			return;
+
+		var metadata = _inventorySortControl.GetItemMetadata((int)index);
+		if (metadata.VariantType != Variant.Type.Int)
+			return;
+
+		var value = (InventorySort)(int)metadata.AsInt64();
+		if (!Enum.IsDefined(value))
+			return;
+
+		_inventorySort = value;
+		RefreshUI();
+	}
 
 	private void OnActiveSkillSelectorItemSelected(long index)
 	{

@@ -60,6 +60,7 @@ public partial class InventoryMenuController : Control
 	private InventoryPage _activeCompactPage = InventoryPage.Equipment;
 	private bool _isCompact;
 	private bool _isRefreshingActiveSkillSelector;
+	private InventorySemanticKey? _selection;
 	private PendingFocusRestore? _pendingFocusRestore;
 
 	public Control InitialFocusTarget => ResolveInitialFocusTarget();
@@ -73,7 +74,7 @@ public partial class InventoryMenuController : Control
 		else if (page == InventoryPage.Skills)
 			target = _activeSkillSelector;
 		else if (page == InventoryPage.Details)
-			target = _detailsTab;
+			target = _detailsActionButton.Visible ? _detailsActionButton : _detailsTab;
 		else if (_equipmentSlots.TryGetValue(EquipmentSlotType.Weapon, out var weapon))
 			target = weapon;
 		else
@@ -225,6 +226,7 @@ public partial class InventoryMenuController : Control
 		_itemsTab.Pressed += OnItemsTabPressed;
 		_skillsTab.Pressed += OnSkillsTabPressed;
 		_detailsTab.Pressed += OnDetailsTabPressed;
+		_detailsActionButton.Pressed += OnDetailsActionPressed;
 		_closeButton.Pressed += OnCloseButtonPressed;
 
 		var viewport = GetViewport();
@@ -259,7 +261,8 @@ public partial class InventoryMenuController : Control
 	private void AddEquipmentSlot(string slotPath, EquipmentSlotType slotType)
 	{
 		var slot = GetNode<SiriusItemSlotController>(slotPath);
-		slot.Activated += () => OnEquipmentSlotActivated(slot);
+		slot.ToggleMode = true;
+		slot.Pressed += () => SelectEquipmentSlot(slotType, null);
 		slot.FocusEntered += () => PresentFocusSummary(slot.TooltipText);
 		slot.MouseEntered += () => PresentFocusSummary(slot.TooltipText);
 		_equipmentSlots[slotType] = slot;
@@ -272,7 +275,8 @@ public partial class InventoryMenuController : Control
 		{
 			var slot = GetNode<SiriusItemSlotController>($"%AccessorySlot{index}");
 			var capturedIndex = index;
-			slot.Activated += () => OnAccessorySlotActivated(capturedIndex);
+			slot.ToggleMode = true;
+			slot.Pressed += () => SelectEquipmentSlot(EquipmentSlotType.Accessory, capturedIndex);
 			slot.FocusEntered += () => PresentFocusSummary(slot.TooltipText);
 			slot.MouseEntered += () => PresentFocusSummary(slot.TooltipText);
 			_accessorySlots.Add(slot);
@@ -371,7 +375,7 @@ public partial class InventoryMenuController : Control
 			return InventoryPage.Skills;
 		if (focused == _itemsTab)
 			return InventoryPage.Items;
-		if (focused == _detailsTab)
+		if (focused == _detailsTab || focused == _detailsActionButton)
 			return InventoryPage.Details;
 		if (focused == _equipmentTab)
 			return InventoryPage.Equipment;
@@ -395,7 +399,7 @@ public partial class InventoryMenuController : Control
 		{
 			InventoryPage.Items => _inventorySlots.FirstOrDefault(CanGrabFocus) ?? (Control?)_itemsTab,
 			InventoryPage.Skills => _activeSkillSelector,
-			InventoryPage.Details => _detailsTab,
+			InventoryPage.Details => _detailsActionButton.Visible ? _detailsActionButton : _detailsTab,
 			_ => _equipmentSlots.TryGetValue(EquipmentSlotType.Weapon, out var weapon)
 				? weapon
 				: _equipmentSlots.Values.FirstOrDefault()
@@ -458,7 +462,7 @@ public partial class InventoryMenuController : Control
 		{
 			InventoryPage.Items => _inventorySlots.FirstOrDefault(CanGrabFocus),
 			InventoryPage.Skills => _activeSkillSelector,
-			InventoryPage.Details => _detailsTab,
+			InventoryPage.Details => _detailsActionButton.Visible ? _detailsActionButton : _detailsTab,
 			_ => _equipmentSlots.TryGetValue(EquipmentSlotType.Weapon, out var weapon)
 				? weapon
 				: _equipmentSlots.Values.FirstOrDefault()
@@ -480,7 +484,11 @@ public partial class InventoryMenuController : Control
 	private void OnEquipmentTabPressed() => SetCompactPage(InventoryPage.Equipment);
 	private void OnItemsTabPressed() => SetCompactPage(InventoryPage.Items);
 	private void OnSkillsTabPressed() => SetCompactPage(InventoryPage.Skills);
-	private void OnDetailsTabPressed() => SetCompactPage(InventoryPage.Details);
+	private void OnDetailsTabPressed()
+	{
+		SetCompactPage(InventoryPage.Details);
+		RestoreCompactPageFocus();
+	}
 
 	private void RefreshUI()
 	{
@@ -519,6 +527,9 @@ public partial class InventoryMenuController : Control
 		RefreshAccessorySlots();
 		RefreshActiveSkillSelector();
 		RefreshInventoryCatalogue();
+		ReconcileSelection();
+		RefreshSelectionDetails();
+		RefreshSelectionVisuals();
 		RefreshFocusSummaryFromCurrentFocus();
 		RestorePendingFocus();
 	}
@@ -639,7 +650,8 @@ public partial class InventoryMenuController : Control
 		var slot = _itemSlotScene.Instantiate<SiriusItemSlotController>();
 		_inventoryGrid.AddChild(slot);
 		slot.SetCompact(_isCompact);
-		slot.Activated += () => OnInventorySlotActivated(slot);
+		slot.ToggleMode = true;
+		slot.Pressed += () => SelectInventorySlot(slot);
 		slot.FocusEntered += () => PresentFocusSummary(slot.TooltipText);
 		slot.MouseEntered += () => PresentFocusSummary(slot.TooltipText);
 		return slot;
@@ -674,49 +686,282 @@ public partial class InventoryMenuController : Control
 
 	private static bool IsBattleOnly(ConsumableItem item) => item.RequiresBattle;
 
-	private void OnInventorySlotActivated(SiriusItemSlotController slot)
+	private bool TryResolveSelectedInventoryEntry(
+		out SiriusItemSlotController slot,
+		out InventoryEntry entry)
 	{
-		if (!_inventoryEntryBySlot.TryGetValue(slot, out var entry))
+		slot = null!;
+		entry = null!;
+
+		if (_selection?.ItemId is not { } itemId ||
+			!_inventorySlotByItemId.TryGetValue(itemId, out slot))
+			return false;
+
+		return _inventoryEntryBySlot.TryGetValue(slot, out entry);
+	}
+
+	private void SelectInventorySlot(SiriusItemSlotController slot)
+	{
+		if (_inventoryEntryBySlot.TryGetValue(slot, out var entry))
+			_selection = InventorySemanticKey.ForItem(entry.Item.Id);
+
+		RefreshSelectionDetails();
+		RefreshSelectionVisuals();
+	}
+
+	private void SelectEquipmentSlot(EquipmentSlotType slotType, int? accessoryIndex)
+	{
+		var resolvedAccessoryIndex = accessoryIndex ?? 0;
+		var item = _gameManager.Player.Equipment.GetEquipped(slotType, resolvedAccessoryIndex);
+		if (item != null)
+		{
+			_selection = slotType == EquipmentSlotType.Accessory
+				? InventorySemanticKey.ForAccessory(resolvedAccessoryIndex)
+				: InventorySemanticKey.ForEquipment(slotType);
+		}
+
+		RefreshSelectionDetails();
+		RefreshSelectionVisuals();
+	}
+
+	private void OnDetailsActionPressed()
+	{
+		if (_selection is not { } selection)
 			return;
 
-		var index = _inventorySlots.IndexOf(slot);
-		_pendingFocusRestore = new PendingFocusRestore(
-			InventorySemanticKey.ForItem(entry.Item.Id),
-			index);
-
-		if (entry.Item is EquipmentItem equipment)
+		if (selection.ItemId != null && TryResolveSelectedInventoryEntry(out _, out var entry))
 		{
-			EquipFromInventory(equipment);
+			if (entry.Item is EquipmentItem equipment)
+				EquipFromInventory(equipment);
+			else if (entry.Item is ConsumableItem consumable && !IsBattleOnly(consumable))
+				UseConsumableOutOfBattle(consumable);
 			return;
 		}
 
-		if (entry.Item is ConsumableItem consumable && !IsBattleOnly(consumable))
-			UseConsumableOutOfBattle(consumable);
+		if (selection.EquipmentSlot is { } slotType)
+			HandleUnequip(slotType, selection.AccessoryIndex ?? 0);
 	}
 
-	private void OnEquipmentSlotActivated(SiriusItemSlotController slot)
+	private void ReconcileSelection()
 	{
-		foreach (var pair in _equipmentSlots)
-		{
-			if (pair.Value != slot || _gameManager.Player.Equipment.GetEquipped(pair.Key) == null)
-				continue;
-			_pendingFocusRestore = new PendingFocusRestore(
-				InventorySemanticKey.ForEquipment(pair.Key), -1);
-			HandleUnequip(pair.Key, 0);
+		if (_selection is not { } selection)
 			return;
+
+		if (selection.ItemId != null)
+		{
+			if (TryResolveSelectedInventoryEntry(out _, out _))
+				return;
+
+			if (_pendingFocusRestore is { } pending &&
+				pending.Preferred.ItemId == selection.ItemId &&
+				pending.PreviousCatalogueIndex >= 0 &&
+				_inventorySlots.Count > 0)
+			{
+				var fallbackIndex = Math.Min(
+					pending.PreviousCatalogueIndex,
+					_inventorySlots.Count - 1);
+				if (_inventoryEntryBySlot.TryGetValue(_inventorySlots[fallbackIndex], out var fallbackEntry))
+				{
+					var preferred = InventorySemanticKey.ForItem(fallbackEntry.Item.Id);
+					_selection = preferred;
+					_pendingFocusRestore = pending.WithPreferred(preferred);
+					return;
+				}
+			}
+		}
+		else if (selection.EquipmentSlot is { } slotType &&
+			_gameManager.Player.Equipment.GetEquipped(
+				slotType,
+				selection.AccessoryIndex ?? 0) != null)
+		{
+			return;
+		}
+
+		_selection = null;
+	}
+
+	private void RefreshSelectionDetails()
+	{
+		_detailsName.Text = "Details";
+		_detailsMeta.Text = "No selection";
+		_detailsBody.Text = "Select an item or equipped slot to view details.";
+		_detailsComparison.Text = "Comparison will appear here.";
+		_detailsComparison.Visible = false;
+		_detailsActionReason.Text = "Select an item or equipped slot to view details.";
+		_detailsActionButton.Text = "Action";
+		_detailsActionButton.Visible = false;
+		UiIconPresenter.Apply(_detailsIcon, UiIconId.Info, UiIconSize.Default);
+
+		if (_selection is not { } selection)
+			return;
+
+		if (selection.ItemId != null)
+		{
+			if (TryResolveSelectedInventoryEntry(out _, out var entry))
+				RenderInventoryDetails(entry);
+			return;
+		}
+
+		if (selection.EquipmentSlot is not { } slotType)
+			return;
+
+		var accessoryIndex = selection.AccessoryIndex ?? 0;
+		var item = _gameManager.Player.Equipment.GetEquipped(slotType, accessoryIndex);
+		if (item != null)
+			RenderEquippedDetails(item, slotType, accessoryIndex);
+	}
+
+	private void RefreshSelectionVisuals()
+	{
+		foreach (var slot in _equipmentSlots.Values)
+			slot.ButtonPressed = false;
+		foreach (var slot in _accessorySlots)
+			slot.ButtonPressed = false;
+		foreach (var slot in _inventorySlots)
+			slot.ButtonPressed = false;
+
+		if (_selection is not { } selection)
+			return;
+
+		if (selection.ItemId != null)
+		{
+			if (_inventorySlotByItemId.TryGetValue(selection.ItemId, out var itemSlot))
+				itemSlot.ButtonPressed = true;
+			return;
+		}
+
+		if (selection.EquipmentSlot == EquipmentSlotType.Accessory &&
+			selection.AccessoryIndex is { } accessoryIndex &&
+			accessoryIndex >= 0 && accessoryIndex < _accessorySlots.Count)
+		{
+			_accessorySlots[accessoryIndex].ButtonPressed = true;
+		}
+		else if (selection.EquipmentSlot is { } slotType &&
+			_equipmentSlots.TryGetValue(slotType, out var equipmentSlot))
+		{
+			equipmentSlot.ButtonPressed = true;
 		}
 	}
 
-	private void OnAccessorySlotActivated(int accessoryIndex)
+	private void RenderInventoryDetails(InventoryEntry entry)
 	{
-		if (accessoryIndex < 0 || accessoryIndex >= _accessorySlots.Count)
-			return;
-		if (_gameManager.Player.Equipment.GetEquipped(EquipmentSlotType.Accessory, accessoryIndex) == null)
-			return;
-		_pendingFocusRestore = new PendingFocusRestore(
-			InventorySemanticKey.ForAccessory(accessoryIndex), -1);
-		HandleUnequip(EquipmentSlotType.Accessory, accessoryIndex);
+		var item = entry.Item;
+		ApplyDetailsIcon(item);
+		_detailsName.Text = item.DisplayName;
+		_detailsMeta.Text = $"Category: {item.Category}\nRarity: {item.Rarity}\nQuantity: {entry.Quantity}";
+		_detailsBody.Text = BuildDetailsBody(item);
+
+		switch (item)
+		{
+			case EquipmentItem equipment:
+				_detailsActionButton.Text = "Equip";
+				_detailsActionButton.Visible = true;
+				_detailsActionReason.Text = "Equip this item from the Details page.";
+				RenderEquipmentComparison(equipment);
+				break;
+			case ConsumableItem consumable when !IsBattleOnly(consumable):
+				_detailsActionButton.Text = "Use";
+				_detailsActionButton.Visible = true;
+				_detailsActionReason.Text = "Use this item outside battle.";
+				break;
+			case ConsumableItem:
+				_detailsActionReason.Text = "Can only be used in battle.";
+				break;
+			default:
+				_detailsActionReason.Text = "No inventory action is available for this item.";
+				break;
+		}
 	}
+
+	private void RenderEquippedDetails(EquipmentItem item, EquipmentSlotType slotType, int accessoryIndex)
+	{
+		ApplyDetailsIcon(item);
+		var equippedSlot = slotType == EquipmentSlotType.Accessory
+			? $"Accessory {accessoryIndex + 1}"
+			: SlotDisplayName(slotType);
+		_detailsName.Text = item.DisplayName;
+		_detailsMeta.Text = $"Category: {item.Category}\nRarity: {item.Rarity}\nEquipped: {equippedSlot}";
+		_detailsBody.Text = BuildDetailsBody(item);
+		_detailsActionButton.Text = "Unequip";
+		_detailsActionButton.Visible = true;
+		_detailsActionReason.Text = "Unequip this item to return it to Inventory.";
+	}
+
+	private void ApplyDetailsIcon(Item item)
+	{
+		var texture = item.LoadAssetOrDefault<Texture2D>();
+		if (texture != null)
+		{
+			UiIconPresenter.ApplyItem(_detailsIcon, texture);
+			return;
+		}
+
+		var icon = item is EquipmentItem equipment
+			? UiArtCatalog.ForEquipmentSlot(equipment.SlotType)
+			: UiArtCatalog.ForItemCategory(item.Category);
+		UiIconPresenter.Apply(_detailsIcon, icon, UiIconSize.Feature);
+	}
+
+	private static string BuildDetailsBody(Item item)
+	{
+		var lines = new List<string>();
+		if (!string.IsNullOrWhiteSpace(item.Description))
+			lines.Add(item.Description.Trim());
+
+		if (item is EquipmentItem equipment)
+		{
+			lines.Add($"Slot: {SlotDisplayName(equipment.SlotType)}");
+			var bonuses = GetBonusText(equipment);
+			if (!string.IsNullOrEmpty(bonuses))
+				lines.Add(bonuses);
+		}
+		else if (item is ConsumableItem consumable)
+		{
+			lines.Add($"Effect: {consumable.EffectDescription}");
+			if (IsBattleOnly(consumable))
+				lines.Add("Battle use only");
+		}
+
+		return lines.Count > 0 ? string.Join("\n", lines) : "No additional details.";
+	}
+
+	private void RenderEquipmentComparison(EquipmentItem candidate)
+	{
+		var accessoryIndex = candidate.SlotType == EquipmentSlotType.Accessory
+			? ResolveAccessoryEquipIndex()
+			: 0;
+		var occupant = _gameManager.Player.Equipment.GetEquipped(candidate.SlotType, accessoryIndex);
+		var delta = CompareEquipmentBonuses(candidate, occupant);
+		var target = candidate.SlotType == EquipmentSlotType.Accessory
+			? $"Accessory {accessoryIndex + 1}"
+			: SlotDisplayName(candidate.SlotType);
+
+		var comparison = new StringBuilder();
+		comparison.AppendLine($"Equip to {target}");
+		if (occupant != null)
+			comparison.AppendLine($"Replaces: {occupant.DisplayName}");
+		comparison.AppendLine(FormatDelta("ATK", delta.Attack));
+		comparison.AppendLine(FormatDelta("DEF", delta.Defense));
+		comparison.AppendLine(FormatDelta("SPD", delta.Speed));
+		comparison.Append(FormatDelta("HP", delta.Health));
+		_detailsComparison.Text = comparison.ToString();
+		_detailsComparison.Visible = true;
+	}
+
+	private static (int Attack, int Defense, int Speed, int Health)
+		CompareEquipmentBonuses(EquipmentItem candidate, EquipmentItem? occupant) =>
+	(
+		candidate.AttackBonus - (occupant?.AttackBonus ?? 0),
+		candidate.DefenseBonus - (occupant?.DefenseBonus ?? 0),
+		candidate.SpeedBonus - (occupant?.SpeedBonus ?? 0),
+		candidate.HealthBonus - (occupant?.HealthBonus ?? 0));
+
+	private static string FormatDelta(string label, int delta) => delta switch
+	{
+		> 0 => $"{label} +{delta}",
+		< 0 => $"{label} {delta}",
+		_ => $"{label} unchanged"
+	};
 
 	private void HandleUnequip(EquipmentSlotType slotType, int accessoryIndex)
 	{
@@ -733,8 +978,13 @@ public partial class InventoryMenuController : Control
 			else
 				_gameManager.Player.TryEquip(removed, out _);
 			GD.PushWarning("Unable to unequip item: inventory is full or already contains this unique item.");
+			RefreshUI();
+			return;
 		}
 
+		var resultingKey = InventorySemanticKey.ForItem(removed.Id);
+		_selection = resultingKey;
+		_pendingFocusRestore = new PendingFocusRestore(resultingKey, -1);
 		RefreshUI();
 	}
 
@@ -750,6 +1000,7 @@ public partial class InventoryMenuController : Control
 			GD.PushWarning($"[InventoryMenuController] '{item.DisplayName}' can only be used in battle (RequiresBattle=true)");
 			return;
 		}
+		var previousIndex = ResolveVisibleInventoryIndex(item.Id);
 		if (!_gameManager.Player.TryRemoveItem(item.Id, 1))
 		{
 			GD.PushWarning($"[InventoryMenuController] Failed to remove '{item.DisplayName}' from inventory; effect not applied");
@@ -763,9 +1014,17 @@ public partial class InventoryMenuController : Control
 			return;
 		}
 
+		var resultingKey = InventorySemanticKey.ForItem(item.Id);
+		_selection = resultingKey;
+		_pendingFocusRestore = new PendingFocusRestore(resultingKey, previousIndex);
 		_gameManager.NotifyPlayerStatsChanged();
 		RefreshUI();
 	}
+
+	private int ResolveVisibleInventoryIndex(string itemId) =>
+		_inventorySlotByItemId.TryGetValue(itemId, out var slot)
+			? _inventorySlots.IndexOf(slot)
+			: -1;
 
 	private int ResolveAccessoryEquipIndex()
 	{
@@ -783,10 +1042,7 @@ public partial class InventoryMenuController : Control
 		var accessoryIndex = item.SlotType == EquipmentSlotType.Accessory
 			? ResolveAccessoryEquipIndex()
 			: 0;
-		_pendingFocusRestore = _pendingFocusRestore?.WithPreferred(
-			item.SlotType == EquipmentSlotType.Accessory
-				? InventorySemanticKey.ForAccessory(accessoryIndex)
-				: InventorySemanticKey.ForEquipment(item.SlotType));
+		var previousCatalogueIndex = ResolveVisibleInventoryIndex(item.Id);
 
 		// Remove from inventory before equipping so a swap can always re-add the
 		// replaced item, even when the inventory is at its distinct-type limit.
@@ -807,6 +1063,11 @@ public partial class InventoryMenuController : Control
 		if (replacedItem != null && !_gameManager.Player.TryAddItem(replacedItem, 1, out _))
 			GD.PrintErr($"[InventoryMenuController] Failed to return '{replacedItem.DisplayName}' to inventory after swap — item lost!");
 
+		var resultingKey = item.SlotType == EquipmentSlotType.Accessory
+			? InventorySemanticKey.ForAccessory(accessoryIndex)
+			: InventorySemanticKey.ForEquipment(item.SlotType);
+		_selection = resultingKey;
+		_pendingFocusRestore = new PendingFocusRestore(resultingKey, previousCatalogueIndex);
 		RefreshUI();
 	}
 
@@ -1042,12 +1303,18 @@ public partial class InventoryMenuController : Control
 			var bonuses = GetBonusText(equipmentItem);
 			if (!string.IsNullOrEmpty(bonuses))
 				sb.AppendLine(bonuses);
-			sb.Append("Click to equip");
+			sb.Append("Select to view details");
 		}
 		else if (entry.Item is ConsumableItem consumable)
 		{
 			sb.AppendLine(consumable.EffectDescription);
-			sb.Append(IsBattleOnly(consumable) ? "Battle use only" : "Click to use");
+			if (IsBattleOnly(consumable))
+				sb.AppendLine("Battle use only");
+			sb.Append("Select to view details");
+		}
+		else
+		{
+			sb.Append("Select to view details");
 		}
 
 		return sb.ToString();

@@ -428,6 +428,9 @@ public partial class InventoryMenuControllerTest : Node
     private SiriusItemSlotController GetSlot(string slotPath) =>
         _inventoryMenu.GetNode<SiriusItemSlotController>(slotPath);
 
+    private Button DetailsActionButton() =>
+        _inventoryMenu.GetNode<Button>("%DetailsActionButton");
+
     private TextureRect GetSlotIcon(string slotPath) =>
         GetSlot(slotPath).GetNode<TextureRect>("%Icon");
 
@@ -552,6 +555,129 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
+    public void PressingInventoryEquipment_SelectsWithoutEquipping()
+    {
+        var player = _gameManager.Player;
+        var candidate = EquipmentCatalog.CreateIronSword();
+        AssertThat(player.TryAddItem(candidate, 1, out _)).IsTrue();
+        var before = player.Equipment.GetEquipped(EquipmentSlotType.Weapon);
+        _inventoryMenu.OpenMenu();
+
+        var slot = FindInventorySlotByTooltip(candidate.DisplayName);
+        slot.EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(player.Equipment.GetEquipped(EquipmentSlotType.Weapon)).IsEqual(before);
+        AssertThat(player.Inventory.ContainsItem(candidate.Id)).IsTrue();
+        AssertThat(slot.ButtonPressed).IsTrue();
+        AssertThat(_inventoryMenu.GetNode<Label>("%DetailsName").Text)
+            .IsEqual(candidate.DisplayName);
+        AssertThat(_inventoryMenu.GetNode<Button>("%DetailsActionButton").Text)
+            .IsEqual("Equip");
+    }
+
+    [TestCase]
+    public void PressingSelectedInventorySlotAgain_RemainsVisuallySelected()
+    {
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(_gameManager.Player.TryAddItem(sword, 1, out _)).IsTrue();
+        _inventoryMenu.OpenMenu();
+        var slot = FindInventorySlotByTooltip(sword.DisplayName);
+
+        slot.EmitSignal(Button.SignalName.Pressed);
+        slot.EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(slot.ButtonPressed).IsTrue();
+        AssertThat(_inventoryMenu.GetNode<Label>("%DetailsName").Text)
+            .IsEqual(sword.DisplayName);
+    }
+
+    [TestCase]
+    public void PressingEmptyEquipmentSlot_DoesNotStealSelectionVisual()
+    {
+        var player = _gameManager.Player;
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(player.TryAddItem(sword, 1, out _)).IsTrue();
+        var removedShield = player.Unequip(EquipmentSlotType.Shield);
+        if (removedShield != null)
+            AssertThat(player.TryAddItem(removedShield, 1, out _)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+        var selected = FindInventorySlotByTooltip(sword.DisplayName);
+        selected.EmitSignal(Button.SignalName.Pressed);
+
+        var emptyShield = GetSlot("%ShieldSlot");
+        emptyShield.EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(selected.ButtonPressed).IsTrue();
+        AssertThat(emptyShield.ButtonPressed).IsFalse();
+    }
+
+    [TestCase]
+    public void PressingUnsupportedInventoryEntry_SelectsAndExplainsUnavailableAction()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        var unsupported = new GeneralItem
+        {
+            Id = "unsupported_selection_item",
+            DisplayName = "Unsupported Selection Item",
+            Description = "Cannot be used here."
+        };
+        AssertThat(player.TryAddItem(unsupported, 1, out _)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+        var slot = FindInventorySlotByTooltip(unsupported.DisplayName);
+        slot.EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(player.Inventory.GetQuantity(unsupported.Id)).IsEqual(1);
+        AssertThat(slot.ButtonPressed).IsTrue();
+        AssertThat(_inventoryMenu.GetNode<Label>("%DetailsName").Text)
+            .IsEqual(unsupported.DisplayName);
+        AssertThat(_inventoryMenu.GetNode<Button>("%DetailsActionButton").Visible).IsFalse();
+        AssertThat(_inventoryMenu.GetNode<Label>("%DetailsActionReason").Text)
+            .IsEqual("No inventory action is available for this item.");
+    }
+
+    [TestCase]
+    public void PressingEquippedEquipmentSlot_SelectsWithoutUnequipping()
+    {
+        var player = _gameManager.Player;
+        player.Inventory.Clear();
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(player.TryEquip(sword, out _)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+        var slot = GetSlot("%WeaponSlot");
+        slot.EmitSignal(Button.SignalName.Pressed);
+
+        AssertThat(player.Equipment.GetEquipped(EquipmentSlotType.Weapon)).IsEqual(sword);
+        AssertThat(player.Inventory.ContainsItem(sword.Id)).IsFalse();
+        AssertThat(slot.ButtonPressed).IsTrue();
+        AssertThat(_inventoryMenu.GetNode<Label>("%DetailsName").Text)
+            .IsEqual(sword.DisplayName);
+        AssertThat(_inventoryMenu.GetNode<Button>("%DetailsActionButton").Text)
+            .IsEqual("Unequip");
+    }
+
+    [TestCase]
+    public void InventoryTooltips_UseSelectionCopyInsteadOfMutationVerbs()
+    {
+        var sword = EquipmentCatalog.CreateIronSword();
+        var potion = ConsumableCatalog.CreateHealthPotion();
+        AssertThat(_gameManager.Player.TryAddItem(sword, 1, out _)).IsTrue();
+        AssertThat(_gameManager.Player.TryAddItem(potion, 1, out _)).IsTrue();
+
+        _inventoryMenu.OpenMenu();
+
+        var swordTooltip = FindInventorySlotByTooltip(sword.DisplayName).TooltipText;
+        var potionTooltip = FindInventorySlotByTooltip(potion.DisplayName).TooltipText;
+        AssertThat(swordTooltip).Contains("Select to view details");
+        AssertThat(potionTooltip).Contains("Select to view details");
+        AssertThat(swordTooltip.Contains("Click to equip", StringComparison.Ordinal)).IsFalse();
+        AssertThat(potionTooltip.Contains("Click to use", StringComparison.Ordinal)).IsFalse();
+    }
+
+    [TestCase]
     public void CatalogueUnsupportedEntry_RemainsFocusableButNeverActivates()
     {
         var player = _gameManager.Player;
@@ -579,7 +705,7 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
-    public async Task PrimaryUnequip_WhenInventoryIsFull_RollsBackThroughMenuActivation()
+    public async Task PrimaryUnequip_WhenInventoryIsFull_RollsBackThroughDetailsAction()
     {
         var player = _gameManager.Player;
         player.Inventory.Clear();
@@ -591,6 +717,7 @@ public partial class InventoryMenuControllerTest : Node
         _inventoryMenu.OpenMenu();
         var weapon = GetSlot("%WeaponSlot");
         weapon.EmitSignal(Button.SignalName.Pressed);
+        DetailsActionButton().EmitSignal(Button.SignalName.Pressed);
         await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
 
         AssertThat(player.Equipment.GetEquipped(EquipmentSlotType.Weapon)).IsEqual(sword);
@@ -599,7 +726,7 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
-    public async Task AccessoryUnequip_WhenInventoryIsFull_RollsBackThroughMenuActivation()
+    public async Task AccessoryUnequip_WhenInventoryIsFull_RollsBackThroughDetailsAction()
     {
         var player = _gameManager.Player;
         player.Inventory.Clear();
@@ -611,6 +738,7 @@ public partial class InventoryMenuControllerTest : Node
         _inventoryMenu.OpenMenu();
         var accessory = GetSlot("%AccessorySlot0");
         accessory.EmitSignal(Button.SignalName.Pressed);
+        DetailsActionButton().EmitSignal(Button.SignalName.Pressed);
         await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
 
         AssertThat(player.Equipment.GetEquipped(EquipmentSlotType.Accessory, 0)).IsEqual(charm);
@@ -619,7 +747,7 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
-    public async Task FailedConsumableApplication_RollsBackThroughMenuActivation()
+    public async Task FailedConsumableApplication_RollsBackThroughDetailsAction()
     {
         var player = _gameManager.Player;
         player.Inventory.Clear();
@@ -633,6 +761,7 @@ public partial class InventoryMenuControllerTest : Node
 
         var slot = FindInventorySlotByTooltip(broken.DisplayName);
         slot.EmitSignal(Button.SignalName.Pressed);
+        DetailsActionButton().EmitSignal(Button.SignalName.Pressed);
         await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
 
         AssertThat(player.GetItemQuantity(broken.Id)).IsEqual(1);
@@ -669,6 +798,7 @@ public partial class InventoryMenuControllerTest : Node
 
         FindInventorySlotByTooltip("Accessory First")
             .EmitSignal(Button.SignalName.Pressed);
+        DetailsActionButton().EmitSignal(Button.SignalName.Pressed);
         await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
 
         AssertThat(_gameManager.Player.Equipment.GetEquipped(EquipmentSlotType.Accessory, 0))
@@ -676,6 +806,7 @@ public partial class InventoryMenuControllerTest : Node
 
         FindInventorySlotByTooltip("Accessory Second")
             .EmitSignal(Button.SignalName.Pressed);
+        DetailsActionButton().EmitSignal(Button.SignalName.Pressed);
         await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
 
         AssertThat(_gameManager.Player.Equipment.GetEquipped(EquipmentSlotType.Accessory, 0))
@@ -701,6 +832,7 @@ public partial class InventoryMenuControllerTest : Node
         _inventoryMenu.OpenMenu();
         FindInventorySlotByTooltip("Replacement")
             .EmitSignal(Button.SignalName.Pressed);
+        DetailsActionButton().EmitSignal(Button.SignalName.Pressed);
 
         AssertThat(_gameManager.Player.Equipment.GetEquipped(EquipmentSlotType.Accessory, 0))
             .IsEqual(replacement);
@@ -710,21 +842,25 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
-    public async Task EquipActivation_RestoresFocusToResultingEquipmentSlot()
+    public async Task EquipAction_MovesFocusToResultingEquipmentSlot()
     {
         var sword = EquipmentCatalog.CreateIronSword();
         AssertThat(_gameManager.Player.TryAddItem(sword, 1, out _)).IsTrue();
         _inventoryMenu.OpenMenu();
 
-        var itemSlot = FindInventorySlotByTooltip(sword.DisplayName);
-        itemSlot.GrabFocus();
-        itemSlot.EmitSignal(Button.SignalName.Pressed);
+        FindInventorySlotByTooltip(sword.DisplayName)
+            .EmitSignal(Button.SignalName.Pressed);
+        var action = DetailsActionButton();
+        action.GrabFocus();
+        action.EmitSignal(Button.SignalName.Pressed);
         await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
 
-        var weapon = _inventoryMenu.GetNode<SiriusItemSlotController>("%WeaponSlot");
+        var weapon = GetSlot("%WeaponSlot");
         AssertThat(_inventoryMenu.GetViewport().GuiGetFocusOwner()).IsEqual(weapon);
-        AssertThat(_inventoryMenu.GetNode<Label>("%FocusSummary").Text)
-            .Contains(sword.DisplayName);
+        AssertThat(_gameManager.Player.Equipment.GetEquipped(EquipmentSlotType.Weapon))
+            .IsEqual(sword);
+        AssertThat(action.Text).IsEqual("Unequip");
+        AssertThat(action.HasFocus()).IsFalse();
     }
 
     [TestCase]
@@ -743,6 +879,7 @@ public partial class InventoryMenuControllerTest : Node
         var firstSlot = FindInventorySlotByTooltip("A First");
         firstSlot.GrabFocus();
         firstSlot.EmitSignal(Button.SignalName.Pressed);
+        DetailsActionButton().EmitSignal(Button.SignalName.Pressed);
         await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
 
         var secondSlot = FindInventorySlotByTooltip("B Second");

@@ -419,6 +419,35 @@ public partial class InventoryMenuSceneTest : Node
     }
 
     [TestCase]
+    public async Task CompactSlotSelection_DoesNotAutoSwitchToDetails()
+    {
+        _gameManager.Player.Inventory.Clear();
+        var sword = EquipmentCatalog.CreateIronSword();
+        AssertThat(_gameManager.Player.TryAddItem(sword, 1, out _)).IsTrue();
+
+        await Resize(new Vector2I(640, 360));
+        _menu.OpenMenu();
+        await AwaitFrames(2);
+
+        var itemsTab = _menu.GetNode<Button>("%ItemsTab");
+        itemsTab.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        var slot = _menu.GetNode<Container>("%InventoryGrid")
+            .GetChildren()
+            .OfType<SiriusItemSlotController>()
+            .Single(itemSlot => itemSlot.TooltipText.Contains(sword.DisplayName, StringComparison.Ordinal));
+        slot.EmitSignal(Button.SignalName.Pressed);
+        await AwaitFrames(1);
+
+        AssertThat(itemsTab.ButtonPressed).IsTrue();
+        AssertThat(_menu.GetNode<Control>("%ItemsPage").Visible).IsTrue();
+        AssertThat(_menu.GetNode<Control>("%DetailsPage").Visible).IsFalse();
+        AssertThat(slot.ButtonPressed).IsTrue();
+        AssertThat(_menu.GetNode<Label>("%DetailsName").Text).IsEqual(sword.DisplayName);
+    }
+
+    [TestCase]
     public async Task CompactItems_HidesCharacterColumnAndUsesFullContentWidth()
     {
         var size = new Vector2I(640, 360);

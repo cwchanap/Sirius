@@ -652,7 +652,7 @@ public partial class InventoryMenuControllerTest : Node
     }
 
     [TestCase]
-    public void InventoryFilter_UsesItemMetadataInsteadOfDisplayIndex()
+    public async Task InventoryFilter_UsesItemMetadataInsteadOfDisplayIndex()
     {
         var player = _gameManager.Player;
         player.Inventory.Clear();
@@ -681,6 +681,7 @@ public partial class InventoryMenuControllerTest : Node
 
         filter.Select(0);
         filter.EmitSignal(OptionButton.SignalName.ItemSelected, 0L);
+        await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
 
         AssertThat(VisibleInventoryNames()).IsEqual(new[] { consumable.DisplayName });
     }

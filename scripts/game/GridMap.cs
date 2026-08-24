@@ -13,6 +13,10 @@ public partial class GridMap : Node2D
     [Export] public bool UseSprites { get; set; } = true; // Toggle for sprite rendering
     [Export] public bool UseBakedTileMapsAtRuntime { get; set; } = true; // Default to static TileMapLayer tiles at runtime
     [Export] public bool EnableDebugLogging { get; set; } = false; // Reduce noisy logs unless enabled
+
+    // When true, runtime idle frame cycling is frozen (reduced motion preference;
+    // applied by the Game composition root, never read from settings here).
+    public bool ReducedMotionEnabled { get; set; }
     
     // Editor preview controls
     [Export] public bool EditorPreviewFullMap { get; set; } = false;
@@ -903,6 +907,16 @@ public partial class GridMap : Node2D
             return;
         }
         // Runtime animation
+        if (ReducedMotionEnabled)
+        {
+            _animationTime = 0f;
+            if (_currentFrame != 0)
+            {
+                _currentFrame = 0;
+                QueueRedraw();
+            }
+            return;
+        }
         _animationTime += (float)delta;
         if (_animationTime >= ANIMATION_SPEED)
         {

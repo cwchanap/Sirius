@@ -427,6 +427,17 @@ public partial class EnemySpawn : Sprite2D
         }
 
         // Runtime: advance animation on the sprite sheet if available
+        if (_gridMap?.ReducedMotionEnabled == true)
+        {
+            _animTimer = 0f;
+            if (_currentFrame != 0)
+            {
+                _currentFrame = 0;
+                RegionRect = new Rect2(0, 0, FrameWidth, FrameHeight);
+            }
+            return;
+        }
+
         if (Texture != null && RegionEnabled)
         {
             _animTimer += (float)delta;

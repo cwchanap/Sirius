@@ -32,6 +32,7 @@ public partial class SettingsDataTest
         AssertThat(fromConstructor.ResolutionWidth).IsEqual(fromFactory.ResolutionWidth);
         AssertThat(fromConstructor.ResolutionHeight).IsEqual(fromFactory.ResolutionHeight);
         AssertThat(fromConstructor.AutoSaveEnabled).IsEqual(fromFactory.AutoSaveEnabled);
+        AssertThat(SettingsData.CreateDefaults().ReducedMotionEnabled).IsFalse();
 
         foreach (var key in fromFactory.PrimaryKeybindings.Keys)
         {
@@ -50,6 +51,31 @@ public partial class SettingsDataTest
 
         AssertThat(original.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.I);
         AssertThat(cloned.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.Q);
+    }
+
+    [TestCase]
+    public void SettingsData_Clone_PreservesReducedMotionIndependently()
+    {
+        var original = SettingsData.CreateDefaults();
+        original.ReducedMotionEnabled = true;
+        var cloned = original.Clone();
+
+        AssertThat(cloned.ReducedMotionEnabled).IsTrue();
+        cloned.ReducedMotionEnabled = false;
+        AssertThat(original.ReducedMotionEnabled).IsTrue();
+    }
+
+    [TestCase]
+    public void SettingsData_Clone_NullKeybindingsFallsBackToDefaults()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.PrimaryKeybindings = null!;
+
+        var clone = data.Clone();
+
+        AssertThat(clone.PrimaryKeybindings).IsNotNull();
+        AssertThat(clone.PrimaryKeybindings["toggle_inventory"])
+            .IsEqual((long)Key.I);
     }
 
     [TestCase]

@@ -44,6 +44,8 @@ public partial class SettingsMenuSceneTest : Node
         "%FullscreenCheck",
         "%ResolutionLabel",
         "%ResolutionOption",
+        "%ReducedMotionLabel",
+        "%ReducedMotionCheck",
 
         "%DifficultyLabel",
         "%DifficultyOption",

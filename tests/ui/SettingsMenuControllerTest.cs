@@ -69,12 +69,17 @@ public partial class SettingsMenuControllerTest : Node
         _ctrl.Closed += () => closedCount++;
         _ctrl.OpenSettings(snapshot);
 
+        snapshot.ReducedMotionEnabled = false;
+        _ctrl.OpenSettings(snapshot);
+        GetField<CheckBox>(_ctrl, "_reducedMotionCheck").ButtonPressed = true;
+
         GetField<HSlider>(_ctrl, "_masterSlider").Value = 15;
         InvokePrivate(_ctrl, "OnCancelPressed");
         InvokePrivate(_ctrl, "OnCancelPressed");
 
         AssertThat(snapshot.MasterVolumePercent).IsEqual(70);
         AssertThat(closedCount).IsEqual(1);
+        AssertThat(snapshot.ReducedMotionEnabled).IsFalse();
     }
 
     [TestCase]
@@ -113,6 +118,17 @@ public partial class SettingsMenuControllerTest : Node
         _ctrl.OpenSettings(data);
 
         AssertThat(GetField<CheckBox>(_ctrl, "_fullscreenCheck").ButtonPressed).IsTrue();
+    }
+
+    [TestCase]
+    public void OpenSettings_SetsReducedMotionCheckbox()
+    {
+        var data = SettingsData.CreateDefaults();
+        data.ReducedMotionEnabled = true;
+        _ctrl.OpenSettings(data);
+
+        AssertThat(GetField<CheckBox>(_ctrl, "_reducedMotionCheck").ButtonPressed)
+            .IsTrue();
     }
 
     [TestCase]
@@ -369,6 +385,56 @@ public partial class SettingsMenuControllerTest : Node
 
             AssertThat(closed).IsTrue();
             AssertThat(System.IO.File.Exists(tempSettingsPath)).IsFalse();
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(settingsManager))
+                settingsManager.QueueFree();
+            await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+            SettingsManager.WindowGetModeOverride = null;
+            SettingsManager.WindowGetSizeOverride = null;
+            SettingsManager.WindowSetModeOverride = null;
+            SettingsManager.WindowSetSizeOverride = null;
+            SettingsManager.FileWriteTextOverride = null;
+            SettingsManager.FileMoveWithOverwriteOverride = null;
+            SettingsManager.FileMoveOverride = null;
+            SettingsManager.FileDeleteOverride = null;
+        }
+    }
+
+    [TestCase]
+    public async Task OnApplyPressed_PersistsReducedMotionCheckbox()
+    {
+        // Same simulated window state, SettingsManager overrides,
+        // Root.AddChild(settingsManager), process-frame wait, and finally
+        // cleanup as the neighboring successful-Apply regression.
+        var simulatedWindowMode = DisplayServer.WindowMode.Windowed;
+        var simulatedWindowSize = new Vector2I(1280, 720);
+        SettingsManager.WindowGetModeOverride = () => simulatedWindowMode;
+        SettingsManager.WindowGetSizeOverride = () => simulatedWindowSize;
+        SettingsManager.WindowSetModeOverride = mode => simulatedWindowMode = mode;
+        SettingsManager.WindowSetSizeOverride = size => simulatedWindowSize = size;
+        SettingsManager.FileWriteTextOverride = (_, _) => { };
+        SettingsManager.FileMoveWithOverwriteOverride = (_, _, _) => { };
+        SettingsManager.FileMoveOverride = (_, _) => { };
+        SettingsManager.FileDeleteOverride = _ => { };
+
+        var settingsManager = new SettingsManager();
+        _sceneTree.Root.AddChild(settingsManager);
+        await ToSignal(_sceneTree, SceneTree.SignalName.ProcessFrame);
+
+        try
+        {
+            bool closed = false;
+            _ctrl.Closed += () => closed = true;
+
+            _ctrl.OpenSettings(SettingsData.CreateDefaults());
+            GetField<CheckBox>(_ctrl, "_reducedMotionCheck").ButtonPressed = true;
+
+            InvokePrivate(_ctrl, "OnApplyPressed");
+
+            AssertThat(settingsManager.GetSnapshot().ReducedMotionEnabled).IsTrue();
+            AssertThat(closed).IsTrue();
         }
         finally
         {

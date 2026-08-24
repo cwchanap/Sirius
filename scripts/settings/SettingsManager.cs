@@ -223,19 +223,24 @@ public partial class SettingsManager : Node
     {
         var defaults = SettingsData.CreateDefaults();
         var isResolutionValid = IsValidResolution(data.ResolutionWidth, data.ResolutionHeight);
-        var sanitized = new SettingsData
-        {
-            Version = SettingsData.CurrentVersion,
-            MasterVolumePercent = Mathf.Clamp(data.MasterVolumePercent, 0, 100),
-            MusicVolumePercent = Mathf.Clamp(data.MusicVolumePercent, 0, 100),
-            SfxVolumePercent = Mathf.Clamp(data.SfxVolumePercent, 0, 100),
-            Difficulty = string.IsNullOrWhiteSpace(data.Difficulty) ? defaults.Difficulty : data.Difficulty,
-            FullscreenEnabled = data.FullscreenEnabled,
-            ResolutionWidth = isResolutionValid ? data.ResolutionWidth : defaults.ResolutionWidth,
-            ResolutionHeight = isResolutionValid ? data.ResolutionHeight : defaults.ResolutionHeight,
-            AutoSaveEnabled = data.AutoSaveEnabled,
-            PrimaryKeybindings = NormalizeKeybindings(data.PrimaryKeybindings)
-        };
+        // Clone-then-normalize: Clone() already copies plain fields (Fullscreen,
+        // Auto Save, Reduced Motion) safely even for unsanitized JSON with null
+        // keybindings; validated fields are overwritten explicitly below.
+        var sanitized = data.Clone();
+        sanitized.Version = SettingsData.CurrentVersion;
+        sanitized.MasterVolumePercent = Mathf.Clamp(data.MasterVolumePercent, 0, 100);
+        sanitized.MusicVolumePercent = Mathf.Clamp(data.MusicVolumePercent, 0, 100);
+        sanitized.SfxVolumePercent = Mathf.Clamp(data.SfxVolumePercent, 0, 100);
+        sanitized.Difficulty = string.IsNullOrWhiteSpace(data.Difficulty)
+            ? defaults.Difficulty
+            : data.Difficulty;
+        sanitized.ResolutionWidth = isResolutionValid
+            ? data.ResolutionWidth
+            : defaults.ResolutionWidth;
+        sanitized.ResolutionHeight = isResolutionValid
+            ? data.ResolutionHeight
+            : defaults.ResolutionHeight;
+        sanitized.PrimaryKeybindings = NormalizeKeybindings(data.PrimaryKeybindings);
 
         return sanitized;
     }

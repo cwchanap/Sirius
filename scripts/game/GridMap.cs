@@ -909,12 +909,8 @@ public partial class GridMap : Node2D
         // Runtime animation
         if (ReducedMotionEnabled)
         {
-            _animationTime = 0f;
-            if (_currentFrame != 0)
-            {
-                _currentFrame = 0;
+            if (ResetAnimationFrameForReducedMotion(ref _animationTime, ref _currentFrame))
                 QueueRedraw();
-            }
             return;
         }
         _animationTime += (float)delta;
@@ -924,6 +920,17 @@ public partial class GridMap : Node2D
             _currentFrame = (_currentFrame + 1) % TOTAL_FRAMES;
             QueueRedraw(); // Redraw to show next frame
         }
+    }
+
+    // Shared reduced-motion behavior for the sprite-sheet animators (GridMap, PlayerDisplay, EnemySpawn).
+    // Returns true when the frame changed back to 0 and the caller should refresh visuals (QueueRedraw/RegionRect).
+    public static bool ResetAnimationFrameForReducedMotion(ref float animationTime, ref int currentFrame)
+    {
+        animationTime = 0f;
+        if (currentFrame == 0)
+            return false;
+        currentFrame = 0;
+        return true;
     }
     
     private void LoadSprites()

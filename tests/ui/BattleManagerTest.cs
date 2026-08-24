@@ -735,6 +735,65 @@ public partial class BattleManagerTest : Node
     }
 
     [TestCase]
+    public async Task PlayAttackAnimation_ReducedMotionSkipsTweenAndVisualMutation()
+    {
+        var manager = await CreateReadyBattleManager();
+        try
+        {
+            SetPrivateField(manager, "_reducedMotionEnabled", true);
+            var sprite = new AnimatedSprite2D
+            {
+                Scale = new Vector2(3f, 3f),
+                Modulate = Colors.White
+            };
+            manager.AddChild(sprite);
+
+            InvokePrivateMethod(manager, "PlayAttackAnimation", sprite);
+
+            var tweens = GetPrivateField<System.Collections.Generic.HashSet<Tween>>(manager, "_visualTweens");
+            AssertThat(tweens.Count).IsEqual(0);
+            AssertThat(sprite.Scale).IsEqual(new Vector2(3f, 3f));
+            AssertThat(sprite.Modulate).IsEqual(Colors.White);
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
+    [TestCase]
+    public async Task ShowDamageNumber_ReducedMotionKeepsPositionAndUsesOneSecondFade()
+    {
+        var manager = await CreateReadyBattleManager();
+        try
+        {
+            SetPrivateField(manager, "_reducedMotionEnabled", true);
+            var label = new Label { Position = new Vector2(12f, 34f) };
+            manager.AddChild(label);
+            var resting = label.Position;
+
+            InvokePrivateMethod(manager, "ShowDamageNumber", label, 25, false);
+
+            var tweens = GetPrivateField<System.Collections.Generic.HashSet<Tween>>(manager, "_visualTweens");
+            AssertThat(tweens.Count).IsEqual(1);
+            var tween = tweens.Single();
+            tween.Pause();
+            tween.CustomStep(0.5d);
+
+            AssertThat(label.Position).IsEqual(resting);
+            AssertThat(label.Modulate.A).IsEqualApprox(0.5f, 0.05f);
+
+            tween.CustomStep(0.5d);
+            AssertThat(label.Position).IsEqual(resting);
+            AssertThat(label.Modulate.A).IsEqualApprox(0f, 0.05f);
+        }
+        finally
+        {
+            await FreeManager(manager);
+        }
+    }
+
+    [TestCase]
     public void BattleResultSummary_VictoryStoresResolvedRewards()
     {
         var loot = new LootResult();
@@ -1002,7 +1061,7 @@ public partial class BattleManagerTest : Node
         var manager = scene.Instantiate<BattleManager>();
         ((SceneTree)Engine.GetMainLoop()).Root.AddChild(manager);
         await ToSignal(Engine.GetMainLoop(), SceneTree.SignalName.ProcessFrame);
-        manager.StartBattle(TestHelpers.CreateTestCharacter(), Enemy.CreateGoblin());
+        manager.StartBattle(TestHelpers.CreateTestCharacter(), Enemy.CreateGoblin(), reducedMotionEnabled: false);
         return manager;
     }
 

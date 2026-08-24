@@ -83,6 +83,7 @@ public partial class BattleManager : Control
     private Vector2 _enemyDamageRestingPosition;
     private Vector2 _playerSpriteRestingScale = Vector2.One;
     private Vector2 _enemySpriteRestingScale = Vector2.One;
+    private bool _reducedMotionEnabled;
 
     // Auto-battle properties
     private Timer _battleTimer = null!;
@@ -455,7 +456,7 @@ public partial class BattleManager : Control
     /// Initializes the battle with the given combatants and sets up UI.
     /// Player goes first if Speed &gt;= enemy Speed (ties favor the player).
     /// </summary>
-    public void StartBattle(Character player, Enemy enemy)
+    public void StartBattle(Character player, Enemy enemy, bool reducedMotionEnabled)
     {
         if (player == null || enemy == null)
         {
@@ -467,6 +468,7 @@ public partial class BattleManager : Control
 
         GD.Print($"BattleManager.StartBattle called: {player.Name} vs {enemy.Name}");
 
+        _reducedMotionEnabled = reducedMotionEnabled;
         _player = player;
         _enemy = enemy;
         _playerTurn = true; // Placeholder; determined after pre-battle consumables in OnStartButtonPressed()
@@ -1116,7 +1118,16 @@ public partial class BattleManager : Control
             float pScale = targetPx / (float)PLAYER_FRAME_W;
             _playerSprite.Scale = new Vector2(pScale, pScale);
             _playerSprite.Modulate = new Color(1, 1, 1, 1);
-            _playerSprite.Play("idle");
+            if (_reducedMotionEnabled)
+            {
+                _playerSprite.Animation = "idle";
+                _playerSprite.Frame = 0;
+                _playerSprite.Stop();
+            }
+            else
+            {
+                _playerSprite.Play("idle");
+            }
 
             var material = new CanvasItemMaterial();
             material.BlendMode = CanvasItemMaterial.BlendModeEnum.Mix;
@@ -1177,7 +1188,16 @@ public partial class BattleManager : Control
             float eScale = 96f / (float)ENEMY_FRAME_W;
             _enemySprite.Scale = new Vector2(eScale, eScale);
             _enemySprite.Modulate = new Color(1, 1, 1, 1);
-            _enemySprite.Play("idle");
+            if (_reducedMotionEnabled)
+            {
+                _enemySprite.Animation = "idle";
+                _enemySprite.Frame = 0;
+                _enemySprite.Stop();
+            }
+            else
+            {
+                _enemySprite.Play("idle");
+            }
 
             var enemyMaterial = new CanvasItemMaterial();
             enemyMaterial.BlendMode = CanvasItemMaterial.BlendModeEnum.Mix;
@@ -1825,11 +1845,15 @@ public partial class BattleManager : Control
         var tween = CreateTrackedTween();
         tween.SetParallel(true);
         
-        // Animate position (move up)
+        // Animate position (move up) — skipped under reduced motion; the
+        // 1-second opacity fade is kept so damage feedback stays readable.
         var startPos = damageLabel.Position;
-        var endPos = startPos + new Vector2(0, -30);
-        tween.TweenProperty(damageLabel, "position", endPos, 1.0);
-        
+        if (!_reducedMotionEnabled)
+        {
+            var endPos = startPos + new Vector2(0, -30);
+            tween.TweenProperty(damageLabel, "position", endPos, 1.0);
+        }
+
         // Animate opacity (fade out)
         tween.TweenProperty(damageLabel, "modulate:a", 0.0f, 1.0);
         
@@ -1843,6 +1867,9 @@ public partial class BattleManager : Control
     private void PlayAttackAnimation(AnimatedSprite2D? sprite)
     {
         if (sprite == null) return;
+
+        if (_reducedMotionEnabled)
+            return;
 
         // Create a quick flash effect for attack
         var tween = CreateTrackedTween();

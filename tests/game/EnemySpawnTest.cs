@@ -1,5 +1,7 @@
 using GdUnit4;
 using Godot;
+using System;
+using System.Reflection;
 using static GdUnit4.Assertions;
 
 /// <summary>
@@ -28,6 +30,75 @@ public partial class EnemySpawnTest : Node
         }
 
         _spawn = null;
+    }
+
+    [TestCase]
+    public void Process_ReducedMotionKeepsFrameZero()
+    {
+        var grid = new GridMap { ReducedMotionEnabled = true };
+        var spawn = CreateSpawn();
+        try
+        {
+            SetPrivateField(spawn, "_gridMap", grid);
+            SetPrivateField(spawn, "FrameWidth", 96);
+            SetPrivateField(spawn, "FrameHeight", 96);
+            spawn.Texture = CreateFourFrameTexture();
+            spawn.RegionEnabled = true;
+            spawn.RegionRect = new Rect2(0, 0, 96, 96);
+
+            spawn._Process(0.2);
+
+            AssertThat(spawn.RegionRect.Position.X).IsEqual(0f);
+        }
+        finally
+        {
+            spawn.Free();
+            grid.Free();
+        }
+    }
+
+    [TestCase]
+    public void Process_DefaultMotionAdvancesOneFrame()
+    {
+        var grid = new GridMap { ReducedMotionEnabled = false };
+        var spawn = CreateSpawn();
+        try
+        {
+            SetPrivateField(spawn, "_gridMap", grid);
+            SetPrivateField(spawn, "FrameWidth", 96);
+            SetPrivateField(spawn, "FrameHeight", 96);
+            spawn.Texture = CreateFourFrameTexture();
+            spawn.RegionEnabled = true;
+            spawn.RegionRect = new Rect2(0, 0, 96, 96);
+
+            spawn._Process(0.2);
+
+            AssertThat(spawn.RegionRect.Position.X).IsEqual(96f);
+        }
+        finally
+        {
+            spawn.Free();
+            grid.Free();
+        }
+    }
+
+    private static Texture2D CreateFourFrameTexture()
+    {
+        var image = Image.CreateEmpty(384, 96, false, Image.Format.Rgba8);
+        image.Fill(Colors.White);
+        return ImageTexture.CreateFromImage(image);
+    }
+
+    private static void SetPrivateField(object instance, string fieldName, object? value)
+    {
+        var field = instance.GetType().GetField(fieldName,
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        if (field == null)
+        {
+            throw new MissingFieldException(instance.GetType().FullName, fieldName);
+        }
+
+        field.SetValue(instance, value);
     }
 
     [TestCase]

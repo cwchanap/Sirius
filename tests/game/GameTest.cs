@@ -1572,6 +1572,102 @@ public partial class GameTest : Node
         }
     }
 
+    [TestCase]
+    public async Task GameReady_ReducedMotionDisablesCameraAndMarksCurrentGrid()
+    {
+        var previousSettingsManager = SettingsManager.Instance;
+        var settingsManager = new SettingsManager();
+        var snapshot = settingsManager.GetSnapshot();
+        snapshot.ReducedMotionEnabled = true;
+        SetPrivateField(settingsManager, "_settings", snapshot);
+        SetSettingsManagerInstance(settingsManager);
+        Game? game = null;
+        try
+        {
+            game = await InstantiateRealGameScene();
+            var camera = game.GetNode<Camera2D>("Camera2D");
+            var grid = game.GetNode<FloorManager>("FloorManager").CurrentGridMap;
+
+            AssertThat(camera.PositionSmoothingEnabled).IsFalse();
+            AssertThat(grid.ReducedMotionEnabled).IsTrue();
+        }
+        finally
+        {
+            if (game != null && IsInstanceValid(game)) game.Free();
+            SetSettingsManagerInstance(previousSettingsManager);
+            if (IsInstanceValid(settingsManager)) settingsManager.Free();
+            await AwaitFrames(1);
+        }
+    }
+
+    // Player enables Reduced Motion from the hosted Pause → Settings screen;
+    // closing Settings must reapply the new value to the live camera and the
+    // current GridMap without any direct call into the composition helper.
+    [TestCase]
+    public async Task Game_HostedSettingsClosed_AppliesReducedMotionToCameraAndGrid()
+    {
+        var previousSettingsManager = SettingsManager.Instance;
+        var settingsManager = new SettingsManager();
+        SetSettingsManagerInstance(settingsManager);
+        Game? game = null;
+        try
+        {
+            game = await InstantiateRealGameScene();
+
+            AssertThat(InvokePrivate<bool>(game, "TryOpenPause")).IsTrue();
+            await AwaitFrames(2);
+
+            var pause = GetPrivateField<PauseScreenController>(game, "_pauseScreen");
+            pause.GetNode<Button>("%SettingsButton").EmitSignal(Button.SignalName.Pressed);
+            await AwaitFrames(2);
+
+            var settings = GetPrivateField<SettingsMenuController?>(game, "_hostedSettingsMenu");
+            AssertThat(settings).IsNotNull();
+
+            var snapshot = settingsManager.GetSnapshot();
+            snapshot.ReducedMotionEnabled = true;
+            SetPrivateField(settingsManager, "_settings", snapshot);
+
+            settings!.EmitSignal(SettingsMenuController.SignalName.Closed);
+            await AwaitFrames(3);
+
+            var camera = game.GetNode<Camera2D>("Camera2D");
+            var grid = game.GetNode<FloorManager>("FloorManager").CurrentGridMap;
+
+            AssertThat(camera.PositionSmoothingEnabled).IsFalse();
+            AssertThat(grid.ReducedMotionEnabled).IsTrue();
+        }
+        finally
+        {
+            if (game != null && IsInstanceValid(game)) game.Free();
+            SetSettingsManagerInstance(previousSettingsManager);
+            if (IsInstanceValid(settingsManager)) settingsManager.Free();
+            await AwaitFrames(1);
+        }
+    }
+
+    private static void SetSettingsManagerInstance(SettingsManager? instance)
+    {
+        var property = typeof(SettingsManager).GetProperty("Instance",
+            BindingFlags.Public | BindingFlags.Static);
+        var setter = property?.GetSetMethod(true);
+        if (setter != null)
+        {
+            setter.Invoke(null, new object?[] { instance });
+            return;
+        }
+
+        var field = typeof(SettingsManager).GetField("<Instance>k__BackingField",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        if (field != null)
+        {
+            field.SetValue(null, instance);
+            return;
+        }
+
+        throw new InvalidOperationException("Failed to set SettingsManager singleton.");
+    }
+
     private async Task ReplaceWithHostedFixture()
     {
         if (_game != null && IsInstanceValid(_game))

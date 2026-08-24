@@ -119,6 +119,7 @@ public partial class Game : Node2D
         {
             _camera.Zoom = new Vector2(CameraZoomOverride, CameraZoomOverride);
         }
+        ApplyCurrentReducedMotionToWorld();
 
         // Set FloorManager reference in GameManager for save system
         _gameManager.SetFloorManager(_floorManager);
@@ -458,8 +459,25 @@ public partial class Game : Node2D
         return true;
     }
 
-    private void OnHostedSettingsClosed() =>
+    private void OnHostedSettingsClosed()
+    {
         TryCloseHostedSettings(UIScreenCloseReason.ExplicitAction);
+        ApplyCurrentReducedMotionToWorld();
+    }
+
+    private bool CurrentReducedMotionEnabled() =>
+        SettingsManager.Instance?.GetSnapshot().ReducedMotionEnabled ?? false;
+
+    private void ApplyCurrentReducedMotionToWorld()
+    {
+        var reduced = CurrentReducedMotionEnabled();
+
+        if (_camera != null)
+            _camera.PositionSmoothingEnabled = EnableCameraSmoothing && !reduced;
+
+        if (_gridMap != null)
+            _gridMap.ReducedMotionEnabled = reduced;
+    }
 
     private bool TryCloseHostedSettings(UIScreenCloseReason reason)
     {
@@ -2271,6 +2289,7 @@ public partial class Game : Node2D
 
         // Update dynamic GridMap reference
         _gridMap = gridMap;
+        ApplyCurrentReducedMotionToWorld();
 
         // Update PlayerController's GridMap reference
         if (_playerController != null)

@@ -132,6 +132,7 @@ public partial class SettingsManagerTest : Node
         var candidate = manager.GetSnapshot();
         candidate.MusicVolumePercent = 35;
         candidate.FullscreenEnabled = true;
+        candidate.ReducedMotionEnabled = true;
         candidate.PrimaryKeybindings["toggle_inventory"] = (long)Key.Q;
 
         AssertThat(manager.ApplyAndSave(candidate)).IsTrue();
@@ -141,7 +142,61 @@ public partial class SettingsManagerTest : Node
 
         AssertThat(snapshot.MusicVolumePercent).IsEqual(35);
         AssertThat(snapshot.FullscreenEnabled).IsTrue();
+        AssertThat(reloadedManager.GetSnapshot().ReducedMotionEnabled).IsTrue();
         AssertThat(snapshot.PrimaryKeybindings["toggle_inventory"]).IsEqual((long)Key.Q);
+    }
+
+    [TestCase]
+    public async Task SettingsManager_Ready_SettingsWithoutReducedMotion_DefaultsFalse()
+    {
+        File.WriteAllText(ProjectSettings.GlobalizePath("user://settings.json"), """
+            {
+              "Version": 1,
+              "MasterVolumePercent": 100,
+              "MusicVolumePercent": 100,
+              "SfxVolumePercent": 100,
+              "Difficulty": "Normal",
+              "FullscreenEnabled": false,
+              "ResolutionWidth": 1280,
+              "ResolutionHeight": 720,
+              "AutoSaveEnabled": true,
+              "PrimaryKeybindings": {
+                "toggle_inventory": 73,
+                "interact": 69,
+                "pause_menu": 4194305
+              }
+            }
+            """);
+
+        var manager = await BootstrapSettingsManager();
+        AssertThat(manager.GetSnapshot().ReducedMotionEnabled).IsFalse();
+    }
+
+    [TestCase]
+    public async Task SettingsManager_Ready_NullKeybindingsStillNormalizesDefaults()
+    {
+        File.WriteAllText(ProjectSettings.GlobalizePath("user://settings.json"), """
+            {
+              "Version": 1,
+              "MasterVolumePercent": 100,
+              "MusicVolumePercent": 100,
+              "SfxVolumePercent": 100,
+              "Difficulty": "Normal",
+              "FullscreenEnabled": false,
+              "ResolutionWidth": 1280,
+              "ResolutionHeight": 720,
+              "AutoSaveEnabled": true,
+              "ReducedMotionEnabled": true,
+              "PrimaryKeybindings": null
+            }
+            """);
+
+        var manager = await BootstrapSettingsManager();
+        var snapshot = manager.GetSnapshot();
+
+        AssertThat(snapshot.ReducedMotionEnabled).IsTrue();
+        AssertThat(snapshot.PrimaryKeybindings["pause_menu"])
+            .IsEqual((long)Key.Escape);
     }
 
     [TestCase]

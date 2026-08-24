@@ -59,6 +59,7 @@ public partial class SettingsMenuController : Control
     // Display
     private CheckBox _fullscreenCheck = null!;
     private OptionButton _resolutionOption = null!;
+    private CheckBox _reducedMotionCheck = null!;
 
     // Gameplay
     private OptionButton _difficultyOption = null!;
@@ -152,6 +153,7 @@ public partial class SettingsMenuController : Control
 
         _fullscreenCheck = GetNode<CheckBox>("%FullscreenCheck");
         _resolutionOption = GetNode<OptionButton>("%ResolutionOption");
+        _reducedMotionCheck = GetNode<CheckBox>("%ReducedMotionCheck");
         _difficultyOption = GetNode<OptionButton>("%DifficultyOption");
         _autoSaveCheck = GetNode<CheckBox>("%AutoSaveCheck");
 
@@ -290,6 +292,7 @@ public partial class SettingsMenuController : Control
         _sfxValueLabel.Text      = $"{_editedSettings.SfxVolumePercent}%";
 
         _fullscreenCheck.ButtonPressed = _editedSettings.FullscreenEnabled;
+        _reducedMotionCheck.ButtonPressed = _editedSettings.ReducedMotionEnabled;
 
         PopulateResolutionOption();
 
@@ -594,6 +597,7 @@ public partial class SettingsMenuController : Control
             MusicVolumePercent  = (int)_musicSlider.Value,
             SfxVolumePercent    = (int)_sfxSlider.Value,
             FullscreenEnabled   = _fullscreenCheck.ButtonPressed,
+            ReducedMotionEnabled = _reducedMotionCheck.ButtonPressed,
             ResolutionWidth     = resolution.W,
             ResolutionHeight    = resolution.H,
             Difficulty          = difficulty,

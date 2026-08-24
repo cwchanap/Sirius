@@ -14,6 +14,7 @@ public class SettingsData
     public int ResolutionWidth { get; set; } = 1280;
     public int ResolutionHeight { get; set; } = 720;
     public bool AutoSaveEnabled { get; set; } = true;
+    public bool ReducedMotionEnabled { get; set; }
     public Dictionary<string, long> PrimaryKeybindings { get; set; } = CreateDefaultKeybindings();
 
     public static Dictionary<string, long> CreateDefaultKeybindings()
@@ -41,7 +42,10 @@ public class SettingsData
             ResolutionWidth = ResolutionWidth,
             ResolutionHeight = ResolutionHeight,
             AutoSaveEnabled = AutoSaveEnabled,
-            PrimaryKeybindings = new Dictionary<string, long>(PrimaryKeybindings)
+            ReducedMotionEnabled = ReducedMotionEnabled,
+            PrimaryKeybindings = PrimaryKeybindings is null
+                ? CreateDefaultKeybindings()
+                : new Dictionary<string, long>(PrimaryKeybindings)
         };
     }
 }

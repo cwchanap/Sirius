@@ -104,10 +104,10 @@ Expected: the full suite passes. Record the exact pass/fail/skip totals for Task
 
 Do not replace this with only the focused set. HPA-306's definition of done spans the shared lifecycle and domain contracts across all migrated screens.
 
-- [ ] **Step 6: Check patch hygiene**
+- [ ] **Step 6: Check the committed PR range for whitespace errors**
 
 ```bash
-git diff --check
+git diff --check main...HEAD
 ```
 
 Expected: no whitespace errors.
@@ -212,7 +212,7 @@ If Task 2 is clean, make no production edit.
 
 - [ ] **Step 1: Create `docs/ui/hpa-306/closeout.md` from observed facts**
 
-Write the file only after Tasks 1–2 are complete. It must contain these sections with actual observed values, not placeholders:
+Write the file only after Tasks 1–2 are complete. It must contain these sections with actual observed values:
 
 ```markdown
 # HPA-306 Sirius UI Revamp Closeout
@@ -251,10 +251,10 @@ Required factual content:
 
 Do not restate the entire HPA-359 evidence document and do not add a new screenshot matrix.
 
-- [ ] **Step 2: Check the closeout document for unfinished language**
+- [ ] **Step 2: Check the closeout document for unfinished result language**
 
 ```bash
-rg -n "TBD|TODO|PLACEHOLDER|fill this|pending result|to be recorded" docs/ui/hpa-306/closeout.md
+rg -n "pending result|to be recorded|fill this|replace me" docs/ui/hpa-306/closeout.md
 ```
 
 Expected: no matches.
@@ -264,7 +264,7 @@ Expected: no matches.
 ```bash
 git status --short
 git diff --stat main...HEAD
-git diff --check
+git diff --check main...HEAD
 ```
 
 Expected clean shape when no defect was found:

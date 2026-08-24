@@ -6,49 +6,79 @@
 
 ## 1. Decision
 
-Implement HPA-541 now that the deferred evidence gate is satisfied, but keep the solution deliberately local.
+Implement HPA-541 as one local preference slice. Add one persisted `ReducedMotionEnabled` boolean, expose it on the existing Display settings page, and pass that scalar only through existing composition ownership.
 
-Add one persisted `ReducedMotionEnabled` boolean to the existing settings model, expose it as one checkbox on the existing Display settings page, and inject its current value into the one proven production UI motion owner: `BattleManager`.
+The current production survey shows two motion domains that belong in this ticket:
 
-Do not add a motion service, global policy object, event bus, shared-component lifecycle API, or a new Settings page. `SettingsManager` remains the persistence owner; `Game` remains the Battle presentation/composition owner; `BattleManager` remains the owner of Battle-specific animation choices.
+1. **Exploration/world presentation** — camera smoothing plus 5 FPS player/enemy idle frame cycling.
+2. **Battle presentation** — looping actor idle frames, floating damage translation, and attack scale/flash feedback.
 
-This branch is the **single HPA-541 PR**. It starts with planning documents and should receive the implementation commits after plan review rather than opening a second PR.
+Do not add a motion service, global policy object, event bus, settings-changed signal, shared-component lifecycle API, or new Settings page.
 
-## 2. Why HPA-541 is actionable now
+Ownership stays concrete:
 
-HPA-541 was intentionally deferred until production UI contained real motion worth reducing. That condition is now true.
+```text
+SettingsManager -> snapshot -> Game
+                         |-> GridMap scalar -> PlayerDisplay / EnemySpawn
+                         |-> Camera2D smoothing choice
+                         `-> BattleManager startup bool
+```
 
-The current production-code survey finds `CreateTween()` / `TweenProperty(...)` only in:
+`Game` remains the composition root. `GridMap`, `PlayerDisplay`, `EnemySpawn`, and `BattleManager` do not read `SettingsManager`.
 
-- `scripts/ui/BattleManager.cs` — production Battle presentation;
-- `scripts/ui/showcase/SiriusUiShowcase.cs` — development showcase only.
+This branch remains the **single HPA-541 PR**. Planning and implementation commits stay on this PR.
 
-`BattleManager` currently owns four relevant motion effects:
+## 2. Production motion survey
 
-1. damage labels translate upward 30 px over 1 second;
-2. damage labels fade to transparent over the same 1 second;
-3. attack feedback scales the acting sprite to 1.2× and back;
-4. attack feedback flashes the sprite white and back.
+The earlier Battle-only survey was incomplete because it searched only `CreateTween` / `TweenProperty` under `scripts/ui`. Reduced-motion ownership is not limited to tween APIs or the UI directory.
 
-It also constructs looping 4 FPS `AnimatedSprite2D` idle animations for the player and enemy during Battle.
+The corrected survey covers process-driven animation, redraw/frame cycling, sprite playback, and camera smoothing across `scripts/`.
 
-This is enough real production motion to justify the preference. The showcase is not a player-facing production flow and is out of scope.
+### Player-facing owners to handle
 
-### Existing `SiriusMotion` is not the Battle policy
+#### `scripts/ui/BattleManager.cs`
 
-HPA-377 already shipped `scripts/ui/theme/SiriusMotion.cs` for shared **chrome entry/exit** behavior and a showcase-local reduced-motion demonstration. HPA-541 must not route Battle juice through that helper.
+Battle owns:
 
-The contracts are intentionally different:
+- damage-label translation upward 30 px over 1 second;
+- damage-label opacity fade over the same 1 second;
+- attack scale to 1.2× and back;
+- attack white flash and restore;
+- looping 4 FPS player/enemy `AnimatedSprite2D` idle playback.
 
-- `SiriusMotion.Duration(reducedMotion: true, ...)` returns `0.100` seconds for reduced chrome opacity;
-- `SiriusMotion.UseTransform(...)` controls whether shared shell wrappers use transform motion;
-- Battle damage feedback has a deliberate `1.0` second opacity lifetime;
-- Battle attack scale/flash uses local `0.1` second feedback but is fire-and-forget and independent of shell entry/exit;
-- Battle idle sprites are actor presentation, not modal/toast chrome.
+#### `scripts/game/PlayerDisplay.cs`
 
-Using `SiriusMotion.Duration(...)` inside Battle would silently shrink the required 1-second damage fade to 100 ms and violate the unchanged-completion-timing requirement.
+The baked-TileMap production player sprite advances `RegionRect` through four frames every 0.2 seconds.
 
-Therefore reuse is limited to the **ownership pattern** already established by HPA-377: the composer passes a scalar preference to the concrete consumer. Battle keeps its local combat-presentation durations and does **not** call `SiriusMotion`.
+#### `scripts/game/EnemySpawn.cs`
+
+Scene-authored runtime enemy sprites advance `RegionRect` through four frames every 0.2 seconds.
+
+#### `scripts/game/Game.cs`
+
+The production camera enables Godot position smoothing when `EnableCameraSmoothing` is true. Reduced Motion disables this nonessential camera interpolation while preserving grid movement and camera targeting.
+
+#### `scripts/game/GridMap.cs`
+
+`GridMap` still owns a legacy/procedural `_currentFrame` + `QueueRedraw()` animation loop. Production defaults `UseBakedTileMapsAtRuntime = true`, and `_Draw()` returns immediately in that mode, so this is **not** the visible production player/enemy animation source. The loop still belongs to the world owner and must honor Reduced Motion so the non-baked path cannot keep cycling and the baked path does not perform needless reduced-mode redraw work.
+
+### Surveyed but not reduced here
+
+- `NpcSpawn` has no runtime frame loop; its `_Process` is editor-only.
+- `TreasureBoxSpawn.OpenAsync()` is a short finite state-change animation, not continuous ambient motion. It remains because each frame communicates the open transition and completion state.
+- `SiriusUiShowcase` is development-only demonstration code.
+- `SiriusMotion` is shared chrome demo policy, not a Battle timing source.
+
+### Closeout audit
+
+Use a broad inventory rather than claiming one API proves completeness:
+
+```bash
+rg -n 'CreateTween|TweenProperty|QueueRedraw|_currentFrame|_animTimer|RegionRect|\.Play\(|PositionSmoothing|AnimationPlayer|AnimatedSprite2D' \
+  scripts --glob '!scripts/ui/showcase/**'
+```
+
+The closeout requirement is: **every player-facing result is classified as handled or explicitly retained with a reason.** Do not claim there are no other motion owners merely because a narrower grep is empty.
 
 ## 3. Persistence contract
 
@@ -58,21 +88,47 @@ Extend `SettingsData` with:
 public bool ReducedMotionEnabled { get; set; }
 ```
 
-The default is `false`.
+Default is `false`.
 
-`Clone()` and `SettingsManager.Sanitize(...)` must copy the value. JSON serialization then persists it through the existing atomic settings path.
+Do **not** bump `SettingsData.CurrentVersion`. A development settings JSON that lacks the field naturally deserializes to `false`.
 
-### No settings-version migration
+### Make `Sanitize` future-field-safe without a mapper
 
-Do **not** bump `SettingsData.CurrentVersion` and do not add a migration table.
+`SettingsManager.Sanitize(...)` currently reconstructs `SettingsData` as a whitelist. That makes every future plain settings property easy to silently drop.
 
-An older development `settings.json` simply lacks `ReducedMotionEnabled`; `System.Text.Json` leaves the boolean at its default `false`, and `Sanitize(...)` carries that value forward. That is the entire compatibility requirement for this development-only setting.
+Keep the current simple model, but start sanitization from `data.Clone()` and overwrite only fields that actually require normalization:
 
-Corrupt-file, backup, window, audio, input, and autosave recovery behavior remains unchanged.
+```csharp
+var sanitized = data.Clone();
+sanitized.Version = SettingsData.CurrentVersion;
+sanitized.MasterVolumePercent = Mathf.Clamp(data.MasterVolumePercent, 0, 100);
+sanitized.MusicVolumePercent = Mathf.Clamp(data.MusicVolumePercent, 0, 100);
+sanitized.SfxVolumePercent = Mathf.Clamp(data.SfxVolumePercent, 0, 100);
+sanitized.Difficulty = string.IsNullOrWhiteSpace(data.Difficulty)
+    ? defaults.Difficulty
+    : data.Difficulty;
+sanitized.ResolutionWidth = isResolutionValid
+    ? data.ResolutionWidth
+    : defaults.ResolutionWidth;
+sanitized.ResolutionHeight = isResolutionValid
+    ? data.ResolutionHeight
+    : defaults.ResolutionHeight;
+sanitized.PrimaryKeybindings = NormalizeKeybindings(data.PrimaryKeybindings);
+```
+
+`Clone()` must remain safe for unsanitized JSON whose `PrimaryKeybindings` is null:
+
+```csharp
+PrimaryKeybindings = PrimaryKeybindings is null
+    ? CreateDefaultKeybindings()
+    : new Dictionary<string, long>(PrimaryKeybindings)
+```
+
+This is not a mapper or migration layer. It preserves the current validation behavior while making future plain fields copy automatically.
 
 ## 4. Settings UI
 
-Put one authored row on the existing **Display** page:
+Add one authored row to the existing Display page after Resolution:
 
 ```text
 Reduced Motion    [ ]
@@ -83,199 +139,233 @@ Use:
 - `%ReducedMotionLabel`
 - `%ReducedMotionCheck`
 
-The row follows the existing `DisplayRows` responsive grid and page-local scrolling. No Accessibility page, custom component, tooltip framework, or theme token is needed.
+Reuse the existing `DisplayRows` responsive grid and page-local scrolling.
 
-`SettingsMenuController` follows the existing staged-edit contract:
+`SettingsMenuController` keeps the current staged contract:
 
 - `OpenSettings(...)` populates the checkbox from the cloned snapshot;
-- toggling the checkbox mutates only control state until Apply;
-- Cancel discards the staged value with the rest of the screen;
-- Apply includes the checkbox value in the new `SettingsData` candidate passed to `SettingsManager.ApplyAndSave(...)`.
+- toggling changes only the control state;
+- Cancel discards it;
+- Apply places the checkbox value into the `SettingsData` candidate passed to `SettingsManager.ApplyAndSave(...)`.
 
-The existing Apply/Cancel and focus ownership stays unchanged.
+Do not bind `Toggled` directly to persistence.
 
-The setting is intentionally hand-copied through the same explicit lists as the existing settings model: `SettingsData.Clone()`, `SettingsManager.Sanitize(...)`, and the `SettingsMenuController.OnApplyPressed()` candidate. Do not add a mapper for one boolean; dedicated tests must pin all three copy boundaries.
+## 5. World propagation
 
-## 5. Propagation ownership
+`Game` owns one private snapshot read:
 
-`BattleManager` must not read `SettingsManager` directly.
+```csharp
+private bool CurrentReducedMotionEnabled() =>
+    SettingsManager.Instance?.GetSnapshot().ReducedMotionEnabled ?? false;
+```
 
-`Game`, which already instantiates and starts Battle, reads the current snapshot when opening each Battle and passes the scalar preference into `BattleManager` before motion starts.
+Use one private helper to apply the current value to the active world:
 
-Make the setting part of Battle startup rather than introducing mutable global state:
+```csharp
+private void ApplyCurrentReducedMotionToWorld()
+{
+    var reduced = CurrentReducedMotionEnabled();
+
+    if (_camera != null)
+        _camera.PositionSmoothingEnabled = EnableCameraSmoothing && !reduced;
+
+    if (_gridMap != null)
+        _gridMap.ReducedMotionEnabled = reduced;
+}
+```
+
+Call it:
+
+- after initial camera setup in `Game._Ready()`;
+- after assigning a newly loaded `_gridMap` in `OnFloorLoaded(...)`;
+- after gameplay Settings closes, so a successful Apply takes effect on the current exploration scene immediately. Calling it after Cancel is harmless because the persisted snapshot is unchanged.
+
+Main Menu needs no production motion field. Settings applied there are already persisted before a later Game scene starts.
+
+## 6. Exploration/world reduced-motion behavior
+
+### Camera
+
+Normal mode preserves `EnableCameraSmoothing`.
+
+Reduced mode sets `Camera2D.PositionSmoothingEnabled = false`.
+
+Do not change player movement, camera target coordinates, zoom, or input cadence.
+
+### `GridMap`
+
+Add one scalar:
+
+```csharp
+public bool ReducedMotionEnabled { get; set; }
+```
+
+Editor preview behavior remains unchanged.
+
+In the runtime animation branch, when reduced motion is enabled:
+
+- clear `_animationTime`;
+- reset `_currentFrame` to `0` once when needed;
+- request at most the redraw required to show frame 0;
+- do not continue the 5 FPS frame/redraw loop.
+
+This covers the legacy non-baked renderer and avoids useless cycling in the baked production path.
+
+### `PlayerDisplay`
+
+`PlayerDisplay` reads only its existing `_gridMap.ReducedMotionEnabled` scalar.
+
+Reduced mode:
+
+- reset `_animTimer`;
+- keep `_currentFrame = 0`;
+- set the region to the first frame when a reset is needed;
+- do not advance frames.
+
+Normal mode keeps the existing 5 FPS loop.
+
+### `EnemySpawn`
+
+Runtime `EnemySpawn` uses the same parent-world scalar.
+
+Reduced mode keeps region frame 0 and does not advance `_animTimer` / `_currentFrame`.
+
+Editor placement/snap processing remains unchanged.
+
+NPCs remain static because they have no runtime frame loop today.
+
+## 7. Battle propagation
+
+`BattleManager` must not read `SettingsManager` or `SiriusMotion`.
+
+Make the preference an explicit required startup argument:
 
 ```csharp
 public void StartBattle(
     Character player,
     Enemy enemy,
-    bool reducedMotionEnabled = false)
+    bool reducedMotionEnabled)
 ```
 
-`BattleManager` copies the argument into private Battle-instance state before setting up actor animation.
+There is one production caller. Existing Battle tests should pass `reducedMotionEnabled: false` explicitly. There is no compatibility overload/default.
 
-`Game` supplies:
+`Game.OnBattleStarted(...)` calls:
 
 ```csharp
-var reducedMotionEnabled =
-    SettingsManager.Instance?.GetSnapshot().ReducedMotionEnabled ?? false;
-
 battle.StartBattle(
     _gameManager.Player,
     enemy,
-    reducedMotionEnabled);
+    CurrentReducedMotionEnabled());
 ```
 
-This keeps the dependency direction explicit:
+The flag is copied into private Battle-instance state before `SetupCharacterAnimations()`.
 
-```text
-SettingsManager -> snapshot -> Game -> bool -> BattleManager
-```
-
-There is no shared `MotionPolicy` object and no subscriber lifecycle to manage.
-
-The optional argument keeps the many existing Battle-focused tests terse while still making the production Game call explicit; it is not a compatibility layer or migration mechanism.
-
-### Why Main Menu needs no production edit
-
-Main Menu contains no proven production motion owner. Its Settings screen already writes through the shared `SettingsManager`, so a preference applied at Main Menu is automatically visible to `Game` when a later Battle opens.
-
-Adding a Main Menu cache, signal, or no-op motion property solely to satisfy the original broad wording would create dead state. If a future Main Menu animation is added, that concrete consumer can receive the preference then.
-
-## 6. Battle reduced-motion behavior
-
-`BattleManager` stores the startup value for the lifetime of that Battle instance.
-
-Reduced motion changes presentation only.
+## 8. Battle reduced-motion behavior
 
 ### Damage numbers
 
-Normal mode remains unchanged:
+Normal mode stays unchanged:
 
-- show the damage number;
-- translate it upward 30 px over 1 second;
-- fade it to transparent over 1 second;
-- reset it at the same 1-second completion point.
+- translate upward 30 px over 1 second;
+- fade opacity to 0 over 1 second;
+- reset at the existing 1-second completion point.
 
 Reduced mode:
 
-- show the damage number at its resting position;
-- **do not translate it**;
-- keep the existing 1-second opacity fade;
-- reset/hide it at the same 1-second completion point.
+- keep the label at its resting position;
+- retain the same 1-second opacity fade;
+- retain the same reset timing.
 
-Opacity feedback is intentionally retained because it communicates transient feedback without spatial motion and preserves existing completion timing.
-
-The 1-second value remains local to Battle. Do not replace it with `SiriusMotion.ReducedOpacitySeconds` or any shared shell-entry duration.
+Do **not** route this through `SiriusMotion`. `SiriusMotion.ReducedOpacitySeconds` is 0.100 seconds for shared chrome entry/exit demonstration. Battle owns a deliberate 1.0-second combat-feedback duration.
 
 ### Attack feedback
 
-Normal mode keeps the current scale + flash tween.
+Reduced mode skips the attack scale/flash tween entirely. It must not add a replacement delay.
 
-Reduced mode:
+`_battleTimer` remains the battle cadence owner.
 
-- do not scale the sprite;
-- do not flash the sprite;
-- leave scale and modulation at their resting values;
-- do not create a replacement delay or tween just to simulate the removed animation.
+### Idle sprites
 
-Battle action cadence is already controlled independently by `_battleTimer`; removing this cosmetic tween must not change turn timing.
+Normal mode continues `Play("idle")`.
 
-### Idle sprite loops
+Reduced mode must explicitly select the authored animation before choosing a static frame:
 
-Normal mode keeps the current looping 4 FPS player/enemy idle animation.
+```csharp
+sprite.Animation = "idle";
+sprite.Frame = 0;
+sprite.Stop();
+```
 
-Reduced mode:
+Setting only `Stop(); Frame = 0;` is incorrect because a new `SpriteFrames` resource also contains an empty `default` animation; without selecting `idle`, the actor can render nothing.
 
-- build/load the same sprite frames;
-- present a deterministic static idle frame;
-- do not start the looping idle animation.
+The real-scene regression must assert both stillness and a resolved texture for `idle` frame 0.
 
-This preserves actor identity and art while removing continuous motion.
+## 9. Current-value lifecycle
 
-### Motion that remains
+The preference must affect current and future production owners without a global event system.
 
-Do not treat semantic state changes as decorative motion. Reduced Motion does **not** change:
+- Main Menu Apply -> later Game `_Ready()` reads the persisted value.
+- Gameplay Pause -> Settings Apply -> `OnHostedSettingsClosed()` reapplies the current value to camera/GridMap immediately.
+- New floor -> `OnFloorLoaded(...)` applies the current value to its GridMap; `PlayerDisplay` and `EnemySpawn` follow that scalar.
+- New Battle -> `OnBattleStarted(...)` reads the current value and passes it to the new Battle instance.
 
-- HP/MP/stat bar values;
-- automatic-action progress values;
-- Battle event/feed text;
-- Battle timer wait time or action-point simulation;
-- preparation, Cure, Results, focus, Cancel, host, or input behavior;
-- reward application or Battle completion timing.
+Battle and Settings cannot overlap in normal production flow, so an already-active Battle does not need live rebinding.
 
-The setting is not a “freeze the UI” switch.
+If `SettingsManager.Instance` is unavailable, use `false` and preserve current motion. The preference must never block gameplay or Battle startup.
 
-## 7. Current-value and lifecycle semantics
+## 10. Test strategy
 
-Every newly opened Battle reads the latest persisted in-memory settings snapshot through `Game`.
+### Settings
 
-That covers both current Settings entry points:
+`SettingsDataTest` / `SettingsManagerTest`:
 
-- Apply Reduced Motion from Main Menu -> start Game -> later Battle gets the new value;
-- Apply Reduced Motion from gameplay Pause -> resume -> later Battle gets the new value.
+- default false;
+- clone preserves the boolean;
+- clone remains safe with null keybindings;
+- save/reload preserves true;
+- valid older JSON without the field loads false;
+- sanitize still normalizes invalid/null keybindings and other validated fields.
 
-A normal production Battle and Settings screen cannot be active concurrently: Battle blocks the gameplay/root path that opens Pause/Settings. Therefore HPA-541 does **not** add a live settings-changed event for an already-active Battle.
+`SettingsMenuControllerTest` / `SettingsMenuSceneTest`:
 
-If a future flow allows Settings to overlap a motion-owning screen, that concrete flow can decide whether live rebinding is required. Do not build that protocol now.
+- authored row exists;
+- Open populates true;
+- Cancel does not mutate source snapshot;
+- dedicated `OnApplyPressed_PersistsReducedMotionCheckbox` proves the Apply initializer copies the field;
+- standard/compact layout stays valid.
 
-## 8. Failure/default behavior
+### World
 
-If `SettingsManager.Instance` is unavailable while Game opens Battle, fall back to `false` and preserve current motion.
+Use focused game tests to prove:
 
-This feature must never prevent Battle from opening.
+- reduced `GridMap` runtime processing does not advance beyond frame 0;
+- reduced `PlayerDisplay` stays on region frame 0 while normal mode advances;
+- reduced `EnemySpawn` stays on region frame 0 while normal mode advances;
+- a real Game with reduced motion disables camera smoothing and marks the active GridMap reduced;
+- closing gameplay Settings reapplies the latest snapshot to the current world;
+- loading a later floor receives the current value.
 
-An older settings JSON without the field also resolves to `false`.
+### Battle
 
-No warning, repair popup, or compatibility branch is required for either case.
+`BattleManagerTest`:
 
-## 9. Test strategy
+- reduced attack feedback creates no attack tween and leaves scale/modulation unchanged;
+- reduced damage uses the tracked tween and `Tween.CustomStep(...)` for deterministic half-duration assertions;
+- at 0.5 seconds, position is unchanged and alpha is ~0.5;
+- at 1.0 seconds, the reset contract completes;
+- normal attack/damage behavior remains covered;
+- teardown still kills tracked tweens.
 
-Use existing suites and private/reflection helpers; do not widen production visibility for tests.
+`BattleSceneTest`:
 
-### Settings data/persistence
+- reduced startup selects `idle`, frame 0, does not play, and `GetFrameTexture("idle", 0)` is non-null for both actors;
+- normal startup plays idle.
 
-`SettingsDataTest` and `SettingsManagerTest` cover:
+`GameTest`:
 
-- default `false`;
-- clone preservation;
-- Apply/save/reload preserving `true`;
-- a valid older JSON without `ReducedMotionEnabled` loading as `false`.
+- a real hosted Battle receives the current required boolean.
 
-### Settings screen
-
-`SettingsMenuControllerTest` and `SettingsMenuSceneTest` cover:
-
-- authored reduced-motion nodes exist before `_Ready()`;
-- `OpenSettings(...)` populates the checkbox;
-- Cancel does not mutate the source snapshot;
-- a dedicated `OnApplyPressed_PersistsReducedMotionCheckbox` test proves the checkbox is copied into the `SettingsData` Apply candidate and persisted;
-- existing standard/compact responsive checks still pass with the extra row.
-
-Do not bury the Apply assertion in the unrelated “selections unset” bounds regression. That test may share the same local `SettingsManager` setup pattern, but reduced-motion persistence gets its own test name and failure signal.
-
-### Battle motion
-
-`BattleManagerTest` covers the local tween policy:
-
-- reduced attack feedback leaves scale/modulation unchanged and creates no attack tween;
-- reduced damage feedback does not change position but still fades/resets on the existing 1-second schedule;
-- normal mode keeps the existing attack/damage tween behavior;
-- `StopBattleRuntime()` still kills any tracked visual tweens and resets visual state.
-
-The reduced damage test is deterministic: retrieve the one tracked damage tween from `_visualTweens`, pause it, and advance it with `Tween.CustomStep(...)`, matching the existing showcase motion-test pattern. Do not wait on a wall-clock `SceneTreeTimer` and hope a process tick has advanced the tween.
-
-`BattleSceneTest` covers startup animation presentation through the real scene:
-
-- reduced Battle startup leaves player/enemy idle sprites static;
-- normal Battle startup keeps the current looping idle animations.
-
-### Root propagation
-
-Extend the existing real-Game Battle-start coverage so a Battle opened while the current settings snapshot has Reduced Motion enabled receives `true` before `StartBattle(...)` begins presentation.
-
-Keep the test local to `GameTest`; do not introduce a production settings-provider seam solely for this assertion.
-
-## 10. File ownership
+## 11. File ownership
 
 ### Modify
 
@@ -284,45 +374,67 @@ Keep the test local to `GameTest`; do not introduce a production settings-provid
 - `scenes/ui/SettingsMenu.tscn`
 - `scripts/ui/SettingsMenuController.cs`
 - `scripts/game/Game.cs`
+- `scripts/game/GridMap.cs`
+- `scripts/game/PlayerDisplay.cs`
+- `scripts/game/EnemySpawn.cs`
 - `scripts/ui/BattleManager.cs`
-- `tests/settings/SettingsDataTest.cs`
-- `tests/settings/SettingsManagerTest.cs`
-- `tests/ui/SettingsMenuControllerTest.cs`
-- `tests/ui/SettingsMenuSceneTest.cs`
-- `tests/ui/BattleManagerTest.cs`
-- `tests/ui/BattleSceneTest.cs`
-- `tests/game/GameTest.cs`
+- focused existing/new tests under `tests/settings`, `tests/ui`, and `tests/game`
 
-### Audit only
+### Audit only unless stale
 
-- `scripts/ui/theme/SiriusMotion.cs` — existing chrome entry/exit helper; explicitly **not** a Battle implementation dependency;
-- `scripts/ui/showcase/SiriusUiShowcase.cs` — development showcase, not a production consumer;
-- `docs/ui/hpa-376/ui-lifecycle-contract.md` — no lifecycle authority changes are expected;
-- `docs/PRD.md` / `CLAUDE.md` — update only if implementation makes an existing settings/motion statement stale.
+- `scripts/game/NpcSpawn.cs`
+- `scripts/game/TreasureBoxSpawn.cs`
+- `scripts/ui/theme/SiriusMotion.cs`
+- `scripts/ui/showcase/SiriusUiShowcase.cs`
+- `docs/ui/hpa-376/ui-lifecycle-contract.md`
+- `docs/PRD.md`
+- `CLAUDE.md`
 
-## 11. Explicit non-goals
+## 12. Explicit non-goals
 
-- no `MotionPolicy`, service, singleton, event bus, observer, or settings-change signal;
-- no shared component reading `SettingsManager`;
-- no `SiriusMotion` call or shared chrome duration inside `BattleManager`;
-- no new Settings page or accessibility framework;
-- no settings version bump or migration matrix;
-- no camera-smoothing/world-animation changes;
+- no `MotionPolicy` object/service/singleton/event bus;
+- no settings-change broadcast;
+- no component reading `SettingsManager` directly;
+- no new Settings page/accessibility framework;
+- no settings version bump/migration matrix;
+- no `SiriusMotion` reuse inside Battle;
+- no battle-speed or auto-combat timing changes;
+- no player movement/input timing changes;
 - no reward-toast timing changes;
-- no battle-speed or auto-combat timing setting;
-- no changes to stat/progress value updates;
-- no showcase work;
+- no Treasure Box state-transition removal;
+- no editor-preview motion changes;
 - no speculative support for future animated screens.
 
-## 12. Definition of done
+## 13. Risks and mitigations
 
-- `ReducedMotionEnabled` defaults safely to `false`, clones, saves, and reloads.
-- An older valid settings JSON without the field resolves to `false`.
-- The existing Display settings page stages, applies, and cancels the preference correctly at standard and compact layouts.
-- The dedicated Apply test fails if `OnApplyPressed()` forgets to copy the checkbox value.
-- Every newly opened production Battle receives the current value from `Game` without reading the singleton itself.
-- Reduced Battle presentation removes damage translation, attack scale/flash, and looping idle animation while retaining the local 1-second damage opacity feedback and unchanged Battle timing/domain behavior.
-- `BattleManager` does not call `SiriusMotion`.
-- Normal mode retains current Battle motion.
-- Focused settings, Battle, and Game tests pass; the full suite/build and `git diff --check` pass before merge.
-- A final production motion search confirms no additional player-facing `CreateTween`/`TweenProperty` owner was missed.
+### Risk: reduced Battle actors become invisible
+
+Cause: stopping an `AnimatedSprite2D` before selecting `idle` leaves it on the empty default animation.
+
+Mitigation: set `Animation = "idle"`, then frame 0, then stop; real-scene tests assert the selected animation and non-null frame texture.
+
+### Risk: the motion survey misses non-tween animation
+
+Cause: process-driven `RegionRect` cycling, `QueueRedraw`, and camera smoothing do not use `CreateTween`.
+
+Mitigation: broad `scripts/` audit plus explicit classification of each player-facing hit. Do not infer completeness from a narrow API grep.
+
+### Risk: a future settings field is silently lost by sanitization
+
+Cause: whitelist reconstruction must be updated for every field.
+
+Mitigation: sanitize from a safe clone and overwrite only fields that actually require validation; dedicated Reduced Motion round-trip/UI Apply tests remain as feature-level guards.
+
+## 14. Definition of done
+
+- `ReducedMotionEnabled` defaults false, clones, saves, reloads, and is safe with missing old JSON fields.
+- `Sanitize` preserves future plain settings fields by starting from a safe clone while keeping existing validation behavior.
+- Display Settings stages, applies, and cancels the checkbox correctly.
+- Reduced exploration disables camera smoothing and freezes production player/enemy idle frame cycling without changing movement/input.
+- The legacy `GridMap` runtime frame/redraw loop also honors the world scalar; editor preview remains unchanged.
+- New floors and the current exploration scene use the latest applied value without a global settings event.
+- New Battles receive an explicit required bool from `Game`.
+- Reduced Battle keeps actors visible on static `idle` frame 0, removes attack scale/flash and damage translation, and retains the local 1-second opacity fade.
+- `BattleManager` contains no `SiriusMotion` reference.
+- Focused suites, full `dotnet test`, `dotnet build Sirius.sln`, and `git diff --check` pass.
+- The final broad motion audit has no **unclassified** player-facing results.

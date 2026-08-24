@@ -591,19 +591,18 @@ public partial class SettingsMenuController : Control
         var resolution = ResolveSelectedResolution(_resolutionOption.Selected);
         var difficulty = ResolveSelectedDifficulty(_difficultyOption.Selected);
 
-        var candidate = new SettingsData
-        {
-            MasterVolumePercent = (int)_masterSlider.Value,
-            MusicVolumePercent  = (int)_musicSlider.Value,
-            SfxVolumePercent    = (int)_sfxSlider.Value,
-            FullscreenEnabled   = _fullscreenCheck.ButtonPressed,
-            ReducedMotionEnabled = _reducedMotionCheck.ButtonPressed,
-            ResolutionWidth     = resolution.W,
-            ResolutionHeight    = resolution.H,
-            Difficulty          = difficulty,
-            AutoSaveEnabled     = _autoSaveCheck.ButtonPressed,
-            PrimaryKeybindings  = new System.Collections.Generic.Dictionary<string, long>(_editedSettings.PrimaryKeybindings)
-        };
+        // Start from a clone of the edited snapshot (future fields carry over
+        // automatically) and overwrite exactly the control-backed fields.
+        var candidate = _editedSettings.Clone();
+        candidate.MasterVolumePercent  = (int)_masterSlider.Value;
+        candidate.MusicVolumePercent   = (int)_musicSlider.Value;
+        candidate.SfxVolumePercent     = (int)_sfxSlider.Value;
+        candidate.FullscreenEnabled    = _fullscreenCheck.ButtonPressed;
+        candidate.ReducedMotionEnabled = _reducedMotionCheck.ButtonPressed;
+        candidate.ResolutionWidth      = resolution.W;
+        candidate.ResolutionHeight     = resolution.H;
+        candidate.Difficulty           = difficulty;
+        candidate.AutoSaveEnabled      = _autoSaveCheck.ButtonPressed;
 
         if (!mgr.ApplyAndSave(candidate))
         {

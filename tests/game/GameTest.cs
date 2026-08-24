@@ -1693,6 +1693,40 @@ public partial class GameTest : Node
         }
     }
 
+    // A floor loaded AFTER startup (stair transition) must still receive the
+    // current reduced-motion value: Game.OnFloorLoaded reapplies the setting
+    // to the freshly created GridMap, whose own default is false.
+    [TestCase]
+    public async Task Game_FloorLoadedAfterStartup_PropagatesReducedMotion()
+    {
+        var previousSettingsManager = SettingsManager.Instance;
+        var settingsManager = new SettingsManager();
+        var snapshot = settingsManager.GetSnapshot();
+        snapshot.ReducedMotionEnabled = true;
+        SetPrivateField(settingsManager, "_settings", snapshot);
+        SetSettingsManagerInstance(settingsManager);
+        Game? game = null;
+        try
+        {
+            game = await InstantiateRealGameScene();
+            var floorManager = game.GetNode<FloorManager>("FloorManager");
+            var startupGridId = floorManager.CurrentGridMap.GetInstanceId();
+
+            AssertThat(floorManager.LoadFloor(1)).IsTrue();
+            await AwaitFrames(8);
+
+            AssertThat(floorManager.CurrentGridMap.GetInstanceId()).IsNotEqual(startupGridId);
+            AssertThat(floorManager.CurrentGridMap.ReducedMotionEnabled).IsTrue();
+        }
+        finally
+        {
+            if (game != null && IsInstanceValid(game)) game.Free();
+            SetSettingsManagerInstance(previousSettingsManager);
+            if (IsInstanceValid(settingsManager)) settingsManager.Free();
+            await AwaitFrames(1);
+        }
+    }
+
     private static void SetSettingsManagerInstance(SettingsManager? instance)
     {
         var property = typeof(SettingsManager).GetProperty("Instance",

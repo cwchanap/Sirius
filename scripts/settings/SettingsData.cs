@@ -31,21 +31,14 @@ public class SettingsData
 
     public SettingsData Clone()
     {
-        return new SettingsData
-        {
-            Version = Version,
-            MasterVolumePercent = MasterVolumePercent,
-            MusicVolumePercent = MusicVolumePercent,
-            SfxVolumePercent = SfxVolumePercent,
-            Difficulty = Difficulty,
-            FullscreenEnabled = FullscreenEnabled,
-            ResolutionWidth = ResolutionWidth,
-            ResolutionHeight = ResolutionHeight,
-            AutoSaveEnabled = AutoSaveEnabled,
-            ReducedMotionEnabled = ReducedMotionEnabled,
-            PrimaryKeybindings = PrimaryKeybindings is null
-                ? CreateDefaultKeybindings()
-                : new Dictionary<string, long>(PrimaryKeybindings)
-        };
+        // Shallow copy covers every value-type/immutable field automatically,
+        // so future plain properties clone without touching this method.
+        // PrimaryKeybindings is the only mutable reference field and gets an
+        // explicit copy below.
+        var clone = (SettingsData)MemberwiseClone();
+        clone.PrimaryKeybindings = PrimaryKeybindings is null
+            ? CreateDefaultKeybindings()
+            : new Dictionary<string, long>(PrimaryKeybindings);
+        return clone;
     }
 }

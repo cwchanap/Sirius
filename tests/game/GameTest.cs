@@ -1624,16 +1624,22 @@ public partial class GameTest : Node
             var battle = GetPrivateField<BattleManager>(game, "_battleManager");
             AssertThat(battle).IsNotNull();
             AssertThat(GetPrivateField<bool>(battle, "_reducedMotionEnabled")).IsTrue();
-
-            // Cleanly close the hosted Battle so no state leaks to later tests.
-            battle.RequestCancel();
-            await AwaitFrames(2);
-            AssertThat(game.GetNode<UIScreenHost>("UI/UIScreenHost")
-                .IsKindActive(UIScreenKinds.Battle)).IsFalse();
-            AssertThat(manager.IsInBattle).IsFalse();
         }
         finally
         {
+            // Failure-safe teardown: cancel/close any hosted Battle before
+            // freeing the Game so no hosted state leaks to later tests,
+            // regardless of assertion outcomes. Deterministic (frame awaits
+            // only). Release behavior itself is covered by
+            // BattleStart_HostsBlockingControlWithoutPausingTree.
+            if (game != null && IsInstanceValid(game))
+            {
+                var battle = GetPrivateField<BattleManager?>(game, "_battleManager");
+                if (battle != null && GodotObject.IsInstanceValid(battle))
+                    battle.RequestCancel();
+                await AwaitFrames(2);
+            }
+
             if (game != null && IsInstanceValid(game)) game.Free();
             SetSettingsManagerInstance(previousSettingsManager);
             if (IsInstanceValid(settingsManager)) settingsManager.Free();

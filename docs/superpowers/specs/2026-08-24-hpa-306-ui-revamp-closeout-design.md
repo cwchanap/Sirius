@@ -8,34 +8,28 @@
 
 HPA-306 is an umbrella and completion checkpoint, not another screen implementation ticket. Its required vertical slices are complete: visual language/art, lifecycle baseline, Theme/components, root-local `UIScreenHost`, Main Menu, Exploration HUD, Pause, Settings, Save/Load, Inventory parity, Battle, shared prompts, Dialogue, Shop/Healing, Puzzle/Riddle, reward feedback, and HPA-359 final release validation.
 
-The two items that HPA-306 listed as optional backlog were also completed afterward:
+The two items HPA-306 listed as optional backlog were also completed afterward:
 
 - HPA-375 — inventory details/comparison/filter/sort, merged in PR #46;
 - HPA-541 — persisted Reduced Motion and production motion policy, merged in PR #47.
 
-HPA-359 already owns the expensive final production walkthrough and durable evidence in `docs/ui/hpa-359/release-validation.md`. That walkthrough proved the real Main Menu → Game scene replacement, authored FloorGF entry, movement → goblin → Battle/result, Game → Main Menu replacement, compact Inventory, compact Save/overwrite Prompt, hosted joypad Cancel, and the final legacy-path/documentation audit.
+HPA-359 already owns the expensive production walkthrough and durable evidence in `docs/ui/hpa-359/release-validation.md`: actual Main Menu → Game scene replacement, authored FloorGF entry, movement → goblin → Battle/result, Game → Main Menu replacement, compact Inventory, compact Save/overwrite Prompt, hosted joypad Cancel, and the legacy-path/documentation audit.
 
-The only material closeout delta after HPA-359 is therefore the code changed by HPA-375 and HPA-541. HPA-375 changed Inventory presentation and behavior. HPA-541 changed Settings persistence/presentation plus exploration and Battle motion. Re-running the entire HPA-359 walkthrough would mostly reproduce evidence that neither follow-up touched.
+The only material closeout delta after HPA-359 is the code changed by HPA-375 and HPA-541. HPA-375 changed Inventory presentation/behavior. HPA-541 changed Settings persistence/presentation plus exploration and Battle motion. Re-running the complete HPA-359 walkthrough would mostly reproduce evidence that neither follow-up touched.
 
 ## Approaches considered
 
-### 1. Delta closeout on current `main` — recommended
+### 1. Delta closeout on current `main` — selected
 
-Reuse HPA-359 for already-proven production seams, run fresh automated validation over the HPA-375/HPA-541 owners and the full solution, and perform one Inventory-only real-window check because HPA-375 changed the exact layout HPA-359 previously captured.
-
-This gives current-head confidence while keeping the closeout proportional to the actual post-validation change set.
+Reuse HPA-359 for already-proven production seams, run fresh automated validation over the HPA-375/HPA-541 owners and the full solution, and perform one Inventory-only real-window composition check because HPA-375 changed the exact layout HPA-359 previously captured.
 
 ### 2. Repeat the full HPA-359 release walkthrough
 
-Repeat Main Menu → Game, movement → Battle, Save/Prompt, Inventory, Return to Title, screenshots, and all runtime observations.
-
-This is higher cost with little additional signal. HPA-375 did not change scene replacement, Battle entry, Save/Prompt, Dialogue/Shop/Heal, or Return-to-Title ownership. HPA-541 changed motion behavior but has deterministic unit/scene/integration owners. Replaying every HPA-359 manual seam is not justified.
+Repeat Main Menu → Game, movement → Battle, Save/Prompt, Inventory, Return to Title, screenshots, and runtime observations. This costs more without materially increasing confidence: HPA-375 did not change the non-Inventory seams, and HPA-541 has deterministic Settings/world/Game/Battle owners.
 
 ### 3. Add a new end-to-end/release-validation framework
 
-Build a reusable driver, screenshot harness, or umbrella UI certification layer.
-
-This is explicitly out of scope. HPA-359 already rejected this shape, and HPA-306's delivery guardrails require reuse of the existing GdUnit/runtime-backed owners rather than a new framework.
+Build a reusable driver, screenshot harness, or umbrella UI certification layer. This is explicitly out of scope and contradicts the existing HPA-359/HPA-306 reuse decisions.
 
 ## Decision
 
@@ -60,7 +54,9 @@ No new UI feature, architecture layer, compatibility path, or follow-up polish i
 - legacy desktop-dialog/debug-path audit;
 - final HPA-359 runtime warning/error observations.
 
-Do not recapture or manually replay those contracts unless a new defect in the HPA-375/HPA-541 delta can affect them.
+Do not manually replay those contracts unless a new defect in the HPA-375/HPA-541 delta can affect them.
+
+HPA-359 also records compact Inventory as usable at `640×360` even though section-heading chrome is tight/clipped. HPA-306 inherits that disposition: heading-chrome clipping alone is **not** a closeout defect. It becomes blocking only if required content or controls become unreachable/unusable.
 
 ### Fresh HPA-375 ownership
 
@@ -72,7 +68,9 @@ PR #46 changed only:
 - `tests/ui/InventoryMenuSceneTest.cs`;
 - its design/plan documents.
 
-Fresh closeout validation must therefore cover the Inventory controller and scene suites. Because the authored Inventory layout itself changed after HPA-359's real-window captures, HPA-306 adds one narrow real-window Inventory observation at the primary and minimum viewports.
+Fresh automated validation covers Inventory behavior and deterministic layout/focus. In particular, existing tests own non-mutating selection, explicit compact Details navigation, standard/compact page shape, focus, and Close reachability.
+
+The real-window check does **not** re-prove those behaviors. Its only purpose is final production-window composition that the SubViewport suite cannot provide.
 
 ### Fresh HPA-541 ownership
 
@@ -81,13 +79,13 @@ PR #47 changed:
 - Settings data/manager/controller/scene;
 - `Game`, `GridMap`, `PlayerDisplay`, `EnemySpawn`;
 - `BattleManager`;
-- the matching Settings, world, Game, Battle, and scene tests.
+- matching Settings, world, Game, Battle, and scene tests.
 
-Fresh closeout validation covers those deterministic owners plus the real Game host integration. No extra manual motion certification is required: the HPA-541 design deliberately owns reduced motion through deterministic Settings persistence, world propagation, frame-reset, camera, Battle tween, and real-scene visibility tests.
+Fresh closeout validation covers those deterministic owners plus real Game host integration. No extra manual Reduced Motion certification is required. Default production remains Reduced Motion disabled, so HPA-359 remains the default-motion production walkthrough while HPA-541 tests own the reduced branch.
 
 ## Current-head automated validation
 
-Run all of the following against the HPA-306 branch after rebasing/starting from current `main`:
+Run all of the following against the HPA-306 branch based on current `main`:
 
 1. `dotnet build Sirius.sln`;
 2. one focused HPA-375/HPA-541 regression set covering:
@@ -105,34 +103,48 @@ Run all of the following against the HPA-306 branch after rebasing/starting from
    - `BattleManagerTest`;
    - `BattleSceneTest`;
 3. the full `dotnet test Sirius.sln --settings test.runsettings.local` suite;
-4. `git diff --check`.
+4. `git diff --check main...HEAD`.
 
-The focused set is a fast diagnostic gate. The full suite is the completion gate because HPA-306 is the umbrella and its definition of done includes the shared lifecycle/domain contracts, not only the two post-HPA-359 filesets.
+The focused set is a diagnostic gate. The full suite remains the umbrella completion gate because HPA-306's definition of done spans shared lifecycle/domain contracts, not only the two post-HPA-359 filesets.
 
-## One real-window delta check
+## One real-window Inventory composition check
 
-Only Inventory needs a fresh manual visual check because HPA-375 changed the layout after HPA-359.
+Only Inventory needs a fresh manual visual check because HPA-375 changed its authored layout after HPA-359.
 
-Use the production game, not a SubViewport fixture:
+Use the production game, not a SubViewport fixture. Behavioral assertions remain owned by Task 1 automated tests.
 
-### `1280×720`
+### `1280×720` pass criteria
 
-- open Inventory through the real gameplay path;
-- verify the standard Character / Items / Details composition is visually usable;
-- select an item and verify selection alone does not mutate inventory/equipment state;
-- verify Details content and its contextual action are reachable;
-- verify filter/sort controls are visible and usable;
-- verify Close remains reachable.
+- standard Character / Items / Details composition is visually usable;
+- required content and item art are visible;
+- Details presentation, filter/sort controls, and Close are visible/reachable in the production window;
+- no severe overlap, zero-width region, or off-window placement makes required content unusable;
+- no new runtime UI error is emitted.
 
-### `640×360`
+Do not manually assert equip/use mutation semantics, selection state rules, compact-page behavior, or focus policy here; the existing Inventory suites own them.
 
-- verify compact Inventory remains usable;
-- navigate the compact Equipment / Items / Skills / Details pages;
-- verify Details is reachable explicitly rather than being forced on selection;
-- verify the selected item's actionable Details state remains understandable;
-- verify Close and compact navigation remain reachable without unusable clipping.
+### `640×360` pass criteria
 
-Do not turn this into another screenshot or E2E harness. Record the observation in the HPA-306 closeout note. New screenshots are unnecessary unless they help explain a reproduced defect.
+- required Inventory content and item art remain visible;
+- compact tabs/pages, Details presentation, filter/sort controls where shown, and Close remain visible/reachable;
+- the production window remains usable even if section-heading chrome is tight/clipped as already accepted by HPA-359;
+- clipping is a defect only when it makes required content or controls unreachable/unusable;
+- no new runtime UI error is emitted.
+
+This is a composition check, not a second behavioral oracle.
+
+## Fresh visual evidence
+
+The post-HPA-375 layout is the one unique manual delta, so preserve exactly two fresh captures:
+
+- `docs/ui/hpa-306/evidence/inventory-1280x720.png`;
+- `docs/ui/hpa-306/evidence/inventory-640x360.png`.
+
+Record each file's dimensions and SHA-256 in `docs/ui/hpa-306/closeout.md`.
+
+Do **not** overwrite `docs/ui/hpa-359/evidence/inventory-*.png`: HPA-359's release record pins hashes for those historical captures. HPA-306 adds a new evidence pair instead, keeping both evidence sets internally consistent.
+
+Do not add a screenshot harness, recapture Battle/Save/Main Menu, or create a broader image matrix. If the real-window session cannot be completed, HPA-306 stays open rather than pretending prose is equivalent evidence.
 
 ## Closeout record
 
@@ -145,61 +157,75 @@ It records:
 - HPA-306 child/optional-ticket completion status;
 - the HPA-359 evidence intentionally reused;
 - exact current-head build/focused/full-suite results;
-- the two Inventory real-window observations;
-- any defect and its focused regression/fix, if one was required;
+- the two Inventory real-window composition observations;
+- dimensions and SHA-256 for the two HPA-306 Inventory captures;
+- any defect and focused regression/fix, if required;
 - the final recommendation to close or keep HPA-306 open.
 
 Do not rewrite `docs/ui/hpa-359/release-validation.md` or recalculate the historical April completion snapshot in `docs/PRD.md` merely for this umbrella closeout.
 
 ## Defect handling
 
-If validation exposes a real defect:
+If automated validation exposes a real defect:
 
-1. identify the nearest existing owner suite;
-2. add or tighten the smallest failing regression if the current failure is not already specific enough;
-3. confirm RED for the intended reason;
-4. make the smallest production fix in the existing owner;
-5. rerun the focused owner suite;
-6. rerun the HPA-306 focused set and full suite;
-7. repeat only the affected part of the Inventory real-window check when the changed production files can affect it.
+1. use the existing failing owner test as RED when it is already specific enough; otherwise add/tighten the smallest useful regression;
+2. confirm the failure is for the intended reason;
+3. make the smallest production fix in the existing owner;
+4. rerun the focused owner suite;
+5. rerun the HPA-306 focused set and full suite;
+6. repeat only the affected Inventory real-window composition observation when relevant.
 
-Keep the fix in the same HPA-306 PR. Do not introduce a reusable abstraction for a one-off closeout defect. If the finding is actually new product scope rather than a regression, record it separately and do not expand HPA-306 to absorb it.
+If the real-window check exposes a visual defect not already represented by automation, reproduce it first in `InventoryMenuSceneTest`, then make the minimal existing-owner fix.
+
+The known compact section-heading clip is not a defect under this ticket unless required content or controls become unusable. New product polish remains outside HPA-306.
+
+Keep any fix in the same HPA-306 PR. Do not introduce a reusable abstraction for a one-off closeout defect. If a finding is new product scope rather than a regression, record it separately and do not expand HPA-306 to absorb it.
 
 ## Definition-of-done mapping
 
-HPA-306 can close when the following mapping is satisfied:
+HPA-306 can close when:
 
-- **Shared launch/exploration/interaction/battle/inventory/pause/save/settings journey:** HPA-359 real-window evidence plus current-head full suite; Inventory gets the post-HPA-375 delta check.
+- **Shared launch/exploration/interaction/battle/inventory/pause/save/settings journey:** HPA-359 production evidence plus current-head full suite; Inventory gets the post-HPA-375 composition delta.
 - **No normal debug/desktop-window final presentation:** HPA-359 legacy-path audit remains authoritative; neither HPA-375 nor HPA-541 reintroduced those paths.
 - **One local `UIScreenHost` per Main Menu/Game root:** existing host/Game/Main Menu tests remain green.
 - **Explicit pause/input/cursor/HUD/focus/Cancel ownership:** existing runtime-backed host/controller suites remain green.
-- **Domain behavior preserved:** full suite plus the HPA-375/HPA-541 focused owners remain green.
-- **Primary/minimum viewports usable with deterministic focus:** HPA-359 evidence plus current Inventory scene tests and the two fresh Inventory real-window observations.
-- **No duplicate activation, stuck input, orphaned presentation, or missing-resource regression:** full suite remains green; no new issue appears in the delta manual check.
+- **Domain behavior preserved:** full suite plus HPA-375/HPA-541 focused owners remain green.
+- **Primary/minimum viewports usable with deterministic focus:** Inventory scene tests own deterministic layout/focus behavior; the two fresh real-window captures own current production composition.
+- **No duplicate activation, stuck input, orphaned presentation, or missing-resource regression:** full suite remains green; no new blocking issue appears in the composition delta.
 - **Focused gameplay/persistence/host/lifecycle tests pass:** covered by the focused current-head gate and full suite.
 - **Obsolete paths removed after replacement:** HPA-359 audit remains the owner; post-HPA-359 changes do not add compatibility paths.
 
-After the closeout record is green and the HPA-306 PR is ready to merge, update Linear HPA-306 with the final evidence summary and mark it Done. Do not change the broader Sirius Linear project state as part of this ticket.
+After the closeout record is green and the HPA-306 PR is ready to merge, update Linear HPA-306 with the final evidence summary and mark it Done. Do not change the broader Sirius Linear project state.
 
 ## Non-goals
 
 - No new screen, modal, host kind, UI service, presenter, view-model, navigation framework, or second host.
 - No new E2E driver, screenshot framework, release framework, or manual certification matrix.
 - No replay of the complete HPA-359 production walkthrough without a delta-specific reason.
+- No manual re-testing of Inventory behavior already protected by GdUnit.
 - No additional inventory, combat, settings, motion, save, dialogue, shop, puzzle, or reward feature work.
+- No fix for known compact heading-chrome clipping unless it makes required content/controls unusable.
 - No compatibility work for development saves or obsolete UI paths.
 - No broad PRD rewrite or project-wide completion recalculation.
 - No Linear project-status change; HPA-306 issue completion is the only Linear closeout action.
 
 ## Risks and mitigations
 
-### HPA-359's Inventory screenshot is stale after HPA-375
+### HPA-359's Inventory captures are stale after HPA-375
 
-Mitigation: perform exactly one fresh real-window Inventory check at `1280×720` and `640×360`; do not repeat unrelated HPA-359 manual journeys.
+Mitigation: perform exactly one fresh real-window Inventory composition check at `1280×720` and `640×360` and add exactly two HPA-306 evidence images with dimensions/hashes. Preserve the historical HPA-359 files unchanged.
+
+### Known compact heading clipping gets mistaken for new product work
+
+Mitigation: inherit HPA-359's usability disposition. Heading chrome may remain tight/clipped; only unreachable/unusable required content or controls block HPA-306.
+
+### Manual checking becomes a second behavioral oracle
+
+Mitigation: Task 1 GdUnit suites own selection, actions, filters/sorts, compact-page navigation, focus, and Close behavior. The live window owns composition only.
 
 ### HPA-541 touched several production owners after the final release walkthrough
 
-Mitigation: run its deterministic Settings/world/Game/Battle owner suites plus `GameplayPauseHostTest`, then require the full suite on current `main`.
+Mitigation: run deterministic Settings/world/Game/Battle owner suites plus `GameplayPauseHostTest`, then require the full suite on current `main`.
 
 ### Umbrella closeout grows into another feature pass
 

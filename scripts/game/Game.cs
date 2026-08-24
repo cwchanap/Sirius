@@ -2003,7 +2003,10 @@ public partial class Game : Node2D
 
         _battleManager = battle;
         _battleHandle = result.Handle.Value;
-        battle.StartBattle(_gameManager.Player, enemy);
+        battle.StartBattle(
+            _gameManager.Player,
+            enemy,
+            CurrentReducedMotionEnabled());
         GD.Print("Battle started successfully");
     }
 

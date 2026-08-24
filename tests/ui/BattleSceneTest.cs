@@ -89,6 +89,42 @@ public partial class BattleSceneTest : Node
     }
 
     [TestCase]
+    public async Task ReducedMotion_StartBattleShowsStaticIdleFrame()
+    {
+        _battle.StartBattle(
+            TestHelpers.CreateTestCharacter(),
+            Enemy.CreateGoblin(),
+            reducedMotionEnabled: true);
+        await AwaitFrames(2);
+
+        foreach (var path in new[]
+                 {
+                     "%PlayerSpriteContainer/PlayerSprite",
+                     "%EnemySpriteContainer/EnemySprite"
+                 })
+        {
+            var sprite = _battle.GetNode<AnimatedSprite2D>(path);
+            AssertThat(sprite.Animation.ToString()).IsEqual("idle");
+            AssertThat(sprite.Frame).IsEqual(0);
+            AssertThat(sprite.IsPlaying()).IsFalse();
+            AssertThat(sprite.SpriteFrames.GetFrameTexture("idle", 0)).IsNotNull();
+        }
+    }
+
+    [TestCase]
+    public void StartBattle_NormalMotionPlaysIdleAnimations()
+    {
+        var player = TestHelpers.CreateTestCharacter();
+        var enemy = Enemy.CreateGoblin();
+        _battle.StartBattle(player, enemy, reducedMotionEnabled: false);
+
+        var playerSprite = _battle.GetNode<AnimatedSprite2D>("%PlayerSpriteContainer/PlayerSprite");
+        var enemySprite = _battle.GetNode<AnimatedSprite2D>("%EnemySpriteContainer/EnemySprite");
+        AssertThat(playerSprite.IsPlaying()).IsTrue();
+        AssertThat(enemySprite.IsPlaying()).IsTrue();
+    }
+
+    [TestCase]
     public async Task SafeFrameAndActionTargetsFollowSharedResponsiveContract()
     {
         foreach (var size in new[] { new Vector2I(1280, 720), new Vector2I(640, 360) })
@@ -126,7 +162,7 @@ public partial class BattleSceneTest : Node
     [TestCase]
     public async Task BeginBattlePlacesFocusOnEscape()
     {
-        _battle.StartBattle(TestHelpers.CreateTestCharacter(), Enemy.CreateGoblin());
+        _battle.StartBattle(TestHelpers.CreateTestCharacter(), Enemy.CreateGoblin(), reducedMotionEnabled: false);
         InvokePrivateMethod(_battle, "OnStartButtonPressed");
         await AwaitFrames(1);
 
@@ -141,7 +177,7 @@ public partial class BattleSceneTest : Node
         player.TryAddItem(ConsumableCatalog.CreateHealthPotion(), 1, out _);
         player.TryAddItem(ConsumableCatalog.CreateAntidote(), 1, out _);
 
-        _battle.StartBattle(player, Enemy.CreateGoblin());
+        _battle.StartBattle(player, Enemy.CreateGoblin(), reducedMotionEnabled: false);
         InvokePrivateMethod(_battle, "OnStartButtonPressed");
         InvokePrivateMethod(_battle, "OpenCureOverlay");
         await AwaitFrames(1);
@@ -239,7 +275,7 @@ public partial class BattleSceneTest : Node
                  })
             player.TryAddItem(item, 1, out _);
 
-        _battle.StartBattle(player, Enemy.CreateGoblin());
+        _battle.StartBattle(player, Enemy.CreateGoblin(), reducedMotionEnabled: false);
         await AwaitFrames(2);
         var rail = _battle.GetNode<Container>("%PreparationItemRail");
         AssertThat(rail.GetChildCount()).IsEqual(4);
@@ -265,7 +301,7 @@ public partial class BattleSceneTest : Node
         foreach (var item in consumables)
             player.TryAddItem(item, 1, out _);
 
-        _battle.StartBattle(player, Enemy.CreateGoblin());
+        _battle.StartBattle(player, Enemy.CreateGoblin(), reducedMotionEnabled: false);
         InvokePrivateMethod(_battle, "OnStartButtonPressed");
         InvokePrivateMethod(_battle, "OpenCureOverlay");
         await AwaitFrames(2);
@@ -322,7 +358,7 @@ public partial class BattleSceneTest : Node
                  })
             player.TryAddItem(item, 1, out _);
 
-        _battle.StartBattle(player, Enemy.CreateGoblin());
+        _battle.StartBattle(player, Enemy.CreateGoblin(), reducedMotionEnabled: false);
         await AwaitFrames(2);
         InvokePrivateMethod(_battle, "OnStartButtonPressed");
         InvokePrivateMethod(_battle, "OpenCureOverlay");
@@ -349,7 +385,7 @@ public partial class BattleSceneTest : Node
         _viewportContainer.Size = new Vector2(640, 360);
         await AwaitFrames(2);
 
-        _battle.StartBattle(TestHelpers.CreateTestCharacter(), Enemy.CreateGoblin());
+        _battle.StartBattle(TestHelpers.CreateTestCharacter(), Enemy.CreateGoblin(), reducedMotionEnabled: false);
         var endBattle = typeof(BattleManager).GetMethod(
             "EndBattle", BindingFlags.NonPublic | BindingFlags.Instance)
             ?? throw new InvalidOperationException("EndBattle not found.");
@@ -375,7 +411,7 @@ public partial class BattleSceneTest : Node
     {
         var player = TestHelpers.CreateTestCharacter();
         var enemy = Enemy.CreateGoblin();
-        _battle.StartBattle(player, enemy);
+        _battle.StartBattle(player, enemy, reducedMotionEnabled: false);
         await AwaitFrames(2);
         InvokePrivateMethod(_battle, "OnStartButtonPressed");
 

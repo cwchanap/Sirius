@@ -1600,6 +1600,47 @@ public partial class GameTest : Node
         }
     }
 
+    // Real-Game propagation: with Reduced Motion enabled out-of-tree, the
+    // battle started through GameManager.StartBattle must receive true via
+    // Game.OnBattleStarted — BattleManager never reads SettingsManager itself.
+    [TestCase]
+    public async Task GameReady_ReducedMotionPropagatesIntoBattleManager()
+    {
+        var previousSettingsManager = SettingsManager.Instance;
+        var settingsManager = new SettingsManager();
+        var snapshot = settingsManager.GetSnapshot();
+        snapshot.ReducedMotionEnabled = true;
+        SetPrivateField(settingsManager, "_settings", snapshot);
+        SetSettingsManagerInstance(settingsManager);
+        Game? game = null;
+        try
+        {
+            game = await InstantiateRealGameScene();
+
+            var manager = game.GetNode<GameManager>("GameManager");
+            manager.StartBattle(Enemy.CreateGoblin());
+            await AwaitFrames(2);
+
+            var battle = GetPrivateField<BattleManager>(game, "_battleManager");
+            AssertThat(battle).IsNotNull();
+            AssertThat(GetPrivateField<bool>(battle, "_reducedMotionEnabled")).IsTrue();
+
+            // Cleanly close the hosted Battle so no state leaks to later tests.
+            battle.RequestCancel();
+            await AwaitFrames(2);
+            AssertThat(game.GetNode<UIScreenHost>("UI/UIScreenHost")
+                .IsKindActive(UIScreenKinds.Battle)).IsFalse();
+            AssertThat(manager.IsInBattle).IsFalse();
+        }
+        finally
+        {
+            if (game != null && IsInstanceValid(game)) game.Free();
+            SetSettingsManagerInstance(previousSettingsManager);
+            if (IsInstanceValid(settingsManager)) settingsManager.Free();
+            await AwaitFrames(1);
+        }
+    }
+
     // Player enables Reduced Motion from the hosted Pause → Settings screen;
     // closing Settings must reapply the new value to the live camera and the
     // current GridMap without any direct call into the composition helper.

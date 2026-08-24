@@ -280,32 +280,27 @@ InvokePrivate(_ctrl, "OnCancelPressed");
 AssertThat(snapshot.ReducedMotionEnabled).IsFalse();
 ```
 
-Add a **dedicated** Apply test; do not hide this assertion in the unrelated unset-selection bounds test:
+Add a dedicated Apply test by copying the **existing** local `SettingsManager` setup/override/finally pattern from `OnApplyPressed_WhenSelectionsAreUnset_DoesNotIndexPastOptions`; do not invent a new production seam or require new test infrastructure:
 
 ```csharp
 [TestCase]
 public async Task OnApplyPressed_PersistsReducedMotionCheckbox()
 {
-    // Reuse the same window/file overrides and local SettingsManager setup
-    // already used by the existing successful Apply test.
-    var settingsManager = await BootstrapLocalSettingsManagerForApply();
-    try
-    {
-        _ctrl.OpenSettings(settingsManager.GetSnapshot());
-        GetField<CheckBox>(_ctrl, "_reducedMotionCheck").ButtonPressed = true;
+    // Use the same simulated window state, SettingsManager overrides,
+    // Root.AddChild(settingsManager), process-frame wait, and finally cleanup
+    // already present in the neighboring successful-Apply regression.
 
-        InvokePrivate(_ctrl, "OnApplyPressed");
+    _ctrl.OpenSettings(SettingsData.CreateDefaults());
+    GetField<CheckBox>(_ctrl, "_reducedMotionCheck").ButtonPressed = true;
 
-        AssertThat(settingsManager.GetSnapshot().ReducedMotionEnabled).IsTrue();
-    }
-    finally
-    {
-        await FreeLocalSettingsManagerForApply(settingsManager);
-    }
+    InvokePrivate(_ctrl, "OnApplyPressed");
+
+    AssertThat(settingsManager.GetSnapshot().ReducedMotionEnabled).IsTrue();
+    AssertThat(closed).IsTrue();
 }
 ```
 
-If the existing test does not yet expose those helper names, extract only its existing setup/cleanup into file-local test helpers; do not add production seams.
+The concrete test implementation must inline or extract only that already-present test setup; do not create undefined helper APIs solely for this test.
 
 - [ ] **Step 8: Run Settings UI tests and confirm RED**
 
@@ -586,14 +581,19 @@ Expected: PASS.
 
 - [ ] **Step 8: Write failing real-Game world propagation tests**
 
-In `GameTest`, reuse the out-of-tree `SettingsManager.Instance` swap pattern from the current HPA-541 plan. Add a test that installs a snapshot with `ReducedMotionEnabled = true`, then instantiates the real Game:
+In `GameTest`, use the same private-setter reflection pattern already present in `SettingsManagerTest.ResetSingleton`: install an out-of-tree `SettingsManager`, set its private `_settings` snapshot to `ReducedMotionEnabled = true`, and temporarily assign `SettingsManager.Instance`. Keep these helpers file-local to `GameTest`.
+
+Add a real-Game test:
 
 ```csharp
 [TestCase]
 public async Task GameReady_ReducedMotionDisablesCameraAndMarksCurrentGrid()
 {
     var previousSettingsManager = SettingsManager.Instance;
-    var settingsManager = CreateOutOfTreeSettingsManager(reducedMotionEnabled: true);
+    var settingsManager = new SettingsManager();
+    var snapshot = settingsManager.GetSnapshot();
+    snapshot.ReducedMotionEnabled = true;
+    SetPrivateField(settingsManager, "_settings", snapshot);
     SetSettingsManagerInstance(settingsManager);
     Game? game = null;
     try
@@ -609,13 +609,13 @@ public async Task GameReady_ReducedMotionDisablesCameraAndMarksCurrentGrid()
     {
         if (game != null && IsInstanceValid(game)) game.Free();
         SetSettingsManagerInstance(previousSettingsManager);
-        settingsManager.Free();
+        if (IsInstanceValid(settingsManager)) settingsManager.Free();
         await AwaitFrames(1);
     }
 }
 ```
 
-Add a focused test for gameplay Settings reapplication. Open Pause -> Settings using the existing hosted fixture/real Game helpers, change the persisted snapshot to true before emitting Settings `Closed`, then assert the current camera/GridMap are reduced after close. The test must use the actual `OnHostedSettingsClosed` path; do not call the future helper directly.
+Add a focused gameplay-Settings reapplication test using the existing hosted Pause/Settings paths in `GameTest`: after opening hosted Settings, mutate the installed test manager’s private `_settings` snapshot to true, emit the Settings `Closed` signal, await the close, then assert the current camera is unsmoothed and current `FloorManager.CurrentGridMap.ReducedMotionEnabled` is true. Do not call the future world helper directly.
 
 - [ ] **Step 9: Run GameTest and confirm RED**
 
@@ -710,13 +710,13 @@ Before changing the signature, inventory current callers:
 rg -n '\.StartBattle\(' tests/ui scripts/game/Game.cs
 ```
 
-For each existing BattleManager call in `BattleManagerTest` and `BattleSceneTest`, change two-argument startup to:
+For each existing `BattleManager` call in `BattleManagerTest` and `BattleSceneTest`, change two-argument startup to:
 
 ```csharp
 battle.StartBattle(player, enemy, reducedMotionEnabled: false);
 ```
 
-Do not add an overload to avoid these edits.
+Do not add an overload to avoid these edits. `GameManager.StartBattle(Enemy)` is a different domain API and must not be changed.
 
 - [ ] **Step 2: Write failing deterministic reduced Battle tween tests**
 
@@ -950,11 +950,14 @@ Expected: PASS.
 
 - [ ] **Step 10: Enforce explicit callers and the SiriusMotion boundary**
 
+Use the compiler as the primary required-parameter gate, then inspect `BattleManager` call sites explicitly:
+
 ```bash
-rg -n '\.StartBattle\([^,]+,[^,]+\)' scripts tests
+rg -n 'StartBattle\(' scripts/ui/BattleManager.cs scripts/game/Game.cs \
+  tests/ui/BattleManagerTest.cs tests/ui/BattleSceneTest.cs
 ```
 
-Expected: no two-argument `BattleManager.StartBattle` call remains. Ignore `GameManager.StartBattle(Enemy)` domain calls; if the regex catches them, inspect rather than mechanically editing them.
+Expected: `BattleManager.StartBattle` declaration requires three arguments; every direct BattleManager caller supplies the bool. Do not edit `GameManager.StartBattle(Enemy)` domain calls.
 
 ```bash
 rg -n 'SiriusMotion' scripts/ui/BattleManager.cs

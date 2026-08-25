@@ -7,13 +7,13 @@ CLOSE HPA-306. All HPA-306 definition-of-done criteria are met; the repository c
 The required HPA-306 delivery chain is complete. The optional HPA-375 Inventory work and HPA-541 persisted Reduced Motion and production motion-policy work are also complete. This record follows the [HPA-306 design spec](../../superpowers/specs/2026-08-24-hpa-306-ui-revamp-closeout-design.md) and [implementation plan](../../superpowers/plans/2026-08-24-hpa-306-ui-revamp-closeout.md).
 
 ## HPA-359 evidence reused
-HPA-359 remains the evidence owner for the completed Main Menu → Game and Game → Main Menu scene replacements, authored exploration → goblin → Battle/result journey, hosted Save/Prompt and joypad behavior, default-motion production record, compact Prompt checks, runtime observations, and legacy-path audit. HPA-359 was reused rather than replayed. Its compact Inventory disposition is inherited: tight heading chrome at the minimum viewport is visual polish, not a blocker while required content and controls remain usable.
+HPA-359 remains the evidence owner for the completed Main Menu → Game and Game → Main Menu scene replacements, authored exploration → goblin → Battle/result journey, hosted Save/Prompt and joypad behavior, default-motion production record, compact Prompt checks, runtime observations, and legacy-path audit. HPA-359 was reused rather than replayed; the authoritative record is `docs/ui/hpa-359/release-validation.md`. Its compact Inventory disposition is inherited: tight heading chrome at the minimum viewport is visual polish, not a blocker while required content and controls remain usable.
 
 ## Post-HPA-359 delta
 The current-head delta was validated through the HPA-375 Inventory owners and HPA-541 Settings/world/Game/Battle owners, followed by a narrow production Inventory usability/runtime-error check at both required viewports. No production code or scene change was needed.
 
 ## Current-head automated validation
-- Build: `dotnet build Sirius.sln` exited `0`, with `0` errors and `269` warnings. The warnings were compiler/analyzer diagnostics, including known GdUnit analyzer noise and NU1900-style feed noise; they were classified separately from product failure.
+- Build: `dotnet build Sirius.sln` exited `0`, with `0` errors and `269` warnings. The warnings were a GdUnit analyzer/compiler-version warning and nullable/obsolete/unused warnings, none producing a product failure.
 - Focused HPA-375/HPA-541 set: Failed `0`, Passed `363`, Skipped `0`.
 - Full suite: Failed `0`, Passed `1555`, Skipped `0`.
 - The whitespace gate was initially RED because the design spec contained 2 trailing-space hard breaks. Commit `ea04bd1` replaced them with backslash hard breaks, and the re-check was clean.

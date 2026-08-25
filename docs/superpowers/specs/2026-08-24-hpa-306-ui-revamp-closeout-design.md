@@ -1,7 +1,7 @@
 # HPA-306 Sirius UI Revamp Closeout Design
 
-**Issue:** HPA-306 — Revamp Sirius UI architecture and player-facing screen layouts  
-**Date:** 2026-08-24  
+**Issue:** HPA-306 — Revamp Sirius UI architecture and player-facing screen layouts\
+**Date:** 2026-08-24\
 **Scope:** Close the completed Sirius UI revamp umbrella on current `main` without creating another UI subsystem or replaying already-owned release work.
 
 ## Context

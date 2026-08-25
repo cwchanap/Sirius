@@ -2,27 +2,28 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Close HPA-306 on current `main` by reusing HPA-359's production evidence, validating the post-HPA-359 HPA-375/HPA-541 delta, and recording one final current-head disposition without adding another UI feature or framework.
+**Goal:** Close HPA-306 on current `main` by reusing HPA-359 production evidence, validating the post-HPA-359 HPA-375/HPA-541 delta, refreshing only the unique Inventory visual evidence, and recording one final disposition.
 
-**Architecture:** Keep the shipped scene-authored UI, Theme/components, root-local `UIScreenHost`, and current controller/domain ownership unchanged. HPA-359 remains authoritative for the expensive production walkthrough. HPA-306 adds fresh automated current-head coverage for the Inventory and Reduced Motion follow-ups plus one Inventory-only real-window **composition** check and two current evidence captures. A no-production-code closeout is expected; any real defect is reproduced in its nearest existing suite and fixed minimally in this same PR.
+**Architecture:** Keep the shipped scene-authored UI, Theme/components, root-local `UIScreenHost`, and controller/domain ownership unchanged. HPA-359 remains authoritative for the wider production walkthrough. HPA-306 adds fresh current-head automated coverage plus one narrowly-scoped production Inventory usability/runtime check captured from the Godot root viewport. A no-production-code closeout is expected; any real defect must be RED first in its existing owner suite.
 
-**Tech Stack:** Godot 4.6.2, C#/.NET 8.0, GdUnit4, existing Sirius Theme/components/`UIScreenHost`, Linear HPA-306.
+**Tech Stack:** Godot 4.6.2, C#/.NET 8.0, GdUnit4, `@cwchanap/godot-plugin@0.1.4`, existing Sirius Theme/components/`UIScreenHost`, Linear HPA-306.
 
 **Spec:** `docs/superpowers/specs/2026-08-24-hpa-306-ui-revamp-closeout-design.md`
 
 ## Global Constraints
 
 - [ ] Keep planning, validation evidence, and any regression fix in this single HPA-306 PR.
-- [ ] Do not add a new screen, host kind, UI service, presenter/view-model layer, navigation framework, second host, E2E driver, screenshot harness, or release framework.
-- [ ] Reuse `docs/ui/hpa-359/release-validation.md`; do not repeat the full HPA-359 production walkthrough without a delta-specific failure.
-- [ ] HPA-375 and HPA-541 are already implemented; validate their current-head integration rather than extending product scope.
+- [ ] Do not add a screen, host kind, UI service, presenter/view-model, navigation framework, second host, E2E driver, screenshot harness, or release framework.
+- [ ] Reuse `docs/ui/hpa-359/release-validation.md`; do not replay its full production journey without a delta-specific failure.
+- [ ] HPA-375/HPA-541 are already implemented; validate them rather than extending product scope.
 - [ ] A clean closeout with no production C# or `.tscn` change is valid and preferred.
-- [ ] Any production fix starts with the smallest useful failing regression in an existing owner suite.
-- [ ] The real-window Inventory pass is composition-only; automated tests remain the behavior/focus oracle.
-- [ ] Inherit HPA-359's compact Inventory disposition: tight/clipped section-heading chrome at `640×360` is not blocking unless required content or controls become unreachable/unusable.
-- [ ] Create exactly two fresh HPA-306 Inventory evidence images; do not overwrite HPA-359's hash-pinned historical captures and do not recapture unrelated screens.
-- [ ] Do not recalculate the historical April PRD completion percentage or broadly rewrite `docs/PRD.md`.
-- [ ] Do not change the Sirius Linear project state; only HPA-306 is closed by this plan.
+- [ ] The live Inventory pass owns only human usability, runtime UI errors, and fresh root-viewport evidence. Existing tests own behavior/focus/geometry.
+- [ ] Inherit HPA-359's compact Inventory disposition: tight/clipped section-heading chrome at `640×360` is non-blocking while required content/controls remain usable.
+- [ ] Create exactly two HPA-306 Inventory evidence PNGs. Do not overwrite HPA-359 evidence and do not recapture unrelated screens.
+- [ ] Use `origin/main...HEAD` after `git fetch origin main`; do not use a potentially stale local `main` for scope gates.
+- [ ] Treat the Godot runtime bridge as temporary tooling and prove `project.godot` is restored before final scope verification.
+- [ ] Do not load, modify, back up, or restore user saves for this closeout.
+- [ ] Mark Linear HPA-306 Done only after PR #48 is merged.
 
 ---
 
@@ -56,158 +57,187 @@
 - Test: `tests/ui/BattleSceneTest.cs`
 
 **Interfaces:**
-- Consumes: HPA-359 final evidence plus merged HPA-375/HPA-541 production code on current `main`.
-- Produces: current-head build, focused delta result, and full-suite result used by Task 3.
+- Consumes: HPA-359 evidence and merged HPA-375/HPA-541 production code.
+- Produces: current-head build/focused/full-suite results plus a fresh remote base for later PR-scope checks.
 
-- [ ] **Step 1: Read the existing release evidence before running anything**
+- [ ] **Step 1: Refresh the remote base**
 
-Read `docs/ui/hpa-359/release-validation.md`. Reuse its Main Menu → Game, movement → Battle, Save/Prompt, Return-to-Title, hosted joypad, legacy-path, and default-motion production evidence.
+```bash
+git fetch origin main
+```
 
-Also carry forward its compact Inventory disposition: `640×360` remained usable even with tight/clipped section-heading chrome. Do not reinterpret that known visual concern as a new HPA-306 defect unless required content or controls become unreachable/unusable.
+Expected: `origin/main` points at the current repository default-branch head. Do not require the local `main` branch to move.
 
-- [ ] **Step 2: Ensure local GdUnit settings exist**
+- [ ] **Step 2: Read the existing HPA-359 evidence boundary**
+
+Read `docs/ui/hpa-359/release-validation.md` and carry forward:
+
+- Main Menu → Game and Game → Main Menu scene replacement;
+- movement → goblin → Battle/result;
+- Save/Prompt and hosted joypad evidence;
+- default-motion production behavior;
+- legacy-path audit;
+- compact Inventory heading chrome as usable/non-blocking visual polish.
+
+Do not convert these into new manual acceptance steps.
+
+- [ ] **Step 3: Ensure local GdUnit settings exist**
 
 ```bash
 test -f test.runsettings.local || cp test.runsettings.local.template test.runsettings.local
 ```
 
-If copied, configure only the local Godot executable path required by the existing template. `test.runsettings.local` is local environment configuration and must not be committed.
+If copied, configure only the local Godot executable path required by the existing template. Do not commit `test.runsettings.local`.
 
-- [ ] **Step 3: Build current head**
+- [ ] **Step 4: Build current head**
 
 ```bash
 dotnet build Sirius.sln
 ```
 
-Expected: exit 0 and no compile errors. Classify existing environment warnings such as NuGet vulnerability-feed unavailability rather than treating them as product regressions.
+Expected: exit 0 and no compile errors. Record the exact result for Task 3. Classify known environment warnings separately from product failures.
 
-- [ ] **Step 4: Run the focused HPA-375/HPA-541 integration set**
+- [ ] **Step 5: Run the focused HPA-375/HPA-541 integration set**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~InventoryMenuControllerTest|FullyQualifiedName~InventoryMenuSceneTest|FullyQualifiedName~SettingsDataTest|FullyQualifiedName~SettingsManagerTest|FullyQualifiedName~SettingsMenuControllerTest|FullyQualifiedName~SettingsMenuSceneTest|FullyQualifiedName~GridMapTest|FullyQualifiedName~PlayerDisplayTest|FullyQualifiedName~EnemySpawnTest|FullyQualifiedName~GameTest|FullyQualifiedName~GameplayPauseHostTest|FullyQualifiedName~BattleManagerTest|FullyQualifiedName~BattleSceneTest"
 ```
 
-Expected: all discovered tests pass. Record exact pass/fail/skip totals for Task 3.
+Expected: all discovered tests pass. Record exact pass/fail/skip totals.
 
-This focused set owns:
+This is the deterministic owner for Inventory behavior/geometry/focus and HPA-541 Settings/world/Game/Battle behavior. Do not recreate those assertions in Task 2.
 
-- HPA-375 selection/details/filter/sort/layout/focus behavior;
-- Settings persistence/staging and authored scene;
-- Reduced Motion world propagation and animator frame reset;
-- real Game integration;
-- hosted lifecycle regression coverage;
-- Battle reduced-motion and scene visibility behavior.
-
-- [ ] **Step 5: Run the full umbrella completion gate**
+- [ ] **Step 6: Run the full umbrella completion gate**
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local
 ```
 
-Expected: full suite passes. Record exact pass/fail/skip totals for Task 3.
+Expected: full suite passes. Record exact pass/fail/skip totals.
 
-Do not replace this with only the focused set. HPA-306's definition of done spans shared lifecycle/domain contracts across all migrated screens.
+The focused filter is diagnostic only; it does not replace this full-suite HPA-306 gate.
 
-- [ ] **Step 6: Check the committed PR range for whitespace errors**
+- [ ] **Step 7: Check committed PR whitespace against the refreshed remote base**
 
 ```bash
-git diff --check main...HEAD
+git diff --check origin/main...HEAD
 ```
 
 Expected: no whitespace errors.
 
-- [ ] **Step 7: If automated validation is RED, keep defect handling inside the existing owner**
+- [ ] **Step 8: If automation is RED, fix only through an existing owner**
 
-If a focused/full-suite test already fails specifically for the regression, that failing test is the RED gate. If the failure is too broad to diagnose safely, add/tighten the smallest useful regression in the nearest existing Inventory/Settings/world/Game/Battle/host suite first.
+If an existing test already fails specifically for the regression, use that failure as RED. If the failure is too broad, first add/tighten the smallest useful regression in the nearest existing Inventory/Settings/world/Game/Battle/host suite.
 
 Only after a specific RED exists:
 
 1. make the smallest production fix in the existing owner;
 2. rerun that owner suite;
-3. rerun Steps 4–6;
-4. run Task 2 only when the changed production files can affect Inventory composition.
+3. rerun Steps 5–7;
+4. run Task 2 again only if the changed production files can affect Inventory composition.
 
-Do not add a reusable abstraction for a one-off closeout regression.
-
-If Steps 3–6 are green, proceed to Task 2 without editing production code.
+Do not introduce a reusable abstraction for a one-off closeout defect.
 
 ---
 
-## Task 2: Re-check only the Inventory real-window composition delta
+## Task 2: Capture the unique Inventory production-window delta
 
 **Files:**
+- Reference: `project.godot`
+- Reference: `scripts/game/GameManager.cs`
 - Reference: `scenes/ui/InventoryMenu.tscn`
 - Reference: `scripts/ui/InventoryMenuController.cs`
-- Owning visual regression suite: `tests/ui/InventoryMenuSceneTest.cs`
+- Owning visual suite: `tests/ui/InventoryMenuSceneTest.cs`
 - Create: `docs/ui/hpa-306/evidence/inventory-1280x720.png`
 - Create: `docs/ui/hpa-306/evidence/inventory-640x360.png`
-- Modify only if a reproduced visual defect requires it: the nearest existing Inventory owner
+- Modify only after a RED visual regression: nearest existing Inventory owner
 
 **Interfaces:**
-- Consumes: real gameplay Inventory path and HPA-375 behavior already protected by Task 1.
-- Produces: current-head production-window composition observations plus exactly two auditable images for Task 3.
+- Consumes: a clean project, the published Godot MCP `0.1.4` runtime-control path, New Game starter equipment/consumables, and Task 1's automated behavior/geometry evidence.
+- Produces: two exact-size root-viewport captures, live human-usability/runtime observations, and proof that runtime-bridge project mutations were removed.
 
-- [ ] **Step 1: Launch the production project**
+- [ ] **Step 1: Start from a clean runtime-bridge state and record `project.godot`**
+
+Before runtime control, ensure the project is not already carrying bridge residue. If Godot MCP reports an installed bridge, call `uninstall_runtime_bridge` first. Then run:
 
 ```bash
-godot --path .
+test ! -e .godot-mcp
+git diff --exit-code -- project.godot
+BASE_PROJECT_GODOT_SHA="$(shasum -a 256 project.godot | awk '{print $1}')"
+printf '%s\n' "$BASE_PROJECT_GODOT_SHA" > /tmp/hpa-306-project-godot.sha
 ```
 
-Use the real project/game window. Do not create a new test host, driver, or screenshot harness.
+Expected: `.godot-mcp` is absent, `project.godot` has no local tracked diff, and the baseline hash is stored outside the repository.
 
-- [ ] **Step 2: Check Inventory composition at `1280×720`**
+- [ ] **Step 2: Launch the real project with the proven runtime-control capture path**
 
-From real gameplay, open Inventory and inspect composition only.
+Use the Godot MCP server pinned by this plan (`npx -y @cwchanap/godot-plugin@0.1.4`). Start Sirius with its `run_project` tool and `runtimeControl: true`.
 
-Pass when:
+Runtime control automatically installs/repairs the managed bridge. Do **not** use a normal OS screenshot for evidence; Retina device-pixel scaling can make a logical `640×360` window produce a `1280×720` OS capture.
 
-- standard Character / Items / Details regions are visually usable;
-- required content and item art are visible;
-- Details presentation, filter/sort controls, and Close are visible/reachable;
-- no severe overlap, zero-width region, or off-window placement makes required content unusable;
-- no new runtime UI error is emitted.
+Use `get_debug_output` during the session to observe runtime errors.
 
-Do **not** manually re-prove non-mutating selection, equip/use behavior, filter/sort semantics, compact page policy, focus movement, or Close behavior. `InventoryMenuControllerTest` / `InventoryMenuSceneTest` already own those contracts.
+- [ ] **Step 3: Start New Game; do not load a user save**
 
-Use normal interaction only as needed to expose representative populated Details composition; treat behavior correctness as Task 1 evidence, not a second manual oracle.
+From the production Main Menu choose **New Game**.
 
-- [ ] **Step 3: Check compact Inventory composition at `640×360`**
+`GameManager.InitializePlayer()` already equips starter gear and adds starter consumables, so the Inventory is populated enough for visual review. Do not open Load, Save, or overwrite flows, and do not touch user save files.
 
-Resize the same real game window to `640×360` and inspect composition only.
+Current battle-victory autosave is disabled; no save backup/restore ceremony is needed for this task.
 
-Pass when:
+- [ ] **Step 4: Observe and capture `1280×720`**
 
-- required Inventory content and item art remain visible;
-- compact tabs/pages, Details presentation, filter/sort controls where shown, and Close remain visible/reachable;
-- required content/controls are not clipped into an unusable state;
-- no new runtime UI error is emitted.
+Set the actual game viewport/window to logical `1280×720`, open Inventory through the production gameplay path, and use normal interaction only as needed to expose representative Details content.
 
-**Known accepted condition:** section-heading chrome may remain tight/clipped, matching HPA-359. Do not open product work for that alone. It is blocking only if required content or controls become unreachable/unusable.
+Manual pass criteria are intentionally narrow:
 
-Restore the normal viewport after the observation.
+- a human can use/read the visible Inventory composition;
+- no new runtime UI error appears.
 
-- [ ] **Step 4: Capture exactly the two current Inventory evidence images**
+Do not manually score zero-width regions, bounds, selection semantics, filter/sort semantics, focus, page-navigation policy, or Close behavior. Task 1's GdUnit owners already cover those deterministically.
 
-Create the directory if needed:
+Create the evidence directory:
 
 ```bash
 mkdir -p docs/ui/hpa-306/evidence
 ```
 
-Save the clean production-window captures as:
+Call Godot MCP `capture_screenshot` with:
+
+```json
+{"saveTo":"project"}
+```
+
+The tool persists a unique root-viewport PNG beneath `.godot-mcp/captures/`. Copy the exact persisted path returned by the tool to:
 
 ```text
 docs/ui/hpa-306/evidence/inventory-1280x720.png
+```
+
+- [ ] **Step 5: Observe and capture `640×360`**
+
+Resize the same production game to logical `640×360` and inspect Inventory with the same narrow criteria:
+
+- a human can still use/read required content and controls;
+- no new runtime UI error appears.
+
+Known accepted condition: section-heading chrome may remain tight/clipped as recorded by HPA-359. Do not open product work for that alone.
+
+Call `capture_screenshot` again with:
+
+```json
+{"saveTo":"project"}
+```
+
+Copy the returned persisted capture to:
+
+```text
 docs/ui/hpa-306/evidence/inventory-640x360.png
 ```
 
-Do not overwrite `docs/ui/hpa-359/evidence/inventory-*.png`; HPA-359's release record pins hashes for those historical files.
+- [ ] **Step 6: Verify exact root-viewport image dimensions**
 
-Do not capture Battle, Save/Prompt, Main Menu, or other screens.
-
-- [ ] **Step 5: Verify image dimensions and calculate SHA-256**
-
-Verify PNG dimensions without adding a dependency:
+Verify both PNGs without adding a dependency:
 
 ```bash
 python3 - <<'PY'
@@ -222,105 +252,104 @@ expected = {
 for path, wanted in expected.items():
     data = path.read_bytes()
     assert data[:8] == b"\x89PNG\r\n\x1a\n", f"{path}: not PNG"
-    size = struct.unpack(">II", data[16:24])
-    assert size == wanted, f"{path}: expected {wanted}, got {size}"
-    print(f"{path}: {size[0]}x{size[1]}")
+    actual = struct.unpack(">II", data[16:24])
+    assert actual == wanted, f"{path}: expected {wanted}, got {actual}"
+    print(f"{path}: {actual[0]}x{actual[1]}")
 PY
 ```
 
-Then calculate hashes:
+Expected: exactly `1280x720` and `640x360`.
+
+Do not compute screenshot SHA-256 values; they add no useful verification for this closeout.
+
+- [ ] **Step 7: Tear down the runtime bridge before any scope check**
+
+Stop the running project with Godot MCP `stop_project`, then call `uninstall_runtime_bridge` for Sirius.
+
+Verify cleanup:
 
 ```bash
-shasum -a 256 \
-  docs/ui/hpa-306/evidence/inventory-1280x720.png \
-  docs/ui/hpa-306/evidence/inventory-640x360.png
+test ! -e .godot-mcp
+CURRENT_PROJECT_GODOT_SHA="$(shasum -a 256 project.godot | awk '{print $1}')"
+BASE_PROJECT_GODOT_SHA="$(cat /tmp/hpa-306-project-godot.sha)"
+test "$CURRENT_PROJECT_GODOT_SHA" = "$BASE_PROJECT_GODOT_SHA"
+git diff --exit-code -- project.godot
+rm -f /tmp/hpa-306-project-godot.sha
 ```
 
-Record both dimensions and hashes in Task 3.
+Expected: bridge directory absent, exact pre/post `project.godot` hash match, no tracked `project.godot` diff.
 
-- [ ] **Step 6: If the window exposes a real composition defect, reproduce it RED in `InventoryMenuSceneTest`**
+This hash is load-bearing cleanup verification and is intentionally retained even though screenshot hashes were removed.
 
-Do not treat the known heading-chrome clip as a defect unless required content/controls become unusable.
+- [ ] **Step 8: If the live pass exposes a new blocking visual defect, make it RED first**
 
-For a new blocking composition issue, add the smallest deterministic regression to `tests/ui/InventoryMenuSceneTest.cs` and run:
+Do not treat the known compact heading clip as a defect unless it makes required content/controls unusable.
+
+For a new blocking visual issue, add the smallest deterministic regression to `tests/ui/InventoryMenuSceneTest.cs` and run:
 
 ```bash
 dotnet test Sirius.sln --settings test.runsettings.local --filter "FullyQualifiedName~InventoryMenuSceneTest"
 ```
 
-Expected before production edit: the new regression fails for the intended layout reason.
+Expected before production edit: new regression fails for the intended reason.
 
-- [ ] **Step 7: If Step 6 is RED, make the minimal GREEN fix and revalidate**
-
-Change only the existing Inventory owner required by the regression. Do not add a general UI abstraction.
-
-Run the owning scene suite until green, then rerun Task 1 Steps 4–6, repeat only the affected viewport observation, and refresh the affected HPA-306 image/hash.
-
-If Task 2 is clean, make no production edit.
+Then make the smallest existing-owner fix, rerun the scene suite and Task 1 Steps 5–7, repeat only the affected live viewport, refresh that capture, and repeat Step 7 teardown.
 
 ---
 
-## Task 3: Write the durable HPA-306 closeout record
+## Task 3: Write the durable closeout record and verify PR scope
 
 **Files:**
 - Create: `docs/ui/hpa-306/closeout.md`
 - Include: `docs/ui/hpa-306/evidence/inventory-1280x720.png`
 - Include: `docs/ui/hpa-306/evidence/inventory-640x360.png`
 - Reference: `docs/ui/hpa-359/release-validation.md`
-- Reference: `docs/superpowers/specs/2026-08-24-hpa-306-ui-revamp-closeout-design.md`
-- Reference: `docs/superpowers/plans/2026-08-24-hpa-306-ui-revamp-closeout.md`
-- Include only if validation found a defect: its focused regression and minimal production fix files
+- Reference: planning spec/plan
+- Include only if validation found a defect: its focused regression + minimal existing production owner
 
 **Interfaces:**
-- Consumes: exact Task 1 command results, Task 2 real-window composition observations/images, HPA-359 evidence, and Linear completion state for HPA-375/HPA-541.
-- Produces: one concise repository record proving whether HPA-306 can close on current head.
+- Consumes: Task 1 exact command results, Task 2 observations/dimensions/cleanup result, and HPA-359 evidence.
+- Produces: one repository closeout record and a final five-file clean shape when no defect was found.
 
 - [ ] **Step 1: Create `docs/ui/hpa-306/closeout.md` from observed facts**
 
-Write the file only after Tasks 1–2 are complete. It must contain these sections with actual observed values:
+Use exactly these sections:
 
 ```markdown
 # HPA-306 Sirius UI Revamp Closeout
 
 ## Final disposition
-
 ## Completed delivery chain
-
 ## HPA-359 evidence reused
-
 ## Post-HPA-359 delta
-
 ## Current-head automated validation
-
-## Inventory real-window composition delta
-
+## Inventory production-window delta
 ## Inventory evidence
-
+## Runtime bridge cleanup
 ## Defects and fixes
-
 ## HPA-306 definition-of-done mapping
-
 ## Linear closeout
 ```
 
 Required factual content:
 
-- required HPA-306 migration chain is complete;
-- optional HPA-375 and HPA-541 are complete;
-- refer to `docs/ui/hpa-359/release-validation.md` for the wider production walkthrough rather than reproducing it;
+- required HPA-306 chain complete;
+- optional HPA-375/HPA-541 complete;
+- HPA-359 reused rather than replayed;
 - exact build result;
-- exact focused test pass/fail/skip totals;
+- exact focused pass/fail/skip totals;
 - exact full-suite pass/fail/skip totals;
-- `1280×720` and `640×360` Inventory composition observations;
-- explicitly state that known compact heading-chrome clipping remains non-blocking when content/controls stay usable;
-- list the two HPA-306 Inventory evidence paths, dimensions, and SHA-256 values;
-- state whether any defect was found and, if so, name the regression and minimal fix;
-- map final evidence back to HPA-306's definition of done;
-- give one unambiguous disposition: close HPA-306, or keep it open because a named acceptance criterion is still failing.
+- `1280×720` and `640×360` human usability/runtime-error observations;
+- known compact heading chrome remains non-blocking when required content/controls are usable;
+- the two evidence paths + exact dimensions;
+- bridge cleanup: `.godot-mcp` absent and `project.godot` restored to its pre-session hash;
+- any concrete regression/fix, or explicitly none;
+- DoD mapping;
+- one disposition: close HPA-306 or keep open with a named failing criterion.
 
-Do not restate the entire HPA-359 evidence document and do not add a broader screenshot matrix.
+Do not record screenshot hashes and do not duplicate the full HPA-359 evidence text.
 
-- [ ] **Step 2: Check the closeout document for unfinished result language**
+- [ ] **Step 2: Scan the closeout record for unfinished result language**
 
 ```bash
 rg -n "pending result|to be recorded|fill this|replace me" docs/ui/hpa-306/closeout.md
@@ -328,65 +357,75 @@ rg -n "pending result|to be recorded|fill this|replace me" docs/ui/hpa-306/close
 
 Expected: no matches.
 
-- [ ] **Step 3: Check the final PR scope**
+- [ ] **Step 3: Refresh the remote base immediately before final scope verification**
+
+```bash
+git fetch origin main
+```
+
+Expected: `origin/main` reflects the current remote default-branch head.
+
+- [ ] **Step 4: Verify final PR scope against `origin/main`**
 
 ```bash
 git status --short
-git diff --stat main...HEAD
-git diff --check main...HEAD
+git diff --stat origin/main...HEAD
+git diff --check origin/main...HEAD
 ```
 
-Expected clean shape when no defect was found:
+Expected clean no-defect shape:
 
-- HPA-306 design spec;
-- HPA-306 implementation plan;
+- `docs/superpowers/specs/2026-08-24-hpa-306-ui-revamp-closeout-design.md`;
+- `docs/superpowers/plans/2026-08-24-hpa-306-ui-revamp-closeout.md`;
 - `docs/ui/hpa-306/closeout.md`;
 - `docs/ui/hpa-306/evidence/inventory-1280x720.png`;
 - `docs/ui/hpa-306/evidence/inventory-640x360.png`.
 
-If a defect was found, the only extra files are its focused regression and the minimal existing production owner required to fix it.
+`project.godot` and `.godot-mcp` must not appear.
 
-- [ ] **Step 4: Commit the closeout evidence**
+If a regression/fix was required, the only additional files are the focused owner test and the minimal existing production owner needed for that fix.
+
+- [ ] **Step 5: Commit the closeout evidence to the existing PR branch**
 
 ```bash
 git add \
   docs/ui/hpa-306/closeout.md \
   docs/ui/hpa-306/evidence/inventory-1280x720.png \
   docs/ui/hpa-306/evidence/inventory-640x360.png
-# If validation produced a regression/fix, add only those exact owning files as well.
+# Add a focused regression/production owner only if Task 1 or Task 2 proved a defect.
 git commit -m "docs: close out HPA-306 UI revamp"
 ```
 
-Do not create a second PR. Push this commit to the existing HPA-306 branch/draft PR.
+Push to the existing HPA-306 branch. Do not create a second PR.
 
 ---
 
-## Task 4: Finish the Linear umbrella after the PR evidence is green
+## Task 4: Finish Linear only after PR #48 is merged
 
 **Files:**
-- No repository file change required.
+- No repository change.
 - Linear: HPA-306 only.
 
 **Interfaces:**
-- Consumes: green HPA-306 closeout record and the single HPA-306 PR.
-- Produces: HPA-306 status `Done` with a concise evidence summary.
+- Consumes: merged PR #48 and its green `docs/ui/hpa-306/closeout.md`.
+- Produces: final HPA-306 evidence comment and status `Done`.
 
-- [ ] **Step 1: Add one final HPA-306 Linear comment**
+- [ ] **Step 1: Confirm PR #48 is merged**
 
-Summarize:
+Do not mark Linear Done merely because validation is green or the PR is ready for review. The repository default branch must contain the closeout evidence first.
 
-- HPA-359 production walkthrough reused;
-- HPA-375/HPA-541 current-head focused validation result;
+- [ ] **Step 2: Add the final Linear evidence summary**
+
+Summarize only:
+
+- HPA-359 walkthrough reused;
+- focused HPA-375/HPA-541 result;
 - full-suite result;
-- Inventory `1280×720` / `640×360` composition result;
-- two HPA-306 Inventory evidence paths/hashes;
-- any regression/fix, or explicitly that no production fix was needed;
-- HPA-306 PR link.
+- two Inventory viewport results;
+- runtime-bridge cleanup result;
+- any regression/fix or explicitly none;
+- merged PR #48 link.
 
-Keep the comment evidence-focused; do not copy the full repository closeout document into Linear.
+- [ ] **Step 3: Mark HPA-306 Done**
 
-- [ ] **Step 2: Mark HPA-306 Done only when the PR closeout is green**
-
-Set Linear HPA-306 to `Done` after the closeout evidence is complete and the single PR is ready for/has completed merge according to the normal repository workflow.
-
-Do not mark the Sirius Linear project itself complete and do not create another ticket simply to represent umbrella closure.
+Set HPA-306 to `Done` after Step 2. Do not change the Sirius Linear project state and do not create another ticket solely for umbrella closure.

@@ -1,0 +1,21 @@
+# Codecov configuration — informational only.
+#
+# Coverage caveat: the GdUnit4 test adapter runs Node-derived suites inside the
+# Godot engine process, whose custom AssemblyLoadContext cannot be instrumented
+# by the dynamic profiler. Pure-C# suites (run in vstest testhost) are captured
+# accurately; engine-hosted suites report 0. Do not use coverage as a gate until
+# that is solved; see PR #49 for the investigation.
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+ignore:
+  - "addons"
+  - ".godot"
+  - "tools"
+  - "tests"

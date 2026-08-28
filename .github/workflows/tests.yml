@@ -118,7 +118,26 @@ jobs:
 
       - name: Temp experiment - Node suite via GdUnit4 cmd tool under coverage
         run: |
-          xvfb-run -a dotnet-coverage collect --output-format cobertura -o exp-charactertest.xml --include "*Sirius*" -- \
+          cat > cov-include.runsettings <<'RS'
+          <RunSettings>
+            <DataCollectionRunSettings>
+              <DataCollectors>
+                <DataCollector friendlyName="Code Coverage" enabled="true">
+                  <Configuration>
+                    <CodeCoverage>
+                      <ModulePaths>
+                        <Include>
+                          <ModulePath>.*Sirius.*</ModulePath>
+                        </Include>
+                      </ModulePaths>
+                    </CodeCoverage>
+                  </Configuration>
+                </DataCollector>
+              </DataCollectors>
+            </DataCollectionRunSettings>
+          </RunSettings>
+          RS
+          xvfb-run -a dotnet-coverage collect --output-format cobertura -o exp-charactertest.xml -s cov-include.runsettings -- \
             godot --headless --path . -s res://addons/gdUnit4/src/core/runners/GdUnitTestCIRunner.tscn -a tests/data/CharacterTest.cs || true
           python3 -c "
           import xml.etree.ElementTree as t

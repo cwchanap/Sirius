@@ -118,7 +118,7 @@ jobs:
 
       - name: Temp experiment - Node suite via GdUnit4 cmd tool under coverage
         run: |
-          xvfb-run -a dotnet-coverage collect --output-format cobertura -o exp-charactertest.xml -- \
+          xvfb-run -a dotnet-coverage collect --output-format cobertura -o exp-charactertest.xml --include "*Sirius*" -- \
             godot --headless --path . -s res://addons/gdUnit4/src/core/runners/GdUnitTestCIRunner.tscn -a tests/data/CharacterTest.cs || true
           python3 -c "
           import xml.etree.ElementTree as t

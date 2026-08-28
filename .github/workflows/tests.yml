@@ -116,6 +116,17 @@ jobs:
           # Fallback: re-run under xvfb-run to reproduce display-related failures
           xvfb-run -a dotnet test Sirius.csproj --configuration Release --no-build --verbosity normal -m:1 --logger "console;verbosity=detailed" --settings test.runsettings || true
 
+      - name: Temp experiment - Node suite via GdUnit4 cmd tool under coverage
+        run: |
+          xvfb-run -a dotnet-coverage collect --output-format cobertura -o exp-charactertest.xml -- \
+            godot --headless --path . -s res://addons/gdUnit4/src/core/runners/GdUnitTestCIRunner.tscn -a tests/data/CharacterTest.cs || true
+          python3 -c "
+          import xml.etree.ElementTree as t
+          r = t.parse('exp-charactertest.xml').getroot()
+          hits = sum(int(l.get('hits','0')) for l in r.iter('line'))
+          char_lines = [(l.get('hits')) for c in r.iter('class') if 'Character' in (c.get('filename') or '') for l in c.iter('line')]
+          print('TOTAL HITS:', hits, '| CharacterTest lines:', char_lines[:20])"
+
       - name: Collect env probe
         if: always()
         run: cp "$HOME/godot-cor-env.txt" ./godot-cor-env.txt 2>/dev/null || echo "probe file missing" > ./godot-cor-env.txt
@@ -138,6 +149,7 @@ jobs:
             TestResults/
             coverage.cobertura.xml
             godot-cor-env.txt
+            exp-charactertest.xml
           retention-days: 7
 
       - name: Test Report Summary

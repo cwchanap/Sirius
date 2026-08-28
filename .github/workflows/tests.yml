@@ -99,7 +99,7 @@ jobs:
         run: |
           # Run tests using GdUnit4's command line runner
           # Use the .NET test adapter which integrates with GdUnit4
-          xvfb-run -a dotnet test Sirius.csproj --configuration Release --no-build --verbosity normal -m:1 --logger "console;verbosity=detailed" --settings test.runsettings
+          xvfb-run -a dotnet test Sirius.csproj --configuration Release --no-build --verbosity normal -m:1 --logger "console;verbosity=detailed" --settings test.runsettings --collect:"XPlat Code Coverage"
         continue-on-error: false
 
       - name: Run .NET tests (alternative)
@@ -107,6 +107,14 @@ jobs:
         run: |
           # Fallback: re-run under xvfb-run to reproduce display-related failures
           xvfb-run -a dotnet test Sirius.csproj --configuration Release --no-build --verbosity normal -m:1 --logger "console;verbosity=detailed" --settings test.runsettings || true
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          files: TestResults/**/coverage.cobertura.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
       - name: Upload test results
         if: always()

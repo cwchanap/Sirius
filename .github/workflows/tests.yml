@@ -58,6 +58,8 @@ jobs:
         run: |
           cat <<'EOF' > "$HOME/godot/godot-headless"
           #!/usr/bin/env bash
+          # TEMP DEBUG: record profiler env seen by the Godot process
+          env | grep -E "^(COR_|CORECLR_)" > "$HOME/godot-cor-env.txt" || echo "NO COR_ VARS IN GODOT ENV" > "$HOME/godot-cor-env.txt"
           exec "$HOME/godot/godot" --headless "$@"
           EOF
           chmod +x "$HOME/godot/godot-headless"
@@ -114,6 +116,10 @@ jobs:
           # Fallback: re-run under xvfb-run to reproduce display-related failures
           xvfb-run -a dotnet test Sirius.csproj --configuration Release --no-build --verbosity normal -m:1 --logger "console;verbosity=detailed" --settings test.runsettings || true
 
+      - name: Collect env probe
+        if: always()
+        run: cp "$HOME/godot-cor-env.txt" ./godot-cor-env.txt 2>/dev/null || echo "probe file missing" > ./godot-cor-env.txt
+
       - name: Upload coverage to Codecov
         if: always()
         uses: codecov/codecov-action@v5
@@ -131,6 +137,7 @@ jobs:
             .godot/
             TestResults/
             coverage.cobertura.xml
+            godot-cor-env.txt
           retention-days: 7
 
       - name: Test Report Summary

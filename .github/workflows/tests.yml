@@ -95,11 +95,17 @@ jobs:
           timeout 30 godot --headless --editor --quit || true
           sleep 2
 
+      - name: Install dotnet-coverage
+        run: dotnet tool install --global dotnet-coverage
+
       - name: Run GdUnit4 tests
         run: |
           # Run tests using GdUnit4's command line runner
           # Use the .NET test adapter which integrates with GdUnit4
-          xvfb-run -a dotnet test Sirius.csproj --configuration Release --no-build --verbosity normal -m:1 --logger "console;verbosity=detailed" --settings test.runsettings --collect:"XPlat Code Coverage"
+          # dotnet-coverage profiler env propagates into the Godot child process
+          # (coverlet --collect only instruments testhost, which runs no game code)
+          xvfb-run -a dotnet-coverage collect --output-format cobertura -o coverage.cobertura.xml -- \
+            dotnet test Sirius.csproj --configuration Release --no-build --verbosity normal -m:1 --logger "console;verbosity=detailed" --settings test.runsettings
         continue-on-error: false
 
       - name: Run .NET tests (alternative)
@@ -112,7 +118,7 @@ jobs:
         if: always()
         uses: codecov/codecov-action@v5
         with:
-          files: TestResults/**/coverage.cobertura.xml
+          files: coverage.cobertura.xml
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
@@ -124,6 +130,7 @@ jobs:
           path: |
             .godot/
             TestResults/
+            coverage.cobertura.xml
           retention-days: 7
 
       - name: Test Report Summary

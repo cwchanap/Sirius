@@ -104,10 +104,13 @@ jobs:
         run: |
           # Run tests using GdUnit4's command line runner
           # Use the .NET test adapter which integrates with GdUnit4
-          # dotnet-coverage profiler env propagates into the Godot child process
-          # (coverlet --collect only instruments testhost, which runs no game code)
-          xvfb-run -a dotnet-coverage collect --output-format cobertura -o coverage.cobertura.xml -- \
-            dotnet test Sirius.csproj --configuration Release --no-build --verbosity normal -m:1 --logger "console;verbosity=detailed" --settings test.runsettings
+          # Pre-build Debug so the adapter doesn't rebuild AFTER static instrumentation
+          dotnet build Sirius.csproj --configuration Debug --no-restore
+          # --include-files statically instruments Sirius.dll; Godot's custom ALC load
+          # is invisible to the dynamic profiler, static rewrite is visible everywhere
+          xvfb-run -a dotnet-coverage collect --output-format cobertura -o coverage.cobertura.xml \
+            --include-files .godot/mono/temp/bin/Debug/Sirius.dll -- \
+            dotnet test Sirius.csproj --configuration Debug --no-build --verbosity normal -m:1 --logger "console;verbosity=detailed" --settings test.runsettings
         continue-on-error: false
 
       - name: Run .NET tests (alternative)

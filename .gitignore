@@ -7,6 +7,9 @@ frames/
 
 assets/**/original
 addons/*
+!addons/gdunit_e2e/
+!addons/gdunit_e2e/**/*.uid
+test_output/
 !addons/sirius_floor_tools/
 TestResults/
 gdunit4_testadapter_v5/

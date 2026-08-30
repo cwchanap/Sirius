@@ -1,7 +1,7 @@
 # Sirius Godot E2E Design
 
 **Date:** 2026-08-30
-**Status:** Review changes applied; pending approval
+**Status:** Approved
 
 ## Goal
 

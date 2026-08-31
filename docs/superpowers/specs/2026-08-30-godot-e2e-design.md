@@ -133,8 +133,10 @@ exploration game, rather than only loading a menu scene.
    `/root/Game/FloorGF/GridMap`.
 2. Wait for `EnemySpawn_Orc_East` and read its raw `GridPosition`.
    Move through the committed FloorGF corridor with
-   `TryMovePlayer`: `R13, U11, R24, U15, R7, U4, R5, D28, R17`.
-   Every corridor move must return true.
+   `TryMovePlayer`: `R6, U1, R7, U10, R24, U15, R7, U4, R5, D28, R17`.
+   The one-cell north detour avoids the authored unopened
+   `TreasureBox_GF_EntranceCache` at `(15, 50)`. Every corridor move must
+   return true.
 3. Read the actual player position, calculate the cell immediately south of
    it, and call `InternalGridToTilemapCoords` through the raw `v2i`
    helper. It must equal `EnemySpawn_Orc_East.GridPosition` before the final

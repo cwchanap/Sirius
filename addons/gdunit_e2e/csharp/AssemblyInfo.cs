@@ -1,2 +1,2 @@
 using System.Runtime.CompilerServices;
-[assembly: InternalsVisibleTo("GodotE2E.Tests")]
+[assembly: InternalsVisibleTo("Sirius.E2E.Tests")]

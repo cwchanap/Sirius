@@ -8,7 +8,11 @@ frames/
 assets/**/original
 addons/*
 !addons/gdunit_e2e/
-!addons/gdunit_e2e/**/*.uid
+!addons/gdunit_e2e/runtime/bootstrap.gd.uid
+addons/gdunit_e2e/csharp/bin/
+addons/gdunit_e2e/csharp/obj/
+tests/e2e/bin/
+tests/e2e/obj/
 test_output/
 !addons/sirius_floor_tools/
 TestResults/

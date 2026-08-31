@@ -176,11 +176,13 @@ dotnet test Sirius.sln
 #### Running the standalone E2E tests
 
 ```bash
+export GODOT_BIN=/path/to/Godot
 dotnet build Sirius.sln --configuration Debug
-GODOT_BIN=/path/to/Godot dotnet test tests/e2e/Sirius.E2E.Tests.csproj
+"$GODOT_BIN" --headless --editor --path . --quit
+dotnet test tests/e2e/Sirius.E2E.Tests.csproj
 ```
 
-These tests launch visible Godot child processes, so they require a real Godot executable (not a headless wrapper) and an X display such as Xvfb on Linux.
+These tests launch visible Godot child processes, so `GODOT_BIN` must point to a real Godot executable (not a headless wrapper), and they require an X display such as Xvfb on Linux.
 
 **Note**: Command-line testing requires the .NET SDK to be installed. On macOS, install via:
 ```bash

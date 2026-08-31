@@ -1,0 +1,95 @@
+name: Godot E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.6.2
+  DOTNET_VERSION: 8.0.x
+
+jobs:
+  e2e-tests:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    name: Run Godot E2E Tests
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-linux
+
+      - name: Download and install Godot
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/${{ env.GODOT_VERSION }}-stable/Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux_x86_64.zip
+          unzip -q Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux_x86_64.zip
+          mkdir -p ~/godot
+          chmod +x Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux_x86_64/Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux.x86_64
+          mv Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux_x86_64/Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux.x86_64 ~/godot/godot
+          mv Godot_v${{ env.GODOT_VERSION }}-stable_mono_linux_x86_64/GodotSharp ~/godot/
+
+      - name: Add Godot to PATH
+        run: echo "$HOME/godot" >> $GITHUB_PATH
+
+      - name: Verify Godot installation
+        run: godot --version
+
+      - name: Restore root project
+        run: dotnet restore Sirius.sln
+
+      - name: Restore E2E project
+        run: dotnet restore tests/e2e/Sirius.E2E.Tests.csproj
+
+      - name: Build root project
+        run: dotnet build Sirius.sln --configuration Debug --no-restore
+
+      - name: Import Godot assets
+        run: timeout 30 "$HOME/godot/godot" --headless --editor --quit
+
+      - name: Build E2E project
+        run: dotnet build tests/e2e/Sirius.E2E.Tests.csproj --configuration Debug --no-restore
+
+      - name: Run Godot E2E tests
+        run: |
+          GODOT_BIN="$HOME/godot/godot" xvfb-run --auto-servernum \
+            --server-args="-screen 0 1280x720x24" \
+            dotnet test tests/e2e/Sirius.E2E.Tests.csproj --configuration Debug --no-build \
+              --logger "trx;LogFileName=godot-e2e.trx" --results-directory TestResults --nologo
+
+      - name: Upload E2E test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-e2e-test-results
+          path: TestResults/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload E2E failure output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-e2e-test-output
+          path: test_output/
+          if-no-files-found: warn
+          retention-days: 7

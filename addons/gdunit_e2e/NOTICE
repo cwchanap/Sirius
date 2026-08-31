@@ -9,3 +9,13 @@ Pinned source commit: ae6219f6e758a0f29bd243c8f963417fe4d63c36
 
 Vendored fork: https://github.com/cwchanap/godot-e2e
 Fork pinned commit: 6f251e864e195aa54345475f21ca38b6dc4c0e6c
+
+Sirius-local patches against the pinned commit (re-apply after re-vendoring):
+- csharp/AssemblyInfo.cs: InternalsVisibleTo renamed from "GodotE2E.Tests"
+  to "Sirius.E2E.Tests" to match the Sirius test assembly name. Not upstreamable
+  (upstream's own test project is GodotE2E.Tests); tracked as a permanent local
+  integration patch.
+- csharp/PipeTail.cs: ToString snapshots _start/_count via Volatile.Read before
+  bounds checks to close a torn-read race with Append on the drain task. Upstream
+  fix tracked in cwchanap/godot-e2e#4; this local patch can be dropped once the
+  pin advances past the fix.

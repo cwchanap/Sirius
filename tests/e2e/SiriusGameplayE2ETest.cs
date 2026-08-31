@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -95,6 +96,124 @@ public sealed class SiriusGameplayE2ETest
 
             AssertThat(await game.NodeExistsAsync(battleScreenPath)).IsFalse();
         });
+    }
+
+    [TestCase]
+    public async Task Shop_HealthPotionPurchase_UpdatesGoldAndCloses()
+    {
+        const string gridMapPath = "/root/Game/FloorGF/GridMap";
+        const string gameManagerPath = "/root/Game/GameManager";
+        const string dialogueScreenPath = "/root/Game/UI/UIScreenHost/ModalLayer/DialogueScreen";
+        const string shopScreenPath = "/root/Game/UI/UIScreenHost/ModalLayer/ShopScreen";
+
+        await E2EGame.RunAsync(LaunchOptions("res://scenes/game/Game.tscn"), async (game, _) =>
+        {
+            await E2EUi.WaitForNodeAsync(game, gridMapPath, 15);
+            var shopkeeperSpawnPath = await E2EUi.FindExactlyOneAsync(
+                game, "name", "NpcSpawn_Shopkeeper");
+            var shopkeeperPosition = await E2EUi.GetVector2IPropertyAsync(
+                game, shopkeeperSpawnPath, "GridPosition");
+
+            await MoveRouteAsync(
+                game, gridMapPath,
+                (1, 0, 4), (0, -1, 3));
+
+            var playerPosition = await E2EUi.CallVector2IMethodAsync(
+                game, gridMapPath, "GetPlayerPosition");
+            var targetTilemapPosition = await E2EUi.CallVector2IMethodAsync(
+                game, gridMapPath, "InternalGridToTilemapCoords",
+                E2EUi.Vector2IArgument(playerPosition.X, playerPosition.Y - 1));
+            AssertThat(targetTilemapPosition).IsEqual(shopkeeperPosition);
+
+            var moved = await game.CallMethodAsync<bool?>(
+                gridMapPath, "TryMovePlayer", E2EUi.Vector2IArgument(0, -1));
+            AssertThat(moved ?? false).IsFalse();
+
+            await game.WaitForPropertyAsync(gameManagerPath, "IsInNpcInteraction", true, 15);
+            await E2EUi.WaitForNodeAsync(game, dialogueScreenPath, 15);
+
+            var browseButton = await E2EUi.FindExactlyOneVisibleAsync(
+                game, "text", "Browse your wares.", "Button", dialogueScreenPath);
+            await game.ClickNodeAsync(browseButton);
+            await E2EUi.WaitForNodeAsync(game, shopScreenPath, 15);
+
+            await E2EUi.FindExactlyOneVisibleAsync(
+                game, "text", "Mira's General Store", "Label", shopScreenPath);
+            var goldLabelPath = await E2EUi.FindExactlyOneAsync(
+                game, "name", "GoldLabel", "Label", shopScreenPath);
+            var beforeGoldText = await game.GetPropertyAsync<string>(goldLabelPath, "text");
+            var beforeGold = ParseGoldLabel(beforeGoldText
+                ?? throw new E2EException("GoldLabel text was null before purchase"));
+
+            string? healthPotionButtonPath = null;
+            foreach (var buttonPath in await E2EUi.FindNodesAsync(
+                         game, "text", "Buy", "Button", shopScreenPath))
+            {
+                var visible = await game.CallMethodAsync<bool?>(
+                    buttonPath, "is_visible_in_tree");
+                if (visible != true)
+                    continue;
+
+                var itemId = await game.CallMethodAsync<string>(
+                    buttonPath, "get_meta", "ItemId");
+                if (itemId == "health_potion")
+                {
+                    if (healthPotionButtonPath != null)
+                        throw new E2EException("Found multiple visible health potion Buy buttons");
+                    healthPotionButtonPath = buttonPath;
+                }
+            }
+
+            if (healthPotionButtonPath == null)
+                throw new E2EException("Could not find a visible health potion Buy button");
+
+            var rowPath = healthPotionButtonPath[..healthPotionButtonPath.LastIndexOf('/')];
+            var priceLabelPath = await E2EUi.FindExactlyOneVisibleAsync(
+                game, "text", "*g", "Label", rowPath);
+            var priceText = await game.GetPropertyAsync<string>(priceLabelPath, "text");
+            var renderedPrice = ParseGoldPrice(priceText
+                ?? throw new E2EException("Health potion price text was null"));
+
+            await game.ClickNodeAsync(healthPotionButtonPath);
+            var expectedGold = beforeGold - renderedPrice;
+            await game.WaitForPropertyAsync(
+                goldLabelPath, "text", $"Your Gold: {expectedGold}", 10);
+            var afterGoldText = await game.GetPropertyAsync<string>(goldLabelPath, "text");
+            var afterGold = ParseGoldLabel(afterGoldText
+                ?? throw new E2EException("GoldLabel text was null after purchase"));
+            AssertThat(afterGold).IsEqual(expectedGold);
+
+            var closeButton = await E2EUi.FindExactlyOneVisibleAsync(
+                game, "text", "Close", "Button", shopScreenPath);
+            await game.ClickNodeAsync(closeButton);
+            await game.WaitForPropertyAsync(gameManagerPath, "IsInNpcInteraction", false, 15);
+        });
+    }
+
+    private static int ParseGoldLabel(string text)
+    {
+        const string prefix = "Your Gold: ";
+        if (!text.StartsWith(prefix, StringComparison.Ordinal) ||
+            !int.TryParse(text.AsSpan(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var gold) ||
+            gold < 0 || text != $"{prefix}{gold}")
+        {
+            throw new E2EException($"Expected exact gold label 'Your Gold: N', got '{text}'");
+        }
+
+        return gold;
+    }
+
+    private static int ParseGoldPrice(string text)
+    {
+        const string suffix = "g";
+        if (!text.EndsWith(suffix, StringComparison.Ordinal) ||
+            !int.TryParse(text.AsSpan(0, text.Length - suffix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var price) ||
+            price <= 0 || text != $"{price}{suffix}")
+        {
+            throw new E2EException($"Expected exact positive gold price 'Ng', got '{text}'");
+        }
+
+        return price;
     }
 
     private static async Task MoveRouteAsync(

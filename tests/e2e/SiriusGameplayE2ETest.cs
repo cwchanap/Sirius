@@ -134,7 +134,8 @@ public sealed class SiriusGameplayE2ETest
 
             var browseButton = await E2EUi.FindExactlyOneVisibleAsync(
                 game, "text", "Browse your wares.", "Button", dialogueScreenPath);
-            await game.ClickNodeAsync(browseButton);
+            await game.CallMethodAsync<object>(browseButton, "grab_focus");
+            await game.PressActionAsync("ui_accept");
             await E2EUi.WaitForNodeAsync(game, shopScreenPath, 15);
 
             await E2EUi.FindExactlyOneVisibleAsync(

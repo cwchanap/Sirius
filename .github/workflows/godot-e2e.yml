@@ -27,6 +27,12 @@ jobs:
           lfs: true
           persist-credentials: false
 
+      - name: Install gdunit_e2e addon from pinned fork
+        run: |
+          git clone --quiet https://github.com/cwchanap/godot-e2e /tmp/godot-e2e
+          git -C /tmp/godot-e2e checkout --quiet 086f09d
+          mv /tmp/godot-e2e/addons/gdunit_e2e addons/gdunit_e2e
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:

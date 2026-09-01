@@ -175,6 +175,16 @@ dotnet test Sirius.sln
 
 #### Running the standalone E2E tests
 
+The `addons/gdunit_e2e` addon is not tracked in git. Install it once from the pinned fork commit (see `addons/gdunit_e2e/NOTICE` for provenance):
+
+```bash
+rm -rf addons/gdunit_e2e
+git clone https://github.com/cwchanap/godot-e2e /tmp/godot-e2e
+git -C /tmp/godot-e2e checkout 086f09d
+mv /tmp/godot-e2e/addons/gdunit_e2e addons/gdunit_e2e
+```
+
+Then:
 ```bash
 export GODOT_BIN=/path/to/Godot
 dotnet build Sirius.sln --configuration Debug

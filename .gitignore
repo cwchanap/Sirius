@@ -7,10 +7,12 @@ frames/
 
 assets/**/original
 addons/*
+# gdunit_e2e is installed from the pinned fork (see addons/gdunit_e2e/NOTICE),
+# not vendored. Only the license provenance files are tracked.
 !addons/gdunit_e2e/
-!addons/gdunit_e2e/runtime/bootstrap.gd.uid
-addons/gdunit_e2e/csharp/bin/
-addons/gdunit_e2e/csharp/obj/
+addons/gdunit_e2e/*
+!addons/gdunit_e2e/LICENSE
+!addons/gdunit_e2e/NOTICE
 tests/e2e/bin/
 tests/e2e/obj/
 test_output/

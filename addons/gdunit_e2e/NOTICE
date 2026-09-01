@@ -1,18 +1,26 @@
 godot-e2e
 
-This project includes an addon adapted from RandallLiuXin/godot-e2e,
-licensed under the Apache License, Version 2.0.
+The rest of this directory is NOT tracked in git. Install it from the pinned
+fork commit before building/running the E2E tests (CI does this in
+.github/workflows/godot-e2e.yml; locally see README "Running the standalone
+E2E tests"):
+
+    git clone https://github.com/cwchanap/godot-e2e /tmp/godot-e2e
+    git -C /tmp/godot-e2e checkout 086f09d
+    mv /tmp/godot-e2e/addons/gdunit_e2e addons/gdunit_e2e
+
+Adapted from RandallLiuXin/godot-e2e, licensed under the Apache License,
+Version 2.0 (text in the LICENSE file next to this NOTICE).
 
 Upstream repository: https://github.com/RandallLiuXin/godot-e2e
 Copyright holder: Randall LiuXin
 Pinned source commit: ae6219f6e758a0f29bd243c8f963417fe4d63c36
 
-Vendored fork: https://github.com/cwchanap/godot-e2e
-Fork pinned commit: 086f09d (includes the PipeTail.ToString torn-read fix from
+Fork repository: https://github.com/cwchanap/godot-e2e
+Pinned fork commit: 086f09d (includes the PipeTail.ToString torn-read fix from
 cwchanap/godot-e2e#4 and the wait_for_property deserialize fix from #6)
 
-Sirius-local patches against the pinned commit (re-apply after re-vendoring):
-- csharp/AssemblyInfo.cs: InternalsVisibleTo renamed from "GodotE2E.Tests"
-  to "Sirius.E2E.Tests" to match the Sirius test assembly name. Not upstreamable
-  (upstream's own test project is GodotE2E.Tests); tracked as a permanent local
-  integration patch.
+History: the addon was previously vendored with a local patch renaming
+InternalsVisibleTo to "Sirius.E2E.Tests". Dropped when un-vendoring — the
+Sirius E2E tests only use the client's public API, so upstream's
+AssemblyInfo.cs builds as-is.

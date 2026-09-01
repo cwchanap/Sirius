@@ -175,12 +175,14 @@ dotnet test Sirius.sln
 
 #### Running the standalone E2E tests
 
-The `addons/gdunit_e2e` addon is not tracked in git. Install it once from the pinned fork commit (see `addons/gdunit_e2e/NOTICE` for provenance):
+The `addons/gdunit_e2e` addon is not tracked in git. Install it once from the pinned fork commit (see `addons/gdunit_e2e/NOTICE` for provenance). Copy only the C#-path roots the E2E lane uses (`client/` and `gdunit/` are intentionally excluded — see the design spec), and leave the tracked `LICENSE`/`NOTICE` in place:
 
 ```bash
 git clone https://github.com/cwchanap/godot-e2e /tmp/godot-e2e
 git -C /tmp/godot-e2e checkout 086f09d
-cp -a /tmp/godot-e2e/addons/gdunit_e2e/. addons/gdunit_e2e/
+for root in csharp protocol runtime server; do
+  cp -a "/tmp/godot-e2e/addons/gdunit_e2e/$root" addons/gdunit_e2e/
+done
 ```
 
 Then:

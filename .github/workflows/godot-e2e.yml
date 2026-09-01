@@ -31,7 +31,12 @@ jobs:
         run: |
           git clone --quiet https://github.com/cwchanap/godot-e2e /tmp/godot-e2e
           git -C /tmp/godot-e2e checkout --quiet 086f09d
-          cp -a /tmp/godot-e2e/addons/gdunit_e2e/. addons/gdunit_e2e/
+          # Copy only the C#-path roots the E2E lane uses; exclude upstream
+          # client/ (GDScript test path) and gdunit/ (targets GdUnit4 6.x),
+          # and do not overwrite the tracked Sirius-local LICENSE/NOTICE.
+          for root in csharp protocol runtime server; do
+            cp -a "/tmp/godot-e2e/addons/gdunit_e2e/$root" addons/gdunit_e2e/
+          done
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4

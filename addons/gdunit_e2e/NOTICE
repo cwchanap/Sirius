@@ -7,7 +7,9 @@ E2E tests"):
 
     git clone https://github.com/cwchanap/godot-e2e /tmp/godot-e2e
     git -C /tmp/godot-e2e checkout 086f09d
-    cp -a /tmp/godot-e2e/addons/gdunit_e2e/. addons/gdunit_e2e/
+    for root in csharp protocol runtime server; do
+      cp -a /tmp/godot-e2e/addons/gdunit_e2e/$root addons/gdunit_e2e/
+    done
 
 Adapted from RandallLiuXin/godot-e2e, licensed under the Apache License,
 Version 2.0 (text in the LICENSE file next to this NOTICE).

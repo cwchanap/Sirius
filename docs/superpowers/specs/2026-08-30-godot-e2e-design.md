@@ -15,11 +15,13 @@ workflow unchanged.
 - Use [cwchanap/godot-e2e](https://github.com/cwchanap/godot-e2e) at commit
   `086f09d11d1b88f0b897bcf084a425d90a1a31ee` (includes the PipeTail.ToString
   torn-read fix from cwchanap/godot-e2e#4 and the `wait_for_property`
-  deserialize fix from #6). Apply the intentional Sirius-local
-  `csharp/AssemblyInfo.cs` patch that renames
-  `InternalsVisibleTo("GodotE2E.Tests")` to `Sirius.E2E.Tests`; it is a
-  permanent integration patch (not upstreamable, since upstream's own test
-  project is `GodotE2E.Tests`) and must be re-applied after any re-vendor.
+  deserialize fix from #6). The addon is **installed from the pinned fork at
+  build time, not vendored into git** (see "Install-from-pin addon" below).
+  Do not apply the upstream `csharp/AssemblyInfo.cs`
+  `InternalsVisibleTo("GodotE2E.Tests")` patch: the Sirius E2E tests only use
+  the client's public API (the public `E2EGame.RunAsync` overload), so
+  upstream's `AssemblyInfo.cs` builds as-is and no `InternalsVisibleTo` is
+  required for the `Sirius.E2E.Tests` assembly.
 - Keep the test runner and client in a separate C# project; do not add it to
   `Sirius.sln`.
 - Retain the current Godot .NET 4.6.2 and .NET 8 project setup.
@@ -31,23 +33,44 @@ workflow unchanged.
 
 ## Architecture
 
-### Vendored addon
+### Install-from-pin addon
 
-Vendor only the C#-path subset of the upstream addon at the pinned commit:
-`addons/gdunit_e2e/{csharp,protocol,runtime,server}`, including
-`runtime/bootstrap.gd.uid`. Add the upstream Apache-2.0 `LICENSE` and
-`NOTICE` beside the vendored addon.
+The addon is **not vendored into git**. Only the upstream Apache-2.0
+`LICENSE` and a Sirius-local `NOTICE` (provenance + install instructions)
+are tracked under `addons/gdunit_e2e/`. CI and local developers install the
+runtime from the pinned fork commit before building, copying only the
+C#-path roots the E2E lane uses:
 
-Do not vendor upstream `client/` or `gdunit/`: they support the upstream
-GDScript test path, while `gdunit/gdunit_e2e_test_suite.gd` expects GdUnit4
-6.x. Sirius uses GdUnit4 5.0.0 and the C# E2E job intentionally does not
-install the GdUnit4 editor addon.
+~~~bash
+git clone https://github.com/cwchanap/godot-e2e /tmp/godot-e2e
+git -C /tmp/godot-e2e checkout 086f09d
+for root in csharp protocol runtime server; do
+  cp -a "/tmp/godot-e2e/addons/gdunit_e2e/$root" addons/gdunit_e2e/
+done
+~~~
 
-`.gitignore` must explicitly unignore the addon directory and its UID file:
+Copy only `addons/gdunit_e2e/{csharp,protocol,runtime,server}`, including
+`runtime/bootstrap.gd.uid`. Do not copy upstream `client/` or `gdunit/`:
+they support the upstream GDScript test path, while
+`gdunit/gdunit_e2e_test_suite.gd` expects GdUnit4 6.x. Sirius uses GdUnit4
+5.0.0 and the C# E2E job intentionally does not install the GdUnit4 editor
+addon. Do not copy upstream `LICENSE`/`NOTICE` over the tracked Sirius-local
+`NOTICE`, which records the fork attribution and the dropped-patch history.
+
+This install-from-pin model replaces the earlier vendoring approach. The
+addon tree is intentionally untracked so the pinned source of truth stays
+the fork, not a frozen snapshot that drifts. A replay of this spec must not
+re-vendor the addon or re-apply the `AssemblyInfo.cs` patch described as
+dropped in `addons/gdunit_e2e/NOTICE`.
+
+`.gitignore` ignores the installed addon tree but keeps the tracked
+provenance files, and ignores generated test diagnostics:
 
 ~~~gitignore
 !addons/gdunit_e2e/
-!addons/gdunit_e2e/**/*.uid
+addons/gdunit_e2e/*
+!addons/gdunit_e2e/LICENSE
+!addons/gdunit_e2e/NOTICE
 test_output/
 ~~~
 
@@ -266,8 +289,9 @@ must name the real executable rather than a headless wrapper.
 
 ## Files
 
-- Add: `addons/gdunit_e2e/{csharp,protocol,runtime,server}/**`,
-  `addons/gdunit_e2e/LICENSE`, `addons/gdunit_e2e/NOTICE`
+- Add (tracked): `addons/gdunit_e2e/LICENSE`, `addons/gdunit_e2e/NOTICE`
+  (the `{csharp,protocol,runtime,server}` roots are installed from the pinned
+  fork at build time, not committed; see "Install-from-pin addon")
 - Add: `tests/e2e/Sirius.E2E.Tests.csproj`
 - Add: `tests/e2e/SiriusGameplayE2ETest.cs`
 - Add: `tests/e2e/E2EUi.cs`

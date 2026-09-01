@@ -13,7 +13,13 @@ workflow unchanged.
 ## Constraints
 
 - Use [cwchanap/godot-e2e](https://github.com/cwchanap/godot-e2e) at commit
-  `6f251e864e195aa54345475f21ca38b6dc4c0e6c`.
+  `086f09d11d1b88f0b897bcf084a425d90a1a31ee` (includes the PipeTail.ToString
+  torn-read fix from cwchanap/godot-e2e#4 and the `wait_for_property`
+  deserialize fix from #6). Apply the intentional Sirius-local
+  `csharp/AssemblyInfo.cs` patch that renames
+  `InternalsVisibleTo("GodotE2E.Tests")` to `Sirius.E2E.Tests`; it is a
+  permanent integration patch (not upstreamable, since upstream's own test
+  project is `GodotE2E.Tests`) and must be re-applied after any re-vendor.
 - Keep the test runner and client in a separate C# project; do not add it to
   `Sirius.sln`.
 - Retain the current Godot .NET 4.6.2 and .NET 8 project setup.

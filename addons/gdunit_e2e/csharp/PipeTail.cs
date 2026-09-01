@@ -46,6 +46,10 @@ internal sealed class PipeTail
     /// <summary>
     /// Decodes retained bytes as UTF-8. A multi-byte character split at the
     /// ring seam decodes as U+FFFD; acceptable for diagnostics.
+    /// Called from threads other than the drain task, so both fields are
+    /// snapshotted once via Volatile.Read: re-loading either between the
+    /// bounds check and GetString can race a concurrent Append and throw
+    /// ArgumentOutOfRangeException.
     /// </summary>
     public override string ToString()
     {

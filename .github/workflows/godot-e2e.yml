@@ -35,6 +35,7 @@ jobs:
           # client/ (GDScript test path) and gdunit/ (targets GdUnit4 6.x),
           # and do not overwrite the tracked Sirius-local LICENSE/NOTICE.
           for root in csharp protocol runtime server; do
+            rm -rf "addons/gdunit_e2e/$root"
             cp -a "/tmp/godot-e2e/addons/gdunit_e2e/$root" addons/gdunit_e2e/
           done
 

@@ -45,6 +45,7 @@ C#-path roots the E2E lane uses:
 git clone https://github.com/cwchanap/godot-e2e /tmp/godot-e2e
 git -C /tmp/godot-e2e checkout 086f09d
 for root in csharp protocol runtime server; do
+  rm -rf "addons/gdunit_e2e/$root"
   cp -a "/tmp/godot-e2e/addons/gdunit_e2e/$root" addons/gdunit_e2e/
 done
 ~~~
